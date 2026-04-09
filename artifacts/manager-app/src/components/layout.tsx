@@ -28,6 +28,9 @@ import {
   Package,
   Send,
   DollarSign,
+  Wrench,
+  GraduationCap,
+  HardHat,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +47,10 @@ const buildingNavItems = [
   { path: "/inspections", label: "법정 점검", icon: Shield },
   { path: "/drafts", label: "기안서", icon: ClipboardList },
   { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+  { path: "/facility", label: "시설관리", icon: HardHat },
+  { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
+  { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
+  { path: "/safety-training", label: "안전교육", icon: GraduationCap },
   { path: "/tenants", label: "입주민 관리", icon: Users },
   { path: "/owners", label: "소유자 관리", icon: UserCheck },
   { path: "/vehicles", label: "차량 관리", icon: Car },

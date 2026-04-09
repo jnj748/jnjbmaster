@@ -1546,6 +1546,35 @@ export interface Approval {
   rejectionReason?: string | null;
   /** @nullable */
   approvedAt?: string | null;
+export type SafetyChecklistCategory =
+  (typeof SafetyChecklistCategory)[keyof typeof SafetyChecklistCategory];
+
+export const SafetyChecklistCategory = {
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  generator: "generator",
+  water_tank: "water_tank",
+  other: "other",
+} as const;
+
+export type SafetyChecklistStatus =
+  (typeof SafetyChecklistStatus)[keyof typeof SafetyChecklistStatus];
+
+export const SafetyChecklistStatus = {
+  pending: "pending",
+  completed: "completed",
+  issue_found: "issue_found",
+} as const;
+
+export interface SafetyChecklist {
+  id: number;
+  category: SafetyChecklistCategory;
+  title: string;
+  inspectionDate: string;
+  inspector: string;
+  status: SafetyChecklistStatus;
+  /** @nullable */
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1608,6 +1637,334 @@ export interface ExecutiveSpending {
   pendingSpending: number;
   byCategory: ExecutiveSpendingByCategoryItem[];
   monthlyTrend: ExecutiveSpendingMonthlyTrendItem[];
+export type SafetyChecklistDetailCategory =
+  (typeof SafetyChecklistDetailCategory)[keyof typeof SafetyChecklistDetailCategory];
+
+export const SafetyChecklistDetailCategory = {
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  generator: "generator",
+  water_tank: "water_tank",
+  other: "other",
+} as const;
+
+export type SafetyChecklistDetailStatus =
+  (typeof SafetyChecklistDetailStatus)[keyof typeof SafetyChecklistDetailStatus];
+
+export const SafetyChecklistDetailStatus = {
+  pending: "pending",
+  completed: "completed",
+  issue_found: "issue_found",
+} as const;
+
+export interface SafetyChecklistItem {
+  id: number;
+  checklistId: number;
+  itemName: string;
+  checked: boolean;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface SafetyChecklistDetail {
+  id: number;
+  category: SafetyChecklistDetailCategory;
+  title: string;
+  inspectionDate: string;
+  inspector: string;
+  status: SafetyChecklistDetailStatus;
+  /** @nullable */
+  notes?: string | null;
+  items: SafetyChecklistItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateSafetyChecklistBodyCategory =
+  (typeof CreateSafetyChecklistBodyCategory)[keyof typeof CreateSafetyChecklistBodyCategory];
+
+export const CreateSafetyChecklistBodyCategory = {
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  generator: "generator",
+  water_tank: "water_tank",
+  other: "other",
+} as const;
+
+export type CreateSafetyChecklistBodyItemsItem = {
+  itemName: string;
+  checked?: boolean;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  notes?: string | null;
+};
+
+export interface CreateSafetyChecklistBody {
+  category: CreateSafetyChecklistBodyCategory;
+  title: string;
+  inspectionDate: string;
+  inspector: string;
+  /** @nullable */
+  notes?: string | null;
+  items?: CreateSafetyChecklistBodyItemsItem[];
+}
+
+export type UpdateSafetyChecklistBodyCategory =
+  (typeof UpdateSafetyChecklistBodyCategory)[keyof typeof UpdateSafetyChecklistBodyCategory];
+
+export const UpdateSafetyChecklistBodyCategory = {
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  generator: "generator",
+  water_tank: "water_tank",
+  other: "other",
+} as const;
+
+export type UpdateSafetyChecklistBodyStatus =
+  (typeof UpdateSafetyChecklistBodyStatus)[keyof typeof UpdateSafetyChecklistBodyStatus];
+
+export const UpdateSafetyChecklistBodyStatus = {
+  pending: "pending",
+  completed: "completed",
+  issue_found: "issue_found",
+} as const;
+
+export interface UpdateSafetyChecklistBody {
+  category?: UpdateSafetyChecklistBodyCategory;
+  title?: string;
+  inspectionDate?: string;
+  inspector?: string;
+  status?: UpdateSafetyChecklistBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface CreateSafetyChecklistItemBody {
+  itemName: string;
+  checked?: boolean;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface UpdateSafetyChecklistItemBody {
+  checked?: boolean;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type MaintenanceLogCategory =
+  (typeof MaintenanceLogCategory)[keyof typeof MaintenanceLogCategory];
+
+export const MaintenanceLogCategory = {
+  bulb_replacement: "bulb_replacement",
+  drain_cleaning: "drain_cleaning",
+  equipment_repair: "equipment_repair",
+  plumbing: "plumbing",
+  hvac: "hvac",
+  other: "other",
+} as const;
+
+export type MaintenanceLogStatus =
+  (typeof MaintenanceLogStatus)[keyof typeof MaintenanceLogStatus];
+
+export const MaintenanceLogStatus = {
+  completed: "completed",
+  in_progress: "in_progress",
+  pending: "pending",
+} as const;
+
+export interface MaintenanceLog {
+  id: number;
+  title: string;
+  description: string;
+  category: MaintenanceLogCategory;
+  workDate: string;
+  worker: string;
+  status: MaintenanceLogStatus;
+  reportSent: boolean;
+  /** @nullable */
+  reportSentAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateMaintenanceLogBodyCategory =
+  (typeof CreateMaintenanceLogBodyCategory)[keyof typeof CreateMaintenanceLogBodyCategory];
+
+export const CreateMaintenanceLogBodyCategory = {
+  bulb_replacement: "bulb_replacement",
+  drain_cleaning: "drain_cleaning",
+  equipment_repair: "equipment_repair",
+  plumbing: "plumbing",
+  hvac: "hvac",
+  other: "other",
+} as const;
+
+export type CreateMaintenanceLogBodyStatus =
+  (typeof CreateMaintenanceLogBodyStatus)[keyof typeof CreateMaintenanceLogBodyStatus];
+
+export const CreateMaintenanceLogBodyStatus = {
+  completed: "completed",
+  in_progress: "in_progress",
+  pending: "pending",
+} as const;
+
+export interface CreateMaintenanceLogBody {
+  title: string;
+  description: string;
+  category: CreateMaintenanceLogBodyCategory;
+  workDate: string;
+  worker: string;
+  status?: CreateMaintenanceLogBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateMaintenanceLogBodyCategory =
+  (typeof UpdateMaintenanceLogBodyCategory)[keyof typeof UpdateMaintenanceLogBodyCategory];
+
+export const UpdateMaintenanceLogBodyCategory = {
+  bulb_replacement: "bulb_replacement",
+  drain_cleaning: "drain_cleaning",
+  equipment_repair: "equipment_repair",
+  plumbing: "plumbing",
+  hvac: "hvac",
+  other: "other",
+} as const;
+
+export type UpdateMaintenanceLogBodyStatus =
+  (typeof UpdateMaintenanceLogBodyStatus)[keyof typeof UpdateMaintenanceLogBodyStatus];
+
+export const UpdateMaintenanceLogBodyStatus = {
+  completed: "completed",
+  in_progress: "in_progress",
+  pending: "pending",
+} as const;
+
+export interface UpdateMaintenanceLogBody {
+  title?: string;
+  description?: string;
+  category?: UpdateMaintenanceLogBodyCategory;
+  workDate?: string;
+  worker?: string;
+  status?: UpdateMaintenanceLogBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type SafetyTrainingStatus =
+  (typeof SafetyTrainingStatus)[keyof typeof SafetyTrainingStatus];
+
+export const SafetyTrainingStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface SafetyTraining {
+  id: number;
+  title: string;
+  trainingDate: string;
+  trainingMonth: number;
+  trainingYear: number;
+  trainer: string;
+  /** @nullable */
+  attendees?: string | null;
+  attendeeCount: number;
+  /** @nullable */
+  duration?: string | null;
+  /** @nullable */
+  content?: string | null;
+  status: SafetyTrainingStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSafetyTrainingBody {
+  title: string;
+  trainingDate: string;
+  trainingMonth: number;
+  trainingYear: number;
+  trainer: string;
+  /** @nullable */
+  attendees?: string | null;
+  attendeeCount: number;
+  /** @nullable */
+  duration?: string | null;
+  /** @nullable */
+  content?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateSafetyTrainingBodyStatus =
+  (typeof UpdateSafetyTrainingBodyStatus)[keyof typeof UpdateSafetyTrainingBodyStatus];
+
+export const UpdateSafetyTrainingBodyStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateSafetyTrainingBody {
+  title?: string;
+  trainingDate?: string;
+  trainingMonth?: number;
+  trainingYear?: number;
+  trainer?: string;
+  /** @nullable */
+  attendees?: string | null;
+  attendeeCount?: number;
+  /** @nullable */
+  duration?: string | null;
+  /** @nullable */
+  content?: string | null;
+  status?: UpdateSafetyTrainingBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type FacilityAlertType =
+  (typeof FacilityAlertType)[keyof typeof FacilityAlertType];
+
+export const FacilityAlertType = {
+  generator_run: "generator_run",
+  water_tank_cleaning: "water_tank_cleaning",
+  fire_inspection: "fire_inspection",
+  electrical_check: "electrical_check",
+  safety_training: "safety_training",
+} as const;
+
+export interface FacilityAlert {
+  id: number;
+  type: FacilityAlertType;
+  title: string;
+  message: string;
+  dueDate: string;
+  isOverdue: boolean;
+}
+
+export interface FacilityDashboard {
+  todayChecklistCount: number;
+  pendingChecklistCount: number;
+  completedChecklistCount: number;
+  issueFoundCount: number;
+  recentLogs: MaintenanceLog[];
+  trainingCompletionRate: number;
+  upcomingTrainingCount: number;
+  scheduledAlerts: FacilityAlert[];
 }
 
 export type ListTasksParams = {
@@ -1791,4 +2148,62 @@ export const ListDocumentChecklistsEntityType = {
   tenant: "tenant",
   owner: "owner",
   vehicle: "vehicle",
+} as const;
+
+export type ListSafetyChecklistsParams = {
+  category?: ListSafetyChecklistsCategory;
+  status?: ListSafetyChecklistsStatus;
+};
+
+export type ListSafetyChecklistsCategory =
+  (typeof ListSafetyChecklistsCategory)[keyof typeof ListSafetyChecklistsCategory];
+
+export const ListSafetyChecklistsCategory = {
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  generator: "generator",
+  water_tank: "water_tank",
+  other: "other",
+} as const;
+
+export type ListSafetyChecklistsStatus =
+  (typeof ListSafetyChecklistsStatus)[keyof typeof ListSafetyChecklistsStatus];
+
+export const ListSafetyChecklistsStatus = {
+  pending: "pending",
+  completed: "completed",
+  issue_found: "issue_found",
+} as const;
+
+export type ListMaintenanceLogsParams = {
+  category?: ListMaintenanceLogsCategory;
+  startDate?: string;
+  endDate?: string;
+};
+
+export type ListMaintenanceLogsCategory =
+  (typeof ListMaintenanceLogsCategory)[keyof typeof ListMaintenanceLogsCategory];
+
+export const ListMaintenanceLogsCategory = {
+  bulb_replacement: "bulb_replacement",
+  drain_cleaning: "drain_cleaning",
+  equipment_repair: "equipment_repair",
+  plumbing: "plumbing",
+  hvac: "hvac",
+  other: "other",
+} as const;
+
+export type ListSafetyTrainingsParams = {
+  year?: number;
+  month?: number;
+  status?: ListSafetyTrainingsStatus;
+};
+
+export type ListSafetyTrainingsStatus =
+  (typeof ListSafetyTrainingsStatus)[keyof typeof ListSafetyTrainingsStatus];
+
+export const ListSafetyTrainingsStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  cancelled: "cancelled",
 } as const;

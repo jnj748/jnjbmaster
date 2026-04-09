@@ -20,6 +20,10 @@ import rfqsRouter from "./rfqs";
 import quotesRouter from "./quotes";
 import workReportsRouter from "./workReports";
 import settlementsRouter from "./settlements";
+import safetyChecklistsRouter from "./safetyChecklists";
+import maintenanceLogsRouter from "./maintenanceLogs";
+import safetyTrainingsRouter from "./safetyTrainings";
+import facilityDashboardRouter from "./facilityDashboard";
 
 const router: IRouter = Router();
 
@@ -46,5 +50,9 @@ router.use(notificationsRouter);
 router.use(documentChecklistsRouter);
 router.use(usersRouter);
 router.use(approvalsRouter);
+router.use(safetyChecklistsRouter);
+router.use(maintenanceLogsRouter);
+router.use(safetyTrainingsRouter);
+router.use(facilityDashboardRouter);
 
 export default router;

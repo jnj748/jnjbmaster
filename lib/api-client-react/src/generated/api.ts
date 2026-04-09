@@ -26,10 +26,14 @@ import type {
   CreateApprovalBody,
   CreateCommissionBody,
   CreateInspectionBody,
+  CreateMaintenanceLogBody,
   CreateOwnerBody,
   CreateQuoteBody,
   CreateRfqBody,
   CreateSettlementBody,
+  CreateSafetyChecklistBody,
+  CreateSafetyChecklistItemBody,
+  CreateSafetyTrainingBody,
   CreateTaskBody,
   CreateTaxScheduleBody,
   CreateTenantBody,
@@ -41,6 +45,8 @@ import type {
   Draft,
   ExecutiveKpi,
   ExecutiveSpending,
+  FacilityAlert,
+  FacilityDashboard,
   GenerateAlertsResponse,
   GetExecutiveSpendingParams,
   GetRecommendedVendorsParams,
@@ -53,16 +59,20 @@ import type {
   InspectionPreset,
   ListApprovalsParams,
   ListDocumentChecklistsParams,
+  ListMaintenanceLogsParams,
   ListOwnersParams,
   ListQuotesParams,
   ListRfqsParams,
   ListSettlementsParams,
+  ListSafetyChecklistsParams,
+  ListSafetyTrainingsParams,
   ListTasksParams,
   ListTaxSchedulesParams,
   ListTenantsParams,
   ListVehiclesParams,
   ListVendorsParams,
   ListWorkReportsParams,
+  MaintenanceLog,
   Notification,
   Owner,
   Quote,
@@ -70,16 +80,24 @@ import type {
   RejectApprovalBody,
   Rfq,
   Settlement,
+  SafetyChecklist,
+  SafetyChecklistDetail,
+  SafetyChecklistItem,
+  SafetyTraining,
   Task,
   TaxSchedule,
   Tenant,
   UpdateCommissionBody,
   UpdateDraftBody,
   UpdateInspectionBody,
+  UpdateMaintenanceLogBody,
   UpdateOwnerBody,
   UpdateQuoteBody,
   UpdateRfqBody,
   UpdateSettlementBody,
+  UpdateSafetyChecklistBody,
+  UpdateSafetyChecklistItemBody,
+  UpdateSafetyTrainingBody,
   UpdateTaskBody,
   UpdateTaxScheduleBody,
   UpdateTenantBody,
@@ -6943,6 +6961,1758 @@ export function useGetRecentActivity<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRecentActivityQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List safety checklists
+ */
+export const getListSafetyChecklistsUrl = (
+  params?: ListSafetyChecklistsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/safety-checklists?${stringifiedParams}`
+    : `/api/safety-checklists`;
+};
+
+export const listSafetyChecklists = async (
+  params?: ListSafetyChecklistsParams,
+  options?: RequestInit,
+): Promise<SafetyChecklist[]> => {
+  return customFetch<SafetyChecklist[]>(getListSafetyChecklistsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSafetyChecklistsQueryKey = (
+  params?: ListSafetyChecklistsParams,
+) => {
+  return [`/api/safety-checklists`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSafetyChecklistsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSafetyChecklists>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSafetyChecklistsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetyChecklists>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSafetyChecklistsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSafetyChecklists>>
+  > = ({ signal }) =>
+    listSafetyChecklists(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSafetyChecklists>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSafetyChecklistsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSafetyChecklists>>
+>;
+export type ListSafetyChecklistsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List safety checklists
+ */
+
+export function useListSafetyChecklists<
+  TData = Awaited<ReturnType<typeof listSafetyChecklists>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSafetyChecklistsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetyChecklists>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSafetyChecklistsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a safety checklist
+ */
+export const getCreateSafetyChecklistUrl = () => {
+  return `/api/safety-checklists`;
+};
+
+export const createSafetyChecklist = async (
+  createSafetyChecklistBody: CreateSafetyChecklistBody,
+  options?: RequestInit,
+): Promise<SafetyChecklist> => {
+  return customFetch<SafetyChecklist>(getCreateSafetyChecklistUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSafetyChecklistBody),
+  });
+};
+
+export const getCreateSafetyChecklistMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklist>>,
+    TError,
+    { data: BodyType<CreateSafetyChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSafetyChecklist>>,
+  TError,
+  { data: BodyType<CreateSafetyChecklistBody> },
+  TContext
+> => {
+  const mutationKey = ["createSafetyChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSafetyChecklist>>,
+    { data: BodyType<CreateSafetyChecklistBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSafetyChecklist(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSafetyChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSafetyChecklist>>
+>;
+export type CreateSafetyChecklistMutationBody =
+  BodyType<CreateSafetyChecklistBody>;
+export type CreateSafetyChecklistMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a safety checklist
+ */
+export const useCreateSafetyChecklist = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklist>>,
+    TError,
+    { data: BodyType<CreateSafetyChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSafetyChecklist>>,
+  TError,
+  { data: BodyType<CreateSafetyChecklistBody> },
+  TContext
+> => {
+  return useMutation(getCreateSafetyChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Get a safety checklist with items
+ */
+export const getGetSafetyChecklistUrl = (id: number) => {
+  return `/api/safety-checklists/${id}`;
+};
+
+export const getSafetyChecklist = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SafetyChecklistDetail> => {
+  return customFetch<SafetyChecklistDetail>(getGetSafetyChecklistUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSafetyChecklistQueryKey = (id: number) => {
+  return [`/api/safety-checklists/${id}`] as const;
+};
+
+export const getGetSafetyChecklistQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSafetyChecklist>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSafetyChecklist>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSafetyChecklistQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSafetyChecklist>>
+  > = ({ signal }) => getSafetyChecklist(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSafetyChecklist>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSafetyChecklistQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSafetyChecklist>>
+>;
+export type GetSafetyChecklistQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a safety checklist with items
+ */
+
+export function useGetSafetyChecklist<
+  TData = Awaited<ReturnType<typeof getSafetyChecklist>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSafetyChecklist>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSafetyChecklistQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a safety checklist
+ */
+export const getUpdateSafetyChecklistUrl = (id: number) => {
+  return `/api/safety-checklists/${id}`;
+};
+
+export const updateSafetyChecklist = async (
+  id: number,
+  updateSafetyChecklistBody: UpdateSafetyChecklistBody,
+  options?: RequestInit,
+): Promise<SafetyChecklist> => {
+  return customFetch<SafetyChecklist>(getUpdateSafetyChecklistUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSafetyChecklistBody),
+  });
+};
+
+export const getUpdateSafetyChecklistMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklist>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetyChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetyChecklist>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetyChecklistBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetyChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetyChecklist>>,
+    { id: number; data: BodyType<UpdateSafetyChecklistBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSafetyChecklist(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetyChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetyChecklist>>
+>;
+export type UpdateSafetyChecklistMutationBody =
+  BodyType<UpdateSafetyChecklistBody>;
+export type UpdateSafetyChecklistMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a safety checklist
+ */
+export const useUpdateSafetyChecklist = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklist>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetyChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetyChecklist>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetyChecklistBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSafetyChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Delete a safety checklist
+ */
+export const getDeleteSafetyChecklistUrl = (id: number) => {
+  return `/api/safety-checklists/${id}`;
+};
+
+export const deleteSafetyChecklist = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSafetyChecklistUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSafetyChecklistMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklist>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSafetyChecklist>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSafetyChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSafetyChecklist>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSafetyChecklist(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSafetyChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSafetyChecklist>>
+>;
+
+export type DeleteSafetyChecklistMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a safety checklist
+ */
+export const useDeleteSafetyChecklist = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklist>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSafetyChecklist>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSafetyChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Add item to a safety checklist
+ */
+export const getAddSafetyChecklistItemUrl = (id: number) => {
+  return `/api/safety-checklists/${id}/items`;
+};
+
+export const addSafetyChecklistItem = async (
+  id: number,
+  createSafetyChecklistItemBody: CreateSafetyChecklistItemBody,
+  options?: RequestInit,
+): Promise<SafetyChecklistItem> => {
+  return customFetch<SafetyChecklistItem>(getAddSafetyChecklistItemUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSafetyChecklistItemBody),
+  });
+};
+
+export const getAddSafetyChecklistItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addSafetyChecklistItem>>,
+    TError,
+    { id: number; data: BodyType<CreateSafetyChecklistItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addSafetyChecklistItem>>,
+  TError,
+  { id: number; data: BodyType<CreateSafetyChecklistItemBody> },
+  TContext
+> => {
+  const mutationKey = ["addSafetyChecklistItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addSafetyChecklistItem>>,
+    { id: number; data: BodyType<CreateSafetyChecklistItemBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addSafetyChecklistItem(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddSafetyChecklistItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addSafetyChecklistItem>>
+>;
+export type AddSafetyChecklistItemMutationBody =
+  BodyType<CreateSafetyChecklistItemBody>;
+export type AddSafetyChecklistItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add item to a safety checklist
+ */
+export const useAddSafetyChecklistItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addSafetyChecklistItem>>,
+    TError,
+    { id: number; data: BodyType<CreateSafetyChecklistItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addSafetyChecklistItem>>,
+  TError,
+  { id: number; data: BodyType<CreateSafetyChecklistItemBody> },
+  TContext
+> => {
+  return useMutation(getAddSafetyChecklistItemMutationOptions(options));
+};
+
+/**
+ * @summary Update a checklist item
+ */
+export const getUpdateSafetyChecklistItemUrl = (itemId: number) => {
+  return `/api/safety-checklists/items/${itemId}`;
+};
+
+export const updateSafetyChecklistItem = async (
+  itemId: number,
+  updateSafetyChecklistItemBody: UpdateSafetyChecklistItemBody,
+  options?: RequestInit,
+): Promise<SafetyChecklistItem> => {
+  return customFetch<SafetyChecklistItem>(
+    getUpdateSafetyChecklistItemUrl(itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSafetyChecklistItemBody),
+    },
+  );
+};
+
+export const getUpdateSafetyChecklistItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistItem>>,
+    TError,
+    { itemId: number; data: BodyType<UpdateSafetyChecklistItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetyChecklistItem>>,
+  TError,
+  { itemId: number; data: BodyType<UpdateSafetyChecklistItemBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetyChecklistItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetyChecklistItem>>,
+    { itemId: number; data: BodyType<UpdateSafetyChecklistItemBody> }
+  > = (props) => {
+    const { itemId, data } = props ?? {};
+
+    return updateSafetyChecklistItem(itemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetyChecklistItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetyChecklistItem>>
+>;
+export type UpdateSafetyChecklistItemMutationBody =
+  BodyType<UpdateSafetyChecklistItemBody>;
+export type UpdateSafetyChecklistItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a checklist item
+ */
+export const useUpdateSafetyChecklistItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistItem>>,
+    TError,
+    { itemId: number; data: BodyType<UpdateSafetyChecklistItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetyChecklistItem>>,
+  TError,
+  { itemId: number; data: BodyType<UpdateSafetyChecklistItemBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSafetyChecklistItemMutationOptions(options));
+};
+
+/**
+ * @summary List maintenance logs
+ */
+export const getListMaintenanceLogsUrl = (
+  params?: ListMaintenanceLogsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/maintenance-logs?${stringifiedParams}`
+    : `/api/maintenance-logs`;
+};
+
+export const listMaintenanceLogs = async (
+  params?: ListMaintenanceLogsParams,
+  options?: RequestInit,
+): Promise<MaintenanceLog[]> => {
+  return customFetch<MaintenanceLog[]>(getListMaintenanceLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMaintenanceLogsQueryKey = (
+  params?: ListMaintenanceLogsParams,
+) => {
+  return [`/api/maintenance-logs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMaintenanceLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMaintenanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListMaintenanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMaintenanceLogsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMaintenanceLogs>>
+  > = ({ signal }) =>
+    listMaintenanceLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMaintenanceLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMaintenanceLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMaintenanceLogs>>
+>;
+export type ListMaintenanceLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List maintenance logs
+ */
+
+export function useListMaintenanceLogs<
+  TData = Awaited<ReturnType<typeof listMaintenanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListMaintenanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMaintenanceLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a maintenance log
+ */
+export const getCreateMaintenanceLogUrl = () => {
+  return `/api/maintenance-logs`;
+};
+
+export const createMaintenanceLog = async (
+  createMaintenanceLogBody: CreateMaintenanceLogBody,
+  options?: RequestInit,
+): Promise<MaintenanceLog> => {
+  return customFetch<MaintenanceLog>(getCreateMaintenanceLogUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMaintenanceLogBody),
+  });
+};
+
+export const getCreateMaintenanceLogMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMaintenanceLog>>,
+    TError,
+    { data: BodyType<CreateMaintenanceLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMaintenanceLog>>,
+  TError,
+  { data: BodyType<CreateMaintenanceLogBody> },
+  TContext
+> => {
+  const mutationKey = ["createMaintenanceLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMaintenanceLog>>,
+    { data: BodyType<CreateMaintenanceLogBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMaintenanceLog(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMaintenanceLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMaintenanceLog>>
+>;
+export type CreateMaintenanceLogMutationBody =
+  BodyType<CreateMaintenanceLogBody>;
+export type CreateMaintenanceLogMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a maintenance log
+ */
+export const useCreateMaintenanceLog = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMaintenanceLog>>,
+    TError,
+    { data: BodyType<CreateMaintenanceLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMaintenanceLog>>,
+  TError,
+  { data: BodyType<CreateMaintenanceLogBody> },
+  TContext
+> => {
+  return useMutation(getCreateMaintenanceLogMutationOptions(options));
+};
+
+/**
+ * @summary Get a maintenance log
+ */
+export const getGetMaintenanceLogUrl = (id: number) => {
+  return `/api/maintenance-logs/${id}`;
+};
+
+export const getMaintenanceLog = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MaintenanceLog> => {
+  return customFetch<MaintenanceLog>(getGetMaintenanceLogUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMaintenanceLogQueryKey = (id: number) => {
+  return [`/api/maintenance-logs/${id}`] as const;
+};
+
+export const getGetMaintenanceLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMaintenanceLog>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMaintenanceLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMaintenanceLogQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMaintenanceLog>>
+  > = ({ signal }) => getMaintenanceLog(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMaintenanceLog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMaintenanceLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMaintenanceLog>>
+>;
+export type GetMaintenanceLogQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a maintenance log
+ */
+
+export function useGetMaintenanceLog<
+  TData = Awaited<ReturnType<typeof getMaintenanceLog>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMaintenanceLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMaintenanceLogQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a maintenance log
+ */
+export const getUpdateMaintenanceLogUrl = (id: number) => {
+  return `/api/maintenance-logs/${id}`;
+};
+
+export const updateMaintenanceLog = async (
+  id: number,
+  updateMaintenanceLogBody: UpdateMaintenanceLogBody,
+  options?: RequestInit,
+): Promise<MaintenanceLog> => {
+  return customFetch<MaintenanceLog>(getUpdateMaintenanceLogUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMaintenanceLogBody),
+  });
+};
+
+export const getUpdateMaintenanceLogMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMaintenanceLog>>,
+    TError,
+    { id: number; data: BodyType<UpdateMaintenanceLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMaintenanceLog>>,
+  TError,
+  { id: number; data: BodyType<UpdateMaintenanceLogBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMaintenanceLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMaintenanceLog>>,
+    { id: number; data: BodyType<UpdateMaintenanceLogBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateMaintenanceLog(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMaintenanceLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMaintenanceLog>>
+>;
+export type UpdateMaintenanceLogMutationBody =
+  BodyType<UpdateMaintenanceLogBody>;
+export type UpdateMaintenanceLogMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a maintenance log
+ */
+export const useUpdateMaintenanceLog = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMaintenanceLog>>,
+    TError,
+    { id: number; data: BodyType<UpdateMaintenanceLogBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMaintenanceLog>>,
+  TError,
+  { id: number; data: BodyType<UpdateMaintenanceLogBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMaintenanceLogMutationOptions(options));
+};
+
+/**
+ * @summary Delete a maintenance log
+ */
+export const getDeleteMaintenanceLogUrl = (id: number) => {
+  return `/api/maintenance-logs/${id}`;
+};
+
+export const deleteMaintenanceLog = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMaintenanceLogUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMaintenanceLogMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceLog>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMaintenanceLog>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMaintenanceLog"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMaintenanceLog>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMaintenanceLog(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMaintenanceLogMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMaintenanceLog>>
+>;
+
+export type DeleteMaintenanceLogMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a maintenance log
+ */
+export const useDeleteMaintenanceLog = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceLog>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMaintenanceLog>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMaintenanceLogMutationOptions(options));
+};
+
+/**
+ * @summary Send maintenance log report to manager
+ */
+export const getSendMaintenanceReportUrl = (id: number) => {
+  return `/api/maintenance-logs/${id}/send-report`;
+};
+
+export const sendMaintenanceReport = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MaintenanceLog> => {
+  return customFetch<MaintenanceLog>(getSendMaintenanceReportUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendMaintenanceReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMaintenanceReport>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendMaintenanceReport>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["sendMaintenanceReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendMaintenanceReport>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return sendMaintenanceReport(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendMaintenanceReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendMaintenanceReport>>
+>;
+
+export type SendMaintenanceReportMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send maintenance log report to manager
+ */
+export const useSendMaintenanceReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendMaintenanceReport>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendMaintenanceReport>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSendMaintenanceReportMutationOptions(options));
+};
+
+/**
+ * @summary List safety trainings
+ */
+export const getListSafetyTrainingsUrl = (
+  params?: ListSafetyTrainingsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/safety-trainings?${stringifiedParams}`
+    : `/api/safety-trainings`;
+};
+
+export const listSafetyTrainings = async (
+  params?: ListSafetyTrainingsParams,
+  options?: RequestInit,
+): Promise<SafetyTraining[]> => {
+  return customFetch<SafetyTraining[]>(getListSafetyTrainingsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSafetyTrainingsQueryKey = (
+  params?: ListSafetyTrainingsParams,
+) => {
+  return [`/api/safety-trainings`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSafetyTrainingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSafetyTrainings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSafetyTrainingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetyTrainings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSafetyTrainingsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSafetyTrainings>>
+  > = ({ signal }) =>
+    listSafetyTrainings(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSafetyTrainings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSafetyTrainingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSafetyTrainings>>
+>;
+export type ListSafetyTrainingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List safety trainings
+ */
+
+export function useListSafetyTrainings<
+  TData = Awaited<ReturnType<typeof listSafetyTrainings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSafetyTrainingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSafetyTrainings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSafetyTrainingsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a safety training
+ */
+export const getCreateSafetyTrainingUrl = () => {
+  return `/api/safety-trainings`;
+};
+
+export const createSafetyTraining = async (
+  createSafetyTrainingBody: CreateSafetyTrainingBody,
+  options?: RequestInit,
+): Promise<SafetyTraining> => {
+  return customFetch<SafetyTraining>(getCreateSafetyTrainingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSafetyTrainingBody),
+  });
+};
+
+export const getCreateSafetyTrainingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyTraining>>,
+    TError,
+    { data: BodyType<CreateSafetyTrainingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSafetyTraining>>,
+  TError,
+  { data: BodyType<CreateSafetyTrainingBody> },
+  TContext
+> => {
+  const mutationKey = ["createSafetyTraining"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSafetyTraining>>,
+    { data: BodyType<CreateSafetyTrainingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSafetyTraining(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSafetyTrainingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSafetyTraining>>
+>;
+export type CreateSafetyTrainingMutationBody =
+  BodyType<CreateSafetyTrainingBody>;
+export type CreateSafetyTrainingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a safety training
+ */
+export const useCreateSafetyTraining = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyTraining>>,
+    TError,
+    { data: BodyType<CreateSafetyTrainingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSafetyTraining>>,
+  TError,
+  { data: BodyType<CreateSafetyTrainingBody> },
+  TContext
+> => {
+  return useMutation(getCreateSafetyTrainingMutationOptions(options));
+};
+
+/**
+ * @summary Get a safety training
+ */
+export const getGetSafetyTrainingUrl = (id: number) => {
+  return `/api/safety-trainings/${id}`;
+};
+
+export const getSafetyTraining = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SafetyTraining> => {
+  return customFetch<SafetyTraining>(getGetSafetyTrainingUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSafetyTrainingQueryKey = (id: number) => {
+  return [`/api/safety-trainings/${id}`] as const;
+};
+
+export const getGetSafetyTrainingQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSafetyTraining>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSafetyTraining>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSafetyTrainingQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSafetyTraining>>
+  > = ({ signal }) => getSafetyTraining(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSafetyTraining>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSafetyTrainingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSafetyTraining>>
+>;
+export type GetSafetyTrainingQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a safety training
+ */
+
+export function useGetSafetyTraining<
+  TData = Awaited<ReturnType<typeof getSafetyTraining>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSafetyTraining>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSafetyTrainingQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a safety training
+ */
+export const getUpdateSafetyTrainingUrl = (id: number) => {
+  return `/api/safety-trainings/${id}`;
+};
+
+export const updateSafetyTraining = async (
+  id: number,
+  updateSafetyTrainingBody: UpdateSafetyTrainingBody,
+  options?: RequestInit,
+): Promise<SafetyTraining> => {
+  return customFetch<SafetyTraining>(getUpdateSafetyTrainingUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSafetyTrainingBody),
+  });
+};
+
+export const getUpdateSafetyTrainingMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyTraining>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetyTrainingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetyTraining>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetyTrainingBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetyTraining"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetyTraining>>,
+    { id: number; data: BodyType<UpdateSafetyTrainingBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSafetyTraining(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetyTrainingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetyTraining>>
+>;
+export type UpdateSafetyTrainingMutationBody =
+  BodyType<UpdateSafetyTrainingBody>;
+export type UpdateSafetyTrainingMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a safety training
+ */
+export const useUpdateSafetyTraining = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyTraining>>,
+    TError,
+    { id: number; data: BodyType<UpdateSafetyTrainingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetyTraining>>,
+  TError,
+  { id: number; data: BodyType<UpdateSafetyTrainingBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSafetyTrainingMutationOptions(options));
+};
+
+/**
+ * @summary Delete a safety training
+ */
+export const getDeleteSafetyTrainingUrl = (id: number) => {
+  return `/api/safety-trainings/${id}`;
+};
+
+export const deleteSafetyTraining = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSafetyTrainingUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSafetyTrainingMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyTraining>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSafetyTraining>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSafetyTraining"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSafetyTraining>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSafetyTraining(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSafetyTrainingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSafetyTraining>>
+>;
+
+export type DeleteSafetyTrainingMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a safety training
+ */
+export const useDeleteSafetyTraining = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyTraining>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSafetyTraining>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSafetyTrainingMutationOptions(options));
+};
+
+/**
+ * @summary Get facility management dashboard summary
+ */
+export const getGetFacilityDashboardUrl = () => {
+  return `/api/facility/dashboard`;
+};
+
+export const getFacilityDashboard = async (
+  options?: RequestInit,
+): Promise<FacilityDashboard> => {
+  return customFetch<FacilityDashboard>(getGetFacilityDashboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilityDashboardQueryKey = () => {
+  return [`/api/facility/dashboard`] as const;
+};
+
+export const getGetFacilityDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetFacilityDashboardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityDashboard>>
+  > = ({ signal }) => getFacilityDashboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityDashboard>>
+>;
+export type GetFacilityDashboardQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get facility management dashboard summary
+ */
+
+export function useGetFacilityDashboard<
+  TData = Awaited<ReturnType<typeof getFacilityDashboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilityDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get scheduled facility alerts (generator bi-weekly, etc.)
+ */
+export const getGetFacilityScheduledAlertsUrl = () => {
+  return `/api/facility/scheduled-alerts`;
+};
+
+export const getFacilityScheduledAlerts = async (
+  options?: RequestInit,
+): Promise<FacilityAlert[]> => {
+  return customFetch<FacilityAlert[]>(getGetFacilityScheduledAlertsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilityScheduledAlertsQueryKey = () => {
+  return [`/api/facility/scheduled-alerts`] as const;
+};
+
+export const getGetFacilityScheduledAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityScheduledAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityScheduledAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilityScheduledAlertsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityScheduledAlerts>>
+  > = ({ signal }) => getFacilityScheduledAlerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityScheduledAlerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityScheduledAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityScheduledAlerts>>
+>;
+export type GetFacilityScheduledAlertsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get scheduled facility alerts (generator bi-weekly, etc.)
+ */
+
+export function useGetFacilityScheduledAlerts<
+  TData = Awaited<ReturnType<typeof getFacilityScheduledAlerts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityScheduledAlerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilityScheduledAlertsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -33,6 +33,12 @@ tags:
     description: In-app notifications
   - name: approvals
     description: Approval workflow management
+  - name: safetyChecklists
+    description: Safety checklist management for facility maintenance
+  - name: maintenanceLogs
+    description: Facility maintenance work logs
+  - name: safetyTrainings
+    description: Safety training management
 
 paths:
   /healthz:
@@ -1656,6 +1662,427 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityItem"
+
+  # ── Safety Checklists (안전점검표) ──────────────────────────
+  /safety-checklists:
+    get:
+      operationId: listSafetyChecklists
+      tags: [safetyChecklists]
+      summary: List safety checklists
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [electrical, fire_safety, generator, water_tank, other]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, issue_found]
+      responses:
+        "200":
+          description: Checklist list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyChecklist"
+    post:
+      operationId: createSafetyChecklist
+      tags: [safetyChecklists]
+      summary: Create a safety checklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSafetyChecklistBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyChecklist"
+
+  /safety-checklists/{id}:
+    get:
+      operationId: getSafetyChecklist
+      tags: [safetyChecklists]
+      summary: Get a safety checklist with items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Checklist detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyChecklistDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSafetyChecklist
+      tags: [safetyChecklists]
+      summary: Update a safety checklist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSafetyChecklistBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyChecklist"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSafetyChecklist
+      tags: [safetyChecklists]
+      summary: Delete a safety checklist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /safety-checklists/{id}/items:
+    post:
+      operationId: addSafetyChecklistItem
+      tags: [safetyChecklists]
+      summary: Add item to a safety checklist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSafetyChecklistItemBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyChecklistItem"
+
+  /safety-checklists/items/{itemId}:
+    patch:
+      operationId: updateSafetyChecklistItem
+      tags: [safetyChecklists]
+      summary: Update a checklist item
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSafetyChecklistItemBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyChecklistItem"
+
+  # ── Maintenance Logs (기전 업무 일지) ──────────────────────
+  /maintenance-logs:
+    get:
+      operationId: listMaintenanceLogs
+      tags: [maintenanceLogs]
+      summary: List maintenance logs
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Log list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaintenanceLog"
+    post:
+      operationId: createMaintenanceLog
+      tags: [maintenanceLogs]
+      summary: Create a maintenance log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMaintenanceLogBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceLog"
+
+  /maintenance-logs/{id}:
+    get:
+      operationId: getMaintenanceLog
+      tags: [maintenanceLogs]
+      summary: Get a maintenance log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Log detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceLog"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMaintenanceLog
+      tags: [maintenanceLogs]
+      summary: Update a maintenance log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMaintenanceLogBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceLog"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteMaintenanceLog
+      tags: [maintenanceLogs]
+      summary: Delete a maintenance log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /maintenance-logs/{id}/send-report:
+    post:
+      operationId: sendMaintenanceReport
+      tags: [maintenanceLogs]
+      summary: Send maintenance log report to manager
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceLog"
+
+  # ── Safety Trainings (안전교육) ──────────────────────────────
+  /safety-trainings:
+    get:
+      operationId: listSafetyTrainings
+      tags: [safetyTrainings]
+      summary: List safety trainings
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, completed, cancelled]
+      responses:
+        "200":
+          description: Training list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyTraining"
+    post:
+      operationId: createSafetyTraining
+      tags: [safetyTrainings]
+      summary: Create a safety training
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSafetyTrainingBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyTraining"
+
+  /safety-trainings/{id}:
+    get:
+      operationId: getSafetyTraining
+      tags: [safetyTrainings]
+      summary: Get a safety training
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyTraining"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSafetyTraining
+      tags: [safetyTrainings]
+      summary: Update a safety training
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSafetyTrainingBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyTraining"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSafetyTraining
+      tags: [safetyTrainings]
+      summary: Delete a safety training
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Facility Dashboard (시설관리 대시보드) ──────────────────
+  /facility/dashboard:
+    get:
+      operationId: getFacilityDashboard
+      tags: [safetyChecklists]
+      summary: Get facility management dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilityDashboard"
+
+  /facility/scheduled-alerts:
+    get:
+      operationId: getFacilityScheduledAlerts
+      tags: [safetyChecklists]
+      summary: Get scheduled facility alerts (generator bi-weekly, etc.)
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FacilityAlert"
 
 components:
   schemas:
@@ -3374,6 +3801,188 @@ components:
         - isSubmitted
 
     Approval:
+    SafetyChecklist:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [electrical, fire_safety, generator, water_tank, other]
+        title:
+          type: string
+        inspectionDate:
+          type: string
+          format: date
+        inspector:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, issue_found]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - category
+        - title
+        - inspectionDate
+        - inspector
+        - status
+        - createdAt
+        - updatedAt
+
+    SafetyChecklistDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [electrical, fire_safety, generator, water_tank, other]
+        title:
+          type: string
+        inspectionDate:
+          type: string
+          format: date
+        inspector:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, issue_found]
+        notes:
+          type: ["string", "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyChecklistItem"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - category
+        - title
+        - inspectionDate
+        - inspector
+        - status
+        - items
+        - createdAt
+        - updatedAt
+
+    SafetyChecklistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        checklistId:
+          type: integer
+        itemName:
+          type: string
+        checked:
+          type: boolean
+        result:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - checklistId
+        - itemName
+        - checked
+        - createdAt
+
+    CreateSafetyChecklistBody:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [electrical, fire_safety, generator, water_tank, other]
+        title:
+          type: string
+        inspectionDate:
+          type: string
+          format: date
+        inspector:
+          type: string
+        notes:
+          type: ["string", "null"]
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              itemName:
+                type: string
+              checked:
+                type: boolean
+              result:
+                type: ["string", "null"]
+              notes:
+                type: ["string", "null"]
+            required:
+              - itemName
+      required:
+        - category
+        - title
+        - inspectionDate
+        - inspector
+
+    UpdateSafetyChecklistBody:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [electrical, fire_safety, generator, water_tank, other]
+        title:
+          type: string
+        inspectionDate:
+          type: string
+          format: date
+        inspector:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, issue_found]
+        notes:
+          type: ["string", "null"]
+
+    CreateSafetyChecklistItemBody:
+      type: object
+      properties:
+        itemName:
+          type: string
+        checked:
+          type: boolean
+        result:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - itemName
+
+    UpdateSafetyChecklistItemBody:
+      type: object
+      properties:
+        checked:
+          type: boolean
+        result:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    MaintenanceLog:
       type: object
       properties:
         id:
@@ -3410,6 +4019,22 @@ components:
         approvedAt:
           type: ["string", "null"]
           format: date-time
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+        workDate:
+          type: string
+          format: date
+        worker:
+          type: string
+        status:
+          type: string
+          enum: [completed, in_progress, pending]
+        reportSent:
+          type: boolean
+        reportSentAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -3428,6 +4053,14 @@ components:
         - updatedAt
 
     CreateApprovalBody:
+        - workDate
+        - worker
+        - status
+        - reportSent
+        - createdAt
+        - updatedAt
+
+    CreateMaintenanceLogBody:
       type: object
       properties:
         title:
@@ -3446,6 +4079,17 @@ components:
           type: ["integer", "null"]
         relatedInspectionId:
           type: ["integer", "null"]
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+        workDate:
+          type: string
+          format: date
+        worker:
+          type: string
+        status:
+          type: string
+          enum: [completed, in_progress, pending]
+        notes:
+          type: ["string", "null"]
       required:
         - title
         - description
@@ -3558,3 +4202,191 @@ components:
         - pendingSpending
         - byCategory
         - monthlyTrend
+        - workDate
+        - worker
+
+    UpdateMaintenanceLogBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+        workDate:
+          type: string
+          format: date
+        worker:
+          type: string
+        status:
+          type: string
+          enum: [completed, in_progress, pending]
+        notes:
+          type: ["string", "null"]
+
+    SafetyTraining:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        trainingDate:
+          type: string
+          format: date
+        trainingMonth:
+          type: integer
+        trainingYear:
+          type: integer
+        trainer:
+          type: string
+        attendees:
+          type: ["string", "null"]
+        attendeeCount:
+          type: integer
+        duration:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - trainingDate
+        - trainingMonth
+        - trainingYear
+        - trainer
+        - attendeeCount
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateSafetyTrainingBody:
+      type: object
+      properties:
+        title:
+          type: string
+        trainingDate:
+          type: string
+          format: date
+        trainingMonth:
+          type: integer
+        trainingYear:
+          type: integer
+        trainer:
+          type: string
+        attendees:
+          type: ["string", "null"]
+        attendeeCount:
+          type: integer
+        duration:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - title
+        - trainingDate
+        - trainingMonth
+        - trainingYear
+        - trainer
+        - attendeeCount
+
+    UpdateSafetyTrainingBody:
+      type: object
+      properties:
+        title:
+          type: string
+        trainingDate:
+          type: string
+          format: date
+        trainingMonth:
+          type: integer
+        trainingYear:
+          type: integer
+        trainer:
+          type: string
+        attendees:
+          type: ["string", "null"]
+        attendeeCount:
+          type: integer
+        duration:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [scheduled, completed, cancelled]
+        notes:
+          type: ["string", "null"]
+
+    FacilityDashboard:
+      type: object
+      properties:
+        todayChecklistCount:
+          type: integer
+        pendingChecklistCount:
+          type: integer
+        completedChecklistCount:
+          type: integer
+        issueFoundCount:
+          type: integer
+        recentLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaintenanceLog"
+        trainingCompletionRate:
+          type: number
+        upcomingTrainingCount:
+          type: integer
+        scheduledAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FacilityAlert"
+      required:
+        - todayChecklistCount
+        - pendingChecklistCount
+        - completedChecklistCount
+        - issueFoundCount
+        - recentLogs
+        - trainingCompletionRate
+        - upcomingTrainingCount
+        - scheduledAlerts
+
+    FacilityAlert:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [generator_run, water_tank_cleaning, fire_inspection, electrical_check, safety_training]
+        title:
+          type: string
+        message:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        isOverdue:
+          type: boolean
+      required:
+        - id
+        - type
+        - title
+        - message
+        - dueDate
+        - isOverdue

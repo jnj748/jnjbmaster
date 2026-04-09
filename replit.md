@@ -28,6 +28,10 @@ AI-powered property management work tool for Korean apartment/building managers 
 7. **Vehicle Management (차량 관리)** - Vehicle registration cards with primary/additional vehicles, ownership-based document requirements
 8. **Vendor Management (협력업체)** - Vendor registry with two types: contracted (building-specific) and platform (self-registered). Portal selection screen at app entry.
 9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
+10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
+11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
+12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
+13. **Export** - Tenant/owner/vehicle cards can be exported as PDF files (jsPDF)
 14. **RFQ Management (견적 요청)** - Create and manage RFQs, send to platform vendors, compare submitted quotes
 15. **Quote Submission (견적서)** - Vendor quote submission and acceptance/rejection workflow
 16. **Work Reports (작업 완료 보고)** - Photo-attached work completion reports with manager inspection approval/rejection
@@ -40,6 +44,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 14. **Executive Dashboard (최고관리자)** - Dedicated dashboard for executives with KPI summary, pending approvals, spending overview
 15. **Approval Workflow (결재)** - Manager submits approval requests → executive reviews/approves/rejects. Tracks estimated amounts, vendor quotes, categories
 16. **Spending Dashboard (지출 현황)** - Category-wise spending breakdown, monthly trends, budget monitoring
+19. **Facility Management (시설관리)** - Dedicated facility management dashboard with safety checklists (electrical, fire safety, generator, water tank), maintenance work logs with manager report functionality, safety training management with monthly completion tracking, and scheduled facility alerts (generator bi-weekly, water tank monthly, fire/electrical inspections)
 
 ## Authentication & Authorization
 
@@ -72,6 +77,10 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `quotes` - Vendor-submitted quotes with amount, scope, estimated days, status (submitted/accepted/rejected)
 - `work_reports` - Work completion reports with photo URLs, review status (submitted/approved/rejected)
 - `settlements` - Settlement records with contract amount, fee rate/amount, payment status
+- `safety_checklists` - Safety inspection checklists for electrical, fire safety, generator, water tank categories
+- `safety_checklist_items` - Individual checklist items with check status and results
+- `maintenance_logs` - Facility maintenance work logs (bulb replacement, drain cleaning, equipment repair, etc.) with report-to-manager functionality
+- `safety_trainings` - Monthly safety training records with attendance tracking
 
 ## Key Commands
 
@@ -162,7 +171,11 @@ AI-powered property management work tool for Korean apartment/building managers 
 
 ### App Routing
 - `/` - Portal selection (건물관리 관계자 / 가입업체)
-- `/manager/*` - Manager app (dashboard, tasks, inspections, rfqs, work-reports, etc.)
+- `/manager/*` - Manager app (dashboard, tasks, inspections, rfqs, work-reports, facility management, etc.)
+- `/manager/facility` - Facility management dashboard
+- `/manager/safety-checklists` - Safety checklist management
+- `/manager/maintenance-logs` - Maintenance work log management
+- `/manager/safety-training` - Safety training management
 - `/vendor-portal` - Vendor portal with login, dashboard, RFQ list, quote submission, work reports, settlements
 
 ### Commissions
@@ -180,6 +193,25 @@ AI-powered property management work tool for Korean apartment/building managers 
 ### Executive Dashboard
 - `GET /api/executive/kpi` - Executive KPI data (completion rates, pending approvals, spending)
 - `GET /api/executive/spending` - Spending overview (by category, monthly trend)
+
+### Safety Checklists (안전점검표)
+- `GET/POST /api/safety-checklists` - List/create checklists (filterable by category, status)
+- `GET/PATCH/DELETE /api/safety-checklists/:id` - Get/update/delete checklist (GET includes items)
+- `POST /api/safety-checklists/:id/items` - Add checklist item
+- `PATCH /api/safety-checklists/items/:itemId` - Update checklist item
+
+### Maintenance Logs (기전 업무일지)
+- `GET/POST /api/maintenance-logs` - List/create logs (filterable by category, date range)
+- `GET/PATCH/DELETE /api/maintenance-logs/:id` - Get/update/delete log
+- `POST /api/maintenance-logs/:id/send-report` - Send report to manager
+
+### Safety Trainings (안전교육)
+- `GET/POST /api/safety-trainings` - List/create trainings (filterable by year, month, status)
+- `GET/PATCH/DELETE /api/safety-trainings/:id` - Get/update/delete training
+
+### Facility Dashboard (시설관리 대시보드)
+- `GET /api/facility/dashboard` - Facility management summary (checklist counts, recent logs, training rate, alerts)
+- `GET /api/facility/scheduled-alerts` - Scheduled facility alerts (generator bi-weekly, water tank monthly, etc.)
 
 ### Dashboard & Reports
 - `GET /api/dashboard/summary` - KPI summary

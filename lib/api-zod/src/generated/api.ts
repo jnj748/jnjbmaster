@@ -2089,3 +2089,539 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary List safety checklists
+ */
+export const ListSafetyChecklistsQueryParams = zod.object({
+  category: zod
+    .enum(["electrical", "fire_safety", "generator", "water_tank", "other"])
+    .optional(),
+  status: zod.enum(["pending", "completed", "issue_found"]).optional(),
+});
+
+export const ListSafetyChecklistsResponseItem = zod.object({
+  id: zod.number(),
+  category: zod.enum([
+    "electrical",
+    "fire_safety",
+    "generator",
+    "water_tank",
+    "other",
+  ]),
+  title: zod.string(),
+  inspectionDate: zod.coerce.date(),
+  inspector: zod.string(),
+  status: zod.enum(["pending", "completed", "issue_found"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSafetyChecklistsResponse = zod.array(
+  ListSafetyChecklistsResponseItem,
+);
+
+/**
+ * @summary Create a safety checklist
+ */
+export const CreateSafetyChecklistBody = zod.object({
+  category: zod.enum([
+    "electrical",
+    "fire_safety",
+    "generator",
+    "water_tank",
+    "other",
+  ]),
+  title: zod.string(),
+  inspectionDate: zod.coerce.date(),
+  inspector: zod.string(),
+  notes: zod.string().nullish(),
+  items: zod
+    .array(
+      zod.object({
+        itemName: zod.string(),
+        checked: zod.boolean().optional(),
+        result: zod.string().nullish(),
+        notes: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get a safety checklist with items
+ */
+export const GetSafetyChecklistParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSafetyChecklistResponse = zod.object({
+  id: zod.number(),
+  category: zod.enum([
+    "electrical",
+    "fire_safety",
+    "generator",
+    "water_tank",
+    "other",
+  ]),
+  title: zod.string(),
+  inspectionDate: zod.coerce.date(),
+  inspector: zod.string(),
+  status: zod.enum(["pending", "completed", "issue_found"]),
+  notes: zod.string().nullish(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      checklistId: zod.number(),
+      itemName: zod.string(),
+      checked: zod.boolean(),
+      result: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a safety checklist
+ */
+export const UpdateSafetyChecklistParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSafetyChecklistBody = zod.object({
+  category: zod
+    .enum(["electrical", "fire_safety", "generator", "water_tank", "other"])
+    .optional(),
+  title: zod.string().optional(),
+  inspectionDate: zod.coerce.date().optional(),
+  inspector: zod.string().optional(),
+  status: zod.enum(["pending", "completed", "issue_found"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSafetyChecklistResponse = zod.object({
+  id: zod.number(),
+  category: zod.enum([
+    "electrical",
+    "fire_safety",
+    "generator",
+    "water_tank",
+    "other",
+  ]),
+  title: zod.string(),
+  inspectionDate: zod.coerce.date(),
+  inspector: zod.string(),
+  status: zod.enum(["pending", "completed", "issue_found"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a safety checklist
+ */
+export const DeleteSafetyChecklistParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Add item to a safety checklist
+ */
+export const AddSafetyChecklistItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AddSafetyChecklistItemBody = zod.object({
+  itemName: zod.string(),
+  checked: zod.boolean().optional(),
+  result: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a checklist item
+ */
+export const UpdateSafetyChecklistItemParams = zod.object({
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateSafetyChecklistItemBody = zod.object({
+  checked: zod.boolean().optional(),
+  result: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSafetyChecklistItemResponse = zod.object({
+  id: zod.number(),
+  checklistId: zod.number(),
+  itemName: zod.string(),
+  checked: zod.boolean(),
+  result: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List maintenance logs
+ */
+export const ListMaintenanceLogsQueryParams = zod.object({
+  category: zod
+    .enum([
+      "bulb_replacement",
+      "drain_cleaning",
+      "equipment_repair",
+      "plumbing",
+      "hvac",
+      "other",
+    ])
+    .optional(),
+  startDate: zod.date().optional(),
+  endDate: zod.date().optional(),
+});
+
+export const ListMaintenanceLogsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "bulb_replacement",
+    "drain_cleaning",
+    "equipment_repair",
+    "plumbing",
+    "hvac",
+    "other",
+  ]),
+  workDate: zod.coerce.date(),
+  worker: zod.string(),
+  status: zod.enum(["completed", "in_progress", "pending"]),
+  reportSent: zod.boolean(),
+  reportSentAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListMaintenanceLogsResponse = zod.array(
+  ListMaintenanceLogsResponseItem,
+);
+
+/**
+ * @summary Create a maintenance log
+ */
+export const CreateMaintenanceLogBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "bulb_replacement",
+    "drain_cleaning",
+    "equipment_repair",
+    "plumbing",
+    "hvac",
+    "other",
+  ]),
+  workDate: zod.coerce.date(),
+  worker: zod.string(),
+  status: zod.enum(["completed", "in_progress", "pending"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a maintenance log
+ */
+export const GetMaintenanceLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetMaintenanceLogResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "bulb_replacement",
+    "drain_cleaning",
+    "equipment_repair",
+    "plumbing",
+    "hvac",
+    "other",
+  ]),
+  workDate: zod.coerce.date(),
+  worker: zod.string(),
+  status: zod.enum(["completed", "in_progress", "pending"]),
+  reportSent: zod.boolean(),
+  reportSentAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a maintenance log
+ */
+export const UpdateMaintenanceLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateMaintenanceLogBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  category: zod
+    .enum([
+      "bulb_replacement",
+      "drain_cleaning",
+      "equipment_repair",
+      "plumbing",
+      "hvac",
+      "other",
+    ])
+    .optional(),
+  workDate: zod.coerce.date().optional(),
+  worker: zod.string().optional(),
+  status: zod.enum(["completed", "in_progress", "pending"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateMaintenanceLogResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "bulb_replacement",
+    "drain_cleaning",
+    "equipment_repair",
+    "plumbing",
+    "hvac",
+    "other",
+  ]),
+  workDate: zod.coerce.date(),
+  worker: zod.string(),
+  status: zod.enum(["completed", "in_progress", "pending"]),
+  reportSent: zod.boolean(),
+  reportSentAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a maintenance log
+ */
+export const DeleteMaintenanceLogParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send maintenance log report to manager
+ */
+export const SendMaintenanceReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendMaintenanceReportResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.enum([
+    "bulb_replacement",
+    "drain_cleaning",
+    "equipment_repair",
+    "plumbing",
+    "hvac",
+    "other",
+  ]),
+  workDate: zod.coerce.date(),
+  worker: zod.string(),
+  status: zod.enum(["completed", "in_progress", "pending"]),
+  reportSent: zod.boolean(),
+  reportSentAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List safety trainings
+ */
+export const ListSafetyTrainingsQueryParams = zod.object({
+  year: zod.coerce.number().optional(),
+  month: zod.coerce.number().optional(),
+  status: zod.enum(["scheduled", "completed", "cancelled"]).optional(),
+});
+
+export const ListSafetyTrainingsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  trainingDate: zod.coerce.date(),
+  trainingMonth: zod.number(),
+  trainingYear: zod.number(),
+  trainer: zod.string(),
+  attendees: zod.string().nullish(),
+  attendeeCount: zod.number(),
+  duration: zod.string().nullish(),
+  content: zod.string().nullish(),
+  status: zod.enum(["scheduled", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSafetyTrainingsResponse = zod.array(
+  ListSafetyTrainingsResponseItem,
+);
+
+/**
+ * @summary Create a safety training
+ */
+export const CreateSafetyTrainingBody = zod.object({
+  title: zod.string(),
+  trainingDate: zod.coerce.date(),
+  trainingMonth: zod.number(),
+  trainingYear: zod.number(),
+  trainer: zod.string(),
+  attendees: zod.string().nullish(),
+  attendeeCount: zod.number(),
+  duration: zod.string().nullish(),
+  content: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a safety training
+ */
+export const GetSafetyTrainingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSafetyTrainingResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  trainingDate: zod.coerce.date(),
+  trainingMonth: zod.number(),
+  trainingYear: zod.number(),
+  trainer: zod.string(),
+  attendees: zod.string().nullish(),
+  attendeeCount: zod.number(),
+  duration: zod.string().nullish(),
+  content: zod.string().nullish(),
+  status: zod.enum(["scheduled", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a safety training
+ */
+export const UpdateSafetyTrainingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSafetyTrainingBody = zod.object({
+  title: zod.string().optional(),
+  trainingDate: zod.coerce.date().optional(),
+  trainingMonth: zod.number().optional(),
+  trainingYear: zod.number().optional(),
+  trainer: zod.string().optional(),
+  attendees: zod.string().nullish(),
+  attendeeCount: zod.number().optional(),
+  duration: zod.string().nullish(),
+  content: zod.string().nullish(),
+  status: zod.enum(["scheduled", "completed", "cancelled"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSafetyTrainingResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  trainingDate: zod.coerce.date(),
+  trainingMonth: zod.number(),
+  trainingYear: zod.number(),
+  trainer: zod.string(),
+  attendees: zod.string().nullish(),
+  attendeeCount: zod.number(),
+  duration: zod.string().nullish(),
+  content: zod.string().nullish(),
+  status: zod.enum(["scheduled", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a safety training
+ */
+export const DeleteSafetyTrainingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get facility management dashboard summary
+ */
+export const GetFacilityDashboardResponse = zod.object({
+  todayChecklistCount: zod.number(),
+  pendingChecklistCount: zod.number(),
+  completedChecklistCount: zod.number(),
+  issueFoundCount: zod.number(),
+  recentLogs: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      category: zod.enum([
+        "bulb_replacement",
+        "drain_cleaning",
+        "equipment_repair",
+        "plumbing",
+        "hvac",
+        "other",
+      ]),
+      workDate: zod.coerce.date(),
+      worker: zod.string(),
+      status: zod.enum(["completed", "in_progress", "pending"]),
+      reportSent: zod.boolean(),
+      reportSentAt: zod.coerce.date().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  trainingCompletionRate: zod.number(),
+  upcomingTrainingCount: zod.number(),
+  scheduledAlerts: zod.array(
+    zod.object({
+      id: zod.number(),
+      type: zod.enum([
+        "generator_run",
+        "water_tank_cleaning",
+        "fire_inspection",
+        "electrical_check",
+        "safety_training",
+      ]),
+      title: zod.string(),
+      message: zod.string(),
+      dueDate: zod.coerce.date(),
+      isOverdue: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get scheduled facility alerts (generator bi-weekly, etc.)
+ */
+export const GetFacilityScheduledAlertsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.enum([
+    "generator_run",
+    "water_tank_cleaning",
+    "fire_inspection",
+    "electrical_check",
+    "safety_training",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  dueDate: zod.coerce.date(),
+  isOverdue: zod.boolean(),
+});
+export const GetFacilityScheduledAlertsResponse = zod.array(
+  GetFacilityScheduledAlertsResponseItem,
+);

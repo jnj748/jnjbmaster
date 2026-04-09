@@ -1,0 +1,266 @@
+import {
+  useGetFacilityDashboard,
+} from "@workspace/api-client-react";
+import { formatDate } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
+import {
+  Wrench,
+  ClipboardCheck,
+  GraduationCap,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Zap,
+  Flame,
+  Droplets,
+  Activity,
+} from "lucide-react";
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  subtitle,
+}: {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  color: string;
+  subtitle?: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground font-medium">{title}</p>
+            <p className="text-2xl font-bold mt-1">{value}</p>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            )}
+          </div>
+          <div className={`p-2.5 rounded-lg ${color}`}>
+            <Icon className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+const alertTypeIcons: Record<string, React.ElementType> = {
+  generator_run: Activity,
+  water_tank_cleaning: Droplets,
+  fire_inspection: Flame,
+  electrical_check: Zap,
+  safety_training: GraduationCap,
+};
+
+export default function FacilityDashboard() {
+  const { data: dashboard, isLoading } = useGetFacilityDashboard();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">시설관리 대시보드</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          설비 안전점검, 기전 업무, 안전교육 현황을 한눈에 확인하세요
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="오늘 점검 예정"
+          value={dashboard?.todayChecklistCount ?? 0}
+          icon={ClipboardCheck}
+          color="bg-accent"
+          subtitle="금일 안전점검"
+        />
+        <StatCard
+          title="대기중 점검"
+          value={dashboard?.pendingChecklistCount ?? 0}
+          icon={Clock}
+          color="bg-chart-3"
+          subtitle="미완료 점검표"
+        />
+        <StatCard
+          title="이상 발견"
+          value={dashboard?.issueFoundCount ?? 0}
+          icon={AlertTriangle}
+          color="bg-destructive"
+          subtitle="조치 필요"
+        />
+        <StatCard
+          title="안전교육 이수율"
+          value={`${dashboard?.trainingCompletionRate ?? 0}%`}
+          icon={GraduationCap}
+          color="bg-primary"
+          subtitle={`예정 ${dashboard?.upcomingTrainingCount ?? 0}건`}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-chart-2" />
+                최근 업무 일지
+              </CardTitle>
+              <Link href="/manager/maintenance-logs">
+                <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dashboard?.recentLogs && dashboard.recentLogs.length > 0 ? (
+              dashboard.recentLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{log.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {categoryLabel(log.category)} &middot; {log.worker}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <p className="text-xs text-muted-foreground">{formatDate(log.workDate)}</p>
+                    <Badge
+                      variant={log.reportSent ? "default" : "outline"}
+                      className="text-xs mt-1"
+                    >
+                      {log.reportSent ? "보고완료" : "미보고"}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                최근 업무 일지가 없습니다
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-chart-3" />
+              정기 일정 알림
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dashboard?.scheduledAlerts && dashboard.scheduledAlerts.length > 0 ? (
+              dashboard.scheduledAlerts.map((alert) => {
+                const Icon = alertTypeIcons[alert.type] || AlertTriangle;
+                return (
+                  <div
+                    key={alert.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border"
+                  >
+                    <div className={`p-1.5 rounded ${alert.isOverdue ? "bg-destructive/10" : "bg-primary/10"}`}>
+                      <Icon className={`w-4 h-4 ${alert.isOverdue ? "text-destructive" : "text-primary"}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{alert.title}</p>
+                        {alert.isOverdue && (
+                          <Badge variant="destructive" className="text-xs">지연</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{alert.message}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground shrink-0">{formatDate(alert.dueDate)}</p>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                예정된 알림이 없습니다
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/manager/safety-checklists">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-accent/10">
+                <ClipboardCheck className="w-6 h-6 text-accent" />
+              </div>
+              <div>
+                <p className="font-medium">안전점검표</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  전기, 소방, 발전기, 저수조 점검
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/manager/maintenance-logs">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-chart-2/10">
+                <Wrench className="w-6 h-6 text-chart-2" />
+              </div>
+              <div>
+                <p className="font-medium">기전 업무 일지</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  일상 업무 기록 및 보고
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/manager/safety-training">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-primary/10">
+                <GraduationCap className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">안전교육 관리</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  월별 교육 이수 현황
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function categoryLabel(cat: string): string {
+  const labels: Record<string, string> = {
+    bulb_replacement: "전구 교체",
+    drain_cleaning: "배수로 청소",
+    equipment_repair: "설비 수리",
+    plumbing: "배관",
+    hvac: "냉난방",
+    other: "기타",
+  };
+  return labels[cat] || cat;
+}

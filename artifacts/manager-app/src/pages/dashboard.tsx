@@ -5,11 +5,14 @@ import {
   useGetUpcomingInspections,
   useListTenants,
   useListVehicles,
+  useListMaintenanceLogs,
+  useListSafetyChecklists,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "wouter";
 import {
   CheckSquare,
   AlertTriangle,
@@ -21,6 +24,10 @@ import {
   Activity,
   Users,
   Car,
+  HardHat,
+  ClipboardCheck,
+  Wrench,
+  Send,
 } from "lucide-react";
 
 function StatCard({
@@ -63,6 +70,8 @@ export default function Dashboard() {
   const { data: upcoming, isLoading: upcomingLoading } = useGetUpcomingInspections();
   const { data: tenants } = useListTenants({ status: "active" });
   const { data: vehicles } = useListVehicles();
+  const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
+  const { data: recentChecklists } = useListSafetyChecklists();
 
   if (summaryLoading) {
     return (
@@ -272,6 +281,71 @@ export default function Dashboard() {
               최근 활동이 없습니다
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HardHat className="w-4 h-4 text-chart-4" />
+              시설관리 보고서
+            </CardTitle>
+            <Link href="/manager/facility">
+              <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                최근 안전점검
+              </p>
+              {recentChecklists && recentChecklists.length > 0 ? (
+                <div className="space-y-1.5">
+                  {recentChecklists.slice(0, 3).map((cl) => (
+                    <div key={cl.id} className="flex items-center justify-between text-sm py-1">
+                      <span>{cl.title}</span>
+                      <Badge
+                        variant={cl.status === "completed" ? "default" : cl.status === "issue_found" ? "destructive" : "outline"}
+                        className="text-xs"
+                      >
+                        {cl.status === "completed" ? "완료" : cl.status === "issue_found" ? "이상" : "대기"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">최근 점검 내역 없음</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Wrench className="w-3.5 h-3.5" />
+                최근 기전 업무
+              </p>
+              {recentMaintenanceLogs && recentMaintenanceLogs.length > 0 ? (
+                <div className="space-y-1.5">
+                  {recentMaintenanceLogs.slice(0, 3).map((log) => (
+                    <div key={log.id} className="flex items-center justify-between text-sm py-1">
+                      <span>{log.title}</span>
+                      {log.reportSent ? (
+                        <Badge variant="default" className="text-xs">
+                          <Send className="w-3 h-3 mr-0.5" />보고
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">미보고</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">최근 업무 내역 없음</p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

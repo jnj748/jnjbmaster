@@ -23,6 +23,10 @@ import Vehicles from "@/pages/vehicles";
 import Users from "@/pages/users";
 import PortalSelect from "@/pages/portal-select";
 import Login from "@/pages/login";
+import FacilityDashboard from "@/pages/facility-dashboard";
+import SafetyChecklists from "@/pages/safety-checklists";
+import MaintenanceLogs from "@/pages/maintenance-logs";
+import SafetyTraining from "@/pages/safety-training";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -50,6 +54,10 @@ function AuthenticatedRoutes() {
         <Route path="/tenants" component={Tenants} />
         <Route path="/owners" component={Owners} />
         <Route path="/vehicles" component={Vehicles} />
+        <Route path="/facility" component={FacilityDashboard} />
+        <Route path="/safety-checklists" component={SafetyChecklists} />
+        <Route path="/maintenance-logs" component={MaintenanceLogs} />
+        <Route path="/safety-training" component={SafetyTraining} />
         {isManager && <Route path="/users" component={Users} />}
         <Route component={NotFound} />
       </Switch>
