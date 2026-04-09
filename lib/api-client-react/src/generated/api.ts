@@ -19,8 +19,11 @@ import type {
 import type {
   ActivityItem,
   Alert,
+  Approval,
+  ApprovalStats,
   Commission,
   CompleteInspectionBody,
+  CreateApprovalBody,
   CreateCommissionBody,
   CreateInspectionBody,
   CreateOwnerBody,
@@ -36,7 +39,10 @@ import type {
   DashboardSummary,
   DocumentChecklist,
   Draft,
+  ExecutiveKpi,
+  ExecutiveSpending,
   GenerateAlertsResponse,
+  GetExecutiveSpendingParams,
   GetRecommendedVendorsParams,
   GetUnreadNotificationCount200,
   GetUnregisteredVehicles200,
@@ -45,6 +51,7 @@ import type {
   Inspection,
   InspectionLog,
   InspectionPreset,
+  ListApprovalsParams,
   ListDocumentChecklistsParams,
   ListOwnersParams,
   ListQuotesParams,
@@ -60,6 +67,7 @@ import type {
   Owner,
   Quote,
   RegisterPlatformVendorBody,
+  RejectApprovalBody,
   Rfq,
   Settlement,
   Task,
@@ -4355,6 +4363,694 @@ export function useGetDashboardAlerts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List approval requests
+ */
+export const getListApprovalsUrl = (params?: ListApprovalsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/approvals?${stringifiedParams}`
+    : `/api/approvals`;
+};
+
+export const listApprovals = async (
+  params?: ListApprovalsParams,
+  options?: RequestInit,
+): Promise<Approval[]> => {
+  return customFetch<Approval[]>(getListApprovalsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListApprovalsQueryKey = (params?: ListApprovalsParams) => {
+  return [`/api/approvals`, ...(params ? [params] : [])] as const;
+};
+
+export const getListApprovalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listApprovals>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListApprovalsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listApprovals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListApprovalsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listApprovals>>> = ({
+    signal,
+  }) => listApprovals(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listApprovals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListApprovalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listApprovals>>
+>;
+export type ListApprovalsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List approval requests
+ */
+
+export function useListApprovals<
+  TData = Awaited<ReturnType<typeof listApprovals>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListApprovalsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listApprovals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListApprovalsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an approval request
+ */
+export const getCreateApprovalUrl = () => {
+  return `/api/approvals`;
+};
+
+export const createApproval = async (
+  createApprovalBody: CreateApprovalBody,
+  options?: RequestInit,
+): Promise<Approval> => {
+  return customFetch<Approval>(getCreateApprovalUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createApprovalBody),
+  });
+};
+
+export const getCreateApprovalMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createApproval>>,
+    TError,
+    { data: BodyType<CreateApprovalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createApproval>>,
+  TError,
+  { data: BodyType<CreateApprovalBody> },
+  TContext
+> => {
+  const mutationKey = ["createApproval"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createApproval>>,
+    { data: BodyType<CreateApprovalBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createApproval(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateApprovalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createApproval>>
+>;
+export type CreateApprovalMutationBody = BodyType<CreateApprovalBody>;
+export type CreateApprovalMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an approval request
+ */
+export const useCreateApproval = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createApproval>>,
+    TError,
+    { data: BodyType<CreateApprovalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createApproval>>,
+  TError,
+  { data: BodyType<CreateApprovalBody> },
+  TContext
+> => {
+  return useMutation(getCreateApprovalMutationOptions(options));
+};
+
+/**
+ * @summary Get an approval request detail
+ */
+export const getGetApprovalUrl = (id: number) => {
+  return `/api/approvals/${id}`;
+};
+
+export const getApproval = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Approval> => {
+  return customFetch<Approval>(getGetApprovalUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetApprovalQueryKey = (id: number) => {
+  return [`/api/approvals/${id}`] as const;
+};
+
+export const getGetApprovalQueryOptions = <
+  TData = Awaited<ReturnType<typeof getApproval>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getApproval>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetApprovalQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getApproval>>> = ({
+    signal,
+  }) => getApproval(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getApproval>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetApprovalQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getApproval>>
+>;
+export type GetApprovalQueryError = ErrorType<void>;
+
+/**
+ * @summary Get an approval request detail
+ */
+
+export function useGetApproval<
+  TData = Awaited<ReturnType<typeof getApproval>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getApproval>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetApprovalQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve an approval request
+ */
+export const getApproveApprovalUrl = (id: number) => {
+  return `/api/approvals/${id}/approve`;
+};
+
+export const approveApproval = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Approval> => {
+  return customFetch<Approval>(getApproveApprovalUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveApprovalMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveApproval>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveApproval>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["approveApproval"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveApproval>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveApproval(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveApprovalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveApproval>>
+>;
+
+export type ApproveApprovalMutationError = ErrorType<void>;
+
+/**
+ * @summary Approve an approval request
+ */
+export const useApproveApproval = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveApproval>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveApproval>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getApproveApprovalMutationOptions(options));
+};
+
+/**
+ * @summary Reject an approval request
+ */
+export const getRejectApprovalUrl = (id: number) => {
+  return `/api/approvals/${id}/reject`;
+};
+
+export const rejectApproval = async (
+  id: number,
+  rejectApprovalBody: RejectApprovalBody,
+  options?: RequestInit,
+): Promise<Approval> => {
+  return customFetch<Approval>(getRejectApprovalUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rejectApprovalBody),
+  });
+};
+
+export const getRejectApprovalMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectApproval>>,
+    TError,
+    { id: number; data: BodyType<RejectApprovalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectApproval>>,
+  TError,
+  { id: number; data: BodyType<RejectApprovalBody> },
+  TContext
+> => {
+  const mutationKey = ["rejectApproval"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectApproval>>,
+    { id: number; data: BodyType<RejectApprovalBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rejectApproval(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectApprovalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectApproval>>
+>;
+export type RejectApprovalMutationBody = BodyType<RejectApprovalBody>;
+export type RejectApprovalMutationError = ErrorType<void>;
+
+/**
+ * @summary Reject an approval request
+ */
+export const useRejectApproval = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectApproval>>,
+    TError,
+    { id: number; data: BodyType<RejectApprovalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectApproval>>,
+  TError,
+  { id: number; data: BodyType<RejectApprovalBody> },
+  TContext
+> => {
+  return useMutation(getRejectApprovalMutationOptions(options));
+};
+
+/**
+ * @summary Get approval statistics for executive dashboard
+ */
+export const getGetApprovalStatsUrl = () => {
+  return `/api/approvals/stats`;
+};
+
+export const getApprovalStats = async (
+  options?: RequestInit,
+): Promise<ApprovalStats> => {
+  return customFetch<ApprovalStats>(getGetApprovalStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetApprovalStatsQueryKey = () => {
+  return [`/api/approvals/stats`] as const;
+};
+
+export const getGetApprovalStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getApprovalStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getApprovalStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetApprovalStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getApprovalStats>>
+  > = ({ signal }) => getApprovalStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getApprovalStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetApprovalStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getApprovalStats>>
+>;
+export type GetApprovalStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get approval statistics for executive dashboard
+ */
+
+export function useGetApprovalStats<
+  TData = Awaited<ReturnType<typeof getApprovalStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getApprovalStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetApprovalStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get executive KPI dashboard data
+ */
+export const getGetExecutiveKpiUrl = () => {
+  return `/api/executive/kpi`;
+};
+
+export const getExecutiveKpi = async (
+  options?: RequestInit,
+): Promise<ExecutiveKpi> => {
+  return customFetch<ExecutiveKpi>(getGetExecutiveKpiUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetExecutiveKpiQueryKey = () => {
+  return [`/api/executive/kpi`] as const;
+};
+
+export const getGetExecutiveKpiQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExecutiveKpi>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveKpi>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetExecutiveKpiQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getExecutiveKpi>>> = ({
+    signal,
+  }) => getExecutiveKpi({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveKpi>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetExecutiveKpiQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExecutiveKpi>>
+>;
+export type GetExecutiveKpiQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get executive KPI dashboard data
+ */
+
+export function useGetExecutiveKpi<
+  TData = Awaited<ReturnType<typeof getExecutiveKpi>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveKpi>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetExecutiveKpiQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get executive spending overview
+ */
+export const getGetExecutiveSpendingUrl = (
+  params?: GetExecutiveSpendingParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/executive/spending?${stringifiedParams}`
+    : `/api/executive/spending`;
+};
+
+export const getExecutiveSpending = async (
+  params?: GetExecutiveSpendingParams,
+  options?: RequestInit,
+): Promise<ExecutiveSpending> => {
+  return customFetch<ExecutiveSpending>(getGetExecutiveSpendingUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetExecutiveSpendingQueryKey = (
+  params?: GetExecutiveSpendingParams,
+) => {
+  return [`/api/executive/spending`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetExecutiveSpendingQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExecutiveSpending>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveSpendingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveSpending>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetExecutiveSpendingQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getExecutiveSpending>>
+  > = ({ signal }) =>
+    getExecutiveSpending(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveSpending>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetExecutiveSpendingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExecutiveSpending>>
+>;
+export type GetExecutiveSpendingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get executive spending overview
+ */
+
+export function useGetExecutiveSpending<
+  TData = Awaited<ReturnType<typeof getExecutiveSpending>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveSpendingParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveSpending>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetExecutiveSpendingQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

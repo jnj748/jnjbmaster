@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import Dashboard from "@/pages/dashboard";
+import ExecutiveDashboard from "@/pages/executive-dashboard";
+import Approvals from "@/pages/approvals";
+import ExecutiveSpending from "@/pages/executive-spending";
 import Tasks from "@/pages/tasks";
 import Inspections from "@/pages/inspections";
 import TaxSchedules from "@/pages/tax-schedules";
@@ -27,11 +30,14 @@ const queryClient = new QueryClient();
 function AuthenticatedRoutes() {
   const { user } = useAuth();
   const isManager = user?.role === "manager" || user?.role === "executive";
+  const isExecutive = user?.role === "executive";
 
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/" component={isExecutive ? ExecutiveDashboard : Dashboard} />
+        <Route path="/approvals" component={Approvals} />
+        {isExecutive && <Route path="/spending" component={ExecutiveSpending} />}
         <Route path="/tasks" component={Tasks} />
         <Route path="/inspections" component={Inspections} />
         <Route path="/tax-schedules" component={TaxSchedules} />

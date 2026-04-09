@@ -14,3 +14,4 @@ export * from "./rfqs";
 export * from "./quotes";
 export * from "./workReports";
 export * from "./settlements";
+export * from "./approvals";

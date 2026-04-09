@@ -31,6 +31,8 @@ tags:
     description: Vehicle registration management
   - name: notifications
     description: In-app notifications
+  - name: approvals
+    description: Approval workflow management
 
 paths:
   /healthz:
@@ -1042,6 +1044,162 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Alert"
+
+  # ── Approvals (결재) ──────────────────────────────────────
+  /approvals:
+    get:
+      operationId: listApprovals
+      tags: [approvals]
+      summary: List approval requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Approval list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Approval"
+    post:
+      operationId: createApproval
+      tags: [approvals]
+      summary: Create an approval request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApprovalBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+
+  /approvals/{id}:
+    get:
+      operationId: getApproval
+      tags: [approvals]
+      summary: Get an approval request detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approval detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "404":
+          description: Not found
+
+  /approvals/{id}/approve:
+    post:
+      operationId: approveApproval
+      tags: [approvals]
+      summary: Approve an approval request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "404":
+          description: Not found
+
+  /approvals/{id}/reject:
+    post:
+      operationId: rejectApproval
+      tags: [approvals]
+      summary: Reject an approval request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectApprovalBody"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "404":
+          description: Not found
+
+  /approvals/stats:
+    get:
+      operationId: getApprovalStats
+      tags: [approvals]
+      summary: Get approval statistics for executive dashboard
+      responses:
+        "200":
+          description: Approval stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalStats"
+
+  /executive/kpi:
+    get:
+      operationId: getExecutiveKpi
+      tags: [dashboard]
+      summary: Get executive KPI dashboard data
+      responses:
+        "200":
+          description: KPI data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutiveKpi"
+
+  /executive/spending:
+    get:
+      operationId: getExecutiveSpending
+      tags: [dashboard]
+      summary: Get executive spending overview
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Spending data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutiveSpending"
 
   # ── Tenants (입주자 관리) ──────────────────────────────────
   /tenants:
@@ -3214,3 +3372,189 @@ components:
         - entityId
         - documentName
         - isSubmitted
+
+    Approval:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requesterId:
+          type: integer
+        requesterName:
+          type: string
+        approverId:
+          type: ["integer", "null"]
+        approverName:
+          type: ["string", "null"]
+        estimatedAmount:
+          type: ["number", "null"]
+        vendorName:
+          type: ["string", "null"]
+        vendorQuoteDetails:
+          type: ["string", "null"]
+        relatedDraftId:
+          type: ["integer", "null"]
+        relatedInspectionId:
+          type: ["integer", "null"]
+        rejectionReason:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - category
+        - status
+        - requesterId
+        - requesterName
+        - createdAt
+        - updatedAt
+
+    CreateApprovalBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        estimatedAmount:
+          type: ["number", "null"]
+        vendorName:
+          type: ["string", "null"]
+        vendorQuoteDetails:
+          type: ["string", "null"]
+        relatedDraftId:
+          type: ["integer", "null"]
+        relatedInspectionId:
+          type: ["integer", "null"]
+      required:
+        - title
+        - description
+        - category
+
+    RejectApprovalBody:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+
+    ApprovalStats:
+      type: object
+      properties:
+        totalPending:
+          type: integer
+        totalApproved:
+          type: integer
+        totalRejected:
+          type: integer
+        totalAmount:
+          type: number
+        approvedAmount:
+          type: number
+        recentApprovals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Approval"
+      required:
+        - totalPending
+        - totalApproved
+        - totalRejected
+        - totalAmount
+        - approvedAmount
+        - recentApprovals
+
+    ExecutiveKpi:
+      type: object
+      properties:
+        inspectionCompletionRate:
+          type: number
+        taskCompletionRate:
+          type: number
+        pendingApprovals:
+          type: integer
+        monthlySpending:
+          type: number
+        totalTasks:
+          type: integer
+        completedTasks:
+          type: integer
+        totalInspections:
+          type: integer
+        completedInspections:
+          type: integer
+        overdueItems:
+          type: integer
+      required:
+        - inspectionCompletionRate
+        - taskCompletionRate
+        - pendingApprovals
+        - monthlySpending
+        - totalTasks
+        - completedTasks
+        - totalInspections
+        - completedInspections
+        - overdueItems
+
+    ExecutiveSpending:
+      type: object
+      properties:
+        totalSpending:
+          type: number
+        approvedSpending:
+          type: number
+        pendingSpending:
+          type: number
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              amount:
+                type: number
+              count:
+                type: integer
+            required:
+              - category
+              - amount
+              - count
+        monthlyTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              amount:
+                type: number
+            required:
+              - month
+              - amount
+      required:
+        - totalSpending
+        - approvedSpending
+        - pendingSpending
+        - byCategory
+        - monthlyTrend

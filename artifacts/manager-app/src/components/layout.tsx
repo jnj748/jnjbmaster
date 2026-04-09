@@ -19,6 +19,7 @@ import {
   Coins,
   FileText,
   ClipboardList,
+  ClipboardCheck,
   Users,
   UserCheck,
   Car,
@@ -26,7 +27,7 @@ import {
   LogOut,
   Package,
   Send,
-  ClipboardCheck,
+  DollarSign,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,7 +54,25 @@ const buildingNavItems = [
   { path: "/reports", label: "주간보고", icon: FileText },
 ];
 
+const executiveNavItems = [
+  { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
+  { path: "/spending", label: "지출 현황", icon: DollarSign },
+  { path: "/tasks", label: "업무 관리", icon: CheckSquare },
+  { path: "/inspections", label: "법정 점검", icon: Shield },
+  { path: "/drafts", label: "기안서", icon: ClipboardList },
+  { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+  { path: "/tenants", label: "입주민 관리", icon: Users },
+  { path: "/owners", label: "소유자 관리", icon: UserCheck },
+  { path: "/vehicles", label: "차량 관리", icon: Car },
+  { path: "/vendors", label: "협력업체", icon: Building2 },
+  { path: "/commissions", label: "수수료", icon: Coins },
+  { path: "/reports", label: "주간보고", icon: FileText },
+  { path: "/users", label: "사용자 관리", icon: Users },
+];
+
 const managerOnlyItems = [
+  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
   { path: "/users", label: "사용자 관리", icon: Users },
 ];
 
@@ -90,9 +109,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   const isVendor = user?.portalType === "vendor";
-  let navItems = isVendor ? vendorNavItems : buildingNavItems;
+  const isExecutive = user?.role === "executive";
+  let navItems = isVendor
+    ? vendorNavItems
+    : isExecutive
+    ? executiveNavItems
+    : buildingNavItems;
 
-  if (user?.role === "manager" || user?.role === "executive") {
+  if (user?.role === "manager") {
     navItems = [...navItems, ...managerOnlyItems];
   }
 

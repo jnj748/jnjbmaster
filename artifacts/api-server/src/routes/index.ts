@@ -14,6 +14,7 @@ import vehiclesRouter from "./vehicles";
 import notificationsRouter from "./notifications";
 import documentChecklistsRouter from "./documentChecklists";
 import usersRouter from "./users";
+import approvalsRouter from "./approvals";
 import { authMiddleware } from "../middlewares/auth";
 import rfqsRouter from "./rfqs";
 import quotesRouter from "./quotes";
@@ -44,5 +45,6 @@ router.use(vehiclesRouter);
 router.use(notificationsRouter);
 router.use(documentChecklistsRouter);
 router.use(usersRouter);
+router.use(approvalsRouter);
 
 export default router;

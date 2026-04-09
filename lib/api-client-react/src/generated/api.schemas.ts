@@ -1511,6 +1511,105 @@ export interface UpsertDocumentChecklistBody {
   notes?: string | null;
 }
 
+export type ApprovalStatus =
+  (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+
+export const ApprovalStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface Approval {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  status: ApprovalStatus;
+  requesterId: number;
+  requesterName: string;
+  /** @nullable */
+  approverId?: number | null;
+  /** @nullable */
+  approverName?: string | null;
+  /** @nullable */
+  estimatedAmount?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  vendorQuoteDetails?: string | null;
+  /** @nullable */
+  relatedDraftId?: number | null;
+  /** @nullable */
+  relatedInspectionId?: number | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateApprovalBody {
+  title: string;
+  description: string;
+  category: string;
+  /** @nullable */
+  estimatedAmount?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  vendorQuoteDetails?: string | null;
+  /** @nullable */
+  relatedDraftId?: number | null;
+  /** @nullable */
+  relatedInspectionId?: number | null;
+}
+
+export interface RejectApprovalBody {
+  reason: string;
+}
+
+export interface ApprovalStats {
+  totalPending: number;
+  totalApproved: number;
+  totalRejected: number;
+  totalAmount: number;
+  approvedAmount: number;
+  recentApprovals: Approval[];
+}
+
+export interface ExecutiveKpi {
+  inspectionCompletionRate: number;
+  taskCompletionRate: number;
+  pendingApprovals: number;
+  monthlySpending: number;
+  totalTasks: number;
+  completedTasks: number;
+  totalInspections: number;
+  completedInspections: number;
+  overdueItems: number;
+}
+
+export type ExecutiveSpendingByCategoryItem = {
+  category: string;
+  amount: number;
+  count: number;
+};
+
+export type ExecutiveSpendingMonthlyTrendItem = {
+  month: string;
+  amount: number;
+};
+
+export interface ExecutiveSpending {
+  totalSpending: number;
+  approvedSpending: number;
+  pendingSpending: number;
+  byCategory: ExecutiveSpendingByCategoryItem[];
+  monthlyTrend: ExecutiveSpendingMonthlyTrendItem[];
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -1617,6 +1716,24 @@ export const ListSettlementsStatus = {
 
 export type GetWeeklyReportParams = {
   weekStart: string;
+};
+
+export type ListApprovalsParams = {
+  status?: ListApprovalsStatus;
+};
+
+export type ListApprovalsStatus =
+  (typeof ListApprovalsStatus)[keyof typeof ListApprovalsStatus];
+
+export const ListApprovalsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type GetExecutiveSpendingParams = {
+  year?: number;
+  month?: number;
 };
 
 export type ListTenantsParams = {

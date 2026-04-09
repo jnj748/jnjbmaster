@@ -1316,6 +1316,212 @@ export const GetDashboardAlertsResponse = zod.array(
 );
 
 /**
+ * @summary List approval requests
+ */
+export const ListApprovalsQueryParams = zod.object({
+  status: zod.enum(["pending", "approved", "rejected"]).optional(),
+});
+
+export const ListApprovalsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListApprovalsResponse = zod.array(ListApprovalsResponseItem);
+
+/**
+ * @summary Create an approval request
+ */
+export const CreateApprovalBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get an approval request detail
+ */
+export const GetApprovalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetApprovalResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Approve an approval request
+ */
+export const ApproveApprovalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveApprovalResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Reject an approval request
+ */
+export const RejectApprovalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RejectApprovalBody = zod.object({
+  reason: zod.string(),
+});
+
+export const RejectApprovalResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get approval statistics for executive dashboard
+ */
+export const GetApprovalStatsResponse = zod.object({
+  totalPending: zod.number(),
+  totalApproved: zod.number(),
+  totalRejected: zod.number(),
+  totalAmount: zod.number(),
+  approvedAmount: zod.number(),
+  recentApprovals: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      description: zod.string(),
+      category: zod.string(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      requesterId: zod.number(),
+      requesterName: zod.string(),
+      approverId: zod.number().nullish(),
+      approverName: zod.string().nullish(),
+      estimatedAmount: zod.number().nullish(),
+      vendorName: zod.string().nullish(),
+      vendorQuoteDetails: zod.string().nullish(),
+      relatedDraftId: zod.number().nullish(),
+      relatedInspectionId: zod.number().nullish(),
+      rejectionReason: zod.string().nullish(),
+      approvedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get executive KPI dashboard data
+ */
+export const GetExecutiveKpiResponse = zod.object({
+  inspectionCompletionRate: zod.number(),
+  taskCompletionRate: zod.number(),
+  pendingApprovals: zod.number(),
+  monthlySpending: zod.number(),
+  totalTasks: zod.number(),
+  completedTasks: zod.number(),
+  totalInspections: zod.number(),
+  completedInspections: zod.number(),
+  overdueItems: zod.number(),
+});
+
+/**
+ * @summary Get executive spending overview
+ */
+export const GetExecutiveSpendingQueryParams = zod.object({
+  year: zod.coerce.number().optional(),
+  month: zod.coerce.number().optional(),
+});
+
+export const GetExecutiveSpendingResponse = zod.object({
+  totalSpending: zod.number(),
+  approvedSpending: zod.number(),
+  pendingSpending: zod.number(),
+  byCategory: zod.array(
+    zod.object({
+      category: zod.string(),
+      amount: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  monthlyTrend: zod.array(
+    zod.object({
+      month: zod.string(),
+      amount: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary List tenants
  */
 export const ListTenantsQueryParams = zod.object({

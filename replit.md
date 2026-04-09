@@ -37,6 +37,9 @@ AI-powered property management work tool for Korean apartment/building managers 
 11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
 12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
 13. **Export** - Tenant/owner/vehicle cards can be exported as PDF files (jsPDF)
+14. **Executive Dashboard (최고관리자)** - Dedicated dashboard for executives with KPI summary, pending approvals, spending overview
+15. **Approval Workflow (결재)** - Manager submits approval requests → executive reviews/approves/rejects. Tracks estimated amounts, vendor quotes, categories
+16. **Spending Dashboard (지출 현황)** - Category-wise spending breakdown, monthly trends, budget monitoring
 
 ## Authentication & Authorization
 
@@ -50,6 +53,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 
 ## Database Tables
 
+- `approvals` - Approval workflow records with title, description, category, status (pending/approved/rejected), requester/approver info, estimated amount, vendor details, related draft/inspection IDs
 - `users` - User accounts with email, password_hash, name, role, phone, portal_type
 - `tasks` - To-do items with category, priority, status, due dates
 - `inspections` - Legal inspection cycles with frequency, legal cycle months, advance alert days, legal basis (legalBasis)
@@ -164,6 +168,18 @@ AI-powered property management work tool for Korean apartment/building managers 
 ### Commissions
 - `GET/POST /api/commissions` - List/create commissions
 - `PATCH /api/commissions/:id` - Update commission status
+
+### Approvals (결재)
+- `GET /api/approvals` - List approvals (filterable by status: pending/approved/rejected)
+- `POST /api/approvals` - Create approval request
+- `GET /api/approvals/:id` - Get approval detail
+- `POST /api/approvals/:id/approve` - Approve request (executive only)
+- `POST /api/approvals/:id/reject` - Reject request with reason (executive only)
+- `GET /api/approvals/stats` - Approval statistics
+
+### Executive Dashboard
+- `GET /api/executive/kpi` - Executive KPI data (completion rates, pending approvals, spending)
+- `GET /api/executive/spending` - Spending overview (by category, monthly trend)
 
 ### Dashboard & Reports
 - `GET /api/dashboard/summary` - KPI summary
