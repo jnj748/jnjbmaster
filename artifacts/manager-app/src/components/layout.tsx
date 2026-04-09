@@ -22,17 +22,19 @@ const navItems = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const base = import.meta.env.BASE_URL ?? "/";
 
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 bg-sidebar text-sidebar-foreground flex flex-col fixed h-full z-30">
-        <div className="p-5 border-b border-sidebar-border">
-          <h1 className="text-lg font-bold tracking-tight text-white">
-            관리의달인
-          </h1>
-          <p className="text-xs text-sidebar-foreground/60 mt-0.5">
-            AI 건물관리 워크툴
-          </p>
+        <div className="p-4 border-b border-sidebar-border">
+          <Link href="/">
+            <img
+              src={`${base}logo.png`}
+              alt="관리의달인"
+              className="h-12 w-auto"
+            />
+          </Link>
         </div>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
