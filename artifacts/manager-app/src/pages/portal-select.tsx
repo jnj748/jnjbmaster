@@ -20,7 +20,7 @@ export default function PortalSelect() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl w-full px-6">
         <button
-          onClick={() => navigate("/manager")}
+          onClick={() => navigate("/login/building")}
           className="group flex flex-col items-center gap-6 p-10 bg-white rounded-2xl border-2 border-slate-200 shadow-sm hover:border-primary hover:shadow-lg transition-all cursor-pointer"
         >
           <div className="p-5 rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -35,7 +35,7 @@ export default function PortalSelect() {
         </button>
 
         <button
-          onClick={() => navigate("/vendor-portal")}
+          onClick={() => navigate("/login/vendor")}
           className="group flex flex-col items-center gap-6 p-10 bg-white rounded-2xl border-2 border-slate-200 shadow-sm hover:border-chart-3 hover:shadow-lg transition-all cursor-pointer"
         >
           <div className="p-5 rounded-2xl bg-chart-3/10 group-hover:bg-chart-3/20 transition-colors">

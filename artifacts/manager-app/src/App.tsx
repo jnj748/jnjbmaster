@@ -1,9 +1,9 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
-import PortalSelect from "@/pages/portal-select";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import Dashboard from "@/pages/dashboard";
 import Tasks from "@/pages/tasks";
 import Inspections from "@/pages/inspections";
@@ -15,42 +15,62 @@ import Drafts from "@/pages/drafts";
 import Tenants from "@/pages/tenants";
 import Owners from "@/pages/owners";
 import Vehicles from "@/pages/vehicles";
-import VendorPortal from "@/pages/vendor-portal";
+import Users from "@/pages/users";
+import PortalSelect from "@/pages/portal-select";
+import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function AppRouter() {
-  const [location] = useLocation();
+function AuthenticatedRoutes() {
+  const { user } = useAuth();
+  const isManager = user?.role === "manager" || user?.role === "executive";
 
-  if (location.startsWith("/manager")) {
+  return (
+    <Layout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/tasks" component={Tasks} />
+        <Route path="/inspections" component={Inspections} />
+        <Route path="/tax-schedules" component={TaxSchedules} />
+        <Route path="/vendors" component={Vendors} />
+        <Route path="/commissions" component={Commissions} />
+        <Route path="/reports" component={Reports} />
+        <Route path="/drafts" component={Drafts} />
+        <Route path="/tenants" component={Tenants} />
+        <Route path="/owners" component={Owners} />
+        <Route path="/vehicles" component={Vehicles} />
+        {isManager && <Route path="/users" component={Users} />}
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
+  );
+}
+
+function AppRouter() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
     return (
-      <Layout>
-        <Switch>
-          <Route path="/manager" component={Dashboard} />
-          <Route path="/manager/tasks" component={Tasks} />
-          <Route path="/manager/inspections" component={Inspections} />
-          <Route path="/manager/tax-schedules" component={TaxSchedules} />
-          <Route path="/manager/vendors" component={Vendors} />
-          <Route path="/manager/commissions" component={Commissions} />
-          <Route path="/manager/reports" component={Reports} />
-          <Route path="/manager/drafts" component={Drafts} />
-          <Route path="/manager/tenants" component={Tenants} />
-          <Route path="/manager/owners" component={Owners} />
-          <Route path="/manager/vehicles" component={Vehicles} />
-          <Route component={NotFound} />
-        </Switch>
-      </Layout>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-slate-500">로딩 중...</div>
+      </div>
     );
   }
 
-  return (
-    <Switch>
-      <Route path="/" component={PortalSelect} />
-      <Route path="/vendor-portal" component={VendorPortal} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/portal" component={PortalSelect} />
+        <Route path="/login/:portalType" component={Login} />
+        <Route>
+          <Redirect to="/portal" />
+        </Route>
+      </Switch>
+    );
+  }
+
+  return <AuthenticatedRoutes />;
 }
 
 function App() {
@@ -58,7 +78,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AppRouter />
+          <AuthProvider>
+            <AppRouter />
+          </AuthProvider>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

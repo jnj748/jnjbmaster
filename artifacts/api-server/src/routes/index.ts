@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import tasksRouter from "./tasks";
 import inspectionsRouter from "./inspections";
 import taxSchedulesRouter from "./taxSchedules";
@@ -12,10 +13,16 @@ import ownersRouter from "./owners";
 import vehiclesRouter from "./vehicles";
 import notificationsRouter from "./notifications";
 import documentChecklistsRouter from "./documentChecklists";
+import usersRouter from "./users";
+import { authMiddleware } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+
+router.use(authMiddleware);
+
 router.use(tasksRouter);
 router.use(inspectionsRouter);
 router.use(taxSchedulesRouter);
@@ -28,5 +35,6 @@ router.use(ownersRouter);
 router.use(vehiclesRouter);
 router.use(notificationsRouter);
 router.use(documentChecklistsRouter);
+router.use(usersRouter);
 
 export default router;

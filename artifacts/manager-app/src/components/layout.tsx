@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 import {
   useListNotifications,
   useGetUnreadNotificationCount,
@@ -22,7 +23,8 @@ import {
   UserCheck,
   Car,
   Bell,
-  ArrowLeft,
+  LogOut,
+  Package,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,22 +35,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const navItems = [
-  { path: "/manager", label: "대시보드", icon: LayoutDashboard },
-  { path: "/manager/tasks", label: "업무 관리", icon: CheckSquare },
-  { path: "/manager/inspections", label: "법정 점검", icon: Shield },
-  { path: "/manager/drafts", label: "기안서", icon: ClipboardList },
-  { path: "/manager/tax-schedules", label: "세무 일정", icon: Calculator },
-  { path: "/manager/tenants", label: "입주민 관리", icon: Users },
-  { path: "/manager/owners", label: "소유자 관리", icon: UserCheck },
-  { path: "/manager/vehicles", label: "차량 관리", icon: Car },
-  { path: "/manager/vendors", label: "협력업체", icon: Building2 },
-  { path: "/manager/commissions", label: "수수료", icon: Coins },
-  { path: "/manager/reports", label: "주간보고", icon: FileText },
+const buildingNavItems = [
+  { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/tasks", label: "업무 관리", icon: CheckSquare },
+  { path: "/inspections", label: "법정 점검", icon: Shield },
+  { path: "/drafts", label: "기안서", icon: ClipboardList },
+  { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+  { path: "/tenants", label: "입주민 관리", icon: Users },
+  { path: "/owners", label: "소유자 관리", icon: UserCheck },
+  { path: "/vehicles", label: "차량 관리", icon: Car },
+  { path: "/vendors", label: "협력업체", icon: Building2 },
+  { path: "/commissions", label: "수수료", icon: Coins },
+  { path: "/reports", label: "주간보고", icon: FileText },
 ];
+
+const managerOnlyItems = [
+  { path: "/users", label: "사용자 관리", icon: Users },
+];
+
+const vendorNavItems = [
+  { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/vendors", label: "업체 정보", icon: Package },
+  { path: "/commissions", label: "수수료", icon: Coins },
+];
+
+const roleLabels: Record<string, string> = {
+  manager: "관리소장",
+  executive: "최고관리자",
+  facility_staff: "시설관리 담당자",
+  vendor: "견적 업체",
+};
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -65,11 +85,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }
 
+  const isVendor = user?.portalType === "vendor";
+  let navItems = isVendor ? vendorNavItems : buildingNavItems;
+
+  if (user?.role === "manager" || user?.role === "executive") {
+    navItems = [...navItems, ...managerOnlyItems];
+  }
+
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 bg-sidebar text-sidebar-foreground flex flex-col fixed h-full z-30">
         <div className="p-4 border-b border-sidebar-border">
-          <Link href="/manager">
+          <Link href="/">
             <img
               src={`${base}logo.png`}
               alt="관리의달인"
@@ -80,8 +107,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive =
-              item.path === "/manager"
-                ? location === "/manager"
+              item.path === "/"
+                ? location === "/"
                 : location.startsWith(item.path);
             return (
               <Link key={item.path} href={item.path}>
@@ -100,13 +127,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-sidebar-border">
-          <Link href="/">
-            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors cursor-pointer">
-              <ArrowLeft className="w-3 h-3" />
-              포털 선택으로 돌아가기
+        <div className="p-4 border-t border-sidebar-border space-y-3">
+          {user && (
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+                <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+              </div>
+              <button
+                onClick={logout}
+                className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0"
+                title="로그아웃"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-          </Link>
+          )}
+          <div className="text-xs text-sidebar-foreground/50">
+            v1.0.0
+          </div>
         </div>
       </aside>
       <main className="flex-1 ml-60">

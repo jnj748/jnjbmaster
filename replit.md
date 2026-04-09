@@ -33,8 +33,19 @@ AI-powered property management work tool for Korean apartment/building managers 
 12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
 13. **Export** - Tenant/owner/vehicle cards can be exported as PDF files (jsPDF)
 
+## Authentication & Authorization
+
+- **Auth method**: JWT-based (Bearer token in Authorization header)
+- **Token storage**: localStorage (`auth_token` key)
+- **User roles**: `manager` (관리소장), `executive` (최고관리자), `facility_staff` (시설관리 담당자), `vendor` (견적 업체)
+- **Portal types**: `building` (건물관리 관계자), `vendor` (가입업체)
+- **Self-registration**: Only `facility_staff` and `vendor` roles can self-register; `manager`/`executive` must be created by a manager via admin
+- **RBAC**: Auth middleware protects all routes except `/healthz` and `/auth/*`; role-based middleware on user management endpoints
+- **Navigation**: Building portal shows full management menu; vendor portal shows limited menu (dashboard, vendor info, commissions); user management only visible to manager/executive roles
+
 ## Database Tables
 
+- `users` - User accounts with email, password_hash, name, role, phone, portal_type
 - `tasks` - To-do items with category, priority, status, due dates
 - `inspections` - Legal inspection cycles with frequency, legal cycle months, advance alert days, legal basis (legalBasis)
 - `legal_inspection_presets` - Built-in preset data for standard legal inspections (9 presets)
@@ -58,6 +69,17 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 ## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Self-register (facility_staff/vendor only)
+- `POST /api/auth/login` - Login with email, password, portalType
+- `GET /api/auth/me` - Get current user (requires auth)
+
+### User Management (manager only)
+- `GET /api/users` - List all users (manager/executive)
+- `POST /api/users` - Create user with any role (manager only)
+- `PATCH /api/users/:id` - Update user (manager only)
+- `DELETE /api/users/:id` - Delete user (manager only)
 
 ### Tasks
 - `GET/POST /api/tasks` - List/create tasks (filterable by status, priority, date)
