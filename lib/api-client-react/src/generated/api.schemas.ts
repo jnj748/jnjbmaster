@@ -155,6 +155,8 @@ export interface Inspection {
   status: InspectionStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays: number;
   createdAt: string;
   updatedAt: string;
@@ -182,6 +184,8 @@ export interface CreateInspectionBody {
   nextDueDate: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays?: number;
 }
 
@@ -218,6 +222,8 @@ export interface UpdateInspectionBody {
   status?: UpdateInspectionBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays?: number;
 }
 

@@ -150,6 +150,7 @@ export const ListInspectionsResponseItem = zod.object({
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -174,6 +175,7 @@ export const CreateInspectionBody = zod.object({
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date(),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number().optional(),
 });
 
@@ -204,6 +206,7 @@ export const UpdateInspectionBody = zod.object({
     .enum(["upcoming", "overdue", "completed", "scheduled"])
     .optional(),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number().optional(),
 });
 
@@ -224,6 +227,7 @@ export const UpdateInspectionResponse = zod.object({
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -256,6 +260,7 @@ export const GetUpcomingInspectionsResponseItem = zod.object({
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

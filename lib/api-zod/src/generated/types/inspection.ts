@@ -19,6 +19,8 @@ export interface Inspection {
   status: InspectionStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays: number;
   createdAt: Date;
   updatedAt: Date;

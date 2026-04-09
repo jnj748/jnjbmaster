@@ -647,6 +647,8 @@ components:
           enum: [upcoming, overdue, completed, scheduled]
         notes:
           type: ["string", "null"]
+        legalBasis:
+          type: ["string", "null"]
         advanceAlertDays:
           type: integer
         createdAt:
@@ -684,6 +686,8 @@ components:
           format: date
         notes:
           type: ["string", "null"]
+        legalBasis:
+          type: ["string", "null"]
         advanceAlertDays:
           type: integer
       required:
@@ -712,6 +716,8 @@ components:
           type: string
           enum: [upcoming, overdue, completed, scheduled]
         notes:
+          type: ["string", "null"]
+        legalBasis:
           type: ["string", "null"]
         advanceAlertDays:
           type: integer

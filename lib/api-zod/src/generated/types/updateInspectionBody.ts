@@ -18,5 +18,7 @@ export interface UpdateInspectionBody {
   status?: UpdateInspectionBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays?: number;
 }

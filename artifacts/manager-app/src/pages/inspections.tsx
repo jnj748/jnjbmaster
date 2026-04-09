@@ -28,9 +28,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Shield } from "lucide-react";
+import { Plus, Trash2, Edit, Shield, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { InspectionNotice, CATEGORY_LEGAL_BASIS } from "@/components/inspection-notice";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -52,6 +53,8 @@ const statusOptions = [
 export default function Inspections() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [noticeTarget, setNoticeTarget] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: inspections, isLoading } = useListInspections();
@@ -66,12 +69,20 @@ export default function Inspections() {
     lastInspectionDate: "",
     nextDueDate: "",
     notes: "",
+    legalBasis: CATEGORY_LEGAL_BASIS["elevator"],
     advanceAlertDays: 30,
   });
 
   function resetForm() {
-    setForm({ name: "", category: "elevator", frequencyPerYear: 1, lastInspectionDate: "", nextDueDate: "", notes: "", advanceAlertDays: 30 });
+    setForm({ name: "", category: "elevator", frequencyPerYear: 1, lastInspectionDate: "", nextDueDate: "", notes: "", legalBasis: CATEGORY_LEGAL_BASIS["elevator"], advanceAlertDays: 30 });
     setEditing(null);
+  }
+
+  function handleCategoryChange(v: string) {
+    const defaultLegal = CATEGORY_LEGAL_BASIS[v] || "";
+    const oldDefault = CATEGORY_LEGAL_BASIS[form.category] || "";
+    const shouldAutoFill = !form.legalBasis || form.legalBasis === oldDefault;
+    setForm({ ...form, category: v, legalBasis: shouldAutoFill ? defaultLegal : form.legalBasis });
   }
 
   function openEdit(item: any) {
@@ -83,6 +94,7 @@ export default function Inspections() {
       lastInspectionDate: item.lastInspectionDate || "",
       nextDueDate: item.nextDueDate,
       notes: item.notes || "",
+      legalBasis: item.legalBasis || CATEGORY_LEGAL_BASIS[item.category] || "",
       advanceAlertDays: item.advanceAlertDays,
     });
     setDialogOpen(true);
@@ -97,6 +109,7 @@ export default function Inspections() {
       lastInspectionDate: form.lastInspectionDate || null,
       nextDueDate: form.nextDueDate,
       notes: form.notes || null,
+      legalBasis: form.legalBasis || null,
       advanceAlertDays: form.advanceAlertDays,
     };
 
@@ -116,6 +129,11 @@ export default function Inspections() {
     await deleteMutation.mutateAsync({ id });
     queryClient.invalidateQueries({ queryKey: getListInspectionsQueryKey() });
     toast({ title: "점검 일정이 삭제되었습니다" });
+  }
+
+  function openNotice(item: any) {
+    setNoticeTarget(item);
+    setNoticeOpen(true);
   }
 
   const categoryLabel = (c: string) =>
@@ -161,7 +179,7 @@ export default function Inspections() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>분류</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                  <Select value={form.category} onValueChange={handleCategoryChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {categoryOptions.map((o) => (
@@ -184,6 +202,10 @@ export default function Inspections() {
                   <Label>다음 예정일</Label>
                   <Input type="date" value={form.nextDueDate} onChange={(e) => setForm({ ...form, nextDueDate: e.target.value })} required />
                 </div>
+              </div>
+              <div>
+                <Label>법정근거</Label>
+                <Input value={form.legalBasis} onChange={(e) => setForm({ ...form, legalBasis: e.target.value })} placeholder="예: 승강기 안전관리법 제32조" />
               </div>
               <div>
                 <Label>사전 알림 일수</Label>
@@ -224,6 +246,17 @@ export default function Inspections() {
                           연 {item.frequencyPerYear}회
                         </span>
                       </div>
+                      {item.status === "scheduled" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => openNotice(item)}
+                        >
+                          <Printer className="w-3.5 h-3.5 mr-1" />
+                          안내문 출력
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -255,6 +288,20 @@ export default function Inspections() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {noticeTarget && (
+        <InspectionNotice
+          key={noticeTarget.id}
+          open={noticeOpen}
+          onOpenChange={(o) => { setNoticeOpen(o); if (!o) setNoticeTarget(null); }}
+          inspection={{
+            name: noticeTarget.name,
+            category: noticeTarget.category,
+            nextDueDate: typeof noticeTarget.nextDueDate === "string" ? noticeTarget.nextDueDate : new Date(noticeTarget.nextDueDate).toISOString().split("T")[0],
+            legalBasis: noticeTarget.legalBasis,
+          }}
+        />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ export const inspectionsTable = pgTable("inspections", {
   nextDueDate: date("next_due_date").notNull(),
   status: text("status").notNull().default("upcoming"),
   notes: text("notes"),
+  legalBasis: text("legal_basis"),
   advanceAlertDays: integer("advance_alert_days").notNull().default(30),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

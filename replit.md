@@ -21,7 +21,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 
 1. **Dashboard** - Overview with task counts, inspection alerts, tax reminders, commission stats
 2. **Task Management (업무 관리)** - Daily/weekly to-do list with category, priority, status filters
-3. **Legal Inspections (법정 점검)** - Elevator, water tank, fire safety, electrical inspections with advance alerts
+3. **Legal Inspections (법정 점검)** - Elevator, water tank, fire safety, electrical inspections with advance alerts, legal basis tracking, and printable inspection notices for scheduled items
 4. **Tax Schedules (세무 일정)** - Withholding tax, VAT, property tax tracking with recurrence
 5. **Vendor Management (협력업체)** - Vendor registry with category, contact info, ratings, recommendations
 6. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
@@ -30,7 +30,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 ## Database Tables
 
 - `tasks` - To-do items with category, priority, status, due dates
-- `inspections` - Legal inspection cycles with frequency, advance alert days
+- `inspections` - Legal inspection cycles with frequency, advance alert days, legal basis (legalBasis)
 - `tax_schedules` - Tax/accounting schedules with recurrence patterns
 - `vendors` - Vendor registry with contact info and ratings
 - `commissions` - Commission records from vendor matching

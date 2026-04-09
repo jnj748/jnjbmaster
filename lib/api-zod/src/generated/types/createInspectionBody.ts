@@ -16,5 +16,7 @@ export interface CreateInspectionBody {
   nextDueDate: Date;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
   advanceAlertDays?: number;
 }
