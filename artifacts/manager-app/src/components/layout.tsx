@@ -25,6 +25,8 @@ import {
   Bell,
   LogOut,
   Package,
+  Send,
+  ClipboardCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +47,8 @@ const buildingNavItems = [
   { path: "/owners", label: "소유자 관리", icon: UserCheck },
   { path: "/vehicles", label: "차량 관리", icon: Car },
   { path: "/vendors", label: "협력업체", icon: Building2 },
+  { path: "/rfqs", label: "견적 요청", icon: Send },
+  { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
   { path: "/commissions", label: "수수료", icon: Coins },
   { path: "/reports", label: "주간보고", icon: FileText },
 ];

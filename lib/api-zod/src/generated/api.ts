@@ -775,6 +775,410 @@ export const UpdateCommissionResponse = zod.object({
 });
 
 /**
+ * @summary List RFQs
+ */
+export const ListRfqsQueryParams = zod.object({
+  status: zod.enum(["open", "closed", "cancelled"]).optional(),
+  vendorId: zod.coerce.number().optional(),
+});
+
+export const ListRfqsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  description: zod.string().nullish(),
+  buildingName: zod.string(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date(),
+  status: zod.enum(["open", "closed", "cancelled"]),
+  vendorIds: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListRfqsResponse = zod.array(ListRfqsResponseItem);
+
+/**
+ * @summary Create an RFQ
+ */
+export const CreateRfqBody = zod.object({
+  title: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  description: zod.string().nullish(),
+  buildingName: zod.string(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date(),
+  vendorIds: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single RFQ
+ */
+export const GetRfqParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetRfqResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  description: zod.string().nullish(),
+  buildingName: zod.string(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date(),
+  status: zod.enum(["open", "closed", "cancelled"]),
+  vendorIds: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update an RFQ
+ */
+export const UpdateRfqParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateRfqBody = zod.object({
+  title: zod.string().optional(),
+  category: zod
+    .enum([
+      "elevator",
+      "water_tank",
+      "fire_safety",
+      "electrical",
+      "gas",
+      "septic",
+      "cleaning",
+      "security",
+      "other",
+    ])
+    .optional(),
+  description: zod.string().nullish(),
+  buildingName: zod.string().optional(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date().optional(),
+  status: zod.enum(["open", "closed", "cancelled"]).optional(),
+  vendorIds: zod.string().nullish(),
+});
+
+export const UpdateRfqResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  description: zod.string().nullish(),
+  buildingName: zod.string(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date(),
+  status: zod.enum(["open", "closed", "cancelled"]),
+  vendorIds: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete an RFQ
+ */
+export const DeleteRfqParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List quotes
+ */
+export const ListQuotesQueryParams = zod.object({
+  rfqId: zod.coerce.number().optional(),
+  vendorId: zod.coerce.number().optional(),
+  status: zod.enum(["submitted", "accepted", "rejected"]).optional(),
+});
+
+export const ListQuotesResponseItem = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  totalAmount: zod.number(),
+  itemBreakdown: zod.string().nullish(),
+  scope: zod.string().nullish(),
+  estimatedDays: zod.number().nullish(),
+  availableDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["submitted", "accepted", "rejected"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListQuotesResponse = zod.array(ListQuotesResponseItem);
+
+/**
+ * @summary Submit a quote
+ */
+export const CreateQuoteBody = zod.object({
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  totalAmount: zod.number(),
+  itemBreakdown: zod.string().nullish(),
+  scope: zod.string().nullish(),
+  estimatedDays: zod.number().nullish(),
+  availableDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a quote
+ */
+export const GetQuoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetQuoteResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  totalAmount: zod.number(),
+  itemBreakdown: zod.string().nullish(),
+  scope: zod.string().nullish(),
+  estimatedDays: zod.number().nullish(),
+  availableDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["submitted", "accepted", "rejected"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a quote status
+ */
+export const UpdateQuoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateQuoteBody = zod.object({
+  status: zod.enum(["submitted", "accepted", "rejected"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateQuoteResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  totalAmount: zod.number(),
+  itemBreakdown: zod.string().nullish(),
+  scope: zod.string().nullish(),
+  estimatedDays: zod.number().nullish(),
+  availableDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["submitted", "accepted", "rejected"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List work reports
+ */
+export const ListWorkReportsQueryParams = zod.object({
+  vendorId: zod.coerce.number().optional(),
+  status: zod.enum(["submitted", "approved", "rejected"]).optional(),
+});
+
+export const ListWorkReportsResponseItem = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  completionDate: zod.coerce.date(),
+  photoUrls: zod.string().nullish(),
+  status: zod.enum(["submitted", "approved", "rejected"]),
+  reviewNotes: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListWorkReportsResponse = zod.array(ListWorkReportsResponseItem);
+
+/**
+ * @summary Submit a work report
+ */
+export const CreateWorkReportBody = zod.object({
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  completionDate: zod.coerce.date(),
+  photoUrls: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a work report
+ */
+export const GetWorkReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetWorkReportResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  completionDate: zod.coerce.date(),
+  photoUrls: zod.string().nullish(),
+  status: zod.enum(["submitted", "approved", "rejected"]),
+  reviewNotes: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Review a work report
+ */
+export const UpdateWorkReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateWorkReportBody = zod.object({
+  status: zod.enum(["submitted", "approved", "rejected"]).optional(),
+  reviewNotes: zod.string().nullish(),
+});
+
+export const UpdateWorkReportResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  completionDate: zod.coerce.date(),
+  photoUrls: zod.string().nullish(),
+  status: zod.enum(["submitted", "approved", "rejected"]),
+  reviewNotes: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List settlements
+ */
+export const ListSettlementsQueryParams = zod.object({
+  vendorId: zod.coerce.number().optional(),
+  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]).optional(),
+});
+
+export const ListSettlementsResponseItem = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  contractAmount: zod.number(),
+  feeRate: zod.number(),
+  feeAmount: zod.number(),
+  paymentAmount: zod.number(),
+  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
+  paidAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSettlementsResponse = zod.array(ListSettlementsResponseItem);
+
+/**
+ * @summary Create a settlement
+ */
+export const CreateSettlementBody = zod.object({
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  contractAmount: zod.number(),
+  feeRate: zod.number(),
+  feeAmount: zod.number(),
+  paymentAmount: zod.number(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update settlement status
+ */
+export const UpdateSettlementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSettlementBody = zod.object({
+  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]).optional(),
+  paidAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSettlementResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  quoteId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  contractAmount: zod.number(),
+  feeRate: zod.number(),
+  feeAmount: zod.number(),
+  paymentAmount: zod.number(),
+  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
+  paidAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List all draft documents
  */
 export const ListDraftsResponseItem = zod.object({

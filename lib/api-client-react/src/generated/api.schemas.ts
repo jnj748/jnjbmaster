@@ -601,6 +601,290 @@ export interface UpdateCommissionBody {
   notes?: string | null;
 }
 
+export type RfqCategory = (typeof RfqCategory)[keyof typeof RfqCategory];
+
+export const RfqCategory = {
+  elevator: "elevator",
+  water_tank: "water_tank",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  gas: "gas",
+  septic: "septic",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export type RfqStatus = (typeof RfqStatus)[keyof typeof RfqStatus];
+
+export const RfqStatus = {
+  open: "open",
+  closed: "closed",
+  cancelled: "cancelled",
+} as const;
+
+export interface Rfq {
+  id: number;
+  title: string;
+  category: RfqCategory;
+  /** @nullable */
+  description?: string | null;
+  buildingName: string;
+  /** @nullable */
+  desiredDate?: string | null;
+  deadline: string;
+  status: RfqStatus;
+  /** @nullable */
+  vendorIds?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateRfqBodyCategory =
+  (typeof CreateRfqBodyCategory)[keyof typeof CreateRfqBodyCategory];
+
+export const CreateRfqBodyCategory = {
+  elevator: "elevator",
+  water_tank: "water_tank",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  gas: "gas",
+  septic: "septic",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export interface CreateRfqBody {
+  title: string;
+  category: CreateRfqBodyCategory;
+  /** @nullable */
+  description?: string | null;
+  buildingName: string;
+  /** @nullable */
+  desiredDate?: string | null;
+  deadline: string;
+  /** @nullable */
+  vendorIds?: string | null;
+}
+
+export type UpdateRfqBodyCategory =
+  (typeof UpdateRfqBodyCategory)[keyof typeof UpdateRfqBodyCategory];
+
+export const UpdateRfqBodyCategory = {
+  elevator: "elevator",
+  water_tank: "water_tank",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  gas: "gas",
+  septic: "septic",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export type UpdateRfqBodyStatus =
+  (typeof UpdateRfqBodyStatus)[keyof typeof UpdateRfqBodyStatus];
+
+export const UpdateRfqBodyStatus = {
+  open: "open",
+  closed: "closed",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateRfqBody {
+  title?: string;
+  category?: UpdateRfqBodyCategory;
+  /** @nullable */
+  description?: string | null;
+  buildingName?: string;
+  /** @nullable */
+  desiredDate?: string | null;
+  deadline?: string;
+  status?: UpdateRfqBodyStatus;
+  /** @nullable */
+  vendorIds?: string | null;
+}
+
+export type QuoteStatus = (typeof QuoteStatus)[keyof typeof QuoteStatus];
+
+export const QuoteStatus = {
+  submitted: "submitted",
+  accepted: "accepted",
+  rejected: "rejected",
+} as const;
+
+export interface Quote {
+  id: number;
+  rfqId: number;
+  vendorId: number;
+  vendorName: string;
+  totalAmount: number;
+  /** @nullable */
+  itemBreakdown?: string | null;
+  /** @nullable */
+  scope?: string | null;
+  /** @nullable */
+  estimatedDays?: number | null;
+  /** @nullable */
+  availableDate?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status: QuoteStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateQuoteBody {
+  rfqId: number;
+  vendorId: number;
+  vendorName: string;
+  totalAmount: number;
+  /** @nullable */
+  itemBreakdown?: string | null;
+  /** @nullable */
+  scope?: string | null;
+  /** @nullable */
+  estimatedDays?: number | null;
+  /** @nullable */
+  availableDate?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateQuoteBodyStatus =
+  (typeof UpdateQuoteBodyStatus)[keyof typeof UpdateQuoteBodyStatus];
+
+export const UpdateQuoteBodyStatus = {
+  submitted: "submitted",
+  accepted: "accepted",
+  rejected: "rejected",
+} as const;
+
+export interface UpdateQuoteBody {
+  status?: UpdateQuoteBodyStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type WorkReportStatus =
+  (typeof WorkReportStatus)[keyof typeof WorkReportStatus];
+
+export const WorkReportStatus = {
+  submitted: "submitted",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface WorkReport {
+  id: number;
+  rfqId: number;
+  quoteId: number;
+  vendorId: number;
+  vendorName: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  completionDate: string;
+  /** @nullable */
+  photoUrls?: string | null;
+  status: WorkReportStatus;
+  /** @nullable */
+  reviewNotes?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWorkReportBody {
+  rfqId: number;
+  quoteId: number;
+  vendorId: number;
+  vendorName: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  completionDate: string;
+  /** @nullable */
+  photoUrls?: string | null;
+}
+
+export type UpdateWorkReportBodyStatus =
+  (typeof UpdateWorkReportBodyStatus)[keyof typeof UpdateWorkReportBodyStatus];
+
+export const UpdateWorkReportBodyStatus = {
+  submitted: "submitted",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface UpdateWorkReportBody {
+  status?: UpdateWorkReportBodyStatus;
+  /** @nullable */
+  reviewNotes?: string | null;
+}
+
+export type SettlementStatus =
+  (typeof SettlementStatus)[keyof typeof SettlementStatus];
+
+export const SettlementStatus = {
+  pending: "pending",
+  confirmed: "confirmed",
+  paid: "paid",
+  cancelled: "cancelled",
+} as const;
+
+export interface Settlement {
+  id: number;
+  rfqId: number;
+  quoteId: number;
+  vendorId: number;
+  vendorName: string;
+  contractAmount: number;
+  feeRate: number;
+  feeAmount: number;
+  paymentAmount: number;
+  status: SettlementStatus;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSettlementBody {
+  rfqId: number;
+  quoteId: number;
+  vendorId: number;
+  vendorName: string;
+  contractAmount: number;
+  feeRate: number;
+  feeAmount: number;
+  paymentAmount: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateSettlementBodyStatus =
+  (typeof UpdateSettlementBodyStatus)[keyof typeof UpdateSettlementBodyStatus];
+
+export const UpdateSettlementBodyStatus = {
+  pending: "pending",
+  confirmed: "confirmed",
+  paid: "paid",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateSettlementBody {
+  status?: UpdateSettlementBodyStatus;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export type WeeklyReportNextWeekInspectionsItem = {
   id: number;
   name: string;
@@ -1272,6 +1556,64 @@ export const ListVendorsType = {
 export type GetRecommendedVendorsParams = {
   category: string;
 };
+
+export type ListRfqsParams = {
+  status?: ListRfqsStatus;
+  vendorId?: number;
+};
+
+export type ListRfqsStatus =
+  (typeof ListRfqsStatus)[keyof typeof ListRfqsStatus];
+
+export const ListRfqsStatus = {
+  open: "open",
+  closed: "closed",
+  cancelled: "cancelled",
+} as const;
+
+export type ListQuotesParams = {
+  rfqId?: number;
+  vendorId?: number;
+  status?: ListQuotesStatus;
+};
+
+export type ListQuotesStatus =
+  (typeof ListQuotesStatus)[keyof typeof ListQuotesStatus];
+
+export const ListQuotesStatus = {
+  submitted: "submitted",
+  accepted: "accepted",
+  rejected: "rejected",
+} as const;
+
+export type ListWorkReportsParams = {
+  vendorId?: number;
+  status?: ListWorkReportsStatus;
+};
+
+export type ListWorkReportsStatus =
+  (typeof ListWorkReportsStatus)[keyof typeof ListWorkReportsStatus];
+
+export const ListWorkReportsStatus = {
+  submitted: "submitted",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type ListSettlementsParams = {
+  vendorId?: number;
+  status?: ListSettlementsStatus;
+};
+
+export type ListSettlementsStatus =
+  (typeof ListSettlementsStatus)[keyof typeof ListSettlementsStatus];
+
+export const ListSettlementsStatus = {
+  pending: "pending",
+  confirmed: "confirmed",
+  paid: "paid",
+  cancelled: "cancelled",
+} as const;
 
 export type GetWeeklyReportParams = {
   weekStart: string;

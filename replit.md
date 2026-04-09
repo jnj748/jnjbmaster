@@ -28,6 +28,11 @@ AI-powered property management work tool for Korean apartment/building managers 
 7. **Vehicle Management (차량 관리)** - Vehicle registration cards with primary/additional vehicles, ownership-based document requirements
 8. **Vendor Management (협력업체)** - Vendor registry with two types: contracted (building-specific) and platform (self-registered). Portal selection screen at app entry.
 9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
+14. **RFQ Management (견적 요청)** - Create and manage RFQs, send to platform vendors, compare submitted quotes
+15. **Quote Submission (견적서)** - Vendor quote submission and acceptance/rejection workflow
+16. **Work Reports (작업 완료 보고)** - Photo-attached work completion reports with manager inspection approval/rejection
+17. **Settlements (정산)** - Contract amount, fee deduction, payment status tracking for vendors
+18. **Vendor Portal (업체 포털)** - Full vendor dashboard with RFQ viewing, quote submission, work reports, settlement monitoring
 10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
 11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
 12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
@@ -59,6 +64,10 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `vehicles` - Vehicle registration cards with FK to tenants, ownership type, document checklist
 - `notifications` - In-app notifications with read status, related entity references
 - `document_checklists` - Dedicated document checklist table with entity_type/entity_id/document_name unique constraint
+- `rfqs` - RFQ (Request for Quotation) records with category, building, deadline, target vendor IDs
+- `quotes` - Vendor-submitted quotes with amount, scope, estimated days, status (submitted/accepted/rejected)
+- `work_reports` - Work completion reports with photo URLs, review status (submitted/approved/rejected)
+- `settlements` - Settlement records with contract amount, fee rate/amount, payment status
 
 ## Key Commands
 
@@ -131,10 +140,26 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `GET /api/vendors/recommend` - Recommended vendors by category
 - `POST /api/vendors/register` - Platform vendor self-registration
 
+### RFQs (견적 요청)
+- `GET/POST /api/rfqs` - List/create RFQs (filterable by status, vendorId)
+- `GET/PATCH/DELETE /api/rfqs/:id` - Get/update/delete RFQ
+
+### Quotes (견적서)
+- `GET/POST /api/quotes` - List/create quotes (filterable by rfqId, vendorId, status)
+- `GET/PATCH /api/quotes/:id` - Get/update quote status
+
+### Work Reports (작업 완료 보고)
+- `GET/POST /api/work-reports` - List/create work reports (filterable by vendorId, status)
+- `GET/PATCH /api/work-reports/:id` - Get/review work report
+
+### Settlements (정산)
+- `GET/POST /api/settlements` - List/create settlements (filterable by vendorId, status)
+- `PATCH /api/settlements/:id` - Update settlement status
+
 ### App Routing
 - `/` - Portal selection (건물관리 관계자 / 가입업체)
-- `/manager/*` - Manager app (dashboard, tasks, inspections, etc.)
-- `/vendor-portal` - Platform vendor portal (placeholder)
+- `/manager/*` - Manager app (dashboard, tasks, inspections, rfqs, work-reports, etc.)
+- `/vendor-portal` - Vendor portal with login, dashboard, RFQ list, quote submission, work reports, settlements
 
 ### Commissions
 - `GET/POST /api/commissions` - List/create commissions

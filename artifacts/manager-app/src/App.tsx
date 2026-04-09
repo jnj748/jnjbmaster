@@ -10,6 +10,8 @@ import Inspections from "@/pages/inspections";
 import TaxSchedules from "@/pages/tax-schedules";
 import Vendors from "@/pages/vendors";
 import Commissions from "@/pages/commissions";
+import Rfqs from "@/pages/rfqs";
+import WorkReportsPage from "@/pages/work-reports";
 import Reports from "@/pages/reports";
 import Drafts from "@/pages/drafts";
 import Tenants from "@/pages/tenants";
@@ -35,6 +37,8 @@ function AuthenticatedRoutes() {
         <Route path="/tax-schedules" component={TaxSchedules} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/commissions" component={Commissions} />
+        <Route path="/rfqs" component={Rfqs} />
+        <Route path="/work-reports" component={WorkReportsPage} />
         <Route path="/reports" component={Reports} />
         <Route path="/drafts" component={Drafts} />
         <Route path="/tenants" component={Tenants} />

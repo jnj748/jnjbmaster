@@ -575,6 +575,362 @@ paths:
               schema:
                 $ref: "#/components/schemas/Commission"
 
+  # ── RFQs (견적요청) ──────────────────────────────────────
+  /rfqs:
+    get:
+      operationId: listRfqs
+      tags: [vendors]
+      summary: List RFQs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, cancelled]
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: RFQ list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rfq"
+    post:
+      operationId: createRfq
+      tags: [vendors]
+      summary: Create an RFQ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRfqBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+
+  /rfqs/{id}:
+    get:
+      operationId: getRfq
+      tags: [vendors]
+      summary: Get a single RFQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: RFQ detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateRfq
+      tags: [vendors]
+      summary: Update an RFQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRfqBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteRfq
+      tags: [vendors]
+      summary: Delete an RFQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Quotes (견적서) ─────────────────────────────────────
+  /quotes:
+    get:
+      operationId: listQuotes
+      tags: [vendors]
+      summary: List quotes
+      parameters:
+        - name: rfqId
+          in: query
+          schema:
+            type: integer
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [submitted, accepted, rejected]
+      responses:
+        "200":
+          description: Quote list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+    post:
+      operationId: createQuote
+      tags: [vendors]
+      summary: Submit a quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /quotes/{id}:
+    get:
+      operationId: getQuote
+      tags: [vendors]
+      summary: Get a quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quote detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateQuote
+      tags: [vendors]
+      summary: Update a quote status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuoteBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          description: Not found
+
+  # ── Work Reports (작업완료보고) ──────────────────────────
+  /work-reports:
+    get:
+      operationId: listWorkReports
+      tags: [vendors]
+      summary: List work reports
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [submitted, approved, rejected]
+      responses:
+        "200":
+          description: Work report list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkReport"
+    post:
+      operationId: createWorkReport
+      tags: [vendors]
+      summary: Submit a work report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkReportBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkReport"
+
+  /work-reports/{id}:
+    get:
+      operationId: getWorkReport
+      tags: [vendors]
+      summary: Get a work report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Work report detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkReport"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateWorkReport
+      tags: [vendors]
+      summary: Review a work report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkReportBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkReport"
+        "404":
+          description: Not found
+
+  # ── Settlements (정산) ──────────────────────────────────
+  /settlements:
+    get:
+      operationId: listSettlements
+      tags: [vendors]
+      summary: List settlements
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, paid, cancelled]
+      responses:
+        "200":
+          description: Settlement list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Settlement"
+    post:
+      operationId: createSettlement
+      tags: [vendors]
+      summary: Create a settlement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSettlementBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  /settlements/{id}:
+    patch:
+      operationId: updateSettlement
+      tags: [vendors]
+      summary: Update settlement status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettlementBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+        "404":
+          description: Not found
+
   # ── Drafts (기안서) ───────────────────────────────────────
   /drafts:
     get:
@@ -1664,6 +2020,354 @@ components:
         status:
           type: string
           enum: [pending, confirmed, paid, cancelled]
+        notes:
+          type: ["string", "null"]
+
+    Rfq:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        description:
+          type: ["string", "null"]
+        buildingName:
+          type: string
+        desiredDate:
+          type: ["string", "null"]
+          format: date
+        deadline:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [open, closed, cancelled]
+        vendorIds:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - buildingName
+        - deadline
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateRfqBody:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        description:
+          type: ["string", "null"]
+        buildingName:
+          type: string
+        desiredDate:
+          type: ["string", "null"]
+          format: date
+        deadline:
+          type: string
+          format: date
+        vendorIds:
+          type: ["string", "null"]
+      required:
+        - title
+        - category
+        - buildingName
+        - deadline
+
+    UpdateRfqBody:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        description:
+          type: ["string", "null"]
+        buildingName:
+          type: string
+        desiredDate:
+          type: ["string", "null"]
+          format: date
+        deadline:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [open, closed, cancelled]
+        vendorIds:
+          type: ["string", "null"]
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: integer
+        rfqId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        totalAmount:
+          type: number
+        itemBreakdown:
+          type: ["string", "null"]
+        scope:
+          type: ["string", "null"]
+        estimatedDays:
+          type: ["integer", "null"]
+        availableDate:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [submitted, accepted, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - rfqId
+        - vendorId
+        - vendorName
+        - totalAmount
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateQuoteBody:
+      type: object
+      properties:
+        rfqId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        totalAmount:
+          type: number
+        itemBreakdown:
+          type: ["string", "null"]
+        scope:
+          type: ["string", "null"]
+        estimatedDays:
+          type: ["integer", "null"]
+        availableDate:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+      required:
+        - rfqId
+        - vendorId
+        - vendorName
+        - totalAmount
+
+    UpdateQuoteBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [submitted, accepted, rejected]
+        notes:
+          type: ["string", "null"]
+
+    WorkReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        rfqId:
+          type: integer
+        quoteId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        completionDate:
+          type: string
+          format: date
+        photoUrls:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [submitted, approved, rejected]
+        reviewNotes:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - rfqId
+        - quoteId
+        - vendorId
+        - vendorName
+        - title
+        - completionDate
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateWorkReportBody:
+      type: object
+      properties:
+        rfqId:
+          type: integer
+        quoteId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        completionDate:
+          type: string
+          format: date
+        photoUrls:
+          type: ["string", "null"]
+      required:
+        - rfqId
+        - quoteId
+        - vendorId
+        - vendorName
+        - title
+        - completionDate
+
+    UpdateWorkReportBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [submitted, approved, rejected]
+        reviewNotes:
+          type: ["string", "null"]
+
+    Settlement:
+      type: object
+      properties:
+        id:
+          type: integer
+        rfqId:
+          type: integer
+        quoteId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        contractAmount:
+          type: number
+        feeRate:
+          type: number
+        feeAmount:
+          type: number
+        paymentAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, paid, cancelled]
+        paidAt:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - rfqId
+        - quoteId
+        - vendorId
+        - vendorName
+        - contractAmount
+        - feeRate
+        - feeAmount
+        - paymentAmount
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateSettlementBody:
+      type: object
+      properties:
+        rfqId:
+          type: integer
+        quoteId:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        contractAmount:
+          type: number
+        feeRate:
+          type: number
+        feeAmount:
+          type: number
+        paymentAmount:
+          type: number
+        notes:
+          type: ["string", "null"]
+      required:
+        - rfqId
+        - quoteId
+        - vendorId
+        - vendorName
+        - contractAmount
+        - feeRate
+        - feeAmount
+        - paymentAmount
+
+    UpdateSettlementBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, paid, cancelled]
+        paidAt:
+          type: ["string", "null"]
+          format: date
         notes:
           type: ["string", "null"]
 

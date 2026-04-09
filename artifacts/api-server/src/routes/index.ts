@@ -15,6 +15,10 @@ import notificationsRouter from "./notifications";
 import documentChecklistsRouter from "./documentChecklists";
 import usersRouter from "./users";
 import { authMiddleware } from "../middlewares/auth";
+import rfqsRouter from "./rfqs";
+import quotesRouter from "./quotes";
+import workReportsRouter from "./workReports";
+import settlementsRouter from "./settlements";
 
 const router: IRouter = Router();
 
@@ -28,6 +32,10 @@ router.use(inspectionsRouter);
 router.use(taxSchedulesRouter);
 router.use(vendorsRouter);
 router.use(commissionsRouter);
+router.use(rfqsRouter);
+router.use(quotesRouter);
+router.use(workReportsRouter);
+router.use(settlementsRouter);
 router.use(dashboardRouter);
 router.use(draftsRouter);
 router.use(tenantsRouter);
