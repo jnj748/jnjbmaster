@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: 관리의달인 API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tasks
+    description: Task / To-Do management
+  - name: inspections
+    description: Legal inspection cycle management
+  - name: taxSchedules
+    description: Tax & accounting schedule management
+  - name: reports
+    description: Auto-generated reports
+  - name: vendors
+    description: Vendor recommendation & quotes
+  - name: commissions
+    description: Commission tracking
+  - name: dashboard
+    description: Dashboard summaries
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,503 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Tasks (To-Do) ──────────────────────────────────────────
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List all tasks
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, in_progress, completed]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [high, medium, low]
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get a single task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Inspections (법정 점검) ─────────────────────────────────
+  /inspections:
+    get:
+      operationId: listInspections
+      tags: [inspections]
+      summary: List all legal inspections
+      responses:
+        "200":
+          description: Inspection list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Inspection"
+    post:
+      operationId: createInspection
+      tags: [inspections]
+      summary: Create an inspection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInspectionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+
+  /inspections/{id}:
+    patch:
+      operationId: updateInspection
+      tags: [inspections]
+      summary: Update an inspection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInspectionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+    delete:
+      operationId: deleteInspection
+      tags: [inspections]
+      summary: Delete an inspection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /inspections/upcoming:
+    get:
+      operationId: getUpcomingInspections
+      tags: [inspections]
+      summary: Get inspections due within 30 days
+      responses:
+        "200":
+          description: Upcoming inspections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Inspection"
+
+  # ── Tax Schedules (세무 일정) ───────────────────────────────
+  /tax-schedules:
+    get:
+      operationId: listTaxSchedules
+      tags: [taxSchedules]
+      summary: List tax/accounting schedules
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Schedule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxSchedule"
+    post:
+      operationId: createTaxSchedule
+      tags: [taxSchedules]
+      summary: Create a tax schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaxScheduleBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxSchedule"
+
+  /tax-schedules/{id}:
+    patch:
+      operationId: updateTaxSchedule
+      tags: [taxSchedules]
+      summary: Update a tax schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaxScheduleBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxSchedule"
+    delete:
+      operationId: deleteTaxSchedule
+      tags: [taxSchedules]
+      summary: Delete a tax schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Vendors (업체 관리) ────────────────────────────────────
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List vendors
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vendor list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVendorBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVendorBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /vendors/recommend:
+    get:
+      operationId: getRecommendedVendors
+      tags: [vendors]
+      summary: Get recommended vendors for a category
+      parameters:
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recommended vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+
+  # ── Commissions (수수료) ───────────────────────────────────
+  /commissions:
+    get:
+      operationId: listCommissions
+      tags: [commissions]
+      summary: List commission records
+      responses:
+        "200":
+          description: Commission list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Commission"
+    post:
+      operationId: createCommission
+      tags: [commissions]
+      summary: Create a commission record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommissionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Commission"
+
+  /commissions/{id}:
+    patch:
+      operationId: updateCommission
+      tags: [commissions]
+      summary: Update commission status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommissionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Commission"
+
+  # ── Reports (보고서) ───────────────────────────────────────
+  /reports/weekly:
+    get:
+      operationId: getWeeklyReport
+      tags: [reports]
+      summary: Get auto-generated weekly report
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyReport"
+
+  # ── Dashboard (대시보드) ───────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard overview
+      responses:
+        "200":
+          description: Summary data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/alerts:
+    get:
+      operationId: getDashboardAlerts
+      tags: [dashboard]
+      summary: Get active alerts and notifications
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +544,541 @@ components:
       required:
         - status
 
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+          enum: [daily_check, maintenance, administrative, tax, other]
+        priority:
+          type: string
+          enum: [high, medium, low]
+        status:
+          type: string
+          enum: [pending, in_progress, completed]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - priority
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateTaskBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+          enum: [daily_check, maintenance, administrative, tax, other]
+        priority:
+          type: string
+          enum: [high, medium, low]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+      required:
+        - title
+        - category
+        - priority
+
+    UpdateTaskBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+          enum: [daily_check, maintenance, administrative, tax, other]
+        priority:
+          type: string
+          enum: [high, medium, low]
+        status:
+          type: string
+          enum: [pending, in_progress, completed]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+
+    Inspection:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+        frequencyPerYear:
+          type: integer
+        lastInspectionDate:
+          type: ["string", "null"]
+          format: date
+        nextDueDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [upcoming, overdue, completed, scheduled]
+        notes:
+          type: ["string", "null"]
+        advanceAlertDays:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - frequencyPerYear
+        - nextDueDate
+        - status
+        - advanceAlertDays
+        - createdAt
+        - updatedAt
+
+    CreateInspectionBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+        frequencyPerYear:
+          type: integer
+        lastInspectionDate:
+          type: ["string", "null"]
+          format: date
+        nextDueDate:
+          type: string
+          format: date
+        notes:
+          type: ["string", "null"]
+        advanceAlertDays:
+          type: integer
+      required:
+        - name
+        - category
+        - frequencyPerYear
+        - nextDueDate
+
+    UpdateInspectionBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+        frequencyPerYear:
+          type: integer
+        lastInspectionDate:
+          type: ["string", "null"]
+          format: date
+        nextDueDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [upcoming, overdue, completed, scheduled]
+        notes:
+          type: ["string", "null"]
+        advanceAlertDays:
+          type: integer
+
+    TaxSchedule:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        scheduleType:
+          type: string
+          enum: [withholding_tax, vat, property_tax, insurance, other]
+        dueDate:
+          type: string
+          format: date
+        recurrence:
+          type: string
+          enum: [monthly, quarterly, biannual, annual, one_time]
+        status:
+          type: string
+          enum: [pending, completed, overdue]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - scheduleType
+        - dueDate
+        - recurrence
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateTaxScheduleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        scheduleType:
+          type: string
+          enum: [withholding_tax, vat, property_tax, insurance, other]
+        dueDate:
+          type: string
+          format: date
+        recurrence:
+          type: string
+          enum: [monthly, quarterly, biannual, annual, one_time]
+      required:
+        - title
+        - scheduleType
+        - dueDate
+        - recurrence
+
+    UpdateTaxScheduleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        scheduleType:
+          type: string
+          enum: [withholding_tax, vat, property_tax, insurance, other]
+        dueDate:
+          type: string
+          format: date
+        recurrence:
+          type: string
+          enum: [monthly, quarterly, biannual, annual, one_time]
+        status:
+          type: string
+          enum: [pending, completed, overdue]
+
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        contactName:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        rating:
+          type: ["number", "null"]
+        isRecommended:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - isRecommended
+        - createdAt
+        - updatedAt
+
+    CreateVendorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        contactName:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        rating:
+          type: ["number", "null"]
+        isRecommended:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required:
+        - name
+        - category
+
+    UpdateVendorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        contactName:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        rating:
+          type: ["number", "null"]
+        isRecommended:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+
+    Commission:
+      type: object
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        contractAmount:
+          type: number
+        commissionRate:
+          type: number
+        commissionAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, paid, cancelled]
+        matchedDate:
+          type: string
+          format: date
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - vendorId
+        - vendorName
+        - contractAmount
+        - commissionRate
+        - commissionAmount
+        - status
+        - matchedDate
+        - createdAt
+        - updatedAt
+
+    CreateCommissionBody:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        contractAmount:
+          type: number
+        commissionRate:
+          type: number
+        commissionAmount:
+          type: number
+        matchedDate:
+          type: string
+          format: date
+        notes:
+          type: ["string", "null"]
+      required:
+        - vendorId
+        - vendorName
+        - contractAmount
+        - commissionRate
+        - commissionAmount
+        - matchedDate
+
+    UpdateCommissionBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, paid, cancelled]
+        notes:
+          type: ["string", "null"]
+
+    WeeklyReport:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        totalTasks:
+          type: integer
+        completedTasks:
+          type: integer
+        pendingTasks:
+          type: integer
+        inspectionsDue:
+          type: integer
+        taxSchedulesDue:
+          type: integer
+        tasksByCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+        highlights:
+          type: array
+          items:
+            type: string
+      required:
+        - weekStart
+        - weekEnd
+        - totalTasks
+        - completedTasks
+        - pendingTasks
+        - inspectionsDue
+        - taxSchedulesDue
+        - tasksByCategory
+        - highlights
+
+    CategoryCount:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required:
+        - category
+        - count
+
+    DashboardSummary:
+      type: object
+      properties:
+        todayTaskCount:
+          type: integer
+        pendingTaskCount:
+          type: integer
+        overdueTaskCount:
+          type: integer
+        upcomingInspectionCount:
+          type: integer
+        pendingTaxCount:
+          type: integer
+        totalCommissionAmount:
+          type: number
+        pendingCommissionAmount:
+          type: number
+        completionRate:
+          type: number
+      required:
+        - todayTaskCount
+        - pendingTaskCount
+        - overdueTaskCount
+        - upcomingInspectionCount
+        - pendingTaxCount
+        - totalCommissionAmount
+        - pendingCommissionAmount
+        - completionRate
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [inspection_due, tax_due, task_overdue, vendor_recommendation]
+        title:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [critical, warning, info]
+        relatedId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - title
+        - message
+        - severity
+        - createdAt
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [task_completed, inspection_scheduled, tax_paid, vendor_matched, commission_received]
+        description:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - description
+        - timestamp

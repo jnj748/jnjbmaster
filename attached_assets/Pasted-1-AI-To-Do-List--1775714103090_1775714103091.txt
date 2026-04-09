@@ -1,0 +1,39 @@
+1. AI 어시스던트 기반 소장용 워크툴 기능
+가. 일정별 맞춤형 업무 피드 (To-Do List)
+일일/주간 업무 자동 생성: 경비·미화원이 작성한 일일 점검표(복장, 승강기, 청소 상태 등)를 AI가 분석하여, 소장이 당일 조치해야 할 특이사항을 우선순위로 보여줍니다
+.
+세무 및 회계 일정 관리: 매달 10일 원천징수 신고, 분기별 부가가치세 신고 등 잊기 쉬운 세무 일정을 달력에 자동 배정합니다
+.
+나. 법정 주기 알림 및 1개월 전 사전 알림
+주기적 법정 검사 알림: 승강기 안전점검(연 1회), 저수조 청소(연 2회), 소방점검(작동·정밀 연 1회) 등 법정 주기를 시스템이 기억하고 있습니다
+.
+사전 준비 알림: 법정 검사 한 달 전에 "다음 달은 저수조 청소 달입니다. 업체 선정 및 공고문을 준비하세요"라는 알림을 띄워 소장이 당황하지 않게 돕습니다
+.
+다. AI 자동 기안 및 보고서 생성
+주간업무일지 자동 초안: 한 주 동안 승인된 일일 지지들과 미납 관리비 현황 데이터를 취합하여 소장의 '주간업무일지' 초안을 자동으로 작성합니다
+.
+법정 서식 자동 완성: 입주자 카드 정보를 바탕으로 전입/전출 시 필요한 행정 서류나 차량등록 현황을 자동으로 업데이트하여 기안서 형태로 제공합니다
+.
+
+--------------------------------------------------------------------------------
+2. 비즈니스 모델 (BM): 업체 견적 추천 및 수수료
+이 시스템은 건물의 유지보수 주기에 맞춰 검증된 업체와의 매칭 서비스를 제공함으로써 수익을 창출합니다.
+맥락 기반 추천: AI가 '저수조 청소'나 '승강기 보험 가입' 알림을 보낼 때, 해당 건물의 위치와 규모에 적합한 협력 업체 견적 리스트를 함께 추천합니다
+.
+비교 견적 서비스: 소장이 여러 업체의 견적서를 일일이 받을 필요 없이, 플랫폼 내에서 바로 비교 견적을 요청하고 관리단 결재까지 올릴 수 있도록 연동합니다
+.
+수수료 구조: 추천된 업체와 계약이 성사될 경우, 해당 업체로부터 중개 수수료를 받는 모델을 구축하여 관리소의 비용 부담 없이 수익을 창출합니다 (사용자 요청 사항).
+
+--------------------------------------------------------------------------------
+3. Replit 구현을 위한 AI 에이전트 프롬프트 (추가)
+[Replit AI Assistant Logic Prompt]
+AI Assistant Module:
+Data Source: Pre-load the "Annual Task Plan" (연간업무계획표) and "Legal Inspection Cycles" (법정 점검 주기) into the database.
+Proactive Alerts:
+Trigger a notification for the Manager 30 days before any legal deadline (e.g., Fire safety, Water tank cleaning).
+Send a "Daily Briefing" every morning summarizing security/cleaning logs from the previous day.
+Drafting Engine:
+Create a function to auto-generate a "Weekly Report" draft by aggregating daily log status (○, △, ×) and unpaid fee data.
+Vendor Matching (BM):
+When a facility maintenance task (e.g., Septic tank cleaning) is due, display a "Recommend Partner Vendors" button.
+Implement a simple "Get Commission Status" dashboard for the platform admin to track successful matches.
