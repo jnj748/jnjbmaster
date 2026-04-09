@@ -27,7 +27,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 6. **Owner Management (소유자 관리)** - Owner card registration with document checklist and privacy consent
 7. **Vehicle Management (차량 관리)** - Vehicle registration cards with primary/additional vehicles, ownership-based document requirements
 8. **Vendor Management (협력업체)** - Vendor registry with two types: contracted (building-specific) and platform (self-registered). Portal selection screen at app entry.
-9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
+9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management, auto-settlement (5~10% tiered rate), AI-generated commission records
 10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
 11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
 12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
@@ -37,14 +37,10 @@ AI-powered property management work tool for Korean apartment/building managers 
 16. **Work Reports (작업 완료 보고)** - Photo-attached work completion reports with manager inspection approval/rejection
 17. **Settlements (정산)** - Contract amount, fee deduction, payment status tracking for vendors
 18. **Vendor Portal (업체 포털)** - Full vendor dashboard with RFQ viewing, quote submission, work reports, settlement monitoring
-10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
-11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
-12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
-13. **Export** - Tenant/owner/vehicle cards can be exported as PDF files (jsPDF)
-14. **Executive Dashboard (최고관리자)** - Dedicated dashboard for executives with KPI summary, pending approvals, spending overview
-15. **Approval Workflow (결재)** - Manager submits approval requests → executive reviews/approves/rejects. Tracks estimated amounts, vendor quotes, categories
-16. **Spending Dashboard (지출 현황)** - Category-wise spending breakdown, monthly trends, budget monitoring
-19. **Facility Management (시설관리)** - Dedicated facility management dashboard with safety checklists (electrical, fire safety, generator, water tank), maintenance work logs with manager report functionality, safety training management with monthly completion tracking, and scheduled facility alerts (generator bi-weekly, water tank monthly, fire/electrical inspections)
+19. **Executive Dashboard (최고관리자)** - Dedicated dashboard for executives with KPI summary, pending approvals, spending overview
+20. **Approval Workflow (결재)** - Manager submits approval requests → executive reviews/approves/rejects. Tracks estimated amounts, vendor quotes, categories
+21. **Spending Dashboard (지출 현황)** - Category-wise spending breakdown, monthly trends, budget monitoring
+22. **Facility Management (시설관리)** - Dedicated facility management dashboard with safety checklists (electrical, fire safety, generator, water tank), maintenance work logs with manager report functionality, safety training management with monthly completion tracking, and scheduled facility alerts (generator bi-weekly, water tank monthly, fire/electrical inspections)
 
 ## Authentication & Authorization
 
@@ -115,6 +111,8 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `POST /api/inspections/:id/complete` - Complete inspection with result logging
 - `GET /api/inspections/:id/logs` - Inspection history logs
 - `POST /api/inspections/generate-alerts` - Generate alerts and auto-draft documents
+- `POST /api/inspections/ai-matching` - AI matching: detect upcoming inspections, notify, recommend top 3 vendors, generate bid request drafts
+- `POST /api/inspections/:id/approve-matching` - Approve AI matching and auto-generate RFQs for recommended vendors
 
 ### Drafts
 - `GET /api/drafts` - List all draft documents
@@ -180,6 +178,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 
 ### Commissions
 - `GET/POST /api/commissions` - List/create commissions
+- `POST /api/commissions/auto-settle` - Auto-create commission with tiered rate (5~10%) on contract completion
 - `PATCH /api/commissions/:id` - Update commission status
 
 ### Approvals (결재)

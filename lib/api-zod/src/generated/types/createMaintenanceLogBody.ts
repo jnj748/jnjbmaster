@@ -12,8 +12,8 @@ export interface CreateMaintenanceLogBody {
   title: string;
   description: string;
   category: CreateMaintenanceLogBodyCategory;
-  workDate: Date;
-  worker: string;
+  workDate?: Date;
+  worker?: string;
   status?: CreateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;

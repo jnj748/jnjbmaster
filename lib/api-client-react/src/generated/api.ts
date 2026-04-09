@@ -18,9 +18,14 @@ import type {
 
 import type {
   ActivityItem,
+  AiMatchingResponse,
   Alert,
   Approval,
   ApprovalStats,
+  ApproveMatchingBody,
+  ApproveMatchingResponse,
+  AutoSettleCommissionBody,
+  AutoSettleCommissionResponse,
   Commission,
   CompleteInspectionBody,
   CreateApprovalBody,
@@ -30,10 +35,10 @@ import type {
   CreateOwnerBody,
   CreateQuoteBody,
   CreateRfqBody,
-  CreateSettlementBody,
   CreateSafetyChecklistBody,
   CreateSafetyChecklistItemBody,
   CreateSafetyTrainingBody,
+  CreateSettlementBody,
   CreateTaskBody,
   CreateTaxScheduleBody,
   CreateTenantBody,
@@ -63,9 +68,9 @@ import type {
   ListOwnersParams,
   ListQuotesParams,
   ListRfqsParams,
-  ListSettlementsParams,
   ListSafetyChecklistsParams,
   ListSafetyTrainingsParams,
+  ListSettlementsParams,
   ListTasksParams,
   ListTaxSchedulesParams,
   ListTenantsParams,
@@ -79,11 +84,11 @@ import type {
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   Rfq,
-  Settlement,
   SafetyChecklist,
   SafetyChecklistDetail,
   SafetyChecklistItem,
   SafetyTraining,
+  Settlement,
   Task,
   TaxSchedule,
   Tenant,
@@ -94,10 +99,10 @@ import type {
   UpdateOwnerBody,
   UpdateQuoteBody,
   UpdateRfqBody,
-  UpdateSettlementBody,
   UpdateSafetyChecklistBody,
   UpdateSafetyChecklistItemBody,
   UpdateSafetyTrainingBody,
+  UpdateSettlementBody,
   UpdateTaskBody,
   UpdateTaxScheduleBody,
   UpdateTenantBody,
@@ -1362,6 +1367,178 @@ export function useGetUpcomingInspections<
 }
 
 /**
+ * @summary Trigger AI matching - detect upcoming inspections, notify, recommend vendors, generate drafts
+ */
+export const getTriggerAiMatchingUrl = () => {
+  return `/api/inspections/ai-matching`;
+};
+
+export const triggerAiMatching = async (
+  options?: RequestInit,
+): Promise<AiMatchingResponse> => {
+  return customFetch<AiMatchingResponse>(getTriggerAiMatchingUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getTriggerAiMatchingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerAiMatching>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof triggerAiMatching>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["triggerAiMatching"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof triggerAiMatching>>,
+    void
+  > = () => {
+    return triggerAiMatching(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TriggerAiMatchingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof triggerAiMatching>>
+>;
+
+export type TriggerAiMatchingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Trigger AI matching - detect upcoming inspections, notify, recommend vendors, generate drafts
+ */
+export const useTriggerAiMatching = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerAiMatching>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof triggerAiMatching>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTriggerAiMatchingMutationOptions(options));
+};
+
+/**
+ * @summary Approve AI matching - auto-generate RFQs for recommended vendors
+ */
+export const getApproveInspectionMatchingUrl = (id: number) => {
+  return `/api/inspections/${id}/approve-matching`;
+};
+
+export const approveInspectionMatching = async (
+  id: number,
+  approveMatchingBody: ApproveMatchingBody,
+  options?: RequestInit,
+): Promise<ApproveMatchingResponse> => {
+  return customFetch<ApproveMatchingResponse>(
+    getApproveInspectionMatchingUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(approveMatchingBody),
+    },
+  );
+};
+
+export const getApproveInspectionMatchingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveInspectionMatching>>,
+    TError,
+    { id: number; data: BodyType<ApproveMatchingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveInspectionMatching>>,
+  TError,
+  { id: number; data: BodyType<ApproveMatchingBody> },
+  TContext
+> => {
+  const mutationKey = ["approveInspectionMatching"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveInspectionMatching>>,
+    { id: number; data: BodyType<ApproveMatchingBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return approveInspectionMatching(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveInspectionMatchingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveInspectionMatching>>
+>;
+export type ApproveInspectionMatchingMutationBody =
+  BodyType<ApproveMatchingBody>;
+export type ApproveInspectionMatchingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve AI matching - auto-generate RFQs for recommended vendors
+ */
+export const useApproveInspectionMatching = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveInspectionMatching>>,
+    TError,
+    { id: number; data: BodyType<ApproveMatchingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveInspectionMatching>>,
+  TError,
+  { id: number; data: BodyType<ApproveMatchingBody> },
+  TContext
+> => {
+  return useMutation(getApproveInspectionMatchingMutationOptions(options));
+};
+
+/**
  * @summary List tax/accounting schedules
  */
 export const getListTaxSchedulesUrl = (params?: ListTaxSchedulesParams) => {
@@ -2499,6 +2676,96 @@ export const useUpdateCommission = <
   TContext
 > => {
   return useMutation(getUpdateCommissionMutationOptions(options));
+};
+
+/**
+ * @summary Auto-create commission record when contract completes
+ */
+export const getAutoSettleCommissionUrl = () => {
+  return `/api/commissions/auto-settle`;
+};
+
+export const autoSettleCommission = async (
+  autoSettleCommissionBody: AutoSettleCommissionBody,
+  options?: RequestInit,
+): Promise<AutoSettleCommissionResponse> => {
+  return customFetch<AutoSettleCommissionResponse>(
+    getAutoSettleCommissionUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(autoSettleCommissionBody),
+    },
+  );
+};
+
+export const getAutoSettleCommissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof autoSettleCommission>>,
+    TError,
+    { data: BodyType<AutoSettleCommissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof autoSettleCommission>>,
+  TError,
+  { data: BodyType<AutoSettleCommissionBody> },
+  TContext
+> => {
+  const mutationKey = ["autoSettleCommission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof autoSettleCommission>>,
+    { data: BodyType<AutoSettleCommissionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return autoSettleCommission(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AutoSettleCommissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof autoSettleCommission>>
+>;
+export type AutoSettleCommissionMutationBody =
+  BodyType<AutoSettleCommissionBody>;
+export type AutoSettleCommissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Auto-create commission record when contract completes
+ */
+export const useAutoSettleCommission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof autoSettleCommission>>,
+    TError,
+    { data: BodyType<AutoSettleCommissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof autoSettleCommission>>,
+  TError,
+  { data: BodyType<AutoSettleCommissionBody> },
+  TContext
+> => {
+  return useMutation(getAutoSettleCommissionMutationOptions(options));
 };
 
 /**

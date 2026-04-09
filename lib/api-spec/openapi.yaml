@@ -324,6 +324,44 @@ paths:
                 items:
                   $ref: "#/components/schemas/Inspection"
 
+  /inspections/ai-matching:
+    post:
+      operationId: triggerAiMatching
+      tags: [inspections]
+      summary: Trigger AI matching - detect upcoming inspections, notify, recommend vendors, generate drafts
+      responses:
+        "200":
+          description: AI matching results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiMatchingResponse"
+
+  /inspections/{id}/approve-matching:
+    post:
+      operationId: approveInspectionMatching
+      tags: [inspections]
+      summary: Approve AI matching - auto-generate RFQs for recommended vendors
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveMatchingBody"
+      responses:
+        "200":
+          description: Matching approved and RFQs created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApproveMatchingResponse"
+
   # ── Tax Schedules (세무 일정) ───────────────────────────────
   /tax-schedules:
     get:
@@ -582,6 +620,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Commission"
+
+  /commissions/auto-settle:
+    post:
+      operationId: autoSettleCommission
+      tags: [commissions]
+      summary: Auto-create commission record when contract completes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutoSettleCommissionBody"
+      responses:
+        "201":
+          description: Commission auto-settled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoSettleCommissionResponse"
 
   # ── RFQs (견적요청) ──────────────────────────────────────
   /rfqs:
@@ -3801,6 +3858,59 @@ components:
         - isSubmitted
 
     Approval:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requesterId:
+          type: integer
+        requesterName:
+          type: string
+        approverId:
+          type: ["integer", "null"]
+        approverName:
+          type: ["string", "null"]
+        estimatedAmount:
+          type: ["number", "null"]
+        vendorName:
+          type: ["string", "null"]
+        vendorQuoteDetails:
+          type: ["string", "null"]
+        relatedDraftId:
+          type: ["integer", "null"]
+        relatedInspectionId:
+          type: ["integer", "null"]
+        rejectionReason:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - category
+        - status
+        - requesterId
+        - requesterName
+        - createdAt
+        - updatedAt
+
     SafetyChecklist:
       type: object
       properties:
@@ -3993,32 +4103,6 @@ components:
           type: string
         category:
           type: string
-        status:
-          type: string
-          enum: [pending, approved, rejected]
-        requesterId:
-          type: integer
-        requesterName:
-          type: string
-        approverId:
-          type: ["integer", "null"]
-        approverName:
-          type: ["string", "null"]
-        estimatedAmount:
-          type: ["number", "null"]
-        vendorName:
-          type: ["string", "null"]
-        vendorQuoteDetails:
-          type: ["string", "null"]
-        relatedDraftId:
-          type: ["integer", "null"]
-        relatedInspectionId:
-          type: ["integer", "null"]
-        rejectionReason:
-          type: ["string", "null"]
-        approvedAt:
-          type: ["string", "null"]
-          format: date-time
           enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
         workDate:
           type: string
@@ -4046,13 +4130,6 @@ components:
         - title
         - description
         - category
-        - status
-        - requesterId
-        - requesterName
-        - createdAt
-        - updatedAt
-
-    CreateApprovalBody:
         - workDate
         - worker
         - status
@@ -4060,7 +4137,7 @@ components:
         - createdAt
         - updatedAt
 
-    CreateMaintenanceLogBody:
+    CreateApprovalBody:
       type: object
       properties:
         title:
@@ -4079,6 +4156,20 @@ components:
           type: ["integer", "null"]
         relatedInspectionId:
           type: ["integer", "null"]
+      required:
+        - title
+        - description
+        - category
+
+    CreateMaintenanceLogBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
           enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
         workDate:
           type: string
@@ -4202,8 +4293,6 @@ components:
         - pendingSpending
         - byCategory
         - monthlyTrend
-        - workDate
-        - worker
 
     UpdateMaintenanceLogBody:
       type: object
@@ -4390,3 +4479,132 @@ components:
         - message
         - dueDate
         - isOverdue
+
+    AiMatchingInspectionResult:
+      type: object
+      properties:
+        inspectionId:
+          type: integer
+        inspectionName:
+          type: string
+        category:
+          type: string
+        nextDueDate:
+          type: string
+          format: date
+        daysUntilDue:
+          type: integer
+        draftId:
+          type: ["integer", "null"]
+        notificationId:
+          type: ["integer", "null"]
+        recommendedVendors:
+          type: array
+          items:
+            type: object
+            properties:
+              vendorId:
+                type: integer
+              vendorName:
+                type: string
+              category:
+                type: string
+              rating:
+                type: ["number", "null"]
+              phone:
+                type: ["string", "null"]
+              address:
+                type: ["string", "null"]
+            required:
+              - vendorId
+              - vendorName
+              - category
+      required:
+        - inspectionId
+        - inspectionName
+        - category
+        - nextDueDate
+        - daysUntilDue
+        - recommendedVendors
+
+    AiMatchingResponse:
+      type: object
+      properties:
+        matchedCount:
+          type: integer
+        draftsGenerated:
+          type: integer
+        notificationsCreated:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiMatchingInspectionResult"
+      required:
+        - matchedCount
+        - draftsGenerated
+        - notificationsCreated
+        - results
+
+    ApproveMatchingBody:
+      type: object
+      properties:
+        vendorIds:
+          type: array
+          items:
+            type: integer
+        buildingName:
+          type: string
+      required:
+        - vendorIds
+        - buildingName
+
+    ApproveMatchingResponse:
+      type: object
+      properties:
+        inspectionId:
+          type: integer
+        rfqId:
+          type: integer
+        vendorCount:
+          type: integer
+        message:
+          type: string
+      required:
+        - inspectionId
+        - rfqId
+        - vendorCount
+        - message
+
+    AutoSettleCommissionBody:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        contractAmount:
+          type: number
+        commissionRate:
+          type: number
+        inspectionId:
+          type: ["integer", "null"]
+        rfqId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - vendorId
+        - vendorName
+        - contractAmount
+
+    AutoSettleCommissionResponse:
+      type: object
+      properties:
+        commission:
+          $ref: "#/components/schemas/Commission"
+        message:
+          type: string
+      required:
+        - commission
+        - message

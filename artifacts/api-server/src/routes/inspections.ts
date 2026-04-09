@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc } from "drizzle-orm";
-import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable } from "@workspace/db";
+import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable } from "@workspace/db";
 import {
   ListInspectionsResponse,
   CreateInspectionBody,
@@ -16,6 +16,10 @@ import {
   ListInspectionLogsParams,
   ListInspectionLogsResponse,
   GenerateInspectionAlertsResponse,
+  TriggerAiMatchingResponse,
+  ApproveInspectionMatchingParams,
+  ApproveInspectionMatchingBody,
+  ApproveInspectionMatchingResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -343,5 +347,237 @@ function generateExpenseApprovalDraftBody(name: string, categoryLabel: string, n
 7. 비고:
    - 법정 기한 내 반드시 시행하여야 합니다.`;
 }
+
+function generateBidRequestDraftBody(name: string, categoryLabel: string, nextDueDate: string, vendors: Array<{ name: string; rating: number | null }>): string {
+  const vendorList = vendors.map((v, i) => `   ${i + 1}. ${v.name} (평점: ${v.rating ?? "미평가"})`).join("\n");
+  return `입찰 요청서
+
+1. 건 명: ${name} 법정 점검 업체 선정
+
+2. 점검 예정일: ${nextDueDate}
+
+3. 분류: ${categoryLabel}
+
+4. 목적:
+   - 법정 의무사항인 ${name}의 기한이 도래하여 적격 업체를 선정하고자 합니다.
+
+5. AI 추천 업체:
+${vendorList}
+
+6. 입찰 조건:
+   - 법정 자격 요건을 갖춘 업체
+   - 해당 분야 경험 및 실적 보유
+   - 합리적인 견적 제출
+
+7. 견적 제출 기한: ${nextDueDate} 기준 2주 전까지
+
+8. 비고:
+   - AI 자동 매칭 시스템에 의해 추천된 업체입니다.
+   - 최종 선정은 관리소장 승인 후 확정됩니다.`;
+}
+
+router.post("/inspections/ai-matching", async (_req, res): Promise<void> => {
+  try {
+  const today = new Date();
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+  const todayStr = today.toISOString().split("T")[0];
+  const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
+
+  const upcomingInspections = await db
+    .select()
+    .from(inspectionsTable)
+    .where(
+      and(
+        lte(inspectionsTable.nextDueDate, futureStr),
+        gte(inspectionsTable.nextDueDate, todayStr)
+      )
+    )
+    .orderBy(inspectionsTable.nextDueDate);
+
+  const results: Array<{
+    inspectionId: number;
+    inspectionName: string;
+    category: string;
+    nextDueDate: string;
+    daysUntilDue: number;
+    draftId: number | null;
+    notificationId: number | null;
+    recommendedVendors: Array<{
+      vendorId: number;
+      vendorName: string;
+      category: string;
+      rating: number | null;
+      phone: string | null;
+      address: string | null;
+    }>;
+  }> = [];
+
+  let draftsGenerated = 0;
+  let notificationsCreated = 0;
+
+  for (const inspection of upcomingInspections) {
+    const dueDate = new Date(inspection.nextDueDate);
+    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const categoryLabel = getCategoryLabel(inspection.category);
+
+    const matchingVendors = await db
+      .select()
+      .from(vendorsTable)
+      .where(eq(vendorsTable.category, inspection.category))
+      .orderBy(desc(vendorsTable.rating));
+
+    const top3Vendors = matchingVendors.slice(0, 3).map((v) => ({
+      vendorId: v.id,
+      vendorName: v.name,
+      category: v.category,
+      rating: v.rating,
+      phone: v.phone,
+      address: v.address,
+    }));
+
+    const existingDrafts = await db
+      .select()
+      .from(draftsTable)
+      .where(
+        and(
+          eq(draftsTable.inspectionId, inspection.id),
+          eq(draftsTable.draftType, "bid_request")
+        )
+      );
+
+    let draftId: number | null = null;
+    if (existingDrafts.length === 0 && top3Vendors.length > 0) {
+      const [draft] = await db.insert(draftsTable).values({
+        title: `${inspection.name} 입찰 요청서 (AI 자동 생성)`,
+        draftType: "bid_request",
+        inspectionId: inspection.id,
+        body: generateBidRequestDraftBody(
+          inspection.name,
+          categoryLabel,
+          inspection.nextDueDate,
+          top3Vendors.map((v) => ({ name: v.vendorName, rating: v.rating }))
+        ),
+        status: "draft",
+      }).returning();
+      draftId = draft.id;
+      draftsGenerated++;
+    } else if (existingDrafts.length > 0) {
+      draftId = existingDrafts[0].id;
+    }
+
+    let notificationId: number | null = null;
+    const [notification] = await db.insert(notificationsTable).values({
+      recipientType: "admin",
+      notificationType: "ai_matching",
+      title: `[AI 매칭] ${inspection.name} 점검 예정 알림`,
+      message: `${inspection.name} 점검이 ${daysUntilDue}일 후(${inspection.nextDueDate}) 예정되어 있습니다. AI가 ${top3Vendors.length}개 업체를 추천했습니다.`,
+      relatedEntityType: "inspection",
+      relatedEntityId: inspection.id,
+    }).returning();
+    notificationId = notification.id;
+    notificationsCreated++;
+
+    if (top3Vendors.length > 0) {
+      await db.insert(notificationsTable).values({
+        recipientType: "facility_manager",
+        notificationType: "ai_matching",
+        title: `[시설관리] ${inspection.name} 점검 예정`,
+        message: `${inspection.name} 점검이 ${daysUntilDue}일 후 예정되어 있습니다. 점검 준비를 진행해 주세요.`,
+        relatedEntityType: "inspection",
+        relatedEntityId: inspection.id,
+      });
+      notificationsCreated++;
+    }
+
+    results.push({
+      inspectionId: inspection.id,
+      inspectionName: inspection.name,
+      category: inspection.category,
+      nextDueDate: inspection.nextDueDate,
+      daysUntilDue,
+      draftId,
+      notificationId,
+      recommendedVendors: top3Vendors,
+    });
+  }
+
+  const response = {
+    matchedCount: results.length,
+    draftsGenerated,
+    notificationsCreated,
+    results,
+  };
+
+  res.json(TriggerAiMatchingResponse.parse(response));
+  } catch (error) {
+    res.status(500).json({ error: "AI 매칭 처리 중 오류가 발생했습니다" });
+  }
+});
+
+router.post("/inspections/:id/approve-matching", async (req, res): Promise<void> => {
+  const params = ApproveInspectionMatchingParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = ApproveInspectionMatchingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const existing = await db.select().from(inspectionsTable).where(eq(inspectionsTable.id, params.data.id));
+    if (existing.length === 0) {
+      res.status(404).json({ error: "Inspection not found" });
+      return;
+    }
+    const inspection = existing[0];
+    const categoryLabel = getCategoryLabel(inspection.category);
+
+    const [rfq] = await db.insert(rfqsTable).values({
+      title: `${inspection.name} 법정 점검 견적 요청`,
+      category: inspection.category,
+      description: `AI 자동 매칭에 의한 견적 요청 - ${categoryLabel} 분야\n점검 예정일: ${inspection.nextDueDate}`,
+      buildingName: parsed.data.buildingName,
+      desiredDate: inspection.nextDueDate,
+      deadline: inspection.nextDueDate,
+      status: "open",
+      vendorIds: parsed.data.vendorIds.join(","),
+    }).returning();
+
+    for (const vendorId of parsed.data.vendorIds) {
+      const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, vendorId));
+      if (vendor) {
+        await db.insert(notificationsTable).values({
+          recipientType: "vendor",
+          notificationType: "rfq_request",
+          title: `[견적요청] ${inspection.name} 점검 업체 선정`,
+          message: `${parsed.data.buildingName}의 ${inspection.name} 점검에 대한 견적을 요청드립니다. 점검 예정일: ${inspection.nextDueDate}`,
+          relatedEntityType: "rfq",
+          relatedEntityId: rfq.id,
+        });
+      }
+    }
+
+    await db.update(inspectionsTable)
+      .set({ status: "scheduled" })
+      .where(eq(inspectionsTable.id, params.data.id));
+
+    const response = {
+      inspectionId: params.data.id,
+      rfqId: rfq.id,
+      vendorCount: parsed.data.vendorIds.length,
+      message: `${parsed.data.vendorIds.length}개 업체에 견적 요청이 발송되었습니다.`,
+    };
+
+    res.json(ApproveInspectionMatchingResponse.parse(response));
+  } catch (error) {
+    res.status(500).json({ error: "매칭 승인 처리 중 오류가 발생했습니다" });
+  }
+});
 
 export default router;

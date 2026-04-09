@@ -1546,6 +1546,10 @@ export interface Approval {
   rejectionReason?: string | null;
   /** @nullable */
   approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SafetyChecklistCategory =
   (typeof SafetyChecklistCategory)[keyof typeof SafetyChecklistCategory];
 
@@ -1579,64 +1583,6 @@ export interface SafetyChecklist {
   updatedAt: string;
 }
 
-export interface CreateApprovalBody {
-  title: string;
-  description: string;
-  category: string;
-  /** @nullable */
-  estimatedAmount?: number | null;
-  /** @nullable */
-  vendorName?: string | null;
-  /** @nullable */
-  vendorQuoteDetails?: string | null;
-  /** @nullable */
-  relatedDraftId?: number | null;
-  /** @nullable */
-  relatedInspectionId?: number | null;
-}
-
-export interface RejectApprovalBody {
-  reason: string;
-}
-
-export interface ApprovalStats {
-  totalPending: number;
-  totalApproved: number;
-  totalRejected: number;
-  totalAmount: number;
-  approvedAmount: number;
-  recentApprovals: Approval[];
-}
-
-export interface ExecutiveKpi {
-  inspectionCompletionRate: number;
-  taskCompletionRate: number;
-  pendingApprovals: number;
-  monthlySpending: number;
-  totalTasks: number;
-  completedTasks: number;
-  totalInspections: number;
-  completedInspections: number;
-  overdueItems: number;
-}
-
-export type ExecutiveSpendingByCategoryItem = {
-  category: string;
-  amount: number;
-  count: number;
-};
-
-export type ExecutiveSpendingMonthlyTrendItem = {
-  month: string;
-  amount: number;
-};
-
-export interface ExecutiveSpending {
-  totalSpending: number;
-  approvedSpending: number;
-  pendingSpending: number;
-  byCategory: ExecutiveSpendingByCategoryItem[];
-  monthlyTrend: ExecutiveSpendingMonthlyTrendItem[];
 export type SafetyChecklistDetailCategory =
   (typeof SafetyChecklistDetailCategory)[keyof typeof SafetyChecklistDetailCategory];
 
@@ -1798,6 +1744,22 @@ export interface MaintenanceLog {
   updatedAt: string;
 }
 
+export interface CreateApprovalBody {
+  title: string;
+  description: string;
+  category: string;
+  /** @nullable */
+  estimatedAmount?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  vendorQuoteDetails?: string | null;
+  /** @nullable */
+  relatedDraftId?: number | null;
+  /** @nullable */
+  relatedInspectionId?: number | null;
+}
+
 export type CreateMaintenanceLogBodyCategory =
   (typeof CreateMaintenanceLogBodyCategory)[keyof typeof CreateMaintenanceLogBodyCategory];
 
@@ -1823,11 +1785,55 @@ export interface CreateMaintenanceLogBody {
   title: string;
   description: string;
   category: CreateMaintenanceLogBodyCategory;
-  workDate: string;
-  worker: string;
+  workDate?: string;
+  worker?: string;
   status?: CreateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface RejectApprovalBody {
+  reason: string;
+}
+
+export interface ApprovalStats {
+  totalPending: number;
+  totalApproved: number;
+  totalRejected: number;
+  totalAmount: number;
+  approvedAmount: number;
+  recentApprovals: Approval[];
+}
+
+export interface ExecutiveKpi {
+  inspectionCompletionRate: number;
+  taskCompletionRate: number;
+  pendingApprovals: number;
+  monthlySpending: number;
+  totalTasks: number;
+  completedTasks: number;
+  totalInspections: number;
+  completedInspections: number;
+  overdueItems: number;
+}
+
+export type ExecutiveSpendingByCategoryItem = {
+  category: string;
+  amount: number;
+  count: number;
+};
+
+export type ExecutiveSpendingMonthlyTrendItem = {
+  month: string;
+  amount: number;
+};
+
+export interface ExecutiveSpending {
+  totalSpending: number;
+  approvedSpending: number;
+  pendingSpending: number;
+  byCategory: ExecutiveSpendingByCategoryItem[];
+  monthlyTrend: ExecutiveSpendingMonthlyTrendItem[];
 }
 
 export type UpdateMaintenanceLogBodyCategory =
@@ -1965,6 +1971,68 @@ export interface FacilityDashboard {
   trainingCompletionRate: number;
   upcomingTrainingCount: number;
   scheduledAlerts: FacilityAlert[];
+}
+
+export type AiMatchingInspectionResultRecommendedVendorsItem = {
+  vendorId: number;
+  vendorName: string;
+  category: string;
+  /** @nullable */
+  rating?: number | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  address?: string | null;
+};
+
+export interface AiMatchingInspectionResult {
+  inspectionId: number;
+  inspectionName: string;
+  category: string;
+  nextDueDate: string;
+  daysUntilDue: number;
+  /** @nullable */
+  draftId?: number | null;
+  /** @nullable */
+  notificationId?: number | null;
+  recommendedVendors: AiMatchingInspectionResultRecommendedVendorsItem[];
+}
+
+export interface AiMatchingResponse {
+  matchedCount: number;
+  draftsGenerated: number;
+  notificationsCreated: number;
+  results: AiMatchingInspectionResult[];
+}
+
+export interface ApproveMatchingBody {
+  vendorIds: number[];
+  buildingName: string;
+}
+
+export interface ApproveMatchingResponse {
+  inspectionId: number;
+  rfqId: number;
+  vendorCount: number;
+  message: string;
+}
+
+export interface AutoSettleCommissionBody {
+  vendorId: number;
+  vendorName: string;
+  contractAmount: number;
+  commissionRate?: number;
+  /** @nullable */
+  inspectionId?: number | null;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface AutoSettleCommissionResponse {
+  commission: Commission;
+  message: string;
 }
 
 export type ListTasksParams = {

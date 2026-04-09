@@ -387,6 +387,55 @@ export const GetUpcomingInspectionsResponse = zod.array(
 );
 
 /**
+ * @summary Trigger AI matching - detect upcoming inspections, notify, recommend vendors, generate drafts
+ */
+export const TriggerAiMatchingResponse = zod.object({
+  matchedCount: zod.number(),
+  draftsGenerated: zod.number(),
+  notificationsCreated: zod.number(),
+  results: zod.array(
+    zod.object({
+      inspectionId: zod.number(),
+      inspectionName: zod.string(),
+      category: zod.string(),
+      nextDueDate: zod.coerce.date(),
+      daysUntilDue: zod.number(),
+      draftId: zod.number().nullish(),
+      notificationId: zod.number().nullish(),
+      recommendedVendors: zod.array(
+        zod.object({
+          vendorId: zod.number(),
+          vendorName: zod.string(),
+          category: zod.string(),
+          rating: zod.number().nullish(),
+          phone: zod.string().nullish(),
+          address: zod.string().nullish(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Approve AI matching - auto-generate RFQs for recommended vendors
+ */
+export const ApproveInspectionMatchingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveInspectionMatchingBody = zod.object({
+  vendorIds: zod.array(zod.number()),
+  buildingName: zod.string(),
+});
+
+export const ApproveInspectionMatchingResponse = zod.object({
+  inspectionId: zod.number(),
+  rfqId: zod.number(),
+  vendorCount: zod.number(),
+  message: zod.string(),
+});
+
+/**
  * @summary List tax/accounting schedules
  */
 export const ListTaxSchedulesQueryParams = zod.object({
@@ -772,6 +821,19 @@ export const UpdateCommissionResponse = zod.object({
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Auto-create commission record when contract completes
+ */
+export const AutoSettleCommissionBody = zod.object({
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  contractAmount: zod.number(),
+  commissionRate: zod.number().optional(),
+  inspectionId: zod.number().nullish(),
+  rfqId: zod.number().nullish(),
+  notes: zod.string().nullish(),
 });
 
 /**
@@ -2321,8 +2383,8 @@ export const CreateMaintenanceLogBody = zod.object({
     "hvac",
     "other",
   ]),
-  workDate: zod.coerce.date(),
-  worker: zod.string(),
+  workDate: zod.coerce.date().optional(),
+  worker: zod.string().optional(),
   status: zod.enum(["completed", "in_progress", "pending"]).optional(),
   notes: zod.string().nullish(),
 });
