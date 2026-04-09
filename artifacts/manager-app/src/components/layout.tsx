@@ -22,6 +22,7 @@ import {
   UserCheck,
   Car,
   Bell,
+  ArrowLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,17 +34,17 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const navItems = [
-  { path: "/", label: "대시보드", icon: LayoutDashboard },
-  { path: "/tasks", label: "업무 관리", icon: CheckSquare },
-  { path: "/inspections", label: "법정 점검", icon: Shield },
-  { path: "/drafts", label: "기안서", icon: ClipboardList },
-  { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-  { path: "/tenants", label: "입주민 관리", icon: Users },
-  { path: "/owners", label: "소유자 관리", icon: UserCheck },
-  { path: "/vehicles", label: "차량 관리", icon: Car },
-  { path: "/vendors", label: "협력업체", icon: Building2 },
-  { path: "/commissions", label: "수수료", icon: Coins },
-  { path: "/reports", label: "주간보고", icon: FileText },
+  { path: "/manager", label: "대시보드", icon: LayoutDashboard },
+  { path: "/manager/tasks", label: "업무 관리", icon: CheckSquare },
+  { path: "/manager/inspections", label: "법정 점검", icon: Shield },
+  { path: "/manager/drafts", label: "기안서", icon: ClipboardList },
+  { path: "/manager/tax-schedules", label: "세무 일정", icon: Calculator },
+  { path: "/manager/tenants", label: "입주민 관리", icon: Users },
+  { path: "/manager/owners", label: "소유자 관리", icon: UserCheck },
+  { path: "/manager/vehicles", label: "차량 관리", icon: Car },
+  { path: "/manager/vendors", label: "협력업체", icon: Building2 },
+  { path: "/manager/commissions", label: "수수료", icon: Coins },
+  { path: "/manager/reports", label: "주간보고", icon: FileText },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -68,7 +69,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex">
       <aside className="w-60 bg-sidebar text-sidebar-foreground flex flex-col fixed h-full z-30">
         <div className="p-4 border-b border-sidebar-border">
-          <Link href="/">
+          <Link href="/manager">
             <img
               src={`${base}logo.png`}
               alt="관리의달인"
@@ -79,8 +80,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive =
-              item.path === "/"
-                ? location === "/"
+              item.path === "/manager"
+                ? location === "/manager"
                 : location.startsWith(item.path);
             return (
               <Link key={item.path} href={item.path}>
@@ -100,9 +101,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="p-4 border-t border-sidebar-border">
-          <div className="text-xs text-sidebar-foreground/50">
-            v1.0.0
-          </div>
+          <Link href="/">
+            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors cursor-pointer">
+              <ArrowLeft className="w-3 h-3" />
+              포털 선택으로 돌아가기
+            </div>
+          </Link>
         </div>
       </aside>
       <main className="flex-1 ml-60">

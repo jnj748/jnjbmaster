@@ -11,6 +11,7 @@ import {
   DeleteVendorParams,
   GetRecommendedVendorsQueryParams,
   GetRecommendedVendorsResponse,
+  RegisterPlatformVendorBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -21,6 +22,10 @@ router.get("/vendors", async (req, res): Promise<void> => {
 
   if (params.success && params.data.category) {
     conditions.push(eq(vendorsTable.category, params.data.category));
+  }
+
+  if (params.success && params.data.type) {
+    conditions.push(eq(vendorsTable.type, params.data.type));
   }
 
   const vendors = await db
@@ -109,6 +114,26 @@ router.get("/vendors/recommend", async (req, res): Promise<void> => {
     .orderBy(desc(vendorsTable.rating));
 
   res.json(GetRecommendedVendorsResponse.parse(vendors));
+});
+
+router.post("/vendors/register", async (req, res): Promise<void> => {
+  const parsed = RegisterPlatformVendorBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [vendor] = await db
+    .insert(vendorsTable)
+    .values({
+      ...parsed.data,
+      type: "platform",
+      isRecommended: false,
+      joinedAt: new Date(),
+    })
+    .returning();
+
+  res.status(201).json(UpdateVendorResponse.parse(vendor));
 });
 
 export default router;

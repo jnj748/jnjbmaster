@@ -26,7 +26,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 5. **Tenant Management (입주민 관리)** - Tenant card registration with all fields, document checklist, privacy consent
 6. **Owner Management (소유자 관리)** - Owner card registration with document checklist and privacy consent
 7. **Vehicle Management (차량 관리)** - Vehicle registration cards with primary/additional vehicles, ownership-based document requirements
-8. **Vendor Management (협력업체)** - Vendor registry with category, contact info, ratings, recommendations
+8. **Vendor Management (협력업체)** - Vendor registry with two types: contracted (building-specific) and platform (self-registered). Portal selection screen at app entry.
 9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
 10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
 11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
@@ -41,7 +41,7 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `inspection_logs` - Inspection completion history with result (good/fair/poor), memo, inspector
 - `drafts` - Auto-generated draft documents (expense_approval, vendor_selection, repair_maintenance)
 - `tax_schedules` - Tax/accounting schedules with recurrence patterns
-- `vendors` - Vendor registry with contact info and ratings
+- `vendors` - Vendor registry with type (contracted/platform), contact info, ratings, type-specific fields (contract dates, business reg number, service area)
 - `commissions` - Commission records from vendor matching
 - `tenants` - Tenant cards with all personal info, dates, document checklist, guarantor info
 - `owners` - Owner cards with personal info, dates, document checklist
@@ -104,9 +104,15 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `PATCH /api/notifications/:id/read` - Mark notification as read
 
 ### Vendors
-- `GET/POST /api/vendors` - List/create vendors (filterable by category)
+- `GET/POST /api/vendors` - List/create vendors (filterable by category and type: contracted/platform)
 - `PATCH/DELETE /api/vendors/:id` - Update/delete vendor
 - `GET /api/vendors/recommend` - Recommended vendors by category
+- `POST /api/vendors/register` - Platform vendor self-registration
+
+### App Routing
+- `/` - Portal selection (건물관리 관계자 / 가입업체)
+- `/manager/*` - Manager app (dashboard, tasks, inspections, etc.)
+- `/vendor-portal` - Platform vendor portal (placeholder)
 
 ### Commissions
 - `GET/POST /api/commissions` - List/create commissions

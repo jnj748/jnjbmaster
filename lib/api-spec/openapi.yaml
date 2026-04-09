@@ -407,6 +407,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [contracted, platform]
       responses:
         "200":
           description: Vendor list
@@ -492,6 +497,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Vendor"
+
+  /vendors/register:
+    post:
+      operationId: registerPlatformVendor
+      tags: [vendors]
+      summary: Register a new platform vendor (self sign-up)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPlatformVendorBody"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
 
   # ── Commissions (수수료) ───────────────────────────────────
   /commissions:
@@ -1402,6 +1426,9 @@ components:
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        type:
+          type: string
+          enum: [contracted, platform]
         contactName:
           type: ["string", "null"]
         phone:
@@ -1416,6 +1443,23 @@ components:
           type: boolean
         notes:
           type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        serviceArea:
+          type: ["string", "null"]
+        joinedAt:
+          type: ["string", "null"]
+          format: date-time
+        contractBuildingName:
+          type: ["string", "null"]
+        contractStartDate:
+          type: ["string", "null"]
+          format: date
+        contractEndDate:
+          type: ["string", "null"]
+          format: date
         createdAt:
           type: string
           format: date-time
@@ -1426,6 +1470,7 @@ components:
         - id
         - name
         - category
+        - type
         - isRecommended
         - createdAt
         - updatedAt
@@ -1438,6 +1483,10 @@ components:
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        type:
+          type: string
+          enum: [contracted, platform]
+          default: contracted
         contactName:
           type: ["string", "null"]
         phone:
@@ -1452,6 +1501,20 @@ components:
           type: boolean
         notes:
           type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        serviceArea:
+          type: ["string", "null"]
+        contractBuildingName:
+          type: ["string", "null"]
+        contractStartDate:
+          type: ["string", "null"]
+          format: date
+        contractEndDate:
+          type: ["string", "null"]
+          format: date
       required:
         - name
         - category
@@ -1464,6 +1527,9 @@ components:
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        type:
+          type: string
+          enum: [contracted, platform]
         contactName:
           type: ["string", "null"]
         phone:
@@ -1478,6 +1544,52 @@ components:
           type: boolean
         notes:
           type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        serviceArea:
+          type: ["string", "null"]
+        contractBuildingName:
+          type: ["string", "null"]
+        contractStartDate:
+          type: ["string", "null"]
+          format: date
+        contractEndDate:
+          type: ["string", "null"]
+          format: date
+
+    RegisterPlatformVendorBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+        contactName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: ["string", "null"]
+        businessRegNumber:
+          type: string
+        representativeName:
+          type: string
+        serviceArea:
+          type: string
+      required:
+        - name
+        - category
+        - contactName
+        - phone
+        - email
+        - businessRegNumber
+        - representativeName
+        - serviceArea
 
     Commission:
       type: object

@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateVendorBodyCategory } from "./createVendorBodyCategory";
+import type { CreateVendorBodyType } from "./createVendorBodyType";
 
 export interface CreateVendorBody {
   name: string;
   category: CreateVendorBodyCategory;
+  type?: CreateVendorBodyType;
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
@@ -23,4 +25,16 @@ export interface CreateVendorBody {
   isRecommended?: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  contractBuildingName?: string | null;
+  /** @nullable */
+  contractStartDate?: Date | null;
+  /** @nullable */
+  contractEndDate?: Date | null;
 }

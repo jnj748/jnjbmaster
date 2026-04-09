@@ -4,11 +4,10 @@ import {
   useCreateVendor,
   useUpdateVendor,
   useDeleteVendor,
-  useGetRecommendedVendors,
   getListVendorsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,7 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Building2, Star, Phone, Mail } from "lucide-react";
+import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const categoryOptions = [
@@ -44,15 +43,21 @@ const categoryOptions = [
   { value: "other", label: "기타" },
 ];
 
+type VendorType = "contracted" | "platform";
+
 export default function Vendors() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<VendorType>("contracted");
   const [filterCategory, setFilterCategory] = useState<string | undefined>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const queryParams = filterCategory && filterCategory !== "all" ? { category: filterCategory } : undefined;
-  const { data: vendors, isLoading } = useListVendors(queryParams as any);
+  const queryParams: any = { type: activeTab };
+  if (filterCategory && filterCategory !== "all") {
+    queryParams.category = filterCategory;
+  }
+  const { data: vendors, isLoading } = useListVendors(queryParams);
   const createMutation = useCreateVendor();
   const updateMutation = useUpdateVendor();
   const deleteMutation = useDeleteVendor();
@@ -67,10 +72,21 @@ export default function Vendors() {
     rating: "",
     isRecommended: false,
     notes: "",
+    contractBuildingName: "",
+    contractStartDate: "",
+    contractEndDate: "",
+    businessRegNumber: "",
+    representativeName: "",
+    serviceArea: "",
   });
 
   function resetForm() {
-    setForm({ name: "", category: "elevator", contactName: "", phone: "", email: "", address: "", rating: "", isRecommended: false, notes: "" });
+    setForm({
+      name: "", category: "elevator", contactName: "", phone: "", email: "",
+      address: "", rating: "", isRecommended: false, notes: "",
+      contractBuildingName: "", contractStartDate: "", contractEndDate: "",
+      businessRegNumber: "", representativeName: "", serviceArea: "",
+    });
     setEditing(null);
   }
 
@@ -86,15 +102,22 @@ export default function Vendors() {
       rating: item.rating?.toString() || "",
       isRecommended: item.isRecommended,
       notes: item.notes || "",
+      contractBuildingName: item.contractBuildingName || "",
+      contractStartDate: item.contractStartDate || "",
+      contractEndDate: item.contractEndDate || "",
+      businessRegNumber: item.businessRegNumber || "",
+      representativeName: item.representativeName || "",
+      serviceArea: item.serviceArea || "",
     });
     setDialogOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const data = {
+    const base: any = {
       name: form.name,
       category: form.category as any,
+      type: activeTab,
       contactName: form.contactName || null,
       phone: form.phone || null,
       email: form.email || null,
@@ -104,11 +127,21 @@ export default function Vendors() {
       notes: form.notes || null,
     };
 
+    if (activeTab === "contracted") {
+      base.contractBuildingName = form.contractBuildingName || null;
+      base.contractStartDate = form.contractStartDate || null;
+      base.contractEndDate = form.contractEndDate || null;
+    } else {
+      base.businessRegNumber = form.businessRegNumber || null;
+      base.representativeName = form.representativeName || null;
+      base.serviceArea = form.serviceArea || null;
+    }
+
     if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, data });
+      await updateMutation.mutateAsync({ id: editing.id, data: base });
       toast({ title: "업체 정보가 수정되었습니다" });
     } else {
-      await createMutation.mutateAsync({ data });
+      await createMutation.mutateAsync({ data: base });
       toast({ title: "업체가 등록되었습니다" });
     }
     queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
@@ -131,7 +164,7 @@ export default function Vendors() {
         <div>
           <h1 className="text-2xl font-bold">협력업체 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            유지보수 협력업체를 등록하고 견적을 관리합니다
+            유지보수 협력업체를 등록하고 관리합니다
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
@@ -141,7 +174,7 @@ export default function Vendors() {
               업체 등록
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "업체 수정" : "새 업체 등록"}</DialogTitle>
             </DialogHeader>
@@ -187,6 +220,51 @@ export default function Vendors() {
                 <Label>주소</Label>
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
+
+              {activeTab === "contracted" && (
+                <>
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-muted-foreground mb-3">계약 정보</p>
+                  </div>
+                  <div>
+                    <Label>계약 건물명</Label>
+                    <Input value={form.contractBuildingName} onChange={(e) => setForm({ ...form, contractBuildingName: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>계약 시작일</Label>
+                      <Input type="date" value={form.contractStartDate} onChange={(e) => setForm({ ...form, contractStartDate: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>계약 종료일</Label>
+                      <Input type="date" value={form.contractEndDate} onChange={(e) => setForm({ ...form, contractEndDate: e.target.value })} />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "platform" && (
+                <>
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-muted-foreground mb-3">플랫폼 업체 정보</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>사업자등록번호</Label>
+                      <Input value={form.businessRegNumber} onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>대표자명</Label>
+                      <Input value={form.representativeName} onChange={(e) => setForm({ ...form, representativeName: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>서비스 가능 지역</Label>
+                    <Input value={form.serviceArea} onChange={(e) => setForm({ ...form, serviceArea: e.target.value })} placeholder="예: 서울, 경기 북부" />
+                  </div>
+                </>
+              )}
+
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -204,6 +282,31 @@ export default function Vendors() {
             </form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => { setActiveTab("contracted"); setFilterCategory(undefined); }}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "contracted"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Building2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+          계약 업체
+        </button>
+        <button
+          onClick={() => { setActiveTab("platform"); setFilterCategory(undefined); }}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "platform"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Briefcase className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+          플랫폼 업체
+        </button>
       </div>
 
       <div className="flex gap-3">
@@ -224,13 +327,16 @@ export default function Vendors() {
         </div>
       ) : vendors && vendors.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vendors.map((vendor) => (
+          {vendors.map((vendor: any) => (
             <Card key={vendor.id}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Building2 className="w-5 h-5 text-primary" />
+                    <div className={`p-2 rounded-lg ${vendor.type === "platform" ? "bg-chart-3/10" : "bg-primary/10"}`}>
+                      {vendor.type === "platform"
+                        ? <Briefcase className="w-5 h-5 text-chart-3" />
+                        : <Building2 className="w-5 h-5 text-primary" />
+                      }
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -271,6 +377,18 @@ export default function Vendors() {
                       {vendor.rating.toFixed(1)}
                     </p>
                   )}
+                  {activeTab === "contracted" && vendor.contractBuildingName && (
+                    <p className="text-xs mt-2">건물: {vendor.contractBuildingName}</p>
+                  )}
+                  {activeTab === "contracted" && vendor.contractStartDate && (
+                    <p className="text-xs">계약: {vendor.contractStartDate} ~ {vendor.contractEndDate || "진행중"}</p>
+                  )}
+                  {activeTab === "platform" && vendor.businessRegNumber && (
+                    <p className="text-xs mt-2">사업자번호: {vendor.businessRegNumber}</p>
+                  )}
+                  {activeTab === "platform" && vendor.serviceArea && (
+                    <p className="text-xs">서비스 지역: {vendor.serviceArea}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -279,8 +397,13 @@ export default function Vendors() {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <Building2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">등록된 협력업체가 없습니다</p>
+            {activeTab === "contracted"
+              ? <Building2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+              : <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+            }
+            <p className="text-muted-foreground">
+              {activeTab === "contracted" ? "등록된 계약 업체가 없습니다" : "등록된 플랫폼 업체가 없습니다"}
+            </p>
           </CardContent>
         </Card>
       )}

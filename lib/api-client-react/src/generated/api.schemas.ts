@@ -370,10 +370,18 @@ export const VendorCategory = {
   other: "other",
 } as const;
 
+export type VendorType = (typeof VendorType)[keyof typeof VendorType];
+
+export const VendorType = {
+  contracted: "contracted",
+  platform: "platform",
+} as const;
+
 export interface Vendor {
   id: number;
   name: string;
   category: VendorCategory;
+  type: VendorType;
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
@@ -387,6 +395,20 @@ export interface Vendor {
   isRecommended: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  joinedAt?: string | null;
+  /** @nullable */
+  contractBuildingName?: string | null;
+  /** @nullable */
+  contractStartDate?: string | null;
+  /** @nullable */
+  contractEndDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -406,9 +428,18 @@ export const CreateVendorBodyCategory = {
   other: "other",
 } as const;
 
+export type CreateVendorBodyType =
+  (typeof CreateVendorBodyType)[keyof typeof CreateVendorBodyType];
+
+export const CreateVendorBodyType = {
+  contracted: "contracted",
+  platform: "platform",
+} as const;
+
 export interface CreateVendorBody {
   name: string;
   category: CreateVendorBodyCategory;
+  type?: CreateVendorBodyType;
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
@@ -422,6 +453,18 @@ export interface CreateVendorBody {
   isRecommended?: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  contractBuildingName?: string | null;
+  /** @nullable */
+  contractStartDate?: string | null;
+  /** @nullable */
+  contractEndDate?: string | null;
 }
 
 export type UpdateVendorBodyCategory =
@@ -439,9 +482,18 @@ export const UpdateVendorBodyCategory = {
   other: "other",
 } as const;
 
+export type UpdateVendorBodyType =
+  (typeof UpdateVendorBodyType)[keyof typeof UpdateVendorBodyType];
+
+export const UpdateVendorBodyType = {
+  contracted: "contracted",
+  platform: "platform",
+} as const;
+
 export interface UpdateVendorBody {
   name?: string;
   category?: UpdateVendorBodyCategory;
+  type?: UpdateVendorBodyType;
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
@@ -455,6 +507,46 @@ export interface UpdateVendorBody {
   isRecommended?: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  contractBuildingName?: string | null;
+  /** @nullable */
+  contractStartDate?: string | null;
+  /** @nullable */
+  contractEndDate?: string | null;
+}
+
+export type RegisterPlatformVendorBodyCategory =
+  (typeof RegisterPlatformVendorBodyCategory)[keyof typeof RegisterPlatformVendorBodyCategory];
+
+export const RegisterPlatformVendorBodyCategory = {
+  elevator: "elevator",
+  water_tank: "water_tank",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  gas: "gas",
+  septic: "septic",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export interface RegisterPlatformVendorBody {
+  name: string;
+  category: RegisterPlatformVendorBodyCategory;
+  contactName: string;
+  phone: string;
+  email: string;
+  /** @nullable */
+  address?: string | null;
+  businessRegNumber: string;
+  representativeName: string;
+  serviceArea: string;
 }
 
 export type CommissionStatus =
@@ -1166,7 +1258,16 @@ export type ListTaxSchedulesParams = {
 
 export type ListVendorsParams = {
   category?: string;
+  type?: ListVendorsType;
 };
+
+export type ListVendorsType =
+  (typeof ListVendorsType)[keyof typeof ListVendorsType];
+
+export const ListVendorsType = {
+  contracted: "contracted",
+  platform: "platform",
+} as const;
 
 export type GetRecommendedVendorsParams = {
   category: string;

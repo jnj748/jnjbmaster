@@ -50,6 +50,7 @@ import type {
   ListVendorsParams,
   Notification,
   Owner,
+  RegisterPlatformVendorBody,
   Task,
   TaxSchedule,
   Tenant,
@@ -2122,6 +2123,93 @@ export function useGetRecommendedVendors<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Register a new platform vendor (self sign-up)
+ */
+export const getRegisterPlatformVendorUrl = () => {
+  return `/api/vendors/register`;
+};
+
+export const registerPlatformVendor = async (
+  registerPlatformVendorBody: RegisterPlatformVendorBody,
+  options?: RequestInit,
+): Promise<Vendor> => {
+  return customFetch<Vendor>(getRegisterPlatformVendorUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerPlatformVendorBody),
+  });
+};
+
+export const getRegisterPlatformVendorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPlatformVendor>>,
+    TError,
+    { data: BodyType<RegisterPlatformVendorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerPlatformVendor>>,
+  TError,
+  { data: BodyType<RegisterPlatformVendorBody> },
+  TContext
+> => {
+  const mutationKey = ["registerPlatformVendor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerPlatformVendor>>,
+    { data: BodyType<RegisterPlatformVendorBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerPlatformVendor(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterPlatformVendorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerPlatformVendor>>
+>;
+export type RegisterPlatformVendorMutationBody =
+  BodyType<RegisterPlatformVendorBody>;
+export type RegisterPlatformVendorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a new platform vendor (self sign-up)
+ */
+export const useRegisterPlatformVendor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPlatformVendor>>,
+    TError,
+    { data: BodyType<RegisterPlatformVendorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerPlatformVendor>>,
+  TError,
+  { data: BodyType<RegisterPlatformVendorBody> },
+  TContext
+> => {
+  return useMutation(getRegisterPlatformVendorMutationOptions(options));
+};
 
 /**
  * @summary List commission records

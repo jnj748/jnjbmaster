@@ -6,11 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { VendorCategory } from "./vendorCategory";
+import type { VendorType } from "./vendorType";
 
 export interface Vendor {
   id: number;
   name: string;
   category: VendorCategory;
+  type: VendorType;
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
@@ -24,6 +26,20 @@ export interface Vendor {
   isRecommended: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  joinedAt?: Date | null;
+  /** @nullable */
+  contractBuildingName?: string | null;
+  /** @nullable */
+  contractStartDate?: Date | null;
+  /** @nullable */
+  contractEndDate?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

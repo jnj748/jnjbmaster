@@ -498,6 +498,7 @@ export const DeleteTaxScheduleParams = zod.object({
  */
 export const ListVendorsQueryParams = zod.object({
   category: zod.coerce.string().optional(),
+  type: zod.enum(["contracted", "platform"]).optional(),
 });
 
 export const ListVendorsResponseItem = zod.object({
@@ -514,6 +515,7 @@ export const ListVendorsResponseItem = zod.object({
     "security",
     "other",
   ]),
+  type: zod.enum(["contracted", "platform"]),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -521,6 +523,13 @@ export const ListVendorsResponseItem = zod.object({
   rating: zod.number().nullish(),
   isRecommended: zod.boolean(),
   notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  joinedAt: zod.coerce.date().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -529,6 +538,8 @@ export const ListVendorsResponse = zod.array(ListVendorsResponseItem);
 /**
  * @summary Create a vendor
  */
+export const createVendorBodyTypeDefault = `contracted`;
+
 export const CreateVendorBody = zod.object({
   name: zod.string(),
   category: zod.enum([
@@ -542,6 +553,9 @@ export const CreateVendorBody = zod.object({
     "security",
     "other",
   ]),
+  type: zod
+    .enum(["contracted", "platform"])
+    .default(createVendorBodyTypeDefault),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -549,6 +563,12 @@ export const CreateVendorBody = zod.object({
   rating: zod.number().nullish(),
   isRecommended: zod.boolean().optional(),
   notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
 });
 
 /**
@@ -573,6 +593,7 @@ export const UpdateVendorBody = zod.object({
       "other",
     ])
     .optional(),
+  type: zod.enum(["contracted", "platform"]).optional(),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -580,6 +601,12 @@ export const UpdateVendorBody = zod.object({
   rating: zod.number().nullish(),
   isRecommended: zod.boolean().optional(),
   notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
 });
 
 export const UpdateVendorResponse = zod.object({
@@ -596,6 +623,7 @@ export const UpdateVendorResponse = zod.object({
     "security",
     "other",
   ]),
+  type: zod.enum(["contracted", "platform"]),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -603,6 +631,13 @@ export const UpdateVendorResponse = zod.object({
   rating: zod.number().nullish(),
   isRecommended: zod.boolean(),
   notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  joinedAt: zod.coerce.date().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -635,6 +670,7 @@ export const GetRecommendedVendorsResponseItem = zod.object({
     "security",
     "other",
   ]),
+  type: zod.enum(["contracted", "platform"]),
   contactName: zod.string().nullish(),
   phone: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -642,12 +678,44 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   rating: zod.number().nullish(),
   isRecommended: zod.boolean(),
   notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  joinedAt: zod.coerce.date().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
 export const GetRecommendedVendorsResponse = zod.array(
   GetRecommendedVendorsResponseItem,
 );
+
+/**
+ * @summary Register a new platform vendor (self sign-up)
+ */
+export const RegisterPlatformVendorBody = zod.object({
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  contactName: zod.string(),
+  phone: zod.string(),
+  email: zod.string(),
+  address: zod.string().nullish(),
+  businessRegNumber: zod.string(),
+  representativeName: zod.string(),
+  serviceArea: zod.string(),
+});
 
 /**
  * @summary List commission records
