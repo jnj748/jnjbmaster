@@ -131,6 +131,8 @@ export const InspectionCategory = {
   electrical: "electrical",
   gas: "gas",
   septic: "septic",
+  playground: "playground",
+  safety_check: "safety_check",
   other: "other",
 } as const;
 
@@ -149,6 +151,8 @@ export interface Inspection {
   name: string;
   category: InspectionCategory;
   frequencyPerYear: number;
+  /** @nullable */
+  legalCycleMonths?: number | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate: string;
@@ -172,6 +176,8 @@ export const CreateInspectionBodyCategory = {
   electrical: "electrical",
   gas: "gas",
   septic: "septic",
+  playground: "playground",
+  safety_check: "safety_check",
   other: "other",
 } as const;
 
@@ -179,6 +185,8 @@ export interface CreateInspectionBody {
   name: string;
   category: CreateInspectionBodyCategory;
   frequencyPerYear: number;
+  /** @nullable */
+  legalCycleMonths?: number | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate: string;
@@ -199,6 +207,8 @@ export const UpdateInspectionBodyCategory = {
   electrical: "electrical",
   gas: "gas",
   septic: "septic",
+  playground: "playground",
+  safety_check: "safety_check",
   other: "other",
 } as const;
 
@@ -216,6 +226,8 @@ export interface UpdateInspectionBody {
   name?: string;
   category?: UpdateInspectionBodyCategory;
   frequencyPerYear?: number;
+  /** @nullable */
+  legalCycleMonths?: number | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate?: string;
@@ -497,6 +509,13 @@ export interface UpdateCommissionBody {
   notes?: string | null;
 }
 
+export type WeeklyReportNextWeekInspectionsItem = {
+  id: number;
+  name: string;
+  category: string;
+  nextDueDate: string;
+};
+
 export interface CategoryCount {
   category: string;
   count: number;
@@ -512,6 +531,7 @@ export interface WeeklyReport {
   taxSchedulesDue: number;
   tasksByCategory: CategoryCount[];
   highlights: string[];
+  nextWeekInspections: WeeklyReportNextWeekInspectionsItem[];
 }
 
 export interface DashboardSummary {
@@ -550,6 +570,7 @@ export interface Alert {
   severity: AlertSeverity;
   /** @nullable */
   relatedId?: number | null;
+  hasDraft?: boolean;
   createdAt: string;
 }
 
@@ -569,6 +590,127 @@ export interface ActivityItem {
   type: ActivityItemType;
   description: string;
   timestamp: string;
+}
+
+export type InspectionPresetCategory =
+  (typeof InspectionPresetCategory)[keyof typeof InspectionPresetCategory];
+
+export const InspectionPresetCategory = {
+  elevator: "elevator",
+  water_tank: "water_tank",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  gas: "gas",
+  septic: "septic",
+  playground: "playground",
+  safety_check: "safety_check",
+  other: "other",
+} as const;
+
+export interface InspectionPreset {
+  id: number;
+  name: string;
+  category: InspectionPresetCategory;
+  legalCycleMonths: number;
+  defaultAlertDays: number;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+}
+
+export type InspectionLogResult =
+  (typeof InspectionLogResult)[keyof typeof InspectionLogResult];
+
+export const InspectionLogResult = {
+  good: "good",
+  fair: "fair",
+  poor: "poor",
+} as const;
+
+export interface InspectionLog {
+  id: number;
+  inspectionId: number;
+  inspectionDate: string;
+  result: InspectionLogResult;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  inspector?: string | null;
+  createdAt: string;
+}
+
+export type CompleteInspectionBodyResult =
+  (typeof CompleteInspectionBodyResult)[keyof typeof CompleteInspectionBodyResult];
+
+export const CompleteInspectionBodyResult = {
+  good: "good",
+  fair: "fair",
+  poor: "poor",
+} as const;
+
+export interface CompleteInspectionBody {
+  inspectionDate: string;
+  result: CompleteInspectionBodyResult;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  inspector?: string | null;
+}
+
+export type DraftDraftType =
+  (typeof DraftDraftType)[keyof typeof DraftDraftType];
+
+export const DraftDraftType = {
+  expense_approval: "expense_approval",
+  vendor_selection: "vendor_selection",
+  repair_maintenance: "repair_maintenance",
+} as const;
+
+export type DraftStatus = (typeof DraftStatus)[keyof typeof DraftStatus];
+
+export const DraftStatus = {
+  draft: "draft",
+  confirmed: "confirmed",
+} as const;
+
+export interface Draft {
+  id: number;
+  title: string;
+  draftType: DraftDraftType;
+  /** @nullable */
+  inspectionId?: number | null;
+  body: string;
+  status: DraftStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UpdateDraftBodyStatus =
+  (typeof UpdateDraftBodyStatus)[keyof typeof UpdateDraftBodyStatus];
+
+export const UpdateDraftBodyStatus = {
+  draft: "draft",
+  confirmed: "confirmed",
+} as const;
+
+export interface UpdateDraftBody {
+  title?: string;
+  body?: string;
+  status?: UpdateDraftBodyStatus;
+}
+
+export type GenerateAlertsResponseInspectionsItem = {
+  inspectionId: number;
+  name: string;
+  nextDueDate: string;
+  /** @nullable */
+  draftId?: number | null;
+};
+
+export interface GenerateAlertsResponse {
+  alertsGenerated: number;
+  draftsGenerated: number;
+  inspections: GenerateAlertsResponseInspectionsItem[];
 }
 
 export type ListTasksParams = {

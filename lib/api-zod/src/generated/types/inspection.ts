@@ -14,6 +14,8 @@ export interface Inspection {
   category: InspectionCategory;
   frequencyPerYear: number;
   /** @nullable */
+  legalCycleMonths?: number | null;
+  /** @nullable */
   lastInspectionDate?: Date | null;
   nextDueDate: Date;
   status: InspectionStatus;

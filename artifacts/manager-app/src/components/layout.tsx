@@ -8,12 +8,14 @@ import {
   Building2,
   Coins,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
   { path: "/tasks", label: "업무 관리", icon: CheckSquare },
   { path: "/inspections", label: "법정 점검", icon: Shield },
+  { path: "/drafts", label: "기안서", icon: ClipboardList },
   { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
   { path: "/vendors", label: "협력업체", icon: Building2 },
   { path: "/commissions", label: "수수료", icon: Coins },

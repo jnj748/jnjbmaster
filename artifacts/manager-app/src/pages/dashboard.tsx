@@ -171,8 +171,15 @@ export default function Dashboard() {
                       ? "주의"
                       : "정보"}
                   </Badge>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{alert.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{alert.title}</p>
+                      {alert.hasDraft && (
+                        <Badge variant="outline" className="text-xs">
+                          기안서 생성됨
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                       {alert.message}
                     </p>
@@ -271,6 +278,8 @@ function categoryLabel(cat: string): string {
     electrical: "전기",
     gas: "가스",
     septic: "정화조",
+    playground: "놀이터",
+    safety_check: "안전점검",
     other: "기타",
   };
   return labels[cat] || cat;

@@ -219,6 +219,80 @@ paths:
         "204":
           description: Deleted
 
+  /inspections/presets:
+    get:
+      operationId: listInspectionPresets
+      tags: [inspections]
+      summary: List legal inspection presets
+      responses:
+        "200":
+          description: Preset list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InspectionPreset"
+
+  /inspections/{id}/complete:
+    post:
+      operationId: completeInspection
+      tags: [inspections]
+      summary: Complete an inspection with result logging
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteInspectionBody"
+      responses:
+        "200":
+          description: Inspection completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inspection"
+
+  /inspections/{id}/logs:
+    get:
+      operationId: listInspectionLogs
+      tags: [inspections]
+      summary: List inspection history logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Log list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InspectionLog"
+
+  /inspections/generate-alerts:
+    post:
+      operationId: generateInspectionAlerts
+      tags: [inspections]
+      summary: Generate advance alerts and auto-draft documents for upcoming inspections
+      responses:
+        "200":
+          description: Generated alerts info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateAlertsResponse"
+
   /inspections/upcoming:
     get:
       operationId: getUpcomingInspections
@@ -469,6 +543,68 @@ paths:
               schema:
                 $ref: "#/components/schemas/Commission"
 
+  # ── Drafts (기안서) ───────────────────────────────────────
+  /drafts:
+    get:
+      operationId: listDrafts
+      tags: [inspections]
+      summary: List all draft documents
+      responses:
+        "200":
+          description: Draft list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Draft"
+
+  /drafts/{id}:
+    get:
+      operationId: getDraft
+      tags: [inspections]
+      summary: Get a single draft document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateDraft
+      tags: [inspections]
+      summary: Update a draft document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDraftBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Draft"
+        "404":
+          description: Not found
+
   # ── Reports (보고서) ───────────────────────────────────────
   /reports/weekly:
     get:
@@ -633,9 +769,11 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
         frequencyPerYear:
           type: integer
+        legalCycleMonths:
+          type: ["integer", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -675,9 +813,11 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
         frequencyPerYear:
           type: integer
+        legalCycleMonths:
+          type: ["integer", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -703,9 +843,11 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
         frequencyPerYear:
           type: integer
+        legalCycleMonths:
+          type: ["integer", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -991,6 +1133,25 @@ components:
           type: array
           items:
             type: string
+        nextWeekInspections:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              category:
+                type: string
+              nextDueDate:
+                type: string
+                format: date
+            required:
+              - id
+              - name
+              - category
+              - nextDueDate
       required:
         - weekStart
         - weekEnd
@@ -1001,6 +1162,7 @@ components:
         - taxSchedulesDue
         - tasksByCategory
         - highlights
+        - nextWeekInspections
 
     CategoryCount:
       type: object
@@ -1059,6 +1221,8 @@ components:
           enum: [critical, warning, info]
         relatedId:
           type: ["integer", "null"]
+        hasDraft:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1088,3 +1252,147 @@ components:
         - type
         - description
         - timestamp
+
+    InspectionPreset:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
+        legalCycleMonths:
+          type: integer
+        defaultAlertDays:
+          type: integer
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - legalCycleMonths
+        - defaultAlertDays
+        - createdAt
+
+    InspectionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        inspectionId:
+          type: integer
+        inspectionDate:
+          type: string
+          format: date
+        result:
+          type: string
+          enum: [good, fair, poor]
+        memo:
+          type: ["string", "null"]
+        inspector:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - inspectionId
+        - inspectionDate
+        - result
+        - createdAt
+
+    CompleteInspectionBody:
+      type: object
+      properties:
+        inspectionDate:
+          type: string
+          format: date
+        result:
+          type: string
+          enum: [good, fair, poor]
+        memo:
+          type: ["string", "null"]
+        inspector:
+          type: ["string", "null"]
+      required:
+        - inspectionDate
+        - result
+
+    Draft:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        draftType:
+          type: string
+          enum: [expense_approval, vendor_selection, repair_maintenance]
+        inspectionId:
+          type: ["integer", "null"]
+        body:
+          type: string
+        status:
+          type: string
+          enum: [draft, confirmed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - draftType
+        - body
+        - status
+        - createdAt
+        - updatedAt
+
+    UpdateDraftBody:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [draft, confirmed]
+
+    GenerateAlertsResponse:
+      type: object
+      properties:
+        alertsGenerated:
+          type: integer
+        draftsGenerated:
+          type: integer
+        inspections:
+          type: array
+          items:
+            type: object
+            properties:
+              inspectionId:
+                type: integer
+              name:
+                type: string
+              nextDueDate:
+                type: string
+                format: date
+              draftId:
+                type: ["integer", "null"]
+            required:
+              - inspectionId
+              - name
+              - nextDueDate
+      required:
+        - alertsGenerated
+        - draftsGenerated
+        - inspections

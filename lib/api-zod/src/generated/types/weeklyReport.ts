@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CategoryCount } from "./categoryCount";
+import type { WeeklyReportNextWeekInspectionsItem } from "./weeklyReportNextWeekInspectionsItem";
 
 export interface WeeklyReport {
   weekStart: Date;
@@ -17,4 +18,5 @@ export interface WeeklyReport {
   taxSchedulesDue: number;
   tasksByCategory: CategoryCount[];
   highlights: string[];
+  nextWeekInspections: WeeklyReportNextWeekInspectionsItem[];
 }

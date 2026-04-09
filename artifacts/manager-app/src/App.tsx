@@ -10,6 +10,7 @@ import TaxSchedules from "@/pages/tax-schedules";
 import Vendors from "@/pages/vendors";
 import Commissions from "@/pages/commissions";
 import Reports from "@/pages/reports";
+import Drafts from "@/pages/drafts";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/vendors" component={Vendors} />
         <Route path="/commissions" component={Commissions} />
         <Route path="/reports" component={Reports} />
+        <Route path="/drafts" component={Drafts} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

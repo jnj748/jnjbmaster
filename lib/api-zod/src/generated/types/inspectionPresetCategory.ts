@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type InspectionCategory =
-  (typeof InspectionCategory)[keyof typeof InspectionCategory];
+export type InspectionPresetCategory =
+  (typeof InspectionPresetCategory)[keyof typeof InspectionPresetCategory];
 
-export const InspectionCategory = {
+export const InspectionPresetCategory = {
   elevator: "elevator",
   water_tank: "water_tank",
   fire_safety: "fire_safety",

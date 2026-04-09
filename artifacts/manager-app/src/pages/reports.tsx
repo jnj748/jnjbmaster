@@ -22,6 +22,14 @@ const categoryLabel = (c: string) => {
     maintenance: "유지보수",
     administrative: "행정업무",
     tax: "세무",
+    elevator: "승강기",
+    water_tank: "저수조",
+    fire_safety: "소방",
+    electrical: "전기",
+    gas: "가스",
+    septic: "정화조",
+    playground: "놀이터",
+    safety_check: "안전점검",
     other: "기타",
   };
   return labels[c] || c;
@@ -122,6 +130,30 @@ export default function Reports() {
                         </div>
                         <span className="text-sm font-medium w-8 text-right">{cat.count}</span>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {report.nextWeekInspections && report.nextWeekInspections.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-accent" />
+                  다음 주 예정 점검
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {report.nextWeekInspections.map((insp) => (
+                    <div key={insp.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">{insp.name}</p>
+                        <p className="text-xs text-muted-foreground">{categoryLabel(insp.category)}</p>
+                      </div>
+                      <Badge variant="outline">{formatDate(insp.nextDueDate)}</Badge>
                     </div>
                   ))}
                 </div>

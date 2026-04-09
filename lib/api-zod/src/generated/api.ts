@@ -143,9 +143,12 @@ export const ListInspectionsResponseItem = zod.object({
     "electrical",
     "gas",
     "septic",
+    "playground",
+    "safety_check",
     "other",
   ]),
   frequencyPerYear: zod.number(),
+  legalCycleMonths: zod.number().nullish(),
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
@@ -169,9 +172,12 @@ export const CreateInspectionBody = zod.object({
     "electrical",
     "gas",
     "septic",
+    "playground",
+    "safety_check",
     "other",
   ]),
   frequencyPerYear: zod.number(),
+  legalCycleMonths: zod.number().nullish(),
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date(),
   notes: zod.string().nullish(),
@@ -196,10 +202,13 @@ export const UpdateInspectionBody = zod.object({
       "electrical",
       "gas",
       "septic",
+      "playground",
+      "safety_check",
       "other",
     ])
     .optional(),
   frequencyPerYear: zod.number().optional(),
+  legalCycleMonths: zod.number().nullish(),
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date().optional(),
   status: zod
@@ -220,9 +229,12 @@ export const UpdateInspectionResponse = zod.object({
     "electrical",
     "gas",
     "septic",
+    "playground",
+    "safety_check",
     "other",
   ]),
   frequencyPerYear: zod.number(),
+  legalCycleMonths: zod.number().nullish(),
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
@@ -241,6 +253,107 @@ export const DeleteInspectionParams = zod.object({
 });
 
 /**
+ * @summary List legal inspection presets
+ */
+export const ListInspectionPresetsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "playground",
+    "safety_check",
+    "other",
+  ]),
+  legalCycleMonths: zod.number(),
+  defaultAlertDays: zod.number(),
+  description: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListInspectionPresetsResponse = zod.array(
+  ListInspectionPresetsResponseItem,
+);
+
+/**
+ * @summary Complete an inspection with result logging
+ */
+export const CompleteInspectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CompleteInspectionBody = zod.object({
+  inspectionDate: zod.coerce.date(),
+  result: zod.enum(["good", "fair", "poor"]),
+  memo: zod.string().nullish(),
+  inspector: zod.string().nullish(),
+});
+
+export const CompleteInspectionResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "playground",
+    "safety_check",
+    "other",
+  ]),
+  frequencyPerYear: zod.number(),
+  legalCycleMonths: zod.number().nullish(),
+  lastInspectionDate: zod.coerce.date().nullish(),
+  nextDueDate: zod.coerce.date(),
+  status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
+  notes: zod.string().nullish(),
+  advanceAlertDays: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List inspection history logs
+ */
+export const ListInspectionLogsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListInspectionLogsResponseItem = zod.object({
+  id: zod.number(),
+  inspectionId: zod.number(),
+  inspectionDate: zod.coerce.date(),
+  result: zod.enum(["good", "fair", "poor"]),
+  memo: zod.string().nullish(),
+  inspector: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListInspectionLogsResponse = zod.array(
+  ListInspectionLogsResponseItem,
+);
+
+/**
+ * @summary Generate advance alerts and auto-draft documents for upcoming inspections
+ */
+export const GenerateInspectionAlertsResponse = zod.object({
+  alertsGenerated: zod.number(),
+  draftsGenerated: zod.number(),
+  inspections: zod.array(
+    zod.object({
+      inspectionId: zod.number(),
+      name: zod.string(),
+      nextDueDate: zod.coerce.date(),
+      draftId: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Get inspections due within 30 days
  */
 export const GetUpcomingInspectionsResponseItem = zod.object({
@@ -253,9 +366,12 @@ export const GetUpcomingInspectionsResponseItem = zod.object({
     "electrical",
     "gas",
     "septic",
+    "playground",
+    "safety_check",
     "other",
   ]),
   frequencyPerYear: zod.number(),
+  legalCycleMonths: zod.number().nullish(),
   lastInspectionDate: zod.coerce.date().nullish(),
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
@@ -590,6 +706,75 @@ export const UpdateCommissionResponse = zod.object({
 });
 
 /**
+ * @summary List all draft documents
+ */
+export const ListDraftsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  draftType: zod.enum([
+    "expense_approval",
+    "vendor_selection",
+    "repair_maintenance",
+  ]),
+  inspectionId: zod.number().nullish(),
+  body: zod.string(),
+  status: zod.enum(["draft", "confirmed"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDraftsResponse = zod.array(ListDraftsResponseItem);
+
+/**
+ * @summary Get a single draft document
+ */
+export const GetDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDraftResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  draftType: zod.enum([
+    "expense_approval",
+    "vendor_selection",
+    "repair_maintenance",
+  ]),
+  inspectionId: zod.number().nullish(),
+  body: zod.string(),
+  status: zod.enum(["draft", "confirmed"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a draft document
+ */
+export const UpdateDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDraftBody = zod.object({
+  title: zod.string().optional(),
+  body: zod.string().optional(),
+  status: zod.enum(["draft", "confirmed"]).optional(),
+});
+
+export const UpdateDraftResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  draftType: zod.enum([
+    "expense_approval",
+    "vendor_selection",
+    "repair_maintenance",
+  ]),
+  inspectionId: zod.number().nullish(),
+  body: zod.string(),
+  status: zod.enum(["draft", "confirmed"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Get auto-generated weekly report
  */
 export const GetWeeklyReportQueryParams = zod.object({
@@ -611,6 +796,14 @@ export const GetWeeklyReportResponse = zod.object({
     }),
   ),
   highlights: zod.array(zod.string()),
+  nextWeekInspections: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      category: zod.string(),
+      nextDueDate: zod.coerce.date(),
+    }),
+  ),
 });
 
 /**
@@ -642,6 +835,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
   message: zod.string(),
   severity: zod.enum(["critical", "warning", "info"]),
   relatedId: zod.number().nullish(),
+  hasDraft: zod.boolean().optional(),
   createdAt: zod.coerce.date(),
 });
 export const GetDashboardAlertsResponse = zod.array(

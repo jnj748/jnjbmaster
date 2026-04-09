@@ -12,6 +12,8 @@ export interface CreateInspectionBody {
   category: CreateInspectionBodyCategory;
   frequencyPerYear: number;
   /** @nullable */
+  legalCycleMonths?: number | null;
+  /** @nullable */
   lastInspectionDate?: Date | null;
   nextDueDate: Date;
   /** @nullable */

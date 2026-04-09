@@ -16,5 +16,7 @@ export const UpdateInspectionBodyCategory = {
   electrical: "electrical",
   gas: "gas",
   septic: "septic",
+  playground: "playground",
+  safety_check: "safety_check",
   other: "other",
 } as const;

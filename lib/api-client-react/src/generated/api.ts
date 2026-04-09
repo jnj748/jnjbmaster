@@ -20,22 +20,28 @@ import type {
   ActivityItem,
   Alert,
   Commission,
+  CompleteInspectionBody,
   CreateCommissionBody,
   CreateInspectionBody,
   CreateTaskBody,
   CreateTaxScheduleBody,
   CreateVendorBody,
   DashboardSummary,
+  Draft,
+  GenerateAlertsResponse,
   GetRecommendedVendorsParams,
   GetWeeklyReportParams,
   HealthStatus,
   Inspection,
+  InspectionLog,
+  InspectionPreset,
   ListTasksParams,
   ListTaxSchedulesParams,
   ListVendorsParams,
   Task,
   TaxSchedule,
   UpdateCommissionBody,
+  UpdateDraftBody,
   UpdateInspectionBody,
   UpdateTaskBody,
   UpdateTaxScheduleBody,
@@ -886,6 +892,336 @@ export const useDeleteInspection = <
   TContext
 > => {
   return useMutation(getDeleteInspectionMutationOptions(options));
+};
+
+/**
+ * @summary List legal inspection presets
+ */
+export const getListInspectionPresetsUrl = () => {
+  return `/api/inspections/presets`;
+};
+
+export const listInspectionPresets = async (
+  options?: RequestInit,
+): Promise<InspectionPreset[]> => {
+  return customFetch<InspectionPreset[]>(getListInspectionPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListInspectionPresetsQueryKey = () => {
+  return [`/api/inspections/presets`] as const;
+};
+
+export const getListInspectionPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInspectionPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListInspectionPresetsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInspectionPresets>>
+  > = ({ signal }) => listInspectionPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInspectionPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInspectionPresets>>
+>;
+export type ListInspectionPresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List legal inspection presets
+ */
+
+export function useListInspectionPresets<
+  TData = Awaited<ReturnType<typeof listInspectionPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInspectionPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Complete an inspection with result logging
+ */
+export const getCompleteInspectionUrl = (id: number) => {
+  return `/api/inspections/${id}/complete`;
+};
+
+export const completeInspection = async (
+  id: number,
+  completeInspectionBody: CompleteInspectionBody,
+  options?: RequestInit,
+): Promise<Inspection> => {
+  return customFetch<Inspection>(getCompleteInspectionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completeInspectionBody),
+  });
+};
+
+export const getCompleteInspectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeInspection>>,
+    TError,
+    { id: number; data: BodyType<CompleteInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeInspection>>,
+  TError,
+  { id: number; data: BodyType<CompleteInspectionBody> },
+  TContext
+> => {
+  const mutationKey = ["completeInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeInspection>>,
+    { id: number; data: BodyType<CompleteInspectionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return completeInspection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeInspection>>
+>;
+export type CompleteInspectionMutationBody = BodyType<CompleteInspectionBody>;
+export type CompleteInspectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Complete an inspection with result logging
+ */
+export const useCompleteInspection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeInspection>>,
+    TError,
+    { id: number; data: BodyType<CompleteInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeInspection>>,
+  TError,
+  { id: number; data: BodyType<CompleteInspectionBody> },
+  TContext
+> => {
+  return useMutation(getCompleteInspectionMutationOptions(options));
+};
+
+/**
+ * @summary List inspection history logs
+ */
+export const getListInspectionLogsUrl = (id: number) => {
+  return `/api/inspections/${id}/logs`;
+};
+
+export const listInspectionLogs = async (
+  id: number,
+  options?: RequestInit,
+): Promise<InspectionLog[]> => {
+  return customFetch<InspectionLog[]>(getListInspectionLogsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListInspectionLogsQueryKey = (id: number) => {
+  return [`/api/inspections/${id}/logs`] as const;
+};
+
+export const getListInspectionLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInspectionLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInspectionLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListInspectionLogsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInspectionLogs>>
+  > = ({ signal }) => listInspectionLogs(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInspectionLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInspectionLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInspectionLogs>>
+>;
+export type ListInspectionLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List inspection history logs
+ */
+
+export function useListInspectionLogs<
+  TData = Awaited<ReturnType<typeof listInspectionLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInspectionLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInspectionLogsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate advance alerts and auto-draft documents for upcoming inspections
+ */
+export const getGenerateInspectionAlertsUrl = () => {
+  return `/api/inspections/generate-alerts`;
+};
+
+export const generateInspectionAlerts = async (
+  options?: RequestInit,
+): Promise<GenerateAlertsResponse> => {
+  return customFetch<GenerateAlertsResponse>(getGenerateInspectionAlertsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateInspectionAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateInspectionAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateInspectionAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["generateInspectionAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateInspectionAlerts>>,
+    void
+  > = () => {
+    return generateInspectionAlerts(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateInspectionAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateInspectionAlerts>>
+>;
+
+export type GenerateInspectionAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate advance alerts and auto-draft documents for upcoming inspections
+ */
+export const useGenerateInspectionAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateInspectionAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateInspectionAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getGenerateInspectionAlertsMutationOptions(options));
 };
 
 /**
@@ -2015,6 +2351,251 @@ export const useUpdateCommission = <
   TContext
 > => {
   return useMutation(getUpdateCommissionMutationOptions(options));
+};
+
+/**
+ * @summary List all draft documents
+ */
+export const getListDraftsUrl = () => {
+  return `/api/drafts`;
+};
+
+export const listDrafts = async (options?: RequestInit): Promise<Draft[]> => {
+  return customFetch<Draft[]>(getListDraftsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDraftsQueryKey = () => {
+  return [`/api/drafts`] as const;
+};
+
+export const getListDraftsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDrafts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDrafts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDraftsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDrafts>>> = ({
+    signal,
+  }) => listDrafts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDrafts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDraftsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDrafts>>
+>;
+export type ListDraftsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all draft documents
+ */
+
+export function useListDrafts<
+  TData = Awaited<ReturnType<typeof listDrafts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDrafts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDraftsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single draft document
+ */
+export const getGetDraftUrl = (id: number) => {
+  return `/api/drafts/${id}`;
+};
+
+export const getDraft = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Draft> => {
+  return customFetch<Draft>(getGetDraftUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDraftQueryKey = (id: number) => {
+  return [`/api/drafts/${id}`] as const;
+};
+
+export const getGetDraftQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDraft>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDraft>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDraftQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDraft>>> = ({
+    signal,
+  }) => getDraft(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getDraft>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetDraftQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDraft>>
+>;
+export type GetDraftQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single draft document
+ */
+
+export function useGetDraft<
+  TData = Awaited<ReturnType<typeof getDraft>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDraft>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDraftQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a draft document
+ */
+export const getUpdateDraftUrl = (id: number) => {
+  return `/api/drafts/${id}`;
+};
+
+export const updateDraft = async (
+  id: number,
+  updateDraftBody: UpdateDraftBody,
+  options?: RequestInit,
+): Promise<Draft> => {
+  return customFetch<Draft>(getUpdateDraftUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateDraftBody),
+  });
+};
+
+export const getUpdateDraftMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDraft>>,
+    TError,
+    { id: number; data: BodyType<UpdateDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDraft>>,
+  TError,
+  { id: number; data: BodyType<UpdateDraftBody> },
+  TContext
+> => {
+  const mutationKey = ["updateDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDraft>>,
+    { id: number; data: BodyType<UpdateDraftBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDraft(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDraft>>
+>;
+export type UpdateDraftMutationBody = BodyType<UpdateDraftBody>;
+export type UpdateDraftMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a draft document
+ */
+export const useUpdateDraft = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDraft>>,
+    TError,
+    { id: number; data: BodyType<UpdateDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDraft>>,
+  TError,
+  { id: number; data: BodyType<UpdateDraftBody> },
+  TContext
+> => {
+  return useMutation(getUpdateDraftMutationOptions(options));
 };
 
 /**

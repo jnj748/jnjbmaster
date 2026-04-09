@@ -16,5 +16,6 @@ export interface Alert {
   severity: AlertSeverity;
   /** @nullable */
   relatedId?: number | null;
+  hasDraft?: boolean;
   createdAt: Date;
 }
