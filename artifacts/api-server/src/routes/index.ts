@@ -7,6 +7,11 @@ import vendorsRouter from "./vendors";
 import commissionsRouter from "./commissions";
 import dashboardRouter from "./dashboard";
 import draftsRouter from "./drafts";
+import tenantsRouter from "./tenants";
+import ownersRouter from "./owners";
+import vehiclesRouter from "./vehicles";
+import notificationsRouter from "./notifications";
+import documentChecklistsRouter from "./documentChecklists";
 
 const router: IRouter = Router();
 
@@ -18,5 +23,10 @@ router.use(vendorsRouter);
 router.use(commissionsRouter);
 router.use(dashboardRouter);
 router.use(draftsRouter);
+router.use(tenantsRouter);
+router.use(ownersRouter);
+router.use(vehiclesRouter);
+router.use(notificationsRouter);
+router.use(documentChecklistsRouter);
 
 export default router;

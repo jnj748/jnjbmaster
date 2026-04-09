@@ -713,6 +713,428 @@ export interface GenerateAlertsResponse {
   inspections: GenerateAlertsResponseInspectionsItem[];
 }
 
+export type TenantStatus = (typeof TenantStatus)[keyof typeof TenantStatus];
+
+export const TenantStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export interface Tenant {
+  id: number;
+  unit: string;
+  tenantName: string;
+  /** @nullable */
+  residentId?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  emergencyContact?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  hasTv: boolean;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  guarantorName?: string | null;
+  /** @nullable */
+  guarantorPhone?: string | null;
+  /** @nullable */
+  guarantorRelation?: string | null;
+  status: TenantStatus;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  contractDoc: boolean;
+  businessRegDoc: boolean;
+  idDoc: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTenantBody {
+  unit: string;
+  tenantName: string;
+  /** @nullable */
+  residentId?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  emergencyContact?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  hasTv?: boolean;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  guarantorName?: string | null;
+  /** @nullable */
+  guarantorPhone?: string | null;
+  /** @nullable */
+  guarantorRelation?: string | null;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  contractDoc?: boolean;
+  businessRegDoc?: boolean;
+  idDoc?: boolean;
+}
+
+export type UpdateTenantBodyStatus =
+  (typeof UpdateTenantBodyStatus)[keyof typeof UpdateTenantBodyStatus];
+
+export const UpdateTenantBodyStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export interface UpdateTenantBody {
+  unit?: string;
+  tenantName?: string;
+  /** @nullable */
+  residentId?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  emergencyContact?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  hasTv?: boolean;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  guarantorName?: string | null;
+  /** @nullable */
+  guarantorPhone?: string | null;
+  /** @nullable */
+  guarantorRelation?: string | null;
+  status?: UpdateTenantBodyStatus;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  contractDoc?: boolean;
+  businessRegDoc?: boolean;
+  idDoc?: boolean;
+}
+
+export type OwnerStatus = (typeof OwnerStatus)[keyof typeof OwnerStatus];
+
+export const OwnerStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export interface Owner {
+  id: number;
+  unit: string;
+  ownerName: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  vehicleNumber?: string | null;
+  /** @nullable */
+  vehicleType?: string | null;
+  hasTv: boolean;
+  /** @nullable */
+  notes?: string | null;
+  status: OwnerStatus;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  businessRegDoc: boolean;
+  idDoc: boolean;
+  propertyDoc: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOwnerBody {
+  unit: string;
+  ownerName: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  vehicleNumber?: string | null;
+  /** @nullable */
+  vehicleType?: string | null;
+  hasTv?: boolean;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  businessRegDoc?: boolean;
+  idDoc?: boolean;
+  propertyDoc?: boolean;
+}
+
+export type UpdateOwnerBodyStatus =
+  (typeof UpdateOwnerBodyStatus)[keyof typeof UpdateOwnerBodyStatus];
+
+export const UpdateOwnerBodyStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export interface UpdateOwnerBody {
+  unit?: string;
+  ownerName?: string;
+  /** @nullable */
+  birthDate?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  /** @nullable */
+  moveOutDate?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  vehicleNumber?: string | null;
+  /** @nullable */
+  vehicleType?: string | null;
+  hasTv?: boolean;
+  /** @nullable */
+  notes?: string | null;
+  status?: UpdateOwnerBodyStatus;
+  /** @nullable */
+  privacyConsentDate?: string | null;
+  businessRegDoc?: boolean;
+  idDoc?: boolean;
+  propertyDoc?: boolean;
+}
+
+export type VehicleOwnershipType =
+  (typeof VehicleOwnershipType)[keyof typeof VehicleOwnershipType];
+
+export const VehicleOwnershipType = {
+  owned: "owned",
+  leased: "leased",
+  rental: "rental",
+  other: "other",
+} as const;
+
+export interface Vehicle {
+  id: number;
+  /** @nullable */
+  tenantId?: number | null;
+  unit: string;
+  /** @nullable */
+  tenantRelation?: string | null;
+  vehicleNumber: string;
+  /** @nullable */
+  vehicleType?: string | null;
+  /** @nullable */
+  vehicleColor?: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerContact?: string | null;
+  isPrimary: boolean;
+  ownershipType: VehicleOwnershipType;
+  registrationDoc: boolean;
+  insuranceDoc: boolean;
+  leaseDoc: boolean;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateVehicleBodyOwnershipType =
+  (typeof CreateVehicleBodyOwnershipType)[keyof typeof CreateVehicleBodyOwnershipType];
+
+export const CreateVehicleBodyOwnershipType = {
+  owned: "owned",
+  leased: "leased",
+  rental: "rental",
+  other: "other",
+} as const;
+
+export interface CreateVehicleBody {
+  /** @nullable */
+  tenantId?: number | null;
+  unit: string;
+  /** @nullable */
+  tenantRelation?: string | null;
+  vehicleNumber: string;
+  /** @nullable */
+  vehicleType?: string | null;
+  /** @nullable */
+  vehicleColor?: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerContact?: string | null;
+  isPrimary?: boolean;
+  ownershipType?: CreateVehicleBodyOwnershipType;
+  registrationDoc?: boolean;
+  insuranceDoc?: boolean;
+  leaseDoc?: boolean;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateVehicleBodyOwnershipType =
+  (typeof UpdateVehicleBodyOwnershipType)[keyof typeof UpdateVehicleBodyOwnershipType];
+
+export const UpdateVehicleBodyOwnershipType = {
+  owned: "owned",
+  leased: "leased",
+  rental: "rental",
+  other: "other",
+} as const;
+
+export interface UpdateVehicleBody {
+  /** @nullable */
+  tenantId?: number | null;
+  unit?: string;
+  /** @nullable */
+  tenantRelation?: string | null;
+  vehicleNumber?: string;
+  /** @nullable */
+  vehicleType?: string | null;
+  /** @nullable */
+  vehicleColor?: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerContact?: string | null;
+  isPrimary?: boolean;
+  ownershipType?: UpdateVehicleBodyOwnershipType;
+  registrationDoc?: boolean;
+  insuranceDoc?: boolean;
+  leaseDoc?: boolean;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface Notification {
+  id: number;
+  recipientType: string;
+  notificationType: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  /** @nullable */
+  relatedEntityType?: string | null;
+  /** @nullable */
+  relatedEntityId?: number | null;
+  createdAt: string;
+}
+
+export type DocumentChecklistEntityType =
+  (typeof DocumentChecklistEntityType)[keyof typeof DocumentChecklistEntityType];
+
+export const DocumentChecklistEntityType = {
+  tenant: "tenant",
+  owner: "owner",
+  vehicle: "vehicle",
+} as const;
+
+export interface DocumentChecklist {
+  id: number;
+  entityType: DocumentChecklistEntityType;
+  entityId: number;
+  documentName: string;
+  isSubmitted: boolean;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UpsertDocumentChecklistBodyEntityType =
+  (typeof UpsertDocumentChecklistBodyEntityType)[keyof typeof UpsertDocumentChecklistBodyEntityType];
+
+export const UpsertDocumentChecklistBodyEntityType = {
+  tenant: "tenant",
+  owner: "owner",
+  vehicle: "vehicle",
+} as const;
+
+export interface UpsertDocumentChecklistBody {
+  entityType: UpsertDocumentChecklistBodyEntityType;
+  entityId: number;
+  documentName: string;
+  isSubmitted: boolean;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -753,3 +1175,60 @@ export type GetRecommendedVendorsParams = {
 export type GetWeeklyReportParams = {
   weekStart: string;
 };
+
+export type ListTenantsParams = {
+  status?: ListTenantsStatus;
+  search?: string;
+  unit?: string;
+};
+
+export type ListTenantsStatus =
+  (typeof ListTenantsStatus)[keyof typeof ListTenantsStatus];
+
+export const ListTenantsStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export type ListOwnersParams = {
+  status?: ListOwnersStatus;
+  search?: string;
+  unit?: string;
+};
+
+export type ListOwnersStatus =
+  (typeof ListOwnersStatus)[keyof typeof ListOwnersStatus];
+
+export const ListOwnersStatus = {
+  active: "active",
+  moved_out: "moved_out",
+} as const;
+
+export type ListVehiclesParams = {
+  unit?: string;
+  search?: string;
+  tenantId?: number;
+};
+
+export type GetUnregisteredVehicles200 = {
+  message: string;
+  reviewMonth: number;
+};
+
+export type GetUnreadNotificationCount200 = {
+  count: number;
+};
+
+export type ListDocumentChecklistsParams = {
+  entityType: ListDocumentChecklistsEntityType;
+  entityId: number;
+};
+
+export type ListDocumentChecklistsEntityType =
+  (typeof ListDocumentChecklistsEntityType)[keyof typeof ListDocumentChecklistsEntityType];
+
+export const ListDocumentChecklistsEntityType = {
+  tenant: "tenant",
+  owner: "owner",
+  vehicle: "vehicle",
+} as const;

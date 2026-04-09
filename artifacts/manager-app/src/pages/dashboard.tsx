@@ -3,6 +3,8 @@ import {
   useGetDashboardAlerts,
   useGetRecentActivity,
   useGetUpcomingInspections,
+  useListTenants,
+  useListVehicles,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,8 @@ import {
   Coins,
   TrendingUp,
   Activity,
+  Users,
+  Car,
 } from "lucide-react";
 
 function StatCard({
@@ -57,6 +61,8 @@ export default function Dashboard() {
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
   const { data: upcoming, isLoading: upcomingLoading } = useGetUpcomingInspections();
+  const { data: tenants } = useListTenants({ status: "active" });
+  const { data: vehicles } = useListVehicles();
 
   if (summaryLoading) {
     return (
@@ -119,16 +125,18 @@ export default function Dashboard() {
           subtitle="처리 대기"
         />
         <StatCard
-          title="총 수수료"
-          value={`${(summary?.totalCommissionAmount ?? 0).toLocaleString()}원`}
-          icon={Coins}
+          title="입주 현황"
+          value={tenants?.length ?? 0}
+          icon={Users}
           color="bg-chart-4"
+          subtitle="현재 입주중"
         />
         <StatCard
-          title="미수 수수료"
-          value={`${(summary?.pendingCommissionAmount ?? 0).toLocaleString()}원`}
-          icon={Clock}
+          title="등록 차량"
+          value={vehicles?.length ?? 0}
+          icon={Car}
           color="bg-chart-5"
+          subtitle="전체 등록"
         />
         <StatCard
           title="대기 업무"

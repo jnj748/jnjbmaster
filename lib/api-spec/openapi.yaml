@@ -23,6 +23,14 @@ tags:
     description: Commission tracking
   - name: dashboard
     description: Dashboard summaries
+  - name: tenants
+    description: Tenant management
+  - name: owners
+    description: Owner management
+  - name: vehicles
+    description: Vehicle registration management
+  - name: notifications
+    description: In-app notifications
 
 paths:
   /healthz:
@@ -654,6 +662,447 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Alert"
+
+  # ── Tenants (입주자 관리) ──────────────────────────────────
+  /tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: List tenants
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, moved_out]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: unit
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tenant"
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Create a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/{id}:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteTenant
+      tags: [tenants]
+      summary: Delete a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Owners (소유자 관리) ──────────────────────────────────
+  /owners:
+    get:
+      operationId: listOwners
+      tags: [owners]
+      summary: List owners
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, moved_out]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: unit
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Owner list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Owner"
+    post:
+      operationId: createOwner
+      tags: [owners]
+      summary: Create an owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOwnerBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+
+  /owners/{id}:
+    get:
+      operationId: getOwner
+      tags: [owners]
+      summary: Get an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Owner detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateOwner
+      tags: [owners]
+      summary: Update an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnerBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteOwner
+      tags: [owners]
+      summary: Delete an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Vehicles (차량 관리) ──────────────────────────────────
+  /vehicles:
+    get:
+      operationId: listVehicles
+      tags: [vehicles]
+      summary: List vehicles
+      parameters:
+        - name: unit
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: tenantId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+    post:
+      operationId: createVehicle
+      tags: [vehicles]
+      summary: Register a vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVehicleBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+
+  /vehicles/{id}:
+    get:
+      operationId: getVehicle
+      tags: [vehicles]
+      summary: Get a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vehicle detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateVehicle
+      tags: [vehicles]
+      summary: Update a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVehicleBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteVehicle
+      tags: [vehicles]
+      summary: Delete a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /vehicles/unregistered:
+    get:
+      operationId: getUnregisteredVehicles
+      tags: [vehicles]
+      summary: Get unregistered vehicles for periodic review
+      responses:
+        "200":
+          description: Unregistered vehicle info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  reviewMonth:
+                    type: integer
+                required:
+                  - message
+                  - reviewMonth
+
+  # ── Notifications (알림) ──────────────────────────────────
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/unread-count:
+    get:
+      operationId: getUnreadNotificationCount
+      tags: [notifications]
+      summary: Get unread notification count
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                required:
+                  - count
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /document-checklists:
+    get:
+      operationId: listDocumentChecklists
+      tags: [tenants]
+      summary: List document checklists for an entity
+      parameters:
+        - name: entityType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [tenant, owner, vehicle]
+        - name: entityId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Checklist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentChecklist"
+    post:
+      operationId: upsertDocumentChecklist
+      tags: [tenants]
+      summary: Create or update a document checklist item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertDocumentChecklistBody"
+      responses:
+        "200":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentChecklist"
 
   /dashboard/activity:
     get:
@@ -1396,3 +1845,556 @@ components:
         - alertsGenerated
         - draftsGenerated
         - inspections
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+        unit:
+          type: string
+        tenantName:
+          type: string
+        residentId:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        emergencyContact:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        registeredAddress:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        guarantorName:
+          type: ["string", "null"]
+        guarantorPhone:
+          type: ["string", "null"]
+        guarantorRelation:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, moved_out]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        contractDoc:
+          type: boolean
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - unit
+        - tenantName
+        - hasTv
+        - status
+        - contractDoc
+        - businessRegDoc
+        - idDoc
+        - createdAt
+        - updatedAt
+
+    CreateTenantBody:
+      type: object
+      properties:
+        unit:
+          type: string
+        tenantName:
+          type: string
+        residentId:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        emergencyContact:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        registeredAddress:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        guarantorName:
+          type: ["string", "null"]
+        guarantorPhone:
+          type: ["string", "null"]
+        guarantorRelation:
+          type: ["string", "null"]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        contractDoc:
+          type: boolean
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+      required:
+        - unit
+        - tenantName
+
+    UpdateTenantBody:
+      type: object
+      properties:
+        unit:
+          type: string
+        tenantName:
+          type: string
+        residentId:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        emergencyContact:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        registeredAddress:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        guarantorName:
+          type: ["string", "null"]
+        guarantorPhone:
+          type: ["string", "null"]
+        guarantorRelation:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, moved_out]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        contractDoc:
+          type: boolean
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+
+    Owner:
+      type: object
+      properties:
+        id:
+          type: integer
+        unit:
+          type: string
+        ownerName:
+          type: string
+        birthDate:
+          type: ["string", "null"]
+          format: date
+        phone:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        registeredAddress:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: ["string", "null"]
+        vehicleType:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, moved_out]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+        propertyDoc:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - unit
+        - ownerName
+        - hasTv
+        - status
+        - businessRegDoc
+        - idDoc
+        - propertyDoc
+        - createdAt
+        - updatedAt
+
+    CreateOwnerBody:
+      type: object
+      properties:
+        unit:
+          type: string
+        ownerName:
+          type: string
+        birthDate:
+          type: ["string", "null"]
+          format: date
+        phone:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        registeredAddress:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: ["string", "null"]
+        vehicleType:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+        propertyDoc:
+          type: boolean
+      required:
+        - unit
+        - ownerName
+
+    UpdateOwnerBody:
+      type: object
+      properties:
+        unit:
+          type: string
+        ownerName:
+          type: string
+        birthDate:
+          type: ["string", "null"]
+          format: date
+        phone:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        moveOutDate:
+          type: ["string", "null"]
+          format: date
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        registeredAddress:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: ["string", "null"]
+        vehicleType:
+          type: ["string", "null"]
+        hasTv:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, moved_out]
+        privacyConsentDate:
+          type: ["string", "null"]
+          format: date-time
+        businessRegDoc:
+          type: boolean
+        idDoc:
+          type: boolean
+        propertyDoc:
+          type: boolean
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: ["integer", "null"]
+        unit:
+          type: string
+        tenantRelation:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: string
+        vehicleType:
+          type: ["string", "null"]
+        vehicleColor:
+          type: ["string", "null"]
+        ownerName:
+          type: ["string", "null"]
+        ownerContact:
+          type: ["string", "null"]
+        isPrimary:
+          type: boolean
+        ownershipType:
+          type: string
+          enum: [owned, leased, rental, other]
+        registrationDoc:
+          type: boolean
+        insuranceDoc:
+          type: boolean
+        leaseDoc:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - unit
+        - vehicleNumber
+        - isPrimary
+        - ownershipType
+        - registrationDoc
+        - insuranceDoc
+        - leaseDoc
+        - createdAt
+        - updatedAt
+
+    CreateVehicleBody:
+      type: object
+      properties:
+        tenantId:
+          type: ["integer", "null"]
+        unit:
+          type: string
+        tenantRelation:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: string
+        vehicleType:
+          type: ["string", "null"]
+        vehicleColor:
+          type: ["string", "null"]
+        ownerName:
+          type: ["string", "null"]
+        ownerContact:
+          type: ["string", "null"]
+        isPrimary:
+          type: boolean
+        ownershipType:
+          type: string
+          enum: [owned, leased, rental, other]
+        registrationDoc:
+          type: boolean
+        insuranceDoc:
+          type: boolean
+        leaseDoc:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required:
+        - unit
+        - vehicleNumber
+
+    UpdateVehicleBody:
+      type: object
+      properties:
+        tenantId:
+          type: ["integer", "null"]
+        unit:
+          type: string
+        tenantRelation:
+          type: ["string", "null"]
+        vehicleNumber:
+          type: string
+        vehicleType:
+          type: ["string", "null"]
+        vehicleColor:
+          type: ["string", "null"]
+        ownerName:
+          type: ["string", "null"]
+        ownerContact:
+          type: ["string", "null"]
+        isPrimary:
+          type: boolean
+        ownershipType:
+          type: string
+          enum: [owned, leased, rental, other]
+        registrationDoc:
+          type: boolean
+        insuranceDoc:
+          type: boolean
+        leaseDoc:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        recipientType:
+          type: string
+        notificationType:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        relatedEntityType:
+          type: ["string", "null"]
+        relatedEntityId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - recipientType
+        - notificationType
+        - title
+        - message
+        - isRead
+        - createdAt
+
+    DocumentChecklist:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+          enum: [tenant, owner, vehicle]
+        entityId:
+          type: integer
+        documentName:
+          type: string
+        isSubmitted:
+          type: boolean
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entityType
+        - entityId
+        - documentName
+        - isSubmitted
+        - createdAt
+        - updatedAt
+
+    UpsertDocumentChecklistBody:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum: [tenant, owner, vehicle]
+        entityId:
+          type: integer
+        documentName:
+          type: string
+        isSubmitted:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required:
+        - entityType
+        - entityId
+        - documentName
+        - isSubmitted

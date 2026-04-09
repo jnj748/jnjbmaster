@@ -19,14 +19,19 @@ AI-powered property management work tool for Korean apartment/building managers 
 
 ## Features
 
-1. **Dashboard** - Overview with task counts, inspection alerts, tax reminders, commission stats
+1. **Dashboard** - Overview with task counts, inspection alerts, tax reminders, tenant/vehicle stats
 2. **Task Management (업무 관리)** - Daily/weekly to-do list with category, priority, status filters
 3. **Legal Inspections (법정 점검)** - Elevator, water tank, fire safety, electrical, playground, safety inspections with advance alerts, legal basis tracking, printable notices, preset-based registration, completion logging, auto-draft generation
 4. **Tax Schedules (세무 일정)** - Withholding tax, VAT, property tax tracking with recurrence
-5. **Vendor Management (협력업체)** - Vendor registry with category, contact info, ratings, recommendations
-6. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
-7. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
-8. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
+5. **Tenant Management (입주민 관리)** - Tenant card registration with all fields, document checklist, privacy consent
+6. **Owner Management (소유자 관리)** - Owner card registration with document checklist and privacy consent
+7. **Vehicle Management (차량 관리)** - Vehicle registration cards with primary/additional vehicles, ownership-based document requirements
+8. **Vendor Management (협력업체)** - Vendor registry with category, contact info, ratings, recommendations
+9. **Commission Tracking (수수료)** - Vendor matching revenue dashboard with status management
+10. **Weekly Reports (주간보고)** - Auto-generated weekly summaries with next-week inspection forecasts
+11. **Draft Documents (기안서)** - Auto-generated expense approvals, repair maintenance drafts from inspections
+12. **Notifications (알림)** - In-app notification bell with unread count badge, auto-generated on tenant registration/update
+13. **Export** - Tenant/owner/vehicle cards can be exported as PDF files (jsPDF)
 
 ## Database Tables
 
@@ -38,6 +43,11 @@ AI-powered property management work tool for Korean apartment/building managers 
 - `tax_schedules` - Tax/accounting schedules with recurrence patterns
 - `vendors` - Vendor registry with contact info and ratings
 - `commissions` - Commission records from vendor matching
+- `tenants` - Tenant cards with all personal info, dates, document checklist, guarantor info
+- `owners` - Owner cards with personal info, dates, document checklist
+- `vehicles` - Vehicle registration cards with FK to tenants, ownership type, document checklist
+- `notifications` - In-app notifications with read status, related entity references
+- `document_checklists` - Dedicated document checklist table with entity_type/entity_id/document_name unique constraint
 
 ## Key Commands
 
@@ -70,6 +80,28 @@ AI-powered property management work tool for Korean apartment/building managers 
 ### Tax Schedules
 - `GET/POST /api/tax-schedules` - List/create schedules
 - `PATCH/DELETE /api/tax-schedules/:id` - Update/delete schedule
+
+### Tenants (입주자)
+- `GET/POST /api/tenants` - List/create tenants (filterable by status, unit, search)
+- `GET/PATCH/DELETE /api/tenants/:id` - Get/update/delete tenant
+
+### Owners (소유자)
+- `GET/POST /api/owners` - List/create owners (filterable by status, unit, search)
+- `GET/PATCH/DELETE /api/owners/:id` - Get/update/delete owner
+
+### Vehicles (차량)
+- `GET/POST /api/vehicles` - List/create vehicles (filterable by unit, tenantId, search; max 4 additional + 1 primary per unit enforced; tenantId-unit consistency validated)
+- `GET/PATCH/DELETE /api/vehicles/:id` - Get/update/delete vehicle (max vehicle constraint enforced on update too)
+- `GET /api/vehicles/unregistered` - Unregistered/doc-missing vehicle review (queries actual data)
+
+### Document Checklists (서류 체크리스트)
+- `GET /api/document-checklists` - List checklist items by entityType + entityId
+- `POST /api/document-checklists` - Upsert document checklist item
+
+### Notifications (알림)
+- `GET /api/notifications` - List notifications
+- `GET /api/notifications/unread-count` - Unread notification count
+- `PATCH /api/notifications/:id/read` - Mark notification as read
 
 ### Vendors
 - `GET/POST /api/vendors` - List/create vendors (filterable by category)

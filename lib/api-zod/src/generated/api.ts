@@ -312,6 +312,7 @@ export const CompleteInspectionResponse = zod.object({
   nextDueDate: zod.coerce.date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -841,6 +842,556 @@ export const GetDashboardAlertsResponseItem = zod.object({
 export const GetDashboardAlertsResponse = zod.array(
   GetDashboardAlertsResponseItem,
 );
+
+/**
+ * @summary List tenants
+ */
+export const ListTenantsQueryParams = zod.object({
+  status: zod.enum(["active", "moved_out"]).optional(),
+  search: zod.coerce.string().optional(),
+  unit: zod.coerce.string().optional(),
+});
+
+export const ListTenantsResponseItem = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  tenantName: zod.string(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListTenantsResponse = zod.array(ListTenantsResponseItem);
+
+/**
+ * @summary Create a tenant
+ */
+export const CreateTenantBody = zod.object({
+  unit: zod.string(),
+  tenantName: zod.string(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean().optional(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean().optional(),
+  businessRegDoc: zod.boolean().optional(),
+  idDoc: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get a tenant
+ */
+export const GetTenantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTenantResponse = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  tenantName: zod.string(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a tenant
+ */
+export const UpdateTenantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTenantBody = zod.object({
+  unit: zod.string().optional(),
+  tenantName: zod.string().optional(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean().optional(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]).optional(),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean().optional(),
+  businessRegDoc: zod.boolean().optional(),
+  idDoc: zod.boolean().optional(),
+});
+
+export const UpdateTenantResponse = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  tenantName: zod.string(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a tenant
+ */
+export const DeleteTenantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List owners
+ */
+export const ListOwnersQueryParams = zod.object({
+  status: zod.enum(["active", "moved_out"]).optional(),
+  search: zod.coerce.string().optional(),
+  unit: zod.coerce.string().optional(),
+});
+
+export const ListOwnersResponseItem = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  ownerName: zod.string(),
+  birthDate: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  registeredAddress: zod.string().nullish(),
+  vehicleNumber: zod.string().nullish(),
+  vehicleType: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  propertyDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListOwnersResponse = zod.array(ListOwnersResponseItem);
+
+/**
+ * @summary Create an owner
+ */
+export const CreateOwnerBody = zod.object({
+  unit: zod.string(),
+  ownerName: zod.string(),
+  birthDate: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  registeredAddress: zod.string().nullish(),
+  vehicleNumber: zod.string().nullish(),
+  vehicleType: zod.string().nullish(),
+  hasTv: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  businessRegDoc: zod.boolean().optional(),
+  idDoc: zod.boolean().optional(),
+  propertyDoc: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get an owner
+ */
+export const GetOwnerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetOwnerResponse = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  ownerName: zod.string(),
+  birthDate: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  registeredAddress: zod.string().nullish(),
+  vehicleNumber: zod.string().nullish(),
+  vehicleType: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  propertyDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update an owner
+ */
+export const UpdateOwnerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateOwnerBody = zod.object({
+  unit: zod.string().optional(),
+  ownerName: zod.string().optional(),
+  birthDate: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  registeredAddress: zod.string().nullish(),
+  vehicleNumber: zod.string().nullish(),
+  vehicleType: zod.string().nullish(),
+  hasTv: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]).optional(),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  businessRegDoc: zod.boolean().optional(),
+  idDoc: zod.boolean().optional(),
+  propertyDoc: zod.boolean().optional(),
+});
+
+export const UpdateOwnerResponse = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  ownerName: zod.string(),
+  birthDate: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  registeredAddress: zod.string().nullish(),
+  vehicleNumber: zod.string().nullish(),
+  vehicleType: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  propertyDoc: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete an owner
+ */
+export const DeleteOwnerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List vehicles
+ */
+export const ListVehiclesQueryParams = zod.object({
+  unit: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  tenantId: zod.coerce.number().optional(),
+});
+
+export const ListVehiclesResponseItem = zod.object({
+  id: zod.number(),
+  tenantId: zod.number().nullish(),
+  unit: zod.string(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]),
+  registrationDoc: zod.boolean(),
+  insuranceDoc: zod.boolean(),
+  leaseDoc: zod.boolean(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListVehiclesResponse = zod.array(ListVehiclesResponseItem);
+
+/**
+ * @summary Register a vehicle
+ */
+export const CreateVehicleBody = zod.object({
+  tenantId: zod.number().nullish(),
+  unit: zod.string(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean().optional(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]).optional(),
+  registrationDoc: zod.boolean().optional(),
+  insuranceDoc: zod.boolean().optional(),
+  leaseDoc: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a vehicle
+ */
+export const GetVehicleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetVehicleResponse = zod.object({
+  id: zod.number(),
+  tenantId: zod.number().nullish(),
+  unit: zod.string(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]),
+  registrationDoc: zod.boolean(),
+  insuranceDoc: zod.boolean(),
+  leaseDoc: zod.boolean(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a vehicle
+ */
+export const UpdateVehicleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateVehicleBody = zod.object({
+  tenantId: zod.number().nullish(),
+  unit: zod.string().optional(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string().optional(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean().optional(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]).optional(),
+  registrationDoc: zod.boolean().optional(),
+  insuranceDoc: zod.boolean().optional(),
+  leaseDoc: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateVehicleResponse = zod.object({
+  id: zod.number(),
+  tenantId: zod.number().nullish(),
+  unit: zod.string(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]),
+  registrationDoc: zod.boolean(),
+  insuranceDoc: zod.boolean(),
+  leaseDoc: zod.boolean(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a vehicle
+ */
+export const DeleteVehicleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get unregistered vehicles for periodic review
+ */
+export const GetUnregisteredVehiclesResponse = zod.object({
+  message: zod.string(),
+  reviewMonth: zod.number(),
+});
+
+/**
+ * @summary List notifications
+ */
+export const ListNotificationsResponseItem = zod.object({
+  id: zod.number(),
+  recipientType: zod.string(),
+  notificationType: zod.string(),
+  title: zod.string(),
+  message: zod.string(),
+  isRead: zod.boolean(),
+  relatedEntityType: zod.string().nullish(),
+  relatedEntityId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListNotificationsResponse = zod.array(
+  ListNotificationsResponseItem,
+);
+
+/**
+ * @summary Get unread notification count
+ */
+export const GetUnreadNotificationCountResponse = zod.object({
+  count: zod.number(),
+});
+
+/**
+ * @summary Mark notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkNotificationReadResponse = zod.object({
+  id: zod.number(),
+  recipientType: zod.string(),
+  notificationType: zod.string(),
+  title: zod.string(),
+  message: zod.string(),
+  isRead: zod.boolean(),
+  relatedEntityType: zod.string().nullish(),
+  relatedEntityId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List document checklists for an entity
+ */
+export const ListDocumentChecklistsQueryParams = zod.object({
+  entityType: zod.enum(["tenant", "owner", "vehicle"]),
+  entityId: zod.coerce.number(),
+});
+
+export const ListDocumentChecklistsResponseItem = zod.object({
+  id: zod.number(),
+  entityType: zod.enum(["tenant", "owner", "vehicle"]),
+  entityId: zod.number(),
+  documentName: zod.string(),
+  isSubmitted: zod.boolean(),
+  submittedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDocumentChecklistsResponse = zod.array(
+  ListDocumentChecklistsResponseItem,
+);
+
+/**
+ * @summary Create or update a document checklist item
+ */
+export const UpsertDocumentChecklistBody = zod.object({
+  entityType: zod.enum(["tenant", "owner", "vehicle"]),
+  entityId: zod.number(),
+  documentName: zod.string(),
+  isSubmitted: zod.boolean(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertDocumentChecklistResponse = zod.object({
+  id: zod.number(),
+  entityType: zod.enum(["tenant", "owner", "vehicle"]),
+  entityId: zod.number(),
+  documentName: zod.string(),
+  isSubmitted: zod.boolean(),
+  submittedAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
 
 /**
  * @summary Get recent activity feed
