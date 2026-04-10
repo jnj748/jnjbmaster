@@ -30,6 +30,7 @@ import ApprovalCreate from "@/pages/approval-create";
 import DocumentTemplates from "@/pages/document-templates";
 import DailyReportsPage from "@/pages/daily-reports";
 import ReportSystemPage from "@/pages/report-system";
+import PartnerDashboard from "@/pages/partner-dashboard";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -69,11 +70,12 @@ function AuthenticatedRoutes() {
   const { user } = useAuth();
   const isPartner = user?.role === "partner";
   const routes = isPartner ? partnerRoutes : managerRoutes;
+  const DashboardComponent = isPartner ? PartnerDashboard : Dashboard;
 
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/" component={DashboardComponent} />
         {routes.map((r) => (
           <Route key={r.path} path={r.path} component={r.component} />
         ))}

@@ -38,14 +38,14 @@ router.use(authMiddleware);
 
 router.use(vendorsRouter);
 router.use(commissionsRouter);
-router.use(dashboardRouter);
 router.use(notificationsRouter);
 router.use(usersRouter);
-router.use(approvalsRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin");
 buildingRouter.use(buildingOnly);
+buildingRouter.use(dashboardRouter);
+buildingRouter.use(approvalsRouter);
 buildingRouter.use(tasksRouter);
 buildingRouter.use(inspectionsRouter);
 buildingRouter.use(taxSchedulesRouter);
