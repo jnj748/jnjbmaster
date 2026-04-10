@@ -57,7 +57,7 @@ export default function ReportSystem() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isManager = user?.role === "manager" || user?.role === "executive";
+  const isManager = user?.role === "manager";
 
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly">("weekly");
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek());
@@ -100,7 +100,7 @@ export default function ReportSystem() {
       queryClient.invalidateQueries({
         queryKey: getListWeeklySummaryReportsQueryKey(),
       });
-      toast({ title: "주간 보고서가 본부장에게 전달되었습니다" });
+      toast({ title: "주간 보고서가 전달되었습니다" });
       setWeeklyDetailId(null);
     } catch {
       toast({ title: "전달에 실패했습니다", variant: "destructive" });
@@ -304,7 +304,7 @@ export default function ReportSystem() {
               <DialogFooter>
                 <Button onClick={() => handleForwardWeekly(selectedWeekly.id)}>
                   <Send className="w-4 h-4 mr-1" />
-                  본부장에게 전달
+                  보고서 전달
                 </Button>
               </DialogFooter>
             )}

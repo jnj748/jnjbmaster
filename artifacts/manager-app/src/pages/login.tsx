@@ -12,7 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState(portalType === "vendor" ? "vendor" : "facility_staff");
+  const [role, setRole] = useState(portalType === "partner" ? "partner" : "manager");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -46,10 +46,6 @@ export default function Login() {
     }
   };
 
-  const buildingRoles = [
-    { value: "facility_staff", label: "시설관리 담당자" },
-  ];
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="w-full max-w-md px-6">
@@ -75,10 +71,16 @@ export default function Login() {
                 {isRegister ? "회원가입" : "로그인"}
               </h1>
               <p className="text-sm text-slate-500">
-                {isBuilding ? "건물관리 관계자" : "가입업체"} 포털
+                {isBuilding ? "건물관리 관계자" : "파트너사"} 포털
               </p>
             </div>
           </div>
+
+          {isBuilding && (
+            <div className="mb-4 p-2.5 rounded-lg bg-blue-50 text-blue-700 text-xs">
+              집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">
@@ -88,35 +90,17 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    placeholder="이름을 입력하세요"
-                  />
-                </div>
-                {isBuilding && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">역할</label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      {buildingRoles.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  placeholder="이름을 입력하세요"
+                />
+              </div>
             )}
 
             <div>

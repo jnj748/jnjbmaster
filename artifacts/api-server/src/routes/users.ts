@@ -6,10 +6,10 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const validRoles = ["manager", "executive", "facility_staff", "vendor"];
-const validPortals = ["building", "vendor"];
+const validRoles = ["manager", "partner", "platform_admin"];
+const validPortals = ["building", "partner"];
 
-router.get("/users", requireRole("manager", "executive"), async (_req, res): Promise<void> => {
+router.get("/users", requireRole("manager", "platform_admin"), async (_req, res): Promise<void> => {
   try {
     const users = await db
       .select({
@@ -30,7 +30,7 @@ router.get("/users", requireRole("manager", "executive"), async (_req, res): Pro
   }
 });
 
-router.post("/users", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/users", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   try {
     const { email, password, name, role, phone, portalType } = req.body;
 
@@ -49,12 +49,12 @@ router.post("/users", requireRole("manager"), async (req, res): Promise<void> =>
       return;
     }
 
-    if (portalType === "vendor" && role !== "vendor") {
-      res.status(400).json({ error: "가입업체 포털은 vendor 역할만 가능합니다" });
+    if (portalType === "partner" && role !== "partner") {
+      res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
       return;
     }
-    if (portalType === "building" && role === "vendor") {
-      res.status(400).json({ error: "건물관리 포털에서 vendor 역할은 사용할 수 없습니다" });
+    if (portalType === "building" && role === "partner") {
+      res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
       return;
     }
 
@@ -88,7 +88,7 @@ router.post("/users", requireRole("manager"), async (req, res): Promise<void> =>
   }
 });
 
-router.patch("/users/:id", requireRole("manager"), async (req, res): Promise<void> => {
+router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {
@@ -96,7 +96,7 @@ router.patch("/users/:id", requireRole("manager"), async (req, res): Promise<voi
       return;
     }
 
-    const { name, role, phone } = req.body;
+    const { name, role, phone, portalType } = req.body;
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (role !== undefined) {
@@ -106,7 +106,29 @@ router.patch("/users/:id", requireRole("manager"), async (req, res): Promise<voi
       }
       updateData.role = role;
     }
+    if (portalType !== undefined) {
+      if (!validPortals.includes(portalType)) {
+        res.status(400).json({ error: "유효하지 않은 포털 유형입니다" });
+        return;
+      }
+      updateData.portalType = portalType;
+    }
     if (phone !== undefined) updateData.phone = phone;
+
+    const effectiveRole = (updateData.role as string) ?? undefined;
+    const effectivePortal = (updateData.portalType as string) ?? undefined;
+    if (effectiveRole === "partner" && effectivePortal && effectivePortal !== "partner") {
+      res.status(400).json({ error: "파트너사 역할은 파트너사 포털만 사용할 수 있습니다" });
+      return;
+    }
+    if (effectivePortal === "partner" && effectiveRole && effectiveRole !== "partner") {
+      res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
+      return;
+    }
+    if (effectivePortal === "building" && effectiveRole === "partner") {
+      res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
+      return;
+    }
 
     if (Object.keys(updateData).length === 0) {
       res.status(400).json({ error: "수정할 항목이 없습니다" });
@@ -138,7 +160,7 @@ router.patch("/users/:id", requireRole("manager"), async (req, res): Promise<voi
   }
 });
 
-router.delete("/users/:id", requireRole("manager"), async (req, res): Promise<void> => {
+router.delete("/users/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {

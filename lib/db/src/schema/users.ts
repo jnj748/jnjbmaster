@@ -2,8 +2,8 @@ import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const userRoles = ["manager", "executive", "facility_staff", "vendor"] as const;
-export const portalTypes = ["building", "vendor"] as const;
+export const userRoles = ["manager", "partner", "platform_admin"] as const;
+export const portalTypes = ["building", "partner"] as const;
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),

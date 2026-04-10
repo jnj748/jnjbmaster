@@ -67,7 +67,7 @@ export default function DailyReports() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isManager = user?.role === "manager" || user?.role === "executive";
+  const isManager = user?.role === "manager";
 
   const [dateFilter, setDateFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");

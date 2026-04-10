@@ -22,7 +22,7 @@ router.get("/approvals", async (req, res): Promise<void> => {
 
   rows = rows.filter((r) => !r.isDraft);
 
-  if (user.role === "executive") {
+  if (user.role === "manager" || user.role === "platform_admin") {
   } else {
     const assignedSteps = await db.select({ approvalId: approvalStepsTable.approvalId })
       .from(approvalStepsTable)
@@ -47,7 +47,7 @@ router.get("/approvals/drafts", async (req, res): Promise<void> => {
   res.json(rows.map(serializeApproval));
 });
 
-router.post("/approvals", requireRole("manager", "facility_staff"), async (req, res): Promise<void> => {
+router.post("/approvals", requireRole("manager"), async (req, res): Promise<void> => {
   const body = req.body;
   if (!body.title || !body.description || !body.category) {
     res.status(400).json({ error: "입력값이 올바르지 않습니다" });
@@ -130,7 +130,7 @@ router.post("/approvals", requireRole("manager", "facility_staff"), async (req, 
   res.status(201).json(serializeApproval(row));
 });
 
-router.get("/approvals/stats", requireRole("executive", "manager"), async (_req, res): Promise<void> => {
+router.get("/approvals/stats", requireRole("manager", "platform_admin"), async (_req, res): Promise<void> => {
   const allApprovals = await db.select().from(approvalsTable).orderBy(desc(approvalsTable.createdAt));
 
   const pending = allApprovals.filter((a) => a.status === "pending");
@@ -161,7 +161,7 @@ router.get("/approvals/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "executive") {
+  if (user.role !== "manager" && user.role !== "platform_admin") {
     const isRequester = row.requesterId === user.userId;
     const assignedSteps = await db.select({ id: approvalStepsTable.id })
       .from(approvalStepsTable)
@@ -176,7 +176,7 @@ router.get("/approvals/:id", async (req, res): Promise<void> => {
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/:id/approve", requireRole("executive"), async (req, res): Promise<void> => {
+router.post("/approvals/:id/approve", requireRole("manager"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
 
@@ -211,7 +211,7 @@ router.post("/approvals/:id/approve", requireRole("executive"), async (req, res)
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/:id/reject", requireRole("executive"), async (req, res): Promise<void> => {
+router.post("/approvals/:id/reject", requireRole("manager"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body;
   if (!body?.reason) {
@@ -251,7 +251,7 @@ router.post("/approvals/:id/reject", requireRole("executive"), async (req, res):
   res.json(serializeApproval(row));
 });
 
-router.get("/executive/kpi", requireRole("executive", "manager"), async (_req, res): Promise<void> => {
+router.get("/executive/kpi", requireRole("manager", "platform_admin"), async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -300,7 +300,7 @@ router.get("/executive/kpi", requireRole("executive", "manager"), async (_req, r
   });
 });
 
-router.get("/executive/spending", requireRole("executive", "manager"), async (req, res): Promise<void> => {
+router.get("/executive/spending", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const year = req.query.year ? Number(req.query.year) : undefined;
   const month = req.query.month ? Number(req.query.month) : undefined;
 

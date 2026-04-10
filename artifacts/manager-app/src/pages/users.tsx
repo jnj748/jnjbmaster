@@ -14,14 +14,13 @@ interface UserRecord {
 
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
-  executive: "최고관리자",
-  facility_staff: "시설관리 담당자",
-  vendor: "견적 업체",
+  partner: "파트너사",
+  platform_admin: "플랫폼 관리자",
 };
 
 const portalLabels: Record<string, string> = {
   building: "건물관리",
-  vendor: "가입업체",
+  partner: "파트너사",
 };
 
 export default function Users() {
@@ -194,16 +193,16 @@ function UserModal({
   const [email, setEmail] = useState(user?.email || "");
   const [password, setPassword] = useState("");
   const [name, setName] = useState(user?.name || "");
-  const [role, setRole] = useState(user?.role || "facility_staff");
+  const [role, setRole] = useState(user?.role || "manager");
   const [phone, setPhone] = useState(user?.phone || "");
   const [portalType, setPortalType] = useState(user?.portalType || "building");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (role === "vendor") {
-      setPortalType("vendor");
-    } else if (portalType === "vendor" && role !== "vendor") {
+    if (role === "partner") {
+      setPortalType("partner");
+    } else if (portalType === "partner" && role !== "partner") {
       setPortalType("building");
     }
   }, [role]);
@@ -256,9 +255,8 @@ function UserModal({
 
   const allRoles = [
     { value: "manager", label: "관리소장" },
-    { value: "executive", label: "최고관리자" },
-    { value: "facility_staff", label: "시설관리 담당자" },
-    { value: "vendor", label: "견적 업체" },
+    { value: "partner", label: "파트너사" },
+    { value: "platform_admin", label: "플랫폼 관리자" },
   ];
 
   return (
@@ -334,11 +332,11 @@ function UserModal({
               <select
                 value={portalType}
                 onChange={(e) => setPortalType(e.target.value)}
-                disabled={role === "vendor"}
+                disabled={role === "partner"}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-slate-100"
               >
                 <option value="building">건물관리</option>
-                <option value="vendor">가입업체</option>
+                <option value="partner">파트너사</option>
               </select>
             </div>
           )}

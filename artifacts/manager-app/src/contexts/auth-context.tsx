@@ -4,9 +4,9 @@ export interface AuthUser {
   id: number;
   email: string;
   name: string;
-  role: "manager" | "executive" | "facility_staff" | "vendor";
+  role: "manager" | "partner" | "platform_admin";
   phone: string | null;
-  portalType: "building" | "vendor";
+  portalType: "building" | "partner";
 }
 
 interface AuthContextType {

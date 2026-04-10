@@ -98,7 +98,7 @@ export default function VendorPortal() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             돌아가기
           </Button>
-          <h1 className="text-lg font-bold">가입업체 포털</h1>
+          <h1 className="text-lg font-bold">파트너사 포털</h1>
         </header>
         <div className="flex-1 flex items-center justify-center p-6">
           <Card className="max-w-md w-full">

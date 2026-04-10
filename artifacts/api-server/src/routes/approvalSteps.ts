@@ -31,7 +31,7 @@ router.get("/approvals/:id/steps", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "executive") {
+  if (user.role !== "manager" && user.role !== "platform_admin") {
     const isRequester = approval.requesterId === user.userId;
     const assignedSteps = await db.select({ id: approvalStepsTable.id })
       .from(approvalStepsTable)
@@ -230,7 +230,7 @@ router.get("/approvals/:id/recipients", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "executive") {
+  if (user.role !== "manager" && user.role !== "platform_admin") {
     const isRequester = approval.requesterId === user.userId;
     const assignedSteps = await db.select({ id: approvalStepsTable.id })
       .from(approvalStepsTable)

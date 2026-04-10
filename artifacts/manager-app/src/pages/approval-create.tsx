@@ -314,8 +314,8 @@ export default function ApprovalCreate() {
 
   const roleLabels: Record<string, string> = {
     manager: "관리소장",
-    executive: "본부장",
-    facility_staff: "시설관리 담당자",
+    partner: "파트너사",
+    platform_admin: "플랫폼 관리자",
   };
 
   const availableApprovers = userList.filter(

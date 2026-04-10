@@ -39,7 +39,7 @@ router.get("/daily-reports", async (req, res): Promise<void> => {
 
   let rows = await db.select().from(dailyReportsTable).orderBy(desc(dailyReportsTable.createdAt));
 
-  if (user.role !== "manager" && user.role !== "executive") {
+  if (user.role !== "manager" && user.role !== "platform_admin") {
     rows = rows.filter((r) => r.authorId === user.userId);
   }
 
@@ -104,7 +104,7 @@ router.get("/daily-reports/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "manager" && user.role !== "executive" && row.authorId !== user.userId) {
+  if (user.role !== "manager" && user.role !== "platform_admin" && row.authorId !== user.userId) {
     res.status(403).json({ error: "접근 권한이 없습니다" });
     return;
   }
@@ -155,7 +155,7 @@ router.post("/daily-reports/:id/submit", async (req, res): Promise<void> => {
   res.json(serializeDaily(row));
 });
 
-router.post("/daily-reports/:id/review", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/daily-reports/:id/review", requireRole("manager"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
   const { comment } = req.body || {};
@@ -186,7 +186,7 @@ router.post("/daily-reports/:id/review", requireRole("manager", "executive"), as
   res.json(serializeDaily(row));
 });
 
-router.get("/weekly-summary-reports", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.get("/weekly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
   const weekStart = req.query.weekStart as string | undefined;
 
   let rows = await db.select().from(weeklySummaryReportsTable).orderBy(desc(weeklySummaryReportsTable.createdAt));
@@ -198,7 +198,7 @@ router.get("/weekly-summary-reports", requireRole("manager", "executive"), async
   res.json(rows.map(serializeWeekly));
 });
 
-router.post("/weekly-summary-reports", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/weekly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
   const user = req.user!;
   const { weekStart, weekEnd } = req.body;
 
@@ -257,7 +257,7 @@ router.post("/weekly-summary-reports", requireRole("manager", "executive"), asyn
   res.status(201).json(serializeWeekly(row));
 });
 
-router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/weekly-summary-reports/:id/forward", requireRole("manager"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
 
   const [row] = await db
@@ -272,10 +272,10 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "execu
   }
 
   await db.insert(notificationsTable).values({
-    recipientType: "role:executive",
+    recipientType: "role:manager",
     notificationType: "weekly_report_forwarded",
     title: "주간 보고서 전달",
-    message: `${row.authorName}님이 주간 보고서를 본부장에게 전달했습니다: ${row.title}`,
+    message: `${row.authorName}님이 주간 보고서를 전달했습니다: ${row.title}`,
     relatedEntityType: "weekly_report",
     relatedEntityId: row.id,
   });
@@ -283,7 +283,7 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "execu
   res.json(serializeWeekly(row));
 });
 
-router.get("/monthly-summary-reports", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.get("/monthly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
   const month = req.query.month as string | undefined;
 
   let rows = await db.select().from(monthlySummaryReportsTable).orderBy(desc(monthlySummaryReportsTable.createdAt));
@@ -295,7 +295,7 @@ router.get("/monthly-summary-reports", requireRole("manager", "executive"), asyn
   res.json(rows.map(serializeMonthly));
 });
 
-router.post("/monthly-summary-reports", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/monthly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
   const user = req.user!;
   const { reportMonth } = req.body;
 

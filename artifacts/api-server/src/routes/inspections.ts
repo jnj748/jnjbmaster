@@ -29,8 +29,6 @@ const LEGAL_PRESETS = [
   { name: "승강기 정기검사", category: "elevator", legalCycleMonths: 12, defaultAlertDays: 30, description: "승강기안전관리법에 따른 정기검사 (연 1회)" },
   { name: "소방 점검", category: "fire_safety", legalCycleMonths: 12, defaultAlertDays: 30, description: "소방시설법에 따른 종합정밀점검 (연 1회)" },
   { name: "정화조 청소", category: "septic", legalCycleMonths: 12, defaultAlertDays: 30, description: "하수도법에 따른 정화조 청소 (연 1회)" },
-  { name: "놀이터 자체점검", category: "playground", legalCycleMonths: 1, defaultAlertDays: 7, description: "어린이놀이시설 안전관리법에 따른 자체점검 (월 1회)" },
-  { name: "놀이터 법정 안전검사", category: "playground", legalCycleMonths: 24, defaultAlertDays: 60, description: "어린이놀이시설 안전관리법에 따른 정기시설검사 (2년 1회)" },
   { name: "안전점검", category: "safety_check", legalCycleMonths: 6, defaultAlertDays: 30, description: "시설물안전관리법에 따른 정기안전점검 (반기 1회)" },
   { name: "전기 안전점검", category: "electrical", legalCycleMonths: 12, defaultAlertDays: 30, description: "전기사업법에 따른 정기점검 (연 1회)" },
   { name: "가스 안전점검", category: "gas", legalCycleMonths: 12, defaultAlertDays: 30, description: "도시가스사업법에 따른 정기검사 (연 1회)" },

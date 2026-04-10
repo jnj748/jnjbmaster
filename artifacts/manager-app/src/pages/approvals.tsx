@@ -104,7 +104,6 @@ interface SignatureItem {
 export default function Approvals() {
   const { user, token } = useAuth();
   const [, setLocation] = useLocation();
-  const isExecutive = user?.role === "executive";
   const isManager = user?.role === "manager";
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
@@ -247,8 +246,8 @@ export default function Approvals() {
 
   const roleLabels: Record<string, string> = {
     manager: "관리소장",
-    executive: "본부장",
-    facility_staff: "시설관리 담당자",
+    partner: "파트너사",
+    platform_admin: "플랫폼 관리자",
   };
 
   const stepStatusLabel = (status: string) => {
@@ -266,17 +265,13 @@ export default function Approvals() {
         <div>
           <h1 className="text-2xl font-bold">결재함</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {isExecutive
-              ? "결재 요청을 확인하고 승인 또는 반려 처리하세요"
-              : "제출한 결재 요청의 처리 현황을 확인하세요"}
+            결재 요청을 확인하고 승인 또는 반려 처리하세요
           </p>
         </div>
-        {!isExecutive && (
-          <Button size="sm" className="gap-1" onClick={() => setLocation("/approvals/create")}>
-            <Plus className="w-4 h-4" />
-            결재 요청
-          </Button>
-        )}
+        <Button size="sm" className="gap-1" onClick={() => setLocation("/approvals/create")}>
+          <Plus className="w-4 h-4" />
+          결재 요청
+        </Button>
       </div>
 
       <div className="flex gap-2">
@@ -290,15 +285,13 @@ export default function Approvals() {
             {f.label}
           </Button>
         ))}
-        {!isExecutive && (
-          <Button
-            variant={showDrafts ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowDrafts(!showDrafts)}
-          >
-            임시저장
-          </Button>
-        )}
+        <Button
+          variant={showDrafts ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowDrafts(!showDrafts)}
+        >
+          임시저장
+        </Button>
       </div>
 
       {showDrafts ? (
@@ -394,7 +387,7 @@ export default function Approvals() {
                         </p>
                       </div>
                     )}
-                    {isExecutive && isSingleStepPending(approval) && (
+                    {isManager && isSingleStepPending(approval) && (
                       <div className="flex gap-1 ml-2">
                         <Button
                           size="sm"
@@ -619,7 +612,7 @@ export default function Approvals() {
               )}
             </div>
 
-            {isExecutive && isSingleStepPending(selectedApproval) && (
+            {isManager && isSingleStepPending(selectedApproval) && (
               <DialogFooter className="mt-4">
                 <Button
                   variant="outline"

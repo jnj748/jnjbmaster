@@ -44,8 +44,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const buildingNavItems = [
+const managerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
+  { path: "/spending", label: "지출 현황", icon: DollarSign },
   { path: "/tasks", label: "업무 관리", icon: CheckSquare },
   { path: "/inspections", label: "법정 점검", icon: Shield },
   { path: "/drafts", label: "기안서", icon: ClipboardList },
@@ -64,34 +66,11 @@ const buildingNavItems = [
   { path: "/daily-reports", label: "일간보고", icon: BookOpen },
   { path: "/report-system", label: "보고 체계", icon: BarChart3 },
   { path: "/reports", label: "주간보고", icon: FileText },
-];
-
-const executiveNavItems = [
-  { path: "/", label: "대시보드", icon: LayoutDashboard },
-  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-  { path: "/spending", label: "지출 현황", icon: DollarSign },
-  { path: "/tasks", label: "업무 관리", icon: CheckSquare },
-  { path: "/inspections", label: "법정 점검", icon: Shield },
-  { path: "/drafts", label: "기안서", icon: ClipboardList },
-  { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-  { path: "/tenants", label: "입주민 관리", icon: Users },
-  { path: "/owners", label: "소유자 관리", icon: UserCheck },
-  { path: "/vehicles", label: "차량 관리", icon: Car },
-  { path: "/vendors", label: "협력업체", icon: Building2 },
-  { path: "/commissions", label: "수수료", icon: Coins },
-  { path: "/daily-reports", label: "일간보고", icon: BookOpen },
-  { path: "/report-system", label: "보고 체계", icon: BarChart3 },
-  { path: "/reports", label: "주간보고", icon: FileText },
   { path: "/document-templates", label: "서식 관리", icon: Settings },
   { path: "/users", label: "사용자 관리", icon: Users },
 ];
 
-const managerOnlyItems = [
-  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-  { path: "/users", label: "사용자 관리", icon: Users },
-];
-
-const vendorNavItems = [
+const partnerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
   { path: "/vendors", label: "업체 정보", icon: Package },
   { path: "/commissions", label: "수수료", icon: Coins },
@@ -99,9 +78,8 @@ const vendorNavItems = [
 
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
-  executive: "최고관리자",
-  facility_staff: "시설관리 담당자",
-  vendor: "견적 업체",
+  partner: "파트너사",
+  platform_admin: "플랫폼 관리자",
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -123,17 +101,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }
 
-  const isVendor = user?.portalType === "vendor";
-  const isExecutive = user?.role === "executive";
-  let navItems = isVendor
-    ? vendorNavItems
-    : isExecutive
-    ? executiveNavItems
-    : buildingNavItems;
-
-  if (user?.role === "manager") {
-    navItems = [...navItems, ...managerOnlyItems];
-  }
+  const isPartner = user?.portalType === "partner";
+  const navItems = isPartner ? partnerNavItems : managerNavItems;
 
   return (
     <div className="min-h-screen flex">

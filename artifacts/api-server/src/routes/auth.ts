@@ -14,24 +14,24 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const selfRegistrableRoles = ["facility_staff", "vendor"];
+  const selfRegistrableRoles = ["manager", "partner"];
   if (!selfRegistrableRoles.includes(role)) {
-    res.status(400).json({ error: "자가 등록은 시설관리 담당자 또는 견적 업체만 가능합니다. 관리소장에게 문의해주세요." });
+    res.status(400).json({ error: "자가 등록은 관리소장 또는 파트너사만 가능합니다. 플랫폼 관리자에게 문의해주세요." });
     return;
   }
 
-  const validPortals = ["building", "vendor"];
+  const validPortals = ["building", "partner"];
   if (!validPortals.includes(portalType)) {
     res.status(400).json({ error: "유효하지 않은 포털 유형입니다" });
     return;
   }
 
-  if (portalType === "vendor" && role !== "vendor") {
-    res.status(400).json({ error: "가입업체 포털은 vendor 역할만 가능합니다" });
+  if (portalType === "partner" && role !== "partner") {
+    res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
     return;
   }
-  if (portalType === "building" && role === "vendor") {
-    res.status(400).json({ error: "건물관리 포털에서 vendor 역할은 사용할 수 없습니다" });
+  if (portalType === "building" && role === "partner") {
+    res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
     return;
   }
 
