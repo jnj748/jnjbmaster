@@ -85,6 +85,36 @@ const roleLabels: Record<string, string> = {
   platform_admin: "플랫폼 관리자",
 };
 
+function SidebarContent({ navLinks, user, logout, base }: {
+  navLinks: React.ReactNode;
+  user: any;
+  logout: () => void;
+  base: string;
+}) {
+  return (
+    <>
+      <div className="p-4 border-b border-sidebar-border shrink-0">
+        <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
+      </div>
+      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
+      <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">
+        {user && (
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+              <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+            </div>
+            <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
+      </div>
+    </>
+  );
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -170,81 +200,71 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <style>{`
-        .layout-root { min-height: 100vh; }
-        .layout-sidebar-fixed { display: none; }
-        .layout-main { margin-left: 0; }
+        .layout-grid {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          min-height: 100vh;
+          max-width: 100vw;
+          overflow-x: hidden;
+        }
+        .layout-sidebar { display: none; }
         .layout-mobile-header { display: flex; }
         .layout-desktop-header { display: none; }
 
         @media (min-width: 900px) {
-          .layout-sidebar-fixed { display: flex; }
-          .layout-main { margin-left: 220px; }
+          .layout-grid {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            grid-template-rows: 1fr;
+          }
+          .layout-sidebar { display: flex; }
           .layout-mobile-header { display: none; }
           .layout-desktop-header { display: flex; }
         }
       `}</style>
 
-      <div className="layout-root">
-        {drawerOpen && (
-          <>
-            <div
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
-              onClick={() => setDrawerOpen(false)}
-            />
-            <aside
-              style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100vh", zIndex: 50 }}
-              className="bg-sidebar text-sidebar-foreground flex flex-col"
-            >
-              <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-                <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
-                <button onClick={() => setDrawerOpen(false)} className="p-1 text-sidebar-foreground/60 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
-              <div className="p-3 border-t border-sidebar-border space-y-2">
-                {user && (
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-                      <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
-                    </div>
-                    <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
-                      <LogOut className="w-4 h-4" />
-                    </button>
+      {drawerOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside
+            style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100%", zIndex: 50 }}
+            className="bg-sidebar text-sidebar-foreground flex flex-col"
+          >
+            <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+              <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
+              <button onClick={() => setDrawerOpen(false)} className="p-1 text-sidebar-foreground/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
+            <div className="p-3 border-t border-sidebar-border space-y-2">
+              {user && (
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+                    <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
                   </div>
-                )}
-                <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
-              </div>
-            </aside>
-          </>
-        )}
-
-        <aside
-          style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100vh", zIndex: 30 }}
-          className="layout-sidebar-fixed bg-sidebar text-sidebar-foreground flex-col"
-        >
-          <div className="p-4 border-b border-sidebar-border">
-            <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
-          </div>
-          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
-          <div className="p-3 border-t border-sidebar-border space-y-2">
-            {user && (
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-                  <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+                  <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
+                    <LogOut className="w-4 h-4" />
+                  </button>
                 </div>
-                <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-            <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
-          </div>
+              )}
+              <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
+            </div>
+          </aside>
+        </>
+      )}
+
+      <div className="layout-grid">
+        <aside className="layout-sidebar bg-sidebar text-sidebar-foreground flex-col h-screen sticky top-0 overflow-hidden">
+          <SidebarContent navLinks={navLinks} user={user} logout={logout} base={base} />
         </aside>
 
-        <div className="layout-main">
+        <div className="flex flex-col min-h-screen min-w-0">
           <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-4 py-2.5 items-center justify-between">
             <button onClick={() => setDrawerOpen(true)} className="p-1.5 rounded hover:bg-muted">
               <Menu className="w-5 h-5" />
@@ -257,7 +277,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {notifButton}
           </div>
 
-          <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">{children}</div>
+          <div className="flex-1 p-4 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
         </div>
       </div>
     </>
