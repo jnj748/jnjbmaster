@@ -5649,3 +5649,91 @@ components:
           type: string
       required:
         - reportMonth
+
+    UserRole:
+      type: string
+      enum: [manager, partner, platform_admin]
+      description: "관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin)"
+
+    PortalType:
+      type: string
+      enum: [building, partner]
+      description: "건물관리(building), 파트너사(partner)"
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        phone:
+          type: ["string", "null"]
+        portalType:
+          $ref: "#/components/schemas/PortalType"
+      required:
+        - id
+        - email
+        - name
+        - role
+        - portalType
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        portalType:
+          $ref: "#/components/schemas/PortalType"
+        phone:
+          type: string
+      required:
+        - email
+        - password
+        - name
+        - role
+        - portalType
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required:
+        - token
+        - user
+
+    UpdateUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        portalType:
+          $ref: "#/components/schemas/PortalType"
+        phone:
+          type: string

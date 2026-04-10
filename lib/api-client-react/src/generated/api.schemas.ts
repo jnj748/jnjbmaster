@@ -2417,6 +2417,63 @@ export interface GenerateMonthlySummaryBody {
   reportMonth: string;
 }
 
+/**
+ * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin)
+ */
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const UserRole = {
+  manager: "manager",
+  partner: "partner",
+  platform_admin: "platform_admin",
+} as const;
+
+/**
+ * 건물관리(building), 파트너사(partner)
+ */
+export type PortalType = (typeof PortalType)[keyof typeof PortalType];
+
+export const PortalType = {
+  building: "building",
+  partner: "partner",
+} as const;
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  /** @nullable */
+  phone?: string | null;
+  portalType: PortalType;
+}
+
+export interface LoginBody {
+  email: string;
+  password: string;
+}
+
+export interface RegisterBody {
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+  portalType: PortalType;
+  phone?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export interface UpdateUserBody {
+  name?: string;
+  role?: UserRole;
+  portalType?: PortalType;
+  phone?: string;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;

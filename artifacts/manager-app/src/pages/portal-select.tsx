@@ -32,7 +32,7 @@ export default function PortalSelect() {
           <div className="text-center">
             <h2 className="text-xl font-bold mb-2">건물관리 관계자 입장</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              관리소장을 위한<br />건물관리 업무 포털
+              관리소장 · 플랫폼 관리자를 위한<br />건물관리 업무 포털
             </p>
           </div>
         </button>
@@ -51,6 +51,15 @@ export default function PortalSelect() {
             </p>
           </div>
         </button>
+      </div>
+
+      <div className="mt-8 text-center">
+        <p className="text-xs text-muted-foreground">
+          사용자 역할: 관리소장 · 파트너사 · 플랫폼 관리자
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          플랫폼 관리자 계정은 기존 관리자가 사용자 관리에서 생성합니다
+        </p>
       </div>
     </div>
   );
