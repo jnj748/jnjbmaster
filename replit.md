@@ -2,7 +2,16 @@
 
 ## Overview
 
-관리의달인 (Manager Master) is an AI-powered property management work tool designed for Korean apartment and building managers (소장). It aims to streamline various property management tasks, enhance operational efficiency, and provide comprehensive oversight through an intuitive platform. The project's vision is to become the leading digital assistant for property managers in Korea, offering solutions for task management, legal compliance, tenant/owner relations, vendor coordination, and financial tracking. Its key capabilities include automated alerts, document generation, approval workflows, and detailed reporting, all contributing to a more organized and compliant management process.
+관리의달인 (Manager Master) is an AI-powered property management platform designed for Korean apartment and building managers (소장). It aims to streamline daily operations, automate recurring tasks, enhance operational efficiency, and provide comprehensive tools for managing various aspects of property administration. Its key capabilities include:
+- Centralized task and schedule management (inspections, taxes).
+- Comprehensive tenant, owner, and vehicle administration.
+- Automated document generation (weekly reports, expense approvals, repair maintenance drafts) and notification systems.
+- Vendor management, RFQ processes, and commission tracking.
+- Robust multi-step approval workflows (up to 5 levels) with digital signatures and financial oversight.
+- Dedicated dashboards for various user roles, including executive-level insights and facility management.
+- Facility management with safety checklists, maintenance logs, and safety training tracking.
+
+The business vision is to become the leading digital assistant for property managers in Korea, reducing administrative burden and enabling more proactive and data-driven management decisions.
 
 ## User Preferences
 
@@ -38,11 +47,13 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 
 - **Modular Monorepo Structure:** Organizes the codebase into distinct packages for `api-server`, `web`, `db`, and `api-spec` using pnpm workspaces, enhancing maintainability and scalability.
 - **Automated Document Generation:** Implements logic to auto-generate weekly reports, expense approvals, repair maintenance drafts, and legal inspection notices based on system data and events.
-- **Workflow Management:** Features robust workflows for tasks, legal inspections (with alerts and logs), RFQ/quote processes, work report submissions, and executive approvals.
+- **Workflow Management:** Features robust workflows for tasks, legal inspections (with alerts and logs), RFQ/quote processes, work report submissions, and executive multi-step approvals (up to 5 levels with approval lines, draft save, and digital signatures).
 - **AI Integration:** Includes AI-powered features for commission record generation, and AI matching for vendor recommendations and bid request generation based on upcoming inspections.
 - **Comprehensive Dashboards:** Provides specialized dashboards for managers, executives, vendors, and facility staff, offering role-specific insights and functionalities.
 - **Facility Management:** Incorporates detailed facility management capabilities, including safety checklists, maintenance logs with reporting to managers, safety training tracking, and scheduled facility alerts. A key design pattern here is the **defect-to-repair auto-linking**, where checklist defects automatically trigger maintenance logs and notifications.
 - **Notification System:** An in-app notification system provides real-time alerts for various events, such as tenant registration, updates, and inspection reminders.
+- **Document Templates:** 5 default system templates (일반 기안지, 증명서 신청서, 부재 일정 신청서, 급여 증명서, 수선유지비 지출 기안) with CRUD management for custom templates.
+- **Hierarchical Report System:** Daily reports (경비/미화/유지보수/보안 일지) → Weekly summary aggregation → Monthly summary aggregation. Role-based access for submission, review, and forwarding to executives.
 
 ## External Dependencies
 

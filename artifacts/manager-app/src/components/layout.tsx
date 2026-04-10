@@ -31,6 +31,9 @@ import {
   Wrench,
   GraduationCap,
   HardHat,
+  BookOpen,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -58,6 +61,8 @@ const buildingNavItems = [
   { path: "/rfqs", label: "견적 요청", icon: Send },
   { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
   { path: "/commissions", label: "수수료", icon: Coins },
+  { path: "/daily-reports", label: "일간보고", icon: BookOpen },
+  { path: "/report-system", label: "보고 체계", icon: BarChart3 },
   { path: "/reports", label: "주간보고", icon: FileText },
 ];
 
@@ -74,7 +79,10 @@ const executiveNavItems = [
   { path: "/vehicles", label: "차량 관리", icon: Car },
   { path: "/vendors", label: "협력업체", icon: Building2 },
   { path: "/commissions", label: "수수료", icon: Coins },
+  { path: "/daily-reports", label: "일간보고", icon: BookOpen },
+  { path: "/report-system", label: "보고 체계", icon: BarChart3 },
   { path: "/reports", label: "주간보고", icon: FileText },
+  { path: "/document-templates", label: "서식 관리", icon: Settings },
   { path: "/users", label: "사용자 관리", icon: Users },
 ];
 

@@ -1518,6 +1518,8 @@ export const ApprovalStatus = {
   pending: "pending",
   approved: "approved",
   rejected: "rejected",
+  draft: "draft",
+  in_progress: "in_progress",
 } as const;
 
 export interface Approval {
@@ -1526,6 +1528,11 @@ export interface Approval {
   description: string;
   category: string;
   status: ApprovalStatus;
+  isDraft: boolean;
+  /** @nullable */
+  templateId?: number | null;
+  currentStep: number;
+  totalSteps: number;
   requesterId: number;
   requesterName: string;
   /** @nullable */
@@ -2063,6 +2070,353 @@ export interface AutoSettleCommissionResponse {
   message: string;
 }
 
+export type ApprovalStepItemStatus =
+  (typeof ApprovalStepItemStatus)[keyof typeof ApprovalStepItemStatus];
+
+export const ApprovalStepItemStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  skipped: "skipped",
+} as const;
+
+export interface ApprovalStepItem {
+  id: number;
+  approvalId: number;
+  stepOrder: number;
+  approverId: number;
+  approverName: string;
+  approverRole: string;
+  status: ApprovalStepItemStatus;
+  /** @nullable */
+  comment?: string | null;
+  /** @nullable */
+  signatureId?: number | null;
+  /** @nullable */
+  processedAt?: string | null;
+  createdAt: string;
+}
+
+export type ProcessApprovalStepBodyAction =
+  (typeof ProcessApprovalStepBodyAction)[keyof typeof ProcessApprovalStepBodyAction];
+
+export const ProcessApprovalStepBodyAction = {
+  approve: "approve",
+  reject: "reject",
+} as const;
+
+export interface ProcessApprovalStepBody {
+  action: ProcessApprovalStepBodyAction;
+  /** @nullable */
+  comment?: string | null;
+  /** @nullable */
+  signatureId?: number | null;
+}
+
+export type SaveApprovalDraftBodyApprovalStepsItem = {
+  approverId: number;
+  approverName: string;
+  approverRole: string;
+};
+
+export type SaveApprovalDraftBodyRecipientsItemType =
+  (typeof SaveApprovalDraftBodyRecipientsItemType)[keyof typeof SaveApprovalDraftBodyRecipientsItemType];
+
+export const SaveApprovalDraftBodyRecipientsItemType = {
+  recipient: "recipient",
+  cc: "cc",
+} as const;
+
+export type SaveApprovalDraftBodyRecipientsItem = {
+  userId: number;
+  userName: string;
+  type: SaveApprovalDraftBodyRecipientsItemType;
+};
+
+export interface SaveApprovalDraftBody {
+  title: string;
+  description: string;
+  category: string;
+  /** @nullable */
+  templateId?: number | null;
+  /** @nullable */
+  estimatedAmount?: number | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  vendorQuoteDetails?: string | null;
+  /** @nullable */
+  relatedDraftId?: number | null;
+  /** @nullable */
+  relatedInspectionId?: number | null;
+  approvalSteps?: SaveApprovalDraftBodyApprovalStepsItem[];
+  recipients?: SaveApprovalDraftBodyRecipientsItem[];
+}
+
+export type SubmitDraftBodyApprovalStepsItem = {
+  approverId: number;
+  approverName: string;
+  approverRole: string;
+};
+
+export type SubmitDraftBodyRecipientsItemType =
+  (typeof SubmitDraftBodyRecipientsItemType)[keyof typeof SubmitDraftBodyRecipientsItemType];
+
+export const SubmitDraftBodyRecipientsItemType = {
+  recipient: "recipient",
+  cc: "cc",
+} as const;
+
+export type SubmitDraftBodyRecipientsItem = {
+  userId: number;
+  userName: string;
+  type: SubmitDraftBodyRecipientsItemType;
+};
+
+export interface SubmitDraftBody {
+  approvalSteps?: SubmitDraftBodyApprovalStepsItem[];
+  recipients?: SubmitDraftBodyRecipientsItem[];
+}
+
+export type ApprovalRecipientItemType =
+  (typeof ApprovalRecipientItemType)[keyof typeof ApprovalRecipientItemType];
+
+export const ApprovalRecipientItemType = {
+  recipient: "recipient",
+  cc: "cc",
+} as const;
+
+export interface ApprovalRecipientItem {
+  id: number;
+  approvalId: number;
+  userId: number;
+  userName: string;
+  type: ApprovalRecipientItemType;
+  createdAt: string;
+}
+
+export type DigitalSignatureItemSignatureType =
+  (typeof DigitalSignatureItemSignatureType)[keyof typeof DigitalSignatureItemSignatureType];
+
+export const DigitalSignatureItemSignatureType = {
+  text: "text",
+  image: "image",
+} as const;
+
+export interface DigitalSignatureItem {
+  id: number;
+  userId: number;
+  userName: string;
+  signatureType: DigitalSignatureItemSignatureType;
+  signatureData: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateSignatureBodySignatureType =
+  (typeof CreateSignatureBodySignatureType)[keyof typeof CreateSignatureBodySignatureType];
+
+export const CreateSignatureBodySignatureType = {
+  text: "text",
+  image: "image",
+} as const;
+
+export interface CreateSignatureBody {
+  signatureType: CreateSignatureBodySignatureType;
+  signatureData: string;
+}
+
+export type DocumentTemplateItemCategory =
+  (typeof DocumentTemplateItemCategory)[keyof typeof DocumentTemplateItemCategory];
+
+export const DocumentTemplateItemCategory = {
+  general: "general",
+  certificate: "certificate",
+  absence: "absence",
+  salary: "salary",
+  maintenance: "maintenance",
+} as const;
+
+export interface DocumentTemplateItem {
+  id: number;
+  name: string;
+  category: DocumentTemplateItemCategory;
+  /** @nullable */
+  description?: string | null;
+  fields: string;
+  bodyTemplate: string;
+  isSystem: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateDocumentTemplateBodyCategory =
+  (typeof CreateDocumentTemplateBodyCategory)[keyof typeof CreateDocumentTemplateBodyCategory];
+
+export const CreateDocumentTemplateBodyCategory = {
+  general: "general",
+  certificate: "certificate",
+  absence: "absence",
+  salary: "salary",
+  maintenance: "maintenance",
+} as const;
+
+export interface CreateDocumentTemplateBody {
+  name: string;
+  category: CreateDocumentTemplateBodyCategory;
+  /** @nullable */
+  description?: string | null;
+  fields: string;
+  bodyTemplate: string;
+  sortOrder?: number;
+}
+
+export type DailyReportItemReportType =
+  (typeof DailyReportItemReportType)[keyof typeof DailyReportItemReportType];
+
+export const DailyReportItemReportType = {
+  expense: "expense",
+  cleaning: "cleaning",
+  maintenance: "maintenance",
+  security: "security",
+  other: "other",
+} as const;
+
+export type DailyReportItemStatus =
+  (typeof DailyReportItemStatus)[keyof typeof DailyReportItemStatus];
+
+export const DailyReportItemStatus = {
+  draft: "draft",
+  submitted: "submitted",
+  reviewed: "reviewed",
+  forwarded: "forwarded",
+} as const;
+
+export interface DailyReportItem {
+  id: number;
+  reportDate: string;
+  reportType: DailyReportItemReportType;
+  title: string;
+  content: string;
+  /** @nullable */
+  photos?: string | null;
+  authorId: number;
+  authorName: string;
+  status: DailyReportItemStatus;
+  /** @nullable */
+  reviewerId?: number | null;
+  /** @nullable */
+  reviewerName?: string | null;
+  /** @nullable */
+  reviewComment?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateDailyReportBodyReportType =
+  (typeof CreateDailyReportBodyReportType)[keyof typeof CreateDailyReportBodyReportType];
+
+export const CreateDailyReportBodyReportType = {
+  expense: "expense",
+  cleaning: "cleaning",
+  maintenance: "maintenance",
+  security: "security",
+  other: "other",
+} as const;
+
+export interface CreateDailyReportBody {
+  reportDate: string;
+  reportType: CreateDailyReportBodyReportType;
+  title: string;
+  content: string;
+  /** @nullable */
+  photos?: string | null;
+}
+
+export interface ReviewReportBody {
+  /** @nullable */
+  comment?: string | null;
+}
+
+export type WeeklySummaryReportItemStatus =
+  (typeof WeeklySummaryReportItemStatus)[keyof typeof WeeklySummaryReportItemStatus];
+
+export const WeeklySummaryReportItemStatus = {
+  draft: "draft",
+  submitted: "submitted",
+  reviewed: "reviewed",
+  forwarded: "forwarded",
+} as const;
+
+export interface WeeklySummaryReportItem {
+  id: number;
+  weekStart: string;
+  weekEnd: string;
+  title: string;
+  summary: string;
+  /** @nullable */
+  dailyReportIds?: string | null;
+  totalDailyReports: number;
+  authorId: number;
+  authorName: string;
+  status: WeeklySummaryReportItemStatus;
+  /** @nullable */
+  reviewerId?: number | null;
+  /** @nullable */
+  reviewerName?: string | null;
+  /** @nullable */
+  reviewComment?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GenerateWeeklySummaryBody {
+  weekStart: string;
+  weekEnd: string;
+}
+
+export type MonthlySummaryReportItemStatus =
+  (typeof MonthlySummaryReportItemStatus)[keyof typeof MonthlySummaryReportItemStatus];
+
+export const MonthlySummaryReportItemStatus = {
+  draft: "draft",
+  submitted: "submitted",
+  reviewed: "reviewed",
+  forwarded: "forwarded",
+} as const;
+
+export interface MonthlySummaryReportItem {
+  id: number;
+  reportMonth: string;
+  title: string;
+  summary: string;
+  /** @nullable */
+  weeklyReportIds?: string | null;
+  totalWeeklyReports: number;
+  authorId: number;
+  authorName: string;
+  status: MonthlySummaryReportItemStatus;
+  /** @nullable */
+  reviewerId?: number | null;
+  /** @nullable */
+  reviewerName?: string | null;
+  /** @nullable */
+  reviewComment?: string | null;
+  /** @nullable */
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GenerateMonthlySummaryBody {
+  reportMonth: string;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -2183,6 +2537,27 @@ export const ListApprovalsStatus = {
   approved: "approved",
   rejected: "rejected",
 } as const;
+
+export type DeleteSignature200 = {
+  success: boolean;
+};
+
+export type DeleteDocumentTemplate200 = {
+  success: boolean;
+};
+
+export type ListDailyReportsParams = {
+  date?: string;
+  type?: string;
+};
+
+export type ListWeeklySummaryReportsParams = {
+  weekStart?: string;
+};
+
+export type ListMonthlySummaryReportsParams = {
+  month?: string;
+};
 
 export type GetExecutiveSpendingParams = {
   year?: number;

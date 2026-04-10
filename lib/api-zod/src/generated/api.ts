@@ -1389,7 +1389,11 @@ export const ListApprovalsResponseItem = zod.object({
   title: zod.string(),
   description: zod.string(),
   category: zod.string(),
-  status: zod.enum(["pending", "approved", "rejected"]),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
   requesterId: zod.number(),
   requesterName: zod.string(),
   approverId: zod.number().nullish(),
@@ -1432,7 +1436,11 @@ export const GetApprovalResponse = zod.object({
   title: zod.string(),
   description: zod.string(),
   category: zod.string(),
-  status: zod.enum(["pending", "approved", "rejected"]),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
   requesterId: zod.number(),
   requesterName: zod.string(),
   approverId: zod.number().nullish(),
@@ -1460,7 +1468,11 @@ export const ApproveApprovalResponse = zod.object({
   title: zod.string(),
   description: zod.string(),
   category: zod.string(),
-  status: zod.enum(["pending", "approved", "rejected"]),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
   requesterId: zod.number(),
   requesterName: zod.string(),
   approverId: zod.number().nullish(),
@@ -1492,7 +1504,11 @@ export const RejectApprovalResponse = zod.object({
   title: zod.string(),
   description: zod.string(),
   category: zod.string(),
-  status: zod.enum(["pending", "approved", "rejected"]),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
   requesterId: zod.number(),
   requesterName: zod.string(),
   approverId: zod.number().nullish(),
@@ -1523,7 +1539,17 @@ export const GetApprovalStatsResponse = zod.object({
       title: zod.string(),
       description: zod.string(),
       category: zod.string(),
-      status: zod.enum(["pending", "approved", "rejected"]),
+      status: zod.enum([
+        "pending",
+        "approved",
+        "rejected",
+        "draft",
+        "in_progress",
+      ]),
+      isDraft: zod.boolean(),
+      templateId: zod.number().nullish(),
+      currentStep: zod.number(),
+      totalSteps: zod.number(),
       requesterId: zod.number(),
       requesterName: zod.string(),
       approverId: zod.number().nullish(),
@@ -1539,6 +1565,622 @@ export const GetApprovalStatsResponse = zod.object({
       updatedAt: zod.coerce.date(),
     }),
   ),
+});
+
+/**
+ * @summary Get approval steps for a specific approval
+ */
+export const GetApprovalStepsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetApprovalStepsResponseItem = zod.object({
+  id: zod.number(),
+  approvalId: zod.number(),
+  stepOrder: zod.number(),
+  approverId: zod.number(),
+  approverName: zod.string(),
+  approverRole: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected", "skipped"]),
+  comment: zod.string().nullish(),
+  signatureId: zod.number().nullish(),
+  processedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetApprovalStepsResponse = zod.array(GetApprovalStepsResponseItem);
+
+/**
+ * @summary Process (approve/reject) a specific approval step
+ */
+export const ProcessApprovalStepParams = zod.object({
+  id: zod.coerce.number(),
+  stepId: zod.coerce.number(),
+});
+
+export const ProcessApprovalStepBody = zod.object({
+  action: zod.enum(["approve", "reject"]),
+  comment: zod.string().nullish(),
+  signatureId: zod.number().nullish(),
+});
+
+export const ProcessApprovalStepResponse = zod.object({
+  id: zod.number(),
+  approvalId: zod.number(),
+  stepOrder: zod.number(),
+  approverId: zod.number(),
+  approverName: zod.string(),
+  approverRole: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected", "skipped"]),
+  comment: zod.string().nullish(),
+  signatureId: zod.number().nullish(),
+  processedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Save approval as draft (임시 저장)
+ */
+export const SaveApprovalDraftBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  templateId: zod.number().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  approvalSteps: zod
+    .array(
+      zod.object({
+        approverId: zod.number(),
+        approverName: zod.string(),
+        approverRole: zod.string(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+        type: zod.enum(["recipient", "cc"]),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update a draft approval
+ */
+export const UpdateApprovalDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateApprovalDraftBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  templateId: zod.number().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  approvalSteps: zod
+    .array(
+      zod.object({
+        approverId: zod.number(),
+        approverName: zod.string(),
+        approverRole: zod.string(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+        type: zod.enum(["recipient", "cc"]),
+      }),
+    )
+    .optional(),
+});
+
+export const UpdateApprovalDraftResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Submit a draft approval for processing
+ */
+export const SubmitApprovalDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SubmitApprovalDraftBody = zod.object({
+  approvalSteps: zod
+    .array(
+      zod.object({
+        approverId: zod.number(),
+        approverName: zod.string(),
+        approverRole: zod.string(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        userId: zod.number(),
+        userName: zod.string(),
+        type: zod.enum(["recipient", "cc"]),
+      }),
+    )
+    .optional(),
+});
+
+export const SubmitApprovalDraftResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  category: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected", "draft", "in_progress"]),
+  isDraft: zod.boolean(),
+  templateId: zod.number().nullish(),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
+  requesterId: zod.number(),
+  requesterName: zod.string(),
+  approverId: zod.number().nullish(),
+  approverName: zod.string().nullish(),
+  estimatedAmount: zod.number().nullish(),
+  vendorName: zod.string().nullish(),
+  vendorQuoteDetails: zod.string().nullish(),
+  relatedDraftId: zod.number().nullish(),
+  relatedInspectionId: zod.number().nullish(),
+  rejectionReason: zod.string().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get recipients for an approval
+ */
+export const GetApprovalRecipientsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetApprovalRecipientsResponseItem = zod.object({
+  id: zod.number(),
+  approvalId: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  type: zod.enum(["recipient", "cc"]),
+  createdAt: zod.coerce.date(),
+});
+export const GetApprovalRecipientsResponse = zod.array(
+  GetApprovalRecipientsResponseItem,
+);
+
+/**
+ * @summary Get current user's digital signatures
+ */
+export const ListSignaturesResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  signatureType: zod.enum(["text", "image"]),
+  signatureData: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSignaturesResponse = zod.array(ListSignaturesResponseItem);
+
+/**
+ * @summary Create or update a digital signature
+ */
+export const CreateSignatureBody = zod.object({
+  signatureType: zod.enum(["text", "image"]),
+  signatureData: zod.string(),
+});
+
+/**
+ * @summary Delete a digital signature
+ */
+export const DeleteSignatureParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteSignatureResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List all document templates
+ */
+export const ListDocumentTemplatesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "general",
+    "certificate",
+    "absence",
+    "salary",
+    "maintenance",
+  ]),
+  description: zod.string().nullish(),
+  fields: zod.string(),
+  bodyTemplate: zod.string(),
+  isSystem: zod.boolean(),
+  sortOrder: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDocumentTemplatesResponse = zod.array(
+  ListDocumentTemplatesResponseItem,
+);
+
+/**
+ * @summary Create a new document template
+ */
+export const CreateDocumentTemplateBody = zod.object({
+  name: zod.string(),
+  category: zod.enum([
+    "general",
+    "certificate",
+    "absence",
+    "salary",
+    "maintenance",
+  ]),
+  description: zod.string().nullish(),
+  fields: zod.string(),
+  bodyTemplate: zod.string(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Get a document template
+ */
+export const GetDocumentTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDocumentTemplateResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "general",
+    "certificate",
+    "absence",
+    "salary",
+    "maintenance",
+  ]),
+  description: zod.string().nullish(),
+  fields: zod.string(),
+  bodyTemplate: zod.string(),
+  isSystem: zod.boolean(),
+  sortOrder: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a document template
+ */
+export const UpdateDocumentTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDocumentTemplateBody = zod.object({
+  name: zod.string(),
+  category: zod.enum([
+    "general",
+    "certificate",
+    "absence",
+    "salary",
+    "maintenance",
+  ]),
+  description: zod.string().nullish(),
+  fields: zod.string(),
+  bodyTemplate: zod.string(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateDocumentTemplateResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "general",
+    "certificate",
+    "absence",
+    "salary",
+    "maintenance",
+  ]),
+  description: zod.string().nullish(),
+  fields: zod.string(),
+  bodyTemplate: zod.string(),
+  isSystem: zod.boolean(),
+  sortOrder: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a document template
+ */
+export const DeleteDocumentTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteDocumentTemplateResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List daily reports
+ */
+export const ListDailyReportsQueryParams = zod.object({
+  date: zod.coerce.string().optional(),
+  type: zod.coerce.string().optional(),
+});
+
+export const ListDailyReportsResponseItem = zod.object({
+  id: zod.number(),
+  reportDate: zod.string(),
+  reportType: zod.enum([
+    "expense",
+    "cleaning",
+    "maintenance",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  content: zod.string(),
+  photos: zod.string().nullish(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDailyReportsResponse = zod.array(ListDailyReportsResponseItem);
+
+/**
+ * @summary Create a daily report
+ */
+export const CreateDailyReportBody = zod.object({
+  reportDate: zod.string(),
+  reportType: zod.enum([
+    "expense",
+    "cleaning",
+    "maintenance",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  content: zod.string(),
+  photos: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a daily report
+ */
+export const GetDailyReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDailyReportResponse = zod.object({
+  id: zod.number(),
+  reportDate: zod.string(),
+  reportType: zod.enum([
+    "expense",
+    "cleaning",
+    "maintenance",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  content: zod.string(),
+  photos: zod.string().nullish(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Submit a daily report to manager
+ */
+export const SubmitDailyReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SubmitDailyReportResponse = zod.object({
+  id: zod.number(),
+  reportDate: zod.string(),
+  reportType: zod.enum([
+    "expense",
+    "cleaning",
+    "maintenance",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  content: zod.string(),
+  photos: zod.string().nullish(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Review a daily report
+ */
+export const ReviewDailyReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReviewDailyReportBody = zod.object({
+  comment: zod.string().nullish(),
+});
+
+export const ReviewDailyReportResponse = zod.object({
+  id: zod.number(),
+  reportDate: zod.string(),
+  reportType: zod.enum([
+    "expense",
+    "cleaning",
+    "maintenance",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  content: zod.string(),
+  photos: zod.string().nullish(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List weekly summary reports
+ */
+export const ListWeeklySummaryReportsQueryParams = zod.object({
+  weekStart: zod.coerce.string().optional(),
+});
+
+export const ListWeeklySummaryReportsResponseItem = zod.object({
+  id: zod.number(),
+  weekStart: zod.string(),
+  weekEnd: zod.string(),
+  title: zod.string(),
+  summary: zod.string(),
+  dailyReportIds: zod.string().nullish(),
+  totalDailyReports: zod.number(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListWeeklySummaryReportsResponse = zod.array(
+  ListWeeklySummaryReportsResponseItem,
+);
+
+/**
+ * @summary Generate a weekly summary report from daily reports
+ */
+export const GenerateWeeklySummaryReportBody = zod.object({
+  weekStart: zod.string(),
+  weekEnd: zod.string(),
+});
+
+/**
+ * @summary Forward weekly report to executive
+ */
+export const ForwardWeeklySummaryReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ForwardWeeklySummaryReportResponse = zod.object({
+  id: zod.number(),
+  weekStart: zod.string(),
+  weekEnd: zod.string(),
+  title: zod.string(),
+  summary: zod.string(),
+  dailyReportIds: zod.string().nullish(),
+  totalDailyReports: zod.number(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List monthly summary reports
+ */
+export const ListMonthlySummaryReportsQueryParams = zod.object({
+  month: zod.coerce.string().optional(),
+});
+
+export const ListMonthlySummaryReportsResponseItem = zod.object({
+  id: zod.number(),
+  reportMonth: zod.string(),
+  title: zod.string(),
+  summary: zod.string(),
+  weeklyReportIds: zod.string().nullish(),
+  totalWeeklyReports: zod.number(),
+  authorId: zod.number(),
+  authorName: zod.string(),
+  status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
+  reviewerId: zod.number().nullish(),
+  reviewerName: zod.string().nullish(),
+  reviewComment: zod.string().nullish(),
+  reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListMonthlySummaryReportsResponse = zod.array(
+  ListMonthlySummaryReportsResponseItem,
+);
+
+/**
+ * @summary Generate a monthly summary report from weekly reports
+ */
+export const GenerateMonthlySummaryReportBody = zod.object({
+  reportMonth: zod.string(),
 });
 
 /**

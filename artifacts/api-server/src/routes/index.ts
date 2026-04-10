@@ -24,6 +24,10 @@ import safetyChecklistsRouter from "./safetyChecklists";
 import maintenanceLogsRouter from "./maintenanceLogs";
 import safetyTrainingsRouter from "./safetyTrainings";
 import facilityDashboardRouter from "./facilityDashboard";
+import approvalStepsRouter from "./approvalSteps";
+import signaturesRouter from "./signatures";
+import documentTemplatesRouter from "./documentTemplates";
+import reportSystemRouter from "./reportSystem";
 
 const router: IRouter = Router();
 
@@ -50,6 +54,10 @@ router.use(notificationsRouter);
 router.use(documentChecklistsRouter);
 router.use(usersRouter);
 router.use(approvalsRouter);
+router.use(approvalStepsRouter);
+router.use(signaturesRouter);
+router.use(documentTemplatesRouter);
+router.use(reportSystemRouter);
 router.use(safetyChecklistsRouter);
 router.use(maintenanceLogsRouter);
 router.use(safetyTrainingsRouter);

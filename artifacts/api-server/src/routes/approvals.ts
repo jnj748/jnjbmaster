@@ -1,17 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
-import { db, approvalsTable, usersTable } from "@workspace/db";
-import {
-  ListApprovalsResponse,
-  CreateApprovalBody,
-  GetApprovalResponse,
-  ApproveApprovalResponse,
-  RejectApprovalBody,
-  RejectApprovalResponse,
-  GetApprovalStatsResponse,
-  GetExecutiveKpiResponse,
-  GetExecutiveSpendingResponse,
-} from "@workspace/api-zod";
+import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsTable, notificationsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { tasksTable, inspectionsTable } from "@workspace/db";
 
@@ -26,29 +15,44 @@ function serializeApproval(r: typeof approvalsTable.$inferSelect) {
   };
 }
 
-router.get("/approvals", requireRole("executive", "manager"), async (req, res): Promise<void> => {
+router.get("/approvals", async (req, res): Promise<void> => {
   const status = req.query.status as string | undefined;
   const user = req.user!;
   let rows = await db.select().from(approvalsTable).orderBy(desc(approvalsTable.createdAt));
 
-  if (user.role === "manager") {
-    rows = rows.filter((r) => r.requesterId === user.userId);
+  rows = rows.filter((r) => !r.isDraft);
+
+  if (user.role === "executive") {
+  } else {
+    const assignedSteps = await db.select({ approvalId: approvalStepsTable.approvalId })
+      .from(approvalStepsTable)
+      .where(eq(approvalStepsTable.approverId, user.userId));
+    const assignedIds = new Set(assignedSteps.map((s) => s.approvalId));
+    rows = rows.filter((r) => r.requesterId === user.userId || assignedIds.has(r.id));
   }
 
   if (status) {
     rows = rows.filter((r) => r.status === status);
   }
 
-  res.json(ListApprovalsResponse.parse(rows.map(serializeApproval)));
+  res.json(rows.map(serializeApproval));
+});
+
+router.get("/approvals/drafts", async (req, res): Promise<void> => {
+  const user = req.user!;
+  const rows = await db.select().from(approvalsTable)
+    .where(and(eq(approvalsTable.isDraft, true), eq(approvalsTable.requesterId, user.userId)))
+    .orderBy(desc(approvalsTable.createdAt));
+
+  res.json(rows.map(serializeApproval));
 });
 
 router.post("/approvals", requireRole("manager", "facility_staff"), async (req, res): Promise<void> => {
-  const parsed = CreateApprovalBody.safeParse(req.body);
-  if (!parsed.success) {
+  const body = req.body;
+  if (!body.title || !body.description || !body.category) {
     res.status(400).json({ error: "입력값이 올바르지 않습니다" });
     return;
   }
-  const body = parsed.data;
   const user = req.user!;
 
   const validCategories = ["maintenance", "inspection", "facility", "equipment", "other"];
@@ -63,12 +67,21 @@ router.post("/approvals", requireRole("manager", "facility_staff"), async (req, 
     .where(eq(usersTable.id, user.userId))
     .then((rows) => rows[0]?.name ?? user.email);
 
+  const steps = body.approvalSteps || [];
+  const recipients = body.recipients || [];
+
+  if (steps.length > 5) {
+    res.status(400).json({ error: "결재선은 최대 5단계까지 설정할 수 있습니다" });
+    return;
+  }
+
   const [row] = await db
     .insert(approvalsTable)
     .values({
       title: body.title,
       description: body.description,
       category: body.category,
+      templateId: body.templateId ?? null,
       estimatedAmount: body.estimatedAmount ?? null,
       vendorName: body.vendorName ?? null,
       vendorQuoteDetails: body.vendorQuoteDetails ?? null,
@@ -76,9 +89,43 @@ router.post("/approvals", requireRole("manager", "facility_staff"), async (req, 
       relatedInspectionId: body.relatedInspectionId ?? null,
       requesterId: user.userId,
       requesterName: userName,
-      status: "pending",
+      status: steps.length > 0 ? "in_progress" : "pending",
+      isDraft: false,
+      totalSteps: Math.max(steps.length, 1),
+      currentStep: 1,
     })
     .returning();
+
+  for (let i = 0; i < steps.length; i++) {
+    await db.insert(approvalStepsTable).values({
+      approvalId: row.id,
+      stepOrder: i + 1,
+      approverId: steps[i].approverId,
+      approverName: steps[i].approverName,
+      approverRole: steps[i].approverRole,
+      status: "pending",
+    });
+  }
+
+  for (const r of recipients) {
+    await db.insert(approvalRecipientsTable).values({
+      approvalId: row.id,
+      userId: r.userId,
+      userName: r.userName,
+      type: r.type,
+    });
+  }
+
+  if (steps.length > 0) {
+    await db.insert(notificationsTable).values({
+      recipientType: `user:${steps[0].approverId}`,
+      notificationType: "approval_step_pending",
+      title: "결재 요청",
+      message: `결재 요청이 도착했습니다: ${body.title}`,
+      relatedEntityType: "approval",
+      relatedEntityId: row.id,
+    });
+  }
 
   res.status(201).json(serializeApproval(row));
 });
@@ -95,19 +142,17 @@ router.get("/approvals/stats", requireRole("executive", "manager"), async (_req,
 
   const recentApprovals = allApprovals.slice(0, 5).map(serializeApproval);
 
-  res.json(
-    GetApprovalStatsResponse.parse({
-      totalPending: pending.length,
-      totalApproved: approved.length,
-      totalRejected: rejected.length,
-      totalAmount: Math.round(totalAmount),
-      approvedAmount: Math.round(approvedAmount),
-      recentApprovals,
-    })
-  );
+  res.json({
+    totalPending: pending.length,
+    totalApproved: approved.length,
+    totalRejected: rejected.length,
+    totalAmount: Math.round(totalAmount),
+    approvedAmount: Math.round(approvedAmount),
+    recentApprovals,
+  });
 });
 
-router.get("/approvals/:id", requireRole("executive", "manager"), async (req, res): Promise<void> => {
+router.get("/approvals/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
   const [row] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, id));
@@ -116,17 +161,35 @@ router.get("/approvals/:id", requireRole("executive", "manager"), async (req, re
     return;
   }
 
-  if (user.role === "manager" && row.requesterId !== user.userId) {
-    res.status(403).json({ error: "접근 권한이 없습니다" });
-    return;
+  if (user.role !== "executive") {
+    const isRequester = row.requesterId === user.userId;
+    const assignedSteps = await db.select({ id: approvalStepsTable.id })
+      .from(approvalStepsTable)
+      .where(and(eq(approvalStepsTable.approvalId, id), eq(approvalStepsTable.approverId, user.userId)));
+    const isApprover = assignedSteps.length > 0;
+    if (!isRequester && !isApprover) {
+      res.status(403).json({ error: "접근 권한이 없습니다" });
+      return;
+    }
   }
 
-  res.json(GetApprovalResponse.parse(serializeApproval(row)));
+  res.json(serializeApproval(row));
 });
 
 router.post("/approvals/:id/approve", requireRole("executive"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
+
+  const [existing] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+
+  if (existing.totalSteps > 1) {
+    res.status(400).json({ error: "다단계 결재는 결재선을 통해 처리해주세요" });
+    return;
+  }
 
   const userName = await db
     .select({ name: usersTable.name })
@@ -145,23 +208,28 @@ router.post("/approvals/:id/approve", requireRole("executive"), async (req, res)
     .where(eq(approvalsTable.id, id))
     .returning();
 
-  if (!row) {
-    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
-    return;
-  }
-
-  res.json(ApproveApprovalResponse.parse(serializeApproval(row)));
+  res.json(serializeApproval(row));
 });
 
 router.post("/approvals/:id/reject", requireRole("executive"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const parsed = RejectApprovalBody.safeParse(req.body);
-  if (!parsed.success) {
+  const body = req.body;
+  if (!body?.reason) {
     res.status(400).json({ error: "반려 사유를 입력해주세요" });
     return;
   }
-  const body = parsed.data;
   const user = req.user!;
+
+  const [existing] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+
+  if (existing.totalSteps > 1) {
+    res.status(400).json({ error: "다단계 결재는 결재선을 통해 처리해주세요" });
+    return;
+  }
 
   const userName = await db
     .select({ name: usersTable.name })
@@ -180,12 +248,7 @@ router.post("/approvals/:id/reject", requireRole("executive"), async (req, res):
     .where(eq(approvalsTable.id, id))
     .returning();
 
-  if (!row) {
-    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
-    return;
-  }
-
-  res.json(RejectApprovalResponse.parse(serializeApproval(row)));
+  res.json(serializeApproval(row));
 });
 
 router.get("/executive/kpi", requireRole("executive", "manager"), async (_req, res): Promise<void> => {
@@ -224,19 +287,17 @@ router.get("/executive/kpi", requireRole("executive", "manager"), async (_req, r
     (t) => t.status !== "completed" && t.dueDate && t.dueDate < today
   ).length;
 
-  res.json(
-    GetExecutiveKpiResponse.parse({
-      inspectionCompletionRate,
-      taskCompletionRate,
-      pendingApprovals: pendingApprovals.length,
-      monthlySpending: Math.round(monthlySpending),
-      totalTasks: allTasks.length,
-      completedTasks: completedTasks.length,
-      totalInspections: allInspections.length,
-      completedInspections: completedInspections.length,
-      overdueItems,
-    })
-  );
+  res.json({
+    inspectionCompletionRate,
+    taskCompletionRate,
+    pendingApprovals: pendingApprovals.length,
+    monthlySpending: Math.round(monthlySpending),
+    totalTasks: allTasks.length,
+    completedTasks: completedTasks.length,
+    totalInspections: allInspections.length,
+    completedInspections: completedInspections.length,
+    overdueItems,
+  });
 });
 
 router.get("/executive/spending", requireRole("executive", "manager"), async (req, res): Promise<void> => {
@@ -283,15 +344,13 @@ router.get("/executive/spending", requireRole("executive", "manager"), async (re
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([m, amount]) => ({ month: m, amount: Math.round(amount) }));
 
-  res.json(
-    GetExecutiveSpendingResponse.parse({
-      totalSpending: Math.round(totalSpending),
-      approvedSpending: Math.round(approvedSpending),
-      pendingSpending: Math.round(pendingSpending),
-      byCategory,
-      monthlyTrend,
-    })
-  );
+  res.json({
+    totalSpending: Math.round(totalSpending),
+    approvedSpending: Math.round(approvedSpending),
+    pendingSpending: Math.round(pendingSpending),
+    byCategory,
+    monthlyTrend,
+  });
 });
 
 export default router;

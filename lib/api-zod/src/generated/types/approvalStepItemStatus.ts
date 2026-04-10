@@ -6,13 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ApprovalStatus =
-  (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+export type ApprovalStepItemStatus =
+  (typeof ApprovalStepItemStatus)[keyof typeof ApprovalStepItemStatus];
 
-export const ApprovalStatus = {
+export const ApprovalStepItemStatus = {
   pending: "pending",
   approved: "approved",
   rejected: "rejected",
-  draft: "draft",
-  in_progress: "in_progress",
+  skipped: "skipped",
 } as const;

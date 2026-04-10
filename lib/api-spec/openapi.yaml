@@ -1229,6 +1229,498 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApprovalStats"
 
+  # ── Multi-step Approval (다단계 결재) ──────────────────────
+  /approvals/{id}/steps:
+    get:
+      operationId: getApprovalSteps
+      tags: [approvals]
+      summary: Get approval steps for a specific approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approval steps list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalStepItem"
+
+  /approvals/{id}/steps/{stepId}/process:
+    post:
+      operationId: processApprovalStep
+      tags: [approvals]
+      summary: Process (approve/reject) a specific approval step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessApprovalStepBody"
+      responses:
+        "200":
+          description: Step processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalStepItem"
+
+  /approvals/draft:
+    post:
+      operationId: saveApprovalDraft
+      tags: [approvals]
+      summary: Save approval as draft (임시 저장)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveApprovalDraftBody"
+      responses:
+        "201":
+          description: Draft saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+
+  /approvals/draft/{id}:
+    put:
+      operationId: updateApprovalDraft
+      tags: [approvals]
+      summary: Update a draft approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveApprovalDraftBody"
+      responses:
+        "200":
+          description: Draft updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+
+  /approvals/draft/{id}/submit:
+    post:
+      operationId: submitApprovalDraft
+      tags: [approvals]
+      summary: Submit a draft approval for processing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitDraftBody"
+      responses:
+        "200":
+          description: Draft submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+
+  /approvals/{id}/recipients:
+    get:
+      operationId: getApprovalRecipients
+      tags: [approvals]
+      summary: Get recipients for an approval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipients list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalRecipientItem"
+
+  # ── Digital Signatures (디지털 서명) ──────────────────────
+  /signatures:
+    get:
+      operationId: listSignatures
+      tags: [approvals]
+      summary: Get current user's digital signatures
+      responses:
+        "200":
+          description: Signature list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DigitalSignatureItem"
+    post:
+      operationId: createSignature
+      tags: [approvals]
+      summary: Create or update a digital signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSignatureBody"
+      responses:
+        "201":
+          description: Signature created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalSignatureItem"
+
+  /signatures/{id}:
+    delete:
+      operationId: deleteSignature
+      tags: [approvals]
+      summary: Delete a digital signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required:
+                  - success
+
+  # ── Document Templates (서식 템플릿) ──────────────────────
+  /document-templates:
+    get:
+      operationId: listDocumentTemplates
+      tags: [approvals]
+      summary: List all document templates
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentTemplateItem"
+    post:
+      operationId: createDocumentTemplate
+      tags: [approvals]
+      summary: Create a new document template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentTemplateBody"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateItem"
+
+  /document-templates/{id}:
+    get:
+      operationId: getDocumentTemplate
+      tags: [approvals]
+      summary: Get a document template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateItem"
+    put:
+      operationId: updateDocumentTemplate
+      tags: [approvals]
+      summary: Update a document template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentTemplateBody"
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentTemplateItem"
+    delete:
+      operationId: deleteDocumentTemplate
+      tags: [approvals]
+      summary: Delete a document template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required:
+                  - success
+
+  # ── Report System (보고 체계) ──────────────────────────────
+  /daily-reports:
+    get:
+      operationId: listDailyReports
+      tags: [reports]
+      summary: List daily reports
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daily reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyReportItem"
+    post:
+      operationId: createDailyReport
+      tags: [reports]
+      summary: Create a daily report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDailyReportBody"
+      responses:
+        "201":
+          description: Daily report created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReportItem"
+
+  /daily-reports/{id}:
+    get:
+      operationId: getDailyReport
+      tags: [reports]
+      summary: Get a daily report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Daily report detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReportItem"
+
+  /daily-reports/{id}/submit:
+    post:
+      operationId: submitDailyReport
+      tags: [reports]
+      summary: Submit a daily report to manager
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReportItem"
+
+  /daily-reports/{id}/review:
+    post:
+      operationId: reviewDailyReport
+      tags: [reports]
+      summary: Review a daily report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewReportBody"
+      responses:
+        "200":
+          description: Reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReportItem"
+
+  /weekly-summary-reports:
+    get:
+      operationId: listWeeklySummaryReports
+      tags: [reports]
+      summary: List weekly summary reports
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Weekly reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeeklySummaryReportItem"
+    post:
+      operationId: generateWeeklySummaryReport
+      tags: [reports]
+      summary: Generate a weekly summary report from daily reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateWeeklySummaryBody"
+      responses:
+        "201":
+          description: Weekly summary generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySummaryReportItem"
+
+  /weekly-summary-reports/{id}/forward:
+    post:
+      operationId: forwardWeeklySummaryReport
+      tags: [reports]
+      summary: Forward weekly report to executive
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Forwarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySummaryReportItem"
+
+  /monthly-summary-reports:
+    get:
+      operationId: listMonthlySummaryReports
+      tags: [reports]
+      summary: List monthly summary reports
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Monthly reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlySummaryReportItem"
+    post:
+      operationId: generateMonthlySummaryReport
+      tags: [reports]
+      summary: Generate a monthly summary report from weekly reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateMonthlySummaryBody"
+      responses:
+        "201":
+          description: Monthly summary generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlySummaryReportItem"
+
   /executive/kpi:
     get:
       operationId: getExecutiveKpi
@@ -3883,7 +4375,15 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, approved, rejected]
+          enum: [pending, approved, rejected, draft, in_progress]
+        isDraft:
+          type: boolean
+        templateId:
+          type: ["integer", "null"]
+        currentStep:
+          type: integer
+        totalSteps:
+          type: integer
         requesterId:
           type: integer
         requesterName:
@@ -3919,6 +4419,9 @@ components:
         - description
         - category
         - status
+        - isDraft
+        - currentStep
+        - totalSteps
         - requesterId
         - requesterName
         - createdAt
@@ -4678,3 +5181,471 @@ components:
       required:
         - commission
         - message
+
+    # ── Multi-step Approval Schemas ──────────────────────────
+    ApprovalStepItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        approvalId:
+          type: integer
+        stepOrder:
+          type: integer
+        approverId:
+          type: integer
+        approverName:
+          type: string
+        approverRole:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, skipped]
+        comment:
+          type: ["string", "null"]
+        signatureId:
+          type: ["integer", "null"]
+        processedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - approvalId
+        - stepOrder
+        - approverId
+        - approverName
+        - approverRole
+        - status
+        - createdAt
+
+    ProcessApprovalStepBody:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+        comment:
+          type: ["string", "null"]
+        signatureId:
+          type: ["integer", "null"]
+      required:
+        - action
+
+    SaveApprovalDraftBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        templateId:
+          type: ["integer", "null"]
+        estimatedAmount:
+          type: ["number", "null"]
+        vendorName:
+          type: ["string", "null"]
+        vendorQuoteDetails:
+          type: ["string", "null"]
+        relatedDraftId:
+          type: ["integer", "null"]
+        relatedInspectionId:
+          type: ["integer", "null"]
+        approvalSteps:
+          type: array
+          items:
+            type: object
+            properties:
+              approverId:
+                type: integer
+              approverName:
+                type: string
+              approverRole:
+                type: string
+            required:
+              - approverId
+              - approverName
+              - approverRole
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: integer
+              userName:
+                type: string
+              type:
+                type: string
+                enum: [recipient, cc]
+            required:
+              - userId
+              - userName
+              - type
+      required:
+        - title
+        - description
+        - category
+
+    SubmitDraftBody:
+      type: object
+      properties:
+        approvalSteps:
+          type: array
+          items:
+            type: object
+            properties:
+              approverId:
+                type: integer
+              approverName:
+                type: string
+              approverRole:
+                type: string
+            required:
+              - approverId
+              - approverName
+              - approverRole
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: integer
+              userName:
+                type: string
+              type:
+                type: string
+                enum: [recipient, cc]
+            required:
+              - userId
+              - userName
+              - type
+
+    ApprovalRecipientItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        approvalId:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        type:
+          type: string
+          enum: [recipient, cc]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - approvalId
+        - userId
+        - userName
+        - type
+        - createdAt
+
+    # ── Digital Signature Schemas ──────────────────────────
+    DigitalSignatureItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        signatureType:
+          type: string
+          enum: [text, image]
+        signatureData:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - userName
+        - signatureType
+        - signatureData
+        - createdAt
+        - updatedAt
+
+    CreateSignatureBody:
+      type: object
+      properties:
+        signatureType:
+          type: string
+          enum: [text, image]
+        signatureData:
+          type: string
+      required:
+        - signatureType
+        - signatureData
+
+    # ── Document Template Schemas ──────────────────────────
+    DocumentTemplateItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+          enum: [general, certificate, absence, salary, maintenance]
+        description:
+          type: ["string", "null"]
+        fields:
+          type: string
+        bodyTemplate:
+          type: string
+        isSystem:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - fields
+        - bodyTemplate
+        - isSystem
+        - sortOrder
+        - createdAt
+        - updatedAt
+
+    CreateDocumentTemplateBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [general, certificate, absence, salary, maintenance]
+        description:
+          type: ["string", "null"]
+        fields:
+          type: string
+        bodyTemplate:
+          type: string
+        sortOrder:
+          type: integer
+      required:
+        - name
+        - category
+        - fields
+        - bodyTemplate
+
+    # ── Report System Schemas ──────────────────────────────
+    DailyReportItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        reportDate:
+          type: string
+        reportType:
+          type: string
+          enum: [expense, cleaning, maintenance, security, other]
+        title:
+          type: string
+        content:
+          type: string
+        photos:
+          type: ["string", "null"]
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitted, reviewed, forwarded]
+        reviewerId:
+          type: ["integer", "null"]
+        reviewerName:
+          type: ["string", "null"]
+        reviewComment:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - reportDate
+        - reportType
+        - title
+        - content
+        - authorId
+        - authorName
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateDailyReportBody:
+      type: object
+      properties:
+        reportDate:
+          type: string
+        reportType:
+          type: string
+          enum: [expense, cleaning, maintenance, security, other]
+        title:
+          type: string
+        content:
+          type: string
+        photos:
+          type: ["string", "null"]
+      required:
+        - reportDate
+        - reportType
+        - title
+        - content
+
+    ReviewReportBody:
+      type: object
+      properties:
+        comment:
+          type: ["string", "null"]
+
+    WeeklySummaryReportItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        weekStart:
+          type: string
+        weekEnd:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        dailyReportIds:
+          type: ["string", "null"]
+        totalDailyReports:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitted, reviewed, forwarded]
+        reviewerId:
+          type: ["integer", "null"]
+        reviewerName:
+          type: ["string", "null"]
+        reviewComment:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - weekStart
+        - weekEnd
+        - title
+        - summary
+        - totalDailyReports
+        - authorId
+        - authorName
+        - status
+        - createdAt
+        - updatedAt
+
+    GenerateWeeklySummaryBody:
+      type: object
+      properties:
+        weekStart:
+          type: string
+        weekEnd:
+          type: string
+      required:
+        - weekStart
+        - weekEnd
+
+    MonthlySummaryReportItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        reportMonth:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        weeklyReportIds:
+          type: ["string", "null"]
+        totalWeeklyReports:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitted, reviewed, forwarded]
+        reviewerId:
+          type: ["integer", "null"]
+        reviewerName:
+          type: ["string", "null"]
+        reviewComment:
+          type: ["string", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - reportMonth
+        - title
+        - summary
+        - totalWeeklyReports
+        - authorId
+        - authorName
+        - status
+        - createdAt
+        - updatedAt
+
+    GenerateMonthlySummaryBody:
+      type: object
+      properties:
+        reportMonth:
+          type: string
+      required:
+        - reportMonth

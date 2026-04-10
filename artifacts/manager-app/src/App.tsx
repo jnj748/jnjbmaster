@@ -27,6 +27,10 @@ import FacilityDashboard from "@/pages/facility-dashboard";
 import SafetyChecklists from "@/pages/safety-checklists";
 import MaintenanceLogs from "@/pages/maintenance-logs";
 import SafetyTraining from "@/pages/safety-training";
+import ApprovalCreate from "@/pages/approval-create";
+import DocumentTemplates from "@/pages/document-templates";
+import DailyReportsPage from "@/pages/daily-reports";
+import ReportSystemPage from "@/pages/report-system";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -41,6 +45,10 @@ function AuthenticatedRoutes() {
       <Switch>
         <Route path="/" component={isExecutive ? ExecutiveDashboard : Dashboard} />
         <Route path="/approvals" component={Approvals} />
+        <Route path="/approvals/create" component={ApprovalCreate} />
+        <Route path="/document-templates" component={DocumentTemplates} />
+        <Route path="/daily-reports" component={DailyReportsPage} />
+        <Route path="/report-system" component={ReportSystemPage} />
         {isExecutive && <Route path="/spending" component={ExecutiveSpending} />}
         <Route path="/tasks" component={Tasks} />
         <Route path="/inspections" component={Inspections} />

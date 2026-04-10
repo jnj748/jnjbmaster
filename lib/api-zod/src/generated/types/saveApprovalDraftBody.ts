@@ -5,25 +5,15 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ApprovalStatus } from "./approvalStatus";
+import type { SaveApprovalDraftBodyApprovalStepsItem } from "./saveApprovalDraftBodyApprovalStepsItem";
+import type { SaveApprovalDraftBodyRecipientsItem } from "./saveApprovalDraftBodyRecipientsItem";
 
-export interface Approval {
-  id: number;
+export interface SaveApprovalDraftBody {
   title: string;
   description: string;
   category: string;
-  status: ApprovalStatus;
-  isDraft: boolean;
   /** @nullable */
   templateId?: number | null;
-  currentStep: number;
-  totalSteps: number;
-  requesterId: number;
-  requesterName: string;
-  /** @nullable */
-  approverId?: number | null;
-  /** @nullable */
-  approverName?: string | null;
   /** @nullable */
   estimatedAmount?: number | null;
   /** @nullable */
@@ -34,10 +24,6 @@ export interface Approval {
   relatedDraftId?: number | null;
   /** @nullable */
   relatedInspectionId?: number | null;
-  /** @nullable */
-  rejectionReason?: string | null;
-  /** @nullable */
-  approvedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  approvalSteps?: SaveApprovalDraftBodyApprovalStepsItem[];
+  recipients?: SaveApprovalDraftBodyRecipientsItem[];
 }
