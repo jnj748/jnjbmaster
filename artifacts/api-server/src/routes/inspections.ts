@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, desc } from "drizzle-orm";
+import { eq, and, lte, gte, desc, sql } from "drizzle-orm";
 import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable } from "@workspace/db";
 import {
   ListInspectionsResponse,
@@ -20,23 +20,316 @@ import {
   ApproveInspectionMatchingParams,
   ApproveInspectionMatchingBody,
   ApproveInspectionMatchingResponse,
+  BulkRegisterInspectionsBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
 const LEGAL_PRESETS = [
-  { name: "저수조 청소", category: "water_tank", legalCycleMonths: 6, defaultAlertDays: 30, description: "건축물 위생관리법에 따른 저수조 청소 (반기 1회)" },
-  { name: "승강기 정기검사", category: "elevator", legalCycleMonths: 12, defaultAlertDays: 30, description: "승강기안전관리법에 따른 정기검사 (연 1회)" },
-  { name: "소방 점검", category: "fire_safety", legalCycleMonths: 12, defaultAlertDays: 30, description: "소방시설법에 따른 종합정밀점검 (연 1회)" },
-  { name: "정화조 청소", category: "septic", legalCycleMonths: 12, defaultAlertDays: 30, description: "하수도법에 따른 정화조 청소 (연 1회)" },
-  { name: "안전점검", category: "safety_check", legalCycleMonths: 6, defaultAlertDays: 30, description: "시설물안전관리법에 따른 정기안전점검 (반기 1회)" },
-  { name: "전기 안전점검", category: "electrical", legalCycleMonths: 12, defaultAlertDays: 30, description: "전기사업법에 따른 정기점검 (연 1회)" },
-  { name: "가스 안전점검", category: "gas", legalCycleMonths: 12, defaultAlertDays: 30, description: "도시가스사업법에 따른 정기검사 (연 1회)" },
+  // ── 소방 분야 ──
+  {
+    name: "소방 법정점검 (작동+정밀)",
+    category: "fire_safety",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "소방시설법에 따른 작동기능점검 + 종합정밀점검 (연 1회)",
+    legalBasis: "소방시설 설치 및 관리에 관한 법률 제25조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["작동기능점검", "종합정밀점검"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "소방 자체점검",
+    category: "fire_safety",
+    inspectionType: "self_regular",
+    legalCycleMonths: 1,
+    defaultAlertDays: 7,
+    description: "매월 자체 소방시설 점검 (4월·7월·10월 집중 점검/정비)",
+    legalBasis: "소방시설 설치 및 관리에 관한 법률 제25조",
+    recommendedMonths: JSON.stringify([4, 7, 10]),
+    subItems: JSON.stringify(["소화기 점검", "감지기 작동 확인", "스프링클러 점검", "피난구 확인"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "불조심 강조의 달 점검",
+    category: "fire_safety",
+    inspectionType: "seasonal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 14,
+    description: "11월 불조심 강조 기간 특별 소방 안전 점검",
+    legalBasis: "소방시설 설치 및 관리에 관한 법률",
+    recommendedMonths: JSON.stringify([11]),
+    subItems: JSON.stringify(["소방 안전 캠페인", "소화기 위치 확인", "대피 훈련"]),
+    seasonalNotes: "11월 불조심 강조 기간: 소방 안전 교육 및 대피 훈련 실시",
+  },
+
+  // ── 전기 분야 ──
+  {
+    name: "전기안전 법정점검",
+    category: "electrical",
+    inspectionType: "legal",
+    legalCycleMonths: 36,
+    defaultAlertDays: 60,
+    description: "전기사업법에 따른 정기검사 (2~3년 1회, 한전 또는 전기안전공사)",
+    legalBasis: "전기사업법 제63조, 전기안전관리법 제22조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["절연저항 측정", "접지저항 측정", "전기설비 외관 점검"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "변전실·분전반 월간 점검",
+    category: "electrical",
+    inspectionType: "self_regular",
+    legalCycleMonths: 1,
+    defaultAlertDays: 7,
+    description: "변전실 점검, 절연저항 측정, 분전반·배선 상태 점검 (매월)",
+    legalBasis: "전기사업법 제63조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["변전실 점검", "절연저항 측정", "분전반 점검", "배선 상태 확인"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "비상발전기 무부하 기동 점검",
+    category: "electrical",
+    inspectionType: "biweekly",
+    legalCycleMonths: 1,
+    defaultAlertDays: 3,
+    description: "비상발전기 무부하 기동 점검 (2주 1회)",
+    legalBasis: "전기사업법 제63조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["무부하 기동 테스트", "연료 잔량 확인", "배터리 상태 점검"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "혹한기 동파 대비 전기설비 점검",
+    category: "electrical",
+    inspectionType: "seasonal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 14,
+    description: "1월 혹한기 동파 대비 전기설비 특별 점검",
+    legalBasis: "전기사업법 제63조",
+    recommendedMonths: JSON.stringify([1]),
+    subItems: JSON.stringify(["동파 대비 열선 점검", "보온재 상태 확인", "외부 배관 점검"]),
+    seasonalNotes: "1월 혹한기: 동파 방지 열선, 보온재, 외부 배관 집중 점검",
+  },
+  {
+    name: "우기 수배전반 누설전류 측정",
+    category: "electrical",
+    inspectionType: "seasonal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 14,
+    description: "6~7월 우기 대비 수배전반 누설전류 집중 측정",
+    legalBasis: "전기사업법 제63조",
+    recommendedMonths: JSON.stringify([6, 7]),
+    subItems: JSON.stringify(["누설전류 측정", "접지 상태 점검", "방수 처리 확인"]),
+    seasonalNotes: "6~7월 우기: 수배전반 누설전류, 접지 상태, 방수 처리 집중 점검",
+  },
+
+  // ── 승강기 ──
+  {
+    name: "승강기 법정 안전검사",
+    category: "elevator",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "승강기안전관리법에 따른 정기검사 (연 1회)",
+    legalBasis: "승강기 안전관리법 제32조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["안전장치 검사", "와이어로프 검사", "제어반 검사", "도어장치 검사"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "승강기 자체 월간 점검",
+    category: "elevator",
+    inspectionType: "self_regular",
+    legalCycleMonths: 1,
+    defaultAlertDays: 7,
+    description: "매월 자체 승강기 점검 (세부 항목별 주기 상이)",
+    legalBasis: "승강기 안전관리법 제32조",
+    recommendedMonths: null,
+    subItems: JSON.stringify([
+      "비상운전장치 점검 (매월)",
+      "로프·브레이크 점검 (매월)",
+      "주개폐기 점검 (3개월 주기)",
+      "도어장치 점검 (매월)",
+      "안전회로 점검 (매월)",
+    ]),
+    seasonalNotes: null,
+  },
+
+  // ── 위생/환경 ──
+  {
+    name: "저수조 청소",
+    category: "water_tank",
+    inspectionType: "legal",
+    legalCycleMonths: 6,
+    defaultAlertDays: 30,
+    description: "수도법에 따른 저수조 청소 (반기 1회)",
+    legalBasis: "수도법 제33조, 건축물 위생관리법",
+    recommendedMonths: JSON.stringify([3, 4, 8, 9]),
+    subItems: JSON.stringify(["저수조 내부 세척", "소독", "수질 검사"]),
+    seasonalNotes: "3~4월, 8~9월 실시 추천 (동절기·하절기 전 시행)",
+  },
+  {
+    name: "정화조 청소",
+    category: "septic",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "하수도법에 따른 정화조 청소 (연 1회)",
+    legalBasis: "하수도법 제39조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["정화조 내부 청소", "슬러지 제거", "기능 점검"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "오수정화시설 분기별 점검",
+    category: "septic",
+    inspectionType: "self_regular",
+    legalCycleMonths: 3,
+    defaultAlertDays: 14,
+    description: "오수정화시설 분기별 점검 (3, 6, 9, 12월)",
+    legalBasis: "하수도법 제39조",
+    recommendedMonths: JSON.stringify([3, 6, 9, 12]),
+    subItems: JSON.stringify(["방류수 수질 확인", "송풍기 점검", "침전조 상태 확인"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "수질 검사",
+    category: "hygiene",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "수도법에 따른 수질 검사 (연 1회)",
+    legalBasis: "수도법 제33조, 먹는물관리법",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["일반세균", "대장균", "잔류염소", "탁도 측정"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "실내공기질 검사",
+    category: "hygiene",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "다중이용시설 실내공기질 관리법에 따른 검사 (연 1회)",
+    legalBasis: "실내공기질 관리법 제12조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["미세먼지(PM10)", "이산화탄소", "포름알데히드", "총부유세균"]),
+    seasonalNotes: null,
+  },
+
+  // ── 건축물/안전 ──
+  {
+    name: "건축물 정기점검",
+    category: "building_safety",
+    inspectionType: "legal",
+    legalCycleMonths: 6,
+    defaultAlertDays: 30,
+    description: "시설물안전관리법에 따른 건축물 정기점검 (반기 1회)",
+    legalBasis: "시설물의 안전 및 유지관리에 관한 특별법 제11조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["외벽 균열 확인", "옥상 방수 상태", "구조물 안전", "배관 누수"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "안전점검의 날",
+    category: "safety_check",
+    inspectionType: "administrative",
+    legalCycleMonths: 1,
+    defaultAlertDays: 3,
+    description: "매월 4일 안전점검의 날 시설 안전 점검",
+    legalBasis: "재난 및 안전관리 기본법 제66조의7",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["시설물 안전 순찰", "소방시설 확인", "전기시설 확인", "가스시설 확인"]),
+    seasonalNotes: "매월 4일 실시 (안전점검의 날)",
+  },
+  {
+    name: "어린이 놀이터 자체 점검",
+    category: "playground",
+    inspectionType: "self_regular",
+    legalCycleMonths: 1,
+    defaultAlertDays: 7,
+    description: "어린이놀이시설법에 따른 자체 월간 점검",
+    legalBasis: "어린이놀이시설 안전관리법 제15조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["놀이기구 안전 상태", "바닥 충격흡수 상태", "볼트·너트 조임 확인"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "어린이 놀이터 법정 안전검사",
+    category: "playground",
+    inspectionType: "legal",
+    legalCycleMonths: 24,
+    defaultAlertDays: 60,
+    description: "어린이놀이시설법에 따른 정기시설검사 (2년 1회)",
+    legalBasis: "어린이놀이시설 안전관리법 제12조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["안전인증 확인", "설치검사 기준 적합성", "안전 표면 검사"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "안전교육 (기술직 대상)",
+    category: "safety_check",
+    inspectionType: "self_regular",
+    legalCycleMonths: 1,
+    defaultAlertDays: 7,
+    description: "기술직 대상 월 1회 안전교육 실시",
+    legalBasis: "산업안전보건법 제29조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["안전작업 절차", "응급처치", "소방 안전", "전기 안전"]),
+    seasonalNotes: null,
+  },
+
+  // ── 가스 ──
+  {
+    name: "가스 안전점검",
+    category: "gas",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "도시가스사업법에 따른 정기검사 (연 1회)",
+    legalBasis: "도시가스사업법 제17조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["가스 배관 점검", "가스 감지기 작동 확인", "가스 누출 검사"]),
+    seasonalNotes: null,
+  },
+
+  // ── 행정 ──
+  {
+    name: "차량 등록 정리",
+    category: "administrative",
+    inspectionType: "administrative",
+    legalCycleMonths: 6,
+    defaultAlertDays: 14,
+    description: "입주민 차량 등록 현황 정리 (3월, 9월)",
+    legalBasis: "관리규약",
+    recommendedMonths: JSON.stringify([3, 9]),
+    subItems: JSON.stringify(["차량 등록 현황 갱신", "미등록 차량 조치", "주차 위반 차량 정리"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "입주자 카드 관리",
+    category: "administrative",
+    inspectionType: "administrative",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "퇴거 후 관리비 정산 완료 시점부터 3년 보관",
+    legalBasis: "개인정보보호법, 관리규약",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["퇴거자 카드 정리", "보관 기한 확인", "개인정보 파기"]),
+    seasonalNotes: null,
+  },
 ];
 
-function calculateNextDueDate(lastDate: string, cycleMonths: number): string {
+function calculateNextDueDate(lastDate: string, cycleMonths: number, intervalDays?: number): string {
   const d = new Date(lastDate);
-  d.setMonth(d.getMonth() + cycleMonths);
+  if (intervalDays) {
+    d.setDate(d.getDate() + intervalDays);
+  } else {
+    d.setMonth(d.getMonth() + cycleMonths);
+  }
   return d.toISOString().split("T")[0];
 }
 
@@ -52,7 +345,12 @@ router.get("/inspections", async (_req, res): Promise<void> => {
 router.get("/inspections/presets", async (_req, res): Promise<void> => {
   let presets = await db.select().from(legalInspectionPresetsTable);
 
-  if (presets.length === 0) {
+  const needsReseed = presets.length === 0 || !presets[0].inspectionType || presets[0].inspectionType === "legal" && presets.length < LEGAL_PRESETS.length;
+
+  if (needsReseed) {
+    if (presets.length > 0) {
+      await db.delete(legalInspectionPresetsTable);
+    }
     await db.insert(legalInspectionPresetsTable).values(LEGAL_PRESETS);
     presets = await db.select().from(legalInspectionPresetsTable);
   }
@@ -67,17 +365,85 @@ router.post("/inspections", async (req, res): Promise<void> => {
     return;
   }
 
-  const data: any = {
+  const data = {
     ...parsed.data,
     advanceAlertDays: parsed.data.advanceAlertDays ?? 30,
+    inspectionType: parsed.data.inspectionType ?? "legal",
+    nextDueDate: parsed.data.nextDueDate as string | undefined,
   };
 
-  if (parsed.data.legalCycleMonths && parsed.data.lastInspectionDate) {
-    data.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, parsed.data.legalCycleMonths);
+  if (parsed.data.lastInspectionDate) {
+    if (parsed.data.intervalDays) {
+      data.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, 0, parsed.data.intervalDays);
+    } else if (parsed.data.fixedDay) {
+      const d = new Date(parsed.data.lastInspectionDate);
+      const nextMonth = new Date(d.getFullYear(), d.getMonth() + (d.getDate() >= parsed.data.fixedDay ? 1 : 0), parsed.data.fixedDay);
+      data.nextDueDate = nextMonth.toISOString().split("T")[0];
+    } else if (parsed.data.legalCycleMonths) {
+      data.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, parsed.data.legalCycleMonths);
+    }
   }
 
-  const [inspection] = await db.insert(inspectionsTable).values(data).returning();
+  const [inspection] = await db.insert(inspectionsTable).values(data as typeof inspectionsTable.$inferInsert).returning();
   res.status(201).json(UpdateInspectionResponse.parse(inspection));
+});
+
+router.post("/inspections/bulk-register", async (req, res): Promise<void> => {
+  const parsed = BulkRegisterInspectionsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { presetIds, baseDate } = parsed.data;
+  const baseDateStr = typeof baseDate === "string" ? baseDate : new Date(baseDate).toISOString().split("T")[0];
+
+  const allPresets = await db.select().from(legalInspectionPresetsTable);
+  const selectedPresets = presetIds.length > 0
+    ? allPresets.filter((p) => presetIds.includes(p.id))
+    : allPresets.filter((p) => p.category === parsed.data.category);
+
+  const createdInspections: Array<typeof inspectionsTable.$inferSelect> = [];
+
+  for (const preset of selectedPresets) {
+    const inspType = preset.inspectionType || "legal";
+    const intervalDays = inspType === "biweekly" ? 14 : null;
+    const fixedDay = preset.seasonalNotes?.includes("매월 4일") ? 4 : null;
+    const freq = inspType === "biweekly" ? 26 : (preset.legalCycleMonths > 0 ? Math.max(1, Math.round(12 / preset.legalCycleMonths)) : 1);
+
+    let nextDueDate: string;
+    if (intervalDays) {
+      nextDueDate = calculateNextDueDate(baseDateStr, 0, intervalDays);
+    } else if (fixedDay) {
+      const today = new Date(baseDateStr);
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + (today.getDate() >= fixedDay ? 1 : 0), fixedDay);
+      nextDueDate = nextMonth.toISOString().split("T")[0];
+    } else {
+      nextDueDate = calculateNextDueDate(baseDateStr, preset.legalCycleMonths);
+    }
+
+    const [inspection] = await db.insert(inspectionsTable).values({
+      name: preset.name,
+      category: preset.category,
+      inspectionType: inspType,
+      frequencyPerYear: freq,
+      legalCycleMonths: preset.legalCycleMonths,
+      intervalDays,
+      fixedDay,
+      recommendedMonths: preset.recommendedMonths,
+      lastInspectionDate: baseDateStr,
+      nextDueDate,
+      legalBasis: preset.legalBasis,
+      advanceAlertDays: preset.defaultAlertDays,
+      notes: preset.description,
+    }).returning();
+    createdInspections.push(inspection);
+  }
+
+  res.status(201).json({
+    registeredCount: createdInspections.length,
+    inspections: ListInspectionsResponse.parse(createdInspections),
+  });
 });
 
 router.patch("/inspections/:id", async (req, res): Promise<void> => {
@@ -93,10 +459,18 @@ router.patch("/inspections/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const updateData: any = { ...parsed.data };
+  const updateData: Partial<typeof inspectionsTable.$inferInsert> & { nextDueDate?: string } = { ...parsed.data };
 
-  if (parsed.data.lastInspectionDate && parsed.data.legalCycleMonths) {
-    updateData.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, parsed.data.legalCycleMonths);
+  if (parsed.data.lastInspectionDate) {
+    if (parsed.data.intervalDays) {
+      updateData.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, 0, parsed.data.intervalDays);
+    } else if (parsed.data.fixedDay) {
+      const d = new Date(parsed.data.lastInspectionDate);
+      const nextMonth = new Date(d.getFullYear(), d.getMonth() + (d.getDate() >= parsed.data.fixedDay ? 1 : 0), parsed.data.fixedDay);
+      updateData.nextDueDate = nextMonth.toISOString().split("T")[0];
+    } else if (parsed.data.legalCycleMonths) {
+      updateData.nextDueDate = calculateNextDueDate(parsed.data.lastInspectionDate, parsed.data.legalCycleMonths);
+    }
   }
 
   const [inspection] = await db
@@ -165,8 +539,17 @@ router.post("/inspections/:id/complete", async (req, res): Promise<void> => {
     inspector: parsed.data.inspector ?? null,
   });
 
-  const cycleMonths = inspection.legalCycleMonths || Math.round(12 / inspection.frequencyPerYear);
-  const newNextDueDate = calculateNextDueDate(inspDateStr, cycleMonths);
+  let newNextDueDate: string;
+  if (inspection.intervalDays) {
+    newNextDueDate = calculateNextDueDate(inspDateStr, 0, inspection.intervalDays);
+  } else if (inspection.fixedDay) {
+    const inspDate = new Date(inspDateStr);
+    const nextMonth = new Date(inspDate.getFullYear(), inspDate.getMonth() + 1, inspection.fixedDay);
+    newNextDueDate = nextMonth.toISOString().split("T")[0];
+  } else {
+    const cycleMonths = inspection.legalCycleMonths || Math.round(12 / inspection.frequencyPerYear);
+    newNextDueDate = calculateNextDueDate(inspDateStr, cycleMonths);
+  }
 
   const [updated] = await db
     .update(inspectionsTable)
@@ -210,51 +593,104 @@ router.get("/inspections/:id/logs", async (req, res): Promise<void> => {
 
 router.post("/inspections/generate-alerts", async (_req, res): Promise<void> => {
   const today = new Date();
+  const currentMonth = today.getMonth() + 1;
+  const currentDay = today.getDate();
   const inspections = await db.select().from(inspectionsTable);
 
   const alertInspections: Array<{ inspectionId: number; name: string; nextDueDate: string; draftId: number | null }> = [];
   let draftsGenerated = 0;
 
   for (const inspection of inspections) {
+    let shouldAlert = false;
+
     const dueDate = new Date(inspection.nextDueDate);
     const alertDate = new Date(dueDate);
     alertDate.setDate(alertDate.getDate() - inspection.advanceAlertDays);
-
     if (today >= alertDate && today <= dueDate) {
-      const existingDrafts = await db
-        .select()
-        .from(draftsTable)
-        .where(
-          and(
-            eq(draftsTable.inspectionId, inspection.id),
-            eq(draftsTable.draftType, "expense_approval")
-          )
-        );
+      shouldAlert = true;
+    }
 
-      let draftId: number | null = null;
+    if (inspection.fixedDay && currentDay === inspection.fixedDay) {
+      shouldAlert = true;
+    }
 
-      if (existingDrafts.length === 0) {
-        const categoryLabel = getCategoryLabel(inspection.category);
-        const [draft] = await db.insert(draftsTable).values({
-          title: `${inspection.name} 지출품의서`,
-          draftType: "expense_approval",
-          inspectionId: inspection.id,
-          body: generateExpenseApprovalDraftBody(inspection.name, categoryLabel, inspection.nextDueDate),
-          status: "draft",
-        }).returning();
-        draftId = draft.id;
-        draftsGenerated++;
-      } else {
-        draftId = existingDrafts[0].id;
+    const inspType = inspection.inspectionType || "legal";
+    if (inspection.recommendedMonths && (inspType === "seasonal" || inspType === "administrative" || inspType === "self_regular")) {
+      try {
+        const months: number[] = JSON.parse(inspection.recommendedMonths);
+        if (Array.isArray(months) && months.includes(currentMonth)) {
+          shouldAlert = true;
+        }
+      } catch (e) {
+        console.warn(`Invalid recommendedMonths JSON for inspection ${inspection.id}: ${inspection.recommendedMonths}`);
       }
+    }
 
-      alertInspections.push({
+    if (!shouldAlert) continue;
+
+    const existingDrafts = await db
+      .select()
+      .from(draftsTable)
+      .where(
+        and(
+          eq(draftsTable.inspectionId, inspection.id),
+          eq(draftsTable.draftType, "expense_approval")
+        )
+      );
+
+    let draftId: number | null = null;
+
+    if (existingDrafts.length === 0 && inspType === "legal") {
+      const categoryLabel = getCategoryLabel(inspection.category);
+      const [draft] = await db.insert(draftsTable).values({
+        title: `${inspection.name} 지출품의서`,
+        draftType: "expense_approval",
         inspectionId: inspection.id,
-        name: inspection.name,
-        nextDueDate: inspection.nextDueDate,
-        draftId,
+        body: generateExpenseApprovalDraftBody(inspection.name, categoryLabel, inspection.nextDueDate),
+        status: "draft",
+      }).returning();
+      draftId = draft.id;
+      draftsGenerated++;
+    } else if (existingDrafts.length > 0) {
+      draftId = existingDrafts[0].id;
+    }
+
+    const yearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const existingNotifs = await db
+      .select()
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.relatedEntityType, "inspection"),
+          eq(notificationsTable.relatedEntityId, inspection.id),
+          eq(notificationsTable.notificationType, "inspection_alert"),
+          sql`to_char(${notificationsTable.createdAt}, 'YYYY-MM') = ${yearMonth}`
+        )
+      );
+
+    if (existingNotifs.length === 0) {
+      const notifTitle = inspection.fixedDay && currentDay === inspection.fixedDay
+        ? `[안전점검의 날] ${inspection.name}`
+        : inspType === "seasonal"
+          ? `[계절별 점검] ${inspection.name}`
+          : `[점검 알림] ${inspection.name}`;
+
+      await db.insert(notificationsTable).values({
+        recipientType: "admin",
+        notificationType: "inspection_alert",
+        title: notifTitle,
+        message: `${inspection.name} 점검이 예정되어 있습니다. 예정일: ${inspection.nextDueDate}`,
+        relatedEntityType: "inspection",
+        relatedEntityId: inspection.id,
       });
     }
+
+    alertInspections.push({
+      inspectionId: inspection.id,
+      name: inspection.name,
+      nextDueDate: inspection.nextDueDate,
+      draftId,
+    });
   }
 
   const result = {
@@ -298,6 +734,9 @@ function getCategoryLabel(category: string): string {
     septic: "정화조",
     playground: "놀이터",
     safety_check: "안전점검",
+    hygiene: "위생/환경",
+    building_safety: "건축물안전",
+    administrative: "행정",
     other: "기타",
   };
   return labels[category] || category;

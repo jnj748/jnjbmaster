@@ -6,15 +6,23 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InspectionCategory } from "./inspectionCategory";
+import type { InspectionInspectionType } from "./inspectionInspectionType";
 import type { InspectionStatus } from "./inspectionStatus";
 
 export interface Inspection {
   id: number;
   name: string;
   category: InspectionCategory;
+  inspectionType: InspectionInspectionType;
   frequencyPerYear: number;
   /** @nullable */
   legalCycleMonths?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  fixedDay?: number | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
   /** @nullable */
   lastInspectionDate?: Date | null;
   nextDueDate: Date;

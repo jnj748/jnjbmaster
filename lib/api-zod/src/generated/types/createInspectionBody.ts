@@ -6,13 +6,21 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateInspectionBodyCategory } from "./createInspectionBodyCategory";
+import type { CreateInspectionBodyInspectionType } from "./createInspectionBodyInspectionType";
 
 export interface CreateInspectionBody {
   name: string;
   category: CreateInspectionBodyCategory;
+  inspectionType?: CreateInspectionBodyInspectionType;
   frequencyPerYear: number;
   /** @nullable */
   legalCycleMonths?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  fixedDay?: number | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
   /** @nullable */
   lastInspectionDate?: Date | null;
   nextDueDate: Date;

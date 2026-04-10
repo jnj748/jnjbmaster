@@ -18,5 +18,8 @@ export const InspectionPresetCategory = {
   septic: "septic",
   playground: "playground",
   safety_check: "safety_check",
+  hygiene: "hygiene",
+  building_safety: "building_safety",
+  administrative: "administrative",
   other: "other",
 } as const;

@@ -250,6 +250,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/InspectionPreset"
 
+  /inspections/bulk-register:
+    post:
+      operationId: bulkRegisterInspections
+      tags: [inspections]
+      summary: Bulk register inspections from presets by category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkRegisterInspectionsBody"
+      responses:
+        "201":
+          description: Bulk registration result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkRegisterInspectionsResponse"
+
   /inspections/{id}/complete:
     post:
       operationId: completeInspection
@@ -2745,11 +2764,20 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+        inspectionType:
+          type: string
+          enum: [legal, self_regular, biweekly, seasonal, administrative]
         frequencyPerYear:
           type: integer
         legalCycleMonths:
           type: ["integer", "null"]
+        intervalDays:
+          type: ["integer", "null"]
+        fixedDay:
+          type: ["integer", "null"]
+        recommendedMonths:
+          type: ["string", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -2775,6 +2803,7 @@ components:
         - id
         - name
         - category
+        - inspectionType
         - frequencyPerYear
         - nextDueDate
         - status
@@ -2789,11 +2818,20 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+        inspectionType:
+          type: string
+          enum: [legal, self_regular, biweekly, seasonal, administrative]
         frequencyPerYear:
           type: integer
         legalCycleMonths:
           type: ["integer", "null"]
+        intervalDays:
+          type: ["integer", "null"]
+        fixedDay:
+          type: ["integer", "null"]
+        recommendedMonths:
+          type: ["string", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -2819,11 +2857,20 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+        inspectionType:
+          type: string
+          enum: [legal, self_regular, biweekly, seasonal, administrative]
         frequencyPerYear:
           type: integer
         legalCycleMonths:
           type: ["integer", "null"]
+        intervalDays:
+          type: ["integer", "null"]
+        fixedDay:
+          type: ["integer", "null"]
+        recommendedMonths:
+          type: ["string", "null"]
         lastInspectionDate:
           type: ["string", "null"]
           format: date
@@ -3674,12 +3721,23 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+        inspectionType:
+          type: string
+          enum: [legal, self_regular, biweekly, seasonal, administrative]
         legalCycleMonths:
           type: integer
         defaultAlertDays:
           type: integer
         description:
+          type: ["string", "null"]
+        legalBasis:
+          type: ["string", "null"]
+        recommendedMonths:
+          type: ["string", "null"]
+        subItems:
+          type: ["string", "null"]
+        seasonalNotes:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -3688,6 +3746,7 @@ components:
         - id
         - name
         - category
+        - inspectionType
         - legalCycleMonths
         - defaultAlertDays
         - createdAt
@@ -3807,6 +3866,39 @@ components:
       required:
         - alertsGenerated
         - draftsGenerated
+        - inspections
+
+    BulkRegisterInspectionsBody:
+      type: object
+      properties:
+        category:
+          type: string
+          description: Category to bulk-register presets for
+        presetIds:
+          type: array
+          items:
+            type: integer
+          description: Specific preset IDs to register (if empty, all presets for the category)
+        baseDate:
+          type: string
+          format: date
+          description: Base date for calculating next due dates
+      required:
+        - category
+        - presetIds
+        - baseDate
+
+    BulkRegisterInspectionsResponse:
+      type: object
+      properties:
+        registeredCount:
+          type: integer
+        inspections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inspection"
+      required:
+        - registeredCount
         - inspections
 
     Tenant:

@@ -25,8 +25,10 @@ The business vision is to become the leading digital assistant for property mana
 
 ### Legal Context
 - 집합건물법 적용 (공동주택관리법 비적용, 150세대 미만)
-- Inspection presets exclude 놀이터 점검 (어린이놀이시설 안전관리법 — 공동주택 전용)
-- Legal presets: 저수조 청소, 승강기 정기검사, 소방 점검, 정화조 청소, 안전점검, 전기 안전점검, 가스 안전점검
+- 23 comprehensive inspection presets across 11 categories (fire_safety, electrical, elevator, water_tank, septic, hygiene, building_safety, safety_check, playground, gas, administrative)
+- Presets include 5 inspection types: legal (법정), self_regular (자체정기), biweekly (격주), seasonal (계절별), administrative (행정)
+- Each preset has legal basis, recommended months, sub-items, and seasonal notes
+- Administrative calendar events: 안전점검의 날 (매월 4일), 차량 등록 정리 (3월/9월), 불조심 강조 기간 (11월)
 
 ## User Preferences
 

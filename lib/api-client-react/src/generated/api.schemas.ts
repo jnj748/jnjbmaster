@@ -133,7 +133,21 @@ export const InspectionCategory = {
   septic: "septic",
   playground: "playground",
   safety_check: "safety_check",
+  hygiene: "hygiene",
+  building_safety: "building_safety",
+  administrative: "administrative",
   other: "other",
+} as const;
+
+export type InspectionInspectionType =
+  (typeof InspectionInspectionType)[keyof typeof InspectionInspectionType];
+
+export const InspectionInspectionType = {
+  legal: "legal",
+  self_regular: "self_regular",
+  biweekly: "biweekly",
+  seasonal: "seasonal",
+  administrative: "administrative",
 } as const;
 
 export type InspectionStatus =
@@ -150,9 +164,16 @@ export interface Inspection {
   id: number;
   name: string;
   category: InspectionCategory;
+  inspectionType: InspectionInspectionType;
   frequencyPerYear: number;
   /** @nullable */
   legalCycleMonths?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  fixedDay?: number | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate: string;
@@ -178,15 +199,36 @@ export const CreateInspectionBodyCategory = {
   septic: "septic",
   playground: "playground",
   safety_check: "safety_check",
+  hygiene: "hygiene",
+  building_safety: "building_safety",
+  administrative: "administrative",
   other: "other",
+} as const;
+
+export type CreateInspectionBodyInspectionType =
+  (typeof CreateInspectionBodyInspectionType)[keyof typeof CreateInspectionBodyInspectionType];
+
+export const CreateInspectionBodyInspectionType = {
+  legal: "legal",
+  self_regular: "self_regular",
+  biweekly: "biweekly",
+  seasonal: "seasonal",
+  administrative: "administrative",
 } as const;
 
 export interface CreateInspectionBody {
   name: string;
   category: CreateInspectionBodyCategory;
+  inspectionType?: CreateInspectionBodyInspectionType;
   frequencyPerYear: number;
   /** @nullable */
   legalCycleMonths?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  fixedDay?: number | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate: string;
@@ -209,7 +251,21 @@ export const UpdateInspectionBodyCategory = {
   septic: "septic",
   playground: "playground",
   safety_check: "safety_check",
+  hygiene: "hygiene",
+  building_safety: "building_safety",
+  administrative: "administrative",
   other: "other",
+} as const;
+
+export type UpdateInspectionBodyInspectionType =
+  (typeof UpdateInspectionBodyInspectionType)[keyof typeof UpdateInspectionBodyInspectionType];
+
+export const UpdateInspectionBodyInspectionType = {
+  legal: "legal",
+  self_regular: "self_regular",
+  biweekly: "biweekly",
+  seasonal: "seasonal",
+  administrative: "administrative",
 } as const;
 
 export type UpdateInspectionBodyStatus =
@@ -225,9 +281,16 @@ export const UpdateInspectionBodyStatus = {
 export interface UpdateInspectionBody {
   name?: string;
   category?: UpdateInspectionBodyCategory;
+  inspectionType?: UpdateInspectionBodyInspectionType;
   frequencyPerYear?: number;
   /** @nullable */
   legalCycleMonths?: number | null;
+  /** @nullable */
+  intervalDays?: number | null;
+  /** @nullable */
+  fixedDay?: number | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
   /** @nullable */
   lastInspectionDate?: string | null;
   nextDueDate?: string;
@@ -980,17 +1043,40 @@ export const InspectionPresetCategory = {
   septic: "septic",
   playground: "playground",
   safety_check: "safety_check",
+  hygiene: "hygiene",
+  building_safety: "building_safety",
+  administrative: "administrative",
   other: "other",
+} as const;
+
+export type InspectionPresetInspectionType =
+  (typeof InspectionPresetInspectionType)[keyof typeof InspectionPresetInspectionType];
+
+export const InspectionPresetInspectionType = {
+  legal: "legal",
+  self_regular: "self_regular",
+  biweekly: "biweekly",
+  seasonal: "seasonal",
+  administrative: "administrative",
 } as const;
 
 export interface InspectionPreset {
   id: number;
   name: string;
   category: InspectionPresetCategory;
+  inspectionType: InspectionPresetInspectionType;
   legalCycleMonths: number;
   defaultAlertDays: number;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
+  /** @nullable */
+  subItems?: string | null;
+  /** @nullable */
+  seasonalNotes?: string | null;
   createdAt: string;
 }
 
@@ -1087,6 +1173,20 @@ export interface GenerateAlertsResponse {
   alertsGenerated: number;
   draftsGenerated: number;
   inspections: GenerateAlertsResponseInspectionsItem[];
+}
+
+export interface BulkRegisterInspectionsBody {
+  /** Category to bulk-register presets for */
+  category: string;
+  /** Specific preset IDs to register (if empty, all presets for the category) */
+  presetIds: number[];
+  /** Base date for calculating next due dates */
+  baseDate: string;
+}
+
+export interface BulkRegisterInspectionsResponse {
+  registeredCount: number;
+  inspections: Inspection[];
 }
 
 export type TenantStatus = (typeof TenantStatus)[keyof typeof TenantStatus];

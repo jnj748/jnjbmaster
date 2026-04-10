@@ -6,14 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InspectionPresetCategory } from "./inspectionPresetCategory";
+import type { InspectionPresetInspectionType } from "./inspectionPresetInspectionType";
 
 export interface InspectionPreset {
   id: number;
   name: string;
   category: InspectionPresetCategory;
+  inspectionType: InspectionPresetInspectionType;
   legalCycleMonths: number;
   defaultAlertDays: number;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
+  /** @nullable */
+  recommendedMonths?: string | null;
+  /** @nullable */
+  subItems?: string | null;
+  /** @nullable */
+  seasonalNotes?: string | null;
   createdAt: Date;
 }

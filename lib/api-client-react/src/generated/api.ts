@@ -28,6 +28,8 @@ import type {
   ApproveMatchingResponse,
   AutoSettleCommissionBody,
   AutoSettleCommissionResponse,
+  BulkRegisterInspectionsBody,
+  BulkRegisterInspectionsResponse,
   Commission,
   CompleteInspectionBody,
   CreateApprovalBody,
@@ -1056,6 +1058,96 @@ export function useListInspectionPresets<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Bulk register inspections from presets by category
+ */
+export const getBulkRegisterInspectionsUrl = () => {
+  return `/api/inspections/bulk-register`;
+};
+
+export const bulkRegisterInspections = async (
+  bulkRegisterInspectionsBody: BulkRegisterInspectionsBody,
+  options?: RequestInit,
+): Promise<BulkRegisterInspectionsResponse> => {
+  return customFetch<BulkRegisterInspectionsResponse>(
+    getBulkRegisterInspectionsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bulkRegisterInspectionsBody),
+    },
+  );
+};
+
+export const getBulkRegisterInspectionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkRegisterInspections>>,
+    TError,
+    { data: BodyType<BulkRegisterInspectionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkRegisterInspections>>,
+  TError,
+  { data: BodyType<BulkRegisterInspectionsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkRegisterInspections"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkRegisterInspections>>,
+    { data: BodyType<BulkRegisterInspectionsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkRegisterInspections(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkRegisterInspectionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkRegisterInspections>>
+>;
+export type BulkRegisterInspectionsMutationBody =
+  BodyType<BulkRegisterInspectionsBody>;
+export type BulkRegisterInspectionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk register inspections from presets by category
+ */
+export const useBulkRegisterInspections = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkRegisterInspections>>,
+    TError,
+    { data: BodyType<BulkRegisterInspectionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkRegisterInspections>>,
+  TError,
+  { data: BodyType<BulkRegisterInspectionsBody> },
+  TContext
+> => {
+  return useMutation(getBulkRegisterInspectionsMutationOptions(options));
+};
 
 /**
  * @summary Complete an inspection with result logging
