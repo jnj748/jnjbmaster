@@ -215,7 +215,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen w-full overflow-x-hidden">
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -225,7 +225,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground flex flex-col fixed h-full z-50 transition-all duration-200",
+          "bg-sidebar text-sidebar-foreground flex-col fixed top-0 left-0 h-full z-50 transition-[width] duration-200",
           "hidden lg:flex",
           sidebarWidth
         )}
@@ -235,14 +235,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground flex flex-col fixed h-full z-50 transition-transform duration-200 w-56 lg:hidden",
+          "bg-sidebar text-sidebar-foreground flex flex-col fixed top-0 left-0 h-full z-50 transition-transform duration-200 w-56 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {sidebarContent}
       </aside>
 
-      <main className={cn("flex-1 transition-all duration-200", mainMargin)}>
+      <div className={cn("min-h-screen transition-[margin-left] duration-200 ml-0", mainMargin)}>
         <div className="sticky top-0 z-20 bg-background border-b px-4 py-2.5 flex items-center justify-between">
           <button
             onClick={() => setMobileOpen(true)}
@@ -299,7 +299,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Popover>
         </div>
         <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">{children}</div>
-      </main>
+      </div>
     </div>
   );
 }
