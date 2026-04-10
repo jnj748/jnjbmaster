@@ -115,23 +115,28 @@ router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req,
     }
     if (phone !== undefined) updateData.phone = phone;
 
-    const effectiveRole = (updateData.role as string) ?? undefined;
-    const effectivePortal = (updateData.portalType as string) ?? undefined;
-    if (effectiveRole === "partner" && effectivePortal && effectivePortal !== "partner") {
-      res.status(400).json({ error: "파트너사 역할은 파트너사 포털만 사용할 수 있습니다" });
-      return;
-    }
-    if (effectivePortal === "partner" && effectiveRole && effectiveRole !== "partner") {
-      res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
-      return;
-    }
-    if (effectivePortal === "building" && effectiveRole === "partner") {
-      res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: "수정할 항목이 없습니다" });
       return;
     }
 
-    if (Object.keys(updateData).length === 0) {
-      res.status(400).json({ error: "수정할 항목이 없습니다" });
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
+      return;
+    }
+    const finalRole = (updateData.role as string) ?? existing.role;
+    const finalPortal = (updateData.portalType as string) ?? existing.portalType;
+    if (finalRole === "partner" && finalPortal !== "partner") {
+      res.status(400).json({ error: "파트너사 역할은 파트너사 포털만 사용할 수 있습니다" });
+      return;
+    }
+    if (finalPortal === "partner" && finalRole !== "partner") {
+      res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
+      return;
+    }
+    if (finalPortal === "building" && finalRole === "partner") {
+      res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
       return;
     }
 

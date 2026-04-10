@@ -1220,7 +1220,7 @@ paths:
     get:
       operationId: getApprovalStats
       tags: [approvals]
-      summary: Get approval statistics for executive dashboard
+      summary: Get approval statistics for manager dashboard
       responses:
         "200":
           description: Approval stats
@@ -1669,7 +1669,7 @@ paths:
     post:
       operationId: forwardWeeklySummaryReport
       tags: [reports]
-      summary: Forward weekly report to executive
+      summary: Forward weekly report to manager
       parameters:
         - name: id
           in: path
@@ -1725,7 +1725,7 @@ paths:
     get:
       operationId: getExecutiveKpi
       tags: [dashboard]
-      summary: Get executive KPI dashboard data
+      summary: Get manager KPI dashboard data
       responses:
         "200":
           description: KPI data
@@ -1738,7 +1738,7 @@ paths:
     get:
       operationId: getExecutiveSpending
       tags: [dashboard]
-      summary: Get executive spending overview
+      summary: Get manager spending overview
       parameters:
         - name: year
           in: query

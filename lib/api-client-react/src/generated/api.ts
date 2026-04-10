@@ -5117,7 +5117,7 @@ export const useRejectApproval = <
 };
 
 /**
- * @summary Get approval statistics for executive dashboard
+ * @summary Get approval statistics for manager dashboard
  */
 export const getGetApprovalStatsUrl = () => {
   return `/api/approvals/stats`;
@@ -5168,7 +5168,7 @@ export type GetApprovalStatsQueryResult = NonNullable<
 export type GetApprovalStatsQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get approval statistics for executive dashboard
+ * @summary Get approval statistics for manager dashboard
  */
 
 export function useGetApprovalStats<
@@ -7018,7 +7018,7 @@ export const useGenerateWeeklySummaryReport = <
 };
 
 /**
- * @summary Forward weekly report to executive
+ * @summary Forward weekly report to manager
  */
 export const getForwardWeeklySummaryReportUrl = (id: number) => {
   return `/api/weekly-summary-reports/${id}/forward`;
@@ -7082,7 +7082,7 @@ export type ForwardWeeklySummaryReportMutationResult = NonNullable<
 export type ForwardWeeklySummaryReportMutationError = ErrorType<unknown>;
 
 /**
- * @summary Forward weekly report to executive
+ * @summary Forward weekly report to manager
  */
 export const useForwardWeeklySummaryReport = <
   TError = ErrorType<unknown>,
@@ -7301,7 +7301,7 @@ export const useGenerateMonthlySummaryReport = <
 };
 
 /**
- * @summary Get executive KPI dashboard data
+ * @summary Get manager KPI dashboard data
  */
 export const getGetExecutiveKpiUrl = () => {
   return `/api/executive/kpi`;
@@ -7352,7 +7352,7 @@ export type GetExecutiveKpiQueryResult = NonNullable<
 export type GetExecutiveKpiQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get executive KPI dashboard data
+ * @summary Get manager KPI dashboard data
  */
 
 export function useGetExecutiveKpi<
@@ -7376,7 +7376,7 @@ export function useGetExecutiveKpi<
 }
 
 /**
- * @summary Get executive spending overview
+ * @summary Get manager spending overview
  */
 export const getGetExecutiveSpendingUrl = (
   params?: GetExecutiveSpendingParams,
@@ -7449,7 +7449,7 @@ export type GetExecutiveSpendingQueryResult = NonNullable<
 export type GetExecutiveSpendingQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get executive spending overview
+ * @summary Get manager spending overview
  */
 
 export function useGetExecutiveSpending<

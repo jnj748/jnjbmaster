@@ -1525,7 +1525,7 @@ export const RejectApprovalResponse = zod.object({
 });
 
 /**
- * @summary Get approval statistics for executive dashboard
+ * @summary Get approval statistics for manager dashboard
  */
 export const GetApprovalStatsResponse = zod.object({
   totalPending: zod.number(),
@@ -2123,7 +2123,7 @@ export const GenerateWeeklySummaryReportBody = zod.object({
 });
 
 /**
- * @summary Forward weekly report to executive
+ * @summary Forward weekly report to manager
  */
 export const ForwardWeeklySummaryReportParams = zod.object({
   id: zod.coerce.number(),
@@ -2184,7 +2184,7 @@ export const GenerateMonthlySummaryReportBody = zod.object({
 });
 
 /**
- * @summary Get executive KPI dashboard data
+ * @summary Get manager KPI dashboard data
  */
 export const GetExecutiveKpiResponse = zod.object({
   inspectionCompletionRate: zod.number(),
@@ -2199,7 +2199,7 @@ export const GetExecutiveKpiResponse = zod.object({
 });
 
 /**
- * @summary Get executive spending overview
+ * @summary Get manager spending overview
  */
 export const GetExecutiveSpendingQueryParams = zod.object({
   year: zod.coerce.number().optional(),
