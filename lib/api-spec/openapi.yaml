@@ -2126,6 +2126,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/FacilityDashboard"
 
+  /facility/defect-trends:
+    get:
+      operationId: getFacilityDefectTrends
+      tags: [safetyChecklists]
+      summary: Get defect trend analysis by category and month
+      responses:
+        "200":
+          description: Defect trend data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilityDefectTrends"
+
   /facility/scheduled-alerts:
     get:
       operationId: getFacilityScheduledAlerts
@@ -4119,6 +4132,10 @@ components:
           format: date-time
         notes:
           type: ["string", "null"]
+        sourceType:
+          type: ["string", "null"]
+        checklistItemId:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -4433,6 +4450,10 @@ components:
           type: integer
         issueFoundCount:
           type: integer
+        todayDefectCount:
+          type: integer
+        unresolvedDefectCount:
+          type: integer
         recentLogs:
           type: array
           items:
@@ -4450,10 +4471,59 @@ components:
         - pendingChecklistCount
         - completedChecklistCount
         - issueFoundCount
+        - todayDefectCount
+        - unresolvedDefectCount
         - recentLogs
         - trainingCompletionRate
         - upcomingTrainingCount
         - scheduledAlerts
+
+    FacilityDefectTrends:
+      type: object
+      properties:
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+            required:
+              - category
+              - count
+        monthlyTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              count:
+                type: integer
+            required:
+              - month
+              - count
+        repeatedDefects:
+          type: array
+          items:
+            type: object
+            properties:
+              itemName:
+                type: string
+              count:
+                type: integer
+              category:
+                type: string
+            required:
+              - itemName
+              - count
+              - category
+      required:
+        - byCategory
+        - monthlyTrend
+        - repeatedDefects
 
     FacilityAlert:
       type: object

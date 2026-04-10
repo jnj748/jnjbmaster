@@ -1,5 +1,6 @@
 import {
   useGetFacilityDashboard,
+  useGetFacilityDefectTrends,
 } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,22 @@ import {
   Flame,
   Droplets,
   Activity,
+  ShieldAlert,
+  BarChart3,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 function StatCard({
   title,
@@ -60,8 +76,19 @@ const alertTypeIcons: Record<string, React.ElementType> = {
   safety_training: GraduationCap,
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  electrical: "전기설비",
+  fire_safety: "소방시설",
+  generator: "비상발전기",
+  water_tank: "저수조",
+  other: "기타",
+};
+
+const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"];
+
 export default function FacilityDashboard() {
   const { data: dashboard, isLoading } = useGetFacilityDashboard();
+  const { data: defectTrends } = useGetFacilityDefectTrends();
 
   if (isLoading) {
     return (
@@ -85,7 +112,7 @@ export default function FacilityDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="오늘 점검 예정"
           value={dashboard?.todayChecklistCount ?? 0}
@@ -106,6 +133,20 @@ export default function FacilityDashboard() {
           icon={AlertTriangle}
           color="bg-destructive"
           subtitle="조치 필요"
+        />
+        <StatCard
+          title="금일 불량"
+          value={dashboard?.todayDefectCount ?? 0}
+          icon={ShieldAlert}
+          color="bg-orange-500"
+          subtitle="오늘 발견된 불량"
+        />
+        <StatCard
+          title="미처리 보수"
+          value={dashboard?.unresolvedDefectCount ?? 0}
+          icon={Wrench}
+          color="bg-rose-600"
+          subtitle="보수 대기 건수"
         />
         <StatCard
           title="안전교육 이수율"
@@ -201,6 +242,107 @@ export default function FacilityDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {defectTrends && (defectTrends.byCategory.length > 0 || defectTrends.monthlyTrend.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-destructive" />
+                월별 불량 발생 추이
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {defectTrends.monthlyTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={defectTrends.monthlyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" fontSize={12} />
+                    <YAxis allowDecimals={false} fontSize={12} />
+                    <Tooltip />
+                    <Bar dataKey="count" name="불량 건수" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  불량 이력 데이터가 없습니다
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-orange-500" />
+                카테고리별 불량 현황
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {defectTrends.byCategory.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={defectTrends.byCategory.map((d) => ({
+                        ...d,
+                        name: CATEGORY_LABELS[d.category] || d.category,
+                      }))}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, count }) => `${name}: ${count}`}
+                    >
+                      {defectTrends.byCategory.map((_, idx) => (
+                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  카테고리별 불량 데이터가 없습니다
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {defectTrends && defectTrends.repeatedDefects.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              반복 불량 항목
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {defectTrends.repeatedDefects.map((defect, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-lg bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm font-medium">{defect.itemName}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {CATEGORY_LABELS[defect.category] || defect.category}
+                    </Badge>
+                  </div>
+                  <Badge variant="destructive" className="text-xs">
+                    {defect.count}회 반복
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/manager/safety-checklists">

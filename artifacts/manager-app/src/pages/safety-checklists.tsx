@@ -34,7 +34,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Plus, ClipboardCheck, Trash2, Eye } from "lucide-react";
+import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench } from "lucide-react";
 
 const CATEGORIES = [
   { value: "electrical", label: "전기설비" },
@@ -339,7 +339,23 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
   async function handleToggleItem(itemId: number, checked: boolean) {
     await updateItem.mutateAsync({ itemId, data: { checked } });
     queryClient.invalidateQueries({ queryKey: getGetSafetyChecklistQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListSafetyChecklistsQueryKey() });
     toast({ title: checked ? "항목 점검 완료" : "항목 점검 취소" });
+  }
+
+  async function handleResultChange(itemId: number, result: string) {
+    await updateItem.mutateAsync({ itemId, data: { result } });
+    queryClient.invalidateQueries({ queryKey: getGetSafetyChecklistQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListSafetyChecklistsQueryKey() });
+    if (result === "불량") {
+      toast({
+        title: "불량 항목 발견",
+        description: "보수 업무가 자동 생성되었습니다. 관리소장에게 알림이 발송되었습니다.",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "점검 결과가 저장되었습니다" });
+    }
   }
 
   return (
@@ -378,7 +394,10 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                 <Label className="mb-2 block">점검 항목</Label>
                 <div className="space-y-2">
                   {detail.items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-3 p-2 border rounded ${item.result === "불량" ? "border-destructive bg-destructive/5" : ""}`}
+                    >
                       <Checkbox
                         checked={item.checked}
                         onCheckedChange={(checked) => handleToggleItem(item.id, !!checked)}
@@ -386,8 +405,23 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                       <span className={`text-sm flex-1 ${item.checked ? "line-through text-muted-foreground" : ""}`}>
                         {item.itemName}
                       </span>
-                      {item.result && (
-                        <Badge variant="outline" className="text-xs">{item.result}</Badge>
+                      <Select
+                        value={item.result || ""}
+                        onValueChange={(val) => handleResultChange(item.id, val)}
+                      >
+                        <SelectTrigger className="h-7 w-[80px] text-xs">
+                          <SelectValue placeholder="결과" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="양호">양호</SelectItem>
+                          <SelectItem value="불량">불량</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {item.result === "불량" && (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                          <Wrench className="w-3.5 h-3.5 text-chart-3" />
+                        </div>
                       )}
                     </div>
                   ))}

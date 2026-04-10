@@ -2362,6 +2362,8 @@ export const ListMaintenanceLogsResponseItem = zod.object({
   reportSent: zod.boolean(),
   reportSentAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  sourceType: zod.string().nullish(),
+  checklistItemId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2414,6 +2416,8 @@ export const GetMaintenanceLogResponse = zod.object({
   reportSent: zod.boolean(),
   reportSentAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  sourceType: zod.string().nullish(),
+  checklistItemId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2462,6 +2466,8 @@ export const UpdateMaintenanceLogResponse = zod.object({
   reportSent: zod.boolean(),
   reportSentAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  sourceType: zod.string().nullish(),
+  checklistItemId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2498,6 +2504,8 @@ export const SendMaintenanceReportResponse = zod.object({
   reportSent: zod.boolean(),
   reportSentAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  sourceType: zod.string().nullish(),
+  checklistItemId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2624,6 +2632,8 @@ export const GetFacilityDashboardResponse = zod.object({
   pendingChecklistCount: zod.number(),
   completedChecklistCount: zod.number(),
   issueFoundCount: zod.number(),
+  todayDefectCount: zod.number(),
+  unresolvedDefectCount: zod.number(),
   recentLogs: zod.array(
     zod.object({
       id: zod.number(),
@@ -2643,6 +2653,8 @@ export const GetFacilityDashboardResponse = zod.object({
       reportSent: zod.boolean(),
       reportSentAt: zod.coerce.date().nullish(),
       notes: zod.string().nullish(),
+      sourceType: zod.string().nullish(),
+      checklistItemId: zod.number().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -2663,6 +2675,31 @@ export const GetFacilityDashboardResponse = zod.object({
       message: zod.string(),
       dueDate: zod.coerce.date(),
       isOverdue: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get defect trend analysis by category and month
+ */
+export const GetFacilityDefectTrendsResponse = zod.object({
+  byCategory: zod.array(
+    zod.object({
+      category: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  monthlyTrend: zod.array(
+    zod.object({
+      month: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  repeatedDefects: zod.array(
+    zod.object({
+      itemName: zod.string(),
+      count: zod.number(),
+      category: zod.string(),
     }),
   ),
 });

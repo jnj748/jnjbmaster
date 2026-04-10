@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, safetyChecklistsTable, safetyChecklistItemsTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable } from "@workspace/db";
 import {
   ListSafetyChecklistsQueryParams,
   ListSafetyChecklistsResponse,
@@ -17,6 +17,22 @@ import {
   UpdateSafetyChecklistItemBody,
   UpdateSafetyChecklistItemResponse,
 } from "@workspace/api-zod";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  electrical: "전기설비",
+  fire_safety: "소방시설",
+  generator: "비상발전기",
+  water_tank: "저수조",
+  other: "기타",
+};
+
+const CATEGORY_TO_MAINTENANCE: Record<string, string> = {
+  electrical: "equipment_repair",
+  fire_safety: "equipment_repair",
+  generator: "equipment_repair",
+  water_tank: "plumbing",
+  other: "other",
+};
 
 const router: IRouter = Router();
 
@@ -181,6 +197,59 @@ router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void>
   if (!item) {
     res.status(404).json({ error: "Item not found" });
     return;
+  }
+
+  if (parsed.data.result === "불량") {
+    const [existingLog] = await db
+      .select({ id: maintenanceLogsTable.id })
+      .from(maintenanceLogsTable)
+      .where(
+        and(
+          eq(maintenanceLogsTable.sourceType, "safety_checklist"),
+          eq(maintenanceLogsTable.checklistItemId, item.id)
+        )
+      );
+
+    if (!existingLog) {
+    const [checklist] = await db
+      .select()
+      .from(safetyChecklistsTable)
+      .where(eq(safetyChecklistsTable.id, item.checklistId));
+
+    if (checklist) {
+      const categoryLabel = CATEGORY_LABELS[checklist.category] || checklist.category;
+      const maintenanceCategory = CATEGORY_TO_MAINTENANCE[checklist.category] || "other";
+      const today = new Date().toISOString().split("T")[0];
+
+      const [maintenanceLog] = await db.insert(maintenanceLogsTable).values({
+        title: `[불량] ${item.itemName}`,
+        description: `안전점검표 "${checklist.title}"에서 불량 발견: ${item.itemName}. 카테고리: ${categoryLabel}`,
+        category: maintenanceCategory,
+        workDate: today,
+        worker: checklist.inspector,
+        status: "pending",
+        sourceType: "safety_checklist",
+        checklistItemId: item.id,
+        notes: item.notes || null,
+      }).returning();
+
+      await db.insert(notificationsTable).values({
+        recipientType: "admin",
+        notificationType: "defect_found",
+        title: `🚨 불량 발견: ${item.itemName}`,
+        message: `[${categoryLabel}] ${checklist.title} 점검 중 "${item.itemName}" 항목에서 불량이 발견되었습니다. 보수 업무가 자동 생성되었습니다.`,
+        relatedEntityType: "maintenance_log",
+        relatedEntityId: maintenanceLog.id,
+      });
+
+      if (checklist.status !== "issue_found") {
+        await db
+          .update(safetyChecklistsTable)
+          .set({ status: "issue_found" })
+          .where(eq(safetyChecklistsTable.id, checklist.id));
+      }
+    }
+    }
   }
 
   res.json(UpdateSafetyChecklistItemResponse.parse(item));

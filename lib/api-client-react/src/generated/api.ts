@@ -52,6 +52,7 @@ import type {
   ExecutiveSpending,
   FacilityAlert,
   FacilityDashboard,
+  FacilityDefectTrends,
   GenerateAlertsResponse,
   GetExecutiveSpendingParams,
   GetRecommendedVendorsParams,
@@ -8904,6 +8905,82 @@ export function useGetFacilityDashboard<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetFacilityDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get defect trend analysis by category and month
+ */
+export const getGetFacilityDefectTrendsUrl = () => {
+  return `/api/facility/defect-trends`;
+};
+
+export const getFacilityDefectTrends = async (
+  options?: RequestInit,
+): Promise<FacilityDefectTrends> => {
+  return customFetch<FacilityDefectTrends>(getGetFacilityDefectTrendsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilityDefectTrendsQueryKey = () => {
+  return [`/api/facility/defect-trends`] as const;
+};
+
+export const getGetFacilityDefectTrendsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityDefectTrends>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDefectTrends>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilityDefectTrendsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityDefectTrends>>
+  > = ({ signal }) => getFacilityDefectTrends({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDefectTrends>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityDefectTrendsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityDefectTrends>>
+>;
+export type GetFacilityDefectTrendsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get defect trend analysis by category and month
+ */
+
+export function useGetFacilityDefectTrends<
+  TData = Awaited<ReturnType<typeof getFacilityDefectTrends>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityDefectTrends>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilityDefectTrendsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

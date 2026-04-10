@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc, sql, count } from "drizzle-orm";
-import { db, safetyChecklistsTable, maintenanceLogsTable, safetyTrainingsTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, safetyTrainingsTable } from "@workspace/db";
 import {
   GetFacilityDashboardResponse,
   GetFacilityScheduledAlertsResponse,
+  GetFacilityDefectTrendsResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -67,6 +68,27 @@ router.get("/facility/dashboard", async (_req, res): Promise<void> => {
   const trainingCompleted = completedTrainings?.count ?? 0;
   const trainingCompletionRate = trainingTotal > 0 ? Math.round((trainingCompleted / trainingTotal) * 100) : 0;
 
+  const [todayDefects] = await db
+    .select({ count: count() })
+    .from(safetyChecklistItemsTable)
+    .innerJoin(safetyChecklistsTable, eq(safetyChecklistItemsTable.checklistId, safetyChecklistsTable.id))
+    .where(
+      and(
+        eq(safetyChecklistItemsTable.result, "불량"),
+        eq(safetyChecklistsTable.inspectionDate, today)
+      )
+    );
+
+  const [unresolvedDefects] = await db
+    .select({ count: count() })
+    .from(maintenanceLogsTable)
+    .where(
+      and(
+        eq(maintenanceLogsTable.sourceType, "safety_checklist"),
+        eq(maintenanceLogsTable.status, "pending")
+      )
+    );
+
   const alerts = generateScheduledAlerts();
 
   res.json(
@@ -75,10 +97,56 @@ router.get("/facility/dashboard", async (_req, res): Promise<void> => {
       pendingChecklistCount: pendingChecklists?.count ?? 0,
       completedChecklistCount: completedChecklists?.count ?? 0,
       issueFoundCount: issueFound?.count ?? 0,
+      todayDefectCount: todayDefects?.count ?? 0,
+      unresolvedDefectCount: unresolvedDefects?.count ?? 0,
       recentLogs,
       trainingCompletionRate,
       upcomingTrainingCount: upcomingTrainings?.count ?? 0,
       scheduledAlerts: alerts,
+    })
+  );
+});
+
+router.get("/facility/defect-trends", async (_req, res): Promise<void> => {
+  const byCategory = await db
+    .select({
+      category: safetyChecklistsTable.category,
+      count: count(),
+    })
+    .from(safetyChecklistItemsTable)
+    .innerJoin(safetyChecklistsTable, eq(safetyChecklistItemsTable.checklistId, safetyChecklistsTable.id))
+    .where(eq(safetyChecklistItemsTable.result, "불량"))
+    .groupBy(safetyChecklistsTable.category);
+
+  const monthlyTrend = await db
+    .select({
+      month: sql<string>`to_char(${safetyChecklistsTable.inspectionDate}::date, 'YYYY-MM')`,
+      count: count(),
+    })
+    .from(safetyChecklistItemsTable)
+    .innerJoin(safetyChecklistsTable, eq(safetyChecklistItemsTable.checklistId, safetyChecklistsTable.id))
+    .where(eq(safetyChecklistItemsTable.result, "불량"))
+    .groupBy(sql`to_char(${safetyChecklistsTable.inspectionDate}::date, 'YYYY-MM')`)
+    .orderBy(sql`to_char(${safetyChecklistsTable.inspectionDate}::date, 'YYYY-MM')`);
+
+  const repeatedDefects = await db
+    .select({
+      itemName: safetyChecklistItemsTable.itemName,
+      count: count(),
+      category: safetyChecklistsTable.category,
+    })
+    .from(safetyChecklistItemsTable)
+    .innerJoin(safetyChecklistsTable, eq(safetyChecklistItemsTable.checklistId, safetyChecklistsTable.id))
+    .where(eq(safetyChecklistItemsTable.result, "불량"))
+    .groupBy(safetyChecklistItemsTable.itemName, safetyChecklistsTable.category)
+    .having(sql`count(*) >= 2`)
+    .orderBy(desc(count()));
+
+  res.json(
+    GetFacilityDefectTrendsResponse.parse({
+      byCategory,
+      monthlyTrend,
+      repeatedDefects,
     })
   );
 });

@@ -1740,6 +1740,10 @@ export interface MaintenanceLog {
   reportSentAt?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  sourceType?: string | null;
+  /** @nullable */
+  checklistItemId?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1967,10 +1971,34 @@ export interface FacilityDashboard {
   pendingChecklistCount: number;
   completedChecklistCount: number;
   issueFoundCount: number;
+  todayDefectCount: number;
+  unresolvedDefectCount: number;
   recentLogs: MaintenanceLog[];
   trainingCompletionRate: number;
   upcomingTrainingCount: number;
   scheduledAlerts: FacilityAlert[];
+}
+
+export type FacilityDefectTrendsByCategoryItem = {
+  category: string;
+  count: number;
+};
+
+export type FacilityDefectTrendsMonthlyTrendItem = {
+  month: string;
+  count: number;
+};
+
+export type FacilityDefectTrendsRepeatedDefectsItem = {
+  itemName: string;
+  count: number;
+  category: string;
+};
+
+export interface FacilityDefectTrends {
+  byCategory: FacilityDefectTrendsByCategoryItem[];
+  monthlyTrend: FacilityDefectTrendsMonthlyTrendItem[];
+  repeatedDefects: FacilityDefectTrendsRepeatedDefectsItem[];
 }
 
 export type AiMatchingInspectionResultRecommendedVendorsItem = {

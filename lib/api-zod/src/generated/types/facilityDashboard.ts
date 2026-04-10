@@ -13,6 +13,8 @@ export interface FacilityDashboard {
   pendingChecklistCount: number;
   completedChecklistCount: number;
   issueFoundCount: number;
+  todayDefectCount: number;
+  unresolvedDefectCount: number;
   recentLogs: MaintenanceLog[];
   trainingCompletionRate: number;
   upcomingTrainingCount: number;

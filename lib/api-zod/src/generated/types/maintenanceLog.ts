@@ -21,6 +21,10 @@ export interface MaintenanceLog {
   reportSentAt?: Date | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  sourceType?: string | null;
+  /** @nullable */
+  checklistItemId?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
