@@ -155,7 +155,7 @@ router.post("/daily-reports/:id/submit", async (req, res): Promise<void> => {
   res.json(serializeDaily(row));
 });
 
-router.post("/daily-reports/:id/review", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/daily-reports/:id/review", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
   const { comment } = req.body || {};
@@ -186,7 +186,7 @@ router.post("/daily-reports/:id/review", requireRole("manager"), async (req, res
   res.json(serializeDaily(row));
 });
 
-router.get("/weekly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
+router.get("/weekly-summary-reports", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const weekStart = req.query.weekStart as string | undefined;
 
   let rows = await db.select().from(weeklySummaryReportsTable).orderBy(desc(weeklySummaryReportsTable.createdAt));
@@ -198,7 +198,7 @@ router.get("/weekly-summary-reports", requireRole("manager"), async (req, res): 
   res.json(rows.map(serializeWeekly));
 });
 
-router.post("/weekly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const user = req.user!;
   const { weekStart, weekEnd } = req.body;
 
@@ -257,7 +257,7 @@ router.post("/weekly-summary-reports", requireRole("manager"), async (req, res):
   res.status(201).json(serializeWeekly(row));
 });
 
-router.post("/weekly-summary-reports/:id/forward", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
 
   const [row] = await db
@@ -283,7 +283,7 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager"), async
   res.json(serializeWeekly(row));
 });
 
-router.get("/monthly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
+router.get("/monthly-summary-reports", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const month = req.query.month as string | undefined;
 
   let rows = await db.select().from(monthlySummaryReportsTable).orderBy(desc(monthlySummaryReportsTable.createdAt));
@@ -295,7 +295,7 @@ router.get("/monthly-summary-reports", requireRole("manager"), async (req, res):
   res.json(rows.map(serializeMonthly));
 });
 
-router.post("/monthly-summary-reports", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/monthly-summary-reports", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const user = req.user!;
   const { reportMonth } = req.body;
 

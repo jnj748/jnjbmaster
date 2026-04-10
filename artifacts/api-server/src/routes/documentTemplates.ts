@@ -37,7 +37,7 @@ router.get("/document-templates/:id", async (req, res): Promise<void> => {
   res.json(serialize(row));
 });
 
-router.post("/document-templates", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/document-templates", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const { name, category, description, fields, bodyTemplate, sortOrder } = req.body;
 
   if (!name || !category || !fields || !bodyTemplate) {
@@ -61,7 +61,7 @@ router.post("/document-templates", requireRole("manager"), async (req, res): Pro
   res.status(201).json(serialize(row));
 });
 
-router.put("/document-templates/:id", requireRole("manager"), async (req, res): Promise<void> => {
+router.put("/document-templates/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const { name, category, description, fields, bodyTemplate, sortOrder } = req.body;
 
@@ -91,7 +91,7 @@ router.put("/document-templates/:id", requireRole("manager"), async (req, res): 
   res.json(serialize(row));
 });
 
-router.delete("/document-templates/:id", requireRole("manager"), async (req, res): Promise<void> => {
+router.delete("/document-templates/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
 
   const [existing] = await db

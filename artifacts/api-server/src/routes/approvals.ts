@@ -47,7 +47,7 @@ router.get("/approvals/drafts", async (req, res): Promise<void> => {
   res.json(rows.map(serializeApproval));
 });
 
-router.post("/approvals", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/approvals", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const body = req.body;
   if (!body.title || !body.description || !body.category) {
     res.status(400).json({ error: "입력값이 올바르지 않습니다" });
@@ -176,7 +176,7 @@ router.get("/approvals/:id", async (req, res): Promise<void> => {
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/:id/approve", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/approvals/:id/approve", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
 
@@ -211,7 +211,7 @@ router.post("/approvals/:id/approve", requireRole("manager"), async (req, res): 
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/:id/reject", requireRole("manager"), async (req, res): Promise<void> => {
+router.post("/approvals/:id/reject", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body;
   if (!body?.reason) {
