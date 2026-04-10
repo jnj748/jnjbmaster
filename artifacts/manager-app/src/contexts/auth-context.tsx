@@ -43,9 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("auth_token");
   }, []);
 
+  const autoLogin = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/auto-login`, { method: "POST" });
+      if (!res.ok) throw new Error("Auto-login failed");
+      const data = await res.json();
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem("auth_token", data.token);
+    } catch {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!token) {
-      setIsLoading(false);
+      autoLogin();
       return;
     }
 
@@ -60,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
       })
       .catch(() => {
-        logout();
+        localStorage.removeItem("auth_token");
+        autoLogin();
       })
       .finally(() => {
         setIsLoading(false);

@@ -116,6 +116,41 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
+router.post("/auth/auto-login", async (_req, res): Promise<void> => {
+  const AUTO_EMAIL = "auto@manager.local";
+  let [user] = await db.select().from(usersTable).where(eq(usersTable.email, AUTO_EMAIL));
+
+  if (!user) {
+    const passwordHash = await bcrypt.hash("auto-login-no-password", 10);
+    [user] = await db.insert(usersTable).values({
+      email: AUTO_EMAIL,
+      passwordHash,
+      name: "관리소장",
+      role: "manager",
+      portalType: "building",
+    }).returning();
+  }
+
+  const token = signToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    portalType: user.portalType,
+  });
+
+  res.json({
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      portalType: user.portalType,
+    },
+  });
+});
+
 router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
   if (!user) {
