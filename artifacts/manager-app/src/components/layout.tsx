@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -35,10 +35,6 @@ import {
   BarChart3,
   Settings,
   Clock,
-  Menu,
-  X,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -93,19 +89,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [notifOpen, setNotifOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    const saved = localStorage.getItem("sidebar_collapsed");
-    return saved === "true";
-  });
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem("sidebar_collapsed", String(collapsed));
-  }, [collapsed]);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location]);
 
   const { data: unreadCount } = useGetUnreadNotificationCount();
   const { data: notifications } = useListNotifications({
@@ -122,13 +105,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isPartner = user?.portalType === "partner";
   const navItems = isPartner ? partnerNavItems : managerNavItems;
-  const sidebarWidth = collapsed ? "w-[68px]" : "w-56";
-  const mainMargin = collapsed ? "lg:ml-[68px]" : "lg:ml-56";
 
-  const sidebarContent = (
-    <>
-      <div className={cn("p-3 border-b border-sidebar-border flex items-center", collapsed ? "justify-center" : "justify-between")}>
-        {!collapsed && (
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+      <aside style={{ width: 220, minWidth: 220, position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 30 }} className="bg-sidebar text-sidebar-foreground flex flex-col">
+        <div className="p-4 border-b border-sidebar-border">
           <Link href="/">
             <img
               src={`${base}logo.png`}
@@ -136,121 +117,51 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="h-10 w-auto"
             />
           </Link>
-        )}
-        <button
-          onClick={() => {
-            if (window.innerWidth < 1024) {
-              setMobileOpen(false);
-            } else {
-              setCollapsed(!collapsed);
-            }
-          }}
-          className="p-1.5 text-sidebar-foreground/60 hover:text-white rounded transition-colors hidden lg:block"
-          title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="p-1.5 text-sidebar-foreground/60 hover:text-white rounded transition-colors lg:hidden"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive =
-            item.path === "/"
-              ? location === "/"
-              : location.startsWith(item.path);
-          return (
-            <Link key={item.path} href={item.path}>
-              <div
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-                  collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-                  isActive
-                    ? "bg-sidebar-accent text-white"
-                    : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-                )}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+        </div>
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+          {navItems.map((item) => {
+            const isActive =
+              item.path === "/"
+                ? location === "/"
+                : location.startsWith(item.path);
+            return (
+              <Link key={item.path} href={item.path}>
+                <div
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                    isActive
+                      ? "bg-sidebar-accent text-white"
+                      : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          {user && (
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+                <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
               </div>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className={cn("border-t border-sidebar-border", collapsed ? "p-2" : "p-3 space-y-2")}>
-        {user && !collapsed && (
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-              <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+              <button
+                onClick={logout}
+                className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0"
+                title="로그아웃"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={logout}
-              className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0"
-              title="로그아웃"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        {user && collapsed && (
-          <button
-            onClick={logout}
-            className="w-full flex justify-center p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors"
-            title="로그아웃"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
-        {!collapsed && (
+          )}
           <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
-        )}
-      </div>
-    </>
-  );
-
-  return (
-    <div className="min-h-screen w-full overflow-x-hidden">
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      <aside
-        className={cn(
-          "bg-sidebar text-sidebar-foreground flex-col fixed top-0 left-0 h-full z-50 transition-[width] duration-200",
-          "hidden lg:flex",
-          sidebarWidth
-        )}
-      >
-        {sidebarContent}
+        </div>
       </aside>
-
-      <aside
-        className={cn(
-          "bg-sidebar text-sidebar-foreground flex flex-col fixed top-0 left-0 h-full z-50 transition-transform duration-200 w-56 lg:hidden",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        {sidebarContent}
-      </aside>
-
-      <div className={cn("min-h-screen transition-[margin-left] duration-200 ml-0", mainMargin)}>
-        <div className="sticky top-0 z-20 bg-background border-b px-4 py-2.5 flex items-center justify-between">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded hover:bg-muted transition-colors lg:hidden"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="hidden lg:block" />
+      <div style={{ marginLeft: 220, flex: 1, minWidth: 0 }}>
+        <div className="sticky top-0 z-20 bg-background border-b px-6 py-3 flex justify-end">
           <Popover open={notifOpen} onOpenChange={setNotifOpen}>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="relative">
@@ -298,7 +209,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">{children}</div>
+        <div className="p-6 max-w-[1400px] mx-auto">{children}</div>
       </div>
     </div>
   );
