@@ -157,12 +157,27 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
 
   for (const tax of pendingTax) {
     if (tax.dueDate <= futureStr) {
+      const dueMs = new Date(tax.dueDate).getTime();
+      const nowMs = new Date(today).getTime();
+      const daysLeft = Math.ceil((dueMs - nowMs) / (1000 * 60 * 60 * 24));
+
+      let dLabel = "";
+      if (daysLeft < 0) dLabel = " (기한 초과)";
+      else if (daysLeft === 0) dLabel = " [D-Day]";
+      else if (daysLeft <= 3) dLabel = ` [D-${daysLeft}]`;
+      else if (daysLeft <= 7) dLabel = ` [D-${daysLeft}]`;
+
+      let message = `${tax.dueDate}까지 ${tax.title}을(를) 처리해야 합니다.`;
+      if (daysLeft <= 7 && daysLeft >= 0) {
+        message += " 세무사에게 자료를 준비하세요. (매출/매입 증빙, 급여대장, 4대보험 등)";
+      }
+
       alerts.push({
         id: alertId++,
         type: "tax_due",
-        title: `${tax.title} 마감 예정`,
-        message: `${tax.dueDate}까지 ${tax.title}을(를) 처리해야 합니다.`,
-        severity: tax.dueDate <= new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] ? "critical" : "warning",
+        title: `${tax.title} 마감 예정${dLabel}`,
+        message,
+        severity: daysLeft <= 7 ? "critical" : "warning",
         relatedId: tax.id,
         hasDraft: false,
         createdAt: new Date().toISOString(),

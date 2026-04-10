@@ -26,6 +26,8 @@ import type {
   ApprovalStepItem,
   ApproveMatchingBody,
   ApproveMatchingResponse,
+  AttendanceRecord,
+  AttendanceStats,
   AutoSettleCommissionBody,
   AutoSettleCommissionResponse,
   BatchCancelVehicles200,
@@ -33,6 +35,7 @@ import type {
   BulkRegisterInspectionsBody,
   BulkRegisterInspectionsResponse,
   CancelVehicleBody,
+  CheckAttendanceBody,
   Commission,
   CompleteInspectionBody,
   CreateApprovalBody,
@@ -50,6 +53,7 @@ import type {
   CreateSettlementBody,
   CreateSignatureBody,
   CreateTaskBody,
+  CreateTaxDeadlineChecklistBody,
   CreateTaxScheduleBody,
   CreateTenantBody,
   CreateVehicleBody,
@@ -73,7 +77,10 @@ import type {
   GenerateAlertsResponse,
   GenerateMonthlySummaryBody,
   GenerateWeeklySummaryBody,
+  GetAllAttendanceParams,
+  GetAttendanceStatsParams,
   GetExecutiveSpendingParams,
+  GetMyAttendanceParams,
   GetRecommendedVendorsParams,
   GetUnreadNotificationCount200,
   GetUnregisteredVehicles200,
@@ -94,6 +101,7 @@ import type {
   ListSafetyTrainingsParams,
   ListSettlementsParams,
   ListTasksParams,
+  ListTaxDeadlineChecklistsParams,
   ListTaxSchedulesParams,
   ListTenantsParams,
   ListVehiclesParams,
@@ -119,8 +127,10 @@ import type {
   SaveApprovalDraftBody,
   SendDestructionAlerts200,
   Settlement,
+  StaffAttendanceSummary,
   SubmitDraftBody,
   Task,
+  TaxDeadlineChecklist,
   TaxSchedule,
   Tenant,
   UpdateCommissionBody,
@@ -135,6 +145,7 @@ import type {
   UpdateSafetyTrainingBody,
   UpdateSettlementBody,
   UpdateTaskBody,
+  UpdateTaxDeadlineChecklistBody,
   UpdateTaxScheduleBody,
   UpdateTenantBody,
   UpdateVehicleBody,
@@ -2014,6 +2025,910 @@ export const useDeleteTaxSchedule = <
 > => {
   return useMutation(getDeleteTaxScheduleMutationOptions(options));
 };
+
+/**
+ * @summary List tax deadline checklist items
+ */
+export const getListTaxDeadlineChecklistsUrl = (
+  params?: ListTaxDeadlineChecklistsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tax-deadline-checklists?${stringifiedParams}`
+    : `/api/tax-deadline-checklists`;
+};
+
+export const listTaxDeadlineChecklists = async (
+  params?: ListTaxDeadlineChecklistsParams,
+  options?: RequestInit,
+): Promise<TaxDeadlineChecklist[]> => {
+  return customFetch<TaxDeadlineChecklist[]>(
+    getListTaxDeadlineChecklistsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTaxDeadlineChecklistsQueryKey = (
+  params?: ListTaxDeadlineChecklistsParams,
+) => {
+  return [`/api/tax-deadline-checklists`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTaxDeadlineChecklistsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTaxDeadlineChecklists>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTaxDeadlineChecklistsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTaxDeadlineChecklists>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTaxDeadlineChecklistsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTaxDeadlineChecklists>>
+  > = ({ signal }) =>
+    listTaxDeadlineChecklists(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTaxDeadlineChecklists>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTaxDeadlineChecklistsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTaxDeadlineChecklists>>
+>;
+export type ListTaxDeadlineChecklistsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List tax deadline checklist items
+ */
+
+export function useListTaxDeadlineChecklists<
+  TData = Awaited<ReturnType<typeof listTaxDeadlineChecklists>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTaxDeadlineChecklistsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTaxDeadlineChecklists>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTaxDeadlineChecklistsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a tax deadline checklist item
+ */
+export const getCreateTaxDeadlineChecklistUrl = () => {
+  return `/api/tax-deadline-checklists`;
+};
+
+export const createTaxDeadlineChecklist = async (
+  createTaxDeadlineChecklistBody: CreateTaxDeadlineChecklistBody,
+  options?: RequestInit,
+): Promise<TaxDeadlineChecklist> => {
+  return customFetch<TaxDeadlineChecklist>(getCreateTaxDeadlineChecklistUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTaxDeadlineChecklistBody),
+  });
+};
+
+export const getCreateTaxDeadlineChecklistMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTaxDeadlineChecklist>>,
+    TError,
+    { data: BodyType<CreateTaxDeadlineChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTaxDeadlineChecklist>>,
+  TError,
+  { data: BodyType<CreateTaxDeadlineChecklistBody> },
+  TContext
+> => {
+  const mutationKey = ["createTaxDeadlineChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTaxDeadlineChecklist>>,
+    { data: BodyType<CreateTaxDeadlineChecklistBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTaxDeadlineChecklist(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTaxDeadlineChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTaxDeadlineChecklist>>
+>;
+export type CreateTaxDeadlineChecklistMutationBody =
+  BodyType<CreateTaxDeadlineChecklistBody>;
+export type CreateTaxDeadlineChecklistMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a tax deadline checklist item
+ */
+export const useCreateTaxDeadlineChecklist = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTaxDeadlineChecklist>>,
+    TError,
+    { data: BodyType<CreateTaxDeadlineChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTaxDeadlineChecklist>>,
+  TError,
+  { data: BodyType<CreateTaxDeadlineChecklistBody> },
+  TContext
+> => {
+  return useMutation(getCreateTaxDeadlineChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Update a tax deadline checklist item
+ */
+export const getUpdateTaxDeadlineChecklistUrl = (id: number) => {
+  return `/api/tax-deadline-checklists/${id}`;
+};
+
+export const updateTaxDeadlineChecklist = async (
+  id: number,
+  updateTaxDeadlineChecklistBody: UpdateTaxDeadlineChecklistBody,
+  options?: RequestInit,
+): Promise<TaxDeadlineChecklist> => {
+  return customFetch<TaxDeadlineChecklist>(
+    getUpdateTaxDeadlineChecklistUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateTaxDeadlineChecklistBody),
+    },
+  );
+};
+
+export const getUpdateTaxDeadlineChecklistMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>,
+    TError,
+    { id: number; data: BodyType<UpdateTaxDeadlineChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>,
+  TError,
+  { id: number; data: BodyType<UpdateTaxDeadlineChecklistBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTaxDeadlineChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>,
+    { id: number; data: BodyType<UpdateTaxDeadlineChecklistBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateTaxDeadlineChecklist(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTaxDeadlineChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>
+>;
+export type UpdateTaxDeadlineChecklistMutationBody =
+  BodyType<UpdateTaxDeadlineChecklistBody>;
+export type UpdateTaxDeadlineChecklistMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a tax deadline checklist item
+ */
+export const useUpdateTaxDeadlineChecklist = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>,
+    TError,
+    { id: number; data: BodyType<UpdateTaxDeadlineChecklistBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTaxDeadlineChecklist>>,
+  TError,
+  { id: number; data: BodyType<UpdateTaxDeadlineChecklistBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTaxDeadlineChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Delete a tax deadline checklist item
+ */
+export const getDeleteTaxDeadlineChecklistUrl = (id: number) => {
+  return `/api/tax-deadline-checklists/${id}`;
+};
+
+export const deleteTaxDeadlineChecklist = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTaxDeadlineChecklistUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTaxDeadlineChecklistMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTaxDeadlineChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTaxDeadlineChecklist(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTaxDeadlineChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>
+>;
+
+export type DeleteTaxDeadlineChecklistMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a tax deadline checklist item
+ */
+export const useDeleteTaxDeadlineChecklist = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTaxDeadlineChecklist>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTaxDeadlineChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Initialize default checklist items for a tax schedule
+ */
+export const getInitTaxDeadlineChecklistUrl = (taxScheduleId: number) => {
+  return `/api/tax-deadline-checklists/init/${taxScheduleId}`;
+};
+
+export const initTaxDeadlineChecklist = async (
+  taxScheduleId: number,
+  options?: RequestInit,
+): Promise<TaxDeadlineChecklist[]> => {
+  return customFetch<TaxDeadlineChecklist[]>(
+    getInitTaxDeadlineChecklistUrl(taxScheduleId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getInitTaxDeadlineChecklistMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof initTaxDeadlineChecklist>>,
+    TError,
+    { taxScheduleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof initTaxDeadlineChecklist>>,
+  TError,
+  { taxScheduleId: number },
+  TContext
+> => {
+  const mutationKey = ["initTaxDeadlineChecklist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof initTaxDeadlineChecklist>>,
+    { taxScheduleId: number }
+  > = (props) => {
+    const { taxScheduleId } = props ?? {};
+
+    return initTaxDeadlineChecklist(taxScheduleId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InitTaxDeadlineChecklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof initTaxDeadlineChecklist>>
+>;
+
+export type InitTaxDeadlineChecklistMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Initialize default checklist items for a tax schedule
+ */
+export const useInitTaxDeadlineChecklist = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof initTaxDeadlineChecklist>>,
+    TError,
+    { taxScheduleId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof initTaxDeadlineChecklist>>,
+  TError,
+  { taxScheduleId: number },
+  TContext
+> => {
+  return useMutation(getInitTaxDeadlineChecklistMutationOptions(options));
+};
+
+/**
+ * @summary Check in or check out
+ */
+export const getCheckAttendanceUrl = () => {
+  return `/api/attendance/check`;
+};
+
+export const checkAttendance = async (
+  checkAttendanceBody: CheckAttendanceBody,
+  options?: RequestInit,
+): Promise<AttendanceRecord> => {
+  return customFetch<AttendanceRecord>(getCheckAttendanceUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(checkAttendanceBody),
+  });
+};
+
+export const getCheckAttendanceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAttendance>>,
+    TError,
+    { data: BodyType<CheckAttendanceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkAttendance>>,
+  TError,
+  { data: BodyType<CheckAttendanceBody> },
+  TContext
+> => {
+  const mutationKey = ["checkAttendance"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkAttendance>>,
+    { data: BodyType<CheckAttendanceBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkAttendance(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckAttendanceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkAttendance>>
+>;
+export type CheckAttendanceMutationBody = BodyType<CheckAttendanceBody>;
+export type CheckAttendanceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Check in or check out
+ */
+export const useCheckAttendance = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkAttendance>>,
+    TError,
+    { data: BodyType<CheckAttendanceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkAttendance>>,
+  TError,
+  { data: BodyType<CheckAttendanceBody> },
+  TContext
+> => {
+  return useMutation(getCheckAttendanceMutationOptions(options));
+};
+
+/**
+ * @summary Get today's attendance for the current user
+ */
+export const getGetTodayAttendanceUrl = () => {
+  return `/api/attendance/today`;
+};
+
+export const getTodayAttendance = async (
+  options?: RequestInit,
+): Promise<AttendanceRecord[]> => {
+  return customFetch<AttendanceRecord[]>(getGetTodayAttendanceUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTodayAttendanceQueryKey = () => {
+  return [`/api/attendance/today`] as const;
+};
+
+export const getGetTodayAttendanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTodayAttendance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayAttendance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTodayAttendanceQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTodayAttendance>>
+  > = ({ signal }) => getTodayAttendance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayAttendance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTodayAttendanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTodayAttendance>>
+>;
+export type GetTodayAttendanceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get today's attendance for the current user
+ */
+
+export function useGetTodayAttendance<
+  TData = Awaited<ReturnType<typeof getTodayAttendance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayAttendance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTodayAttendanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get my attendance records
+ */
+export const getGetMyAttendanceUrl = (params: GetMyAttendanceParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/attendance/my?${stringifiedParams}`
+    : `/api/attendance/my`;
+};
+
+export const getMyAttendance = async (
+  params: GetMyAttendanceParams,
+  options?: RequestInit,
+): Promise<AttendanceRecord[]> => {
+  return customFetch<AttendanceRecord[]>(getGetMyAttendanceUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyAttendanceQueryKey = (params?: GetMyAttendanceParams) => {
+  return [`/api/attendance/my`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMyAttendanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyAttendance>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetMyAttendanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyAttendance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyAttendanceQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyAttendance>>> = ({
+    signal,
+  }) => getMyAttendance(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyAttendance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyAttendanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyAttendance>>
+>;
+export type GetMyAttendanceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get my attendance records
+ */
+
+export function useGetMyAttendance<
+  TData = Awaited<ReturnType<typeof getMyAttendance>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetMyAttendanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyAttendance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyAttendanceQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get attendance statistics for a user
+ */
+export const getGetAttendanceStatsUrl = (params: GetAttendanceStatsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/attendance/stats?${stringifiedParams}`
+    : `/api/attendance/stats`;
+};
+
+export const getAttendanceStats = async (
+  params: GetAttendanceStatsParams,
+  options?: RequestInit,
+): Promise<AttendanceStats> => {
+  return customFetch<AttendanceStats>(getGetAttendanceStatsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAttendanceStatsQueryKey = (
+  params?: GetAttendanceStatsParams,
+) => {
+  return [`/api/attendance/stats`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAttendanceStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAttendanceStats>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAttendanceStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAttendanceStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAttendanceStatsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAttendanceStats>>
+  > = ({ signal }) => getAttendanceStats(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAttendanceStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAttendanceStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAttendanceStats>>
+>;
+export type GetAttendanceStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get attendance statistics for a user
+ */
+
+export function useGetAttendanceStats<
+  TData = Awaited<ReturnType<typeof getAttendanceStats>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAttendanceStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAttendanceStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAttendanceStatsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all staff attendance (manager only)
+ */
+export const getGetAllAttendanceUrl = (params: GetAllAttendanceParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/attendance/all?${stringifiedParams}`
+    : `/api/attendance/all`;
+};
+
+export const getAllAttendance = async (
+  params: GetAllAttendanceParams,
+  options?: RequestInit,
+): Promise<StaffAttendanceSummary[]> => {
+  return customFetch<StaffAttendanceSummary[]>(getGetAllAttendanceUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAllAttendanceQueryKey = (
+  params?: GetAllAttendanceParams,
+) => {
+  return [`/api/attendance/all`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAllAttendanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAllAttendance>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAllAttendanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAllAttendance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAllAttendanceQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAllAttendance>>
+  > = ({ signal }) => getAllAttendance(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAllAttendance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAllAttendanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAllAttendance>>
+>;
+export type GetAllAttendanceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all staff attendance (manager only)
+ */
+
+export function useGetAllAttendance<
+  TData = Awaited<ReturnType<typeof getAllAttendance>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetAllAttendanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAllAttendance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAllAttendanceQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List vendors

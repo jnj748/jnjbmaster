@@ -39,6 +39,10 @@ tags:
     description: Facility maintenance work logs
   - name: safetyTrainings
     description: Safety training management
+  - name: taxDeadlineChecklists
+    description: Tax deadline checklist management
+  - name: attendance
+    description: Attendance management
 
 paths:
   /healthz:
@@ -460,6 +464,223 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  # ── Tax Deadline Checklists (세무 마감 체크리스트) ────────────────
+  /tax-deadline-checklists:
+    get:
+      operationId: listTaxDeadlineChecklists
+      tags: [taxDeadlineChecklists]
+      summary: List tax deadline checklist items
+      parameters:
+        - name: taxScheduleId
+          in: query
+          schema:
+            type: integer
+        - name: dueDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Checklist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxDeadlineChecklist"
+    post:
+      operationId: createTaxDeadlineChecklist
+      tags: [taxDeadlineChecklists]
+      summary: Create a tax deadline checklist item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaxDeadlineChecklistBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxDeadlineChecklist"
+
+  /tax-deadline-checklists/{id}:
+    patch:
+      operationId: updateTaxDeadlineChecklist
+      tags: [taxDeadlineChecklists]
+      summary: Update a tax deadline checklist item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaxDeadlineChecklistBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxDeadlineChecklist"
+    delete:
+      operationId: deleteTaxDeadlineChecklist
+      tags: [taxDeadlineChecklists]
+      summary: Delete a tax deadline checklist item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tax-deadline-checklists/init/{taxScheduleId}:
+    post:
+      operationId: initTaxDeadlineChecklist
+      tags: [taxDeadlineChecklists]
+      summary: Initialize default checklist items for a tax schedule
+      parameters:
+        - name: taxScheduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Default checklist items created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaxDeadlineChecklist"
+
+  # ── Attendance (출퇴근 관리) ────────────────────────────────────
+  /attendance/check:
+    post:
+      operationId: checkAttendance
+      tags: [attendance]
+      summary: Check in or check out
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckAttendanceBody"
+      responses:
+        "201":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/today:
+    get:
+      operationId: getTodayAttendance
+      tags: [attendance]
+      summary: Get today's attendance for the current user
+      responses:
+        "200":
+          description: Today's attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/my:
+    get:
+      operationId: getMyAttendance
+      tags: [attendance]
+      summary: Get my attendance records
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/stats:
+    get:
+      operationId: getAttendanceStats
+      tags: [attendance]
+      summary: Get attendance statistics for a user
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attendance statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceStats"
+
+  /attendance/all:
+    get:
+      operationId: getAllAttendance
+      tags: [attendance]
+      summary: Get all staff attendance (manager only)
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: All staff attendance
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffAttendanceSummary"
 
   # ── Vendors (업체 관리) ────────────────────────────────────
   /vendors:
@@ -5569,6 +5790,197 @@ components:
       required:
         - commission
         - message
+
+    TaxDeadlineChecklist:
+      type: object
+      properties:
+        id:
+          type: integer
+        taxScheduleId:
+          type: integer
+        itemName:
+          type: string
+        description:
+          type: ["string", "null"]
+        isCompleted:
+          type: boolean
+        completedBy:
+          type: ["integer", "null"]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        dueDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - taxScheduleId
+        - itemName
+        - isCompleted
+        - dueDate
+        - createdAt
+        - updatedAt
+
+    CreateTaxDeadlineChecklistBody:
+      type: object
+      properties:
+        taxScheduleId:
+          type: integer
+        itemName:
+          type: string
+        description:
+          type: ["string", "null"]
+        dueDate:
+          type: string
+          format: date
+      required:
+        - taxScheduleId
+        - itemName
+        - dueDate
+
+    UpdateTaxDeadlineChecklistBody:
+      type: object
+      properties:
+        itemName:
+          type: string
+        description:
+          type: ["string", "null"]
+        isCompleted:
+          type: boolean
+        completedBy:
+          type: ["integer", "null"]
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        dueDate:
+          type: string
+          format: date
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        checkDate:
+          type: string
+          format: date
+        checkInTime:
+          type: ["string", "null"]
+          format: date-time
+        checkOutTime:
+          type: ["string", "null"]
+          format: date-time
+        checkType:
+          type: string
+          enum: [check_in, check_out]
+        status:
+          type: string
+          enum: [normal, late, early_leave, absent]
+        deviceType:
+          type: ["string", "null"]
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - checkDate
+        - checkType
+        - status
+        - createdAt
+
+    CheckAttendanceBody:
+      type: object
+      properties:
+        checkType:
+          type: string
+          enum: [check_in, check_out]
+        deviceType:
+          type: ["string", "null"]
+        note:
+          type: ["string", "null"]
+      required:
+        - checkType
+
+    AttendanceStats:
+      type: object
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        month:
+          type: integer
+        year:
+          type: integer
+        totalWorkDays:
+          type: integer
+        presentDays:
+          type: integer
+        lateDays:
+          type: integer
+        earlyLeaveDays:
+          type: integer
+        absentDays:
+          type: integer
+        attendanceRate:
+          type: number
+      required:
+        - userId
+        - userName
+        - month
+        - year
+        - totalWorkDays
+        - presentDays
+        - lateDays
+        - earlyLeaveDays
+        - absentDays
+        - attendanceRate
+
+    StaffAttendanceSummary:
+      type: object
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        role:
+          type: string
+        presentDays:
+          type: integer
+        lateDays:
+          type: integer
+        earlyLeaveDays:
+          type: integer
+        absentDays:
+          type: integer
+        attendanceRate:
+          type: number
+      required:
+        - userId
+        - userName
+        - role
+        - presentDays
+        - lateDays
+        - earlyLeaveDays
+        - absentDays
+        - attendanceRate
 
     # ── Multi-step Approval Schemas ──────────────────────────
     ApprovalStepItem:

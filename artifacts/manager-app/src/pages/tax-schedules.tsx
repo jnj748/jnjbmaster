@@ -5,14 +5,21 @@ import {
   useUpdateTaxSchedule,
   useDeleteTaxSchedule,
   getListTaxSchedulesQueryKey,
+  useListTaxDeadlineChecklists,
+  useCreateTaxDeadlineChecklist,
+  useUpdateTaxDeadlineChecklist,
+  useDeleteTaxDeadlineChecklist,
+  useInitTaxDeadlineChecklist,
+  getListTaxDeadlineChecklistsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -28,7 +35,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Calculator, Check } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Edit,
+  Calculator,
+  Check,
+  ClipboardList,
+  AlertTriangle,
+  Bell,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 
@@ -48,9 +66,117 @@ const recurrenceOptions = [
   { value: "one_time", label: "1회" },
 ];
 
+function getDaysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr);
+  due.setHours(0, 0, 0, 0);
+  return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getDeadlineAlert(dateStr: string, status: string) {
+  if (status === "completed") return null;
+  const days = getDaysUntil(dateStr);
+  if (days < 0) return { label: "기한 초과", variant: "destructive" as const, icon: AlertTriangle };
+  if (days === 0) return { label: "D-Day", variant: "destructive" as const, icon: Bell };
+  if (days <= 3) return { label: `D-${days}`, variant: "destructive" as const, icon: Bell };
+  if (days <= 7) return { label: `D-${days}`, variant: "secondary" as const, icon: Bell };
+  return null;
+}
+
+function ChecklistPanel({ scheduleId, dueDate }: { scheduleId: number; dueDate: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: items, isLoading } = useListTaxDeadlineChecklists({ taxScheduleId: scheduleId });
+  const initMutation = useInitTaxDeadlineChecklist();
+  const updateMutation = useUpdateTaxDeadlineChecklist();
+
+  async function handleInit() {
+    await initMutation.mutateAsync({ taxScheduleId: scheduleId });
+    queryClient.invalidateQueries({ queryKey: getListTaxDeadlineChecklistsQueryKey({ taxScheduleId: scheduleId }) });
+    toast({ title: "기본 체크리스트가 생성되었습니다" });
+  }
+
+  async function handleToggle(id: number, currentState: boolean) {
+    await updateMutation.mutateAsync({
+      id,
+      data: {
+        isCompleted: !currentState,
+        completedAt: !currentState ? new Date().toISOString() : null,
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: getListTaxDeadlineChecklistsQueryKey({ taxScheduleId: scheduleId }) });
+  }
+
+  if (isLoading) return <Skeleton className="h-20 mt-2" />;
+
+  const completedCount = items?.filter((i) => i.isCompleted).length || 0;
+  const totalCount = items?.length || 0;
+
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium flex items-center gap-1.5">
+          <ClipboardList className="w-4 h-4 text-chart-3" />
+          자료 제출 체크리스트
+          {totalCount > 0 && (
+            <Badge variant="outline" className="text-xs ml-1">
+              {completedCount}/{totalCount}
+            </Badge>
+          )}
+        </p>
+        {(!items || items.length === 0) && (
+          <Button variant="outline" size="sm" onClick={handleInit} disabled={initMutation.isPending}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            기본 항목 생성
+          </Button>
+        )}
+      </div>
+
+      {items && items.length > 0 ? (
+        <div className="space-y-1.5">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className={`flex items-center gap-2 p-2 rounded text-sm ${
+                item.isCompleted ? "bg-chart-2/5" : "bg-muted/50"
+              }`}
+            >
+              <Checkbox
+                checked={item.isCompleted}
+                onCheckedChange={() => handleToggle(item.id, item.isCompleted)}
+              />
+              <div className="flex-1 min-w-0">
+                <span className={item.isCompleted ? "line-through text-muted-foreground" : ""}>
+                  {item.itemName}
+                </span>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                )}
+              </div>
+              {item.isCompleted && item.completedAt && (
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {new Date(item.completedAt).toLocaleDateString("ko-KR")}
+                </span>
+              )}
+            </div>
+          ))}
+          {totalCount > 0 && completedCount === totalCount && (
+            <div className="flex items-center gap-2 p-2 rounded bg-chart-2/10 text-chart-2 text-sm">
+              <Check className="w-4 h-4" />
+              모든 자료가 제출되었습니다
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function TaxSchedules() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: schedules, isLoading } = useListTaxSchedules();
@@ -137,6 +263,12 @@ export default function TaxSchedules() {
     }
   };
 
+  const upcomingSchedules = schedules?.filter((s) => {
+    if (s.status === "completed") return false;
+    const days = getDaysUntil(s.dueDate);
+    return days <= 7 && days >= 0;
+  }) || [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -200,51 +332,102 @@ export default function TaxSchedules() {
         </Dialog>
       </div>
 
+      {upcomingSchedules.length > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              <p className="font-medium text-sm">마감 임박 알림</p>
+            </div>
+            <div className="space-y-1.5">
+              {upcomingSchedules.map((s) => {
+                const alert = getDeadlineAlert(s.dueDate, s.status);
+                return (
+                  <div key={s.id} className="flex items-center justify-between text-sm">
+                    <span>{s.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{formatDate(s.dueDate)}</span>
+                      {alert && (
+                        <Badge variant={alert.variant}>{alert.label}</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-muted-foreground mt-2">
+                세무사에게 자료를 미리 준비하세요. 체크리스트를 확인하고 필요 서류를 제출하세요.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20" />)}
         </div>
       ) : schedules && schedules.length > 0 ? (
         <div className="space-y-2">
-          {schedules.map((item) => (
-            <Card key={item.id} className={item.status === "completed" ? "opacity-60" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-chart-3/10">
-                      <Calculator className="w-5 h-5 text-chart-3" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{item.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">{typeLabel(item.scheduleType)}</Badge>
-                        <span className="text-xs text-muted-foreground">{recurrenceLabel(item.recurrence)}</span>
+          {schedules.map((item) => {
+            const alert = getDeadlineAlert(item.dueDate, item.status);
+            const isExpanded = expandedId === item.id;
+            return (
+              <Card key={item.id} className={item.status === "completed" ? "opacity-60" : ""}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                        className="p-2 rounded-lg bg-chart-3/10 hover:bg-chart-3/20 transition-colors"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-chart-3" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-chart-3" />
+                        )}
+                      </button>
+                      <div>
+                        <p className="font-medium">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{typeLabel(item.scheduleType)}</Badge>
+                          <span className="text-xs text-muted-foreground">{recurrenceLabel(item.recurrence)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{formatDate(item.dueDate)}</p>
-                      <Badge variant={statusColor(item.status) as any} className="text-xs">
-                        {statusLabel(item.status)}
-                      </Badge>
-                    </div>
-                    {item.status !== "completed" && (
-                      <Button variant="ghost" size="sm" onClick={() => handleComplete(item.id)}>
-                        <Check className="w-4 h-4 text-chart-2" />
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{formatDate(item.dueDate)}</p>
+                        <div className="flex items-center gap-1 justify-end">
+                          <Badge variant={statusColor(item.status) as any} className="text-xs">
+                            {statusLabel(item.status)}
+                          </Badge>
+                          {alert && (
+                            <Badge variant={alert.variant} className="text-xs">
+                              {alert.label}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {item.status !== "completed" && (
+                        <Button variant="ghost" size="sm" onClick={() => handleComplete(item.id)}>
+                          <Check className="w-4 h-4 text-chart-2" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                        <Edit className="w-3.5 h-3.5" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                      <Edit className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {isExpanded && (
+                    <ChecklistPanel scheduleId={item.id} dueDate={item.dueDate} />
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card>

@@ -642,6 +642,181 @@ export const DeleteTaxScheduleParams = zod.object({
 });
 
 /**
+ * @summary List tax deadline checklist items
+ */
+export const ListTaxDeadlineChecklistsQueryParams = zod.object({
+  taxScheduleId: zod.coerce.number().optional(),
+  dueDate: zod.date().optional(),
+});
+
+export const ListTaxDeadlineChecklistsResponseItem = zod.object({
+  id: zod.number(),
+  taxScheduleId: zod.number(),
+  itemName: zod.string(),
+  description: zod.string().nullish(),
+  isCompleted: zod.boolean(),
+  completedBy: zod.number().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  dueDate: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListTaxDeadlineChecklistsResponse = zod.array(
+  ListTaxDeadlineChecklistsResponseItem,
+);
+
+/**
+ * @summary Create a tax deadline checklist item
+ */
+export const CreateTaxDeadlineChecklistBody = zod.object({
+  taxScheduleId: zod.number(),
+  itemName: zod.string(),
+  description: zod.string().nullish(),
+  dueDate: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a tax deadline checklist item
+ */
+export const UpdateTaxDeadlineChecklistParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTaxDeadlineChecklistBody = zod.object({
+  itemName: zod.string().optional(),
+  description: zod.string().nullish(),
+  isCompleted: zod.boolean().optional(),
+  completedBy: zod.number().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  dueDate: zod.coerce.date().optional(),
+});
+
+export const UpdateTaxDeadlineChecklistResponse = zod.object({
+  id: zod.number(),
+  taxScheduleId: zod.number(),
+  itemName: zod.string(),
+  description: zod.string().nullish(),
+  isCompleted: zod.boolean(),
+  completedBy: zod.number().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  dueDate: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a tax deadline checklist item
+ */
+export const DeleteTaxDeadlineChecklistParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Initialize default checklist items for a tax schedule
+ */
+export const InitTaxDeadlineChecklistParams = zod.object({
+  taxScheduleId: zod.coerce.number(),
+});
+
+/**
+ * @summary Check in or check out
+ */
+export const CheckAttendanceBody = zod.object({
+  checkType: zod.enum(["check_in", "check_out"]),
+  deviceType: zod.string().nullish(),
+  note: zod.string().nullish(),
+});
+
+/**
+ * @summary Get today's attendance for the current user
+ */
+export const GetTodayAttendanceResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInTime: zod.coerce.date().nullish(),
+  checkOutTime: zod.coerce.date().nullish(),
+  checkType: zod.enum(["check_in", "check_out"]),
+  status: zod.enum(["normal", "late", "early_leave", "absent"]),
+  deviceType: zod.string().nullish(),
+  ipAddress: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+  note: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetTodayAttendanceResponse = zod.array(
+  GetTodayAttendanceResponseItem,
+);
+
+/**
+ * @summary Get my attendance records
+ */
+export const GetMyAttendanceQueryParams = zod.object({
+  month: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const GetMyAttendanceResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string().optional(),
+  checkDate: zod.coerce.date(),
+  checkInTime: zod.coerce.date().nullish(),
+  checkOutTime: zod.coerce.date().nullish(),
+  checkType: zod.enum(["check_in", "check_out"]),
+  status: zod.enum(["normal", "late", "early_leave", "absent"]),
+  deviceType: zod.string().nullish(),
+  ipAddress: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+  note: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetMyAttendanceResponse = zod.array(GetMyAttendanceResponseItem);
+
+/**
+ * @summary Get attendance statistics for a user
+ */
+export const GetAttendanceStatsQueryParams = zod.object({
+  userId: zod.coerce.number().optional(),
+  month: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const GetAttendanceStatsResponse = zod.object({
+  userId: zod.number(),
+  userName: zod.string(),
+  month: zod.number(),
+  year: zod.number(),
+  totalWorkDays: zod.number(),
+  presentDays: zod.number(),
+  lateDays: zod.number(),
+  earlyLeaveDays: zod.number(),
+  absentDays: zod.number(),
+  attendanceRate: zod.number(),
+});
+
+/**
+ * @summary Get all staff attendance (manager only)
+ */
+export const GetAllAttendanceQueryParams = zod.object({
+  month: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const GetAllAttendanceResponseItem = zod.object({
+  userId: zod.number(),
+  userName: zod.string(),
+  role: zod.string(),
+  presentDays: zod.number(),
+  lateDays: zod.number(),
+  earlyLeaveDays: zod.number(),
+  absentDays: zod.number(),
+  attendanceRate: zod.number(),
+});
+export const GetAllAttendanceResponse = zod.array(GetAllAttendanceResponseItem);
+
+/**
  * @summary List vendors
  */
 export const ListVendorsQueryParams = zod.object({

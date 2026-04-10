@@ -25,3 +25,5 @@ export * from "./maintenanceLogs";
 export * from "./safetyTrainings";
 export * from "./dataDestructionLogs";
 export * from "./vehicleHistory";
+export * from "./taxDeadlineChecklists";
+export * from "./attendance";

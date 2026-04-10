@@ -34,6 +34,7 @@ import {
   BookOpen,
   BarChart3,
   Settings,
+  Clock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -56,6 +57,7 @@ const managerNavItems = [
   { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
   { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
   { path: "/safety-training", label: "안전교육", icon: GraduationCap },
+  { path: "/attendance", label: "출퇴근 관리", icon: Clock },
   { path: "/tenants", label: "입주민 관리", icon: Users },
   { path: "/owners", label: "소유자 관리", icon: UserCheck },
   { path: "/vehicles", label: "차량 관리", icon: Car },

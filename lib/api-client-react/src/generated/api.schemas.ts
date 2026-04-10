@@ -2226,6 +2226,22 @@ export interface AutoSettleCommissionResponse {
   message: string;
 }
 
+export interface TaxDeadlineChecklist {
+  id: number;
+  taxScheduleId: number;
+  itemName: string;
+  /** @nullable */
+  description?: string | null;
+  isCompleted: boolean;
+  /** @nullable */
+  completedBy?: number | null;
+  /** @nullable */
+  completedAt?: string | null;
+  dueDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ApprovalStepItemStatus =
   (typeof ApprovalStepItemStatus)[keyof typeof ApprovalStepItemStatus];
 
@@ -2630,6 +2646,106 @@ export interface UpdateUserBody {
   phone?: string;
 }
 
+export interface CreateTaxDeadlineChecklistBody {
+  taxScheduleId: number;
+  itemName: string;
+  /** @nullable */
+  description?: string | null;
+  dueDate: string;
+}
+
+export interface UpdateTaxDeadlineChecklistBody {
+  itemName?: string;
+  /** @nullable */
+  description?: string | null;
+  isCompleted?: boolean;
+  /** @nullable */
+  completedBy?: number | null;
+  /** @nullable */
+  completedAt?: string | null;
+  dueDate?: string;
+}
+
+export type AttendanceRecordCheckType =
+  (typeof AttendanceRecordCheckType)[keyof typeof AttendanceRecordCheckType];
+
+export const AttendanceRecordCheckType = {
+  check_in: "check_in",
+  check_out: "check_out",
+} as const;
+
+export type AttendanceRecordStatus =
+  (typeof AttendanceRecordStatus)[keyof typeof AttendanceRecordStatus];
+
+export const AttendanceRecordStatus = {
+  normal: "normal",
+  late: "late",
+  early_leave: "early_leave",
+  absent: "absent",
+} as const;
+
+export interface AttendanceRecord {
+  id: number;
+  userId: number;
+  userName?: string;
+  checkDate: string;
+  /** @nullable */
+  checkInTime?: string | null;
+  /** @nullable */
+  checkOutTime?: string | null;
+  checkType: AttendanceRecordCheckType;
+  status: AttendanceRecordStatus;
+  /** @nullable */
+  deviceType?: string | null;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  /** @nullable */
+  note?: string | null;
+  createdAt: string;
+}
+
+export type CheckAttendanceBodyCheckType =
+  (typeof CheckAttendanceBodyCheckType)[keyof typeof CheckAttendanceBodyCheckType];
+
+export const CheckAttendanceBodyCheckType = {
+  check_in: "check_in",
+  check_out: "check_out",
+} as const;
+
+export interface CheckAttendanceBody {
+  checkType: CheckAttendanceBodyCheckType;
+  /** @nullable */
+  deviceType?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface AttendanceStats {
+  userId: number;
+  userName: string;
+  month: number;
+  year: number;
+  totalWorkDays: number;
+  presentDays: number;
+  lateDays: number;
+  earlyLeaveDays: number;
+  absentDays: number;
+  attendanceRate: number;
+}
+
+export interface StaffAttendanceSummary {
+  userId: number;
+  userName: string;
+  role: string;
+  presentDays: number;
+  lateDays: number;
+  earlyLeaveDays: number;
+  absentDays: number;
+  attendanceRate: number;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -2657,6 +2773,27 @@ export const ListTasksPriority = {
 export type ListTaxSchedulesParams = {
   month?: number;
   year?: number;
+};
+
+export type ListTaxDeadlineChecklistsParams = {
+  taxScheduleId?: number;
+  dueDate?: string;
+};
+
+export type GetMyAttendanceParams = {
+  month: number;
+  year: number;
+};
+
+export type GetAttendanceStatsParams = {
+  userId?: number;
+  month: number;
+  year: number;
+};
+
+export type GetAllAttendanceParams = {
+  month: number;
+  year: number;
 };
 
 export type ListVendorsParams = {

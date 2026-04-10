@@ -31,6 +31,7 @@ import DocumentTemplates from "@/pages/document-templates";
 import DailyReportsPage from "@/pages/daily-reports";
 import ReportSystemPage from "@/pages/report-system";
 import PartnerDashboard from "@/pages/partner-dashboard";
+import Attendance from "@/pages/attendance";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const managerRoutes = [
   { path: "/safety-checklists", component: SafetyChecklists },
   { path: "/maintenance-logs", component: MaintenanceLogs },
   { path: "/safety-training", component: SafetyTraining },
+  { path: "/attendance", component: Attendance },
   { path: "/users", component: Users },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },

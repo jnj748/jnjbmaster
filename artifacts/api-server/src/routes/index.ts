@@ -29,6 +29,8 @@ import signaturesRouter from "./signatures";
 import documentTemplatesRouter from "./documentTemplates";
 import reportSystemRouter from "./reportSystem";
 import privacyRouter from "./privacy";
+import taxDeadlineChecklistsRouter from "./taxDeadlineChecklists";
+import attendanceRouter from "./attendance";
 
 const router: IRouter = Router();
 
@@ -68,6 +70,8 @@ buildingRouter.use(maintenanceLogsRouter);
 buildingRouter.use(safetyTrainingsRouter);
 buildingRouter.use(facilityDashboardRouter);
 buildingRouter.use(privacyRouter);
+buildingRouter.use(taxDeadlineChecklistsRouter);
+buildingRouter.use(attendanceRouter);
 router.use(buildingRouter);
 
 export default router;
