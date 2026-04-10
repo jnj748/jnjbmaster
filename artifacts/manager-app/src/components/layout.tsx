@@ -46,9 +46,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const SIDEBAR_W = 220;
-const BP = 900;
-
 const managerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
   { path: "/approvals", label: "결재함", icon: ClipboardCheck },
@@ -88,34 +85,17 @@ const roleLabels: Record<string, string> = {
   platform_admin: "플랫폼 관리자",
 };
 
-function useIsWide() {
-  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.innerWidth >= BP);
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${BP}px)`);
-    const handler = (e: MediaQueryListEvent) => setWide(e.matches);
-    setWide(mq.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return wide;
-}
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [notifOpen, setNotifOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isWide = useIsWide();
 
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [location]);
+  useEffect(() => { setDrawerOpen(false); }, [location]);
 
   const { data: unreadCount } = useGetUnreadNotificationCount();
-  const { data: notifications } = useListNotifications({
-    query: { enabled: notifOpen },
-  });
+  const { data: notifications } = useListNotifications({ query: { enabled: notifOpen } });
   const markRead = useMarkNotificationRead();
   const queryClient = useQueryClient();
 
@@ -128,61 +108,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isPartner = user?.portalType === "partner";
   const navItems = isPartner ? partnerNavItems : managerNavItems;
 
-  const sidebar = (
-    <div
-      style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
-      className="bg-sidebar text-sidebar-foreground flex flex-col h-full"
-    >
-      <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-        <Link href="/">
-          <img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" />
-        </Link>
-        {!isWide && (
-          <button onClick={() => setDrawerOpen(false)} className="p-1 text-sidebar-foreground/60 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-          return (
-            <Link key={item.path} href={item.path}>
-              <div
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-                  isActive
-                    ? "bg-sidebar-accent text-white"
-                    : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-                )}
-              >
-                <item.icon className="w-4 h-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </div>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="p-3 border-t border-sidebar-border space-y-2">
-        {user && (
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-              <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
-            </div>
-            <button
-              onClick={logout}
-              className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0"
-              title="로그아웃"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
-      </div>
-    </div>
-  );
+  const navLinks = navItems.map((item) => {
+    const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+    return (
+      <Link key={item.path} href={item.path}>
+        <div
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+            isActive
+              ? "bg-sidebar-accent text-white"
+              : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+          )}
+        >
+          <item.icon className="w-4 h-4 shrink-0" />
+          <span className="truncate">{item.label}</span>
+        </div>
+      </Link>
+    );
+  });
 
   const notifButton = (
     <Popover open={notifOpen} onOpenChange={setNotifOpen}>
@@ -204,10 +147,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={cn(
-                    "p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors",
-                    !n.isRead && "bg-primary/5"
-                  )}
+                  className={cn("p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors", !n.isRead && "bg-primary/5")}
                   onClick={() => !n.isRead && handleMarkRead(n.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -215,9 +155,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {!n.isRead && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(n.createdAt).toLocaleString("ko-KR")}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString("ko-KR")}</p>
                 </div>
               ))}
             </div>
@@ -229,43 +167,99 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </Popover>
   );
 
-  if (!isWide) {
-    return (
-      <div style={{ minHeight: "100vh" }}>
+  return (
+    <>
+      <style>{`
+        .layout-root { min-height: 100vh; }
+        .layout-sidebar-fixed { display: none; }
+        .layout-main { margin-left: 0; }
+        .layout-mobile-header { display: flex; }
+        .layout-desktop-header { display: none; }
+
+        @media (min-width: 900px) {
+          .layout-sidebar-fixed { display: flex; }
+          .layout-main { margin-left: 220px; }
+          .layout-mobile-header { display: none; }
+          .layout-desktop-header { display: flex; }
+        }
+      `}</style>
+
+      <div className="layout-root">
         {drawerOpen && (
           <>
             <div
               style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
               onClick={() => setDrawerOpen(false)}
             />
-            <div style={{ position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 50 }}>
-              {sidebar}
-            </div>
+            <aside
+              style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100vh", zIndex: 50 }}
+              className="bg-sidebar text-sidebar-foreground flex flex-col"
+            >
+              <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+                <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
+                <button onClick={() => setDrawerOpen(false)} className="p-1 text-sidebar-foreground/60 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
+              <div className="p-3 border-t border-sidebar-border space-y-2">
+                {user && (
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+                      <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+                    </div>
+                    <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
+              </div>
+            </aside>
           </>
         )}
-        <div style={{ position: "sticky", top: 0, zIndex: 20 }} className="bg-background border-b px-4 py-2.5 flex items-center justify-between">
-          <button onClick={() => setDrawerOpen(true)} className="p-1.5 rounded hover:bg-muted">
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="text-sm font-semibold">관리의달인</span>
-          {notifButton}
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    );
-  }
 
-  return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <div style={{ position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 30 }}>
-        {sidebar}
-      </div>
-      <div style={{ marginLeft: SIDEBAR_W, flex: 1, minWidth: 0 }}>
-        <div style={{ position: "sticky", top: 0, zIndex: 20 }} className="bg-background border-b px-6 py-3 flex justify-end">
-          {notifButton}
+        <aside
+          style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100vh", zIndex: 30 }}
+          className="layout-sidebar-fixed bg-sidebar text-sidebar-foreground flex-col"
+        >
+          <div className="p-4 border-b border-sidebar-border">
+            <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
+          </div>
+          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
+          <div className="p-3 border-t border-sidebar-border space-y-2">
+            {user && (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
+                  <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+                </div>
+                <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
+          </div>
+        </aside>
+
+        <div className="layout-main">
+          <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-4 py-2.5 items-center justify-between">
+            <button onClick={() => setDrawerOpen(true)} className="p-1.5 rounded hover:bg-muted">
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-semibold">관리의달인</span>
+            {notifButton}
+          </div>
+
+          <div className="layout-desktop-header sticky top-0 z-20 bg-background border-b px-6 py-3 justify-end">
+            {notifButton}
+          </div>
+
+          <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">{children}</div>
         </div>
-        <div className="p-6 max-w-[1400px] mx-auto">{children}</div>
       </div>
-    </div>
+    </>
   );
 }
