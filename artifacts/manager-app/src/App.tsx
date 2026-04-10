@@ -34,37 +34,52 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
+const managerRoutes = [
+  { path: "/approvals", component: Approvals },
+  { path: "/approvals/create", component: ApprovalCreate },
+  { path: "/document-templates", component: DocumentTemplates },
+  { path: "/daily-reports", component: DailyReportsPage },
+  { path: "/report-system", component: ReportSystemPage },
+  { path: "/spending", component: ExecutiveSpending },
+  { path: "/tasks", component: Tasks },
+  { path: "/inspections", component: Inspections },
+  { path: "/tax-schedules", component: TaxSchedules },
+  { path: "/rfqs", component: Rfqs },
+  { path: "/work-reports", component: WorkReportsPage },
+  { path: "/reports", component: Reports },
+  { path: "/drafts", component: Drafts },
+  { path: "/tenants", component: Tenants },
+  { path: "/owners", component: Owners },
+  { path: "/vehicles", component: Vehicles },
+  { path: "/facility", component: FacilityDashboard },
+  { path: "/safety-checklists", component: SafetyChecklists },
+  { path: "/maintenance-logs", component: MaintenanceLogs },
+  { path: "/safety-training", component: SafetyTraining },
+  { path: "/users", component: Users },
+  { path: "/vendors", component: Vendors },
+  { path: "/commissions", component: Commissions },
+];
+
+const partnerRoutes = [
+  { path: "/vendors", component: Vendors },
+  { path: "/commissions", component: Commissions },
+];
+
 function AuthenticatedRoutes() {
   const { user } = useAuth();
+  const isPartner = user?.role === "partner";
+  const routes = isPartner ? partnerRoutes : managerRoutes;
 
   return (
     <Layout>
       <Switch>
         <Route path="/" component={Dashboard} />
-        <Route path="/approvals" component={Approvals} />
-        <Route path="/approvals/create" component={ApprovalCreate} />
-        <Route path="/document-templates" component={DocumentTemplates} />
-        <Route path="/daily-reports" component={DailyReportsPage} />
-        <Route path="/report-system" component={ReportSystemPage} />
-        <Route path="/spending" component={ExecutiveSpending} />
-        <Route path="/tasks" component={Tasks} />
-        <Route path="/inspections" component={Inspections} />
-        <Route path="/tax-schedules" component={TaxSchedules} />
-        <Route path="/vendors" component={Vendors} />
-        <Route path="/commissions" component={Commissions} />
-        <Route path="/rfqs" component={Rfqs} />
-        <Route path="/work-reports" component={WorkReportsPage} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/drafts" component={Drafts} />
-        <Route path="/tenants" component={Tenants} />
-        <Route path="/owners" component={Owners} />
-        <Route path="/vehicles" component={Vehicles} />
-        <Route path="/facility" component={FacilityDashboard} />
-        <Route path="/safety-checklists" component={SafetyChecklists} />
-        <Route path="/maintenance-logs" component={MaintenanceLogs} />
-        <Route path="/safety-training" component={SafetyTraining} />
-        <Route path="/users" component={Users} />
-        <Route component={NotFound} />
+        {routes.map((r) => (
+          <Route key={r.path} path={r.path} component={r.component} />
+        ))}
+        <Route>
+          <Redirect to="/" />
+        </Route>
       </Switch>
     </Layout>
   );
