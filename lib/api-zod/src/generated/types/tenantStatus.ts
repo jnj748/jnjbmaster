@@ -11,4 +11,5 @@ export type TenantStatus = (typeof TenantStatus)[keyof typeof TenantStatus];
 export const TenantStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;

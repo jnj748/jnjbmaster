@@ -53,7 +53,17 @@ router.post("/tenants", async (req, res): Promise<void> => {
     return;
   }
 
-  const [tenant] = await db.insert(tenantsTable).values(parsed.data).returning();
+  let dataDestructionDate: string | undefined;
+  if (parsed.data.moveOutDate) {
+    const d = new Date(parsed.data.moveOutDate);
+    d.setFullYear(d.getFullYear() + 3);
+    dataDestructionDate = d.toISOString().split("T")[0];
+  }
+
+  const [tenant] = await db.insert(tenantsTable).values({
+    ...parsed.data,
+    ...(dataDestructionDate ? { dataDestructionDate } : {}),
+  }).returning();
 
   await db.insert(notificationsTable).values({
     recipientType: "admin",
@@ -100,9 +110,16 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const updateData: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.moveOutDate) {
+    const destructionDate = new Date(parsed.data.moveOutDate);
+    destructionDate.setFullYear(destructionDate.getFullYear() + 3);
+    updateData.dataDestructionDate = destructionDate.toISOString().split("T")[0];
+  }
+
   const [tenant] = await db
     .update(tenantsTable)
-    .set(parsed.data)
+    .set(updateData)
     .where(eq(tenantsTable.id, params.data.id))
     .returning();
 

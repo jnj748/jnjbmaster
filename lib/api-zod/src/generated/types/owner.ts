@@ -43,5 +43,7 @@ export interface Owner {
   idDoc: boolean;
   propertyDoc: boolean;
   createdAt: Date;
+  /** @nullable */
+  dataDestructionDate?: Date | null;
   updatedAt: Date;
 }

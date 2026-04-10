@@ -18,6 +18,8 @@ export const vehiclesTable = pgTable("vehicles", {
   registrationDoc: boolean("registration_doc").notNull().default(false),
   insuranceDoc: boolean("insurance_doc").notNull().default(false),
   leaseDoc: boolean("lease_doc").notNull().default(false),
+  status: text("status").notNull().default("registered"),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

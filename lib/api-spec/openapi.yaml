@@ -1786,7 +1786,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, moved_out]
+            enum: [active, moved_out, destroyed]
         - name: search
           in: query
           schema:
@@ -1894,7 +1894,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [active, moved_out]
+            enum: [active, moved_out, destroyed]
         - name: search
           in: query
           schema:
@@ -2010,6 +2010,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [registered, cancelled]
       responses:
         "200":
           description: Vehicle list
@@ -2118,6 +2123,188 @@ paths:
                 required:
                   - message
                   - reviewMonth
+
+  /vehicles/{id}/cancel:
+    post:
+      operationId: cancelVehicle
+      tags: [vehicles]
+      summary: Cancel a vehicle registration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Not found
+
+  /vehicles/batch-cancel:
+    post:
+      operationId: batchCancelVehicles
+      tags: [vehicles]
+      summary: Batch cancel vehicle registrations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                notes:
+                  type: string
+              required:
+                - ids
+      responses:
+        "200":
+          description: Batch cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelledCount:
+                    type: integer
+                required:
+                  - cancelledCount
+
+  /vehicles/{id}/history:
+    get:
+      operationId: getVehicleHistory
+      tags: [vehicles]
+      summary: Get vehicle registration/cancellation history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vehicle history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleHistoryEntry"
+
+  /vehicles/inspection:
+    post:
+      operationId: runVehicleInspection
+      tags: [vehicles]
+      summary: Run monthly vehicle inspection and create notifications
+      responses:
+        "200":
+          description: Inspection result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unregisteredCount:
+                    type: integer
+                  notificationCreated:
+                    type: boolean
+                required:
+                  - unregisteredCount
+                  - notificationCreated
+
+  # ── Privacy Data Destruction (개인정보 파기) ──────────────────────────────────
+  /privacy/destruction-schedule:
+    get:
+      operationId: listDestructionSchedule
+      tags: [privacy]
+      summary: List upcoming data destruction schedules
+      responses:
+        "200":
+          description: Destruction schedule list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DestructionScheduleItem"
+
+  /privacy/process-destructions:
+    post:
+      operationId: processDestructions
+      tags: [privacy]
+      summary: Process due data destructions (anonymize personal data)
+      responses:
+        "200":
+          description: Processing result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processedCount:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                        entityId:
+                          type: integer
+                        unit:
+                          type: string
+                required:
+                  - processedCount
+
+  /privacy/destruction-alerts:
+    post:
+      operationId: sendDestructionAlerts
+      tags: [privacy]
+      summary: Send alerts for destructions due within 30 days
+      responses:
+        "200":
+          description: Alert result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alertCount:
+                    type: integer
+                required:
+                  - alertCount
+
+  /privacy/destruction-logs:
+    get:
+      operationId: listDestructionLogs
+      tags: [privacy]
+      summary: List data destruction audit logs
+      responses:
+        "200":
+          description: Destruction log list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DataDestructionLog"
 
   # ── Notifications (알림) ──────────────────────────────────
   /notifications:
@@ -3670,7 +3857,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [inspection_due, tax_due, task_overdue, vendor_recommendation]
+          enum: [inspection_due, tax_due, task_overdue, vendor_recommendation, data_destruction]
         title:
           type: string
         message:
@@ -3945,7 +4132,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, moved_out]
+          enum: [active, moved_out, destroyed]
         privacyConsentDate:
           type: ["string", "null"]
           format: date-time
@@ -3958,6 +4145,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        dataDestructionDate:
+          type: ["string", "null"]
+          format: date
         updatedAt:
           type: string
           format: date-time
@@ -4068,7 +4258,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, moved_out]
+          enum: [active, moved_out, destroyed]
         privacyConsentDate:
           type: ["string", "null"]
           format: date-time
@@ -4120,7 +4310,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, moved_out]
+          enum: [active, moved_out, destroyed]
         privacyConsentDate:
           type: ["string", "null"]
           format: date-time
@@ -4133,6 +4323,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        dataDestructionDate:
+          type: ["string", "null"]
+          format: date
         updatedAt:
           type: string
           format: date-time
@@ -4237,7 +4430,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [active, moved_out]
+          enum: [active, moved_out, destroyed]
         privacyConsentDate:
           type: ["string", "null"]
           format: date-time
@@ -4280,6 +4473,12 @@ components:
           type: boolean
         leaseDoc:
           type: boolean
+        status:
+          type: string
+          enum: [registered, cancelled]
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
         notes:
           type: ["string", "null"]
         createdAt:
@@ -4297,6 +4496,7 @@ components:
         - registrationDoc
         - insuranceDoc
         - leaseDoc
+        - status
         - createdAt
         - updatedAt
 
@@ -4368,6 +4568,102 @@ components:
           type: boolean
         notes:
           type: ["string", "null"]
+
+    VehicleHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        vehicleId:
+          type: integer
+        action:
+          type: string
+        vehicleNumber:
+          type: string
+        unit:
+          type: string
+        performedBy:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - vehicleId
+        - action
+        - vehicleNumber
+        - unit
+        - performedBy
+        - createdAt
+
+    DestructionScheduleItem:
+      type: object
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        unit:
+          type: string
+        name:
+          type: string
+        moveOutDate:
+          type: string
+          format: date
+        dataDestructionDate:
+          type: string
+          format: date
+        daysUntilDestruction:
+          type: integer
+        status:
+          type: string
+      required:
+        - entityType
+        - entityId
+        - unit
+        - name
+        - moveOutDate
+        - dataDestructionDate
+        - daysUntilDestruction
+        - status
+
+    DataDestructionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        unit:
+          type: string
+        originalName:
+          type: string
+        destructionType:
+          type: string
+        processedAt:
+          type: string
+          format: date-time
+        processedBy:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - entityType
+        - entityId
+        - unit
+        - originalName
+        - destructionType
+        - processedAt
+        - processedBy
+        - createdAt
 
     Notification:
       type: object

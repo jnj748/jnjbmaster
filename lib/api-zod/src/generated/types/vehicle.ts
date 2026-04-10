@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { VehicleOwnershipType } from "./vehicleOwnershipType";
+import type { VehicleStatus } from "./vehicleStatus";
 
 export interface Vehicle {
   id: number;
@@ -28,6 +29,9 @@ export interface Vehicle {
   registrationDoc: boolean;
   insuranceDoc: boolean;
   leaseDoc: boolean;
+  status: VehicleStatus;
+  /** @nullable */
+  cancelledAt?: Date | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

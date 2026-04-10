@@ -58,7 +58,7 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 **Database:**
 - PostgreSQL is used as the primary database.
 - Drizzle ORM facilitates database interactions and schema management.
-- The database schema includes tables for `approvals`, `users`, `tasks`, `inspections`, `legal_inspection_presets`, `inspection_logs`, `drafts`, `tax_schedules`, `vendors`, `commissions`, `tenants`, `owners`, `vehicles`, `notifications`, `document_checklists`, `rfqs`, `quotes`, `work_reports`, `settlements`, `safety_checklists`, `safety_checklist_items`, `maintenance_logs`, and `safety_trainings`.
+- The database schema includes tables for `approvals`, `users`, `tasks`, `inspections`, `legal_inspection_presets`, `inspection_logs`, `drafts`, `tax_schedules`, `vendors`, `commissions`, `tenants`, `owners`, `vehicles`, `notifications`, `document_checklists`, `rfqs`, `quotes`, `work_reports`, `settlements`, `safety_checklists`, `safety_checklist_items`, `maintenance_logs`, `safety_trainings`, `data_destruction_logs`, and `vehicle_history`.
 
 **Core Features & Design Patterns:**
 
@@ -96,3 +96,20 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Orval**: OpenAPI to TypeScript client generator.
 - **esbuild**: JavaScript bundler.
 - **jsPDF**: Library for generating PDF documents on the client side.
+
+## Privacy Data Auto-Destruction System
+
+Implements personal data destruction complying with Korean privacy law (퇴거 후 3년 자동 파기):
+- `dataDestructionDate` column on tenants and owners tables (auto-calculated as moveOutDate + 3 years)
+- `dataDestructionLogs` table for audit trail of all destruction operations
+- API endpoints for: listing destruction schedule, processing destructions (anonymization), 30-day pre-alerts, viewing audit logs
+- Anonymization process: sets name to "***", nullifies PII fields (phone, email, residentId, etc.), sets status to "destroyed"
+- Tenant/Owner status values: `active`, `moved_out`, `destroyed`
+- Frontend: destruction status badge, "파기완료" filter option on tenants/owners pages
+
+## Vehicle Monthly Inspection Automation
+
+- Vehicle status tracking: `registered` / `cancelled` with `cancelledAt` timestamp
+- `vehicleHistory` table for registration/cancellation timeline
+- API endpoints: individual cancel, batch cancel, history timeline, monthly inspection (detects units with active tenants but no registered vehicles)
+- Frontend vehicles page: status filter, checkbox batch selection, batch cancel button, per-vehicle cancel, history timeline dialog, monthly inspection trigger button

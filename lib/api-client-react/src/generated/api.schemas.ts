@@ -991,6 +991,7 @@ export const AlertType = {
   tax_due: "tax_due",
   task_overdue: "task_overdue",
   vendor_recommendation: "vendor_recommendation",
+  data_destruction: "data_destruction",
 } as const;
 
 export type AlertSeverity = (typeof AlertSeverity)[keyof typeof AlertSeverity];
@@ -1194,6 +1195,7 @@ export type TenantStatus = (typeof TenantStatus)[keyof typeof TenantStatus];
 export const TenantStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export interface Tenant {
@@ -1236,6 +1238,8 @@ export interface Tenant {
   businessRegDoc: boolean;
   idDoc: boolean;
   createdAt: string;
+  /** @nullable */
+  dataDestructionDate?: string | null;
   updatedAt: string;
 }
 
@@ -1284,6 +1288,7 @@ export type UpdateTenantBodyStatus =
 export const UpdateTenantBodyStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export interface UpdateTenantBody {
@@ -1331,6 +1336,7 @@ export type OwnerStatus = (typeof OwnerStatus)[keyof typeof OwnerStatus];
 export const OwnerStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export interface Owner {
@@ -1369,6 +1375,8 @@ export interface Owner {
   idDoc: boolean;
   propertyDoc: boolean;
   createdAt: string;
+  /** @nullable */
+  dataDestructionDate?: string | null;
   updatedAt: string;
 }
 
@@ -1413,6 +1421,7 @@ export type UpdateOwnerBodyStatus =
 export const UpdateOwnerBodyStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export interface UpdateOwnerBody {
@@ -1461,6 +1470,13 @@ export const VehicleOwnershipType = {
   other: "other",
 } as const;
 
+export type VehicleStatus = (typeof VehicleStatus)[keyof typeof VehicleStatus];
+
+export const VehicleStatus = {
+  registered: "registered",
+  cancelled: "cancelled",
+} as const;
+
 export interface Vehicle {
   id: number;
   /** @nullable */
@@ -1482,6 +1498,9 @@ export interface Vehicle {
   registrationDoc: boolean;
   insuranceDoc: boolean;
   leaseDoc: boolean;
+  status: VehicleStatus;
+  /** @nullable */
+  cancelledAt?: string | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -1554,6 +1573,43 @@ export interface UpdateVehicleBody {
   leaseDoc?: boolean;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface VehicleHistoryEntry {
+  id: number;
+  vehicleId: number;
+  action: string;
+  vehicleNumber: string;
+  unit: string;
+  performedBy: string;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface DestructionScheduleItem {
+  entityType: string;
+  entityId: number;
+  unit: string;
+  name: string;
+  moveOutDate: string;
+  dataDestructionDate: string;
+  daysUntilDestruction: number;
+  status: string;
+}
+
+export interface DataDestructionLog {
+  id: number;
+  entityType: string;
+  entityId: number;
+  unit: string;
+  originalName: string;
+  destructionType: string;
+  processedAt: string;
+  processedBy: string;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
 }
 
 export interface Notification {
@@ -2733,6 +2789,7 @@ export type ListTenantsStatus =
 export const ListTenantsStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export type ListOwnersParams = {
@@ -2747,17 +2804,60 @@ export type ListOwnersStatus =
 export const ListOwnersStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;
 
 export type ListVehiclesParams = {
   unit?: string;
   search?: string;
   tenantId?: number;
+  status?: ListVehiclesStatus;
 };
+
+export type ListVehiclesStatus =
+  (typeof ListVehiclesStatus)[keyof typeof ListVehiclesStatus];
+
+export const ListVehiclesStatus = {
+  registered: "registered",
+  cancelled: "cancelled",
+} as const;
 
 export type GetUnregisteredVehicles200 = {
   message: string;
   reviewMonth: number;
+};
+
+export type CancelVehicleBody = {
+  notes?: string;
+};
+
+export type BatchCancelVehiclesBody = {
+  ids: number[];
+  notes?: string;
+};
+
+export type BatchCancelVehicles200 = {
+  cancelledCount: number;
+};
+
+export type RunVehicleInspection200 = {
+  unregisteredCount: number;
+  notificationCreated: boolean;
+};
+
+export type ProcessDestructions200ItemsItem = {
+  entityType?: string;
+  entityId?: number;
+  unit?: string;
+};
+
+export type ProcessDestructions200 = {
+  processedCount: number;
+  items?: ProcessDestructions200ItemsItem[];
+};
+
+export type SendDestructionAlerts200 = {
+  alertCount: number;
 };
 
 export type GetUnreadNotificationCount200 = {

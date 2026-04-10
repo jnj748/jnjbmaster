@@ -1464,6 +1464,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "tax_due",
     "task_overdue",
     "vendor_recommendation",
+    "data_destruction",
   ]),
   title: zod.string(),
   message: zod.string(),
@@ -2328,7 +2329,7 @@ export const GetExecutiveSpendingResponse = zod.object({
  * @summary List tenants
  */
 export const ListTenantsQueryParams = zod.object({
-  status: zod.enum(["active", "moved_out"]).optional(),
+  status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
   search: zod.coerce.string().optional(),
   unit: zod.coerce.string().optional(),
 });
@@ -2352,12 +2353,13 @@ export const ListTenantsResponseItem = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 export const ListTenantsResponse = zod.array(ListTenantsResponseItem);
@@ -2415,12 +2417,13 @@ export const GetTenantResponse = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 
@@ -2449,7 +2452,7 @@ export const UpdateTenantBody = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]).optional(),
+  status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean().optional(),
   businessRegDoc: zod.boolean().optional(),
@@ -2475,12 +2478,13 @@ export const UpdateTenantResponse = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 
@@ -2495,7 +2499,7 @@ export const DeleteTenantParams = zod.object({
  * @summary List owners
  */
 export const ListOwnersQueryParams = zod.object({
-  status: zod.enum(["active", "moved_out"]).optional(),
+  status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
   search: zod.coerce.string().optional(),
   unit: zod.coerce.string().optional(),
 });
@@ -2517,12 +2521,13 @@ export const ListOwnersResponseItem = zod.object({
   vehicleType: zod.string().nullish(),
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 export const ListOwnersResponse = zod.array(ListOwnersResponseItem);
@@ -2576,12 +2581,13 @@ export const GetOwnerResponse = zod.object({
   vehicleType: zod.string().nullish(),
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 
@@ -2608,7 +2614,7 @@ export const UpdateOwnerBody = zod.object({
   vehicleType: zod.string().nullish(),
   hasTv: zod.boolean().optional(),
   notes: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]).optional(),
+  status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
   privacyConsentDate: zod.coerce.date().nullish(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
@@ -2632,12 +2638,13 @@ export const UpdateOwnerResponse = zod.object({
   vehicleType: zod.string().nullish(),
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
-  status: zod.enum(["active", "moved_out"]),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
   createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
 });
 
@@ -2655,6 +2662,7 @@ export const ListVehiclesQueryParams = zod.object({
   unit: zod.coerce.string().optional(),
   search: zod.coerce.string().optional(),
   tenantId: zod.coerce.number().optional(),
+  status: zod.enum(["registered", "cancelled"]).optional(),
 });
 
 export const ListVehiclesResponseItem = zod.object({
@@ -2672,6 +2680,8 @@ export const ListVehiclesResponseItem = zod.object({
   registrationDoc: zod.boolean(),
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
+  status: zod.enum(["registered", "cancelled"]),
+  cancelledAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2720,6 +2730,8 @@ export const GetVehicleResponse = zod.object({
   registrationDoc: zod.boolean(),
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
+  status: zod.enum(["registered", "cancelled"]),
+  cancelledAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2764,6 +2776,8 @@ export const UpdateVehicleResponse = zod.object({
   registrationDoc: zod.boolean(),
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
+  status: zod.enum(["registered", "cancelled"]),
+  cancelledAt: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2783,6 +2797,139 @@ export const GetUnregisteredVehiclesResponse = zod.object({
   message: zod.string(),
   reviewMonth: zod.number(),
 });
+
+/**
+ * @summary Cancel a vehicle registration
+ */
+export const CancelVehicleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelVehicleBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const CancelVehicleResponse = zod.object({
+  id: zod.number(),
+  tenantId: zod.number().nullish(),
+  unit: zod.string(),
+  tenantRelation: zod.string().nullish(),
+  vehicleNumber: zod.string(),
+  vehicleType: zod.string().nullish(),
+  vehicleColor: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerContact: zod.string().nullish(),
+  isPrimary: zod.boolean(),
+  ownershipType: zod.enum(["owned", "leased", "rental", "other"]),
+  registrationDoc: zod.boolean(),
+  insuranceDoc: zod.boolean(),
+  leaseDoc: zod.boolean(),
+  status: zod.enum(["registered", "cancelled"]),
+  cancelledAt: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Batch cancel vehicle registrations
+ */
+export const BatchCancelVehiclesBody = zod.object({
+  ids: zod.array(zod.number()),
+  notes: zod.string().optional(),
+});
+
+export const BatchCancelVehiclesResponse = zod.object({
+  cancelledCount: zod.number(),
+});
+
+/**
+ * @summary Get vehicle registration/cancellation history
+ */
+export const GetVehicleHistoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetVehicleHistoryResponseItem = zod.object({
+  id: zod.number(),
+  vehicleId: zod.number(),
+  action: zod.string(),
+  vehicleNumber: zod.string(),
+  unit: zod.string(),
+  performedBy: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetVehicleHistoryResponse = zod.array(
+  GetVehicleHistoryResponseItem,
+);
+
+/**
+ * @summary Run monthly vehicle inspection and create notifications
+ */
+export const RunVehicleInspectionResponse = zod.object({
+  unregisteredCount: zod.number(),
+  notificationCreated: zod.boolean(),
+});
+
+/**
+ * @summary List upcoming data destruction schedules
+ */
+export const ListDestructionScheduleResponseItem = zod.object({
+  entityType: zod.string(),
+  entityId: zod.number(),
+  unit: zod.string(),
+  name: zod.string(),
+  moveOutDate: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date(),
+  daysUntilDestruction: zod.number(),
+  status: zod.string(),
+});
+export const ListDestructionScheduleResponse = zod.array(
+  ListDestructionScheduleResponseItem,
+);
+
+/**
+ * @summary Process due data destructions (anonymize personal data)
+ */
+export const ProcessDestructionsResponse = zod.object({
+  processedCount: zod.number(),
+  items: zod
+    .array(
+      zod.object({
+        entityType: zod.string().optional(),
+        entityId: zod.number().optional(),
+        unit: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Send alerts for destructions due within 30 days
+ */
+export const SendDestructionAlertsResponse = zod.object({
+  alertCount: zod.number(),
+});
+
+/**
+ * @summary List data destruction audit logs
+ */
+export const ListDestructionLogsResponseItem = zod.object({
+  id: zod.number(),
+  entityType: zod.string(),
+  entityId: zod.number(),
+  unit: zod.string(),
+  originalName: zod.string(),
+  destructionType: zod.string(),
+  processedAt: zod.coerce.date(),
+  processedBy: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListDestructionLogsResponse = zod.array(
+  ListDestructionLogsResponseItem,
+);
 
 /**
  * @summary List notifications

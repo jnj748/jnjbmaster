@@ -27,6 +27,7 @@ export const tenantsTable = pgTable("tenants", {
   businessRegDoc: boolean("business_reg_doc").notNull().default(false),
   idDoc: boolean("id_doc").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  dataDestructionDate: date("data_destruction_date"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Users, Search, Download, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, Users, Search, Download, Eye, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 
@@ -362,6 +362,7 @@ export default function Tenants() {
             <SelectItem value="all">전체</SelectItem>
             <SelectItem value="active">입주중</SelectItem>
             <SelectItem value="moved_out">퇴거</SelectItem>
+            <SelectItem value="destroyed">파기완료</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -393,8 +394,8 @@ export default function Tenants() {
                     <TableCell className="text-muted-foreground">{tenant.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{tenant.moveInDate || "-"}</TableCell>
                     <TableCell>
-                      <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
-                        {tenant.status === "active" ? "입주중" : "퇴거"}
+                      <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"}>
+                        {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -477,6 +478,36 @@ export default function Tenants() {
                 <p className="text-sm font-medium mb-1">개인정보 동의일시</p>
                 <p className="text-sm">{detailDialog.privacyConsentDate ? new Date(detailDialog.privacyConsentDate).toLocaleString("ko-KR") : "미동의"}</p>
               </div>
+              {detailDialog.status === "moved_out" && detailDialog.dataDestructionDate && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldAlert className="w-4 h-4 text-orange-500" />
+                    <p className="text-sm font-medium">개인정보 파기 예정</p>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 space-y-1">
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">퇴거일:</span> {detailDialog.moveOutDate}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">파기 예정일:</span>{" "}
+                      <span className="font-medium text-orange-600 dark:text-orange-400">{detailDialog.dataDestructionDate}</span>
+                    </p>
+                    {(() => {
+                      const daysLeft = Math.ceil(
+                        (new Date(detailDialog.dataDestructionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                      );
+                      return (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">남은 기간:</span>{" "}
+                          <Badge variant={daysLeft <= 30 ? "destructive" : daysLeft <= 90 ? "secondary" : "outline"}>
+                            {daysLeft <= 0 ? "파기 대상" : `${daysLeft}일 남음`}
+                          </Badge>
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
               {detailDialog.notes && (
                 <div className="border-t pt-3">
                   <p className="text-sm font-medium mb-1">기타사항</p>

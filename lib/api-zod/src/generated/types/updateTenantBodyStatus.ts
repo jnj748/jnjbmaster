@@ -12,4 +12,5 @@ export type UpdateTenantBodyStatus =
 export const UpdateTenantBodyStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;

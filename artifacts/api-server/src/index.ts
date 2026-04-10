@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { seedDocumentTemplates } from "./routes/seedTemplates";
 import { db, usersTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { startScheduler, stopScheduler } from "./scheduler";
 
 async function migrateLegacyUsers() {
   await db.update(usersTable)
@@ -53,4 +54,16 @@ app.listen(port, async (err) => {
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed document templates");
   }
+
+  startScheduler();
+});
+
+process.on("SIGTERM", () => {
+  stopScheduler();
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  stopScheduler();
+  process.exit(0);
 });

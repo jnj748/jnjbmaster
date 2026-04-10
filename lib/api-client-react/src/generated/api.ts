@@ -28,8 +28,11 @@ import type {
   ApproveMatchingResponse,
   AutoSettleCommissionBody,
   AutoSettleCommissionResponse,
+  BatchCancelVehicles200,
+  BatchCancelVehiclesBody,
   BulkRegisterInspectionsBody,
   BulkRegisterInspectionsResponse,
+  CancelVehicleBody,
   Commission,
   CompleteInspectionBody,
   CreateApprovalBody,
@@ -54,8 +57,10 @@ import type {
   CreateWorkReportBody,
   DailyReportItem,
   DashboardSummary,
+  DataDestructionLog,
   DeleteDocumentTemplate200,
   DeleteSignature200,
+  DestructionScheduleItem,
   DigitalSignatureItem,
   DocumentChecklist,
   DocumentTemplateItem,
@@ -100,16 +105,19 @@ import type {
   Notification,
   Owner,
   ProcessApprovalStepBody,
+  ProcessDestructions200,
   Quote,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   ReviewReportBody,
   Rfq,
+  RunVehicleInspection200,
   SafetyChecklist,
   SafetyChecklistDetail,
   SafetyChecklistItem,
   SafetyTraining,
   SaveApprovalDraftBody,
+  SendDestructionAlerts200,
   Settlement,
   SubmitDraftBody,
   Task,
@@ -134,6 +142,7 @@ import type {
   UpdateWorkReportBody,
   UpsertDocumentChecklistBody,
   Vehicle,
+  VehicleHistoryEntry,
   Vendor,
   WeeklyReport,
   WeeklySummaryReportItem,
@@ -8948,6 +8957,663 @@ export function useGetUnregisteredVehicles<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetUnregisteredVehiclesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Cancel a vehicle registration
+ */
+export const getCancelVehicleUrl = (id: number) => {
+  return `/api/vehicles/${id}/cancel`;
+};
+
+export const cancelVehicle = async (
+  id: number,
+  cancelVehicleBody: CancelVehicleBody,
+  options?: RequestInit,
+): Promise<Vehicle> => {
+  return customFetch<Vehicle>(getCancelVehicleUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(cancelVehicleBody),
+  });
+};
+
+export const getCancelVehicleMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelVehicle>>,
+    TError,
+    { id: number; data: BodyType<CancelVehicleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelVehicle>>,
+  TError,
+  { id: number; data: BodyType<CancelVehicleBody> },
+  TContext
+> => {
+  const mutationKey = ["cancelVehicle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelVehicle>>,
+    { id: number; data: BodyType<CancelVehicleBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return cancelVehicle(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelVehicleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelVehicle>>
+>;
+export type CancelVehicleMutationBody = BodyType<CancelVehicleBody>;
+export type CancelVehicleMutationError = ErrorType<void>;
+
+/**
+ * @summary Cancel a vehicle registration
+ */
+export const useCancelVehicle = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelVehicle>>,
+    TError,
+    { id: number; data: BodyType<CancelVehicleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelVehicle>>,
+  TError,
+  { id: number; data: BodyType<CancelVehicleBody> },
+  TContext
+> => {
+  return useMutation(getCancelVehicleMutationOptions(options));
+};
+
+/**
+ * @summary Batch cancel vehicle registrations
+ */
+export const getBatchCancelVehiclesUrl = () => {
+  return `/api/vehicles/batch-cancel`;
+};
+
+export const batchCancelVehicles = async (
+  batchCancelVehiclesBody: BatchCancelVehiclesBody,
+  options?: RequestInit,
+): Promise<BatchCancelVehicles200> => {
+  return customFetch<BatchCancelVehicles200>(getBatchCancelVehiclesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(batchCancelVehiclesBody),
+  });
+};
+
+export const getBatchCancelVehiclesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof batchCancelVehicles>>,
+    TError,
+    { data: BodyType<BatchCancelVehiclesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof batchCancelVehicles>>,
+  TError,
+  { data: BodyType<BatchCancelVehiclesBody> },
+  TContext
+> => {
+  const mutationKey = ["batchCancelVehicles"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof batchCancelVehicles>>,
+    { data: BodyType<BatchCancelVehiclesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return batchCancelVehicles(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BatchCancelVehiclesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof batchCancelVehicles>>
+>;
+export type BatchCancelVehiclesMutationBody = BodyType<BatchCancelVehiclesBody>;
+export type BatchCancelVehiclesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Batch cancel vehicle registrations
+ */
+export const useBatchCancelVehicles = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof batchCancelVehicles>>,
+    TError,
+    { data: BodyType<BatchCancelVehiclesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof batchCancelVehicles>>,
+  TError,
+  { data: BodyType<BatchCancelVehiclesBody> },
+  TContext
+> => {
+  return useMutation(getBatchCancelVehiclesMutationOptions(options));
+};
+
+/**
+ * @summary Get vehicle registration/cancellation history
+ */
+export const getGetVehicleHistoryUrl = (id: number) => {
+  return `/api/vehicles/${id}/history`;
+};
+
+export const getVehicleHistory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<VehicleHistoryEntry[]> => {
+  return customFetch<VehicleHistoryEntry[]>(getGetVehicleHistoryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVehicleHistoryQueryKey = (id: number) => {
+  return [`/api/vehicles/${id}/history`] as const;
+};
+
+export const getGetVehicleHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVehicleHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVehicleHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetVehicleHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVehicleHistory>>
+  > = ({ signal }) => getVehicleHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVehicleHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVehicleHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVehicleHistory>>
+>;
+export type GetVehicleHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get vehicle registration/cancellation history
+ */
+
+export function useGetVehicleHistory<
+  TData = Awaited<ReturnType<typeof getVehicleHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVehicleHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVehicleHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Run monthly vehicle inspection and create notifications
+ */
+export const getRunVehicleInspectionUrl = () => {
+  return `/api/vehicles/inspection`;
+};
+
+export const runVehicleInspection = async (
+  options?: RequestInit,
+): Promise<RunVehicleInspection200> => {
+  return customFetch<RunVehicleInspection200>(getRunVehicleInspectionUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRunVehicleInspectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runVehicleInspection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runVehicleInspection>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["runVehicleInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runVehicleInspection>>,
+    void
+  > = () => {
+    return runVehicleInspection(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunVehicleInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runVehicleInspection>>
+>;
+
+export type RunVehicleInspectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run monthly vehicle inspection and create notifications
+ */
+export const useRunVehicleInspection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runVehicleInspection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runVehicleInspection>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRunVehicleInspectionMutationOptions(options));
+};
+
+/**
+ * @summary List upcoming data destruction schedules
+ */
+export const getListDestructionScheduleUrl = () => {
+  return `/api/privacy/destruction-schedule`;
+};
+
+export const listDestructionSchedule = async (
+  options?: RequestInit,
+): Promise<DestructionScheduleItem[]> => {
+  return customFetch<DestructionScheduleItem[]>(
+    getListDestructionScheduleUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDestructionScheduleQueryKey = () => {
+  return [`/api/privacy/destruction-schedule`] as const;
+};
+
+export const getListDestructionScheduleQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDestructionSchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionSchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDestructionScheduleQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDestructionSchedule>>
+  > = ({ signal }) => listDestructionSchedule({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionSchedule>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDestructionScheduleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDestructionSchedule>>
+>;
+export type ListDestructionScheduleQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List upcoming data destruction schedules
+ */
+
+export function useListDestructionSchedule<
+  TData = Awaited<ReturnType<typeof listDestructionSchedule>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionSchedule>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDestructionScheduleQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Process due data destructions (anonymize personal data)
+ */
+export const getProcessDestructionsUrl = () => {
+  return `/api/privacy/process-destructions`;
+};
+
+export const processDestructions = async (
+  options?: RequestInit,
+): Promise<ProcessDestructions200> => {
+  return customFetch<ProcessDestructions200>(getProcessDestructionsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getProcessDestructionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processDestructions>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof processDestructions>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["processDestructions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof processDestructions>>,
+    void
+  > = () => {
+    return processDestructions(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProcessDestructionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof processDestructions>>
+>;
+
+export type ProcessDestructionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Process due data destructions (anonymize personal data)
+ */
+export const useProcessDestructions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processDestructions>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof processDestructions>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getProcessDestructionsMutationOptions(options));
+};
+
+/**
+ * @summary Send alerts for destructions due within 30 days
+ */
+export const getSendDestructionAlertsUrl = () => {
+  return `/api/privacy/destruction-alerts`;
+};
+
+export const sendDestructionAlerts = async (
+  options?: RequestInit,
+): Promise<SendDestructionAlerts200> => {
+  return customFetch<SendDestructionAlerts200>(getSendDestructionAlertsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendDestructionAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendDestructionAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendDestructionAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["sendDestructionAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendDestructionAlerts>>,
+    void
+  > = () => {
+    return sendDestructionAlerts(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendDestructionAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendDestructionAlerts>>
+>;
+
+export type SendDestructionAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send alerts for destructions due within 30 days
+ */
+export const useSendDestructionAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendDestructionAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendDestructionAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSendDestructionAlertsMutationOptions(options));
+};
+
+/**
+ * @summary List data destruction audit logs
+ */
+export const getListDestructionLogsUrl = () => {
+  return `/api/privacy/destruction-logs`;
+};
+
+export const listDestructionLogs = async (
+  options?: RequestInit,
+): Promise<DataDestructionLog[]> => {
+  return customFetch<DataDestructionLog[]>(getListDestructionLogsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDestructionLogsQueryKey = () => {
+  return [`/api/privacy/destruction-logs`] as const;
+};
+
+export const getListDestructionLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDestructionLogs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionLogs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDestructionLogsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDestructionLogs>>
+  > = ({ signal }) => listDestructionLogs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDestructionLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDestructionLogs>>
+>;
+export type ListDestructionLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List data destruction audit logs
+ */
+
+export function useListDestructionLogs<
+  TData = Awaited<ReturnType<typeof listDestructionLogs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDestructionLogs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDestructionLogsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

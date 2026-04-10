@@ -12,4 +12,5 @@ export type ListOwnersStatus =
 export const ListOwnersStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;

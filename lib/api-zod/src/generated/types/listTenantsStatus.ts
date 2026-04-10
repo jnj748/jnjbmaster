@@ -12,4 +12,5 @@ export type ListTenantsStatus =
 export const ListTenantsStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;

@@ -13,4 +13,5 @@ export const AlertType = {
   tax_due: "tax_due",
   task_overdue: "task_overdue",
   vendor_recommendation: "vendor_recommendation",
+  data_destruction: "data_destruction",
 } as const;

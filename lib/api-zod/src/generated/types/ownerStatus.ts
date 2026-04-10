@@ -11,4 +11,5 @@ export type OwnerStatus = (typeof OwnerStatus)[keyof typeof OwnerStatus];
 export const OwnerStatus = {
   active: "active",
   moved_out: "moved_out",
+  destroyed: "destroyed",
 } as const;

@@ -28,6 +28,7 @@ import approvalStepsRouter from "./approvalSteps";
 import signaturesRouter from "./signatures";
 import documentTemplatesRouter from "./documentTemplates";
 import reportSystemRouter from "./reportSystem";
+import privacyRouter from "./privacy";
 
 const router: IRouter = Router();
 
@@ -66,6 +67,7 @@ buildingRouter.use(safetyChecklistsRouter);
 buildingRouter.use(maintenanceLogsRouter);
 buildingRouter.use(safetyTrainingsRouter);
 buildingRouter.use(facilityDashboardRouter);
+buildingRouter.use(privacyRouter);
 router.use(buildingRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, desc } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable } from "@workspace/db";
+import { eq, and, lte, gte, isNotNull, desc, sql } from "drizzle-orm";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
   GetDashboardAlertsResponse,
@@ -188,6 +188,62 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         createdAt: new Date().toISOString(),
       });
     }
+  }
+
+  const upcomingDestructionTenants = await db
+    .select()
+    .from(tenantsTable)
+    .where(
+      and(
+        isNotNull(tenantsTable.dataDestructionDate),
+        lte(tenantsTable.dataDestructionDate, futureStr),
+        sql`${tenantsTable.dataDestructionDate} >= ${today}`,
+        eq(tenantsTable.status, "moved_out")
+      )
+    );
+
+  const upcomingDestructionOwners = await db
+    .select()
+    .from(ownersTable)
+    .where(
+      and(
+        isNotNull(ownersTable.dataDestructionDate),
+        lte(ownersTable.dataDestructionDate, futureStr),
+        sql`${ownersTable.dataDestructionDate} >= ${today}`,
+        eq(ownersTable.status, "moved_out")
+      )
+    );
+
+  for (const tenant of upcomingDestructionTenants) {
+    const daysLeft = Math.ceil(
+      (new Date(tenant.dataDestructionDate!).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    alerts.push({
+      id: alertId++,
+      type: "data_destruction",
+      title: `${tenant.unit}호 입주자 개인정보 파기 예정`,
+      message: `${tenant.tenantName}의 개인정보가 ${tenant.dataDestructionDate}에 파기 예정입니다. (${daysLeft}일 남음)`,
+      severity: daysLeft <= 7 ? "critical" : "warning",
+      relatedId: tenant.id,
+      hasDraft: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  for (const owner of upcomingDestructionOwners) {
+    const daysLeft = Math.ceil(
+      (new Date(owner.dataDestructionDate!).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    alerts.push({
+      id: alertId++,
+      type: "data_destruction",
+      title: `${owner.unit}호 소유자 개인정보 파기 예정`,
+      message: `${owner.ownerName}의 개인정보가 ${owner.dataDestructionDate}에 파기 예정입니다. (${daysLeft}일 남음)`,
+      severity: daysLeft <= 7 ? "critical" : "warning",
+      relatedId: owner.id,
+      hasDraft: false,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   res.json(GetDashboardAlertsResponse.parse(alerts));

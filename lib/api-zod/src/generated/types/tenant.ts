@@ -47,5 +47,7 @@ export interface Tenant {
   businessRegDoc: boolean;
   idDoc: boolean;
   createdAt: Date;
+  /** @nullable */
+  dataDestructionDate?: Date | null;
   updatedAt: Date;
 }

@@ -5,9 +5,13 @@ import {
   useUpdateVehicle,
   useDeleteVehicle,
   useListTenants,
+  useCancelVehicle,
+  useBatchCancelVehicles,
+  useGetVehicleHistory,
+  useRunVehicleInspection,
   getListVehiclesQueryKey,
 } from "@workspace/api-client-react";
-import type { Vehicle, CreateVehicleBody, ListVehiclesParams, CreateVehicleBodyOwnershipType } from "@workspace/api-client-react";
+import type { Vehicle, CreateVehicleBody, ListVehiclesParams, CreateVehicleBodyOwnershipType, VehicleHistoryEntry } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Car, Search, Download, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 
@@ -70,13 +74,17 @@ const emptyForm = {
 export default function Vehicles() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<Vehicle | null>(null);
+  const [historyDialog, setHistoryDialog] = useState<Vehicle | null>(null);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const queryParams: ListVehiclesParams = {};
   if (searchTerm) queryParams.search = searchTerm;
+  if (filterStatus && filterStatus !== "all") queryParams.status = filterStatus as ListVehiclesParams["status"];
 
   const { data: vehicles, isLoading } = useListVehicles(
     Object.keys(queryParams).length > 0 ? queryParams : undefined
@@ -85,6 +93,13 @@ export default function Vehicles() {
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
   const deleteMutation = useDeleteVehicle();
+  const cancelMutation = useCancelVehicle();
+  const batchCancelMutation = useBatchCancelVehicles();
+  const inspectionMutation = useRunVehicleInspection();
+
+  const { data: historyData } = useGetVehicleHistory(historyDialog?.id ?? 0, {
+    query: { enabled: !!historyDialog },
+  });
 
   const [form, setForm] = useState({ ...emptyForm });
 
@@ -156,6 +171,57 @@ export default function Vehicles() {
     toast({ title: "차량이 삭제되었습니다" });
   }
 
+  async function handleCancel(vehicle: Vehicle) {
+    try {
+      await cancelMutation.mutateAsync({ id: vehicle.id, data: { notes: "차량 말소 처리" } });
+      queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() });
+      toast({ title: `${vehicle.vehicleNumber} 차량이 말소 처리되었습니다` });
+    } catch {
+      toast({ title: "오류", description: "말소 처리에 실패했습니다", variant: "destructive" });
+    }
+  }
+
+  async function handleBatchCancel() {
+    if (selectedIds.length === 0) return;
+    try {
+      const result = await batchCancelMutation.mutateAsync({ data: { ids: selectedIds, notes: "일괄 말소 처리" } });
+      queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() });
+      setSelectedIds([]);
+      toast({ title: `${result.cancelledCount}대의 차량이 일괄 말소 처리되었습니다` });
+    } catch {
+      toast({ title: "오류", description: "일괄 말소 처리에 실패했습니다", variant: "destructive" });
+    }
+  }
+
+  async function handleInspection() {
+    try {
+      const result = await inspectionMutation.mutateAsync();
+      if (result.notificationCreated) {
+        toast({ title: "차량 점검 완료", description: `미등록 차량 ${result.unregisteredCount}건 알림이 발송되었습니다` });
+      } else {
+        toast({ title: "차량 점검 완료", description: "미등록 차량이 없습니다" });
+      }
+    } catch {
+      toast({ title: "오류", description: "점검 실행에 실패했습니다", variant: "destructive" });
+    }
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    if (!vehicles) return;
+    const registeredVehicles = vehicles.filter((v) => v.status === "registered");
+    if (selectedIds.length === registeredVehicles.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(registeredVehicles.map((v) => v.id));
+    }
+  }
+
   function getRequiredDocs(ownershipType: string) {
     switch (ownershipType) {
       case "owned":
@@ -184,6 +250,7 @@ export default function Vehicles() {
       `연락처: ${vehicle.ownerContact || "-"}`,
       `구분: ${vehicle.isPrimary ? "기본차량" : "추가차량"}`,
       `소유형태: ${ownershipOptions.find((o) => o.value === vehicle.ownershipType)?.label || vehicle.ownershipType}`,
+      `상태: ${vehicle.status === "registered" ? "등록" : "말소"}`,
       ``,
       `[필요서류]`,
       `차량등록증: ${vehicle.registrationDoc ? "O" : "X"}`,
@@ -210,6 +277,14 @@ export default function Vehicles() {
     }
   }
 
+  function actionLabel(action: string): string {
+    switch (action) {
+      case "registered": return "등록";
+      case "cancelled": return "말소";
+      default: return action;
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -219,118 +294,124 @@ export default function Vehicles() {
             차량등록카드를 관리합니다 (기본차량 + 추가차량 최대 4대)
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              차량 등록
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editing ? "차량 수정" : "새 차량 등록"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>입주자 선택</Label>
-                <Select value={form.tenantId || "none"} onValueChange={handleTenantSelect}>
-                  <SelectTrigger><SelectValue placeholder="입주자 선택 (선택사항)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">선택 안함</SelectItem>
-                    {tenants?.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>
-                        {t.unit}호 - {t.tenantName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleInspection} disabled={inspectionMutation.isPending}>
+            <ClipboardCheck className="w-4 h-4 mr-2" />
+            월별 점검 실행
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                차량 등록
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editing ? "차량 수정" : "새 차량 등록"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label>입주호실 *</Label>
-                  <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
-                </div>
-                <div>
-                  <Label>입주자 관계</Label>
-                  <Input value={form.tenantRelation} onChange={(e) => setForm({ ...form, tenantRelation: e.target.value })} placeholder="본인, 배우자, 자녀 등" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>차량번호 *</Label>
-                  <Input value={form.vehicleNumber} onChange={(e) => setForm({ ...form, vehicleNumber: e.target.value })} required placeholder="12가 3456" />
-                </div>
-                <div>
-                  <Label>차종</Label>
-                  <Input value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })} placeholder="소나타, K5 등" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>색상</Label>
-                  <Input value={form.vehicleColor} onChange={(e) => setForm({ ...form, vehicleColor: e.target.value })} />
-                </div>
-                <div>
-                  <Label>소유형태</Label>
-                  <Select value={form.ownershipType} onValueChange={(v) => setForm({ ...form, ownershipType: v as CreateVehicleBodyOwnershipType })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>입주자 선택</Label>
+                  <Select value={form.tenantId || "none"} onValueChange={handleTenantSelect}>
+                    <SelectTrigger><SelectValue placeholder="입주자 선택 (선택사항)" /></SelectTrigger>
                     <SelectContent>
-                      {ownershipOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <SelectItem value="none">선택 안함</SelectItem>
+                      {tenants?.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.unit}호 - {t.tenantName}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>소유자명</Label>
-                  <Input value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>입주호실 *</Label>
+                    <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
+                  </div>
+                  <div>
+                    <Label>입주자 관계</Label>
+                    <Input value={form.tenantRelation} onChange={(e) => setForm({ ...form, tenantRelation: e.target.value })} placeholder="본인, 배우자, 자녀 등" />
+                  </div>
                 </div>
-                <div>
-                  <Label>연락처</Label>
-                  <Input value={form.ownerContact} onChange={(e) => setForm({ ...form, ownerContact: e.target.value })} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>차량번호 *</Label>
+                    <Input value={form.vehicleNumber} onChange={(e) => setForm({ ...form, vehicleNumber: e.target.value })} required placeholder="12가 3456" />
+                  </div>
+                  <div>
+                    <Label>차종</Label>
+                    <Input value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })} placeholder="소나타, K5 등" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox checked={form.isPrimary} onCheckedChange={(v) => setForm({ ...form, isPrimary: !!v })} />
-                <Label>기본차량</Label>
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>색상</Label>
+                    <Input value={form.vehicleColor} onChange={(e) => setForm({ ...form, vehicleColor: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>소유형태</Label>
+                    <Select value={form.ownershipType} onValueChange={(v) => setForm({ ...form, ownershipType: v as CreateVehicleBodyOwnershipType })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ownershipOptions.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>소유자명</Label>
+                    <Input value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>연락처</Label>
+                    <Input value={form.ownerContact} onChange={(e) => setForm({ ...form, ownerContact: e.target.value })} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={form.isPrimary} onCheckedChange={(v) => setForm({ ...form, isPrimary: !!v })} />
+                  <Label>기본차량</Label>
+                </div>
 
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-2">필요서류 체크리스트</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  소유형태: {ownershipLabel(form.ownershipType)} - 필요서류: {getRequiredDocs(form.ownershipType).join(", ")}
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={form.registrationDoc} onCheckedChange={(v) => setForm({ ...form, registrationDoc: !!v })} />
-                    <Label>차량등록증</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={form.insuranceDoc} onCheckedChange={(v) => setForm({ ...form, insuranceDoc: !!v })} />
-                    <Label>보험증서</Label>
-                  </div>
-                  {(form.ownershipType === "leased" || form.ownershipType === "rental") && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">필요서류 체크리스트</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    소유형태: {ownershipLabel(form.ownershipType)} - 필요서류: {getRequiredDocs(form.ownershipType).join(", ")}
+                  </p>
+                  <div className="flex flex-wrap gap-4">
                     <div className="flex items-center gap-2">
-                      <Checkbox checked={form.leaseDoc} onCheckedChange={(v) => setForm({ ...form, leaseDoc: !!v })} />
-                      <Label>{form.ownershipType === "leased" ? "리스계약서" : "렌탈계약서"}</Label>
+                      <Checkbox checked={form.registrationDoc} onCheckedChange={(v) => setForm({ ...form, registrationDoc: !!v })} />
+                      <Label>차량등록증</Label>
                     </div>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={form.insuranceDoc} onCheckedChange={(v) => setForm({ ...form, insuranceDoc: !!v })} />
+                      <Label>보험증서</Label>
+                    </div>
+                    {(form.ownershipType === "leased" || form.ownershipType === "rental") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={form.leaseDoc} onCheckedChange={(v) => setForm({ ...form, leaseDoc: !!v })} />
+                        <Label>{form.ownershipType === "leased" ? "리스계약서" : "렌탈계약서"}</Label>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <Label>비고</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              </div>
-              <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div>
+                  <Label>비고</Label>
+                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                </div>
+                <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -340,6 +421,20 @@ export default function Vehicles() {
             className="pl-9"
           />
         </div>
+        <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? undefined : v)}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="상태" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체</SelectItem>
+            <SelectItem value="registered">등록</SelectItem>
+            <SelectItem value="cancelled">말소</SelectItem>
+          </SelectContent>
+        </Select>
+        {selectedIds.length > 0 && (
+          <Button variant="destructive" size="sm" onClick={handleBatchCancel} disabled={batchCancelMutation.isPending}>
+            <XCircle className="w-4 h-4 mr-2" />
+            {selectedIds.length}대 일괄 말소
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -352,19 +447,33 @@ export default function Vehicles() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={vehicles.filter((v) => v.status === "registered").length > 0 && selectedIds.length === vehicles.filter((v) => v.status === "registered").length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>호실</TableHead>
                   <TableHead>차량번호</TableHead>
                   <TableHead>차종/색상</TableHead>
                   <TableHead>소유자</TableHead>
                   <TableHead>구분</TableHead>
-                  <TableHead>소유형태</TableHead>
+                  <TableHead>상태</TableHead>
                   <TableHead>서류</TableHead>
                   <TableHead className="text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id}>
+                  <TableRow key={vehicle.id} className={vehicle.status === "cancelled" ? "opacity-60" : ""}>
+                    <TableCell>
+                      {vehicle.status === "registered" && (
+                        <Checkbox
+                          checked={selectedIds.includes(vehicle.id)}
+                          onCheckedChange={() => toggleSelect(vehicle.id)}
+                        />
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{vehicle.unit}</TableCell>
                     <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -377,7 +486,9 @@ export default function Vehicles() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{ownershipLabel(vehicle.ownershipType)}</Badge>
+                      <Badge variant={vehicle.status === "registered" ? "default" : "destructive"}>
+                        {vehicle.status === "registered" ? "등록" : "말소"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -391,12 +502,22 @@ export default function Vehicles() {
                         <Button variant="ghost" size="sm" onClick={() => setDetailDialog(vehicle)}>
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setHistoryDialog(vehicle)}>
+                          <History className="w-3.5 h-3.5" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => exportVehicleCard(vehicle)}>
                           <Download className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(vehicle)}>
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
+                        {vehicle.status === "registered" && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(vehicle)}>
+                              <Edit className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleCancel(vehicle)}>
+                              <XCircle className="w-3.5 h-3.5 text-orange-500" />
+                            </Button>
+                          </>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => handleDelete(vehicle.id)}>
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </Button>
@@ -434,7 +555,20 @@ export default function Vehicles() {
                 <div><span className="text-muted-foreground">연락처:</span> {detailDialog.ownerContact || "-"}</div>
                 <div><span className="text-muted-foreground">구분:</span> {detailDialog.isPrimary ? "기본차량" : "추가차량"}</div>
                 <div><span className="text-muted-foreground">소유형태:</span> {ownershipLabel(detailDialog.ownershipType)}</div>
+                <div>
+                  <span className="text-muted-foreground">상태:</span>{" "}
+                  <Badge variant={detailDialog.status === "registered" ? "default" : "destructive"}>
+                    {detailDialog.status === "registered" ? "등록" : "말소"}
+                  </Badge>
+                </div>
               </div>
+              {detailDialog.cancelledAt && (
+                <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-3">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    말소 처리일: {new Date(detailDialog.cancelledAt).toLocaleString("ko-KR")}
+                  </p>
+                </div>
+              )}
               <div className="border-t pt-3">
                 <p className="text-sm font-medium mb-2">필요서류</p>
                 <div className="flex gap-3 text-sm">
@@ -453,6 +587,50 @@ export default function Vehicles() {
                 <Download className="w-4 h-4 mr-2" />
                 차량카드 PDF 내보내기
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyDialog} onOpenChange={(o) => { if (!o) setHistoryDialog(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>차량 이력 - {historyDialog?.vehicleNumber}</DialogTitle>
+          </DialogHeader>
+          {historyDialog && (
+            <div className="space-y-4">
+              {historyData && historyData.length > 0 ? (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+                  <div className="space-y-4">
+                    {historyData.map((entry: VehicleHistoryEntry) => (
+                      <div key={entry.id} className="relative pl-10">
+                        <div className={`absolute left-2.5 top-1.5 w-3 h-3 rounded-full border-2 ${
+                          entry.action === "registered" ? "bg-green-500 border-green-300" : "bg-red-500 border-red-300"
+                        }`} />
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge variant={entry.action === "registered" ? "default" : "destructive"}>
+                              {actionLabel(entry.action)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(entry.createdAt).toLocaleString("ko-KR")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{entry.unit}호 - {entry.vehicleNumber}</p>
+                          {entry.notes && <p className="text-xs text-muted-foreground mt-1">{entry.notes}</p>}
+                          <p className="text-xs text-muted-foreground mt-1">처리자: {entry.performedBy}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <History className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">이력이 없습니다</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
