@@ -23,12 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, Edit, Trash2, Settings } from "lucide-react";
 
@@ -205,11 +205,11 @@ export default function DocumentTemplates() {
         </Card>
       )}
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editId ? "서식 수정" : "서식 추가"}</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={editOpen} onOpenChange={setEditOpen}>
+        <ResponsiveDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{editId ? "서식 수정" : "서식 추가"}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-4">
             <div>
               <Label>서식 이름 *</Label>
@@ -263,16 +263,16 @@ export default function DocumentTemplates() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               취소
             </Button>
             <Button onClick={handleSave} disabled={!formName.trim() || !formBody.trim()}>
               {editId ? "수정" : "추가"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

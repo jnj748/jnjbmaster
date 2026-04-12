@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { ClipboardList, FileText, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -89,11 +89,11 @@ export default function Drafts() {
         </p>
       </div>
 
-      <Dialog open={selectedId !== null} onOpenChange={(o) => { if (!o) { setSelectedId(null); setIsEditing(false); } }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedDraft?.title}</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={selectedId !== null} onOpenChange={(o) => { if (!o) { setSelectedId(null); setIsEditing(false); } }}>
+        <ResponsiveDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{selectedDraft?.title}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {selectedDraft && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -143,8 +143,8 @@ export default function Drafts() {
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {isLoading ? (
         <div className="space-y-3">

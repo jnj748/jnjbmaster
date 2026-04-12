@@ -21,12 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Check, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -155,17 +155,17 @@ export default function Tasks() {
             일일/주간 업무를 관리하세요
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               업무 추가
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingTask ? "업무 수정" : "새 업무 등록"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editingTask ? "업무 수정" : "새 업무 등록"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>제목</Label>
@@ -220,8 +220,8 @@ export default function Tasks() {
                 {editingTask ? "수정" : "등록"}
               </Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">
@@ -253,51 +253,53 @@ export default function Tasks() {
         <div className="space-y-2">
           {tasks.map((task) => (
             <Card key={task.id} className={task.status === "completed" ? "opacity-60" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      onClick={() =>
-                        handleStatusChange(
-                          task.id,
-                          task.status === "completed" ? "pending" : "completed"
-                        )
-                      }
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        task.status === "completed"
-                          ? "bg-accent border-accent text-white"
-                          : "border-border hover:border-accent"
-                      }`}
-                    >
-                      {task.status === "completed" && <Check className="w-3 h-3" />}
-                    </button>
-                    <div className="min-w-0">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() =>
+                      handleStatusChange(
+                        task.id,
+                        task.status === "completed" ? "pending" : "completed"
+                      )
+                    }
+                    className={`w-6 h-6 mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors min-h-0 min-w-0 ${
+                      task.status === "completed"
+                        ? "bg-accent border-accent text-white"
+                        : "border-border hover:border-accent"
+                    }`}
+                  >
+                    {task.status === "completed" && <Check className="w-3 h-3" />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
                       <p className={`text-sm font-medium ${task.status === "completed" ? "line-through" : ""}`}>
                         {task.title}
                       </p>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {task.description}
-                        </p>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={() => openEdit(task)}>
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={() => handleDelete(task.id)}>
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {task.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-xs">
+                        {categoryLabel(task.category)}
+                      </Badge>
+                      <Badge variant={priorityColor(task.priority) as any} className="text-xs">
+                        {priorityLabel(task.priority)}
+                      </Badge>
+                      {task.dueDate && (
+                        <span className="text-xs text-muted-foreground">{formatDate(task.dueDate)}</span>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-xs">
-                      {categoryLabel(task.category)}
-                    </Badge>
-                    <Badge variant={priorityColor(task.priority) as any} className="text-xs">
-                      {priorityLabel(task.priority)}
-                    </Badge>
-                    {task.dueDate && (
-                      <span className="text-xs text-muted-foreground">{formatDate(task.dueDate)}</span>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(task)}>
-                      <Edit className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(task.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
                   </div>
                 </div>
               </CardContent>

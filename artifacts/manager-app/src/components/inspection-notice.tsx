@@ -1,10 +1,10 @@
 import { useState, useRef } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,11 +121,11 @@ export function InspectionNotice({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (o) setEditMode(true); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
-        <DialogHeader className="print:hidden">
-          <DialogTitle>점검 안내문 미리보기</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={(o) => { onOpenChange(o); if (o) setEditMode(true); }}>
+      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
+        <ResponsiveDialogHeader className="print:hidden">
+          <ResponsiveDialogTitle>점검 안내문 미리보기</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         {editMode && (
           <div className="space-y-3 border-b pb-4 mb-4 print:hidden">
@@ -194,7 +194,7 @@ export function InspectionNotice({
             인쇄
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

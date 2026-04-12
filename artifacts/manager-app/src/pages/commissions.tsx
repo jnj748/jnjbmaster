@@ -22,12 +22,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Coins, TrendingUp, Clock, CheckCircle, Zap, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -184,20 +184,20 @@ export default function Commissions() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={autoSettleDialogOpen} onOpenChange={(o) => { setAutoSettleDialogOpen(o); if (!o) resetAutoForm(); }}>
-            <DialogTrigger asChild>
+          <ResponsiveDialog open={autoSettleDialogOpen} onOpenChange={(o) => { setAutoSettleDialogOpen(o); if (!o) resetAutoForm(); }}>
+            <ResponsiveDialogTrigger asChild>
               <Button variant="outline">
                 <Zap className="w-4 h-4 mr-2" />
                 자동 정산
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+            </ResponsiveDialogTrigger>
+            <ResponsiveDialogContent>
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle className="flex items-center gap-2">
                   <Bot className="w-5 h-5" />
                   수수료 자동 정산
-                </DialogTitle>
-              </DialogHeader>
+                </ResponsiveDialogTitle>
+              </ResponsiveDialogHeader>
               <p className="text-sm text-muted-foreground">
                 계약 금액을 입력하면 수수료율(5~10%)이 자동 계산됩니다.
               </p>
@@ -254,20 +254,20 @@ export default function Commissions() {
                   {autoSettleMutation.isPending ? "정산 중..." : "자동 정산 실행"}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
 
-          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-            <DialogTrigger asChild>
+          <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+            <ResponsiveDialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 수수료 등록
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>새 수수료 등록</DialogTitle>
-              </DialogHeader>
+            </ResponsiveDialogTrigger>
+            <ResponsiveDialogContent>
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle>새 수수료 등록</ResponsiveDialogTitle>
+              </ResponsiveDialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>업체</Label>
@@ -317,8 +317,8 @@ export default function Commissions() {
                 </div>
                 <Button type="submit" className="w-full">등록</Button>
               </form>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
         </div>
       </div>
 
@@ -383,63 +383,110 @@ export default function Commissions() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20" />)}
         </div>
       ) : commissions && commissions.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium">업체</th>
-                  <th className="text-right p-3 font-medium">계약금액</th>
-                  <th className="text-right p-3 font-medium">수수료율</th>
-                  <th className="text-right p-3 font-medium">수수료</th>
-                  <th className="text-center p-3 font-medium">매칭일</th>
-                  <th className="text-center p-3 font-medium">유형</th>
-                  <th className="text-center p-3 font-medium">상태</th>
-                  <th className="text-center p-3 font-medium">관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {commissions.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3 font-medium">{c.vendorName}</td>
-                    <td className="p-3 text-right">{c.contractAmount.toLocaleString()}원</td>
-                    <td className="p-3 text-right">{c.commissionRate}%</td>
-                    <td className="p-3 text-right font-medium">{c.commissionAmount.toLocaleString()}원</td>
-                    <td className="p-3 text-center">{formatDate(c.matchedDate)}</td>
-                    <td className="p-3 text-center">
-                      {c.notes?.includes("[자동 정산]") ? (
-                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                          <Bot className="w-3 h-3 mr-1" />
-                          자동
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">수동</Badge>
-                      )}
-                    </td>
-                    <td className="p-3 text-center">
-                      <Badge variant={statusColor(c.status) as any}>
-                        {statusLabel(c.status)}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v)}>
-                        <SelectTrigger className="h-8 w-24 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">대기</SelectItem>
-                          <SelectItem value="confirmed">확정</SelectItem>
-                          <SelectItem value="paid">지급완료</SelectItem>
-                          <SelectItem value="cancelled">취소</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
+        <>
+        <div className="hidden md:block">
+          <Card>
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium">업체</th>
+                    <th className="text-right p-3 font-medium">계약금액</th>
+                    <th className="text-right p-3 font-medium">수수료율</th>
+                    <th className="text-right p-3 font-medium">수수료</th>
+                    <th className="text-center p-3 font-medium">매칭일</th>
+                    <th className="text-center p-3 font-medium">유형</th>
+                    <th className="text-center p-3 font-medium">상태</th>
+                    <th className="text-center p-3 font-medium">관리</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                </thead>
+                <tbody>
+                  {commissions.map((c) => (
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="p-3 font-medium">{c.vendorName}</td>
+                      <td className="p-3 text-right">{c.contractAmount.toLocaleString()}원</td>
+                      <td className="p-3 text-right">{c.commissionRate}%</td>
+                      <td className="p-3 text-right font-medium">{c.commissionAmount.toLocaleString()}원</td>
+                      <td className="p-3 text-center">{formatDate(c.matchedDate)}</td>
+                      <td className="p-3 text-center">
+                        {c.notes?.includes("[자동 정산]") ? (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                            <Bot className="w-3 h-3 mr-1" />
+                            자동
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">수동</Badge>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge variant={statusColor(c.status) as any}>
+                          {statusLabel(c.status)}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v)}>
+                          <SelectTrigger className="h-8 w-24 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">대기</SelectItem>
+                            <SelectItem value="confirmed">확정</SelectItem>
+                            <SelectItem value="paid">지급완료</SelectItem>
+                            <SelectItem value="cancelled">취소</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="md:hidden space-y-3">
+          {commissions.map((c) => (
+            <Card key={c.id}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium">{c.vendorName}</span>
+                  <div className="flex items-center gap-1.5">
+                    {c.notes?.includes("[자동 정산]") ? (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                        <Bot className="w-3 h-3 mr-1" />
+                        자동
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">수동</Badge>
+                    )}
+                    <Badge variant={statusColor(c.status) as any} className="text-xs">
+                      {statusLabel(c.status)}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-sm text-muted-foreground">
+                  <span>계약: {c.contractAmount.toLocaleString()}원</span>
+                  <span>수수료: {c.commissionAmount.toLocaleString()}원</span>
+                  <span>수수료율: {c.commissionRate}%</span>
+                  <span>매칭일: {formatDate(c.matchedDate)}</span>
+                </div>
+                <div className="mt-3">
+                  <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">대기</SelectItem>
+                      <SelectItem value="confirmed">확정</SelectItem>
+                      <SelectItem value="paid">지급완료</SelectItem>
+                      <SelectItem value="cancelled">취소</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">

@@ -27,12 +27,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit, Shield, Printer, CheckCircle, History, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -372,17 +372,17 @@ export default function Inspections() {
           <ClipboardList className="w-4 h-4 mr-2" />
           일괄 등록
         </Button>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               점검 등록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editing ? "점검 수정" : "새 점검 등록"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editing ? "점검 수정" : "새 점검 등록"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!editing && presets && presets.length > 0 && (
                 <div>
@@ -492,16 +492,16 @@ export default function Inspections() {
               </div>
               <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
         </div>
       </div>
 
-      <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>법정 점검 일괄 등록</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <ResponsiveDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>법정 점검 일괄 등록</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-4">
             <div>
               <Label>카테고리 선택</Label>
@@ -591,14 +591,14 @@ export default function Inspections() {
               {bulkRegisterMutation.isPending ? "등록 중..." : `${bulkSelectedIds.length}개 일괄 등록`}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>점검 완료 처리</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>점검 완료 처리</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <form onSubmit={handleComplete} className="space-y-4">
             <div>
               <Label>점검일</Label>
@@ -630,14 +630,14 @@ export default function Inspections() {
             </div>
             <Button type="submit" className="w-full">완료 처리</Button>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <Dialog open={historyDialogOpen} onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryId(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>점검 이력</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={historyDialogOpen} onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryId(null); }}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>점검 이력</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {logs && logs.length > 0 ? (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {logs.map((log) => (
@@ -660,8 +660,8 @@ export default function Inspections() {
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">점검 이력이 없습니다</p>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {isLoading ? (
         <div className="space-y-3">

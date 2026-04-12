@@ -76,6 +76,17 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Hierarchical Report System:** Daily reports (경비/미화/유지보수/보안 일지) → Weekly summary aggregation → Monthly summary aggregation. Role-based access for submission, review, and forwarding.
 - **Shared Utility:** `formatDate` in `src/lib/utils.ts` handles `string | null | undefined`, strips ISO T-suffix, used by all date-display pages.
 
+## Mobile Optimization
+
+- **Mobile-first design**: App optimized for 관리소장 working in the field on smartphones
+- **Layout**: CSS Grid at 900px breakpoint. Desktop: 220px sidebar + content. Mobile: bottom nav + mobile header
+- **Bottom nav**: 5 tabs (홈, 업무, 점검, 결재, 더보기) — mobile only
+- **Mobile header**: Page title + notification bell; back button on sub-pages
+- **ResponsiveDialog** (`components/ui/responsive-dialog.tsx`): Dialog on desktop, Drawer (vaul) on mobile. All pages use this instead of raw Dialog.
+- **Mobile card views**: Table-based pages (tenants, vehicles, owners, commissions) use `hidden md:block` table + `md:hidden` card pattern
+- **Touch UX**: min 44px touch targets, `-webkit-tap-highlight-color`, `font-size:16px` on inputs (prevents iOS zoom), safe-area-inset padding
+- **PWA**: `manifest.json` with theme color, apple-mobile-web-app meta tags, `viewport-fit=cover`
+
 ## Important Technical Notes
 
 - Backend route order: `/inspections/upcoming` MUST be registered BEFORE `/inspections/:id` in Express 5.

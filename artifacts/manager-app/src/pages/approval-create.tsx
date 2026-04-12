@@ -23,12 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import {
@@ -581,11 +581,11 @@ export default function ApprovalCreate() {
         </div>
       </div>
 
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>서식 선택</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>서식 선택</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             {templates?.map((t: TemplateItem) => (
               <div
@@ -618,7 +618,7 @@ export default function ApprovalCreate() {
               </p>
             )}
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button
               variant="outline"
               onClick={() => {
@@ -628,9 +628,9 @@ export default function ApprovalCreate() {
             >
               서식 없이 작성
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

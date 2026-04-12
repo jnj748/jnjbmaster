@@ -28,12 +28,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
@@ -278,17 +278,17 @@ export default function TaxSchedules() {
             원천징수, 부가세, 재산세 등 세무 일정을 관리합니다
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               일정 추가
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editing ? "일정 수정" : "새 세무 일정"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editing ? "일정 수정" : "새 세무 일정"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>제목</Label>
@@ -328,8 +328,8 @@ export default function TaxSchedules() {
               </div>
               <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       {upcomingSchedules.length > 0 && (

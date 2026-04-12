@@ -37,6 +37,8 @@ import {
   Clock,
   Menu,
   X,
+  ChevronLeft,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   Popover,
@@ -79,11 +81,31 @@ const partnerNavItems = [
   { path: "/commissions", label: "수수료", icon: Coins },
 ];
 
+const bottomNavItems = [
+  { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/tasks", label: "업무", icon: CheckSquare },
+  { path: "/inspections", label: "점검", icon: Shield },
+  { path: "/approvals", label: "결재", icon: ClipboardCheck },
+];
+
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
   partner: "파트너사",
   platform_admin: "플랫폼 관리자",
 };
+
+function getPageTitle(location: string, navItems: typeof managerNavItems): string {
+  if (location === "/") return "대시보드";
+  const item = navItems.find((n) =>
+    n.path !== "/" && location.startsWith(n.path)
+  );
+  return item?.label || "관리의달인";
+}
+
+function isSubPage(location: string): boolean {
+  const parts = location.split("/").filter(Boolean);
+  return parts.length > 1;
+}
 
 function SidebarContent({ navLinks, user, logout, base }: {
   navLinks: React.ReactNode;
@@ -116,7 +138,7 @@ function SidebarContent({ navLinks, user, logout, base }: {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [notifOpen, setNotifOpen] = useState(false);
@@ -137,6 +159,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isPartner = user?.portalType === "partner";
   const navItems = isPartner ? partnerNavItems : managerNavItems;
+  const pageTitle = getPageTitle(location, navItems);
+  const showBack = isSubPage(location);
 
   const navLinks = navItems.map((item) => {
     const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
@@ -144,7 +168,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <Link key={item.path} href={item.path}>
         <div
           className={cn(
-            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
             isActive
               ? "bg-sidebar-accent text-white"
               : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
@@ -160,7 +184,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const notifButton = (
     <Popover open={notifOpen} onOpenChange={setNotifOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
+        <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
           <Bell className="w-5 h-5" />
           {(unreadCount?.count ?? 0) > 0 && (
             <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -177,7 +201,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={cn("p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors", !n.isRead && "bg-primary/5")}
+                  className={cn("p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors min-h-[44px]", !n.isRead && "bg-primary/5")}
                   onClick={() => !n.isRead && handleMarkRead(n.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -211,6 +235,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         .layout-sidebar { display: none; }
         .layout-mobile-header { display: flex; }
         .layout-desktop-header { display: none; }
+        .layout-bottom-nav { display: flex; }
+        .layout-content-area { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
         @media (min-width: 900px) {
           .layout-grid {
@@ -221,6 +247,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           .layout-sidebar { display: flex; }
           .layout-mobile-header { display: none; }
           .layout-desktop-header { display: flex; }
+          .layout-bottom-nav { display: none; }
+          .layout-content-area { padding-bottom: 0; }
         }
       `}</style>
 
@@ -231,29 +259,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setDrawerOpen(false)}
           />
           <aside
-            style={{ position: "fixed", top: 0, left: 0, width: 220, height: "100%", zIndex: 50 }}
+            style={{ position: "fixed", top: 0, left: 0, width: 260, height: "100%", zIndex: 50 }}
             className="bg-sidebar text-sidebar-foreground flex flex-col"
           >
             <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
               <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
-              <button onClick={() => setDrawerOpen(false)} className="p-1 text-sidebar-foreground/60 hover:text-white">
+              <button onClick={() => setDrawerOpen(false)} className="p-2 text-sidebar-foreground/60 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
-            <div className="p-3 border-t border-sidebar-border space-y-2">
+            <div className="p-3 border-t border-sidebar-border space-y-2" style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}>
               {user && (
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
                     <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
                   </div>
-                  <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
+                  <button onClick={logout} className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center" title="로그아웃">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
               )}
-              <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
             </div>
           </aside>
         </>
@@ -265,11 +292,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex flex-col min-h-screen min-w-0">
-          <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-4 py-2.5 items-center justify-between">
-            <button onClick={() => setDrawerOpen(true)} className="p-1.5 rounded hover:bg-muted">
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="text-sm font-semibold">관리의달인</span>
+          <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-2 py-2 items-center justify-between">
+            <div className="flex items-center gap-1 min-w-0">
+              {showBack ? (
+                <button
+                  onClick={() => {
+                    const parts = location.split("/").filter(Boolean);
+                    setLocation("/" + parts.slice(0, -1).join("/"));
+                  }}
+                  className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              ) : (
+                <div className="w-2" />
+              )}
+              <span className="text-sm font-semibold truncate">{pageTitle}</span>
+            </div>
             {notifButton}
           </div>
 
@@ -277,9 +316,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {notifButton}
           </div>
 
-          <div className="flex-1 p-4 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
+          <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
         </div>
       </div>
+
+      {!isPartner && (
+        <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
+        >
+          {bottomNavItems.map((item) => {
+            const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+            return (
+              <Link key={item.path} href={item.path}>
+                <button className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
+                  isActive ? "text-accent" : "text-muted-foreground"
+                )}>
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              </Link>
+            );
+          })}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
+            )}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+            <span className="text-[10px] font-medium">더보기</span>
+          </button>
+        </nav>
+      )}
     </>
   );
 }

@@ -21,12 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -167,17 +167,17 @@ export default function Vendors() {
             유지보수 협력업체를 등록하고 관리합니다
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               업체 등록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editing ? "업체 수정" : "새 업체 등록"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editing ? "업체 수정" : "새 업체 등록"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -280,8 +280,8 @@ export default function Vendors() {
               </div>
               <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-2 border-b">

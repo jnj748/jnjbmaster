@@ -23,12 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -214,17 +214,17 @@ export default function Tenants() {
             입주자카드를 등록하고 관리합니다
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               입주자 등록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editing ? "입주자 수정" : "새 입주자 등록"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-2xl">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editing ? "입주자 수정" : "새 입주자 등록"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -342,8 +342,8 @@ export default function Tenants() {
               </div>
               <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">
@@ -372,61 +372,93 @@ export default function Tenants() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
         </div>
       ) : tenants && tenants.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>호실</TableHead>
-                  <TableHead>입주자명</TableHead>
-                  <TableHead>휴대폰</TableHead>
-                  <TableHead>입주일</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>서류</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
-                    <TableCell className="font-medium">{tenant.unit}</TableCell>
-                    <TableCell>{tenant.tenantName}</TableCell>
-                    <TableCell className="text-muted-foreground">{tenant.phone || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{tenant.moveInDate || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"}>
-                        {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {tenant.contractDoc && <Badge variant="outline" className="text-xs">계약서</Badge>}
-                        {tenant.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
-                        {tenant.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
+        <>
+          <div className="hidden md:block">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>호실</TableHead>
+                      <TableHead>입주자명</TableHead>
+                      <TableHead>휴대폰</TableHead>
+                      <TableHead>입주일</TableHead>
+                      <TableHead>상태</TableHead>
+                      <TableHead>서류</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tenants.map((tenant) => (
+                      <TableRow key={tenant.id}>
+                        <TableCell className="font-medium">{tenant.unit}</TableCell>
+                        <TableCell>{tenant.tenantName}</TableCell>
+                        <TableCell className="text-muted-foreground">{tenant.phone || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{tenant.moveInDate || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"}>
+                            {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {tenant.contractDoc && <Badge variant="outline" className="text-xs">계약서</Badge>}
+                            {tenant.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
+                            {tenant.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setDetailDialog(tenant)}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => exportTenantCard(tenant)}>
+                              <Download className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(tenant)}>
+                              <Edit className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="md:hidden space-y-2">
+            {tenants.map((tenant) => (
+              <Card key={tenant.id} className="cursor-pointer" onClick={() => setDetailDialog(tenant)}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{tenant.unit}호</span>
+                        <span className="text-sm">{tenant.tenantName}</span>
+                        <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"} className="text-[10px]">
+                          {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
+                        </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setDetailDialog(tenant)}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => exportTenantCard(tenant)}>
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(tenant)}>
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                      {tenant.phone && <p className="text-xs text-muted-foreground mt-1">{tenant.phone}</p>}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); openEdit(tenant); }}>
+                        <Edit className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); handleDelete(tenant.id); }}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
@@ -436,11 +468,11 @@ export default function Tenants() {
         </Card>
       )}
 
-      <Dialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>입주자카드 상세</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
+        <ResponsiveDialogContent className="max-w-2xl">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>입주자카드 상세</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {detailDialog && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -520,8 +552,8 @@ export default function Tenants() {
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

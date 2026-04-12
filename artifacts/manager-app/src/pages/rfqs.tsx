@@ -25,12 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
@@ -176,17 +176,17 @@ export default function Rfqs() {
             협력업체에 견적을 요청하고 비교합니다
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               견적 요청
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>새 견적 요청</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>새 견적 요청</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>제목</Label>
@@ -273,8 +273,8 @@ export default function Rfqs() {
               </div>
               <Button type="submit" className="w-full">견적 요청 생성</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">
@@ -412,9 +412,9 @@ export default function Rfqs() {
         </Card>
       )}
 
-      <Dialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
-        <DialogContent className="max-w-4xl" />
-      </Dialog>
+      <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
+        <ResponsiveDialogContent className="max-w-4xl" />
+      </ResponsiveDialog>
     </div>
   );
 }

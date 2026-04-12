@@ -18,12 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -143,17 +143,17 @@ export default function SafetyChecklists() {
             전기설비, 소방시설, 비상발전기, 저수조 등 카테고리별 안전점검
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+          <ResponsiveDialogTrigger asChild>
             <Button onClick={() => handleCategoryChange("electrical")}>
               <Plus className="w-4 h-4 mr-2" />
               점검표 작성
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>안전점검표 작성</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>안전점검표 작성</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div>
                 <Label>카테고리</Label>
@@ -225,8 +225,8 @@ export default function SafetyChecklists() {
                 {createMutation.isPending ? "저장 중..." : "저장"}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">
@@ -359,11 +359,11 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
   }
 
   return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isLoading ? "로딩 중..." : detail?.title}</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open onOpenChange={() => onClose()}>
+      <ResponsiveDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{isLoading ? "로딩 중..." : detail?.title}</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         {isLoading ? (
           <Skeleton className="h-40" />
         ) : detail ? (
@@ -432,7 +432,7 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
         ) : (
           <p className="text-muted-foreground text-center py-4">점검표를 찾을 수 없습니다</p>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

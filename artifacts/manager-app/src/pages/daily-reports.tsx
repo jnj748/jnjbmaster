@@ -24,12 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import {
@@ -230,11 +230,11 @@ export default function DailyReports() {
         </Card>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>일간 보고서 작성</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>일간 보고서 작성</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -287,7 +287,7 @@ export default function DailyReports() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               취소
             </Button>
@@ -298,22 +298,22 @@ export default function DailyReports() {
               <Send className="w-4 h-4 mr-1" />
               작성 및 제출
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <Dialog
+      <ResponsiveDialog
         open={detailId !== null}
         onOpenChange={(o) => !o && setDetailId(null)}
       >
         {selectedReport && (
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
                 보고서 상세
-              </DialogTitle>
-            </DialogHeader>
+              </ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{selectedReport.title}</span>
@@ -366,7 +366,7 @@ export default function DailyReports() {
                 </div>
               )}
             </div>
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               {selectedReport.status === "draft" && (
                 <Button onClick={() => handleSubmit(selectedReport.id)}>
                   <Send className="w-4 h-4 mr-1" />
@@ -379,10 +379,10 @@ export default function DailyReports() {
                   검토 완료
                 </Button>
               )}
-            </DialogFooter>
-          </DialogContent>
+            </ResponsiveDialogFooter>
+          </ResponsiveDialogContent>
         )}
-      </Dialog>
+      </ResponsiveDialog>
     </div>
   );
 }

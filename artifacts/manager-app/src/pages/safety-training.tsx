@@ -14,12 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -136,17 +136,17 @@ export default function SafetyTraining() {
             월별 안전교육 이수 현황을 등록하고 관리
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               교육 등록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>안전교육 등록</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>안전교육 등록</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div>
                 <Label>교육명</Label>
@@ -254,8 +254,8 @@ export default function SafetyTraining() {
                 {createMutation.isPending ? "저장 중..." : "저장"}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -23,12 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -204,17 +204,17 @@ export default function Owners() {
             소유자카드를 등록하고 관리합니다
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               소유자 등록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editing ? "소유자 수정" : "새 소유자 등록"}</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{editing ? "소유자 수정" : "새 소유자 등록"}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -318,8 +318,8 @@ export default function Owners() {
               </div>
               <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
             </form>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">
@@ -348,61 +348,107 @@ export default function Owners() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
         </div>
       ) : owners && owners.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>호실</TableHead>
-                  <TableHead>소유자명</TableHead>
-                  <TableHead>휴대폰</TableHead>
-                  <TableHead>입주일</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>서류</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {owners.map((owner) => (
-                  <TableRow key={owner.id}>
-                    <TableCell className="font-medium">{owner.unit}</TableCell>
-                    <TableCell>{owner.ownerName}</TableCell>
-                    <TableCell className="text-muted-foreground">{owner.phone || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{owner.moveInDate || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={owner.status === "active" ? "default" : owner.status === "destroyed" ? "destructive" : "secondary"}>
-                        {owner.status === "active" ? "입주중" : owner.status === "destroyed" ? "파기완료" : "퇴거"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {owner.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
-                        {owner.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
-                        {owner.propertyDoc && <Badge variant="outline" className="text-xs">등본</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setDetailDialog(owner)}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => exportOwnerCard(owner)}>
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(owner)}>
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(owner.id)}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+        <>
+        <div className="hidden md:block">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>호실</TableHead>
+                    <TableHead>소유자명</TableHead>
+                    <TableHead>휴대폰</TableHead>
+                    <TableHead>입주일</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>서류</TableHead>
+                    <TableHead className="text-right">관리</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {owners.map((owner) => (
+                    <TableRow key={owner.id}>
+                      <TableCell className="font-medium">{owner.unit}</TableCell>
+                      <TableCell>{owner.ownerName}</TableCell>
+                      <TableCell className="text-muted-foreground">{owner.phone || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{owner.moveInDate || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={owner.status === "active" ? "default" : owner.status === "destroyed" ? "destructive" : "secondary"}>
+                          {owner.status === "active" ? "입주중" : owner.status === "destroyed" ? "파기완료" : "퇴거"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {owner.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
+                          {owner.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
+                          {owner.propertyDoc && <Badge variant="outline" className="text-xs">등본</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setDetailDialog(owner)}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => exportOwnerCard(owner)}>
+                            <Download className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(owner)}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(owner.id)}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="md:hidden space-y-3">
+          {owners.map((owner) => (
+            <Card key={owner.id} className="active:bg-muted/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{owner.unit}호</span>
+                    <span className="text-sm">{owner.ownerName}</span>
+                  </div>
+                  <Badge variant={owner.status === "active" ? "default" : owner.status === "destroyed" ? "destructive" : "secondary"} className="text-xs">
+                    {owner.status === "active" ? "입주중" : owner.status === "destroyed" ? "파기완료" : "퇴거"}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  {owner.phone && <p>{owner.phone}</p>}
+                  {owner.moveInDate && <p>입주일: {owner.moveInDate}</p>}
+                </div>
+                {(owner.businessRegDoc || owner.idDoc || owner.propertyDoc) && (
+                  <div className="flex gap-1 mt-2">
+                    {owner.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
+                    {owner.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
+                    {owner.propertyDoc && <Badge variant="outline" className="text-xs">등본</Badge>}
+                  </div>
+                )}
+                <div className="flex justify-end gap-1 mt-3 border-t pt-2">
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => setDetailDialog(owner)}>
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => exportOwnerCard(owner)}>
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => openEdit(owner)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => handleDelete(owner.id)}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
@@ -412,11 +458,11 @@ export default function Owners() {
         </Card>
       )}
 
-      <Dialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>소유자카드 상세</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
+        <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>소유자카드 상세</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {detailDialog && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -489,8 +535,8 @@ export default function Owners() {
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

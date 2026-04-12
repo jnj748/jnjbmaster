@@ -26,11 +26,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
@@ -460,11 +460,11 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
         </Card>
       )}
 
-      <Dialog open={!!quoteDialogRfq} onOpenChange={(o) => { if (!o) { setQuoteDialogRfq(null); resetForm(); } }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>견적서 제출</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={!!quoteDialogRfq} onOpenChange={(o) => { if (!o) { setQuoteDialogRfq(null); resetForm(); } }}>
+        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>견적서 제출</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {quoteDialogRfq && (
             <div>
               <div className="p-3 bg-muted rounded-lg text-sm mb-4 space-y-1">
@@ -527,8 +527,8 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
               </form>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }
@@ -711,11 +711,11 @@ function VendorWorkReports({
         </Card>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>작업 완료 보고서</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>작업 완료 보고서</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label>채택된 견적 선택</Label>
@@ -765,8 +765,8 @@ function VendorWorkReports({
             </div>
             <Button type="submit" className="w-full">보고서 제출</Button>
           </form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

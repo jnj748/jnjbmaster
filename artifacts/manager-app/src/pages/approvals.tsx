@@ -14,12 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -428,18 +428,18 @@ export default function Approvals() {
         </Card>
       )}
 
-      <Dialog
+      <ResponsiveDialog
         open={!!selectedApproval}
         onOpenChange={(open) => !open && setSelectedApproval(null)}
       >
         {selectedApproval && (
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5" />
                 결재 상세
-              </DialogTitle>
-            </DialogHeader>
+              </ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-lg">
@@ -613,7 +613,7 @@ export default function Approvals() {
             </div>
 
             {isManager && isSingleStepPending(selectedApproval) && (
-              <DialogFooter className="mt-4">
+              <ResponsiveDialogFooter className="mt-4">
                 <Button
                   variant="outline"
                   className="text-red-600"
@@ -629,17 +629,17 @@ export default function Approvals() {
                 >
                   <Check className="w-4 h-4 mr-1" /> 승인
                 </Button>
-              </DialogFooter>
+              </ResponsiveDialogFooter>
             )}
-          </DialogContent>
+          </ResponsiveDialogContent>
         )}
-      </Dialog>
+      </ResponsiveDialog>
 
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>결재 반려</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>결재 반려</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="space-y-3">
             <Label>반려 사유</Label>
             <Textarea
@@ -649,7 +649,7 @@ export default function Approvals() {
               rows={4}
             />
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
               취소
             </Button>
@@ -660,9 +660,9 @@ export default function Approvals() {
             >
               반려 처리
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

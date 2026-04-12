@@ -45,17 +45,17 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-3 sm:p-5">
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{subtitle}</p>
             )}
           </div>
-          <div className={`p-2.5 rounded-lg ${color}`}>
-            <Icon className="w-5 h-5 text-white" />
+          <div className={`p-2 sm:p-2.5 rounded-lg ${color} shrink-0`}>
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
         </div>
       </CardContent>
@@ -77,9 +77,9 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28" />
+            <Skeleton key={i} className="h-24 sm:h-28" />
           ))}
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="오늘 할 일"
           value={summary?.todayTaskCount ?? 0}
@@ -125,7 +125,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="세무 일정"
           value={summary?.pendingTaxCount ?? 0}

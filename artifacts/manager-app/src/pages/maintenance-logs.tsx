@@ -14,12 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -118,17 +118,17 @@ export default function MaintenanceLogs() {
             전구 교체, 배수로 청소, 설비 수리 등 일상 업무를 기록하고 관리소장에게 보고
           </p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
+          <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               업무 기록
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>기전 업무 일지 작성</DialogTitle>
-            </DialogHeader>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="max-w-lg">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>기전 업무 일지 작성</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div>
                 <Label>제목</Label>
@@ -200,8 +200,8 @@ export default function MaintenanceLogs() {
                 {createMutation.isPending ? "저장 중..." : "저장"}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
 
       <div className="flex gap-3">

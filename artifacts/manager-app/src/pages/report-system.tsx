@@ -17,12 +17,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import {
@@ -274,15 +274,15 @@ export default function ReportSystem() {
         </div>
       )}
 
-      <Dialog
+      <ResponsiveDialog
         open={weeklyDetailId !== null}
         onOpenChange={(o) => !o && setWeeklyDetailId(null)}
       >
         {selectedWeekly && (
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{selectedWeekly.title}</DialogTitle>
-            </DialogHeader>
+          <ResponsiveDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{selectedWeekly.title}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant="outline">
@@ -301,26 +301,26 @@ export default function ReportSystem() {
               </div>
             </div>
             {isManager && selectedWeekly.status !== "forwarded" && (
-              <DialogFooter>
+              <ResponsiveDialogFooter>
                 <Button onClick={() => handleForwardWeekly(selectedWeekly.id)}>
                   <Send className="w-4 h-4 mr-1" />
                   보고서 전달
                 </Button>
-              </DialogFooter>
+              </ResponsiveDialogFooter>
             )}
-          </DialogContent>
+          </ResponsiveDialogContent>
         )}
-      </Dialog>
+      </ResponsiveDialog>
 
-      <Dialog
+      <ResponsiveDialog
         open={monthlyDetailId !== null}
         onOpenChange={(o) => !o && setMonthlyDetailId(null)}
       >
         {selectedMonthly && (
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{selectedMonthly.title}</DialogTitle>
-            </DialogHeader>
+          <ResponsiveDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{selectedMonthly.title}</ResponsiveDialogTitle>
+            </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant="outline">
@@ -338,9 +338,9 @@ export default function ReportSystem() {
                 {selectedMonthly.authorName}
               </div>
             </div>
-          </DialogContent>
+          </ResponsiveDialogContent>
         )}
-      </Dialog>
+      </ResponsiveDialog>
     </div>
   );
 }

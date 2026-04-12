@@ -28,12 +28,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -299,17 +299,17 @@ export default function Vehicles() {
             <ClipboardCheck className="w-4 h-4 mr-2" />
             월별 점검 실행
           </Button>
-          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-            <DialogTrigger asChild>
+          <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+            <ResponsiveDialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 차량 등록
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editing ? "차량 수정" : "새 차량 등록"}</DialogTitle>
-              </DialogHeader>
+            </ResponsiveDialogTrigger>
+            <ResponsiveDialogContent className="max-w-lg">
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle>{editing ? "차량 수정" : "새 차량 등록"}</ResponsiveDialogTitle>
+              </ResponsiveDialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>입주자 선택</Label>
@@ -406,8 +406,8 @@ export default function Vehicles() {
                 </div>
                 <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
               </form>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
         </div>
       </div>
 
@@ -442,93 +442,129 @@ export default function Vehicles() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
         </div>
       ) : vehicles && vehicles.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={vehicles.filter((v) => v.status === "registered").length > 0 && selectedIds.length === vehicles.filter((v) => v.status === "registered").length}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>호실</TableHead>
-                  <TableHead>차량번호</TableHead>
-                  <TableHead>차종/색상</TableHead>
-                  <TableHead>소유자</TableHead>
-                  <TableHead>구분</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>서류</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id} className={vehicle.status === "cancelled" ? "opacity-60" : ""}>
-                    <TableCell>
-                      {vehicle.status === "registered" && (
+        <>
+          <div className="hidden md:block">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">
                         <Checkbox
-                          checked={selectedIds.includes(vehicle.id)}
-                          onCheckedChange={() => toggleSelect(vehicle.id)}
+                          checked={vehicles.filter((v) => v.status === "registered").length > 0 && selectedIds.length === vehicles.filter((v) => v.status === "registered").length}
+                          onCheckedChange={toggleSelectAll}
                         />
+                      </TableHead>
+                      <TableHead>호실</TableHead>
+                      <TableHead>차량번호</TableHead>
+                      <TableHead>차종/색상</TableHead>
+                      <TableHead>소유자</TableHead>
+                      <TableHead>구분</TableHead>
+                      <TableHead>상태</TableHead>
+                      <TableHead>서류</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vehicles.map((vehicle) => (
+                      <TableRow key={vehicle.id} className={vehicle.status === "cancelled" ? "opacity-60" : ""}>
+                        <TableCell>
+                          {vehicle.status === "registered" && (
+                            <Checkbox
+                              checked={selectedIds.includes(vehicle.id)}
+                              onCheckedChange={() => toggleSelect(vehicle.id)}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{vehicle.unit}</TableCell>
+                        <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {[vehicle.vehicleType, vehicle.vehicleColor].filter(Boolean).join(" / ") || "-"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{vehicle.ownerName || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={vehicle.isPrimary ? "default" : "outline"}>
+                            {vehicle.isPrimary ? "기본" : "추가"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={vehicle.status === "registered" ? "default" : "destructive"}>
+                            {vehicle.status === "registered" ? "등록" : "말소"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {vehicle.registrationDoc && <Badge variant="outline" className="text-xs">등록증</Badge>}
+                            {vehicle.insuranceDoc && <Badge variant="outline" className="text-xs">보험</Badge>}
+                            {vehicle.leaseDoc && <Badge variant="outline" className="text-xs">계약서</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setDetailDialog(vehicle)}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setHistoryDialog(vehicle)}>
+                              <History className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => exportVehicleCard(vehicle)}>
+                              <Download className="w-3.5 h-3.5" />
+                            </Button>
+                            {vehicle.status === "registered" && (
+                              <>
+                                <Button variant="ghost" size="sm" onClick={() => openEdit(vehicle)}>
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleCancel(vehicle)}>
+                                  <XCircle className="w-3.5 h-3.5 text-orange-500" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(vehicle.id)}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="md:hidden space-y-2">
+            {vehicles.map((vehicle) => (
+              <Card key={vehicle.id} className={`cursor-pointer ${vehicle.status === "cancelled" ? "opacity-60" : ""}`} onClick={() => setDetailDialog(vehicle)}>
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{vehicle.unit}호</span>
+                        <span className="text-sm font-medium">{vehicle.vehicleNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge variant={vehicle.status === "registered" ? "default" : "destructive"} className="text-[10px]">
+                          {vehicle.status === "registered" ? "등록" : "말소"}
+                        </Badge>
+                        <Badge variant={vehicle.isPrimary ? "default" : "outline"} className="text-[10px]">
+                          {vehicle.isPrimary ? "기본" : "추가"}
+                        </Badge>
+                        {vehicle.vehicleType && <span className="text-xs text-muted-foreground">{vehicle.vehicleType}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {vehicle.status === "registered" && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); openEdit(vehicle); }}>
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
                       )}
-                    </TableCell>
-                    <TableCell className="font-medium">{vehicle.unit}</TableCell>
-                    <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {[vehicle.vehicleType, vehicle.vehicleColor].filter(Boolean).join(" / ") || "-"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{vehicle.ownerName || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={vehicle.isPrimary ? "default" : "outline"}>
-                        {vehicle.isPrimary ? "기본" : "추가"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={vehicle.status === "registered" ? "default" : "destructive"}>
-                        {vehicle.status === "registered" ? "등록" : "말소"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {vehicle.registrationDoc && <Badge variant="outline" className="text-xs">등록증</Badge>}
-                        {vehicle.insuranceDoc && <Badge variant="outline" className="text-xs">보험</Badge>}
-                        {vehicle.leaseDoc && <Badge variant="outline" className="text-xs">계약서</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setDetailDialog(vehicle)}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setHistoryDialog(vehicle)}>
-                          <History className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => exportVehicleCard(vehicle)}>
-                          <Download className="w-3.5 h-3.5" />
-                        </Button>
-                        {vehicle.status === "registered" && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(vehicle)}>
-                              <Edit className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleCancel(vehicle)}>
-                              <XCircle className="w-3.5 h-3.5 text-orange-500" />
-                            </Button>
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(vehicle.id)}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
@@ -538,11 +574,11 @@ export default function Vehicles() {
         </Card>
       )}
 
-      <Dialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>차량등록카드 상세</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>차량등록카드 상세</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {detailDialog && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -589,14 +625,14 @@ export default function Vehicles() {
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <Dialog open={!!historyDialog} onOpenChange={(o) => { if (!o) setHistoryDialog(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>차량 이력 - {historyDialog?.vehicleNumber}</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={!!historyDialog} onOpenChange={(o) => { if (!o) setHistoryDialog(null); }}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>차량 이력 - {historyDialog?.vehicleNumber}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {historyDialog && (
             <div className="space-y-4">
               {historyData && historyData.length > 0 ? (
@@ -633,8 +669,8 @@ export default function Vehicles() {
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

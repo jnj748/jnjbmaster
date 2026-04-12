@@ -19,11 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   ClipboardCheck,
   CheckCircle,
@@ -165,11 +165,11 @@ export default function WorkReports() {
         </Card>
       )}
 
-      <Dialog open={reviewId !== null} onOpenChange={(o) => { if (!o) { setReviewId(null); setReviewNotes(""); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>작업 완료 검수</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={reviewId !== null} onOpenChange={(o) => { if (!o) { setReviewId(null); setReviewNotes(""); } }}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>작업 완료 검수</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           {reviewingReport && (
             <div className="space-y-4">
               <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
@@ -217,8 +217,8 @@ export default function WorkReports() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

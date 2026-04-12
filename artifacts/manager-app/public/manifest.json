@@ -1,0 +1,20 @@
+{
+  "name": "관리의달인",
+  "short_name": "관리의달인",
+  "description": "집합건물 관리소장을 위한 스마트 업무 도구",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#1e2a3a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "ko",
+  "categories": ["business", "productivity"]
+}
