@@ -81,11 +81,17 @@ const partnerNavItems = [
   { path: "/commissions", label: "수수료", icon: Coins },
 ];
 
-const bottomNavItems = [
+const managerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
   { path: "/tasks", label: "업무", icon: CheckSquare },
   { path: "/inspections", label: "점검", icon: Shield },
   { path: "/approvals", label: "결재", icon: ClipboardCheck },
+];
+
+const partnerBottomNavItems = [
+  { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/vendors", label: "업체", icon: Package },
+  { path: "/commissions", label: "수수료", icon: Coins },
 ];
 
 const roleLabels: Record<string, string> = {
@@ -159,6 +165,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isPartner = user?.portalType === "partner";
   const navItems = isPartner ? partnerNavItems : managerNavItems;
+  const bottomNavItems = isPartner ? partnerBottomNavItems : managerBottomNavItems;
   const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
 
@@ -320,8 +327,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {!isPartner && (
-        <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
+      <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
         >
           {bottomNavItems.map((item) => {
@@ -344,11 +350,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
             )}
           >
-            <MoreHorizontal className="w-5 h-5" />
+            <Menu className="w-5 h-5" />
             <span className="text-[10px] font-medium">더보기</span>
           </button>
         </nav>
-      )}
     </>
   );
 }

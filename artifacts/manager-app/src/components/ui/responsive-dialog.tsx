@@ -37,24 +37,33 @@ function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDialogProp
   return <Dialog open={open} onOpenChange={onOpenChange}>{children}</Dialog>;
 }
 
-function ResponsiveDialogTrigger({ children, ...props }: React.ComponentProps<typeof DialogTrigger>) {
-  const isMobile = useIsMobile();
-  if (isMobile) return <DrawerTrigger {...props}>{children}</DrawerTrigger>;
-  return <DialogTrigger {...props}>{children}</DialogTrigger>;
+interface TriggerProps {
+  asChild?: boolean;
+  children: React.ReactNode;
 }
 
-function ResponsiveDialogContent({ children, className, ...props }: React.ComponentProps<typeof DialogContent>) {
+function ResponsiveDialogTrigger({ children, asChild, ...rest }: TriggerProps & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const isMobile = useIsMobile();
+  if (isMobile) return <DrawerTrigger asChild={asChild} {...rest}>{children}</DrawerTrigger>;
+  return <DialogTrigger asChild={asChild} {...rest}>{children}</DialogTrigger>;
+}
+
+interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+function ResponsiveDialogContent({ children, className, ...rest }: ContentProps) {
   const isMobile = useIsMobile();
   if (isMobile) {
     return (
-      <DrawerContent className={cn("max-h-[85vh]", className)} {...(props as any)}>
+      <DrawerContent className={cn("max-h-[85vh]", className)}>
         <ScrollArea className="overflow-y-auto px-4 pb-4">
           {children}
         </ScrollArea>
       </DrawerContent>
     );
   }
-  return <DialogContent className={className} {...props}>{children}</DialogContent>;
+  return <DialogContent className={className}>{children}</DialogContent>;
 }
 
 function ResponsiveDialogHeader({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -63,16 +72,20 @@ function ResponsiveDialogHeader({ children, className, ...props }: React.HTMLAtt
   return <DialogHeader className={className} {...props}>{children}</DialogHeader>;
 }
 
-function ResponsiveDialogTitle({ children, className, ...props }: React.ComponentProps<typeof DialogTitle>) {
-  const isMobile = useIsMobile();
-  if (isMobile) return <DrawerTitle className={className} {...(props as any)}>{children}</DrawerTitle>;
-  return <DialogTitle className={className} {...props}>{children}</DialogTitle>;
+interface TitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  children: React.ReactNode;
 }
 
-function ResponsiveDialogDescription({ children, className, ...props }: React.ComponentProps<typeof DialogDescription>) {
+function ResponsiveDialogTitle({ children, className, ...rest }: TitleProps) {
   const isMobile = useIsMobile();
-  if (isMobile) return <DrawerDescription className={className} {...(props as any)}>{children}</DrawerDescription>;
-  return <DialogDescription className={className} {...props}>{children}</DialogDescription>;
+  if (isMobile) return <DrawerTitle className={className}>{children}</DrawerTitle>;
+  return <DialogTitle className={className}>{children}</DialogTitle>;
+}
+
+function ResponsiveDialogDescription({ children, className }: { children: React.ReactNode; className?: string }) {
+  const isMobile = useIsMobile();
+  if (isMobile) return <DrawerDescription className={className}>{children}</DrawerDescription>;
+  return <DialogDescription className={className}>{children}</DialogDescription>;
 }
 
 function ResponsiveDialogFooter({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -81,10 +94,15 @@ function ResponsiveDialogFooter({ children, className, ...props }: React.HTMLAtt
   return <DialogFooter className={className} {...props}>{children}</DialogFooter>;
 }
 
-function ResponsiveDialogClose({ children, ...props }: React.ComponentProps<typeof DialogClose>) {
+interface CloseProps {
+  asChild?: boolean;
+  children?: React.ReactNode;
+}
+
+function ResponsiveDialogClose({ children, asChild }: CloseProps) {
   const isMobile = useIsMobile();
-  if (isMobile) return <DrawerClose {...(props as any)}>{children}</DrawerClose>;
-  return <DialogClose {...props}>{children}</DialogClose>;
+  if (isMobile) return <DrawerClose asChild={asChild}>{children}</DrawerClose>;
+  return <DialogClose asChild={asChild}>{children}</DialogClose>;
 }
 
 export {
