@@ -40,6 +40,11 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
   const data = parsed.data;
 
   if (data.actionType === "completed" && data.relatedEntityType === "inspection") {
+    const [inspection] = await db
+      .select()
+      .from(inspectionsTable)
+      .where(eq(inspectionsTable.id, data.relatedEntityId));
+
     if (data.completedDate) {
       await db.insert(inspectionLogsTable).values({
         inspectionId: data.relatedEntityId,
@@ -49,12 +54,25 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       });
     }
 
-    if (data.nextCycleDate) {
+    let nextCycleDate = data.nextCycleDate;
+    if (!nextCycleDate && inspection && data.completedDate) {
+      const completedDt = new Date(data.completedDate);
+      if (inspection.legalCycleMonths) {
+        completedDt.setMonth(completedDt.getMonth() + inspection.legalCycleMonths);
+      } else if (inspection.intervalDays) {
+        completedDt.setDate(completedDt.getDate() + inspection.intervalDays);
+      } else {
+        completedDt.setMonth(completedDt.getMonth() + 6);
+      }
+      nextCycleDate = completedDt.toISOString().split("T")[0];
+    }
+
+    if (nextCycleDate) {
       await db
         .update(inspectionsTable)
         .set({
           lastInspectionDate: data.completedDate,
-          nextDueDate: data.nextCycleDate,
+          nextDueDate: nextCycleDate,
           status: "upcoming",
         })
         .where(eq(inspectionsTable.id, data.relatedEntityId));

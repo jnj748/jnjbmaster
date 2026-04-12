@@ -92,6 +92,20 @@ function StatCard({
 
 type AlertActionTab = "complete" | "postpone" | "rfq";
 
+const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue"] as const;
+
+interface DashboardAlert {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  severity: string;
+  relatedId?: number | null;
+  hasDraft?: boolean;
+  actionStatus?: string | null;
+  createdAt: string;
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
@@ -102,7 +116,7 @@ export default function Dashboard() {
   const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
   const { data: recentChecklists } = useListSafetyChecklists();
 
-  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
   const [completeDate, setCompleteDate] = useState(new Date().toISOString().split("T")[0]);
   const [nextCycleDate, setNextCycleDate] = useState("");
@@ -117,7 +131,7 @@ export default function Dashboard() {
   const createActionMutation = useCreateAlertAction();
   const createRfqMutation = useCreateRfq();
 
-  function openAlertAction(alert: any) {
+  function openAlertAction(alert: DashboardAlert) {
     setSelectedAlert(alert);
     setActionTab("complete");
     setCompleteDate(new Date().toISOString().split("T")[0]);
@@ -128,13 +142,15 @@ export default function Dashboard() {
     const twoWeeks = new Date();
     twoWeeks.setDate(twoWeeks.getDate() + 14);
     setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
+    setNextCycleDate("");
+  }
 
-    if (alert.type === "inspection_due" && alert.relatedId) {
-      const sixMonths = new Date();
-      sixMonths.setMonth(sixMonths.getMonth() + 6);
-      setNextCycleDate(sixMonths.toISOString().split("T")[0]);
-    } else {
-      setNextCycleDate("");
+  function getEntityType(alertType: string): string {
+    switch (alertType) {
+      case "inspection_due": return "inspection";
+      case "tax_due": return "tax";
+      case "task_overdue": return "task";
+      default: return "task";
     }
   }
 
@@ -143,7 +159,7 @@ export default function Dashboard() {
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
-        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : selectedAlert.type === "tax_due" ? "tax" : "task",
+        relatedEntityType: getEntityType(selectedAlert.type),
         relatedEntityId: selectedAlert.relatedId!,
         actionType: "completed",
         completedDate: completeDate || null,
@@ -161,7 +177,7 @@ export default function Dashboard() {
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
-        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : selectedAlert.type === "tax_due" ? "tax" : "task",
+        relatedEntityType: getEntityType(selectedAlert.type),
         relatedEntityId: selectedAlert.relatedId!,
         actionType: "postponed",
         postponeDays: parseInt(postponeDays) || null,
@@ -193,7 +209,7 @@ export default function Dashboard() {
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
-        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : "tax",
+        relatedEntityType: getEntityType(selectedAlert.type),
         relatedEntityId: selectedAlert.relatedId!,
         actionType: "rfq_requested",
         rfqId: createdRfq?.id ?? null,
@@ -305,7 +321,7 @@ export default function Dashboard() {
                 <div
                   key={alert.id}
                   className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/80 transition-colors"
-                  onClick={() => alert.relatedId && ["inspection_due", "tax_due"].includes(alert.type) && openAlertAction(alert)}
+                  onClick={() => alert.relatedId && (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) && openAlertAction(alert)}
                 >
                   <Badge
                     variant={
@@ -511,7 +527,7 @@ export default function Dashboard() {
                 {[
                   { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle },
                   { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock },
-                  ...(selectedAlert.type === "inspection_due" ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
+                  ...(["inspection_due", "task_overdue"].includes(selectedAlert.type) ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -540,14 +556,14 @@ export default function Dashboard() {
                   </div>
                   {selectedAlert.type === "inspection_due" && (
                     <div>
-                      <Label>다음 점검 예정일 (자동 계산)</Label>
+                      <Label>다음 점검 예정일 (선택 — 미입력 시 법정 주기 자동 계산)</Label>
                       <Input
                         type="date"
                         value={nextCycleDate}
                         onChange={(e) => setNextCycleDate(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        법정 주기에 따라 자동 계산됩니다. 필요시 수정 가능합니다.
+                        비워두면 해당 점검의 법정 주기(legalCycleMonths/intervalDays)에 따라 서버에서 자동 계산됩니다.
                       </p>
                     </div>
                   )}

@@ -80,8 +80,18 @@ export default function VendorPortal() {
   const loggedVendor = vendors?.find((v) => v.id === loggedInVendorId);
 
   const myRfqs = allRfqs?.filter((rfq: any) => {
-    if (!rfq.vendorIds) return false;
-    return rfq.vendorIds.split(",").includes(loggedInVendorId?.toString() || "");
+    const vendorIdStr = loggedInVendorId?.toString() || "";
+    const isDirectlyInvited = rfq.vendorIds && rfq.vendorIds.split(",").includes(vendorIdStr);
+    if (isDirectlyInvited) return true;
+    if (loggedVendor && rfq.status === "open") {
+      const categoryMatch = rfq.category === loggedVendor.category;
+      const sidoMatch = loggedVendor.sido && rfq.sido && loggedVendor.sido === rfq.sido;
+      const sigunguMatch = loggedVendor.sigungu && rfq.sigungu && loggedVendor.sigungu === rfq.sigungu;
+      if (categoryMatch && sidoMatch) {
+        return rfq.geoScope === "sido" || sigunguMatch;
+      }
+    }
+    return false;
   }) || [];
 
   function handleLogin() {

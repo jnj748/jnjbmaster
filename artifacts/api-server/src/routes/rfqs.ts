@@ -123,14 +123,8 @@ router.post("/rfqs", async (req, res): Promise<void> => {
     const geoConditions = [
       eq(vendorsTable.type, "platform"),
       eq(vendorsTable.category, data.category),
+      eq(vendorsTable.sido, data.sido),
     ];
-
-    if (data.geoScope === "sigungu" && data.sigungu) {
-      geoConditions.push(eq(vendorsTable.sido, data.sido));
-      geoConditions.push(eq(vendorsTable.sigungu, data.sigungu));
-    } else {
-      geoConditions.push(eq(vendorsTable.sido, data.sido));
-    }
 
     const matchedVendors = await db
       .select({ id: vendorsTable.id })
