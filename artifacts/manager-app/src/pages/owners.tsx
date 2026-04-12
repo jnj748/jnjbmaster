@@ -233,7 +233,7 @@ export default function Owners() {
                 </div>
                 <div>
                   <Label>휴대폰</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+                  <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -262,7 +262,7 @@ export default function Owners() {
               </div>
               <div>
                 <Label>이메일</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div>
                 <Label>주민등록주소</Label>
@@ -349,7 +349,7 @@ export default function Owners() {
         </div>
       ) : owners && owners.length > 0 ? (
         <>
-        <div className="hidden md:block">
+        <div className="hidden desktop:block">
           <Card>
             <CardContent className="p-0">
               <Table>
@@ -406,7 +406,7 @@ export default function Owners() {
             </CardContent>
           </Card>
         </div>
-        <div className="md:hidden space-y-3">
+        <div className="desktop:hidden space-y-3">
           {owners.map((owner) => (
             <Card key={owner.id} className="active:bg-muted/50">
               <CardContent className="p-4">

@@ -304,7 +304,7 @@ export default function Commissions() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>수수료 금액 (원)</Label>
-                    <Input type="number" value={form.commissionAmount} onChange={(e) => setForm({ ...form, commissionAmount: e.target.value })} required />
+                    <Input type="number" inputMode="numeric" value={form.commissionAmount} onChange={(e) => setForm({ ...form, commissionAmount: e.target.value })} required />
                   </div>
                   <div>
                     <Label>매칭일</Label>
@@ -384,7 +384,7 @@ export default function Commissions() {
         </div>
       ) : commissions && commissions.length > 0 ? (
         <>
-        <div className="hidden md:block">
+        <div className="hidden desktop:block">
           <Card>
             <CardContent className="p-0">
               <table className="w-full text-sm">
@@ -443,7 +443,7 @@ export default function Commissions() {
             </CardContent>
           </Card>
         </div>
-        <div className="md:hidden space-y-3">
+        <div className="desktop:hidden space-y-3">
           {commissions.map((c) => (
             <Card key={c.id}>
               <CardContent className="p-4">

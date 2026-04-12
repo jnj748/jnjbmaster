@@ -459,17 +459,17 @@ export default function Inspections() {
                 </div>
                 <div>
                   <Label>법정 주기 (개월)</Label>
-                  <Input type="number" min={1} value={form.legalCycleMonths ?? ""} onChange={(e) => setForm({ ...form, legalCycleMonths: e.target.value ? parseInt(e.target.value) : null })} placeholder="예: 6" />
+                  <Input type="number" inputMode="numeric" min={1} value={form.legalCycleMonths ?? ""} onChange={(e) => setForm({ ...form, legalCycleMonths: e.target.value ? parseInt(e.target.value) : null })} placeholder="예: 6" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>연간 횟수</Label>
-                  <Input type="number" min={1} value={form.frequencyPerYear} onChange={(e) => setForm({ ...form, frequencyPerYear: parseInt(e.target.value) || 1 })} />
+                  <Input type="number" inputMode="numeric" min={1} value={form.frequencyPerYear} onChange={(e) => setForm({ ...form, frequencyPerYear: parseInt(e.target.value) || 1 })} />
                 </div>
                 <div>
                   <Label>사전 알림 일수</Label>
-                  <Input type="number" min={1} value={form.advanceAlertDays} onChange={(e) => setForm({ ...form, advanceAlertDays: parseInt(e.target.value) || 30 })} />
+                  <Input type="number" inputMode="numeric" min={1} value={form.advanceAlertDays} onChange={(e) => setForm({ ...form, advanceAlertDays: parseInt(e.target.value) || 30 })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

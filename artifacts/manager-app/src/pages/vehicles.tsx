@@ -443,7 +443,7 @@ export default function Vehicles() {
         </div>
       ) : vehicles && vehicles.length > 0 ? (
         <>
-          <div className="hidden md:block">
+          <div className="hidden desktop:block">
             <Card>
               <CardContent className="p-0">
                 <Table>
@@ -532,7 +532,7 @@ export default function Vehicles() {
               </CardContent>
             </Card>
           </div>
-          <div className="md:hidden space-y-2">
+          <div className="desktop:hidden space-y-2">
             {vehicles.map((vehicle) => (
               <Card key={vehicle.id} className={`cursor-pointer ${vehicle.status === "cancelled" ? "opacity-60" : ""}`} onClick={() => setDetailDialog(vehicle)}>
                 <CardContent className="p-3">

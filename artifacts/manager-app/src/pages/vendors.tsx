@@ -203,17 +203,17 @@ export default function Vendors() {
                 </div>
                 <div>
                   <Label>전화번호</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>이메일</Label>
-                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div>
                   <Label>평점 (1-5)</Label>
-                  <Input type="number" min="1" max="5" step="0.1" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} />
+                  <Input type="number" inputMode="decimal" min="1" max="5" step="0.1" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} />
                 </div>
               </div>
               <div>

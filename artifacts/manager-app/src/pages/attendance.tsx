@@ -287,38 +287,69 @@ export default function Attendance() {
               {myLoading ? (
                 <Skeleton className="h-40" />
               ) : myRecords && myRecords.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>날짜</TableHead>
-                      <TableHead>구분</TableHead>
-                      <TableHead>시간</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead>기기</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="hidden desktop:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>날짜</TableHead>
+                          <TableHead>구분</TableHead>
+                          <TableHead>시간</TableHead>
+                          <TableHead>상태</TableHead>
+                          <TableHead>기기</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {myRecords.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell>{r.checkDate}</TableCell>
+                            <TableCell>{r.checkType === "check_in" ? "출근" : "퇴근"}</TableCell>
+                            <TableCell>
+                              {formatTime(r.checkType === "check_in" ? r.checkInTime : r.checkOutTime)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusVariant(r.status)}>{statusLabel(r.status)}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {r.deviceType === "mobile" ? (
+                                <Smartphone className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <Monitor className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="desktop:hidden space-y-2">
                     {myRecords.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell>{r.checkDate}</TableCell>
-                        <TableCell>{r.checkType === "check_in" ? "출근" : "퇴근"}</TableCell>
-                        <TableCell>
-                          {formatTime(r.checkType === "check_in" ? r.checkInTime : r.checkOutTime)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(r.status)}>{statusLabel(r.status)}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {r.deviceType === "mobile" ? (
-                            <Smartphone className="w-4 h-4 text-muted-foreground" />
+                      <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border bg-card min-h-[44px]">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {r.checkType === "check_in" ? (
+                            <LogIn className="w-4 h-4 text-chart-2 shrink-0" />
                           ) : (
-                            <Monitor className="w-4 h-4 text-muted-foreground" />
+                            <LogOut className="w-4 h-4 text-chart-3 shrink-0" />
                           )}
-                        </TableCell>
-                      </TableRow>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium">{r.checkDate}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {r.checkType === "check_in" ? "출근" : "퇴근"} · {formatTime(r.checkType === "check_in" ? r.checkInTime : r.checkOutTime)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {r.deviceType === "mobile" ? (
+                            <Smartphone className="w-3.5 h-3.5 text-muted-foreground" />
+                          ) : (
+                            <Monitor className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                          <Badge variant={statusVariant(r.status)}>{statusLabel(r.status)}</Badge>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground py-4 text-center">
                   해당 월 기록이 없습니다
@@ -387,64 +418,107 @@ export default function Attendance() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>직원명</TableHead>
-                          <TableHead>직급</TableHead>
-                          <TableHead>출근일</TableHead>
-                          <TableHead>지각</TableHead>
-                          <TableHead>조퇴</TableHead>
-                          <TableHead>결근</TableHead>
-                          <TableHead>출근율</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {allStaff.map((s) => (
-                          <TableRow key={s.userId}>
-                            <TableCell className="font-medium">{s.userName}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
+                    <div className="hidden desktop:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>직원명</TableHead>
+                            <TableHead>직급</TableHead>
+                            <TableHead>출근일</TableHead>
+                            <TableHead>지각</TableHead>
+                            <TableHead>조퇴</TableHead>
+                            <TableHead>결근</TableHead>
+                            <TableHead>출근율</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allStaff.map((s) => (
+                            <TableRow key={s.userId}>
+                              <TableCell className="font-medium">{s.userName}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설" : s.role}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{s.presentDays}일</TableCell>
+                              <TableCell>
+                                {s.lateDays > 0 ? (
+                                  <span className="text-destructive font-medium">{s.lateDays}일</span>
+                                ) : (
+                                  "0일"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {s.earlyLeaveDays > 0 ? (
+                                  <span className="text-chart-3 font-medium">{s.earlyLeaveDays}일</span>
+                                ) : (
+                                  "0일"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {s.absentDays > 0 ? (
+                                  <span className="text-destructive font-medium">{s.absentDays}일</span>
+                                ) : (
+                                  "0일"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-chart-2 rounded-full"
+                                      style={{ width: `${Math.min(s.attendanceRate, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm">{s.attendanceRate}%</span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="desktop:hidden space-y-3">
+                      {allStaff.map((s) => (
+                        <div key={s.userId} className="p-3 rounded-lg border bg-card space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{s.userName}</span>
+                              <Badge variant="outline" className="text-xs">
                                 {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설" : s.role}
                               </Badge>
-                            </TableCell>
-                            <TableCell>{s.presentDays}일</TableCell>
-                            <TableCell>
-                              {s.lateDays > 0 ? (
-                                <span className="text-destructive font-medium">{s.lateDays}일</span>
-                              ) : (
-                                "0일"
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {s.earlyLeaveDays > 0 ? (
-                                <span className="text-chart-3 font-medium">{s.earlyLeaveDays}일</span>
-                              ) : (
-                                "0일"
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {s.absentDays > 0 ? (
-                                <span className="text-destructive font-medium">{s.absentDays}일</span>
-                              ) : (
-                                "0일"
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-chart-2 rounded-full"
-                                    style={{ width: `${Math.min(s.attendanceRate, 100)}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm">{s.attendanceRate}%</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                            </div>
+                            <span className="text-sm font-semibold">{s.attendanceRate}%</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-chart-2 rounded-full"
+                                style={{ width: `${Math.min(s.attendanceRate, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                            <div>
+                              <p className="text-muted-foreground">출근</p>
+                              <p className="font-medium">{s.presentDays}일</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">지각</p>
+                              <p className={s.lateDays > 0 ? "font-medium text-destructive" : "font-medium"}>{s.lateDays}일</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">조퇴</p>
+                              <p className={s.earlyLeaveDays > 0 ? "font-medium text-chart-3" : "font-medium"}>{s.earlyLeaveDays}일</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">결근</p>
+                              <p className={s.absentDays > 0 ? "font-medium text-destructive" : "font-medium"}>{s.absentDays}일</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </>
