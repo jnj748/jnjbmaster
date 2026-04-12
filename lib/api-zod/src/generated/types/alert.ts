@@ -17,5 +17,7 @@ export interface Alert {
   /** @nullable */
   relatedId?: number | null;
   hasDraft?: boolean;
+  /** @nullable */
+  actionStatus?: string | null;
   createdAt: Date;
 }

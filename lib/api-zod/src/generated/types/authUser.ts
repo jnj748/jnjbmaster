@@ -16,4 +16,8 @@ export interface AuthUser {
   /** @nullable */
   phone?: string | null;
   portalType: PortalType;
+  /** @nullable */
+  buildingSido?: string | null;
+  /** @nullable */
+  buildingSigungu?: string | null;
 }

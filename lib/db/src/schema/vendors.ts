@@ -17,6 +17,8 @@ export const vendorsTable = pgTable("vendors", {
   businessRegNumber: text("business_reg_number"),
   representativeName: text("representative_name"),
   serviceArea: text("service_area"),
+  sido: text("sido"),
+  sigungu: text("sigungu"),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
   contractBuildingName: text("contract_building_name"),
   contractStartDate: date("contract_start_date"),

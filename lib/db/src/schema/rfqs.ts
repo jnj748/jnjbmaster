@@ -12,6 +12,9 @@ export const rfqsTable = pgTable("rfqs", {
   deadline: date("deadline").notNull(),
   status: text("status").notNull().default("open"),
   vendorIds: text("vendor_ids"),
+  sido: text("sido"),
+  sigungu: text("sigungu"),
+  geoScope: text("geo_scope"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

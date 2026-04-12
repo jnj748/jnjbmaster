@@ -33,6 +33,10 @@ export interface Vendor {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
   joinedAt?: Date | null;
   /** @nullable */
   contractBuildingName?: string | null;

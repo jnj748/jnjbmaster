@@ -32,6 +32,10 @@ export interface CreateVendorBody {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
   contractStartDate?: Date | null;

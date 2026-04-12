@@ -18,4 +18,8 @@ export interface RegisterPlatformVendorBody {
   businessRegNumber: string;
   representativeName: string;
   serviceArea: string;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
 }

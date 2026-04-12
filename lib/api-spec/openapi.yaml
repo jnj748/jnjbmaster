@@ -43,6 +43,8 @@ tags:
     description: Tax deadline checklist management
   - name: attendance
     description: Attendance management
+  - name: alertActions
+    description: Alert action processing
 
 paths:
   /healthz:
@@ -983,6 +985,90 @@ paths:
           description: Deleted
         "404":
           description: Not found
+
+  /rfqs/{id}/expand-scope:
+    patch:
+      operationId: expandRfqScope
+      tags: [vendors]
+      summary: Expand RFQ geo scope from sigungu to sido
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Expanded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+        "404":
+          description: Not found
+
+  /rfqs/{id}/matched-vendors:
+    get:
+      operationId: getRfqMatchedVendors
+      tags: [vendors]
+      summary: Get geo-matched vendors for an RFQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Matched vendor list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+
+  # ── Alert Actions (알림 처리) ─────────────────────────
+  /alert-actions:
+    get:
+      operationId: listAlertActions
+      tags: [alertActions]
+      summary: List alert actions
+      parameters:
+        - name: alertType
+          in: query
+          schema:
+            type: string
+        - name: relatedEntityId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert action list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlertAction"
+    post:
+      operationId: createAlertAction
+      tags: [alertActions]
+      summary: Create an alert action (complete, postpone, or request quote)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertActionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertAction"
 
   # ── Quotes (견적서) ─────────────────────────────────────
   /quotes:
@@ -3407,6 +3493,10 @@ components:
           type: ["string", "null"]
         serviceArea:
           type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
         joinedAt:
           type: ["string", "null"]
           format: date-time
@@ -3465,6 +3555,10 @@ components:
           type: ["string", "null"]
         serviceArea:
           type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
         contractBuildingName:
           type: ["string", "null"]
         contractStartDate:
@@ -3508,6 +3602,10 @@ components:
           type: ["string", "null"]
         serviceArea:
           type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
         contractBuildingName:
           type: ["string", "null"]
         contractStartDate:
@@ -3539,6 +3637,10 @@ components:
           type: string
         serviceArea:
           type: string
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
       required:
         - name
         - category
@@ -3650,6 +3752,12 @@ components:
           enum: [open, closed, cancelled]
         vendorIds:
           type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        geoScope:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -3686,6 +3794,12 @@ components:
           format: date
         vendorIds:
           type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        geoScope:
+          type: ["string", "null"]
       required:
         - title
         - category
@@ -3714,6 +3828,12 @@ components:
           type: string
           enum: [open, closed, cancelled]
         vendorIds:
+          type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        geoScope:
           type: ["string", "null"]
 
     Quote:
@@ -4090,6 +4210,8 @@ components:
           type: ["integer", "null"]
         hasDraft:
           type: boolean
+        actionStatus:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -6475,6 +6597,10 @@ components:
           type: ["string", "null"]
         portalType:
           $ref: "#/components/schemas/PortalType"
+        buildingSido:
+          type: ["string", "null"]
+        buildingSigungu:
+          type: ["string", "null"]
       required:
         - id
         - email
@@ -6537,3 +6663,78 @@ components:
           $ref: "#/components/schemas/PortalType"
         phone:
           type: string
+        buildingSido:
+          type: ["string", "null"]
+        buildingSigungu:
+          type: ["string", "null"]
+
+    AlertAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        alertType:
+          type: string
+        relatedEntityType:
+          type: string
+        relatedEntityId:
+          type: integer
+        actionType:
+          type: string
+          enum: [completed, postponed, rfq_requested]
+        completedDate:
+          type: ["string", "null"]
+          format: date
+        nextCycleDate:
+          type: ["string", "null"]
+          format: date
+        postponeDays:
+          type: ["integer", "null"]
+        postponeReason:
+          type: ["string", "null"]
+        rfqId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - alertType
+        - relatedEntityType
+        - relatedEntityId
+        - actionType
+        - createdAt
+
+    CreateAlertActionBody:
+      type: object
+      properties:
+        alertType:
+          type: string
+        relatedEntityType:
+          type: string
+        relatedEntityId:
+          type: integer
+        actionType:
+          type: string
+          enum: [completed, postponed, rfq_requested]
+        completedDate:
+          type: ["string", "null"]
+          format: date
+        nextCycleDate:
+          type: ["string", "null"]
+          format: date
+        postponeDays:
+          type: ["integer", "null"]
+        postponeReason:
+          type: ["string", "null"]
+        rfqId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - alertType
+        - relatedEntityType
+        - relatedEntityId
+        - actionType

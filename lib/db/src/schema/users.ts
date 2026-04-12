@@ -12,6 +12,8 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   role: text("role", { enum: userRoles }).notNull(),
   phone: text("phone"),
+  buildingSido: text("building_sido"),
+  buildingSigungu: text("building_sigungu"),
   portalType: text("portal_type", { enum: portalTypes }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

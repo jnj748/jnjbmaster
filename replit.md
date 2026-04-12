@@ -112,6 +112,23 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **esbuild**: JavaScript bundler.
 - **jsPDF**: Library for generating PDF documents on the client side.
 
+## Alert Processing & Geo-based Vendor Matching (Task #17)
+
+- **Alert Actions**: `alert_actions` table tracks completed/postponed/rfq_requested actions on dashboard alerts
+  - `actionType` enum: `completed | postponed | rfq_requested`
+  - On completed inspection: auto-updates nextDueDate + creates inspectionLog
+  - On postponed: shifts nextDueDate by postponeDays
+  - On rfq_requested: stores rfqId linking to created RFQ
+  - Dashboard alerts filter out completed items and show actionStatus badges
+  - Alert action dialog restricted to `inspection_due` and `tax_due` alert types only
+- **Korean Districts**: `@workspace/shared/korean-districts` exports `koreanDistricts`, `sidoList`, `getSigunguList(sido)`
+- **Geo-based RFQ Matching**: RFQs have `sido`, `sigungu`, `geoScope` (sigungu/sido) columns
+  - On creation: auto-matches platform vendors by region + category, merges with manual selections (deduped)
+  - `/rfqs/:id/expand-scope` widens from sigungu to full sido scope
+  - `/rfqs/:id/matched-vendors` returns geo-filtered vendors
+- **Vendor geo fields**: `sido` + `sigungu` structured columns on vendors table (alongside legacy `serviceArea` free text)
+- **Frontend**: Vendor and RFQ forms include sido/sigungu cascading dropdowns
+
 ## Privacy Data Auto-Destruction System
 
 Implements personal data destruction complying with Korean privacy law (퇴거 후 3년 자동 파기):

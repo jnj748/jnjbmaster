@@ -7,6 +7,7 @@ import {
   useListVendors,
   useListQuotes,
   useUpdateQuote,
+  useExpandRfqScope,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
 } from "@workspace/api-client-react";
@@ -35,15 +36,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
   FileText,
-  Clock,
   CheckCircle,
   XCircle,
-  Eye,
   Trash2,
   BarChart3,
+  MapPin,
+  Expand,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -78,6 +80,7 @@ export default function Rfqs() {
   const updateMutation = useUpdateRfq();
   const deleteMutation = useDeleteRfq();
   const updateQuoteMutation = useUpdateQuote();
+  const expandScopeMutation = useExpandRfqScope();
 
   const [form, setForm] = useState({
     title: "",
@@ -87,6 +90,8 @@ export default function Rfqs() {
     desiredDate: "",
     deadline: "",
     vendorIds: [] as string[],
+    sido: "",
+    sigungu: "",
   });
 
   function resetForm() {
@@ -98,6 +103,8 @@ export default function Rfqs() {
       desiredDate: "",
       deadline: "",
       vendorIds: [],
+      sido: "",
+      sigungu: "",
     });
   }
 
@@ -111,6 +118,9 @@ export default function Rfqs() {
       desiredDate: form.desiredDate || null,
       deadline: form.deadline,
       vendorIds: form.vendorIds.length > 0 ? form.vendorIds.join(",") : null,
+      sido: form.sido || null,
+      sigungu: form.sigungu || null,
+      geoScope: form.sigungu ? "sigungu" : form.sido ? "sido" : null,
     };
 
     await createMutation.mutateAsync({ data });
@@ -130,6 +140,12 @@ export default function Rfqs() {
     await updateMutation.mutateAsync({ id, data: { status: "closed" } });
     queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
     toast({ title: "견적 요청이 마감되었습니다" });
+  }
+
+  async function handleExpandScope(id: number) {
+    await expandScopeMutation.mutateAsync({ id });
+    queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
+    toast({ title: "견적 범위가 시/도 전체로 확대되었습니다" });
   }
 
   async function handleAcceptQuote(quoteId: number) {
@@ -166,6 +182,7 @@ export default function Rfqs() {
   };
 
   const platformVendors = vendors?.filter((v) => v.type === "platform") || [];
+  const sigunguOptions = form.sido ? getSigunguList(form.sido) : [];
 
   return (
     <div className="space-y-6">
@@ -218,6 +235,45 @@ export default function Rfqs() {
                   />
                 </div>
               </div>
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  지역 기반 업체 매칭
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>시/도</Label>
+                    <Select value={form.sido} onValueChange={(v) => setForm({ ...form, sido: v, sigungu: "" })}>
+                      <SelectTrigger><SelectValue placeholder="시/도 선택" /></SelectTrigger>
+                      <SelectContent>
+                        {sidoList.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>시/군/구</Label>
+                    <Select
+                      value={form.sigungu}
+                      onValueChange={(v) => setForm({ ...form, sigungu: v })}
+                      disabled={!form.sido}
+                    >
+                      <SelectTrigger><SelectValue placeholder="시/군/구 선택" /></SelectTrigger>
+                      <SelectContent>
+                        {sigunguOptions.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  지역을 선택하면 해당 지역 업체에 자동 매칭됩니다
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>희망일</Label>
@@ -246,7 +302,7 @@ export default function Rfqs() {
                 />
               </div>
               <div>
-                <Label>발송 업체 (복수 선택 가능)</Label>
+                <Label>추가 발송 업체 (복수 선택 가능)</Label>
                 <div className="mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
                   {platformVendors.length > 0 ? platformVendors.map((v) => (
                     <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
@@ -265,6 +321,7 @@ export default function Rfqs() {
                         className="w-4 h-4"
                       />
                       {v.name} - {categoryLabel(v.category)}
+                      {v.sido && <span className="text-xs text-muted-foreground ml-1">({v.sido})</span>}
                     </label>
                   )) : (
                     <p className="text-xs text-muted-foreground p-2">등록된 플랫폼 업체가 없습니다</p>
@@ -300,14 +357,20 @@ export default function Rfqs() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <FileText className="w-4 h-4 text-primary" />
                       <h3 className="font-medium">{rfq.title}</h3>
                       <Badge variant={statusColor(rfq.status) as any}>
                         {statusLabel(rfq.status)}
                       </Badge>
+                      {rfq.geoScope && (
+                        <Badge variant="outline" className="text-xs">
+                          <MapPin className="w-3 h-3 mr-0.5" />
+                          {rfq.geoScope === "sigungu" ? `${rfq.sido} ${rfq.sigungu}` : rfq.sido}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="flex gap-4 text-sm text-muted-foreground mt-2">
+                    <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
                       <span>건물: {rfq.buildingName}</span>
                       <span>분류: {categoryLabel(rfq.category)}</span>
                       <span>마감: {formatDate(rfq.deadline)}</span>
@@ -317,7 +380,7 @@ export default function Rfqs() {
                       <p className="text-sm text-muted-foreground mt-2">{rfq.description}</p>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap justify-end">
                     <Button
                       variant="outline"
                       size="sm"
@@ -326,6 +389,12 @@ export default function Rfqs() {
                       <BarChart3 className="w-3.5 h-3.5 mr-1" />
                       견적 비교
                     </Button>
+                    {rfq.status === "open" && rfq.geoScope === "sigungu" && (
+                      <Button variant="outline" size="sm" onClick={() => handleExpandScope(rfq.id)}>
+                        <Expand className="w-3.5 h-3.5 mr-1" />
+                        범위 확대
+                      </Button>
+                    )}
                     {rfq.status === "open" && (
                       <Button variant="outline" size="sm" onClick={() => handleCloseRfq(rfq.id)}>
                         <CheckCircle className="w-3.5 h-3.5 mr-1" />

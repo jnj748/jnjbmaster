@@ -849,6 +849,8 @@ export const ListVendorsResponseItem = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
@@ -889,6 +891,8 @@ export const CreateVendorBody = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
@@ -927,6 +931,8 @@ export const UpdateVendorBody = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
@@ -957,6 +963,8 @@ export const UpdateVendorResponse = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
@@ -1004,6 +1012,8 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
@@ -1038,6 +1048,8 @@ export const RegisterPlatformVendorBody = zod.object({
   businessRegNumber: zod.string(),
   representativeName: zod.string(),
   serviceArea: zod.string(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
 });
 
 /**
@@ -1138,6 +1150,9 @@ export const ListRfqsResponseItem = zod.object({
   deadline: zod.coerce.date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1164,6 +1179,9 @@ export const CreateRfqBody = zod.object({
   desiredDate: zod.coerce.date().nullish(),
   deadline: zod.coerce.date(),
   vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
 });
 
 /**
@@ -1193,6 +1211,9 @@ export const GetRfqResponse = zod.object({
   deadline: zod.coerce.date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1225,6 +1246,9 @@ export const UpdateRfqBody = zod.object({
   deadline: zod.coerce.date().optional(),
   status: zod.enum(["open", "closed", "cancelled"]).optional(),
   vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
 });
 
 export const UpdateRfqResponse = zod.object({
@@ -1247,6 +1271,9 @@ export const UpdateRfqResponse = zod.object({
   deadline: zod.coerce.date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1256,6 +1283,125 @@ export const UpdateRfqResponse = zod.object({
  */
 export const DeleteRfqParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Expand RFQ geo scope from sigungu to sido
+ */
+export const ExpandRfqScopeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ExpandRfqScopeResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  description: zod.string().nullish(),
+  buildingName: zod.string(),
+  desiredDate: zod.coerce.date().nullish(),
+  deadline: zod.coerce.date(),
+  status: zod.enum(["open", "closed", "cancelled"]),
+  vendorIds: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  geoScope: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get geo-matched vendors for an RFQ
+ */
+export const GetRfqMatchedVendorsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetRfqMatchedVendorsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  type: zod.enum(["contracted", "platform"]),
+  contactName: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  rating: zod.number().nullish(),
+  isRecommended: zod.boolean(),
+  notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  joinedAt: zod.coerce.date().nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.coerce.date().nullish(),
+  contractEndDate: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const GetRfqMatchedVendorsResponse = zod.array(
+  GetRfqMatchedVendorsResponseItem,
+);
+
+/**
+ * @summary List alert actions
+ */
+export const ListAlertActionsQueryParams = zod.object({
+  alertType: zod.coerce.string().optional(),
+  relatedEntityId: zod.coerce.number().optional(),
+});
+
+export const ListAlertActionsResponseItem = zod.object({
+  id: zod.number(),
+  alertType: zod.string(),
+  relatedEntityType: zod.string(),
+  relatedEntityId: zod.number(),
+  actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
+  completedDate: zod.coerce.date().nullish(),
+  nextCycleDate: zod.coerce.date().nullish(),
+  postponeDays: zod.number().nullish(),
+  postponeReason: zod.string().nullish(),
+  rfqId: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAlertActionsResponse = zod.array(ListAlertActionsResponseItem);
+
+/**
+ * @summary Create an alert action (complete, postpone, or request quote)
+ */
+export const CreateAlertActionBody = zod.object({
+  alertType: zod.string(),
+  relatedEntityType: zod.string(),
+  relatedEntityId: zod.number(),
+  actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
+  completedDate: zod.coerce.date().nullish(),
+  nextCycleDate: zod.coerce.date().nullish(),
+  postponeDays: zod.number().nullish(),
+  postponeReason: zod.string().nullish(),
+  rfqId: zod.number().nullish(),
+  notes: zod.string().nullish(),
 });
 
 /**
@@ -1646,6 +1792,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
   severity: zod.enum(["critical", "warning", "info"]),
   relatedId: zod.number().nullish(),
   hasDraft: zod.boolean().optional(),
+  actionStatus: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const GetDashboardAlertsResponse = zod.array(

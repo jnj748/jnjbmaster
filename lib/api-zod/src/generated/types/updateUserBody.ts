@@ -13,4 +13,8 @@ export interface UpdateUserBody {
   role?: UserRole;
   portalType?: PortalType;
   phone?: string;
+  /** @nullable */
+  buildingSido?: string | null;
+  /** @nullable */
+  buildingSigungu?: string | null;
 }

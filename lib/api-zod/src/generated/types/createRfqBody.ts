@@ -18,4 +18,10 @@ export interface CreateRfqBody {
   deadline: Date;
   /** @nullable */
   vendorIds?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  geoScope?: string | null;
 }

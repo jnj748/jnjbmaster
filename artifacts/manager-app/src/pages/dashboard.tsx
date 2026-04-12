@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
@@ -7,12 +8,35 @@ import {
   useListVehicles,
   useListMaintenanceLogs,
   useListSafetyChecklists,
+  useCreateAlertAction,
+  useCreateRfq,
+  getGetDashboardAlertsQueryKey,
+  getListRfqsQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { useToast } from "@/hooks/use-toast";
 import {
   CheckSquare,
   AlertTriangle,
@@ -28,6 +52,9 @@ import {
   ClipboardCheck,
   Wrench,
   Send,
+  CheckCircle,
+  CalendarClock,
+  FileText,
 } from "lucide-react";
 
 function StatCard({
@@ -63,6 +90,8 @@ function StatCard({
   );
 }
 
+type AlertActionTab = "complete" | "postpone" | "rfq";
+
 export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
@@ -72,6 +101,111 @@ export default function Dashboard() {
   const { data: vehicles } = useListVehicles();
   const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
   const { data: recentChecklists } = useListSafetyChecklists();
+
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
+  const [completeDate, setCompleteDate] = useState(new Date().toISOString().split("T")[0]);
+  const [nextCycleDate, setNextCycleDate] = useState("");
+  const [postponeDays, setPostponeDays] = useState("7");
+  const [postponeReason, setPostponeReason] = useState("");
+  const [actionNotes, setActionNotes] = useState("");
+  const [rfqTitle, setRfqTitle] = useState("");
+  const [rfqDeadline, setRfqDeadline] = useState("");
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const createActionMutation = useCreateAlertAction();
+  const createRfqMutation = useCreateRfq();
+
+  function openAlertAction(alert: any) {
+    setSelectedAlert(alert);
+    setActionTab("complete");
+    setCompleteDate(new Date().toISOString().split("T")[0]);
+    setPostponeDays("7");
+    setPostponeReason("");
+    setActionNotes("");
+    setRfqTitle(alert.title);
+    const twoWeeks = new Date();
+    twoWeeks.setDate(twoWeeks.getDate() + 14);
+    setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
+
+    if (alert.type === "inspection_due" && alert.relatedId) {
+      const sixMonths = new Date();
+      sixMonths.setMonth(sixMonths.getMonth() + 6);
+      setNextCycleDate(sixMonths.toISOString().split("T")[0]);
+    } else {
+      setNextCycleDate("");
+    }
+  }
+
+  async function handleComplete() {
+    if (!selectedAlert) return;
+    await createActionMutation.mutateAsync({
+      data: {
+        alertType: selectedAlert.type,
+        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : selectedAlert.type === "tax_due" ? "tax" : "task",
+        relatedEntityId: selectedAlert.relatedId!,
+        actionType: "completed",
+        completedDate: completeDate || null,
+        nextCycleDate: nextCycleDate || null,
+        notes: actionNotes || null,
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
+    toast({ title: "처리 완료되었습니다" });
+    setSelectedAlert(null);
+  }
+
+  async function handlePostpone() {
+    if (!selectedAlert) return;
+    await createActionMutation.mutateAsync({
+      data: {
+        alertType: selectedAlert.type,
+        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : selectedAlert.type === "tax_due" ? "tax" : "task",
+        relatedEntityId: selectedAlert.relatedId!,
+        actionType: "postponed",
+        postponeDays: parseInt(postponeDays) || null,
+        postponeReason: postponeReason || null,
+        notes: actionNotes || null,
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
+    toast({ title: "일정이 연기되었습니다" });
+    setSelectedAlert(null);
+  }
+
+  async function handleRfqRequest() {
+    if (!selectedAlert) return;
+    const catMap: Record<string, string> = {
+      inspection_due: "elevator",
+    };
+
+    const createdRfq = await createRfqMutation.mutateAsync({
+      data: {
+        title: rfqTitle,
+        category: catMap[selectedAlert.type] || "other",
+        buildingName: "관리 건물",
+        deadline: rfqDeadline,
+        description: `${selectedAlert.title} - ${selectedAlert.message}`,
+      },
+    });
+
+    await createActionMutation.mutateAsync({
+      data: {
+        alertType: selectedAlert.type,
+        relatedEntityType: selectedAlert.type === "inspection_due" ? "inspection" : "tax",
+        relatedEntityId: selectedAlert.relatedId!,
+        actionType: "rfq_requested",
+        rfqId: createdRfq?.id ?? null,
+        notes: `견적 요청 생성: ${rfqTitle}`,
+      },
+    });
+
+    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
+    toast({ title: "견적 요청이 생성되었습니다" });
+    setSelectedAlert(null);
+  }
 
   if (summaryLoading) {
     return (
@@ -170,7 +304,8 @@ export default function Dashboard() {
               alerts.slice(0, 5).map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border"
+                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/80 transition-colors"
+                  onClick={() => alert.relatedId && ["inspection_due", "tax_due"].includes(alert.type) && openAlertAction(alert)}
                 >
                   <Badge
                     variant={
@@ -189,11 +324,21 @@ export default function Dashboard() {
                       : "정보"}
                   </Badge>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{alert.title}</p>
                       {alert.hasDraft && (
                         <Badge variant="outline" className="text-xs">
                           기안서 생성됨
+                        </Badge>
+                      )}
+                      {alert.actionStatus === "postponed" && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                          연기됨
+                        </Badge>
+                      )}
+                      {alert.actionStatus === "rfq_requested" && (
+                        <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                          견적 요청됨
                         </Badge>
                       )}
                     </div>
@@ -348,6 +493,156 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <ResponsiveDialog open={!!selectedAlert} onOpenChange={(o) => { if (!o) setSelectedAlert(null); }}>
+        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>알림 처리</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+
+          {selectedAlert && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
+                <p className="font-medium">{selectedAlert.title}</p>
+                <p className="text-muted-foreground text-xs">{selectedAlert.message}</p>
+              </div>
+
+              <div className="flex gap-1 border-b">
+                {[
+                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle },
+                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock },
+                  ...(selectedAlert.type === "inspection_due" ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActionTab(tab.key)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      actionTab === tab.key
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {actionTab === "complete" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label>완료일</Label>
+                    <Input
+                      type="date"
+                      value={completeDate}
+                      onChange={(e) => setCompleteDate(e.target.value)}
+                    />
+                  </div>
+                  {selectedAlert.type === "inspection_due" && (
+                    <div>
+                      <Label>다음 점검 예정일 (자동 계산)</Label>
+                      <Input
+                        type="date"
+                        value={nextCycleDate}
+                        onChange={(e) => setNextCycleDate(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        법정 주기에 따라 자동 계산됩니다. 필요시 수정 가능합니다.
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <Label>비고</Label>
+                    <Textarea
+                      value={actionNotes}
+                      onChange={(e) => setActionNotes(e.target.value)}
+                      placeholder="처리 내용을 기록하세요"
+                    />
+                  </div>
+                  <Button className="w-full" onClick={handleComplete}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    처리완료
+                  </Button>
+                </div>
+              )}
+
+              {actionTab === "postpone" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label>연기 일수</Label>
+                    <Select value={postponeDays} onValueChange={setPostponeDays}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">3일</SelectItem>
+                        <SelectItem value="7">7일 (1주)</SelectItem>
+                        <SelectItem value="14">14일 (2주)</SelectItem>
+                        <SelectItem value="30">30일 (1개월)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>연기 사유</Label>
+                    <Select value={postponeReason} onValueChange={setPostponeReason}>
+                      <SelectTrigger><SelectValue placeholder="사유 선택" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="업체 일정 조율 중">업체 일정 조율 중</SelectItem>
+                        <SelectItem value="예산 확보 대기">예산 확보 대기</SelectItem>
+                        <SelectItem value="우천/기상 악화">우천/기상 악화</SelectItem>
+                        <SelectItem value="자재 입고 대기">자재 입고 대기</SelectItem>
+                        <SelectItem value="기타">기타</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>비고</Label>
+                    <Textarea
+                      value={actionNotes}
+                      onChange={(e) => setActionNotes(e.target.value)}
+                      placeholder="연기 관련 상세 내용"
+                    />
+                  </div>
+                  <Button className="w-full" variant="secondary" onClick={handlePostpone}>
+                    <CalendarClock className="w-4 h-4 mr-2" />
+                    일정 연기
+                  </Button>
+                </div>
+              )}
+
+              {actionTab === "rfq" && (
+                <div className="space-y-3">
+                  <div>
+                    <Label>견적 요청 제목</Label>
+                    <Input
+                      value={rfqTitle}
+                      onChange={(e) => setRfqTitle(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>견적 마감일</Label>
+                    <Input
+                      type="date"
+                      value={rfqDeadline}
+                      onChange={(e) => setRfqDeadline(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>비고</Label>
+                    <Textarea
+                      value={actionNotes}
+                      onChange={(e) => setActionNotes(e.target.value)}
+                      placeholder="견적 요청 시 참고사항"
+                    />
+                  </div>
+                  <Button className="w-full" variant="default" onClick={handleRfqRequest}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    견적 요청 생성
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

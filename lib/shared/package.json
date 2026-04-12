@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/shared",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/korean-districts.ts",
+  "types": "./src/korean-districts.ts",
+  "exports": {
+    "./korean-districts": "./src/korean-districts.ts"
+  }
+}

@@ -20,6 +20,7 @@ import type {
   ActivityItem,
   AiMatchingResponse,
   Alert,
+  AlertAction,
   Approval,
   ApprovalRecipientItem,
   ApprovalStats,
@@ -38,6 +39,7 @@ import type {
   CheckAttendanceBody,
   Commission,
   CompleteInspectionBody,
+  CreateAlertActionBody,
   CreateApprovalBody,
   CreateCommissionBody,
   CreateDailyReportBody,
@@ -89,6 +91,7 @@ import type {
   Inspection,
   InspectionLog,
   InspectionPreset,
+  ListAlertActionsParams,
   ListApprovalsParams,
   ListDailyReportsParams,
   ListDocumentChecklistsParams,
@@ -4230,6 +4233,361 @@ export const useDeleteRfq = <
   TContext
 > => {
   return useMutation(getDeleteRfqMutationOptions(options));
+};
+
+/**
+ * @summary Expand RFQ geo scope from sigungu to sido
+ */
+export const getExpandRfqScopeUrl = (id: number) => {
+  return `/api/rfqs/${id}/expand-scope`;
+};
+
+export const expandRfqScope = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Rfq> => {
+  return customFetch<Rfq>(getExpandRfqScopeUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getExpandRfqScopeMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof expandRfqScope>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof expandRfqScope>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["expandRfqScope"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof expandRfqScope>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return expandRfqScope(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExpandRfqScopeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof expandRfqScope>>
+>;
+
+export type ExpandRfqScopeMutationError = ErrorType<void>;
+
+/**
+ * @summary Expand RFQ geo scope from sigungu to sido
+ */
+export const useExpandRfqScope = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof expandRfqScope>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof expandRfqScope>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getExpandRfqScopeMutationOptions(options));
+};
+
+/**
+ * @summary Get geo-matched vendors for an RFQ
+ */
+export const getGetRfqMatchedVendorsUrl = (id: number) => {
+  return `/api/rfqs/${id}/matched-vendors`;
+};
+
+export const getRfqMatchedVendors = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Vendor[]> => {
+  return customFetch<Vendor[]>(getGetRfqMatchedVendorsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRfqMatchedVendorsQueryKey = (id: number) => {
+  return [`/api/rfqs/${id}/matched-vendors`] as const;
+};
+
+export const getGetRfqMatchedVendorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRfqMatchedVendors>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRfqMatchedVendors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRfqMatchedVendorsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRfqMatchedVendors>>
+  > = ({ signal }) => getRfqMatchedVendors(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqMatchedVendors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRfqMatchedVendorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRfqMatchedVendors>>
+>;
+export type GetRfqMatchedVendorsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get geo-matched vendors for an RFQ
+ */
+
+export function useGetRfqMatchedVendors<
+  TData = Awaited<ReturnType<typeof getRfqMatchedVendors>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRfqMatchedVendors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRfqMatchedVendorsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List alert actions
+ */
+export const getListAlertActionsUrl = (params?: ListAlertActionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/alert-actions?${stringifiedParams}`
+    : `/api/alert-actions`;
+};
+
+export const listAlertActions = async (
+  params?: ListAlertActionsParams,
+  options?: RequestInit,
+): Promise<AlertAction[]> => {
+  return customFetch<AlertAction[]>(getListAlertActionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAlertActionsQueryKey = (
+  params?: ListAlertActionsParams,
+) => {
+  return [`/api/alert-actions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAlertActionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAlertActions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAlertActionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAlertActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAlertActionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAlertActions>>
+  > = ({ signal }) => listAlertActions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAlertActions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAlertActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAlertActions>>
+>;
+export type ListAlertActionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List alert actions
+ */
+
+export function useListAlertActions<
+  TData = Awaited<ReturnType<typeof listAlertActions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAlertActionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAlertActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAlertActionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an alert action (complete, postpone, or request quote)
+ */
+export const getCreateAlertActionUrl = () => {
+  return `/api/alert-actions`;
+};
+
+export const createAlertAction = async (
+  createAlertActionBody: CreateAlertActionBody,
+  options?: RequestInit,
+): Promise<AlertAction> => {
+  return customFetch<AlertAction>(getCreateAlertActionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAlertActionBody),
+  });
+};
+
+export const getCreateAlertActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAlertAction>>,
+    TError,
+    { data: BodyType<CreateAlertActionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAlertAction>>,
+  TError,
+  { data: BodyType<CreateAlertActionBody> },
+  TContext
+> => {
+  const mutationKey = ["createAlertAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAlertAction>>,
+    { data: BodyType<CreateAlertActionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAlertAction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAlertActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAlertAction>>
+>;
+export type CreateAlertActionMutationBody = BodyType<CreateAlertActionBody>;
+export type CreateAlertActionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an alert action (complete, postpone, or request quote)
+ */
+export const useCreateAlertAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAlertAction>>,
+    TError,
+    { data: BodyType<CreateAlertActionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAlertAction>>,
+  TError,
+  { data: BodyType<CreateAlertActionBody> },
+  TContext
+> => {
+  return useMutation(getCreateAlertActionMutationOptions(options));
 };
 
 /**

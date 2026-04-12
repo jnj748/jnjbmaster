@@ -28,8 +28,9 @@ import {
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase } from "lucide-react";
+import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { koreanDistricts, sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -78,6 +79,8 @@ export default function Vendors() {
     businessRegNumber: "",
     representativeName: "",
     serviceArea: "",
+    sido: "",
+    sigungu: "",
   });
 
   function resetForm() {
@@ -86,6 +89,7 @@ export default function Vendors() {
       address: "", rating: "", isRecommended: false, notes: "",
       contractBuildingName: "", contractStartDate: "", contractEndDate: "",
       businessRegNumber: "", representativeName: "", serviceArea: "",
+      sido: "", sigungu: "",
     });
     setEditing(null);
   }
@@ -108,6 +112,8 @@ export default function Vendors() {
       businessRegNumber: item.businessRegNumber || "",
       representativeName: item.representativeName || "",
       serviceArea: item.serviceArea || "",
+      sido: item.sido || "",
+      sigungu: item.sigungu || "",
     });
     setDialogOpen(true);
   }
@@ -125,6 +131,8 @@ export default function Vendors() {
       rating: form.rating ? parseFloat(form.rating) : null,
       isRecommended: form.isRecommended,
       notes: form.notes || null,
+      sido: form.sido || null,
+      sigungu: form.sigungu || null,
     };
 
     if (activeTab === "contracted") {
@@ -158,6 +166,8 @@ export default function Vendors() {
   const categoryLabel = (c: string) =>
     categoryOptions.find((o) => o.value === c)?.label || c;
 
+  const sigunguOptions = form.sido ? getSigunguList(form.sido) : [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -174,7 +184,7 @@ export default function Vendors() {
               업체 등록
             </Button>
           </ResponsiveDialogTrigger>
-          <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <ResponsiveDialogHeader>
               <ResponsiveDialogTitle>{editing ? "업체 수정" : "새 업체 등록"}</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
@@ -221,6 +231,41 @@ export default function Vendors() {
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
 
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  서비스 지역
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>시/도</Label>
+                    <Select value={form.sido} onValueChange={(v) => setForm({ ...form, sido: v, sigungu: "" })}>
+                      <SelectTrigger><SelectValue placeholder="시/도 선택" /></SelectTrigger>
+                      <SelectContent>
+                        {sidoList.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>시/군/구</Label>
+                    <Select
+                      value={form.sigungu}
+                      onValueChange={(v) => setForm({ ...form, sigungu: v })}
+                      disabled={!form.sido}
+                    >
+                      <SelectTrigger><SelectValue placeholder="시/군/구 선택" /></SelectTrigger>
+                      <SelectContent>
+                        {sigunguOptions.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
               {activeTab === "contracted" && (
                 <>
                   <div className="border-t pt-4">
@@ -259,7 +304,7 @@ export default function Vendors() {
                     </div>
                   </div>
                   <div>
-                    <Label>서비스 가능 지역</Label>
+                    <Label>서비스 가능 지역 (텍스트)</Label>
                     <Input value={form.serviceArea} onChange={(e) => setForm({ ...form, serviceArea: e.target.value })} placeholder="예: 서울, 경기 북부" />
                   </div>
                 </>
@@ -375,6 +420,12 @@ export default function Vendors() {
                     <p className="flex items-center gap-1">
                       <Star className="w-3 h-3 text-chart-3" />
                       {vendor.rating.toFixed(1)}
+                    </p>
+                  )}
+                  {(vendor.sido || vendor.sigungu) && (
+                    <p className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {[vendor.sido, vendor.sigungu].filter(Boolean).join(" ")}
                     </p>
                   )}
                   {activeTab === "contracted" && vendor.contractBuildingName && (

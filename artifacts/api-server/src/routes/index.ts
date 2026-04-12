@@ -31,6 +31,7 @@ import reportSystemRouter from "./reportSystem";
 import privacyRouter from "./privacy";
 import taxDeadlineChecklistsRouter from "./taxDeadlineChecklists";
 import attendanceRouter from "./attendance";
+import alertActionsRouter from "./alertActions";
 
 const router: IRouter = Router();
 
@@ -72,6 +73,7 @@ buildingRouter.use(facilityDashboardRouter);
 buildingRouter.use(privacyRouter);
 buildingRouter.use(taxDeadlineChecklistsRouter);
 buildingRouter.use(attendanceRouter);
+buildingRouter.use(alertActionsRouter);
 router.use(buildingRouter);
 
 export default router;

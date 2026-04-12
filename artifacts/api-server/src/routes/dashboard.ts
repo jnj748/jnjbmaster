@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, desc, sql } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable } from "@workspace/db";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
   GetDashboardAlertsResponse,
@@ -116,10 +116,24 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     severity: string;
     relatedId: number | null;
     hasDraft: boolean;
+    actionStatus: string | null;
     createdAt: string;
   }> = [];
 
   let alertId = 1;
+
+  const recentActions = await db
+    .select()
+    .from(alertActionsTable)
+    .orderBy(desc(alertActionsTable.createdAt));
+
+  const actionMap = new Map<string, typeof recentActions[0]>();
+  for (const action of recentActions) {
+    const key = `${action.alertType}:${action.relatedEntityId}`;
+    if (!actionMap.has(key)) {
+      actionMap.set(key, action);
+    }
+  }
 
   const upcomingInspections = await db
     .select()
@@ -138,6 +152,8 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
   }
 
   for (const inspection of upcomingInspections) {
+    const action = actionMap.get(`inspection_due:${inspection.id}`);
+    if (action && action.actionType === "completed") continue;
     alerts.push({
       id: alertId++,
       type: "inspection_due",
@@ -146,6 +162,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       severity: inspection.nextDueDate <= new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] ? "critical" : "warning",
       relatedId: inspection.id,
       hasDraft: draftByInspectionId.has(inspection.id),
+      actionStatus: action?.actionType || null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -172,6 +189,8 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         message += " 세무사에게 자료를 준비하세요. (매출/매입 증빙, 급여대장, 4대보험 등)";
       }
 
+      const taxAction = actionMap.get(`tax_due:${tax.id}`);
+      if (taxAction && taxAction.actionType === "completed") continue;
       alerts.push({
         id: alertId++,
         type: "tax_due",
@@ -180,6 +199,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         severity: daysLeft <= 7 ? "critical" : "warning",
         relatedId: tax.id,
         hasDraft: false,
+        actionStatus: taxAction?.actionType || null,
         createdAt: new Date().toISOString(),
       });
     }
@@ -192,6 +212,8 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
 
   for (const task of overdueTasks) {
     if (task.dueDate && task.dueDate < today) {
+      const taskAction = actionMap.get(`task_overdue:${task.id}`);
+      if (taskAction && taskAction.actionType === "completed") continue;
       alerts.push({
         id: alertId++,
         type: "task_overdue",
@@ -200,6 +222,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         severity: "critical",
         relatedId: task.id,
         hasDraft: false,
+        actionStatus: taskAction?.actionType || null,
         createdAt: new Date().toISOString(),
       });
     }
@@ -241,6 +264,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       severity: daysLeft <= 7 ? "critical" : "warning",
       relatedId: tenant.id,
       hasDraft: false,
+      actionStatus: null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -257,6 +281,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       severity: daysLeft <= 7 ? "critical" : "warning",
       relatedId: owner.id,
       hasDraft: false,
+      actionStatus: null,
       createdAt: new Date().toISOString(),
     });
   }

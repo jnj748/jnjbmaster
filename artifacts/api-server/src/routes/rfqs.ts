@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, rfqsTable } from "@workspace/db";
+import { eq, and, desc, or } from "drizzle-orm";
+import { db, rfqsTable, vendorsTable } from "@workspace/db";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -11,6 +11,10 @@ import {
   UpdateRfqBody,
   UpdateRfqResponse,
   DeleteRfqParams,
+  ExpandRfqScopeParams,
+  ExpandRfqScopeResponse,
+  GetRfqMatchedVendorsParams,
+  GetRfqMatchedVendorsResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -42,6 +46,44 @@ router.get("/rfqs", async (req, res): Promise<void> => {
   res.json(ListRfqsResponse.parse(rfqs));
 });
 
+router.get("/rfqs/:id/matched-vendors", async (req, res): Promise<void> => {
+  const params = GetRfqMatchedVendorsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [rfq] = await db
+    .select()
+    .from(rfqsTable)
+    .where(eq(rfqsTable.id, params.data.id));
+
+  if (!rfq) {
+    res.status(404).json({ error: "RFQ not found" });
+    return;
+  }
+
+  const conditions = [
+    eq(vendorsTable.type, "platform"),
+    eq(vendorsTable.category, rfq.category),
+  ];
+
+  if (rfq.geoScope === "sigungu" && rfq.sido && rfq.sigungu) {
+    conditions.push(eq(vendorsTable.sido, rfq.sido));
+    conditions.push(eq(vendorsTable.sigungu, rfq.sigungu));
+  } else if (rfq.geoScope === "sido" && rfq.sido) {
+    conditions.push(eq(vendorsTable.sido, rfq.sido));
+  }
+
+  const matchedVendors = await db
+    .select()
+    .from(vendorsTable)
+    .where(and(...conditions))
+    .orderBy(desc(vendorsTable.rating));
+
+  res.json(GetRfqMatchedVendorsResponse.parse(matchedVendors));
+});
+
 router.get("/rfqs/:id", async (req, res): Promise<void> => {
   const params = GetRfqParams.safeParse(req.params);
   if (!params.success) {
@@ -69,8 +111,90 @@ router.post("/rfqs", async (req, res): Promise<void> => {
     return;
   }
 
-  const [rfq] = await db.insert(rfqsTable).values(parsed.data).returning();
+  const data = { ...parsed.data };
+
+  if (data.sido && data.sigungu && !data.geoScope) {
+    data.geoScope = "sigungu";
+  } else if (data.sido && !data.sigungu && !data.geoScope) {
+    data.geoScope = "sido";
+  }
+
+  if (data.sido) {
+    const geoConditions = [
+      eq(vendorsTable.type, "platform"),
+      eq(vendorsTable.category, data.category),
+    ];
+
+    if (data.geoScope === "sigungu" && data.sigungu) {
+      geoConditions.push(eq(vendorsTable.sido, data.sido));
+      geoConditions.push(eq(vendorsTable.sigungu, data.sigungu));
+    } else {
+      geoConditions.push(eq(vendorsTable.sido, data.sido));
+    }
+
+    const matchedVendors = await db
+      .select({ id: vendorsTable.id })
+      .from(vendorsTable)
+      .where(and(...geoConditions));
+
+    const manualIds = data.vendorIds ? data.vendorIds.split(",") : [];
+    const geoIds = matchedVendors.map((v) => v.id.toString());
+    const allIds = [...new Set([...manualIds, ...geoIds])];
+
+    if (allIds.length > 0) {
+      data.vendorIds = allIds.join(",");
+    }
+  }
+
+  const [rfq] = await db.insert(rfqsTable).values(data).returning();
   res.status(201).json(UpdateRfqResponse.parse(rfq));
+});
+
+router.patch("/rfqs/:id/expand-scope", async (req, res): Promise<void> => {
+  const params = ExpandRfqScopeParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [rfq] = await db
+    .select()
+    .from(rfqsTable)
+    .where(eq(rfqsTable.id, params.data.id));
+
+  if (!rfq) {
+    res.status(404).json({ error: "RFQ not found" });
+    return;
+  }
+
+  if (!rfq.sido) {
+    res.status(400).json({ error: "RFQ has no geo information" });
+    return;
+  }
+
+  const matchedVendors = await db
+    .select({ id: vendorsTable.id })
+    .from(vendorsTable)
+    .where(
+      and(
+        eq(vendorsTable.type, "platform"),
+        eq(vendorsTable.category, rfq.category),
+        eq(vendorsTable.sido, rfq.sido)
+      )
+    );
+
+  const newVendorIds = matchedVendors.map((v) => v.id.toString()).join(",");
+
+  const [updated] = await db
+    .update(rfqsTable)
+    .set({
+      geoScope: "sido",
+      vendorIds: newVendorIds || rfq.vendorIds,
+    })
+    .where(eq(rfqsTable.id, params.data.id))
+    .returning();
+
+  res.json(ExpandRfqScopeResponse.parse(updated));
 });
 
 router.patch("/rfqs/:id", async (req, res): Promise<void> => {

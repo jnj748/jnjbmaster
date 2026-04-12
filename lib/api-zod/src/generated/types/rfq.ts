@@ -21,6 +21,12 @@ export interface Rfq {
   status: RfqStatus;
   /** @nullable */
   vendorIds?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  geoScope?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

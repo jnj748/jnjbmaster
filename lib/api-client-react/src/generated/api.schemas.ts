@@ -465,6 +465,10 @@ export interface Vendor {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
   joinedAt?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
@@ -523,6 +527,10 @@ export interface CreateVendorBody {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
   contractStartDate?: string | null;
@@ -577,6 +585,10 @@ export interface UpdateVendorBody {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
   contractStartDate?: string | null;
@@ -610,6 +622,10 @@ export interface RegisterPlatformVendorBody {
   businessRegNumber: string;
   representativeName: string;
   serviceArea: string;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
 }
 
 export type CommissionStatus =
@@ -699,6 +715,12 @@ export interface Rfq {
   status: RfqStatus;
   /** @nullable */
   vendorIds?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  geoScope?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -729,6 +751,12 @@ export interface CreateRfqBody {
   deadline: string;
   /** @nullable */
   vendorIds?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  geoScope?: string | null;
 }
 
 export type UpdateRfqBodyCategory =
@@ -767,6 +795,12 @@ export interface UpdateRfqBody {
   status?: UpdateRfqBodyStatus;
   /** @nullable */
   vendorIds?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  geoScope?: string | null;
 }
 
 export type QuoteStatus = (typeof QuoteStatus)[keyof typeof QuoteStatus];
@@ -1011,6 +1045,8 @@ export interface Alert {
   /** @nullable */
   relatedId?: number | null;
   hasDraft?: boolean;
+  /** @nullable */
+  actionStatus?: string | null;
   createdAt: string;
 }
 
@@ -2242,6 +2278,106 @@ export interface TaxDeadlineChecklist {
   updatedAt: string;
 }
 
+export interface CreateTaxDeadlineChecklistBody {
+  taxScheduleId: number;
+  itemName: string;
+  /** @nullable */
+  description?: string | null;
+  dueDate: string;
+}
+
+export interface UpdateTaxDeadlineChecklistBody {
+  itemName?: string;
+  /** @nullable */
+  description?: string | null;
+  isCompleted?: boolean;
+  /** @nullable */
+  completedBy?: number | null;
+  /** @nullable */
+  completedAt?: string | null;
+  dueDate?: string;
+}
+
+export type AttendanceRecordCheckType =
+  (typeof AttendanceRecordCheckType)[keyof typeof AttendanceRecordCheckType];
+
+export const AttendanceRecordCheckType = {
+  check_in: "check_in",
+  check_out: "check_out",
+} as const;
+
+export type AttendanceRecordStatus =
+  (typeof AttendanceRecordStatus)[keyof typeof AttendanceRecordStatus];
+
+export const AttendanceRecordStatus = {
+  normal: "normal",
+  late: "late",
+  early_leave: "early_leave",
+  absent: "absent",
+} as const;
+
+export interface AttendanceRecord {
+  id: number;
+  userId: number;
+  userName?: string;
+  checkDate: string;
+  /** @nullable */
+  checkInTime?: string | null;
+  /** @nullable */
+  checkOutTime?: string | null;
+  checkType: AttendanceRecordCheckType;
+  status: AttendanceRecordStatus;
+  /** @nullable */
+  deviceType?: string | null;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  /** @nullable */
+  note?: string | null;
+  createdAt: string;
+}
+
+export type CheckAttendanceBodyCheckType =
+  (typeof CheckAttendanceBodyCheckType)[keyof typeof CheckAttendanceBodyCheckType];
+
+export const CheckAttendanceBodyCheckType = {
+  check_in: "check_in",
+  check_out: "check_out",
+} as const;
+
+export interface CheckAttendanceBody {
+  checkType: CheckAttendanceBodyCheckType;
+  /** @nullable */
+  deviceType?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface AttendanceStats {
+  userId: number;
+  userName: string;
+  month: number;
+  year: number;
+  totalWorkDays: number;
+  presentDays: number;
+  lateDays: number;
+  earlyLeaveDays: number;
+  absentDays: number;
+  attendanceRate: number;
+}
+
+export interface StaffAttendanceSummary {
+  userId: number;
+  userName: string;
+  role: string;
+  presentDays: number;
+  lateDays: number;
+  earlyLeaveDays: number;
+  absentDays: number;
+  attendanceRate: number;
+}
+
 export type ApprovalStepItemStatus =
   (typeof ApprovalStepItemStatus)[keyof typeof ApprovalStepItemStatus];
 
@@ -2618,6 +2754,10 @@ export interface AuthUser {
   /** @nullable */
   phone?: string | null;
   portalType: PortalType;
+  /** @nullable */
+  buildingSido?: string | null;
+  /** @nullable */
+  buildingSigungu?: string | null;
 }
 
 export interface LoginBody {
@@ -2644,106 +2784,68 @@ export interface UpdateUserBody {
   role?: UserRole;
   portalType?: PortalType;
   phone?: string;
+  /** @nullable */
+  buildingSido?: string | null;
+  /** @nullable */
+  buildingSigungu?: string | null;
 }
 
-export interface CreateTaxDeadlineChecklistBody {
-  taxScheduleId: number;
-  itemName: string;
-  /** @nullable */
-  description?: string | null;
-  dueDate: string;
-}
+export type AlertActionActionType =
+  (typeof AlertActionActionType)[keyof typeof AlertActionActionType];
 
-export interface UpdateTaxDeadlineChecklistBody {
-  itemName?: string;
-  /** @nullable */
-  description?: string | null;
-  isCompleted?: boolean;
-  /** @nullable */
-  completedBy?: number | null;
-  /** @nullable */
-  completedAt?: string | null;
-  dueDate?: string;
-}
-
-export type AttendanceRecordCheckType =
-  (typeof AttendanceRecordCheckType)[keyof typeof AttendanceRecordCheckType];
-
-export const AttendanceRecordCheckType = {
-  check_in: "check_in",
-  check_out: "check_out",
+export const AlertActionActionType = {
+  completed: "completed",
+  postponed: "postponed",
+  rfq_requested: "rfq_requested",
 } as const;
 
-export type AttendanceRecordStatus =
-  (typeof AttendanceRecordStatus)[keyof typeof AttendanceRecordStatus];
-
-export const AttendanceRecordStatus = {
-  normal: "normal",
-  late: "late",
-  early_leave: "early_leave",
-  absent: "absent",
-} as const;
-
-export interface AttendanceRecord {
+export interface AlertAction {
   id: number;
-  userId: number;
-  userName?: string;
-  checkDate: string;
+  alertType: string;
+  relatedEntityType: string;
+  relatedEntityId: number;
+  actionType: AlertActionActionType;
   /** @nullable */
-  checkInTime?: string | null;
+  completedDate?: string | null;
   /** @nullable */
-  checkOutTime?: string | null;
-  checkType: AttendanceRecordCheckType;
-  status: AttendanceRecordStatus;
+  nextCycleDate?: string | null;
   /** @nullable */
-  deviceType?: string | null;
+  postponeDays?: number | null;
   /** @nullable */
-  ipAddress?: string | null;
+  postponeReason?: string | null;
   /** @nullable */
-  userAgent?: string | null;
+  rfqId?: number | null;
   /** @nullable */
-  note?: string | null;
+  notes?: string | null;
   createdAt: string;
 }
 
-export type CheckAttendanceBodyCheckType =
-  (typeof CheckAttendanceBodyCheckType)[keyof typeof CheckAttendanceBodyCheckType];
+export type CreateAlertActionBodyActionType =
+  (typeof CreateAlertActionBodyActionType)[keyof typeof CreateAlertActionBodyActionType];
 
-export const CheckAttendanceBodyCheckType = {
-  check_in: "check_in",
-  check_out: "check_out",
+export const CreateAlertActionBodyActionType = {
+  completed: "completed",
+  postponed: "postponed",
+  rfq_requested: "rfq_requested",
 } as const;
 
-export interface CheckAttendanceBody {
-  checkType: CheckAttendanceBodyCheckType;
+export interface CreateAlertActionBody {
+  alertType: string;
+  relatedEntityType: string;
+  relatedEntityId: number;
+  actionType: CreateAlertActionBodyActionType;
   /** @nullable */
-  deviceType?: string | null;
+  completedDate?: string | null;
   /** @nullable */
-  note?: string | null;
-}
-
-export interface AttendanceStats {
-  userId: number;
-  userName: string;
-  month: number;
-  year: number;
-  totalWorkDays: number;
-  presentDays: number;
-  lateDays: number;
-  earlyLeaveDays: number;
-  absentDays: number;
-  attendanceRate: number;
-}
-
-export interface StaffAttendanceSummary {
-  userId: number;
-  userName: string;
-  role: string;
-  presentDays: number;
-  lateDays: number;
-  earlyLeaveDays: number;
-  absentDays: number;
-  attendanceRate: number;
+  nextCycleDate?: string | null;
+  /** @nullable */
+  postponeDays?: number | null;
+  /** @nullable */
+  postponeReason?: string | null;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export type ListTasksParams = {
@@ -2826,6 +2928,11 @@ export const ListRfqsStatus = {
   closed: "closed",
   cancelled: "cancelled",
 } as const;
+
+export type ListAlertActionsParams = {
+  alertType?: string;
+  relatedEntityId?: number;
+};
 
 export type ListQuotesParams = {
   rfqId?: number;
