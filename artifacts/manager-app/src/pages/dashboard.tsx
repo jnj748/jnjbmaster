@@ -12,6 +12,8 @@ import {
   useCreateRfq,
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
+  type CreateRfqBody,
+  type CreateRfqBodyCategory,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,19 +228,19 @@ export default function Dashboard() {
       inspection_due: "elevator",
     };
 
-    const rfqData: Record<string, unknown> = {
+    const rfqData: CreateRfqBody = {
       title: rfqTitle,
-      category: catMap[selectedAlert.type] || "other",
+      category: (catMap[selectedAlert.type] || "other") as CreateRfqBodyCategory,
       buildingName: "관리 건물",
       deadline: rfqDeadline,
       description: `${selectedAlert.title} - ${selectedAlert.message}`,
+      sido: user?.buildingSido || null,
+      sigungu: user?.buildingSigungu || null,
+      geoScope: user?.buildingSido
+        ? (user?.buildingSigungu ? "sigungu" : "sido")
+        : null,
     };
-    if (user?.buildingSido) {
-      rfqData.sido = user.buildingSido;
-      rfqData.sigungu = user.buildingSigungu || null;
-      rfqData.geoScope = user.buildingSigungu ? "sigungu" : "sido";
-    }
-    const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData as any });
+    const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData });
 
     await createActionMutation.mutateAsync({
       data: {

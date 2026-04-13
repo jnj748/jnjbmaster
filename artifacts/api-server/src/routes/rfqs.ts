@@ -43,6 +43,42 @@ router.get("/rfqs", async (req, res): Promise<void> => {
     return;
   }
 
+  if (params.success && params.data.forVendorId) {
+    const forVendorId = params.data.forVendorId;
+    const vendor = await db
+      .select()
+      .from(vendorsTable)
+      .where(eq(vendorsTable.id, forVendorId))
+      .then((rows) => rows[0]);
+
+    if (!vendor) {
+      res.json(ListRfqsResponse.parse([]));
+      return;
+    }
+
+    const vendorIdStr = forVendorId.toString();
+    const filtered = rfqs.filter((r) => {
+      const isDirectlyInvited =
+        r.vendorIds && r.vendorIds.split(",").includes(vendorIdStr);
+      if (isDirectlyInvited) return true;
+
+      if (r.status === "open" && vendor.category && vendor.sido) {
+        const categoryMatch = r.category === vendor.category;
+        const sidoMatch = r.sido === vendor.sido;
+        if (categoryMatch && sidoMatch) {
+          if (r.geoScope === "sido") return true;
+          if (r.geoScope === "sigungu" && vendor.sigungu) {
+            return r.sigungu === vendor.sigungu;
+          }
+          return true;
+        }
+      }
+      return false;
+    });
+    res.json(ListRfqsResponse.parse(filtered));
+    return;
+  }
+
   res.json(ListRfqsResponse.parse(rfqs));
 });
 

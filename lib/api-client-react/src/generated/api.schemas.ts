@@ -2918,6 +2918,10 @@ export type GetRecommendedVendorsParams = {
 export type ListRfqsParams = {
   status?: ListRfqsStatus;
   vendorId?: number;
+  /**
+   * Filter RFQs visible to this vendor (by invitation + geo/category match)
+   */
+  forVendorId?: number;
 };
 
 export type ListRfqsStatus =

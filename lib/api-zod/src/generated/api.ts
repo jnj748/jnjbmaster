@@ -1128,6 +1128,12 @@ export const AutoSettleCommissionBody = zod.object({
 export const ListRfqsQueryParams = zod.object({
   status: zod.enum(["open", "closed", "cancelled"]).optional(),
   vendorId: zod.coerce.number().optional(),
+  forVendorId: zod.coerce
+    .number()
+    .optional()
+    .describe(
+      "Filter RFQs visible to this vendor (by invitation + geo\/category match)",
+    ),
 });
 
 export const ListRfqsResponseItem = zod.object({

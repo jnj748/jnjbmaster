@@ -60,7 +60,10 @@ export default function VendorPortal() {
   const queryClient = useQueryClient();
 
   const { data: vendors } = useListVendors({ type: "platform" });
-  const { data: allRfqs } = useListRfqs(undefined, { query: { enabled: !!loggedInVendorId } });
+  const { data: allRfqs } = useListRfqs(
+    loggedInVendorId ? { forVendorId: loggedInVendorId } : undefined,
+    { query: { enabled: !!loggedInVendorId } }
+  );
   const { data: myQuotes } = useListQuotes(
     loggedInVendorId ? { vendorId: loggedInVendorId } : undefined,
     { query: { enabled: !!loggedInVendorId } }
@@ -79,20 +82,7 @@ export default function VendorPortal() {
 
   const loggedVendor = vendors?.find((v) => v.id === loggedInVendorId);
 
-  const myRfqs = allRfqs?.filter((rfq: any) => {
-    const vendorIdStr = loggedInVendorId?.toString() || "";
-    const isDirectlyInvited = rfq.vendorIds && rfq.vendorIds.split(",").includes(vendorIdStr);
-    if (isDirectlyInvited) return true;
-    if (loggedVendor && rfq.status === "open") {
-      const categoryMatch = rfq.category === loggedVendor.category;
-      const sidoMatch = loggedVendor.sido && rfq.sido && loggedVendor.sido === rfq.sido;
-      const sigunguMatch = loggedVendor.sigungu && rfq.sigungu && loggedVendor.sigungu === rfq.sigungu;
-      if (categoryMatch && sidoMatch) {
-        return rfq.geoScope === "sido" || sigunguMatch;
-      }
-    }
-    return false;
-  }) || [];
+  const myRfqs = allRfqs || [];
 
   function handleLogin() {
     if (!loginSelect) return;

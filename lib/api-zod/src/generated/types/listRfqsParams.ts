@@ -10,4 +10,8 @@ import type { ListRfqsStatus } from "./listRfqsStatus";
 export type ListRfqsParams = {
   status?: ListRfqsStatus;
   vendorId?: number;
+  /**
+   * Filter RFQs visible to this vendor (by invitation + geo/category match)
+   */
+  forVendorId?: number;
 };

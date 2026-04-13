@@ -898,6 +898,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: forVendorId
+          in: query
+          description: Filter RFQs visible to this vendor (by invitation + geo/category match)
+          schema:
+            type: integer
       responses:
         "200":
           description: RFQ list
