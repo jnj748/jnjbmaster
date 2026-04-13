@@ -153,9 +153,17 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
 
   for (const inspection of upcomingInspections) {
     const action = actionMap.get(`inspection_due:${inspection.id}`);
-    if (action && (action.actionType === "completed" || action.actionType === "postponed")) {
-      const actionCreated = action.createdAt.split("T")[0];
-      if (actionCreated >= inspection.nextDueDate) continue;
+    if (action) {
+      if (action.actionType === "completed" && action.nextCycleDate) {
+        if (action.nextCycleDate >= inspection.nextDueDate) continue;
+      } else if (action.actionType === "completed" && action.completedDate) {
+        if (action.completedDate >= inspection.nextDueDate) continue;
+      } else if (action.actionType === "postponed") {
+        const actionDateStr = typeof action.createdAt === "string"
+          ? action.createdAt.split("T")[0]
+          : new Date(action.createdAt).toISOString().split("T")[0];
+        if (actionDateStr >= inspection.nextDueDate) continue;
+      }
     }
     alerts.push({
       id: alertId++,
@@ -193,9 +201,14 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       }
 
       const taxAction = actionMap.get(`tax_due:${tax.id}`);
-      if (taxAction && (taxAction.actionType === "completed" || taxAction.actionType === "postponed")) {
-        const actionCreated = taxAction.createdAt.split("T")[0];
-        if (actionCreated >= tax.dueDate) continue;
+      if (taxAction) {
+        if (taxAction.actionType === "completed") continue;
+        if (taxAction.actionType === "postponed") {
+          const actionDateStr = typeof taxAction.createdAt === "string"
+            ? taxAction.createdAt.split("T")[0]
+            : new Date(taxAction.createdAt).toISOString().split("T")[0];
+          if (actionDateStr >= tax.dueDate) continue;
+        }
       }
       alerts.push({
         id: alertId++,
@@ -219,9 +232,14 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
   for (const task of overdueTasks) {
     if (task.dueDate && task.dueDate < today) {
       const taskAction = actionMap.get(`task_overdue:${task.id}`);
-      if (taskAction && (taskAction.actionType === "completed" || taskAction.actionType === "postponed")) {
-        const actionCreated = taskAction.createdAt.split("T")[0];
-        if (actionCreated >= task.dueDate) continue;
+      if (taskAction) {
+        if (taskAction.actionType === "completed") continue;
+        if (taskAction.actionType === "postponed") {
+          const actionDateStr = typeof taskAction.createdAt === "string"
+            ? taskAction.createdAt.split("T")[0]
+            : new Date(taskAction.createdAt).toISOString().split("T")[0];
+          if (actionDateStr >= task.dueDate) continue;
+        }
       }
       alerts.push({
         id: alertId++,
