@@ -148,7 +148,7 @@ export default function Dashboard() {
     try {
       const BASE = import.meta.env.BASE_URL ?? "/";
       const apiBase = `${BASE}api`.replace(/\/+/g, "/");
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("auth_token");
       const res = await fetch(`${apiBase}/auth/building-region`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -157,7 +157,11 @@ export default function Dashboard() {
       if (res.ok) {
         toast({ title: "건물 지역이 설정되었습니다" });
         window.location.reload();
+      } else {
+        toast({ title: "지역 저장에 실패했습니다", variant: "destructive" });
       }
+    } catch {
+      toast({ title: "지역 저장 중 오류가 발생했습니다", variant: "destructive" });
     } finally {
       setSavingRegion(false);
     }
