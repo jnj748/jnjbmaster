@@ -65,12 +65,13 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       if (r.status === "open" && vendor.category && vendor.sido) {
         const categoryMatch = r.category === vendor.category;
         const sidoMatch = r.sido === vendor.sido;
-        if (categoryMatch && sidoMatch) {
-          return true;
+        if (!categoryMatch) return false;
+        if (!r.sido) return true;
+        if (!sidoMatch) return false;
+        if (r.geoScope === "sigungu" && r.sigungu && vendor.sigungu) {
+          return r.sigungu === vendor.sigungu;
         }
-        if (categoryMatch && !r.geoScope) {
-          return true;
-        }
+        return true;
       }
       return false;
     });
@@ -103,7 +104,10 @@ router.get("/rfqs/:id/matched-vendors", async (req, res): Promise<void> => {
     eq(vendorsTable.category, rfq.category),
   ];
 
-  if ((rfq.geoScope === "sigungu" || rfq.geoScope === "sido") && rfq.sido) {
+  if (rfq.geoScope === "sigungu" && rfq.sido && rfq.sigungu) {
+    conditions.push(eq(vendorsTable.sido, rfq.sido));
+    conditions.push(eq(vendorsTable.sigungu, rfq.sigungu));
+  } else if (rfq.sido) {
     conditions.push(eq(vendorsTable.sido, rfq.sido));
   }
 
@@ -158,6 +162,10 @@ router.post("/rfqs", async (req, res): Promise<void> => {
       eq(vendorsTable.sido, data.sido),
     ];
 
+    if (data.geoScope === "sigungu" && data.sigungu) {
+      geoConditions.push(eq(vendorsTable.sigungu, data.sigungu));
+    }
+
     const matchedVendors = await db
       .select({ id: vendorsTable.id })
       .from(vendorsTable)
@@ -204,7 +212,8 @@ router.patch("/rfqs/:id/expand-scope", async (req, res): Promise<void> => {
     .where(
       and(
         eq(vendorsTable.type, "platform"),
-        eq(vendorsTable.category, rfq.category)
+        eq(vendorsTable.category, rfq.category),
+        eq(vendorsTable.sido, rfq.sido)
       )
     );
 
@@ -215,7 +224,7 @@ router.patch("/rfqs/:id/expand-scope", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(rfqsTable)
     .set({
-      geoScope: "nationwide",
+      geoScope: "sido",
       vendorIds: mergedIds.length > 0 ? mergedIds.join(",") : rfq.vendorIds,
     })
     .where(eq(rfqsTable.id, params.data.id))

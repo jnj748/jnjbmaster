@@ -38,6 +38,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
   }
 
   const data = parsed.data;
+  let computedNextCycleDate: string | null = null;
 
   if (data.actionType === "completed" && data.relatedEntityType === "inspection") {
     const [inspection] = await db
@@ -54,8 +55,8 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       });
     }
 
-    let nextCycleDate = data.nextCycleDate;
-    if (!nextCycleDate && inspection && data.completedDate) {
+    computedNextCycleDate = data.nextCycleDate || null;
+    if (!computedNextCycleDate && inspection && data.completedDate) {
       const completedDt = new Date(data.completedDate);
       if (inspection.legalCycleMonths) {
         completedDt.setMonth(completedDt.getMonth() + inspection.legalCycleMonths);
@@ -64,10 +65,10 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       } else {
         completedDt.setMonth(completedDt.getMonth() + 6);
       }
-      nextCycleDate = completedDt.toISOString().split("T")[0];
+      computedNextCycleDate = completedDt.toISOString().split("T")[0];
     }
 
-    if (nextCycleDate) {
+    if (computedNextCycleDate) {
       await db
         .update(inspectionsTable)
         .set({
@@ -137,7 +138,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       relatedEntityId: data.relatedEntityId,
       actionType: data.actionType,
       completedDate: data.completedDate || null,
-      nextCycleDate: data.nextCycleDate || null,
+      nextCycleDate: computedNextCycleDate || data.nextCycleDate || null,
       postponeDays: data.postponeDays || null,
       postponeReason: data.postponeReason || null,
       rfqId: data.rfqId || null,
