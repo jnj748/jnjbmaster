@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+const managerOnly = requireRole("manager", "platform_admin");
 
 router.get("/rfqs", async (req, res): Promise<void> => {
   const params = ListRfqsQueryParams.safeParse(req.query);
@@ -93,7 +94,7 @@ router.get("/rfqs", async (req, res): Promise<void> => {
   res.json(ListRfqsResponse.parse(rfqs));
 });
 
-router.get("/rfqs/:id/matched-vendors", async (req, res): Promise<void> => {
+router.get("/rfqs/:id/matched-vendors", managerOnly, async (req, res): Promise<void> => {
   const params = GetRfqMatchedVendorsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -148,10 +149,30 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  if (req.user?.role === "partner") {
+    const [authUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.userId));
+    if (!authUser?.vendorId) {
+      res.status(403).json({ error: "접근 권한이 없습니다" });
+      return;
+    }
+    const vendorIdStr = authUser.vendorId.toString();
+    const isInvited = rfq.vendorIds?.split(",").includes(vendorIdStr);
+    if (!isInvited) {
+      const vendor = await db.select().from(vendorsTable).where(eq(vendorsTable.id, authUser.vendorId)).then(r => r[0]);
+      if (!vendor) {
+        res.status(403).json({ error: "접근 권한이 없습니다" });
+        return;
+      }
+      const geoMatch = rfq.status === "open" && rfq.category === vendor.category && rfq.sido === vendor.sido;
+      if (!geoMatch) {
+        res.status(403).json({ error: "접근 권한이 없습니다" });
+        return;
+      }
+    }
+  }
+
   res.json(GetRfqResponse.parse(rfq));
 });
-
-const managerOnly = requireRole("manager", "platform_admin");
 
 router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
   const parsed = CreateRfqBody.safeParse(req.body);

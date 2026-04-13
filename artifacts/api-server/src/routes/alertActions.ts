@@ -39,12 +39,17 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
 
   const data = parsed.data;
   let computedNextCycleDate: string | null = null;
+  let actedOnDueDate: string | null = null;
 
   if (data.actionType === "completed" && data.relatedEntityType === "inspection") {
     const [inspection] = await db
       .select()
       .from(inspectionsTable)
       .where(eq(inspectionsTable.id, data.relatedEntityId));
+
+    if (inspection) {
+      actedOnDueDate = inspection.nextDueDate;
+    }
 
     if (data.completedDate) {
       await db.insert(inspectionLogsTable).values({
@@ -102,6 +107,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
         .where(eq(inspectionsTable.id, data.relatedEntityId));
 
       if (inspection) {
+        actedOnDueDate = inspection.nextDueDate;
         const currentDue = new Date(inspection.nextDueDate);
         currentDue.setDate(currentDue.getDate() + data.postponeDays);
         await db
@@ -118,6 +124,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
         .where(eq(tasksTable.id, data.relatedEntityId));
 
       if (task && task.dueDate) {
+        actedOnDueDate = task.dueDate;
         const currentDue = new Date(task.dueDate);
         currentDue.setDate(currentDue.getDate() + data.postponeDays);
         await db
@@ -134,6 +141,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
         .where(eq(taxSchedulesTable.id, data.relatedEntityId));
 
       if (tax) {
+        actedOnDueDate = tax.dueDate;
         const currentDue = new Date(tax.dueDate);
         currentDue.setDate(currentDue.getDate() + data.postponeDays);
         await db
@@ -153,6 +161,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       actionType: data.actionType,
       completedDate: data.completedDate || null,
       nextCycleDate: computedNextCycleDate || data.nextCycleDate || null,
+      actedOnDueDate,
       postponeDays: data.postponeDays || null,
       postponeReason: data.postponeReason || null,
       rfqId: data.rfqId || null,

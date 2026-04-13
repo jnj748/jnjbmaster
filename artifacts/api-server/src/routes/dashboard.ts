@@ -154,8 +154,8 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
   for (const inspection of upcomingInspections) {
     const action = actionMap.get(`inspection_due:${inspection.id}`);
     if (action) {
-      if (action.actionType === "completed" && action.nextCycleDate) {
-        if (action.nextCycleDate >= inspection.nextDueDate) continue;
+      if (action.actedOnDueDate) {
+        if (action.actedOnDueDate >= inspection.nextDueDate) continue;
       } else if (action.actionType === "completed" && action.completedDate) {
         if (action.completedDate >= inspection.nextDueDate) continue;
       } else if (action.actionType === "postponed" && action.postponeDays) {

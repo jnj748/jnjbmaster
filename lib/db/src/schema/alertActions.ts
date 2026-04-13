@@ -10,6 +10,7 @@ export const alertActionsTable = pgTable("alert_actions", {
   actionType: text("action_type").notNull(),
   completedDate: date("completed_date"),
   nextCycleDate: date("next_cycle_date"),
+  actedOnDueDate: date("acted_on_due_date"),
   postponeDays: integer("postpone_days"),
   postponeReason: text("postpone_reason"),
   rfqId: integer("rfq_id"),
