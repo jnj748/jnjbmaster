@@ -59,6 +59,7 @@ import {
   CalendarClock,
   FileText,
   MapPin,
+  Building2,
 } from "lucide-react";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
@@ -143,7 +144,9 @@ export default function Dashboard() {
   const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
   const { data: recentChecklists } = useListSafetyChecklists();
 
-  const [buildingName, setBuildingName] = useState<string | null>(null);
+  const [buildingInfo, setBuildingInfo] = useState<{
+    name: string; totalUnits: number | null; parkingSpaces: number | null;
+  } | null>(null);
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
@@ -154,10 +157,16 @@ export default function Dashboard() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        if (data.building?.name) setBuildingName(data.building.name);
+        if (data.building) setBuildingInfo({
+          name: data.building.name,
+          totalUnits: data.building.totalUnits ?? null,
+          parkingSpaces: data.building.parkingSpaces ?? null,
+        });
       } catch {}
     })();
   }, []);
+
+  const [alertPage, setAlertPage] = useState(0);
 
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
@@ -348,12 +357,21 @@ export default function Dashboard() {
     );
   }
 
+  const activeTenantCount = tenants?.length ?? 0;
+  const totalUnits = buildingInfo?.totalUnits ?? 0;
+  const occupancyRate = totalUnits > 0 ? Math.round((activeTenantCount / totalUnits) * 100) : 0;
+  const vehicleCount = vehicles?.length ?? 0;
+  const vehiclesPerUnit = totalUnits > 0 ? (vehicleCount / totalUnits).toFixed(1) : "-";
+
+  const alertPages = alerts ? Array.from({ length: Math.ceil(alerts.length / 3) }, (_, i) => alerts.slice(i * 3, i * 3 + 3)) : [];
+  const totalAlertPages = alertPages.length;
+
   return (
     <div className="space-y-6">
       <div>
-        {buildingName ? (
+        {buildingInfo ? (
           <>
-            <h1 className="text-2xl font-bold">{buildingName}</h1>
+            <h1 className="text-2xl font-bold">{buildingInfo.name}</h1>
             <p className="text-muted-foreground text-sm mt-1">
               오늘의 관리 현황을 한눈에 확인하세요
             </p>
@@ -373,15 +391,23 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
-          title="오늘 할 일"
-          value={summary?.todayTaskCount ?? 0}
-          icon={CheckSquare}
+          title="관리비회계업무"
+          value={summary?.pendingTaskCount ?? 0}
+          icon={Calculator}
           color="bg-accent"
-          subtitle={`대기 중 ${summary?.pendingTaskCount ?? 0}건`}
-          href="/tasks"
+          subtitle={`세무 ${summary?.pendingTaxCount ?? 0}건 대기`}
+          href="/accounting"
         />
         <StatCard
-          title="기한 초과"
+          title="시설업무"
+          value={summary?.upcomingInspectionCount ?? 0}
+          icon={HardHat}
+          color="bg-chart-2"
+          subtitle="점검/보수 대기"
+          href="/facility"
+        />
+        <StatCard
+          title="기한지난업무"
           value={summary?.overdueTaskCount ?? 0}
           icon={AlertTriangle}
           color="bg-destructive"
@@ -389,127 +415,140 @@ export default function Dashboard() {
           href="/tasks"
         />
         <StatCard
-          title="예정 점검"
+          title="예정점검"
           value={summary?.upcomingInspectionCount ?? 0}
           icon={Shield}
-          color="bg-chart-2"
+          color="bg-chart-4"
           subtitle="30일 이내"
           href="/inspections"
-        />
-        <StatCard
-          title="업무 완료율"
-          value={`${summary?.completionRate ?? 0}%`}
-          icon={TrendingUp}
-          color="bg-primary"
-          href="/tasks"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard
-          title="세무 일정"
-          value={summary?.pendingTaxCount ?? 0}
-          icon={Calculator}
-          color="bg-chart-3"
-          subtitle="처리 대기"
-          href="/tax-schedules"
-        />
-        <StatCard
-          title="입주 현황"
-          value={tenants?.length ?? 0}
-          icon={Users}
-          color="bg-chart-4"
-          subtitle="현재 입주중"
-          href="/tenants"
-        />
-        <StatCard
-          title="등록 차량"
-          value={vehicles?.length ?? 0}
-          icon={Car}
-          color="bg-chart-5"
-          subtitle="전체 등록"
-          href="/vehicles"
-        />
-        <StatCard
-          title="시설관리"
-          value={summary?.pendingTaskCount ?? 0}
-          icon={HardHat}
-          color="bg-muted-foreground"
-          href="/facility"
         />
       </div>
 
       <div>
-        <h2 className="text-base font-bold flex items-center gap-2 mb-3">
-          <ClipboardCheck className="w-4 h-4 text-chart-3" />
-          필수업무현황
-          {alerts && alerts.length > 3 && (
-            <span className="text-xs font-normal text-muted-foreground ml-1">
-              ({alerts.length}건) 스크롤하여 더보기 →
-            </span>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-chart-3" />
+            필수업무현황
+            {alerts && alerts.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                총 {alerts.length}건
+              </span>
+            )}
+          </h2>
+          {totalAlertPages > 1 && (
+            <div className="flex items-center gap-1">
+              {alertPages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setAlertPage(i)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
+                  }`}
+                />
+              ))}
+            </div>
           )}
-        </h2>
+        </div>
         {alertsLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-36 min-w-[260px] shrink-0 rounded-xl" />
+              <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
         ) : alerts && alerts.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin">
-            {alerts.map((alert) => {
-              const dday = getDdayLabel(alert.dueDate ?? null);
-              return (
-                <Card
-                  key={alert.id}
-                  className={`min-w-[260px] max-w-[300px] shrink-0 snap-start cursor-pointer hover:shadow-md transition-shadow border-l-4 ${
-                    dday.isOverdue
-                      ? "border-l-red-500"
-                      : dday.days !== null && dday.days <= 3
-                      ? "border-l-orange-400"
-                      : dday.days !== null && dday.days <= 7
-                      ? "border-l-yellow-400"
-                      : "border-l-blue-400"
-                  }`}
-                  onClick={() =>
-                    alert.relatedId &&
-                    (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) &&
-                    openAlertAction(alert)
-                  }
-                >
-                  <CardContent className="p-4 flex flex-col gap-2 h-full">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+          <div
+            className="overflow-hidden relative"
+            onTouchStart={(e) => {
+              const el = e.currentTarget;
+              (el as any)._touchStartX = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              const el = e.currentTarget;
+              const startX = (el as any)._touchStartX;
+              if (startX == null) return;
+              const diff = startX - e.changedTouches[0].clientX;
+              if (Math.abs(diff) > 50) {
+                if (diff > 0 && alertPage < totalAlertPages - 1) setAlertPage(alertPage + 1);
+                if (diff < 0 && alertPage > 0) setAlertPage(alertPage - 1);
+              }
+            }}
+          >
+            <div
+              className="flex transition-transform duration-300 ease-in-out"
+              style={{ transform: `translateX(-${alertPage * 100}%)` }}
+            >
+              {alertPages.map((pageAlerts, pi) => (
+                <div key={pi} className="w-full shrink-0 space-y-2 px-0.5">
+                  {pageAlerts.map((alert) => {
+                    const dday = getDdayLabel(alert.dueDate ?? null);
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
                           dday.isOverdue
-                            ? "bg-red-100 text-red-700"
+                            ? "border-l-red-500"
                             : dday.days !== null && dday.days <= 3
-                            ? "bg-orange-100 text-orange-700"
+                            ? "border-l-orange-400"
                             : dday.days !== null && dday.days <= 7
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-blue-100 text-blue-700"
+                            ? "border-l-yellow-400"
+                            : "border-l-blue-400"
                         }`}
+                        onClick={() =>
+                          alert.relatedId &&
+                          (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) &&
+                          openAlertAction(alert)
+                        }
                       >
-                        {dday.label}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {alert.hasDraft && (
-                          <Badge variant="outline" className="text-[10px] h-5">기안서</Badge>
-                        )}
-                        {alert.actionStatus === "postponed" && (
-                          <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
-                        )}
-                        {alert.actionStatus === "rfq_requested" && (
-                          <Badge variant="outline" className="text-[10px] h-5 text-blue-600 border-blue-300">견적</Badge>
-                        )}
+                        <span
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ${
+                            dday.isOverdue
+                              ? "bg-red-100 text-red-700"
+                              : dday.days !== null && dday.days <= 3
+                              ? "bg-orange-100 text-orange-700"
+                              : dday.days !== null && dday.days <= 7
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {dday.label}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{alert.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {alert.hasDraft && (
+                            <Badge variant="outline" className="text-[10px] h-5">기안서</Badge>
+                          )}
+                          {alert.actionStatus === "postponed" && (
+                            <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-sm font-semibold line-clamp-2 leading-snug">{alert.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-auto">{alert.message}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            {totalAlertPages > 1 && (
+              <div className="flex justify-center gap-4 mt-3">
+                <button
+                  onClick={() => setAlertPage(Math.max(0, alertPage - 1))}
+                  disabled={alertPage === 0}
+                  className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                >
+                  ← 이전
+                </button>
+                <span className="text-xs text-muted-foreground">{alertPage + 1} / {totalAlertPages}</span>
+                <button
+                  onClick={() => setAlertPage(Math.min(totalAlertPages - 1, alertPage + 1))}
+                  disabled={alertPage === totalAlertPages - 1}
+                  className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                >
+                  다음 →
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <Card>
@@ -520,159 +559,36 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Shield className="w-4 h-4 text-chart-2" />
-                다가오는 법정 점검
-              </CardTitle>
-              <Link href="/inspections">
-                <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingLoading ? (
-              <Skeleton className="h-20" />
-            ) : upcoming && upcoming.length > 0 ? (
-              upcoming.slice(0, 5).map((inspection) => {
-                const inspDday = getDdayLabel(inspection.nextDueDate);
-                return (
-                  <div
-                    key={inspection.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{inspection.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {categoryLabel(inspection.category)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          inspDday.isOverdue
-                            ? "bg-red-100 text-red-700"
-                            : inspDday.days !== null && inspDday.days <= 3
-                            ? "bg-orange-100 text-orange-700"
-                            : inspDday.days !== null && inspDday.days <= 7
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {inspDday.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                30일 내 예정된 점검이 없습니다
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="w-4 h-4 text-accent" />
-            최근 활동
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activityLoading ? (
-            <Skeleton className="h-20" />
-          ) : activity && activity.length > 0 ? (
-            <div className="space-y-2">
-              {activity.slice(0, 8).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
-                  <p className="text-sm">{item.description}</p>
-                  <p className="text-xs text-muted-foreground shrink-0 ml-4">
-                    {new Date(item.timestamp).toLocaleDateString("ko-KR")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              최근 활동이 없습니다
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard
+          title="세대수"
+          value={totalUnits > 0 ? totalUnits : "-"}
+          icon={Building2}
+          color="bg-chart-5"
+          subtitle={totalUnits > 0 ? `입주율 ${occupancyRate}%` : "건물 등록 필요"}
+        />
+        <StatCard
+          title="등록 차량"
+          value={vehicleCount}
+          icon={Car}
+          color="bg-chart-3"
+          subtitle={totalUnits > 0 ? `세대당 ${vehiclesPerUnit}대` : ""}
+        />
+        <StatCard
+          title="미납 관리비"
+          value="0원"
+          icon={Coins}
+          color="bg-chart-4"
+          subtitle="총 미납액"
+        />
+        <StatCard
+          title="미납 호실"
+          value={0}
+          icon={AlertTriangle}
+          color="bg-muted-foreground"
+          subtitle="미납 세대 수"
+        />
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <HardHat className="w-4 h-4 text-chart-4" />
-              시설관리 보고서
-            </CardTitle>
-            <Link href="/facility">
-              <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                <ClipboardCheck className="w-3.5 h-3.5" />
-                최근 안전점검
-              </p>
-              {recentChecklists && recentChecklists.length > 0 ? (
-                <div className="space-y-1.5">
-                  {recentChecklists.slice(0, 3).map((cl) => (
-                    <div key={cl.id} className="flex items-center justify-between text-sm py-1">
-                      <span>{cl.title}</span>
-                      <Badge
-                        variant={cl.status === "completed" ? "default" : cl.status === "issue_found" ? "destructive" : "outline"}
-                        className="text-xs"
-                      >
-                        {cl.status === "completed" ? "완료" : cl.status === "issue_found" ? "이상" : "대기"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">최근 점검 내역 없음</p>
-              )}
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Wrench className="w-3.5 h-3.5" />
-                최근 기전 업무
-              </p>
-              {recentMaintenanceLogs && recentMaintenanceLogs.length > 0 ? (
-                <div className="space-y-1.5">
-                  {recentMaintenanceLogs.slice(0, 3).map((log) => (
-                    <div key={log.id} className="flex items-center justify-between text-sm py-1">
-                      <span>{log.title}</span>
-                      {log.reportSent ? (
-                        <Badge variant="default" className="text-xs">
-                          <Send className="w-3 h-3 mr-0.5" />보고
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">미보고</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">최근 업무 내역 없음</p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="pb-3">
