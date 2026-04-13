@@ -66,6 +66,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       name: user.name,
       role: user.role,
       phone: user.phone,
+      vendorId: user.vendorId,
       portalType: user.portalType,
     },
   });
@@ -111,7 +112,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       name: user.name,
       role: user.role,
       phone: user.phone,
+      vendorId: user.vendorId,
       portalType: user.portalType,
+      buildingSido: user.buildingSido,
+      buildingSigungu: user.buildingSigungu,
     },
   });
 });
