@@ -45,6 +45,8 @@ tags:
     description: Attendance management
   - name: alertActions
     description: Alert action processing
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 
 paths:
   /healthz:
@@ -1074,6 +1076,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlertAction"
+
+  # ── Storage (파일 업로드) ─────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+        '500':
+          description: Failed to generate upload URL.
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found.
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
 
   # ── Quotes (견적서) ─────────────────────────────────────
   /quotes:
@@ -3763,6 +3831,10 @@ components:
           type: ["string", "null"]
         geoScope:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -3804,6 +3876,10 @@ components:
         sigungu:
           type: ["string", "null"]
         geoScope:
+          type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
           type: ["string", "null"]
       required:
         - title
@@ -6701,6 +6777,10 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -6738,8 +6818,37 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
       required:
         - alertType
         - relatedEntityType
         - relatedEntityId
         - actionType
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'

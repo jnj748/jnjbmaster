@@ -15,6 +15,8 @@ export const alertActionsTable = pgTable("alert_actions", {
   postponeReason: text("postpone_reason"),
   rfqId: integer("rfq_id"),
   notes: text("notes"),
+  closeUpPhotoUrl: text("close_up_photo_url"),
+  widePhotoUrl: text("wide_photo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

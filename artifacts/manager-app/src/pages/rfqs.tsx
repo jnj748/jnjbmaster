@@ -42,10 +42,13 @@ import {
   BarChart3,
   MapPin,
   Expand,
+  Printer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import { PhotoUploadField } from "@/components/photo-upload-field";
+import { RfqRequestDocument } from "@/components/rfq-request-document";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -63,6 +66,9 @@ export default function Rfqs() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [compareRfqId, setCompareRfqId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
+  const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -106,6 +112,8 @@ export default function Rfqs() {
       sido: "",
       sigungu: "",
     });
+    setCloseUpPhotoUrl(null);
+    setWidePhotoUrl(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -121,6 +129,8 @@ export default function Rfqs() {
       sido: form.sido || null,
       sigungu: form.sigungu || null,
       geoScope: form.sigungu ? "sigungu" : form.sido ? "sido" : null,
+      closeUpPhotoUrl: closeUpPhotoUrl || null,
+      widePhotoUrl: widePhotoUrl || null,
     };
 
     await createMutation.mutateAsync({ data });
@@ -301,6 +311,21 @@ export default function Rfqs() {
                   placeholder="작업 내용, 특이사항 등을 기재해주세요"
                 />
               </div>
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3">현장 사진 (선택)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <PhotoUploadField
+                    label="근경 사진"
+                    value={closeUpPhotoUrl}
+                    onChange={setCloseUpPhotoUrl}
+                  />
+                  <PhotoUploadField
+                    label="원경 사진"
+                    value={widePhotoUrl}
+                    onChange={setWidePhotoUrl}
+                  />
+                </div>
+              </div>
               <div>
                 <Label>추가 발송 업체 (복수 선택 가능)</Label>
                 <div className="mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
@@ -379,6 +404,16 @@ export default function Rfqs() {
                     {rfq.description && (
                       <p className="text-sm text-muted-foreground mt-2">{rfq.description}</p>
                     )}
+                    {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
+                      <div className="flex gap-2 mt-2">
+                        {rfq.closeUpPhotoUrl && (
+                          <img src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                        )}
+                        {rfq.widePhotoUrl && (
+                          <img src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-1 flex-wrap justify-end">
                     <Button
@@ -388,6 +423,10 @@ export default function Rfqs() {
                     >
                       <BarChart3 className="w-3.5 h-3.5 mr-1" />
                       견적 비교
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setRfqDocRfq(rfq)}>
+                      <Printer className="w-3.5 h-3.5 mr-1" />
+                      의뢰서
                     </Button>
                     {rfq.status === "open" && rfq.geoScope === "sigungu" && (
                       <Button variant="outline" size="sm" onClick={() => handleExpandScope(rfq.id)}>
@@ -484,6 +523,14 @@ export default function Rfqs() {
       <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
         <ResponsiveDialogContent className="max-w-4xl" />
       </ResponsiveDialog>
+
+      {rfqDocRfq && (
+        <RfqRequestDocument
+          open={!!rfqDocRfq}
+          onOpenChange={(o) => { if (!o) setRfqDocRfq(null); }}
+          rfq={rfqDocRfq}
+        />
+      )}
     </div>
   );
 }

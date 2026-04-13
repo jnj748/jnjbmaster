@@ -721,6 +721,10 @@ export interface Rfq {
   sigungu?: string | null;
   /** @nullable */
   geoScope?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -757,6 +761,10 @@ export interface CreateRfqBody {
   sigungu?: string | null;
   /** @nullable */
   geoScope?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }
 
 export type UpdateRfqBodyCategory =
@@ -2817,6 +2825,10 @@ export interface AlertAction {
   rfqId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: string;
 }
 
@@ -2846,6 +2858,25 @@ export interface CreateAlertActionBody {
   rfqId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
 }
 
 export type ListTasksParams = {

@@ -61,6 +61,10 @@ import {
   MapPin,
 } from "lucide-react";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import { PhotoUploadField } from "@/components/photo-upload-field";
+import { CompletionNotice } from "@/components/completion-notice";
+import { RfqRequestDocument } from "@/components/rfq-request-document";
+import { Printer } from "lucide-react";
 
 function StatCard({
   title,
@@ -134,6 +138,17 @@ export default function Dashboard() {
   const [buildingSido, setBuildingSido] = useState(user?.buildingSido || "");
   const [buildingSigungu, setBuildingSigungu] = useState(user?.buildingSigungu || "");
   const [savingRegion, setSavingRegion] = useState(false);
+  const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
+  const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
+  const [rfqCloseUpPhotoUrl, setRfqCloseUpPhotoUrl] = useState<string | null>(null);
+  const [rfqWidePhotoUrl, setRfqWidePhotoUrl] = useState<string | null>(null);
+  const [showCompletionNotice, setShowCompletionNotice] = useState(false);
+  const [completionNoticeData, setCompletionNoticeData] = useState<{
+    alertTitle: string; alertMessage: string; completedDate: string;
+    notes: string | null; closeUpPhotoUrl: string | null; widePhotoUrl: string | null;
+  } | null>(null);
+  const [showRfqDocument, setShowRfqDocument] = useState(false);
+  const [rfqDocumentData, setRfqDocumentData] = useState<any>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -179,6 +194,10 @@ export default function Dashboard() {
     twoWeeks.setDate(twoWeeks.getDate() + 14);
     setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
     setNextCycleDate("");
+    setCloseUpPhotoUrl(null);
+    setWidePhotoUrl(null);
+    setRfqCloseUpPhotoUrl(null);
+    setRfqWidePhotoUrl(null);
   }
 
   function getEntityType(alertType: string): string {
@@ -201,11 +220,22 @@ export default function Dashboard() {
         completedDate: completeDate || null,
         nextCycleDate: nextCycleDate || null,
         notes: actionNotes || null,
+        closeUpPhotoUrl: closeUpPhotoUrl || null,
+        widePhotoUrl: widePhotoUrl || null,
       },
     });
     queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
     toast({ title: "처리 완료되었습니다" });
+    setCompletionNoticeData({
+      alertTitle: selectedAlert.title,
+      alertMessage: selectedAlert.message,
+      completedDate: completeDate,
+      notes: actionNotes || null,
+      closeUpPhotoUrl,
+      widePhotoUrl,
+    });
     setSelectedAlert(null);
+    setShowCompletionNotice(true);
   }
 
   async function handlePostpone() {
@@ -243,6 +273,8 @@ export default function Dashboard() {
       geoScope: user?.buildingSido
         ? (user?.buildingSigungu ? "sigungu" : "sido")
         : null,
+      closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
+      widePhotoUrl: rfqWidePhotoUrl || null,
     };
     const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData });
 
@@ -254,13 +286,20 @@ export default function Dashboard() {
         actionType: "rfq_requested",
         rfqId: createdRfq?.id ?? null,
         notes: `견적 요청 생성: ${rfqTitle}`,
+        closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
+        widePhotoUrl: rfqWidePhotoUrl || null,
       },
     });
 
     queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
     toast({ title: "견적 요청이 생성되었습니다" });
+    setRfqDocumentData({
+      ...rfqData,
+      createdAt: new Date().toISOString(),
+    });
     setSelectedAlert(null);
+    setShowRfqDocument(true);
   }
 
   if (summaryLoading) {
@@ -653,6 +692,10 @@ export default function Dashboard() {
                       </p>
                     </div>
                   )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <PhotoUploadField label="근경 사진" value={closeUpPhotoUrl} onChange={setCloseUpPhotoUrl} />
+                    <PhotoUploadField label="원경 사진" value={widePhotoUrl} onChange={setWidePhotoUrl} />
+                  </div>
                   <div>
                     <Label>비고</Label>
                     <Textarea
@@ -727,6 +770,10 @@ export default function Dashboard() {
                       onChange={(e) => setRfqDeadline(e.target.value)}
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <PhotoUploadField label="근경 사진" value={rfqCloseUpPhotoUrl} onChange={setRfqCloseUpPhotoUrl} />
+                    <PhotoUploadField label="원경 사진" value={rfqWidePhotoUrl} onChange={setRfqWidePhotoUrl} />
+                  </div>
                   <div>
                     <Label>비고</Label>
                     <Textarea
@@ -745,6 +792,27 @@ export default function Dashboard() {
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
+
+      {completionNoticeData && (
+        <CompletionNotice
+          open={showCompletionNotice}
+          onOpenChange={setShowCompletionNotice}
+          alertTitle={completionNoticeData.alertTitle}
+          alertMessage={completionNoticeData.alertMessage}
+          completedDate={completionNoticeData.completedDate}
+          notes={completionNoticeData.notes}
+          closeUpPhotoUrl={completionNoticeData.closeUpPhotoUrl}
+          widePhotoUrl={completionNoticeData.widePhotoUrl}
+        />
+      )}
+
+      {rfqDocumentData && (
+        <RfqRequestDocument
+          open={showRfqDocument}
+          onOpenChange={setShowRfqDocument}
+          rfq={rfqDocumentData}
+        />
+      )}
     </div>
   );
 }

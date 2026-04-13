@@ -273,6 +273,8 @@ export * from "./updateVendorBodyCategory";
 export * from "./updateVendorBodyType";
 export * from "./updateWorkReportBody";
 export * from "./updateWorkReportBodyStatus";
+export * from "./uploadUrlRequest";
+export * from "./uploadUrlResponse";
 export * from "./upsertDocumentChecklistBody";
 export * from "./upsertDocumentChecklistBodyEntityType";
 export * from "./userRole";

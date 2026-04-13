@@ -1159,6 +1159,8 @@ export const ListRfqsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1188,6 +1190,8 @@ export const CreateRfqBody = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
 });
 
 /**
@@ -1220,6 +1224,8 @@ export const GetRfqResponse = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1280,6 +1286,8 @@ export const UpdateRfqResponse = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1321,6 +1329,8 @@ export const ExpandRfqScopeResponse = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1390,6 +1400,8 @@ export const ListAlertActionsResponseItem = zod.object({
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAlertActionsResponse = zod.array(ListAlertActionsResponseItem);
@@ -1408,6 +1420,44 @@ export const CreateAlertActionBody = zod.object({
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
+});
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().min(1),
+  contentType: zod.string().min(1),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  metadata: zod
+    .object({
+      name: zod.string().min(1),
+      size: zod.number().min(1),
+      contentType: zod.string().min(1),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Serve a public asset
+ */
+export const GetPublicObjectParams = zod.object({
+  filePath: zod.coerce.string(),
+});
+
+/**
+ * @summary Serve an uploaded object
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
 });
 
 /**

@@ -25,5 +25,9 @@ export interface AlertAction {
   rfqId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: Date;
 }

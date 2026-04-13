@@ -27,6 +27,10 @@ export interface Rfq {
   sigungu?: string | null;
   /** @nullable */
   geoScope?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

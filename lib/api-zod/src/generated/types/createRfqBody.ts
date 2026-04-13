@@ -24,4 +24,8 @@ export interface CreateRfqBody {
   sigungu?: string | null;
   /** @nullable */
   geoScope?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }

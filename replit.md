@@ -154,6 +154,16 @@ Implements personal data destruction complying with Korean privacy law (퇴거 �
 - D-7/D-3/D-Day alert banners on tax schedules page
 - Expandable checklist panel with checkbox completion tracking
 
+## Object Storage & Photo Attachments (Task #18)
+
+- **Object Storage**: Replit Object Storage via `@google-cloud/storage` + presigned URLs
+- **Storage routes**: `/api/storage/uploads/request-url` (presigned upload), `/api/storage/objects/*` (serve objects); mounted before auth middleware
+- **Photo fields**: `closeUpPhotoUrl` (근경) + `widePhotoUrl` (원경) on both `alert_actions` and `rfqs` tables
+- **PhotoUploadField component**: Reusable camera capture (`capture="environment"`) with presigned URL upload, thumbnail preview, delete, progress indicator
+- **Printable documents**: `CompletionNotice` (처리완료 공지문) and `RfqRequestDocument` (업체의뢰서) — `window.print()` with `@media print` CSS, editable fields before printing
+- **React version**: Pinned to `18.3.1` via pnpm overrides in root `package.json` to prevent dual React 18/19 conflict from mockup-sandbox catalog dependency
+- **lib/object-storage-web**: Contains `useUpload` hook; tsconfig has `composite: true` for project references
+
 ## Attendance Management System
 
 - `attendance` table: check-in/out records with device type, IP, user agent, status

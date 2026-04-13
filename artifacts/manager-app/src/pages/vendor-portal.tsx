@@ -35,9 +35,12 @@ import {
   CheckCircle,
   TrendingUp,
   AlertCircle,
+  Printer,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { RfqRequestDocument } from "@/components/rfq-request-document";
 
 type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
 
@@ -297,6 +300,7 @@ const categoryLabel = (c: string) => {
 
 function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, createQuoteMutation, toast }: any) {
   const [quoteDialogRfq, setQuoteDialogRfq] = useState<any>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
   const [form, setForm] = useState({
     totalAmount: "",
     itemBreakdown: "",
@@ -361,8 +365,18 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     {rfq.description && (
                       <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{rfq.description}</p>
                     )}
+                    {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
+                      <div className="flex gap-2 mt-2">
+                        {rfq.closeUpPhotoUrl && (
+                          <img src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                        )}
+                        {rfq.widePhotoUrl && (
+                          <img src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-2">
                     {rfq.status === "open" && !hasQuoteFor(rfq.id) ? (
                       <Button size="sm" onClick={() => { setQuoteDialogRfq(rfq); resetForm(); }}>
                         <Send className="w-3.5 h-3.5 mr-1" />
@@ -371,6 +385,10 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     ) : hasQuoteFor(rfq.id) ? (
                       <Badge variant="outline" className="text-green-600 border-green-200">제출 완료</Badge>
                     ) : null}
+                    <Button size="sm" variant="outline" onClick={() => setRfqDocRfq(rfq)}>
+                      <Printer className="w-3.5 h-3.5 mr-1" />
+                      의뢰서
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -455,6 +473,14 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
+
+      {rfqDocRfq && (
+        <RfqRequestDocument
+          open={!!rfqDocRfq}
+          onOpenChange={(o) => { if (!o) setRfqDocRfq(null); }}
+          rfq={rfqDocRfq}
+        />
+      )}
     </div>
   );
 }

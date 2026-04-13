@@ -166,6 +166,8 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       postponeReason: data.postponeReason || null,
       rfqId: data.rfqId || null,
       notes: data.notes || null,
+      closeUpPhotoUrl: data.closeUpPhotoUrl || null,
+      widePhotoUrl: data.widePhotoUrl || null,
     })
     .returning();
 

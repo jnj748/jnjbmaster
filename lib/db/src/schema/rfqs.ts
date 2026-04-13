@@ -15,6 +15,8 @@ export const rfqsTable = pgTable("rfqs", {
   sido: text("sido"),
   sigungu: text("sigungu"),
   geoScope: text("geo_scope"),
+  closeUpPhotoUrl: text("close_up_photo_url"),
+  widePhotoUrl: text("wide_photo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

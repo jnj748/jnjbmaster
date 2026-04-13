@@ -32,11 +32,13 @@ import privacyRouter from "./privacy";
 import taxDeadlineChecklistsRouter from "./taxDeadlineChecklists";
 import attendanceRouter from "./attendance";
 import alertActionsRouter from "./alertActions";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(storageRouter);
 
 router.use(authMiddleware);
 
