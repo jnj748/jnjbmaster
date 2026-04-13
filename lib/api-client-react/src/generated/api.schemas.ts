@@ -2903,7 +2903,7 @@ export interface CalendarEvent {
   title: string;
   date: string;
   source: CalendarEventSource;
-  sourceType: string;
+  originalType: string;
   status: CalendarEventStatus;
   originalId: number;
 }

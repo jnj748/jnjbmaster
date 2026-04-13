@@ -13,7 +13,7 @@ export interface CalendarEvent {
   title: string;
   date: Date;
   source: CalendarEventSource;
-  sourceType: string;
+  originalType: string;
   status: CalendarEventStatus;
   originalId: number;
 }

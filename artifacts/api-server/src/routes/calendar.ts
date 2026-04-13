@@ -17,7 +17,7 @@ interface CalendarEvent {
   title: string;
   date: string;
   source: "accounting" | "facility";
-  sourceType: string;
+  originalType: string;
   status: "scheduled" | "completed" | "overdue";
   originalId: number;
 }
@@ -58,7 +58,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: tax.title,
       date: tax.dueDate,
       source: "accounting",
-      sourceType: "tax_schedule",
+      originalType: "tax_schedule",
       status,
       originalId: tax.id,
     });
@@ -87,7 +87,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: task.title,
       date: task.dueDate,
       source: isAccounting ? "accounting" : "facility",
-      sourceType: "task",
+      originalType: "task",
       status,
       originalId: task.id,
     });
@@ -115,7 +115,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: `${task.title} (완료)`,
       date: completedDate,
       source: isAccounting ? "accounting" : "facility",
-      sourceType: "task_completed",
+      originalType: "task_completed",
       status: "completed",
       originalId: task.id,
     });
@@ -134,7 +134,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
         title: `${insp.name} 점검 예정`,
         date: insp.nextDueDate,
         source: "facility",
-        sourceType: "inspection_due",
+        originalType: "inspection_due",
         status,
         originalId: insp.id,
       });
@@ -146,7 +146,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
         title: `${insp.name} 점검 완료`,
         date: insp.lastInspectionDate,
         source: "facility",
-        sourceType: "inspection_completed",
+        originalType: "inspection_completed",
         status: "completed",
         originalId: insp.id,
       });
@@ -169,7 +169,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: cl.title,
       date: cl.inspectionDate,
       source: "facility",
-      sourceType: "safety_checklist",
+      originalType: "safety_checklist",
       status: cl.status === "completed" ? "completed" : cl.inspectionDate < today ? "overdue" : "scheduled",
       originalId: cl.id,
     });
@@ -191,7 +191,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: log.title,
       date: log.workDate,
       source: "facility",
-      sourceType: "maintenance",
+      originalType: "maintenance",
       status: log.status === "completed" ? "completed" : "scheduled",
       originalId: log.id,
     });
@@ -213,7 +213,7 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       title: tr.title,
       date: tr.trainingDate,
       source: "facility",
-      sourceType: "safety_training",
+      originalType: "safety_training",
       status: tr.status === "completed" ? "completed" : tr.trainingDate < today ? "overdue" : "scheduled",
       originalId: tr.id,
     });

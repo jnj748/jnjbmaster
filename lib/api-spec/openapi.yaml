@@ -6916,7 +6916,7 @@ components:
 
     CalendarEvent:
       type: object
-      required: [id, title, date, source, sourceType, status, originalId]
+      required: [id, title, date, source, originalType, status, originalId]
       properties:
         id:
           type: string
@@ -6928,7 +6928,7 @@ components:
         source:
           type: string
           enum: [accounting, facility]
-        sourceType:
+        originalType:
           type: string
         status:
           type: string

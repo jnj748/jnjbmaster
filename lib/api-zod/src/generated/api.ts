@@ -4018,7 +4018,7 @@ export const GetCalendarEventsResponseItem = zod.object({
   title: zod.string(),
   date: zod.coerce.date(),
   source: zod.enum(["accounting", "facility"]),
-  sourceType: zod.string(),
+  originalType: zod.string(),
   status: zod.enum(["scheduled", "completed", "overdue"]),
   originalId: zod.number(),
 });

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-const SOURCE_LABELS: Record<string, string> = {
+const TYPE_LABELS: Record<string, string> = {
   tax_schedule: "세무 일정",
   task: "업무",
   task_completed: "업무 완료",
@@ -233,7 +233,7 @@ export default function CalendarPage() {
                           {ev.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {SOURCE_LABELS[ev.sourceType] || ev.sourceType}
+                          {TYPE_LABELS[ev.originalType] || ev.originalType}
                         </p>
                       </div>
                       <div className="shrink-0">
