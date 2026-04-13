@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, alertActionsTable, inspectionsTable, inspectionLogsTable } from "@workspace/db";
+import { db, alertActionsTable, inspectionsTable, inspectionLogsTable, tasksTable, taxSchedulesTable } from "@workspace/db";
 import {
   ListAlertActionsQueryParams,
   ListAlertActionsResponse,
@@ -79,21 +79,53 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
     }
   }
 
-  if (data.actionType === "postponed" && data.relatedEntityType === "inspection" && data.postponeDays) {
-    const [inspection] = await db
-      .select()
-      .from(inspectionsTable)
-      .where(eq(inspectionsTable.id, data.relatedEntityId));
-
-    if (inspection) {
-      const currentDue = new Date(inspection.nextDueDate);
-      currentDue.setDate(currentDue.getDate() + data.postponeDays);
-      const newDueDate = currentDue.toISOString().split("T")[0];
-
-      await db
-        .update(inspectionsTable)
-        .set({ nextDueDate: newDueDate })
+  if (data.actionType === "postponed" && data.postponeDays) {
+    if (data.relatedEntityType === "inspection") {
+      const [inspection] = await db
+        .select()
+        .from(inspectionsTable)
         .where(eq(inspectionsTable.id, data.relatedEntityId));
+
+      if (inspection) {
+        const currentDue = new Date(inspection.nextDueDate);
+        currentDue.setDate(currentDue.getDate() + data.postponeDays);
+        await db
+          .update(inspectionsTable)
+          .set({ nextDueDate: currentDue.toISOString().split("T")[0] })
+          .where(eq(inspectionsTable.id, data.relatedEntityId));
+      }
+    }
+
+    if (data.relatedEntityType === "task") {
+      const [task] = await db
+        .select()
+        .from(tasksTable)
+        .where(eq(tasksTable.id, data.relatedEntityId));
+
+      if (task && task.dueDate) {
+        const currentDue = new Date(task.dueDate);
+        currentDue.setDate(currentDue.getDate() + data.postponeDays);
+        await db
+          .update(tasksTable)
+          .set({ dueDate: currentDue.toISOString().split("T")[0] })
+          .where(eq(tasksTable.id, data.relatedEntityId));
+      }
+    }
+
+    if (data.relatedEntityType === "tax") {
+      const [tax] = await db
+        .select()
+        .from(taxSchedulesTable)
+        .where(eq(taxSchedulesTable.id, data.relatedEntityId));
+
+      if (tax) {
+        const currentDue = new Date(tax.dueDate);
+        currentDue.setDate(currentDue.getDate() + data.postponeDays);
+        await db
+          .update(taxSchedulesTable)
+          .set({ dueDate: currentDue.toISOString().split("T")[0] })
+          .where(eq(taxSchedulesTable.id, data.relatedEntityId));
+      }
     }
   }
 

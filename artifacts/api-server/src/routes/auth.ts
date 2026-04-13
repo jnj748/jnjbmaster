@@ -166,6 +166,35 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       role: user.role,
       phone: user.phone,
       portalType: user.portalType,
+      buildingSido: user.buildingSido,
+      buildingSigungu: user.buildingSigungu,
+    },
+  });
+});
+
+router.patch("/auth/building-region", authMiddleware, async (req, res): Promise<void> => {
+  const { buildingSido, buildingSigungu } = req.body;
+
+  await db
+    .update(usersTable)
+    .set({
+      buildingSido: buildingSido || null,
+      buildingSigungu: buildingSigungu || null,
+    })
+    .where(eq(usersTable.id, req.user!.userId));
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
+
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      phone: user.phone,
+      portalType: user.portalType,
+      buildingSido: user.buildingSido,
+      buildingSigungu: user.buildingSigungu,
     },
   });
 });

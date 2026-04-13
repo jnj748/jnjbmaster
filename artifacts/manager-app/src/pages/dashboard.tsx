@@ -37,6 +37,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import {
   CheckSquare,
   AlertTriangle,
@@ -55,7 +56,9 @@ import {
   CheckCircle,
   CalendarClock,
   FileText,
+  MapPin,
 } from "lucide-react";
+import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 
 function StatCard({
   title,
@@ -107,6 +110,7 @@ interface DashboardAlert {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
@@ -125,11 +129,37 @@ export default function Dashboard() {
   const [actionNotes, setActionNotes] = useState("");
   const [rfqTitle, setRfqTitle] = useState("");
   const [rfqDeadline, setRfqDeadline] = useState("");
+  const [buildingSido, setBuildingSido] = useState(user?.buildingSido || "");
+  const [buildingSigungu, setBuildingSigungu] = useState(user?.buildingSigungu || "");
+  const [savingRegion, setSavingRegion] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createActionMutation = useCreateAlertAction();
   const createRfqMutation = useCreateRfq();
+
+  const buildingSigunguOptions = buildingSido ? getSigunguList(buildingSido) : [];
+
+  async function handleSaveBuildingRegion() {
+    if (!buildingSido) return;
+    setSavingRegion(true);
+    try {
+      const BASE = import.meta.env.BASE_URL ?? "/";
+      const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${apiBase}/auth/building-region`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ buildingSido, buildingSigungu }),
+      });
+      if (res.ok) {
+        toast({ title: "건물 지역이 설정되었습니다" });
+        window.location.reload();
+      }
+    } finally {
+      setSavingRegion(false);
+    }
+  }
 
   function openAlertAction(alert: DashboardAlert) {
     setSelectedAlert(alert);
@@ -196,15 +226,19 @@ export default function Dashboard() {
       inspection_due: "elevator",
     };
 
-    const createdRfq = await createRfqMutation.mutateAsync({
-      data: {
-        title: rfqTitle,
-        category: catMap[selectedAlert.type] || "other",
-        buildingName: "관리 건물",
-        deadline: rfqDeadline,
-        description: `${selectedAlert.title} - ${selectedAlert.message}`,
-      },
-    });
+    const rfqData: Record<string, unknown> = {
+      title: rfqTitle,
+      category: catMap[selectedAlert.type] || "other",
+      buildingName: "관리 건물",
+      deadline: rfqDeadline,
+      description: `${selectedAlert.title} - ${selectedAlert.message}`,
+    };
+    if (user?.buildingSido) {
+      rfqData.sido = user.buildingSido;
+      rfqData.sigungu = user.buildingSigungu || null;
+      rfqData.geoScope = user.buildingSigungu ? "sigungu" : "sido";
+    }
+    const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData as any });
 
     await createActionMutation.mutateAsync({
       data: {
@@ -507,6 +541,52 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-chart-2" />
+            건물 지역 설정
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            건물 지역을 설정하면 견적 요청 시 해당 지역 업체가 자동 매칭됩니다.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">시/도</Label>
+              <Select value={buildingSido} onValueChange={(v) => { setBuildingSido(v); setBuildingSigungu(""); }}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="시/도 선택" /></SelectTrigger>
+                <SelectContent>
+                  {sidoList.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">시/군/구</Label>
+              <Select value={buildingSigungu} onValueChange={setBuildingSigungu} disabled={!buildingSido}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="시/군/구 선택" /></SelectTrigger>
+                <SelectContent>
+                  {buildingSigunguOptions.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {user?.buildingSido && (
+            <p className="text-xs text-muted-foreground mt-2">
+              현재 설정: {user.buildingSido} {user.buildingSigungu || ""}
+            </p>
+          )}
+          <Button size="sm" className="mt-3" onClick={handleSaveBuildingRegion} disabled={!buildingSido || savingRegion}>
+            {savingRegion ? "저장 중..." : "지역 저장"}
+          </Button>
         </CardContent>
       </Card>
 

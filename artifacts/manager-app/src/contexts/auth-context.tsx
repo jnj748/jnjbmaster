@@ -7,6 +7,8 @@ export interface AuthUser {
   role: "manager" | "partner" | "platform_admin";
   phone: string | null;
   portalType: "building" | "partner";
+  buildingSido?: string | null;
+  buildingSigungu?: string | null;
 }
 
 interface AuthContextType {
