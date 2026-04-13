@@ -163,8 +163,12 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
-      const geoMatch = rfq.status === "open" && rfq.category === vendor.category && rfq.sido === vendor.sido;
-      if (!geoMatch) {
+      const categoryAndSidoMatch = rfq.status === "open" && rfq.category === vendor.category && rfq.sido === vendor.sido;
+      if (!categoryAndSidoMatch) {
+        res.status(403).json({ error: "접근 권한이 없습니다" });
+        return;
+      }
+      if (rfq.geoScope === "sigungu" && rfq.sigungu && vendor.sigungu && rfq.sigungu !== vendor.sigungu) {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
