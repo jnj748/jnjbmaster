@@ -301,7 +301,7 @@ const categoryLabel = (c: string) => {
 
 function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, createQuoteMutation, toast, authToken }: any) {
   const [quoteDialogRfq, setQuoteDialogRfq] = useState<any>(null);
-  const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<Record<string, unknown> | null>(null);
   const [form, setForm] = useState({
     totalAmount: "",
     itemBreakdown: "",

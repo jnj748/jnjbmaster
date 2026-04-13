@@ -148,7 +148,7 @@ export default function Dashboard() {
     notes: string | null; closeUpPhotoUrl: string | null; widePhotoUrl: string | null;
   } | null>(null);
   const [showRfqDocument, setShowRfqDocument] = useState(false);
-  const [rfqDocumentData, setRfqDocumentData] = useState<any>(null);
+  const [rfqDocumentData, setRfqDocumentData] = useState<Record<string, unknown> | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();

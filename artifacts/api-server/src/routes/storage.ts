@@ -20,19 +20,8 @@ router.post("/storage/uploads/request-url", authMiddleware, async (req: Request,
 
   try {
     const { name, size, contentType } = parsed.data;
-    const userId = String((req as any).user?.userId || "unknown");
-
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-
-    try {
-      await objectStorageService.trySetObjectEntityAclPolicy(uploadURL, {
-        owner: userId,
-        visibility: "public",
-      });
-    } catch (aclErr) {
-      req.log.warn({ err: aclErr }, "Failed to set ACL policy on upload, continuing");
-    }
 
     res.json(
       RequestUploadUrlResponse.parse({

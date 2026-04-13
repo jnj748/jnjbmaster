@@ -70,7 +70,7 @@ export default function Rfqs() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
-  const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<Record<string, unknown> | null>(null);
   const { toast } = useToast();
   const { token } = useAuth();
   const queryClient = useQueryClient();
