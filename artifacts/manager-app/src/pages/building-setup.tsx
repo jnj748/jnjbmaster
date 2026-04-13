@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,6 +26,8 @@ import {
   Loader2,
   Info,
   ChevronRight,
+  Plus,
+  X,
 } from "lucide-react";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 
@@ -65,6 +67,25 @@ interface SafetyResult {
   facilityManagerCriteria: string[];
 }
 
+interface PresetItem {
+  id?: number;
+  name: string;
+  category: string;
+  inspectionType: string;
+  legalCycleMonths: number;
+  description?: string;
+  legalBasis?: string;
+}
+
+interface SelectedTask {
+  name: string;
+  category: string;
+  legalCycleMonths: number;
+  lastDate: string;
+  description?: string;
+  legalBasis?: string;
+}
+
 interface InspectionDates {
   [category: string]: {
     [presetName: string]: string;
@@ -95,72 +116,36 @@ const EMPTY_BUILDING: BuildingData = {
   managementOfficeFax: "",
 };
 
-const INSPECTION_CATEGORIES = [
-  {
-    key: "fire_safety",
-    label: "소방",
-    presets: [
-      { name: "소방 법정점검 (작동+정밀)", cycle: "연 1회" },
-    ],
-  },
-  {
-    key: "electrical",
-    label: "전기",
-    presets: [
-      { name: "전기안전 법정점검", cycle: "2~3년 1회" },
-    ],
-  },
-  {
-    key: "elevator",
-    label: "승강기",
-    presets: [
-      { name: "승강기 법정 안전검사", cycle: "연 1회" },
-    ],
-  },
-  {
-    key: "water_tank",
-    label: "저수조",
-    presets: [
-      { name: "저수조 청소", cycle: "반기 1회" },
-    ],
-  },
-  {
-    key: "septic",
-    label: "정화조",
-    presets: [
-      { name: "정화조 청소", cycle: "연 1회" },
-    ],
-  },
-  {
-    key: "hygiene",
-    label: "위생/환경",
-    presets: [
-      { name: "수질 검사", cycle: "연 1회" },
-      { name: "실내공기질 검사", cycle: "연 1회" },
-    ],
-  },
-  {
-    key: "building_safety",
-    label: "건축물 안전",
-    presets: [
-      { name: "건축물 정기점검", cycle: "반기 1회" },
-    ],
-  },
-  {
-    key: "gas",
-    label: "가스",
-    presets: [
-      { name: "가스 안전점검", cycle: "연 1회" },
-    ],
-  },
-  {
-    key: "playground",
-    label: "놀이터",
-    presets: [
-      { name: "어린이 놀이터 법정 안전검사", cycle: "2년 1회" },
-    ],
-  },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  fire_safety: "소방",
+  electrical: "전기",
+  elevator: "승강기",
+  water_tank: "저수조",
+  septic: "정화조",
+  hygiene: "위생/환경",
+  building_safety: "건축물 안전",
+  safety_check: "안전점검",
+  gas: "가스",
+  playground: "놀이터",
+};
+
+function formatCycle(months: number): string {
+  if (months === 1) return "매월";
+  if (months === 3) return "분기 1회";
+  if (months === 6) return "반기 1회";
+  if (months === 12) return "연 1회";
+  if (months === 24) return "2년 1회";
+  if (months === 36) return "3년 1회";
+  return `${months}개월`;
+}
+
+const INSPECTION_TYPE_LABELS: Record<string, string> = {
+  legal: "법정",
+  self_regular: "자체정기",
+  biweekly: "격주",
+  seasonal: "계절별",
+  administrative: "행정",
+};
 
 export default function BuildingSetup() {
   const { token } = useAuth();
@@ -183,9 +168,98 @@ export default function BuildingSetup() {
   const [lookupBun, setLookupBun] = useState("");
   const [lookupJi, setLookupJi] = useState("");
 
+  const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<SelectedTask[]>([]);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [customTaskName, setCustomTaskName] = useState("");
+  const [customTaskCategory, setCustomTaskCategory] = useState("fire_safety");
+  const [customTaskCycle, setCustomTaskCycle] = useState("12");
+  const searchRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchBuilding();
+    fetchPresets();
   }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function fetchPresets() {
+    try {
+      const res = await fetch(`${apiBase}/inspections/presets`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setAllPresets(data);
+      }
+    } catch {}
+  }
+
+  const filteredSuggestions = useCallback(() => {
+    const query = taskSearch.toLowerCase().trim();
+    if (!query) return allPresets.filter((p) => !selectedTasks.some((t) => t.name === p.name));
+    return allPresets.filter(
+      (p) =>
+        !selectedTasks.some((t) => t.name === p.name) &&
+        (p.name.toLowerCase().includes(query) ||
+          (CATEGORY_LABELS[p.category] || "").includes(query) ||
+          (p.description || "").toLowerCase().includes(query) ||
+          (INSPECTION_TYPE_LABELS[p.inspectionType] || "").includes(query))
+    );
+  }, [taskSearch, allPresets, selectedTasks]);
+
+  function addPresetTask(preset: PresetItem) {
+    setSelectedTasks((prev) => [
+      ...prev,
+      {
+        name: preset.name,
+        category: preset.category,
+        legalCycleMonths: preset.legalCycleMonths,
+        lastDate: "",
+        description: preset.description,
+        legalBasis: preset.legalBasis,
+      },
+    ]);
+    setTaskSearch("");
+    setShowSuggestions(false);
+  }
+
+  function addCustomTask() {
+    if (!customTaskName.trim()) return;
+    if (selectedTasks.some((t) => t.name === customTaskName.trim())) {
+      toast({ title: "이미 추가된 업무입니다", variant: "destructive" });
+      return;
+    }
+    setSelectedTasks((prev) => [
+      ...prev,
+      {
+        name: customTaskName.trim(),
+        category: customTaskCategory,
+        legalCycleMonths: parseInt(customTaskCycle) || 12,
+        lastDate: "",
+      },
+    ]);
+    setCustomTaskName("");
+  }
+
+  function removeTask(name: string) {
+    setSelectedTasks((prev) => prev.filter((t) => t.name !== name));
+  }
+
+  function updateTaskDate(name: string, date: string) {
+    setSelectedTasks((prev) =>
+      prev.map((t) => (t.name === name ? { ...t, lastDate: date } : t))
+    );
+  }
 
   async function fetchBuilding() {
     try {
@@ -358,13 +432,16 @@ export default function BuildingSetup() {
       return;
     }
 
-    const hasAnyDate = Object.values(inspectionDates).some(
-      (cat) => Object.values(cat).some((d) => d)
-    );
-
-    if (!hasAnyDate) {
-      toast({ title: "최소 1개 이상의 점검 일자를 입력해주세요", variant: "destructive" });
+    const tasksWithDates = selectedTasks.filter((t) => t.lastDate);
+    if (tasksWithDates.length === 0) {
+      toast({ title: "최소 1개 이상의 최근 실시일을 입력해주세요", variant: "destructive" });
       return;
+    }
+
+    const datesByCategory: InspectionDates = {};
+    for (const t of tasksWithDates) {
+      if (!datesByCategory[t.category]) datesByCategory[t.category] = {};
+      datesByCategory[t.category][t.name] = t.lastDate;
     }
 
     setSchedulingInspections(true);
@@ -377,7 +454,7 @@ export default function BuildingSetup() {
         },
         body: JSON.stringify({
           buildingId: existingId,
-          inspectionDates,
+          inspectionDates: datesByCategory,
         }),
       });
 
@@ -393,16 +470,6 @@ export default function BuildingSetup() {
     } finally {
       setSchedulingInspections(false);
     }
-  }
-
-  function updateInspectionDate(category: string, presetName: string, date: string) {
-    setInspectionDates((prev) => ({
-      ...prev,
-      [category]: {
-        ...(prev[category] || {}),
-        [presetName]: date,
-      },
-    }));
   }
 
   function handleFieldChange(field: keyof BuildingData, value: string | boolean) {
@@ -421,7 +488,7 @@ export default function BuildingSetup() {
   const steps = [
     { label: "건축물대장 조회", icon: Search },
     { label: "건물 정보 입력", icon: Building },
-    { label: "법정점검 초기값", icon: Calendar },
+    { label: "법정업무 선택", icon: Calendar },
   ];
 
   return (
@@ -825,14 +892,11 @@ export default function BuildingSetup() {
                   <div>
                     <p className="text-sm font-semibold mb-2">필수 법정점검 항목:</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {safetyResult.requiredInspections.map((cat) => {
-                        const found = INSPECTION_CATEGORIES.find((c) => c.key === cat);
-                        return (
-                          <Badge key={cat} variant="outline" className="text-xs">
-                            {found?.label || cat}
-                          </Badge>
-                        );
-                      })}
+                      {safetyResult.requiredInspections.map((cat) => (
+                        <Badge key={cat} variant="outline" className="text-xs">
+                          {CATEGORY_LABELS[cat] || cat}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -861,52 +925,169 @@ export default function BuildingSetup() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                법정점검 최근 실시일 입력
+                법정업무 선택
               </CardTitle>
               <CardDescription>
-                각 법정점검의 최근 실시일을 입력하면 다음 점검일이 자동으로 계산됩니다.
-                해당 없는 항목은 비워두세요.
+                관리 대상 법정업무를 검색하여 추가하거나 직접 입력하세요.
+                최근 실시일을 입력하면 다음 점검일이 자동으로 계산됩니다.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {INSPECTION_CATEGORIES.map((cat) => {
-                const isRequired = safetyResult?.requiredInspections?.includes(cat.key);
-                const isRelevant =
-                  !safetyResult ||
-                  isRequired ||
-                  (cat.key === "playground" && building.hasPlayground) ||
-                  (cat.key === "gas" && building.hasGas) ||
-                  (cat.key === "septic" && building.hasSepticTank);
-
-                if (!isRelevant) return null;
-
-                return (
-                  <div key={cat.key} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm">{cat.label}</h3>
-                      {isRequired && (
-                        <Badge variant="outline" className="text-xs text-green-700 border-green-300">필수</Badge>
-                      )}
-                    </div>
-                    {cat.presets.map((preset) => (
-                      <div key={preset.name} className="flex items-center gap-3 pl-3">
-                        <Label className="text-sm flex-1 min-w-0">
-                          {preset.name}
-                          <span className="text-xs text-muted-foreground ml-1">({preset.cycle})</span>
-                        </Label>
-                        <Input
-                          type="date"
-                          className="w-40 flex-shrink-0"
-                          value={inspectionDates[cat.key]?.[preset.name] || ""}
-                          onChange={(e) => updateInspectionDate(cat.key, preset.name, e.target.value)}
-                        />
+            <CardContent className="space-y-5">
+              <div ref={searchRef} className="relative">
+                <Label className="text-sm font-semibold">법정업무 검색</Label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="업무명, 분야, 유형으로 검색 (예: 소방, 전기, 승강기, 법정...)"
+                    value={taskSearch}
+                    onChange={(e) => {
+                      setTaskSearch(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    className="pl-9"
+                  />
+                </div>
+                {showSuggestions && (
+                  <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                    {filteredSuggestions().length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        {taskSearch ? "검색 결과가 없습니다. 아래에서 직접 입력할 수 있습니다." : "모든 업무가 이미 추가되었습니다."}
                       </div>
-                    ))}
+                    ) : (
+                      filteredSuggestions().map((preset) => (
+                        <button
+                          key={preset.name}
+                          onClick={() => addPresetTask(preset)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{preset.name}</span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {CATEGORY_LABELS[preset.category] || preset.category}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {INSPECTION_TYPE_LABELS[preset.inspectionType] || preset.inspectionType}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {formatCycle(preset.legalCycleMonths)}
+                            </span>
+                          </div>
+                          {preset.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{preset.description}</p>
+                          )}
+                        </button>
+                      ))
+                    )}
                   </div>
-                );
-              })}
+                )}
+              </div>
+
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <Label className="text-sm font-semibold">직접 입력</Label>
+                <div className="flex flex-col desktop:flex-row gap-2 mt-2">
+                  <Input
+                    placeholder="업무명 입력"
+                    value={customTaskName}
+                    onChange={(e) => setCustomTaskName(e.target.value)}
+                    className="flex-1"
+                    onKeyDown={(e) => e.key === "Enter" && addCustomTask()}
+                  />
+                  <Select value={customTaskCategory} onValueChange={setCustomTaskCategory}>
+                    <SelectTrigger className="w-full desktop:w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={customTaskCycle} onValueChange={setCustomTaskCycle}>
+                    <SelectTrigger className="w-full desktop:w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">매월</SelectItem>
+                      <SelectItem value="3">분기</SelectItem>
+                      <SelectItem value="6">반기</SelectItem>
+                      <SelectItem value="12">연 1회</SelectItem>
+                      <SelectItem value="24">2년</SelectItem>
+                      <SelectItem value="36">3년</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    onClick={addCustomTask}
+                    disabled={!customTaskName.trim()}
+                    className="shrink-0"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    추가
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          {selectedTasks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>선택된 법정업무 ({selectedTasks.length}건)</span>
+                </CardTitle>
+                <CardDescription>
+                  각 업무의 최근 실시일을 입력하면 다음 점검일이 자동 계산됩니다
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {selectedTasks.map((task) => (
+                  <div
+                    key={task.name}
+                    className="flex flex-col desktop:flex-row desktop:items-center gap-2 p-3 border rounded-lg bg-background"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">{task.name}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {CATEGORY_LABELS[task.category] || task.category}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatCycle(task.legalCycleMonths)}
+                        </span>
+                      </div>
+                      {task.legalBasis && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{task.legalBasis}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">최근 실시일</Label>
+                      <Input
+                        type="date"
+                        className="w-40"
+                        value={task.lastDate}
+                        onChange={(e) => updateTaskDate(task.name, e.target.value)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeTask(task.name)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedTasks.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              위 검색창에서 법정업무를 검색하여 추가하거나, 직접 입력해주세요.
+            </div>
+          )}
 
           {inspectionsScheduled ? (
             <Card className="border-green-300 bg-green-50/50">
@@ -925,7 +1106,7 @@ export default function BuildingSetup() {
           ) : (
             <Button
               onClick={scheduleInspections}
-              disabled={schedulingInspections || !existingId}
+              disabled={schedulingInspections || !existingId || selectedTasks.length === 0}
               className="w-full"
               size="lg"
             >
