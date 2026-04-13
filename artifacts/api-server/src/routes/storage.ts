@@ -72,6 +72,24 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
+    const authHeader = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
+    const token = authHeader?.replace(/^Bearer\s+/i, "") || queryToken;
+
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    try {
+      const jwt = await import("jsonwebtoken");
+      const secret = process.env.JWT_SECRET || "dev-secret";
+      jwt.default.verify(token, secret);
+    } catch {
+      res.status(403).json({ error: "Invalid token" });
+      return;
+    }
+
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;

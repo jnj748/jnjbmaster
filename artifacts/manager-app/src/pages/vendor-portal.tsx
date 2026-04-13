@@ -36,16 +36,16 @@ import {
   TrendingUp,
   AlertCircle,
   Printer,
-  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { RfqRequestDocument } from "@/components/rfq-request-document";
+import { authedImageUrl } from "@/lib/authed-image-url";
 
 type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
 
 export default function VendorPortal() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState<PortalTab>("dashboard");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -153,6 +153,7 @@ export default function VendorPortal() {
           queryClient={queryClient}
           createQuoteMutation={createQuoteMutation}
           toast={toast}
+          authToken={token}
         />
       )}
       {activeTab === "quotes" && (
@@ -298,7 +299,7 @@ const categoryLabel = (c: string) => {
   return map[c] || c;
 };
 
-function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, createQuoteMutation, toast }: any) {
+function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, createQuoteMutation, toast, authToken }: any) {
   const [quoteDialogRfq, setQuoteDialogRfq] = useState<any>(null);
   const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
   const [form, setForm] = useState({
@@ -368,10 +369,10 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
                       <div className="flex gap-2 mt-2">
                         {rfq.closeUpPhotoUrl && (
-                          <img src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                          <img src={authedImageUrl(rfq.closeUpPhotoUrl, authToken)} alt="근경" className="w-16 h-16 rounded border object-cover" />
                         )}
                         {rfq.widePhotoUrl && (
-                          <img src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                          <img src={authedImageUrl(rfq.widePhotoUrl, authToken)} alt="원경" className="w-16 h-16 rounded border object-cover" />
                         )}
                       </div>
                     )}

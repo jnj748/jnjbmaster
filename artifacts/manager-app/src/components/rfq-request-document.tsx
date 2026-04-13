@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { authedImageUrl } from "@/lib/authed-image-url";
 
 const CATEGORY_LABELS: Record<string, string> = {
   elevator: "승강기",
@@ -60,6 +62,7 @@ export function RfqRequestDocument({
   rfq,
   officeContact = "관리사무소 ☎ 02-0000-0000",
 }: RfqRequestDocumentProps) {
+  const { token } = useAuth();
   const [editMode, setEditMode] = useState(true);
   const [title, setTitle] = useState(`[${rfq.buildingName}] 업체의뢰서`);
   const [description, setDescription] = useState(rfq.description || "");
@@ -156,13 +159,13 @@ export function RfqRequestDocument({
                 {rfq.closeUpPhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">근경 사진</p>
-                    <img src={rfq.closeUpPhotoUrl} alt="근경" className="w-full border rounded" />
+                    <img src={authedImageUrl(rfq.closeUpPhotoUrl, token)} alt="근경" className="w-full border rounded" />
                   </div>
                 )}
                 {rfq.widePhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">원경 사진</p>
-                    <img src={rfq.widePhotoUrl} alt="원경" className="w-full border rounded" />
+                    <img src={authedImageUrl(rfq.widePhotoUrl, token)} alt="원경" className="w-full border rounded" />
                   </div>
                 )}
               </div>

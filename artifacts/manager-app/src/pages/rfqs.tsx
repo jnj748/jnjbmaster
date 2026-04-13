@@ -49,6 +49,8 @@ import { formatDate } from "@/lib/utils";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument } from "@/components/rfq-request-document";
+import { useAuth } from "@/contexts/auth-context";
+import { authedImageUrl } from "@/lib/authed-image-url";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -70,6 +72,7 @@ export default function Rfqs() {
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [rfqDocRfq, setRfqDocRfq] = useState<any>(null);
   const { toast } = useToast();
+  const { token } = useAuth();
   const queryClient = useQueryClient();
 
   const queryParams: any = {};
@@ -407,10 +410,10 @@ export default function Rfqs() {
                     {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
                       <div className="flex gap-2 mt-2">
                         {rfq.closeUpPhotoUrl && (
-                          <img src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                          <img src={authedImageUrl(rfq.closeUpPhotoUrl, token)} alt="근경" className="w-16 h-16 rounded border object-cover" />
                         )}
                         {rfq.widePhotoUrl && (
-                          <img src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                          <img src={authedImageUrl(rfq.widePhotoUrl, token)} alt="원경" className="w-16 h-16 rounded border object-cover" />
                         )}
                       </div>
                     )}
