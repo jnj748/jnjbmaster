@@ -145,6 +145,17 @@ export function CompletionNotice({
             <p className="text-lg font-semibold">{buildingName} 관리사무소</p>
             <p className="text-sm text-gray-600">{contact}</p>
           </div>
+
+          <div className="border-t border-gray-300 pt-6 mt-8">
+            <div className="flex justify-end items-center gap-8">
+              <div className="text-center">
+                <p className="text-sm font-semibold mb-1">관리소장</p>
+                <div className="w-24 h-24 border-2 border-gray-400 rounded flex items-center justify-center">
+                  <span className="text-xs text-gray-400">(서명/직인)</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-4 print:hidden">
