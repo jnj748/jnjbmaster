@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useUpload } from "@workspace/object-storage-web";
+import { useAuth } from "@/contexts/auth-context";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImageIcon } from "lucide-react";
@@ -12,11 +13,13 @@ interface PhotoUploadFieldProps {
 
 export function PhotoUploadField({ label, value, onChange }: PhotoUploadFieldProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { token } = useAuth();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
   const { uploadFile, isUploading, progress } = useUpload({
     basePath: `${apiBase}/storage`,
+    authToken: token,
     onSuccess: (response) => {
       const servingUrl = `${apiBase}/storage${response.objectPath}`;
       onChange(servingUrl);

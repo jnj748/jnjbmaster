@@ -16,6 +16,8 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /** Auth token to send with upload requests */
+  authToken?: string | null;
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -61,11 +63,16 @@ export function useUpload(options: UseUploadOptions = {}) {
 
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (options.authToken) {
+        headers["Authorization"] = `Bearer ${options.authToken}`;
+      }
+
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -80,7 +87,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [basePath, options.authToken]
   );
 
   const uploadToPresignedUrl = useCallback(
@@ -136,11 +143,16 @@ export function useUpload(options: UseUploadOptions = {}) {
       url: string;
       headers?: Record<string, string>;
     }> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (options.authToken) {
+        headers["Authorization"] = `Bearer ${options.authToken}`;
+      }
+
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -159,7 +171,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       };
     },
-    []
+    [basePath, options.authToken]
   );
 
   return {
