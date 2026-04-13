@@ -44,6 +44,7 @@ router.use(vendorsRouter);
 router.use(commissionsRouter);
 router.use(notificationsRouter);
 router.use(usersRouter);
+router.use(rfqsRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin");
@@ -53,7 +54,6 @@ buildingRouter.use(approvalsRouter);
 buildingRouter.use(tasksRouter);
 buildingRouter.use(inspectionsRouter);
 buildingRouter.use(taxSchedulesRouter);
-buildingRouter.use(rfqsRouter);
 buildingRouter.use(quotesRouter);
 buildingRouter.use(workReportsRouter);
 buildingRouter.use(settlementsRouter);

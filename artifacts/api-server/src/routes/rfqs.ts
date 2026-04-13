@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, or } from "drizzle-orm";
 import { db, rfqsTable, vendorsTable } from "@workspace/db";
+import { requireRole } from "../middlewares/auth";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -139,7 +140,9 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
   res.json(GetRfqResponse.parse(rfq));
 });
 
-router.post("/rfqs", async (req, res): Promise<void> => {
+const managerOnly = requireRole("manager", "platform_admin");
+
+router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
   const parsed = CreateRfqBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -183,7 +186,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   res.status(201).json(UpdateRfqResponse.parse(rfq));
 });
 
-router.patch("/rfqs/:id/expand-scope", async (req, res): Promise<void> => {
+router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<void> => {
   const params = ExpandRfqScopeParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -232,7 +235,7 @@ router.patch("/rfqs/:id/expand-scope", async (req, res): Promise<void> => {
   res.json(ExpandRfqScopeResponse.parse(updated));
 });
 
-router.patch("/rfqs/:id", async (req, res): Promise<void> => {
+router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
   const params = UpdateRfqParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -259,7 +262,7 @@ router.patch("/rfqs/:id", async (req, res): Promise<void> => {
   res.json(UpdateRfqResponse.parse(rfq));
 });
 
-router.delete("/rfqs/:id", async (req, res): Promise<void> => {
+router.delete("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
   const params = DeleteRfqParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
