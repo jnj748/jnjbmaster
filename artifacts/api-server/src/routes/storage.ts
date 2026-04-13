@@ -5,6 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 import { authMiddleware, verifyToken } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -19,9 +20,19 @@ router.post("/storage/uploads/request-url", authMiddleware, async (req: Request,
 
   try {
     const { name, size, contentType } = parsed.data;
+    const userId = String((req as any).user?.userId || "unknown");
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+    try {
+      await objectStorageService.trySetObjectEntityAclPolicy(uploadURL, {
+        owner: userId,
+        visibility: "public",
+      });
+    } catch (aclErr) {
+      req.log.warn({ err: aclErr }, "Failed to set ACL policy on upload, continuing");
+    }
 
     res.json(
       RequestUploadUrlResponse.parse({
@@ -36,13 +47,6 @@ router.post("/storage/uploads/request-url", authMiddleware, async (req: Request,
   }
 });
 
-/**
- * GET /storage/public-objects/*
- *
- * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
- * These are unconditionally public — no authentication or ACL checks.
- * IMPORTANT: Always provide this endpoint when object storage is set up.
- */
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
@@ -81,8 +85,10 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       return;
     }
 
+    let userId: string | undefined;
     try {
-      verifyToken(rawToken);
+      const payload = verifyToken(rawToken);
+      userId = String(payload.userId);
     } catch {
       res.status(403).json({ error: "Invalid token" });
       return;
@@ -92,6 +98,17 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      userId,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+
+    if (!canAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 
