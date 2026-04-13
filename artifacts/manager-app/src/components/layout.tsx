@@ -77,6 +77,7 @@ const managerNavItems = [
 
 const partnerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/rfqs", label: "견적 요청", icon: FileText },
   { path: "/vendors", label: "업체 정보", icon: Package },
   { path: "/commissions", label: "수수료", icon: Coins },
 ];
@@ -90,6 +91,7 @@ const managerBottomNavItems = [
 
 const partnerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/rfqs", label: "견적", icon: FileText },
   { path: "/vendors", label: "업체", icon: Package },
   { path: "/commissions", label: "수수료", icon: Coins },
 ];

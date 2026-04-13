@@ -31,6 +31,7 @@ import DocumentTemplates from "@/pages/document-templates";
 import DailyReportsPage from "@/pages/daily-reports";
 import ReportSystemPage from "@/pages/report-system";
 import PartnerDashboard from "@/pages/partner-dashboard";
+import VendorPortal from "@/pages/vendor-portal";
 import Attendance from "@/pages/attendance";
 import NotFound from "@/pages/not-found";
 
@@ -64,6 +65,7 @@ const managerRoutes = [
 ];
 
 const partnerRoutes = [
+  { path: "/rfqs", component: VendorPortal },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },
 ];
