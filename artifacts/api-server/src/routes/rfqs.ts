@@ -66,6 +66,10 @@ router.get("/rfqs", async (req, res): Promise<void> => {
         const categoryMatch = r.category === vendor.category;
         const sidoMatch = r.sido === vendor.sido;
         if (categoryMatch && sidoMatch) {
+          if (r.geoScope === "sido") return true;
+          if (r.geoScope === "sigungu") {
+            return !vendor.sigungu || !r.sigungu || vendor.sigungu === r.sigungu;
+          }
           return true;
         }
       }
@@ -100,7 +104,10 @@ router.get("/rfqs/:id/matched-vendors", async (req, res): Promise<void> => {
     eq(vendorsTable.category, rfq.category),
   ];
 
-  if ((rfq.geoScope === "sigungu" || rfq.geoScope === "sido") && rfq.sido) {
+  if (rfq.geoScope === "sigungu" && rfq.sido && rfq.sigungu) {
+    conditions.push(eq(vendorsTable.sido, rfq.sido));
+    conditions.push(eq(vendorsTable.sigungu, rfq.sigungu));
+  } else if (rfq.geoScope === "sido" && rfq.sido) {
     conditions.push(eq(vendorsTable.sido, rfq.sido));
   }
 
@@ -154,6 +161,10 @@ router.post("/rfqs", async (req, res): Promise<void> => {
       eq(vendorsTable.category, data.category),
       eq(vendorsTable.sido, data.sido),
     ];
+
+    if (data.geoScope === "sigungu" && data.sigungu) {
+      geoConditions.push(eq(vendorsTable.sigungu, data.sigungu));
+    }
 
     const matchedVendors = await db
       .select({ id: vendorsTable.id })
