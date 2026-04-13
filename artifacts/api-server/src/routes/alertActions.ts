@@ -73,7 +73,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
         .update(inspectionsTable)
         .set({
           lastInspectionDate: data.completedDate,
-          nextDueDate: nextCycleDate,
+          nextDueDate: computedNextCycleDate!,
           status: "upcoming",
         })
         .where(eq(inspectionsTable.id, data.relatedEntityId));
