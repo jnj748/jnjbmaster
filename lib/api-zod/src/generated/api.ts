@@ -1860,6 +1860,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
   relatedId: zod.number().nullish(),
   hasDraft: zod.boolean().optional(),
   actionStatus: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const GetDashboardAlertsResponse = zod.array(

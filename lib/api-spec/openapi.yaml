@@ -4322,6 +4322,9 @@ components:
           type: boolean
         actionStatus:
           type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
         createdAt:
           type: string
           format: date-time

@@ -117,6 +117,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     relatedId: number | null;
     hasDraft: boolean;
     actionStatus: string | null;
+    dueDate: string | null;
     createdAt: string;
   }> = [];
 
@@ -173,6 +174,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       relatedId: inspection.id,
       hasDraft: draftByInspectionId.has(inspection.id),
       actionStatus: action?.actionType || null,
+      dueDate: inspection.nextDueDate,
       createdAt: new Date().toISOString(),
     });
   }
@@ -217,6 +219,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         relatedId: tax.id,
         hasDraft: false,
         actionStatus: taxAction?.actionType || null,
+        dueDate: tax.dueDate,
         createdAt: new Date().toISOString(),
       });
     }
@@ -247,6 +250,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         relatedId: task.id,
         hasDraft: false,
         actionStatus: taskAction?.actionType || null,
+        dueDate: task.dueDate,
         createdAt: new Date().toISOString(),
       });
     }
@@ -289,6 +293,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       relatedId: tenant.id,
       hasDraft: false,
       actionStatus: null,
+      dueDate: tenant.dataDestructionDate,
       createdAt: new Date().toISOString(),
     });
   }
@@ -306,6 +311,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       relatedId: owner.id,
       hasDraft: false,
       actionStatus: null,
+      dueDate: owner.dataDestructionDate,
       createdAt: new Date().toISOString(),
     });
   }

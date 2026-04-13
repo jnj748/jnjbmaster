@@ -103,6 +103,18 @@ function StatCard({
   return content;
 }
 
+function getDdayLabel(dueDate: string | null): { label: string; days: number | null; isOverdue: boolean } {
+  if (!dueDate) return { label: "기한없음", days: null, isOverdue: false };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { label: `기한초과 +${Math.abs(diff)}일`, days: diff, isOverdue: true };
+  if (diff === 0) return { label: "D-Day", days: 0, isOverdue: false };
+  return { label: `D-${diff}`, days: diff, isOverdue: false };
+}
+
 type AlertActionTab = "complete" | "postpone" | "rfq";
 
 const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue"] as const;
@@ -116,6 +128,7 @@ interface DashboardAlert {
   relatedId?: number | null;
   hasDraft?: boolean;
   actionStatus?: string | null;
+  dueDate?: string | null;
   createdAt: string;
 }
 
@@ -426,105 +439,135 @@ export default function Dashboard() {
         />
       </div>
 
+      <div>
+        <h2 className="text-base font-bold flex items-center gap-2 mb-3">
+          <ClipboardCheck className="w-4 h-4 text-chart-3" />
+          필수업무현황
+          {alerts && alerts.length > 3 && (
+            <span className="text-xs font-normal text-muted-foreground ml-1">
+              ({alerts.length}건) 스크롤하여 더보기 →
+            </span>
+          )}
+        </h2>
+        {alertsLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-36 min-w-[260px] shrink-0 rounded-xl" />
+            ))}
+          </div>
+        ) : alerts && alerts.length > 0 ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin">
+            {alerts.map((alert) => {
+              const dday = getDdayLabel(alert.dueDate ?? null);
+              return (
+                <Card
+                  key={alert.id}
+                  className={`min-w-[260px] max-w-[300px] shrink-0 snap-start cursor-pointer hover:shadow-md transition-shadow border-l-4 ${
+                    dday.isOverdue
+                      ? "border-l-red-500"
+                      : dday.days !== null && dday.days <= 3
+                      ? "border-l-orange-400"
+                      : dday.days !== null && dday.days <= 7
+                      ? "border-l-yellow-400"
+                      : "border-l-blue-400"
+                  }`}
+                  onClick={() =>
+                    alert.relatedId &&
+                    (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) &&
+                    openAlertAction(alert)
+                  }
+                >
+                  <CardContent className="p-4 flex flex-col gap-2 h-full">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          dday.isOverdue
+                            ? "bg-red-100 text-red-700"
+                            : dday.days !== null && dday.days <= 3
+                            ? "bg-orange-100 text-orange-700"
+                            : dday.days !== null && dday.days <= 7
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {dday.label}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {alert.hasDraft && (
+                          <Badge variant="outline" className="text-[10px] h-5">기안서</Badge>
+                        )}
+                        {alert.actionStatus === "postponed" && (
+                          <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
+                        )}
+                        {alert.actionStatus === "rfq_requested" && (
+                          <Badge variant="outline" className="text-[10px] h-5 text-blue-600 border-blue-300">견적</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold line-clamp-2 leading-snug">{alert.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-auto">{alert.message}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="py-6 text-center">
+              <p className="text-sm text-muted-foreground">현재 처리할 필수업무가 없습니다</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-chart-3" />
-              알림 및 경고
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {alertsLoading ? (
-              <Skeleton className="h-20" />
-            ) : alerts && alerts.length > 0 ? (
-              alerts.slice(0, 5).map((alert) => (
-                <div
-                  key={alert.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border cursor-pointer hover:bg-muted/80 transition-colors"
-                  onClick={() => alert.relatedId && (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) && openAlertAction(alert)}
-                >
-                  <Badge
-                    variant={
-                      alert.severity === "critical"
-                        ? "destructive"
-                        : alert.severity === "warning"
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="shrink-0 mt-0.5"
-                  >
-                    {alert.severity === "critical"
-                      ? "긴급"
-                      : alert.severity === "warning"
-                      ? "주의"
-                      : "정보"}
-                  </Badge>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium">{alert.title}</p>
-                      {alert.hasDraft && (
-                        <Badge variant="outline" className="text-xs">
-                          기안서 생성됨
-                        </Badge>
-                      )}
-                      {alert.actionStatus === "postponed" && (
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                          연기됨
-                        </Badge>
-                      )}
-                      {alert.actionStatus === "rfq_requested" && (
-                        <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
-                          견적 요청됨
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {alert.message}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                현재 알림이 없습니다
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="w-4 h-4 text-chart-2" />
-              다가오는 법정 점검
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="w-4 h-4 text-chart-2" />
+                다가오는 법정 점검
+              </CardTitle>
+              <Link href="/inspections">
+                <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {upcomingLoading ? (
               <Skeleton className="h-20" />
             ) : upcoming && upcoming.length > 0 ? (
-              upcoming.slice(0, 5).map((inspection) => (
-                <div
-                  key={inspection.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{inspection.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {categoryLabel(inspection.category)}
-                    </p>
+              upcoming.slice(0, 5).map((inspection) => {
+                const inspDday = getDdayLabel(inspection.nextDueDate);
+                return (
+                  <div
+                    key={inspection.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{inspection.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {categoryLabel(inspection.category)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          inspDday.isOverdue
+                            ? "bg-red-100 text-red-700"
+                            : inspDday.days !== null && inspDday.days <= 3
+                            ? "bg-orange-100 text-orange-700"
+                            : inspDday.days !== null && inspDday.days <= 7
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {inspDday.label}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {formatDate(inspection.nextDueDate)}
-                    </p>
-                    <Badge variant="outline" className="text-xs">
-                      {inspection.status === "upcoming" ? "예정" : inspection.status === "overdue" ? "초과" : "완료"}
-                    </Badge>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 30일 내 예정된 점검이 없습니다
@@ -532,7 +575,6 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
 
       <Card>
         <CardHeader className="pb-3">
@@ -565,6 +607,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <Card>
         <CardHeader className="pb-3">

@@ -19,5 +19,7 @@ export interface Alert {
   hasDraft?: boolean;
   /** @nullable */
   actionStatus?: string | null;
+  /** @nullable */
+  dueDate?: Date | null;
   createdAt: Date;
 }
