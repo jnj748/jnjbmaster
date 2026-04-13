@@ -107,6 +107,28 @@ export function useUpload(options: UseUploadOptions = {}) {
     []
   );
 
+  const finalizeUpload = useCallback(
+    async (objectPath: string): Promise<void> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (options.authToken) {
+        headers["Authorization"] = `Bearer ${options.authToken}`;
+      }
+
+      const response = await fetch(`${basePath}/uploads/finalize`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ objectPath }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to finalize upload ACL");
+      }
+    },
+    [basePath, options.authToken]
+  );
+
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResponse | null> => {
       setIsUploading(true);
@@ -120,6 +142,9 @@ export function useUpload(options: UseUploadOptions = {}) {
         setProgress(30);
         await uploadToPresignedUrl(file, uploadResponse.uploadURL);
 
+        setProgress(80);
+        await finalizeUpload(uploadResponse.objectPath);
+
         setProgress(100);
         options.onSuccess?.(uploadResponse);
         return uploadResponse;
@@ -132,7 +157,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         setIsUploading(false);
       }
     },
-    [requestUploadUrl, uploadToPresignedUrl, options]
+    [requestUploadUrl, uploadToPresignedUrl, finalizeUpload, options]
   );
 
   const getUploadParameters = useCallback(

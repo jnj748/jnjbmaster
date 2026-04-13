@@ -105,7 +105,7 @@ export async function canAccessObject({
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(objectFile);
   if (!aclPolicy) {
-    return requestedPermission === ObjectPermission.READ && !!userId;
+    return false;
   }
 
   if (

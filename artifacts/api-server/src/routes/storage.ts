@@ -36,6 +36,26 @@ router.post("/storage/uploads/request-url", authMiddleware, async (req: Request,
   }
 });
 
+router.post("/storage/uploads/finalize", authMiddleware, async (req: Request, res: Response) => {
+  const { objectPath } = req.body;
+  if (!objectPath || typeof objectPath !== "string") {
+    res.status(400).json({ error: "objectPath is required" });
+    return;
+  }
+
+  try {
+    const userId = String((req as any).user?.userId || "unknown");
+    await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+      owner: userId,
+      visibility: "public",
+    });
+    res.json({ success: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Error finalizing upload ACL");
+    res.status(500).json({ error: "Failed to finalize upload" });
+  }
+});
+
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
