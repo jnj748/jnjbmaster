@@ -1447,6 +1447,17 @@ export const RequestUploadUrlResponse = zod.object({
 });
 
 /**
+ * @summary Finalize upload by setting ACL policy on uploaded object
+ */
+export const FinalizeUploadBody = zod.object({
+  objectPath: zod.string(),
+});
+
+export const FinalizeUploadResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
  * @summary Serve a public asset
  */
 export const GetPublicObjectParams = zod.object({

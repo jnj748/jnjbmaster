@@ -1100,6 +1100,35 @@ paths:
           description: Missing or invalid required fields.
         '500':
           description: Failed to generate upload URL.
+  /storage/uploads/finalize:
+    post:
+      tags: [Storage]
+      operationId: finalizeUpload
+      summary: Finalize upload by setting ACL policy on uploaded object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [objectPath]
+              properties:
+                objectPath:
+                  type: string
+      responses:
+        '200':
+          description: ACL policy set successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Missing objectPath.
+        '500':
+          description: Failed to finalize upload.
   /storage/public-objects/{filePath}:
     get:
       tags: [Storage]

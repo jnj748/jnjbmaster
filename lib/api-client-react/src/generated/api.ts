@@ -76,6 +76,8 @@ import type {
   FacilityAlert,
   FacilityDashboard,
   FacilityDefectTrends,
+  FinalizeUpload200,
+  FinalizeUploadBody,
   GenerateAlertsResponse,
   GenerateMonthlySummaryBody,
   GenerateWeeklySummaryBody,
@@ -4676,6 +4678,92 @@ export const useRequestUploadUrl = <
   TContext
 > => {
   return useMutation(getRequestUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Finalize upload by setting ACL policy on uploaded object
+ */
+export const getFinalizeUploadUrl = () => {
+  return `/api/storage/uploads/finalize`;
+};
+
+export const finalizeUpload = async (
+  finalizeUploadBody: FinalizeUploadBody,
+  options?: RequestInit,
+): Promise<FinalizeUpload200> => {
+  return customFetch<FinalizeUpload200>(getFinalizeUploadUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(finalizeUploadBody),
+  });
+};
+
+export const getFinalizeUploadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finalizeUpload>>,
+    TError,
+    { data: BodyType<FinalizeUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof finalizeUpload>>,
+  TError,
+  { data: BodyType<FinalizeUploadBody> },
+  TContext
+> => {
+  const mutationKey = ["finalizeUpload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof finalizeUpload>>,
+    { data: BodyType<FinalizeUploadBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return finalizeUpload(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FinalizeUploadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finalizeUpload>>
+>;
+export type FinalizeUploadMutationBody = BodyType<FinalizeUploadBody>;
+export type FinalizeUploadMutationError = ErrorType<void>;
+
+/**
+ * @summary Finalize upload by setting ACL policy on uploaded object
+ */
+export const useFinalizeUpload = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finalizeUpload>>,
+    TError,
+    { data: BodyType<FinalizeUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof finalizeUpload>>,
+  TError,
+  { data: BodyType<FinalizeUploadBody> },
+  TContext
+> => {
+  return useMutation(getFinalizeUploadMutationOptions(options));
 };
 
 /**

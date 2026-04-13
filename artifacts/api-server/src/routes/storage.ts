@@ -44,7 +44,7 @@ router.post("/storage/uploads/finalize", authMiddleware, async (req: Request, re
   }
 
   try {
-    const userId = String((req as any).user?.userId || "unknown");
+    const userId = String(req.user?.userId || "unknown");
     await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
       owner: userId,
       visibility: "public",

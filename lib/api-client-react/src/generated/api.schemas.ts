@@ -2969,6 +2969,14 @@ export type ListAlertActionsParams = {
   relatedEntityId?: number;
 };
 
+export type FinalizeUploadBody = {
+  objectPath: string;
+};
+
+export type FinalizeUpload200 = {
+  success?: boolean;
+};
+
 export type ListQuotesParams = {
   rfqId?: number;
   vendorId?: number;

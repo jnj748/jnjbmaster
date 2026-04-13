@@ -113,6 +113,8 @@ export * from "./facilityDefectTrends";
 export * from "./facilityDefectTrendsByCategoryItem";
 export * from "./facilityDefectTrendsMonthlyTrendItem";
 export * from "./facilityDefectTrendsRepeatedDefectsItem";
+export * from "./finalizeUpload200";
+export * from "./finalizeUploadBody";
 export * from "./generateAlertsResponse";
 export * from "./generateAlertsResponseInspectionsItem";
 export * from "./generateMonthlySummaryBody";
