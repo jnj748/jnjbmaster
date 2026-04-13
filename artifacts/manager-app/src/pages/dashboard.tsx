@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
@@ -72,15 +72,17 @@ function StatCard({
   icon: Icon,
   color,
   subtitle,
+  href,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
   color: string;
   subtitle?: string;
+  href?: string;
 }) {
-  return (
-    <Card>
+  const content = (
+    <Card className={href ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}>
       <CardContent className="p-3 sm:p-5">
         <div className="flex items-start justify-between">
           <div className="min-w-0">
@@ -97,6 +99,8 @@ function StatCard({
       </CardContent>
     </Card>
   );
+  if (href) return <Link href={href}>{content}</Link>;
+  return content;
 }
 
 type AlertActionTab = "complete" | "postpone" | "rfq";
@@ -116,7 +120,7 @@ interface DashboardAlert {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
@@ -125,6 +129,22 @@ export default function Dashboard() {
   const { data: vehicles } = useListVehicles();
   const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
   const { data: recentChecklists } = useListSafetyChecklists();
+
+  const [buildingName, setBuildingName] = useState<string | null>(null);
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/buildings/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.building?.name) setBuildingName(data.building.name);
+      } catch {}
+    })();
+  }, []);
 
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
@@ -318,10 +338,24 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">대시보드</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          오늘의 건물 관리 현황을 한눈에 확인하세요
-        </p>
+        {buildingName ? (
+          <>
+            <h1 className="text-2xl font-bold">{buildingName}</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              오늘의 관리 현황을 한눈에 확인하세요
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold">대시보드</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              <Link href="/building-setup" className="text-primary hover:underline">
+                건물 정보를 등록하면
+              </Link>{" "}
+              더 정확한 관리 현황을 확인할 수 있습니다
+            </p>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -331,6 +365,7 @@ export default function Dashboard() {
           icon={CheckSquare}
           color="bg-accent"
           subtitle={`대기 중 ${summary?.pendingTaskCount ?? 0}건`}
+          href="/tasks"
         />
         <StatCard
           title="기한 초과"
@@ -338,6 +373,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           color="bg-destructive"
           subtitle="즉시 처리 필요"
+          href="/tasks"
         />
         <StatCard
           title="예정 점검"
@@ -345,12 +381,14 @@ export default function Dashboard() {
           icon={Shield}
           color="bg-chart-2"
           subtitle="30일 이내"
+          href="/inspections"
         />
         <StatCard
           title="업무 완료율"
           value={`${summary?.completionRate ?? 0}%`}
           icon={TrendingUp}
           color="bg-primary"
+          href="/tasks"
         />
       </div>
 
@@ -361,6 +399,7 @@ export default function Dashboard() {
           icon={Calculator}
           color="bg-chart-3"
           subtitle="처리 대기"
+          href="/tax-schedules"
         />
         <StatCard
           title="입주 현황"
@@ -368,6 +407,7 @@ export default function Dashboard() {
           icon={Users}
           color="bg-chart-4"
           subtitle="현재 입주중"
+          href="/tenants"
         />
         <StatCard
           title="등록 차량"
@@ -375,12 +415,14 @@ export default function Dashboard() {
           icon={Car}
           color="bg-chart-5"
           subtitle="전체 등록"
+          href="/vehicles"
         />
         <StatCard
-          title="대기 업무"
+          title="시설관리"
           value={summary?.pendingTaskCount ?? 0}
-          icon={Activity}
+          icon={HardHat}
           color="bg-muted-foreground"
+          href="/facility"
         />
       </div>
 
@@ -531,7 +573,7 @@ export default function Dashboard() {
               <HardHat className="w-4 h-4 text-chart-4" />
               시설관리 보고서
             </CardTitle>
-            <Link href="/manager/facility">
+            <Link href="/facility">
               <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
             </Link>
           </div>

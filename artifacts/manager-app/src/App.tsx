@@ -34,6 +34,7 @@ import PartnerDashboard from "@/pages/partner-dashboard";
 import VendorPortal from "@/pages/vendor-portal";
 import Attendance from "@/pages/attendance";
 import BuildingSetup from "@/pages/building-setup";
+import AccountingDashboard from "@/pages/accounting-dashboard";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const managerRoutes = [
   { path: "/safety-training", component: SafetyTraining },
   { path: "/attendance", component: Attendance },
   { path: "/building-setup", component: BuildingSetup },
+  { path: "/accounting", component: AccountingDashboard },
   { path: "/users", component: Users },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },

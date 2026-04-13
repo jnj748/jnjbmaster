@@ -49,33 +49,65 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const managerNavItems = [
-  { path: "/", label: "대시보드", icon: LayoutDashboard },
-  { path: "/building-setup", label: "건물 정보", icon: Building },
-  { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-  { path: "/spending", label: "지출 현황", icon: DollarSign },
-  { path: "/tasks", label: "업무 관리", icon: CheckSquare },
-  { path: "/inspections", label: "법정 점검", icon: Shield },
-  { path: "/drafts", label: "기안서", icon: ClipboardList },
-  { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-  { path: "/facility", label: "시설관리", icon: HardHat },
-  { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
-  { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
-  { path: "/safety-training", label: "안전교육", icon: GraduationCap },
-  { path: "/attendance", label: "출퇴근 관리", icon: Clock },
-  { path: "/tenants", label: "입주민 관리", icon: Users },
-  { path: "/owners", label: "소유자 관리", icon: UserCheck },
-  { path: "/vehicles", label: "차량 관리", icon: Car },
-  { path: "/vendors", label: "협력업체", icon: Building2 },
-  { path: "/rfqs", label: "견적 요청", icon: Send },
-  { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
-  { path: "/commissions", label: "수수료", icon: Coins },
-  { path: "/daily-reports", label: "일간보고", icon: BookOpen },
-  { path: "/report-system", label: "보고 체계", icon: BarChart3 },
-  { path: "/reports", label: "주간보고", icon: FileText },
-  { path: "/document-templates", label: "서식 관리", icon: Settings },
-  { path: "/users", label: "사용자 관리", icon: Users },
+interface NavSection {
+  title?: string;
+  items: { path: string; label: string; icon: React.ElementType }[];
+}
+
+const managerNavSections: NavSection[] = [
+  {
+    items: [
+      { path: "/", label: "대시보드", icon: LayoutDashboard },
+      { path: "/building-setup", label: "건물 정보", icon: Building },
+      { path: "/tasks", label: "업무 관리", icon: CheckSquare },
+      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
+    ],
+  },
+  {
+    title: "관리비회계",
+    items: [
+      { path: "/accounting", label: "관리비회계", icon: DollarSign },
+      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
+      { path: "/spending", label: "지출 현황", icon: DollarSign },
+      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+      { path: "/drafts", label: "기안서", icon: ClipboardList },
+      { path: "/commissions", label: "수수료", icon: Coins },
+      { path: "/rfqs", label: "견적 요청", icon: Send },
+      { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
+    ],
+  },
+  {
+    title: "시설관리",
+    items: [
+      { path: "/facility", label: "시설관리", icon: HardHat },
+      { path: "/inspections", label: "법정 점검", icon: Shield },
+      { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
+      { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
+      { path: "/safety-training", label: "안전교육", icon: GraduationCap },
+    ],
+  },
+  {
+    title: "입주/자산관리",
+    items: [
+      { path: "/tenants", label: "입주민 관리", icon: Users },
+      { path: "/owners", label: "소유자 관리", icon: UserCheck },
+      { path: "/vehicles", label: "차량 관리", icon: Car },
+      { path: "/vendors", label: "협력업체", icon: Building2 },
+    ],
+  },
+  {
+    title: "보고/서식",
+    items: [
+      { path: "/daily-reports", label: "일간보고", icon: BookOpen },
+      { path: "/report-system", label: "보고 체계", icon: BarChart3 },
+      { path: "/reports", label: "주간보고", icon: FileText },
+      { path: "/document-templates", label: "서식 관리", icon: Settings },
+      { path: "/users", label: "사용자 관리", icon: Users },
+    ],
+  },
 ];
+
+const managerNavItems = managerNavSections.flatMap((s) => s.items);
 
 const partnerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
@@ -87,8 +119,8 @@ const partnerNavItems = [
 const managerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
   { path: "/tasks", label: "업무", icon: CheckSquare },
-  { path: "/inspections", label: "점검", icon: Shield },
-  { path: "/approvals", label: "결재", icon: ClipboardCheck },
+  { path: "/accounting", label: "관리비회계", icon: DollarSign },
+  { path: "/facility", label: "시설관리", icon: HardHat },
 ];
 
 const partnerBottomNavItems = [
@@ -173,24 +205,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
 
-  const navLinks = navItems.map((item) => {
-    const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-    return (
-      <Link key={item.path} href={item.path}>
-        <div
-          className={cn(
-            "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
-            isActive
-              ? "bg-sidebar-accent text-white"
-              : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-          )}
-        >
-          <item.icon className="w-4 h-4 shrink-0" />
-          <span className="truncate">{item.label}</span>
+  const sections = isPartner ? [{ items: partnerNavItems }] : managerNavSections;
+
+  const navLinks = sections.map((section, si) => (
+    <div key={si}>
+      {section.title && (
+        <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
+          {section.title}
         </div>
-      </Link>
-    );
-  });
+      )}
+      {section.items.map((item) => {
+        const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+        return (
+          <Link key={item.path} href={item.path}>
+            <div
+              className={cn(
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                isActive
+                  ? "bg-sidebar-accent text-white"
+                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+              )}
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  ));
 
   const notifButton = (
     <Popover open={notifOpen} onOpenChange={setNotifOpen}>

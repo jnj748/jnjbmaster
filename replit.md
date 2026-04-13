@@ -39,7 +39,9 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Automated Document Generation:** Logic for auto-generating weekly reports, expense approvals, repair maintenance drafts, and legal inspection notices.
 - **Workflow Management:** Robust workflows for tasks, legal inspections, RFQ/quote processes, work report submissions, and multi-step approvals (up to 5 levels).
 - **AI Integration:** AI-powered features for commission record generation and AI matching for vendor recommendations/bid requests.
-- **Comprehensive Dashboard:** Unified manager dashboard for approvals, spending, inspections, reports, facility management, and user administration.
+- **Dashboard Restructuring:** Bottom nav uses 홈/업무/관리비회계/시설관리/더보기. Desktop sidebar organized with section headers (관리비회계, 시설관리, 입주/자산관리, 보고/서식). StatCards are clickable with `href` navigation. Dashboard shows building name from `/buildings/my` when registered.
+- **관리비회계 Dashboard:** Hub page at `/accounting` with summary stats (결재 대기, 세무 예정, 이번달 지출) and menu cards linking to sub-pages (결재함, 지출현황, 세무일정, 기안서, 수수료, 견적요청, 작업검수, 보고서 등).
+- **시설관리 Dashboard:** Hub page at `/facility` with navigation cards (법정점검, 안전점검표, 기전 업무일지, 안전교육) plus detailed stats and charts for facility status.
 - **Facility Management:** Detailed capabilities including safety checklists, maintenance logs, and safety training tracking.
 - **Attendance Management:** PC/mobile check-in/out with automated detection of late/early-leave, and manager-facing visualizations.
 - **Notification System:** In-app notifications for various events.

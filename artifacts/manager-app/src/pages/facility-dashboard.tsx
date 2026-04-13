@@ -50,13 +50,13 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-3 sm:p-5">
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-0.5 sm:mt-1">{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{subtitle}</p>
             )}
           </div>
           <div className={`p-2.5 rounded-lg ${color}`}>
@@ -103,13 +103,36 @@ export default function FacilityDashboard() {
     );
   }
 
+  const facilityMenuCards = [
+    { path: "/inspections", label: "법정 점검", description: "법정점검 일정 및 관리", icon: ShieldAlert, color: "bg-blue-500" },
+    { path: "/safety-checklists", label: "안전점검표", description: "일상 안전점검 체크리스트", icon: ClipboardCheck, color: "bg-emerald-500" },
+    { path: "/maintenance-logs", label: "기전 업무일지", description: "설비 유지보수 업무 기록", icon: Wrench, color: "bg-orange-500" },
+    { path: "/safety-training", label: "안전교육", description: "안전교육 이수 현황", icon: GraduationCap, color: "bg-violet-500" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">시설관리 대시보드</h1>
+        <h1 className="text-2xl font-bold">시설관리</h1>
         <p className="text-muted-foreground text-sm mt-1">
           설비 안전점검, 기전 업무, 안전교육 현황을 한눈에 확인하세요
         </p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {facilityMenuCards.map((item) => (
+          <Link key={item.path} href={item.path}>
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <div className={`inline-flex p-2 rounded-lg ${item.color} mb-2`}>
+                  <item.icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="font-semibold text-sm">{item.label}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{item.description}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -165,7 +188,7 @@ export default function FacilityDashboard() {
                 <Wrench className="w-4 h-4 text-chart-2" />
                 최근 업무 일지
               </CardTitle>
-              <Link href="/manager/maintenance-logs">
+              <Link href="/maintenance-logs">
                 <span className="text-xs text-primary hover:underline cursor-pointer">전체보기</span>
               </Link>
             </div>
@@ -345,7 +368,7 @@ export default function FacilityDashboard() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/manager/safety-checklists">
+        <Link href="/safety-checklists">
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-5 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-accent/10">
@@ -360,7 +383,7 @@ export default function FacilityDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/manager/maintenance-logs">
+        <Link href="/maintenance-logs">
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-5 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-chart-2/10">
@@ -375,7 +398,7 @@ export default function FacilityDashboard() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/manager/safety-training">
+        <Link href="/safety-training">
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-5 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-primary/10">
