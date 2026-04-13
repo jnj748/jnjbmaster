@@ -121,36 +121,53 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
     });
   }
 
-  const inspections = await db.select().from(inspectionsTable);
+  const inspectionsDue = await db
+    .select()
+    .from(inspectionsTable)
+    .where(
+      and(
+        gte(inspectionsTable.nextDueDate, startDate),
+        lte(inspectionsTable.nextDueDate, endDate)
+      )
+    );
 
-  for (const insp of inspections) {
-    if (insp.nextDueDate >= startDate && insp.nextDueDate <= endDate) {
-      let status: CalendarEvent["status"] = "scheduled";
-      if (insp.status === "completed") status = "completed";
-      else if (insp.nextDueDate < today) status = "overdue";
+  for (const insp of inspectionsDue) {
+    let status: CalendarEvent["status"] = "scheduled";
+    if (insp.status === "completed") status = "completed";
+    else if (insp.nextDueDate < today) status = "overdue";
 
-      events.push({
-        id: `insp-due-${insp.id}`,
-        title: `${insp.name} 점검 예정`,
-        date: insp.nextDueDate,
-        source: "facility",
-        originalType: "inspection_due",
-        status,
-        originalId: insp.id,
-      });
-    }
+    events.push({
+      id: `insp-due-${insp.id}`,
+      title: `${insp.name} 점검 예정`,
+      date: insp.nextDueDate,
+      source: "facility",
+      originalType: "inspection_due",
+      status,
+      originalId: insp.id,
+    });
+  }
 
-    if (insp.lastInspectionDate && insp.lastInspectionDate >= startDate && insp.lastInspectionDate <= endDate) {
-      events.push({
-        id: `insp-done-${insp.id}`,
-        title: `${insp.name} 점검 완료`,
-        date: insp.lastInspectionDate,
-        source: "facility",
-        originalType: "inspection_completed",
-        status: "completed",
-        originalId: insp.id,
-      });
-    }
+  const inspectionsCompleted = await db
+    .select()
+    .from(inspectionsTable)
+    .where(
+      and(
+        sql`${inspectionsTable.lastInspectionDate} IS NOT NULL`,
+        gte(inspectionsTable.lastInspectionDate, startDate),
+        lte(inspectionsTable.lastInspectionDate, endDate)
+      )
+    );
+
+  for (const insp of inspectionsCompleted) {
+    events.push({
+      id: `insp-done-${insp.id}`,
+      title: `${insp.name} 점검 완료`,
+      date: insp.lastInspectionDate!,
+      source: "facility",
+      originalType: "inspection_completed",
+      status: "completed",
+      originalId: insp.id,
+    });
   }
 
   const checklists = await db
