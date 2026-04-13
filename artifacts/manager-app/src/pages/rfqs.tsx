@@ -145,7 +145,7 @@ export default function Rfqs() {
   async function handleExpandScope(id: number) {
     await expandScopeMutation.mutateAsync({ id });
     queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
-    toast({ title: "견적 범위가 시/도 전체로 확대되었습니다" });
+    toast({ title: "견적 범위가 전국으로 확대되었습니다" });
   }
 
   async function handleAcceptQuote(quoteId: number) {
@@ -389,7 +389,7 @@ export default function Rfqs() {
                       <BarChart3 className="w-3.5 h-3.5 mr-1" />
                       견적 비교
                     </Button>
-                    {rfq.status === "open" && rfq.geoScope === "sigungu" && (
+                    {rfq.status === "open" && (rfq.geoScope === "sigungu" || rfq.geoScope === "sido") && (
                       <Button variant="outline" size="sm" onClick={() => handleExpandScope(rfq.id)}>
                         <Expand className="w-3.5 h-3.5 mr-1" />
                         범위 확대
