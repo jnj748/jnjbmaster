@@ -1,0 +1,37 @@
+import { pgTable, text, serial, integer, timestamp, date, numeric, boolean } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+export const buildingsTable = pgTable("buildings", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  addressFull: text("address_full"),
+  addressJibun: text("address_jibun"),
+  sido: text("sido"),
+  sigungu: text("sigungu"),
+  dong: text("dong"),
+  zipCode: text("zip_code"),
+  totalUnits: integer("total_units"),
+  totalFloors: integer("total_floors"),
+  basementFloors: integer("basement_floors"),
+  totalArea: numeric("total_area"),
+  buildingUsage: text("building_usage"),
+  structureType: text("structure_type"),
+  completionDate: date("completion_date"),
+  elevatorCount: integer("elevator_count"),
+  parkingSpaces: integer("parking_spaces"),
+  hasPlayground: boolean("has_playground").default(false),
+  hasGas: boolean("has_gas").default(true),
+  hasSepticTank: boolean("has_septic_tank").default(true),
+  safetyManagerRequired: boolean("safety_manager_required").default(false),
+  safetyManagerType: text("safety_manager_type"),
+  buildingRegisterPk: text("building_register_pk"),
+  managementOfficePhone: text("management_office_phone"),
+  managementOfficeFax: text("management_office_fax"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const insertBuildingSchema = createInsertSchema(buildingsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBuilding = z.infer<typeof insertBuildingSchema>;
+export type Building = typeof buildingsTable.$inferSelect;

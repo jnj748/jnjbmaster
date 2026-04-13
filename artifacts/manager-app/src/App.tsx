@@ -33,6 +33,7 @@ import ReportSystemPage from "@/pages/report-system";
 import PartnerDashboard from "@/pages/partner-dashboard";
 import VendorPortal from "@/pages/vendor-portal";
 import Attendance from "@/pages/attendance";
+import BuildingSetup from "@/pages/building-setup";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const managerRoutes = [
   { path: "/maintenance-logs", component: MaintenanceLogs },
   { path: "/safety-training", component: SafetyTraining },
   { path: "/attendance", component: Attendance },
+  { path: "/building-setup", component: BuildingSetup },
   { path: "/users", component: Users },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },

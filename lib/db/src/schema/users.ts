@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   role: text("role", { enum: userRoles }).notNull(),
   phone: text("phone"),
   vendorId: integer("vendor_id"),
+  buildingId: integer("building_id"),
   buildingSido: text("building_sido"),
   buildingSigungu: text("building_sigungu"),
   portalType: text("portal_type", { enum: portalTypes }).notNull(),

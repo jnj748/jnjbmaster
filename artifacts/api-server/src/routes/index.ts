@@ -32,6 +32,7 @@ import privacyRouter from "./privacy";
 import taxDeadlineChecklistsRouter from "./taxDeadlineChecklists";
 import attendanceRouter from "./attendance";
 import alertActionsRouter from "./alertActions";
+import buildingsRouter from "./buildings";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -76,6 +77,7 @@ buildingRouter.use(privacyRouter);
 buildingRouter.use(taxDeadlineChecklistsRouter);
 buildingRouter.use(attendanceRouter);
 buildingRouter.use(alertActionsRouter);
+buildingRouter.use(buildingsRouter);
 router.use(buildingRouter);
 
 export default router;

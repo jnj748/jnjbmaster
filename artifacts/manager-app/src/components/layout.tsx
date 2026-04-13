@@ -39,6 +39,7 @@ import {
   X,
   ChevronLeft,
   MoreHorizontal,
+  Building,
 } from "lucide-react";
 import {
   Popover,
@@ -50,6 +51,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const managerNavItems = [
   { path: "/", label: "대시보드", icon: LayoutDashboard },
+  { path: "/building-setup", label: "건물 정보", icon: Building },
   { path: "/approvals", label: "결재함", icon: ClipboardCheck },
   { path: "/spending", label: "지출 현황", icon: DollarSign },
   { path: "/tasks", label: "업무 관리", icon: CheckSquare },

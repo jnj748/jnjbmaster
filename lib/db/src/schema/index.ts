@@ -28,3 +28,4 @@ export * from "./vehicleHistory";
 export * from "./taxDeadlineChecklists";
 export * from "./attendance";
 export * from "./alertActions";
+export * from "./buildings";
