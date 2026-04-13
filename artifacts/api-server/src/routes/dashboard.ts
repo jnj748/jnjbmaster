@@ -158,11 +158,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         if (action.nextCycleDate >= inspection.nextDueDate) continue;
       } else if (action.actionType === "completed" && action.completedDate) {
         if (action.completedDate >= inspection.nextDueDate) continue;
-      } else if (action.actionType === "postponed") {
-        const actionDateStr = typeof action.createdAt === "string"
-          ? action.createdAt.split("T")[0]
-          : new Date(action.createdAt).toISOString().split("T")[0];
-        if (actionDateStr >= inspection.nextDueDate) continue;
+      } else if (action.actionType === "postponed" && action.postponeDays) {
+        const actionDate = new Date(action.createdAt);
+        const suppressUntil = new Date(actionDate.getTime() + action.postponeDays * 24 * 60 * 60 * 1000);
+        if (new Date(today) < suppressUntil) continue;
       }
     }
     alerts.push({
@@ -203,11 +202,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       const taxAction = actionMap.get(`tax_due:${tax.id}`);
       if (taxAction) {
         if (taxAction.actionType === "completed") continue;
-        if (taxAction.actionType === "postponed") {
-          const actionDateStr = typeof taxAction.createdAt === "string"
-            ? taxAction.createdAt.split("T")[0]
-            : new Date(taxAction.createdAt).toISOString().split("T")[0];
-          if (actionDateStr >= tax.dueDate) continue;
+        if (taxAction.actionType === "postponed" && taxAction.postponeDays) {
+          const actionDate = new Date(taxAction.createdAt);
+          const suppressUntil = new Date(actionDate.getTime() + taxAction.postponeDays * 24 * 60 * 60 * 1000);
+          if (new Date(today) < suppressUntil) continue;
         }
       }
       alerts.push({
@@ -234,11 +232,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       const taskAction = actionMap.get(`task_overdue:${task.id}`);
       if (taskAction) {
         if (taskAction.actionType === "completed") continue;
-        if (taskAction.actionType === "postponed") {
-          const actionDateStr = typeof taskAction.createdAt === "string"
-            ? taskAction.createdAt.split("T")[0]
-            : new Date(taskAction.createdAt).toISOString().split("T")[0];
-          if (actionDateStr >= task.dueDate) continue;
+        if (taskAction.actionType === "postponed" && taskAction.postponeDays) {
+          const actionDate = new Date(taskAction.createdAt);
+          const suppressUntil = new Date(actionDate.getTime() + taskAction.postponeDays * 24 * 60 * 60 * 1000);
+          if (new Date(today) < suppressUntil) continue;
         }
       }
       alerts.push({
