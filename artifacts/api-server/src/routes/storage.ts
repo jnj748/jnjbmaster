@@ -5,7 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { authMiddleware } from "../middlewares/auth";
+import { authMiddleware, verifyToken } from "../middlewares/auth";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -74,17 +74,15 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
     const queryToken = req.query.token as string | undefined;
-    const token = authHeader?.replace(/^Bearer\s+/i, "") || queryToken;
+    const rawToken = authHeader?.replace(/^Bearer\s+/i, "") || queryToken;
 
-    if (!token) {
+    if (!rawToken) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
 
     try {
-      const jwt = await import("jsonwebtoken");
-      const secret = process.env.JWT_SECRET || "dev-secret";
-      jwt.default.verify(token, secret);
+      verifyToken(rawToken);
     } catch {
       res.status(403).json({ error: "Invalid token" });
       return;
