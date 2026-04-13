@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, or } from "drizzle-orm";
-import { db, rfqsTable, vendorsTable } from "@workspace/db";
+import { db, rfqsTable, vendorsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
   ListRfqsQueryParams,
@@ -23,6 +23,16 @@ const router: IRouter = Router();
 router.get("/rfqs", async (req, res): Promise<void> => {
   const params = ListRfqsQueryParams.safeParse(req.query);
   const conditions = [];
+  const isPartner = req.user?.role === "partner";
+
+  if (isPartner) {
+    const [authUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
+    if (!authUser?.vendorId) {
+      res.json(ListRfqsResponse.parse([]));
+      return;
+    }
+    req.query.forVendorId = authUser.vendorId.toString();
+  }
 
   if (params.success && params.data.status) {
     conditions.push(eq(rfqsTable.status, params.data.status));
@@ -34,7 +44,7 @@ router.get("/rfqs", async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(rfqsTable.createdAt));
 
-  if (params.success && params.data.vendorId) {
+  if (!isPartner && params.success && params.data.vendorId) {
     const vendorId = params.data.vendorId.toString();
     const filtered = rfqs.filter((r) => {
       if (!r.vendorIds) return false;
@@ -44,8 +54,9 @@ router.get("/rfqs", async (req, res): Promise<void> => {
     return;
   }
 
-  if (params.success && params.data.forVendorId) {
-    const forVendorId = params.data.forVendorId;
+  const forVendorIdParam = isPartner ? req.query.forVendorId : (params.success && params.data.forVendorId ? params.data.forVendorId.toString() : null);
+  if (forVendorIdParam) {
+    const forVendorId = parseInt(forVendorIdParam as string, 10);
     const vendor = await db
       .select()
       .from(vendorsTable)

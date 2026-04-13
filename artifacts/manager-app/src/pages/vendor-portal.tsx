@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import {
   useListRfqs,
   useListQuotes,
@@ -12,19 +11,12 @@ import {
   getListWorkReportsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -33,7 +25,6 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft,
   Briefcase,
   FileText,
   Send,
@@ -43,7 +34,7 @@ import {
   Clock,
   CheckCircle,
   TrendingUp,
-  LogIn,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -51,83 +42,47 @@ import { formatDate } from "@/lib/utils";
 type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
 
 export default function VendorPortal() {
-  const [, navigate] = useLocation();
-  const base = import.meta.env.BASE_URL ?? "/";
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<PortalTab>("dashboard");
-  const [loggedInVendorId, setLoggedInVendorId] = useState<number | null>(null);
-  const [loginSelect, setLoginSelect] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const vendorId = user?.vendorId ?? null;
+
   const { data: vendors } = useListVendors({ type: "platform" });
-  const { data: allRfqs } = useListRfqs(
-    loggedInVendorId ? { forVendorId: loggedInVendorId } : undefined,
-    { query: { enabled: !!loggedInVendorId } }
-  );
+  const loggedVendor = vendors?.find((v) => v.id === vendorId);
+
+  const { data: allRfqs } = useListRfqs(undefined, { query: { enabled: !!vendorId } });
   const { data: myQuotes } = useListQuotes(
-    loggedInVendorId ? { vendorId: loggedInVendorId } : undefined,
-    { query: { enabled: !!loggedInVendorId } }
+    vendorId ? { vendorId } : undefined,
+    { query: { enabled: !!vendorId } }
   );
   const { data: myReports } = useListWorkReports(
-    loggedInVendorId ? { vendorId: loggedInVendorId } : undefined,
-    { query: { enabled: !!loggedInVendorId } }
+    vendorId ? { vendorId } : undefined,
+    { query: { enabled: !!vendorId } }
   );
   const { data: mySettlements } = useListSettlements(
-    loggedInVendorId ? { vendorId: loggedInVendorId } : undefined,
-    { query: { enabled: !!loggedInVendorId } }
+    vendorId ? { vendorId } : undefined,
+    { query: { enabled: !!vendorId } }
   );
 
   const createQuoteMutation = useCreateQuote();
   const createReportMutation = useCreateWorkReport();
 
-  const loggedVendor = vendors?.find((v) => v.id === loggedInVendorId);
-
   const myRfqs = allRfqs || [];
 
-  function handleLogin() {
-    if (!loginSelect) return;
-    setLoggedInVendorId(parseInt(loginSelect));
-    toast({ title: "로그인되었습니다" });
-  }
-
-  if (!loggedInVendorId) {
+  if (!vendorId) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col">
-        <header className="border-b bg-white px-6 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            돌아가기
-          </Button>
-          <h1 className="text-lg font-bold">파트너사 포털</h1>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <Card className="max-w-md w-full">
-            <CardContent className="py-10">
-              <div className="text-center mb-6">
-                <div className="p-4 rounded-2xl bg-chart-3/10 inline-block mb-4">
-                  <LogIn className="w-10 h-10 text-chart-3" />
-                </div>
-                <h2 className="text-xl font-bold">업체 로그인</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  가입된 업체를 선택하여 로그인하세요
-                </p>
-              </div>
-              <div className="space-y-4">
-                <Select value={loginSelect} onValueChange={setLoginSelect}>
-                  <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
-                  <SelectContent>
-                    {vendors?.map((v) => (
-                      <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button className="w-full" onClick={handleLogin} disabled={!loginSelect}>
-                  로그인
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="p-6">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+            <h2 className="text-lg font-bold mb-2">업체 연결 필요</h2>
+            <p className="text-muted-foreground text-sm">
+              계정에 연결된 업체가 없습니다. 관리자에게 문의해 주세요.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -140,99 +95,80 @@ export default function VendorPortal() {
   const paidSettlement = mySettlements?.filter((s: any) => s.status === "paid").reduce((sum: number, s: any) => sum + s.paymentAmount, 0) || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <aside className="w-56 bg-slate-800 text-white flex flex-col fixed h-full z-30">
-        <div className="p-4 border-b border-slate-700">
-          <div className="flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-chart-3" />
-            <span className="font-bold text-sm">업체 포털</span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1 truncate">{loggedVendor?.name}</p>
+    <div className="space-y-6 p-6">
+      <div className="flex items-center gap-3">
+        <Briefcase className="w-5 h-5 text-teal-500" />
+        <div>
+          <h1 className="text-2xl font-bold">견적 요청</h1>
+          <p className="text-muted-foreground text-sm">{loggedVendor?.name || "내 업체"} 포털</p>
         </div>
-        <nav className="flex-1 p-3 space-y-0.5">
-          {[
-            { key: "dashboard" as PortalTab, label: "대시보드", icon: LayoutDashboard },
-            { key: "rfqs" as PortalTab, label: "견적 요청", icon: FileText },
-            { key: "quotes" as PortalTab, label: "내 견적서", icon: Send },
-            { key: "reports" as PortalTab, label: "작업 완료 보고", icon: ClipboardCheck },
-            { key: "settlements" as PortalTab, label: "정산 현황", icon: Coins },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setActiveTab(item.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === item.key
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-              }`}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-slate-700 space-y-2">
-          <button
-            onClick={() => { setLoggedInVendorId(null); setLoginSelect(""); setActiveTab("dashboard"); }}
-            className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            로그아웃
-          </button>
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            포털 선택
-          </button>
-        </div>
-      </aside>
+      </div>
 
-      <main className="flex-1 ml-56 p-6 max-w-[1200px]">
-        {activeTab === "dashboard" && (
-          <VendorDashboard
-            vendorName={loggedVendor?.name || ""}
-            openRfqCount={openRfqCount}
-            activeQuoteCount={activeQuoteCount}
-            acceptedQuoteCount={acceptedQuoteCount}
-            pendingReportCount={pendingReportCount}
-            totalSettlement={totalSettlement}
-            paidSettlement={paidSettlement}
-            recentRfqs={myRfqs.slice(0, 5)}
-            recentQuotes={(myQuotes || []).slice(0, 5)}
-            onNavigate={setActiveTab}
-          />
-        )}
-        {activeTab === "rfqs" && (
-          <VendorRfqList
-            rfqs={myRfqs}
-            vendorId={loggedInVendorId}
-            vendorName={loggedVendor?.name || ""}
-            myQuotes={myQuotes || []}
-            queryClient={queryClient}
-            createQuoteMutation={createQuoteMutation}
-            toast={toast}
-          />
-        )}
-        {activeTab === "quotes" && (
-          <VendorQuoteList quotes={myQuotes || []} />
-        )}
-        {activeTab === "reports" && (
-          <VendorWorkReports
-            reports={myReports || []}
-            quotes={myQuotes?.filter((q: any) => q.status === "accepted") || []}
-            vendorId={loggedInVendorId}
-            vendorName={loggedVendor?.name || ""}
-            queryClient={queryClient}
-            createReportMutation={createReportMutation}
-            toast={toast}
-          />
-        )}
-        {activeTab === "settlements" && (
-          <VendorSettlements settlements={mySettlements || []} />
-        )}
-      </main>
+      <div className="flex gap-2 border-b">
+        {[
+          { key: "dashboard" as PortalTab, label: "대시보드", icon: LayoutDashboard },
+          { key: "rfqs" as PortalTab, label: "견적 요청", icon: FileText },
+          { key: "quotes" as PortalTab, label: "내 견적서", icon: Send },
+          { key: "reports" as PortalTab, label: "작업 보고", icon: ClipboardCheck },
+          { key: "settlements" as PortalTab, label: "정산", icon: Coins },
+        ].map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setActiveTab(item.key)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === item.key
+                ? "border-teal-500 text-teal-600"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "dashboard" && (
+        <VendorDashboard
+          vendorName={loggedVendor?.name || ""}
+          openRfqCount={openRfqCount}
+          activeQuoteCount={activeQuoteCount}
+          acceptedQuoteCount={acceptedQuoteCount}
+          pendingReportCount={pendingReportCount}
+          totalSettlement={totalSettlement}
+          paidSettlement={paidSettlement}
+          recentRfqs={myRfqs.slice(0, 5)}
+          recentQuotes={(myQuotes || []).slice(0, 5)}
+          onNavigate={setActiveTab}
+        />
+      )}
+      {activeTab === "rfqs" && (
+        <VendorRfqList
+          rfqs={myRfqs}
+          vendorId={vendorId}
+          vendorName={loggedVendor?.name || ""}
+          myQuotes={myQuotes || []}
+          queryClient={queryClient}
+          createQuoteMutation={createQuoteMutation}
+          toast={toast}
+        />
+      )}
+      {activeTab === "quotes" && (
+        <VendorQuoteList quotes={myQuotes || []} />
+      )}
+      {activeTab === "reports" && (
+        <VendorWorkReports
+          reports={myReports || []}
+          quotes={myQuotes?.filter((q: any) => q.status === "accepted") || []}
+          vendorId={vendorId}
+          vendorName={loggedVendor?.name || ""}
+          queryClient={queryClient}
+          createReportMutation={createReportMutation}
+          toast={toast}
+        />
+      )}
+      {activeTab === "settlements" && (
+        <VendorSettlements settlements={mySettlements || []} />
+      )}
     </div>
   );
 }
@@ -243,12 +179,7 @@ function VendorDashboard({
 }: any) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{vendorName} 대시보드</h1>
-        <p className="text-muted-foreground text-sm mt-1">업체 활동 현황을 한눈에 확인하세요</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 desktop:grid-cols-4 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("rfqs")}>
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
@@ -303,7 +234,7 @@ function VendorDashboard({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 desktop:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">최근 견적 요청</CardTitle>
@@ -406,12 +337,7 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
     myQuotes.some((q: any) => q.rfqId === rfqId);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">견적 요청</h1>
-        <p className="text-muted-foreground text-sm mt-1">관리소장이 보낸 견적 요청을 확인하고 견적서를 제출하세요</p>
-      </div>
-
+    <div className="space-y-4">
       {rfqs.length > 0 ? (
         <div className="space-y-3">
           {rfqs.map((rfq: any) => (
@@ -544,12 +470,7 @@ function VendorQuoteList({ quotes }: { quotes: any[] }) {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">내 견적서</h1>
-        <p className="text-muted-foreground text-sm mt-1">제출한 견적서 현황을 확인하세요</p>
-      </div>
-
+    <div className="space-y-4">
       {quotes.length > 0 ? (
         <Card>
           <CardContent className="p-0">
@@ -571,12 +492,9 @@ function VendorQuoteList({ quotes }: { quotes: any[] }) {
                     <td className="p-3 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
                     <td className="p-3 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
                     <td className="p-3 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
-                    <td className="p-3 text-center">{new Date(q.createdAt).toLocaleDateString("ko-KR")}</td>
+                    <td className="p-3 text-center">{formatDate(q.createdAt)}</td>
                     <td className="p-3 text-center">
-                      <Badge variant={
-                        q.status === "accepted" ? "default" :
-                        q.status === "rejected" ? "destructive" : "secondary"
-                      }>
+                      <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
                         {statusLabel(q.status)}
                       </Badge>
                     </td>
@@ -598,105 +516,60 @@ function VendorQuoteList({ quotes }: { quotes: any[] }) {
   );
 }
 
-function VendorWorkReports({
-  reports, quotes, vendorId, vendorName, queryClient, createReportMutation, toast,
-}: any) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
+function VendorWorkReports({ reports, quotes, vendorId, vendorName, queryClient, createReportMutation, toast }: any) {
+  const [reportDialog, setReportDialog] = useState(false);
+  const [reportForm, setReportForm] = useState({
     quoteId: "",
-    rfqId: "",
     title: "",
     description: "",
-    completionDate: "",
-    photoUrls: "",
+    completedDate: "",
   });
 
-  function resetForm() {
-    setForm({ quoteId: "", rfqId: "", title: "", description: "", completionDate: "", photoUrls: "" });
-  }
-
-  function handleQuoteSelect(quoteId: string) {
-    const q = quotes.find((quote: any) => quote.id.toString() === quoteId);
-    setForm({
-      ...form,
-      quoteId,
-      rfqId: q?.rfqId?.toString() || "",
-    });
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmitReport(e: React.FormEvent) {
     e.preventDefault();
+    const selectedQuote = quotes.find((q: any) => q.id === parseInt(reportForm.quoteId));
+    if (!selectedQuote) return;
+
     await createReportMutation.mutateAsync({
       data: {
-        rfqId: parseInt(form.rfqId),
-        quoteId: parseInt(form.quoteId),
+        rfqId: selectedQuote.rfqId,
         vendorId,
         vendorName,
-        title: form.title,
-        description: form.description || null,
-        completionDate: form.completionDate,
-        photoUrls: form.photoUrls || null,
+        quoteId: selectedQuote.id,
+        title: reportForm.title,
+        description: reportForm.description || null,
+        completedDate: reportForm.completedDate,
       },
     });
     queryClient.invalidateQueries({ queryKey: getListWorkReportsQueryKey() });
-    toast({ title: "작업 완료 보고서가 제출되었습니다" });
-    setDialogOpen(false);
-    resetForm();
+    toast({ title: "작업 보고서가 제출되었습니다" });
+    setReportDialog(false);
+    setReportForm({ quoteId: "", title: "", description: "", completedDate: "" });
   }
 
-  const statusLabel = (s: string) => {
-    switch (s) {
-      case "submitted": return "검수 대기";
-      case "approved": return "승인";
-      case "rejected": return "반려";
-      default: return s;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">작업 완료 보고</h1>
-          <p className="text-muted-foreground text-sm mt-1">작업 완료 후 보고서를 제출하세요</p>
-        </div>
-        {quotes.length > 0 && (
-          <Button onClick={() => { setDialogOpen(true); resetForm(); }}>
-            <ClipboardCheck className="w-4 h-4 mr-2" />
-            보고서 작성
-          </Button>
-        )}
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setReportDialog(true)} disabled={quotes.length === 0}>
+          <ClipboardCheck className="w-4 h-4 mr-1" />
+          작업 보고
+        </Button>
       </div>
 
       {reports.length > 0 ? (
         <div className="space-y-3">
           {reports.map((r: any) => (
             <Card key={r.id}>
-              <CardContent className="p-5">
+              <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <ClipboardCheck className="w-4 h-4 text-primary" />
-                      <h3 className="font-medium">{r.title}</h3>
-                      <Badge variant={
-                        r.status === "approved" ? "default" :
-                        r.status === "rejected" ? "destructive" : "secondary"
-                      }>
-                        {statusLabel(r.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      완료일: {formatDate(r.completionDate)} | 제출일: {new Date(r.createdAt).toLocaleDateString("ko-KR")}
-                    </p>
-                    {r.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{r.description}</p>
-                    )}
-                    {r.reviewNotes && (
-                      <p className="text-sm mt-2 p-2 bg-muted rounded">
-                        검수 의견: {r.reviewNotes}
-                      </p>
-                    )}
+                    <h3 className="font-medium text-sm">{r.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">완료일: {formatDate(r.completedDate)}</p>
+                    {r.description && <p className="text-sm text-muted-foreground mt-1">{r.description}</p>}
                   </div>
+                  <Badge variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : "secondary"}>
+                    {r.status === "approved" ? "승인" : r.status === "rejected" ? "반려" : "검수중"}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -706,61 +579,55 @@ function VendorWorkReports({
         <Card>
           <CardContent className="py-12 text-center">
             <ClipboardCheck className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">작업 완료 보고가 없습니다</p>
+            <p className="text-muted-foreground">작업 보고가 없습니다</p>
           </CardContent>
         </Card>
       )}
 
-      <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <ResponsiveDialog open={reportDialog} onOpenChange={setReportDialog}>
+        <ResponsiveDialogContent className="max-w-lg">
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>작업 완료 보고서</ResponsiveDialogTitle>
+            <ResponsiveDialogTitle>작업 완료 보고</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmitReport} className="space-y-4">
             <div>
               <Label>채택된 견적 선택</Label>
-              <Select value={form.quoteId} onValueChange={handleQuoteSelect}>
-                <SelectTrigger><SelectValue placeholder="견적 선택" /></SelectTrigger>
-                <SelectContent>
-                  {quotes.map((q: any) => (
-                    <SelectItem key={q.id} value={q.id.toString()}>
-                      RFQ #{q.rfqId} - {q.totalAmount.toLocaleString()}원
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                className="w-full border rounded-md p-2 text-sm"
+                value={reportForm.quoteId}
+                onChange={(e) => setReportForm({ ...reportForm, quoteId: e.target.value })}
+                required
+              >
+                <option value="">선택하세요</option>
+                {quotes.map((q: any) => (
+                  <option key={q.id} value={q.id}>
+                    RFQ #{q.rfqId} - {q.totalAmount.toLocaleString()}원
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <Label>보고서 제목</Label>
               <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                value={reportForm.title}
+                onChange={(e) => setReportForm({ ...reportForm, title: e.target.value })}
                 required
               />
             </div>
             <div>
               <Label>작업 내용</Label>
               <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="수행한 작업 내용을 상세히 기재하세요"
+                value={reportForm.description}
+                onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
               />
             </div>
             <div>
-              <Label>작업 완료일</Label>
+              <Label>완료일</Label>
               <Input
                 type="date"
-                value={form.completionDate}
-                onChange={(e) => setForm({ ...form, completionDate: e.target.value })}
+                value={reportForm.completedDate}
+                onChange={(e) => setReportForm({ ...reportForm, completedDate: e.target.value })}
                 required
-              />
-            </div>
-            <div>
-              <Label>사진 URL (쉼표로 구분)</Label>
-              <Textarea
-                value={form.photoUrls}
-                onChange={(e) => setForm({ ...form, photoUrls: e.target.value })}
-                placeholder="현장 사진 URL을 입력하세요 (여러 장일 경우 쉼표로 구분)"
               />
             </div>
             <Button type="submit" className="w-full">보고서 제출</Button>
@@ -772,102 +639,31 @@ function VendorWorkReports({
 }
 
 function VendorSettlements({ settlements }: { settlements: any[] }) {
-  const total = settlements.reduce((s: number, st: any) => s + st.paymentAmount, 0);
-  const paid = settlements.filter((s: any) => s.status === "paid").reduce((sum: number, s: any) => sum + s.paymentAmount, 0);
-  const pending = total - paid;
-
-  const statusLabel = (s: string) => {
-    switch (s) {
-      case "pending": return "대기";
-      case "confirmed": return "확정";
-      case "paid": return "지급완료";
-      case "cancelled": return "취소";
-      default: return s;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">정산 현황</h1>
-        <p className="text-muted-foreground text-sm mt-1">계약 금액, 수수료, 지급 현황을 확인하세요</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-blue-100">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">총 정산</p>
-                <p className="text-xl font-bold">{total.toLocaleString()}원</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-green-100">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">지급 완료</p>
-                <p className="text-xl font-bold text-green-600">{paid.toLocaleString()}원</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-amber-100">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">미지급</p>
-                <p className="text-xl font-bold text-amber-600">{pending.toLocaleString()}원</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+    <div className="space-y-4">
       {settlements.length > 0 ? (
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium">RFQ</th>
-                  <th className="text-right p-3 font-medium">계약 금액</th>
-                  <th className="text-right p-3 font-medium">수수료율</th>
-                  <th className="text-right p-3 font-medium">수수료</th>
-                  <th className="text-right p-3 font-medium">지급 금액</th>
+                  <th className="text-left p-3 font-medium">정산 항목</th>
+                  <th className="text-right p-3 font-medium">금액</th>
                   <th className="text-center p-3 font-medium">상태</th>
-                  <th className="text-center p-3 font-medium">지급일</th>
+                  <th className="text-center p-3 font-medium">예정일</th>
                 </tr>
               </thead>
               <tbody>
                 {settlements.map((s: any) => (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3">#{s.rfqId}</td>
-                    <td className="p-3 text-right">{s.contractAmount.toLocaleString()}원</td>
-                    <td className="p-3 text-right">{s.feeRate}%</td>
-                    <td className="p-3 text-right">{s.feeAmount.toLocaleString()}원</td>
+                    <td className="p-3">{s.description || `정산 #${s.id}`}</td>
                     <td className="p-3 text-right font-medium">{s.paymentAmount.toLocaleString()}원</td>
                     <td className="p-3 text-center">
-                      <Badge variant={
-                        s.status === "paid" ? "default" :
-                        s.status === "confirmed" ? "secondary" :
-                        s.status === "cancelled" ? "destructive" : "outline"
-                      }>
-                        {statusLabel(s.status)}
+                      <Badge variant={s.status === "paid" ? "default" : "secondary"}>
+                        {s.status === "paid" ? "지급완료" : "미지급"}
                       </Badge>
                     </td>
-                    <td className="p-3 text-center">{s.paidAt ? formatDate(s.paidAt) : "-"}</td>
+                    <td className="p-3 text-center">{s.paymentDate ? formatDate(s.paymentDate) : "-"}</td>
                   </tr>
                 ))}
               </tbody>

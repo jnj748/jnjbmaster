@@ -6,6 +6,7 @@ export interface AuthUser {
   name: string;
   role: "manager" | "partner" | "platform_admin";
   phone: string | null;
+  vendorId?: number | null;
   portalType: "building" | "partner";
   buildingSido?: string | null;
   buildingSigungu?: string | null;

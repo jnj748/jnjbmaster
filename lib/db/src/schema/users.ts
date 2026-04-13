@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,7 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   role: text("role", { enum: userRoles }).notNull(),
   phone: text("phone"),
+  vendorId: integer("vendor_id"),
   buildingSido: text("building_sido"),
   buildingSigungu: text("building_sigungu"),
   portalType: text("portal_type", { enum: portalTypes }).notNull(),

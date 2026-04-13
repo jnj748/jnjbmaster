@@ -146,6 +146,7 @@ router.post("/auth/auto-login", async (_req, res): Promise<void> => {
       name: user.name,
       role: user.role,
       phone: user.phone,
+      vendorId: user.vendorId,
       portalType: user.portalType,
     },
   });
@@ -165,6 +166,7 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       name: user.name,
       role: user.role,
       phone: user.phone,
+      vendorId: user.vendorId,
       portalType: user.portalType,
       buildingSido: user.buildingSido,
       buildingSigungu: user.buildingSigungu,
