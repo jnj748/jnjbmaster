@@ -35,6 +35,7 @@ import VendorPortal from "@/pages/vendor-portal";
 import Attendance from "@/pages/attendance";
 import BuildingSetup from "@/pages/building-setup";
 import AccountingDashboard from "@/pages/accounting-dashboard";
+import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const managerRoutes = [
   { path: "/attendance", component: Attendance },
   { path: "/building-setup", component: BuildingSetup },
   { path: "/accounting", component: AccountingDashboard },
+  { path: "/calendar", component: CalendarPage },
   { path: "/users", component: Users },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },

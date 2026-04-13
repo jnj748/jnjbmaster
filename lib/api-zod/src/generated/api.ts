@@ -4002,3 +4002,26 @@ export const GetFacilityScheduledAlertsResponseItem = zod.object({
 export const GetFacilityScheduledAlertsResponse = zod.array(
   GetFacilityScheduledAlertsResponseItem,
 );
+
+/**
+ * @summary Get calendar events for a given month
+ */
+export const getCalendarEventsQueryMonthMax = 12;
+
+export const GetCalendarEventsQueryParams = zod.object({
+  year: zod.coerce.number(),
+  month: zod.coerce.number().min(1).max(getCalendarEventsQueryMonthMax),
+});
+
+export const GetCalendarEventsResponseItem = zod.object({
+  id: zod.string(),
+  title: zod.string(),
+  date: zod.coerce.date(),
+  source: zod.enum(["accounting", "facility"]),
+  sourceType: zod.string(),
+  status: zod.enum(["scheduled", "completed", "overdue"]),
+  originalId: zod.number(),
+});
+export const GetCalendarEventsResponse = zod.array(
+  GetCalendarEventsResponseItem,
+);

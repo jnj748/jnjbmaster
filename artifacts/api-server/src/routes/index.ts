@@ -33,6 +33,7 @@ import taxDeadlineChecklistsRouter from "./taxDeadlineChecklists";
 import attendanceRouter from "./attendance";
 import alertActionsRouter from "./alertActions";
 import buildingsRouter from "./buildings";
+import calendarRouter from "./calendar";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -78,6 +79,7 @@ buildingRouter.use(taxDeadlineChecklistsRouter);
 buildingRouter.use(attendanceRouter);
 buildingRouter.use(alertActionsRouter);
 buildingRouter.use(buildingsRouter);
+buildingRouter.use(calendarRouter);
 router.use(buildingRouter);
 
 export default router;

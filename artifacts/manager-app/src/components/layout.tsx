@@ -40,6 +40,7 @@ import {
   ChevronLeft,
   MoreHorizontal,
   Building,
+  CalendarDays,
 } from "lucide-react";
 import {
   Popover,
@@ -59,6 +60,7 @@ const managerNavSections: NavSection[] = [
     items: [
       { path: "/", label: "대시보드", icon: LayoutDashboard },
       { path: "/building-setup", label: "건물 정보", icon: Building },
+      { path: "/calendar", label: "일정", icon: CalendarDays },
       { path: "/tasks", label: "업무 관리", icon: CheckSquare },
       { path: "/attendance", label: "출퇴근 관리", icon: Clock },
     ],
@@ -118,9 +120,10 @@ const partnerNavItems = [
 
 const managerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/calendar", label: "일정", icon: CalendarDays },
+  { path: "/accounting", label: "회계", icon: DollarSign },
+  { path: "/facility", label: "시설", icon: HardHat },
   { path: "/tasks", label: "업무", icon: CheckSquare },
-  { path: "/accounting", label: "관리비회계", icon: DollarSign },
-  { path: "/facility", label: "시설관리", icon: HardHat },
 ];
 
 const partnerBottomNavItems = [

@@ -3261,6 +3261,35 @@ paths:
                 items:
                   $ref: "#/components/schemas/FacilityAlert"
 
+  # ── Calendar (일정) ──────────────────────────────────────────
+  /calendar/events:
+    get:
+      operationId: getCalendarEvents
+      tags: [dashboard]
+      summary: Get calendar events for a given month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Calendar events for the month
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+
 components:
   schemas:
     HealthStatus:
@@ -6884,3 +6913,25 @@ components:
           type: string
         metadata:
           $ref: '#/components/schemas/UploadUrlRequest'
+
+    CalendarEvent:
+      type: object
+      required: [id, title, date, source, sourceType, status, originalId]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        source:
+          type: string
+          enum: [accounting, facility]
+        sourceType:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, completed, overdue]
+        originalId:
+          type: integer

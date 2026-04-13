@@ -35,6 +35,7 @@ import type {
   BatchCancelVehiclesBody,
   BulkRegisterInspectionsBody,
   BulkRegisterInspectionsResponse,
+  CalendarEvent,
   CancelVehicleBody,
   CheckAttendanceBody,
   Commission,
@@ -83,6 +84,7 @@ import type {
   GenerateWeeklySummaryBody,
   GetAllAttendanceParams,
   GetAttendanceStatsParams,
+  GetCalendarEventsParams,
   GetExecutiveSpendingParams,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
@@ -13571,6 +13573,103 @@ export function useGetFacilityScheduledAlerts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetFacilityScheduledAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get calendar events for a given month
+ */
+export const getGetCalendarEventsUrl = (params: GetCalendarEventsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/calendar/events?${stringifiedParams}`
+    : `/api/calendar/events`;
+};
+
+export const getCalendarEvents = async (
+  params: GetCalendarEventsParams,
+  options?: RequestInit,
+): Promise<CalendarEvent[]> => {
+  return customFetch<CalendarEvent[]>(getGetCalendarEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCalendarEventsQueryKey = (
+  params?: GetCalendarEventsParams,
+) => {
+  return [`/api/calendar/events`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetCalendarEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCalendarEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetCalendarEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCalendarEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCalendarEventsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCalendarEvents>>
+  > = ({ signal }) => getCalendarEvents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCalendarEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCalendarEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCalendarEvents>>
+>;
+export type GetCalendarEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get calendar events for a given month
+ */
+
+export function useGetCalendarEvents<
+  TData = Awaited<ReturnType<typeof getCalendarEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetCalendarEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCalendarEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCalendarEventsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

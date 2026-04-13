@@ -2881,6 +2881,33 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export type CalendarEventSource =
+  (typeof CalendarEventSource)[keyof typeof CalendarEventSource];
+
+export const CalendarEventSource = {
+  accounting: "accounting",
+  facility: "facility",
+} as const;
+
+export type CalendarEventStatus =
+  (typeof CalendarEventStatus)[keyof typeof CalendarEventStatus];
+
+export const CalendarEventStatus = {
+  scheduled: "scheduled",
+  completed: "completed",
+  overdue: "overdue",
+} as const;
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  source: CalendarEventSource;
+  sourceType: string;
+  status: CalendarEventStatus;
+  originalId: number;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -3224,3 +3251,12 @@ export const ListSafetyTrainingsStatus = {
   completed: "completed",
   cancelled: "cancelled",
 } as const;
+
+export type GetCalendarEventsParams = {
+  year: number;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+};
