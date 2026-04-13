@@ -80,6 +80,20 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
     }
   }
 
+  if (data.actionType === "completed" && data.relatedEntityType === "task") {
+    await db
+      .update(tasksTable)
+      .set({ status: "completed" })
+      .where(eq(tasksTable.id, data.relatedEntityId));
+  }
+
+  if (data.actionType === "completed" && data.relatedEntityType === "tax") {
+    await db
+      .update(taxSchedulesTable)
+      .set({ status: "completed" })
+      .where(eq(taxSchedulesTable.id, data.relatedEntityId));
+  }
+
   if (data.actionType === "postponed" && data.postponeDays) {
     if (data.relatedEntityType === "inspection") {
       const [inspection] = await db

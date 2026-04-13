@@ -153,7 +153,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
 
   for (const inspection of upcomingInspections) {
     const action = actionMap.get(`inspection_due:${inspection.id}`);
-    if (action && (action.actionType === "completed" || action.actionType === "postponed")) continue;
+    if (action && (action.actionType === "completed" || action.actionType === "postponed")) {
+      const actionCreated = action.createdAt.split("T")[0];
+      if (actionCreated >= inspection.nextDueDate) continue;
+    }
     alerts.push({
       id: alertId++,
       type: "inspection_due",
@@ -190,7 +193,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       }
 
       const taxAction = actionMap.get(`tax_due:${tax.id}`);
-      if (taxAction && (taxAction.actionType === "completed" || taxAction.actionType === "postponed")) continue;
+      if (taxAction && (taxAction.actionType === "completed" || taxAction.actionType === "postponed")) {
+        const actionCreated = taxAction.createdAt.split("T")[0];
+        if (actionCreated >= tax.dueDate) continue;
+      }
       alerts.push({
         id: alertId++,
         type: "tax_due",
@@ -213,7 +219,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
   for (const task of overdueTasks) {
     if (task.dueDate && task.dueDate < today) {
       const taskAction = actionMap.get(`task_overdue:${task.id}`);
-      if (taskAction && (taskAction.actionType === "completed" || taskAction.actionType === "postponed")) continue;
+      if (taskAction && (taskAction.actionType === "completed" || taskAction.actionType === "postponed")) {
+        const actionCreated = taskAction.createdAt.split("T")[0];
+        if (actionCreated >= task.dueDate) continue;
+      }
       alerts.push({
         id: alertId++,
         type: "task_overdue",
