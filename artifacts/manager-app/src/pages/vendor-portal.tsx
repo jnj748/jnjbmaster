@@ -39,8 +39,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { RfqRequestDocument } from "@/components/rfq-request-document";
-import { authedImageUrl } from "@/lib/authed-image-url";
+import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
+import { AuthImage } from "@/components/auth-image";
 
 type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
 
@@ -301,7 +301,7 @@ const categoryLabel = (c: string) => {
 
 function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, createQuoteMutation, toast, authToken }: any) {
   const [quoteDialogRfq, setQuoteDialogRfq] = useState<any>(null);
-  const [rfqDocRfq, setRfqDocRfq] = useState<Record<string, unknown> | null>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
   const [form, setForm] = useState({
     totalAmount: "",
     itemBreakdown: "",
@@ -369,10 +369,10 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
                       <div className="flex gap-2 mt-2">
                         {rfq.closeUpPhotoUrl && (
-                          <img src={authedImageUrl(rfq.closeUpPhotoUrl, authToken)} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                          <AuthImage src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
                         )}
                         {rfq.widePhotoUrl && (
-                          <img src={authedImageUrl(rfq.widePhotoUrl, authToken)} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                          <AuthImage src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
                         )}
                       </div>
                     )}
@@ -386,7 +386,19 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     ) : hasQuoteFor(rfq.id) ? (
                       <Badge variant="outline" className="text-green-600 border-green-200">제출 완료</Badge>
                     ) : null}
-                    <Button size="sm" variant="outline" onClick={() => setRfqDocRfq(rfq)}>
+                    <Button size="sm" variant="outline" onClick={() => setRfqDocRfq({
+                      title: rfq.title,
+                      category: rfq.category,
+                      description: rfq.description,
+                      buildingName: rfq.buildingName,
+                      desiredDate: rfq.desiredDate,
+                      deadline: rfq.deadline,
+                      sido: rfq.sido,
+                      sigungu: rfq.sigungu,
+                      closeUpPhotoUrl: rfq.closeUpPhotoUrl,
+                      widePhotoUrl: rfq.widePhotoUrl,
+                      createdAt: rfq.createdAt,
+                    })}>
                       <Printer className="w-3.5 h-3.5 mr-1" />
                       의뢰서
                     </Button>

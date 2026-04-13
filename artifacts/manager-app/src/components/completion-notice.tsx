@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { authedImageUrl } from "@/lib/authed-image-url";
+import { AuthImage } from "@/components/auth-image";
 
 function formatNoticeDate(d: string | null | undefined): string {
   if (!d) return "";
@@ -50,7 +49,7 @@ export function CompletionNotice({
   buildingName = "OO아파트",
   officeContact = "관리사무소 ☎ 02-0000-0000",
 }: CompletionNoticeProps) {
-  const { token } = useAuth();
+  
   const [editMode, setEditMode] = useState(true);
   const [title, setTitle] = useState(`[${buildingName}] ${alertTitle} 처리완료 안내`);
   const [body, setBody] = useState(
@@ -130,13 +129,13 @@ export function CompletionNotice({
                 {closeUpPhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">근경 사진</p>
-                    <img src={authedImageUrl(closeUpPhotoUrl, token)} alt="근경" className="w-full border rounded" />
+                    <AuthImage src={closeUpPhotoUrl} alt="근경" className="w-full border rounded" />
                   </div>
                 )}
                 {widePhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">원경 사진</p>
-                    <img src={authedImageUrl(widePhotoUrl, token)} alt="원경" className="w-full border rounded" />
+                    <AuthImage src={widePhotoUrl} alt="원경" className="w-full border rounded" />
                   </div>
                 )}
               </div>

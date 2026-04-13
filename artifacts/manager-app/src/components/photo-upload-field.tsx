@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useAuth } from "@/contexts/auth-context";
-import { authedImageUrl } from "@/lib/authed-image-url";
+import { AuthImage } from "@/components/auth-image";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Camera, X, Loader2, ImageIcon } from "lucide-react";
+import { Camera, X, Loader2 } from "lucide-react";
 
 interface PhotoUploadFieldProps {
   label: string;
@@ -45,8 +45,8 @@ export function PhotoUploadField({ label, value, onChange }: PhotoUploadFieldPro
       <Label className="text-xs font-medium">{label}</Label>
       {value ? (
         <div className="relative inline-block">
-          <img
-            src={authedImageUrl(value, token)}
+          <AuthImage
+            src={value}
             alt={label}
             className="w-full max-w-[200px] h-auto rounded-lg border object-cover"
           />

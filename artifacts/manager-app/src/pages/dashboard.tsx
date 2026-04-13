@@ -63,7 +63,7 @@ import {
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
-import { RfqRequestDocument } from "@/components/rfq-request-document";
+import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { Printer } from "lucide-react";
 
 function StatCard({
@@ -148,7 +148,7 @@ export default function Dashboard() {
     notes: string | null; closeUpPhotoUrl: string | null; widePhotoUrl: string | null;
   } | null>(null);
   const [showRfqDocument, setShowRfqDocument] = useState(false);
-  const [rfqDocumentData, setRfqDocumentData] = useState<Record<string, unknown> | null>(null);
+  const [rfqDocumentData, setRfqDocumentData] = useState<RfqDocumentData | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();

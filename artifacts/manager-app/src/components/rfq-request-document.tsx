@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { authedImageUrl } from "@/lib/authed-image-url";
+import { AuthImage } from "@/components/auth-image";
 
 const CATEGORY_LABELS: Record<string, string> = {
   elevator: "승강기",
@@ -37,22 +36,24 @@ function getTodayFormatted(): string {
   return `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일`;
 }
 
+export interface RfqDocumentData {
+  title: string;
+  category: string;
+  description?: string | null;
+  buildingName: string;
+  desiredDate?: string | null;
+  deadline: string;
+  sido?: string | null;
+  sigungu?: string | null;
+  closeUpPhotoUrl?: string | null;
+  widePhotoUrl?: string | null;
+  createdAt: string;
+}
+
 interface RfqRequestDocumentProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  rfq: {
-    title: string;
-    category: string;
-    description?: string | null;
-    buildingName: string;
-    desiredDate?: string | null;
-    deadline: string;
-    sido?: string | null;
-    sigungu?: string | null;
-    closeUpPhotoUrl?: string | null;
-    widePhotoUrl?: string | null;
-    createdAt: string;
-  };
+  rfq: RfqDocumentData;
   officeContact?: string;
 }
 
@@ -62,8 +63,7 @@ export function RfqRequestDocument({
   rfq,
   officeContact = "관리사무소 ☎ 02-0000-0000",
 }: RfqRequestDocumentProps) {
-  const { token } = useAuth();
-  const [editMode, setEditMode] = useState(true);
+    const [editMode, setEditMode] = useState(true);
   const [title, setTitle] = useState(`[${rfq.buildingName}] 업체의뢰서`);
   const [description, setDescription] = useState(rfq.description || "");
   const [contact, setContact] = useState(officeContact);
@@ -159,13 +159,13 @@ export function RfqRequestDocument({
                 {rfq.closeUpPhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">근경 사진</p>
-                    <img src={authedImageUrl(rfq.closeUpPhotoUrl, token)} alt="근경" className="w-full border rounded" />
+                    <AuthImage src={rfq.closeUpPhotoUrl} alt="근경" className="w-full border rounded" />
                   </div>
                 )}
                 {rfq.widePhotoUrl && (
                   <div>
                     <p className="text-sm text-gray-600 mb-1">원경 사진</p>
-                    <img src={authedImageUrl(rfq.widePhotoUrl, token)} alt="원경" className="w-full border rounded" />
+                    <AuthImage src={rfq.widePhotoUrl} alt="원경" className="w-full border rounded" />
                   </div>
                 )}
               </div>

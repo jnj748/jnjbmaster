@@ -48,9 +48,9 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
-import { RfqRequestDocument } from "@/components/rfq-request-document";
+import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { useAuth } from "@/contexts/auth-context";
-import { authedImageUrl } from "@/lib/authed-image-url";
+import { AuthImage } from "@/components/auth-image";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -70,7 +70,7 @@ export default function Rfqs() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
-  const [rfqDocRfq, setRfqDocRfq] = useState<Record<string, unknown> | null>(null);
+  const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
   const { toast } = useToast();
   const { token } = useAuth();
   const queryClient = useQueryClient();
@@ -410,10 +410,10 @@ export default function Rfqs() {
                     {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
                       <div className="flex gap-2 mt-2">
                         {rfq.closeUpPhotoUrl && (
-                          <img src={authedImageUrl(rfq.closeUpPhotoUrl, token)} alt="근경" className="w-16 h-16 rounded border object-cover" />
+                          <AuthImage src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
                         )}
                         {rfq.widePhotoUrl && (
-                          <img src={authedImageUrl(rfq.widePhotoUrl, token)} alt="원경" className="w-16 h-16 rounded border object-cover" />
+                          <AuthImage src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
                         )}
                       </div>
                     )}
@@ -427,7 +427,19 @@ export default function Rfqs() {
                       <BarChart3 className="w-3.5 h-3.5 mr-1" />
                       견적 비교
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setRfqDocRfq(rfq)}>
+                    <Button variant="outline" size="sm" onClick={() => setRfqDocRfq({
+                      title: rfq.title,
+                      category: rfq.category,
+                      description: rfq.description,
+                      buildingName: rfq.buildingName,
+                      desiredDate: rfq.desiredDate,
+                      deadline: rfq.deadline,
+                      sido: rfq.sido,
+                      sigungu: rfq.sigungu,
+                      closeUpPhotoUrl: rfq.closeUpPhotoUrl,
+                      widePhotoUrl: rfq.widePhotoUrl,
+                      createdAt: rfq.createdAt,
+                    })}>
                       <Printer className="w-3.5 h-3.5 mr-1" />
                       의뢰서
                     </Button>
