@@ -1,0 +1,46 @@
+1. 통합 정보 관리 대시보드 구성
+각 호실별로 다음과 같은 데이터가 상호 연동되는 구조로 개발되어야 합니다.
+호실 정보: 건물 내 전체 호실 리스트 및 현황(공실 여부 등)을 관리합니다
+.
+입주민(소유자) 정보:
+필수 항목: 성명, 주민등록번호(뒷자리 포함), 연락처, 비상연락처, 이메일(전자세금계산서용), 입주일/퇴거일, TV 소유 여부 등을 포함합니다
+.
+법인 임차인: 상호명, 사업자번호, 대표자 성명 및 연대보증 동의 여부를 관리하여 관리비 미납에 대비합니다
+.
+등록차량 정보:
+필수 항목: 차량번호, 차종, 색상, 입주자와의 관계, 운전자 연락처를 기록합니다
+.
+서류 관리: 자동차등록증 사본, 신분증, 재직증명서(법인차량) 등 제출 서류 업로드 기능을 포함합니다
+.
+2. 스마트 입주자카드 시스템 (자동 기록 및 법적 근거 확보)
+입주민이 정보를 직접 입력하도록 하여 관리 효율성을 높이고 법적 징수 근거를 마련합니다.
+비대면 작성 프로세스: 관리자가 입주민에게 모바일 입주자카드 링크(또는 메시지)를 발송하면, 입주민이 입력한 내용이 시스템 DB에 자동으로 기록됩니다
+.
+관리계약 조항 통합 (징수 근거): 입주자카드 내에 다음의 핵심 관리 규약을 포함하여 입주민의 동의(디지털 서명)를 받습니다.
+관리비 준수 의무: 입주일 또는 인테리어 개시일 중 빠른 날부터 관리비를 부담한다는 내용
+.
+체납 시 조치: 2개월 이상 연체 시 단수, 단전, 주차권 회수 등 서비스 중단 및 법적 조치에 이의를 제기하지 않는다는 강력한 징수 근거를 명시합니다
+.
+개인정보 동의: 비상 연락 및 체납 관리를 목적으로 입주일로부터 3년간 정보를 보관한다는 동의를 포함합니다
+.
+3. 회계 파트 연동 및 관리비 관리 기능
+입력된 데이터는 회계 시스템과 실시간 연동되어 부과 및 수납의 편의성을 극대화합니다.
+고지 및 알림 서비스: 기록된 이메일과 휴대폰 번호를 활용하여 관리비 고지서 발송 및 미납 안내 문자를 자동 전송합니다
+.
+미납 관리 대시보드: 주간업무일지 양식에 따라 호실별 미납 금액, 미납 사유, 납부 예정 현황을 한눈에 파악하고 조치 사항을 기록합니다
+.
+세무 신고 연동: 입주민의 이메일 정보를 바탕으로 매달 발생하는 전자세금계산서 발행 업무를 효율화합니다
+.
+4. Replit 구현을 위한 기능 로직 (프롬프트 요약)
+Core Logic for Dashboard & Accounting Integration:
+Data Schema: Create relational tables for Units, Residents (linked to Units), and Vehicles (linked to Residents).
+Digital Form Engine: Build a mobile-friendly "Occupant Card" form that residents can fill out via a shared link.
+Action: Upon submission, parse data and auto-update the SQL database.
+Legal Inclusion: Hardcode the management contract clauses (2-month arrears penalty, service suspension) into the form UI
+.
+Accounting Linkage:
+Fetch "Unpaid Fee" data from the accounting module.
+Create a "Send SMS/Email" trigger for units with Balance > 0.
+Retention Policy: Implement a script to flag resident data for deletion 3 years after the move-out date and fee settlement
+.
+이러한 구조는 소스에서 강조하는 '현장 민원의 파악과 각종 조치' 및 **'관리비 수납 등 관리업무'**의 핵심을 시스템적으로 자동화하여 관리소장의 업무 부담을 줄이고 징수율을 높이는 데 기여할 것입니다
