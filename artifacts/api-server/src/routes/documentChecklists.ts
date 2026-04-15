@@ -7,8 +7,10 @@ import {
   UpsertDocumentChecklistBody,
   UpsertDocumentChecklistResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin"));
 
 router.get("/document-checklists", async (req, res): Promise<void> => {
   const params = ListDocumentChecklistsQueryParams.safeParse(req.query);

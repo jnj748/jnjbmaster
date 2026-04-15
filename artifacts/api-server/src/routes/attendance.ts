@@ -258,7 +258,7 @@ router.get("/attendance/stats", async (req, res): Promise<void> => {
   res.json(GetAttendanceStatsResponse.parse(stats));
 });
 
-router.get("/attendance/all", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.get("/attendance/all", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const params = GetAllAttendanceQueryParams.safeParse(req.query);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

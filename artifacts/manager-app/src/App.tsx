@@ -143,6 +143,7 @@ function AuthenticatedRoutes() {
     if (role === "hq_executive") return { routes: hqRoutes, DashboardComponent: HqDashboard };
     if (role === "accountant") return { routes: accountantRoutes, DashboardComponent: AccountantDashboard2 };
     if (role === "facility_staff") return { routes: facilityRoutes, DashboardComponent: FacilityWorktool };
+    // manager + platform_admin: full access to all building features
     return { routes: managerRoutes, DashboardComponent: Dashboard };
   })();
 

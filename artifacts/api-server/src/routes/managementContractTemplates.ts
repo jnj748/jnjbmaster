@@ -7,7 +7,10 @@ import {
   GetManagementContractTemplateResponse,
 } from "@workspace/api-zod";
 
+import { requireRole } from "../middlewares/auth";
+
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin"));
 
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;

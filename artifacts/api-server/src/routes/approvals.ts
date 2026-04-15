@@ -47,7 +47,7 @@ router.get("/approvals/drafts", async (req, res): Promise<void> => {
   res.json(rows.map(serializeApproval));
 });
 
-router.post("/approvals", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
+router.post("/approvals", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const body = req.body;
   if (!body.title || !body.description || !body.category) {
     res.status(400).json({ error: "입력값이 올바르지 않습니다" });

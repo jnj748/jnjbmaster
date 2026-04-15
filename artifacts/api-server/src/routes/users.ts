@@ -3,13 +3,14 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { randomInt } from "crypto";
 
 const router: IRouter = Router();
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let pw = "";
-  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 10; i++) pw += chars[randomInt(chars.length)];
   return pw;
 }
 

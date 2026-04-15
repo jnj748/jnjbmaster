@@ -49,7 +49,7 @@ router.get("/tax-deadline-checklists", async (req, res): Promise<void> => {
   res.json(ListTaxDeadlineChecklistsResponse.parse(items));
 });
 
-router.post("/tax-deadline-checklists", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/tax-deadline-checklists", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const parsed = CreateTaxDeadlineChecklistBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

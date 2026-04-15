@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
-import { Building2, Store, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Building2, Store, Shield, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { portalType } = useParams<{ portalType: string }>();
@@ -12,13 +12,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState(portalType === "partner" ? "partner" : "manager");
+  const [role, setRole] = useState(portalType === "partner" ? "partner" : portalType === "hq" ? "hq_executive" : "manager");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const isBuilding = portalType === "building";
-  const themeColor = isBuilding ? "blue" : "emerald";
+  const isHq = portalType === "hq";
+  const themeColor = isBuilding ? "blue" : isHq ? "indigo" : "emerald";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,11 +60,13 @@ export default function Login() {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isBuilding ? "bg-blue-50" : "bg-emerald-50"}`}>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isBuilding ? "bg-blue-50" : isHq ? "bg-indigo-50" : "bg-emerald-50"}`}>
               {isBuilding ? (
-                <Building2 className={`w-5 h-5 text-${themeColor}-600`} />
+                <Building2 className="w-5 h-5 text-blue-600" />
+              ) : isHq ? (
+                <Shield className="w-5 h-5 text-indigo-600" />
               ) : (
-                <Store className={`w-5 h-5 text-${themeColor}-600`} />
+                <Store className="w-5 h-5 text-emerald-600" />
               )}
             </div>
             <div>
@@ -71,7 +74,7 @@ export default function Login() {
                 {isRegister ? "회원가입" : "로그인"}
               </h1>
               <p className="text-sm text-slate-500">
-                {isBuilding ? "건물관리 관계자" : "파트너사"} 포털
+                {isBuilding ? "현장 관리" : isHq ? "본사 총괄" : "파트너사"} 포털
               </p>
             </div>
           </div>
@@ -79,6 +82,12 @@ export default function Login() {
           {isBuilding && (
             <div className="mb-4 p-2.5 rounded-lg bg-blue-50 text-blue-700 text-xs">
               집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
+            </div>
+          )}
+
+          {isHq && (
+            <div className="mb-4 p-2.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs">
+              총괄책임자 · 플랫폼 관리자 전용 포털
             </div>
           )}
 
@@ -157,6 +166,8 @@ export default function Login() {
               className={`w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors disabled:opacity-50 ${
                 isBuilding
                   ? "bg-blue-600 hover:bg-blue-700"
+                  : isHq
+                  ? "bg-indigo-600 hover:bg-indigo-700"
                   : "bg-emerald-600 hover:bg-emerald-700"
               }`}
             >
@@ -164,17 +175,19 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError("");
-              }}
-              className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              {isRegister ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
-            </button>
-          </div>
+          {!isHq && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => {
+                  setIsRegister(!isRegister);
+                  setError("");
+                }}
+                className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                {isRegister ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

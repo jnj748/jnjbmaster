@@ -12,8 +12,10 @@ import {
   UpdateOwnerResponse,
   DeleteOwnerParams,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin"));
 
 async function resolveUnitId(unitNumber: string, userId?: number): Promise<number | null> {
   if (!userId) return null;
