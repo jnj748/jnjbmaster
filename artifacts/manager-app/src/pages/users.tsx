@@ -16,11 +16,15 @@ const roleLabels: Record<string, string> = {
   manager: "관리소장",
   partner: "파트너사",
   platform_admin: "플랫폼 관리자",
+  hq_executive: "총괄책임자",
+  accountant: "회계/행정",
+  facility_staff: "시설관리",
 };
 
 const portalLabels: Record<string, string> = {
   building: "건물관리",
   partner: "파트너사",
+  hq: "본사",
 };
 
 export default function Users() {
@@ -199,10 +203,16 @@ function UserModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [tempPasswordResult, setTempPasswordResult] = useState("");
+
   useEffect(() => {
     if (role === "partner") {
       setPortalType("partner");
+    } else if (["hq_executive", "platform_admin"].includes(role)) {
+      setPortalType("hq");
     } else if (portalType === "partner" && role !== "partner") {
+      setPortalType("building");
+    } else if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
       setPortalType("building");
     }
   }, [role]);
@@ -227,22 +237,22 @@ function UserModal({
           throw new Error(data.error);
         }
       } else {
-        if (!password) {
-          setError("비밀번호를 입력해주세요");
-          setLoading(false);
-          return;
-        }
         const res = await fetch(`${apiBase}/users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ email, password, name, role, phone: phone || null, portalType }),
+          body: JSON.stringify({ email, password: password || undefined, name, role, phone: phone || null, portalType }),
         });
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error);
+        }
+        const data = await res.json();
+        if (data.tempPassword) {
+          setTempPasswordResult(data.tempPassword);
+          return;
         }
       }
       onSaved();
@@ -255,6 +265,9 @@ function UserModal({
 
   const allRoles = [
     { value: "manager", label: "관리소장" },
+    { value: "accountant", label: "회계/행정" },
+    { value: "facility_staff", label: "시설관리" },
+    { value: "hq_executive", label: "총괄책임자" },
     { value: "partner", label: "파트너사" },
     { value: "platform_admin", label: "플랫폼 관리자" },
   ];
@@ -271,11 +284,27 @@ function UserModal({
           </button>
         </div>
 
+        {tempPasswordResult && (
+          <div className="mb-4 p-4 rounded-lg bg-green-50 border border-green-200 space-y-2">
+            <p className="text-sm font-medium text-green-800">사용자가 생성되었습니다</p>
+            <p className="text-sm text-green-700">
+              임시 비밀번호: <span className="font-mono font-bold text-green-900 select-all">{tempPasswordResult}</span>
+            </p>
+            <p className="text-xs text-green-600">이 비밀번호를 사용자에게 전달해주세요.</p>
+            <button
+              onClick={() => { setTempPasswordResult(""); onSaved(); }}
+              className="mt-2 w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {!tempPasswordResult && <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
             <input
@@ -300,13 +329,13 @@ function UserModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호 (미입력시 자동생성)</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   minLength={6}
+                  placeholder="비워두면 임시 비밀번호 자동 생성"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
@@ -331,11 +360,12 @@ function UserModal({
             <select
               value={portalType}
               onChange={(e) => setPortalType(e.target.value)}
-              disabled={role === "partner"}
+              disabled={role === "partner" || ["hq_executive", "platform_admin"].includes(role)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-slate-100"
             >
               <option value="building">건물관리</option>
               <option value="partner">파트너사</option>
+              <option value="hq">본사</option>
             </select>
           </div>
 
@@ -365,7 +395,7 @@ function UserModal({
               {loading ? "처리 중..." : isEdit ? "수정" : "추가"}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
     </div>
   );

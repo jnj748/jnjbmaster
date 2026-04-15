@@ -18,14 +18,14 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 **Frontend:**
 - Developed with React, Vite, and Tailwind CSS.
 - Utilizes shadcn/ui for UI components, ensuring a consistent and modern design.
-- Features distinct portals for `building` (managers) and `partner` users, with role-appropriate dashboards and navigation.
+- Features three distinct portals: `building` (managers, accountants, facility staff), `hq` (HQ executives, platform admins), and `partner` users, with role-appropriate dashboards and navigation.
 - Data export functionality (e.g., tenant/owner/vehicle cards) is implemented using jsPDF.
 - Designed with a mobile-first approach, featuring a custom 900px desktop breakpoint, bottom navigation for mobile, and touch-friendly UX.
 - UI text is exclusively in Korean.
 
 **Backend:**
 - An Express 5 API framework handles all backend logic.
-- Authentication is JWT-based with a comprehensive Role-Based Access Control (RBAC) system (`manager`, `partner`, `platform_admin`).
+- Authentication is JWT-based with a comprehensive Role-Based Access Control (RBAC) system supporting 6 roles: `manager`, `partner`, `platform_admin`, `hq_executive`, `accountant`, `facility_staff`. Privilege escalation is prevented (only platform_admin can create hq_executive/platform_admin accounts). Password can be auto-generated as temp password for admin-created accounts.
 - API codegen uses Orval to generate hooks and Zod schemas from an OpenAPI specification.
 - Data validation is performed using Zod (`zod/v4`) and `drizzle-zod`.
 

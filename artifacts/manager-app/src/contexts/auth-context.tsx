@@ -4,10 +4,10 @@ export interface AuthUser {
   id: number;
   email: string;
   name: string;
-  role: "manager" | "partner" | "platform_admin";
+  role: "manager" | "partner" | "platform_admin" | "hq_executive" | "accountant" | "facility_staff";
   phone: string | null;
   vendorId?: number | null;
-  portalType: "building" | "partner";
+  portalType: "building" | "partner" | "hq";
   buildingSido?: string | null;
   buildingSigungu?: string | null;
 }

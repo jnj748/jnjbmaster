@@ -35,6 +35,9 @@ const DocumentTemplates = lazy(() => import("@/pages/document-templates"));
 const DailyReportsPage = lazy(() => import("@/pages/daily-reports"));
 const ReportSystemPage = lazy(() => import("@/pages/report-system"));
 import PartnerDashboard from "@/pages/partner-dashboard";
+const HqDashboard = lazy(() => import("@/pages/hq-dashboard"));
+const AccountantDashboard2 = lazy(() => import("@/pages/accountant-dashboard"));
+const FacilityWorktool = lazy(() => import("@/pages/facility-worktool"));
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
@@ -102,11 +105,46 @@ const partnerRoutes = [
   { path: "/commissions", component: Commissions },
 ];
 
+const hqRoutes = [
+  { path: "/reports", component: Reports },
+  { path: "/inspections", component: Inspections },
+  { path: "/safety-training", component: SafetyTraining },
+  { path: "/vendors", component: Vendors },
+  { path: "/users", component: Users },
+];
+
+const accountantRoutes = [
+  { path: "/calendar", component: CalendarPage },
+  { path: "/accounting", component: AccountingDashboard },
+  { path: "/approvals", component: Approvals },
+  { path: "/approvals/create", component: ApprovalCreate },
+  { path: "/spending", component: ExecutiveSpending },
+  { path: "/tax-schedules", component: TaxSchedules },
+  { path: "/drafts", component: Drafts },
+  { path: "/commissions", component: Commissions },
+  { path: "/units", component: Units },
+  { path: "/tenants", component: Tenants },
+];
+
+const facilityRoutes = [
+  { path: "/facility", component: FacilityDashboard },
+  { path: "/inspections", component: Inspections },
+  { path: "/safety-checklists", component: SafetyChecklists },
+  { path: "/maintenance-logs", component: MaintenanceLogs },
+];
+
 function AuthenticatedRoutes() {
   const { user } = useAuth();
-  const isPartner = user?.role === "partner";
-  const routes = isPartner ? partnerRoutes : managerRoutes;
-  const DashboardComponent = isPartner ? PartnerDashboard : Dashboard;
+  const role = user?.role;
+  const isPartner = role === "partner";
+
+  const { routes, DashboardComponent } = (() => {
+    if (isPartner) return { routes: partnerRoutes, DashboardComponent: PartnerDashboard };
+    if (role === "hq_executive") return { routes: hqRoutes, DashboardComponent: HqDashboard };
+    if (role === "accountant") return { routes: accountantRoutes, DashboardComponent: AccountantDashboard2 };
+    if (role === "facility_staff") return { routes: facilityRoutes, DashboardComponent: FacilityWorktool };
+    return { routes: managerRoutes, DashboardComponent: Dashboard };
+  })();
 
   return (
     <BuildingProvider>

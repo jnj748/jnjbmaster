@@ -110,6 +110,73 @@ const managerNavSections: NavSection[] = [
   },
 ];
 
+const hqNavSections: NavSection[] = [
+  {
+    items: [
+      { path: "/", label: "본사 대시보드", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "현장 모니터링",
+    items: [
+      { path: "/reports", label: "월간보고서", icon: FileText },
+      { path: "/inspections", label: "점검보고서", icon: Shield },
+      { path: "/safety-training", label: "안전교육 현황", icon: GraduationCap },
+    ],
+  },
+  {
+    title: "관리",
+    items: [
+      { path: "/vendors", label: "용역 계약", icon: Building2 },
+      { path: "/users", label: "사용자 관리", icon: Users },
+    ],
+  },
+];
+
+const accountantNavSections: NavSection[] = [
+  {
+    items: [
+      { path: "/", label: "대시보드", icon: LayoutDashboard },
+      { path: "/calendar", label: "일정", icon: CalendarDays },
+    ],
+  },
+  {
+    title: "관리비회계",
+    items: [
+      { path: "/accounting", label: "관리비회계", icon: DollarSign },
+      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
+      { path: "/spending", label: "지출 현황", icon: DollarSign },
+      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+      { path: "/drafts", label: "기안서", icon: ClipboardList },
+      { path: "/commissions", label: "수수료", icon: Coins },
+    ],
+  },
+  {
+    title: "입주관리",
+    items: [
+      { path: "/units", label: "호실 관리", icon: Building },
+      { path: "/tenants", label: "입주민 관리", icon: Users },
+    ],
+  },
+];
+
+const facilityNavSections: NavSection[] = [
+  {
+    items: [
+      { path: "/", label: "일일 업무", icon: ClipboardCheck },
+    ],
+  },
+  {
+    title: "시설관리",
+    items: [
+      { path: "/facility", label: "시설관리", icon: HardHat },
+      { path: "/inspections", label: "법정 점검", icon: Shield },
+      { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
+      { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
+    ],
+  },
+];
+
 const managerNavItems = managerNavSections.flatMap((s) => s.items);
 
 const partnerNavItems = [
@@ -127,6 +194,26 @@ const managerBottomNavItems = [
   { path: "/tasks", label: "업무", icon: CheckSquare },
 ];
 
+const hqBottomNavItems = [
+  { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/reports", label: "보고서", icon: FileText },
+  { path: "/inspections", label: "점검", icon: Shield },
+  { path: "/vendors", label: "계약", icon: Building2 },
+];
+
+const accountantBottomNavItems = [
+  { path: "/", label: "홈", icon: LayoutDashboard },
+  { path: "/accounting", label: "회계", icon: DollarSign },
+  { path: "/approvals", label: "결재", icon: ClipboardCheck },
+  { path: "/tax-schedules", label: "세무", icon: Calculator },
+];
+
+const facilityBottomNavItems = [
+  { path: "/", label: "업무", icon: ClipboardCheck },
+  { path: "/facility", label: "시설", icon: HardHat },
+  { path: "/inspections", label: "점검", icon: Shield },
+];
+
 const partnerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
   { path: "/rfqs", label: "견적", icon: FileText },
@@ -138,6 +225,9 @@ const roleLabels: Record<string, string> = {
   manager: "관리소장",
   partner: "파트너사",
   platform_admin: "플랫폼 관리자",
+  hq_executive: "총괄책임자",
+  accountant: "회계/행정",
+  facility_staff: "시설관리",
 };
 
 function getPageTitle(location: string, navItems: typeof managerNavItems): string {
@@ -203,13 +293,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }, [markRead, queryClient]);
 
+  const role = user?.role;
   const isPartner = user?.portalType === "partner";
-  const navItems = isPartner ? partnerNavItems : managerNavItems;
-  const bottomNavItems = isPartner ? partnerBottomNavItems : managerBottomNavItems;
+
+  const { sections, navItems, bottomNavItems: bottomItems } = (() => {
+    if (isPartner) return { sections: [{ items: partnerNavItems }] as NavSection[], navItems: partnerNavItems, bottomNavItems: partnerBottomNavItems };
+    if (role === "hq_executive") return { sections: hqNavSections, navItems: hqNavSections.flatMap((s) => s.items), bottomNavItems: hqBottomNavItems };
+    if (role === "accountant") return { sections: accountantNavSections, navItems: accountantNavSections.flatMap((s) => s.items), bottomNavItems: accountantBottomNavItems };
+    if (role === "facility_staff") return { sections: facilityNavSections, navItems: facilityNavSections.flatMap((s) => s.items), bottomNavItems: facilityBottomNavItems };
+    return { sections: managerNavSections, navItems: managerNavItems, bottomNavItems: managerBottomNavItems };
+  })();
+
+  const bottomNavItems = bottomItems;
   const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
-
-  const sections = isPartner ? [{ items: partnerNavItems }] : managerNavSections;
 
   const navLinks = useMemo(() => sections.map((section, si) => (
     <div key={si}>

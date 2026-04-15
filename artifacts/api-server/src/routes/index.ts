@@ -56,7 +56,7 @@ router.use(usersRouter);
 router.use(rfqsRouter);
 
 const buildingRouter: IRouter = Router();
-const buildingOnly = requireRole("manager", "platform_admin");
+const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
 buildingRouter.use(buildingOnly);
 buildingRouter.use(dashboardRouter);
 buildingRouter.use(approvalsRouter);

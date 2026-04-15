@@ -6,10 +6,17 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-const validRoles = ["manager", "partner", "platform_admin"];
-const validPortals = ["building", "partner"];
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let pw = "";
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  return pw;
+}
 
-router.get("/users", requireRole("manager", "platform_admin"), async (_req, res): Promise<void> => {
+const validRoles = ["manager", "partner", "platform_admin", "hq_executive", "accountant", "facility_staff"];
+const validPortals = ["building", "partner", "hq"];
+
+router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), async (_req, res): Promise<void> => {
   try {
     const users = await db
       .select({
@@ -30,17 +37,24 @@ router.get("/users", requireRole("manager", "platform_admin"), async (_req, res)
   }
 });
 
-router.post("/users", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
+router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), async (req, res): Promise<void> => {
   try {
     const { email, password, name, role, phone, portalType } = req.body;
 
-    if (!email || !password || !name || !role || !portalType) {
+    if (!email || !name || !role || !portalType) {
       res.status(400).json({ error: "필수 항목을 모두 입력해주세요" });
       return;
     }
 
     if (!validRoles.includes(role)) {
       res.status(400).json({ error: "유효하지 않은 역할입니다" });
+      return;
+    }
+
+    const actorRole = (req as any).user?.role;
+    const privilegedRoles = ["platform_admin", "hq_executive"];
+    if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
+      res.status(403).json({ error: "해당 역할의 사용자는 플랫폼 관리자만 생성할 수 있습니다" });
       return;
     }
 
@@ -51,6 +65,10 @@ router.post("/users", requireRole("manager", "platform_admin"), async (req, res)
 
     if (portalType === "partner" && role !== "partner") {
       res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
+      return;
+    }
+    if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
+      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
       return;
     }
     if (portalType === "building" && role === "partner") {
@@ -64,7 +82,8 @@ router.post("/users", requireRole("manager", "platform_admin"), async (req, res)
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const finalPassword = password || generateTempPassword();
+    const passwordHash = await bcrypt.hash(finalPassword, 10);
     const [user] = await db.insert(usersTable).values({
       email,
       passwordHash,
@@ -82,13 +101,14 @@ router.post("/users", requireRole("manager", "platform_admin"), async (req, res)
       phone: user.phone,
       portalType: user.portalType,
       createdAt: user.createdAt,
+      ...((!password) && { tempPassword: finalPassword }),
     });
   } catch {
     res.status(500).json({ error: "사용자 등록에 실패했습니다" });
   }
 });
 
-router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
+router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executive"), async (req, res): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {
@@ -102,6 +122,12 @@ router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req,
     if (role !== undefined) {
       if (!validRoles.includes(role)) {
         res.status(400).json({ error: "유효하지 않은 역할입니다" });
+        return;
+      }
+      const actorRole = (req as any).user?.role;
+      const privilegedRoles = ["platform_admin", "hq_executive"];
+      if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
+        res.status(403).json({ error: "해당 역할로의 변경은 플랫폼 관리자만 가능합니다" });
         return;
       }
       updateData.role = role;
@@ -135,6 +161,10 @@ router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req,
       res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
       return;
     }
+    if (finalPortal === "hq" && !["hq_executive", "platform_admin"].includes(finalRole)) {
+      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
+      return;
+    }
     if (finalPortal === "building" && finalRole === "partner") {
       res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
       return;
@@ -165,7 +195,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin"), async (req,
   }
 });
 
-router.delete("/users/:id", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
+router.delete("/users/:id", requireRole("platform_admin"), async (req, res): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {

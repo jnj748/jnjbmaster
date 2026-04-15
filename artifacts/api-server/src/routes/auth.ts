@@ -20,7 +20,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const validPortals = ["building", "partner"];
+  const validPortals = ["building", "partner", "hq"];
   if (!validPortals.includes(portalType)) {
     res.status(400).json({ error: "유효하지 않은 포털 유형입니다" });
     return;
@@ -28,6 +28,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   if (portalType === "partner" && role !== "partner") {
     res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
+    return;
+  }
+  if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
+    res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
     return;
   }
   if (portalType === "building" && role === "partner") {
@@ -86,7 +90,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.portalType !== portalType) {
+  const portalMatch = user.portalType === portalType
+    || (portalType === "building" && ["building", "hq"].includes(user.portalType))
+    || (portalType === "hq" && ["hq", "building"].includes(user.portalType) && ["hq_executive", "platform_admin", "manager"].includes(user.role));
+  if (!portalMatch) {
     res.status(401).json({ error: "해당 포털에서 로그인할 수 없는 계정입니다" });
     return;
   }
