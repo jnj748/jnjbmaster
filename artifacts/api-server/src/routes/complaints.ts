@@ -62,7 +62,7 @@ router.post("/complaints", async (req: Request, res: Response): Promise<void> =>
 });
 
 router.patch("/complaints/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const parsed = UpdateComplaintBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -92,7 +92,7 @@ router.patch("/complaints/:id", async (req: Request, res: Response): Promise<voi
 });
 
 router.delete("/complaints/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 

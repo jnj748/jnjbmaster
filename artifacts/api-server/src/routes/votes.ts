@@ -65,7 +65,7 @@ router.post("/votes", async (req: Request, res: Response): Promise<void> => {
 });
 
 router.get("/votes/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
@@ -108,7 +108,7 @@ router.get("/votes/:id", async (req: Request, res: Response): Promise<void> => {
 });
 
 router.patch("/votes/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const parsed = UpdateVoteBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -137,7 +137,7 @@ router.patch("/votes/:id", async (req: Request, res: Response): Promise<void> =>
 });
 
 router.delete("/votes/:id", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
@@ -158,7 +158,7 @@ router.delete("/votes/:id", async (req: Request, res: Response): Promise<void> =
 });
 
 router.post("/votes/:id/cast", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const parsed = CastBallotBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
