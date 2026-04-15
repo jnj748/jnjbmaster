@@ -203,7 +203,7 @@ export default function AccountingDashboard() {
     setDragId(id);
   }
 
-  function handleDragOver(e: React.DragEvent, targetId: string) {
+  function handleDragOver(e: React.DragEvent | DragEvent, targetId: string) {
     e.preventDefault();
     if (!dragId || dragId === targetId) return;
     setChecklist(prev => {
@@ -445,7 +445,7 @@ export default function AccountingDashboard() {
                     exit={{ opacity: 0 }}
                     draggable
                     onDragStart={() => handleDragStart(item.id)}
-                    onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent, item.id)}
+                    onDragOver={(e) => handleDragOver(e, item.id)}
                     onDragEnd={() => setDragId(null)}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${
                       item.checked ? "bg-emerald-50 border-emerald-200" : "bg-white hover:bg-gray-50"
