@@ -24,8 +24,8 @@ const Tenants = lazy(() => import("@/pages/tenants"));
 const Owners = lazy(() => import("@/pages/owners"));
 const Vehicles = lazy(() => import("@/pages/vehicles"));
 const Users = lazy(() => import("@/pages/users"));
-import PortalSelect from "@/pages/portal-select";
 import Login from "@/pages/login";
+const PortalSelect = lazy(() => import("@/pages/portal-select"));
 const FacilityDashboard = lazy(() => import("@/pages/facility-dashboard"));
 const SafetyChecklists = lazy(() => import("@/pages/safety-checklists"));
 const MaintenanceLogs = lazy(() => import("@/pages/maintenance-logs"));
@@ -137,13 +137,15 @@ function AppRouter() {
 
   if (!user) {
     return (
-      <Switch>
-        <Route path="/portal" component={PortalSelect} />
-        <Route path="/login/:portalType" component={Login} />
-        <Route>
-          <Redirect to="/portal" />
-        </Route>
-      </Switch>
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/portal" component={PortalSelect} />
+          <Route path="/login/:portalType" component={Login} />
+          <Route>
+            <Redirect to="/portal" />
+          </Route>
+        </Switch>
+      </Suspense>
     );
   }
 
