@@ -50,6 +50,7 @@ router.post("/fees/calculate", async (req: Request, res: Response): Promise<void
 
   const totalArea = units.reduce((s, u) => s + Number(u.exclusiveArea || 0), 0);
   const additionalTotal = (additionalExpenses || []).reduce((s: number, e: { amount: number }) => s + e.amount, 0);
+  const useEqualSplit = totalArea <= 0;
 
   const validAmortization = amortizationMonths && amortizationMonths >= 1 ? amortizationMonths : 12;
   const effectiveSpecialFund = splitHighCostRepairs
@@ -60,7 +61,7 @@ router.post("/fees/calculate", async (req: Request, res: Response): Promise<void
   let grandTotal = 0;
   const items = units.map((u) => {
     const area = Number(u.exclusiveArea || 0);
-    const ratio = area > 0 && totalArea > 0 ? area / totalArea : 1 / units.length;
+    const ratio = useEqualSplit ? 1 / units.length : area / totalArea;
     const commonFee = Math.round(commonMaintenanceFee * ratio);
     const sf = Math.round(effectiveSpecialFund * ratio);
     const utility = Math.round((utilityTotal || 0) * ratio);
@@ -113,12 +114,13 @@ router.get("/fees/billing", async (req: Request, res: Response): Promise<void> =
   }
 
   const totalArea = units.reduce((s, u) => s + Number(u.exclusiveArea || 0), 0);
+  const useEqualSplitBilling = totalArea <= 0;
   const [yearStr, monthStr] = month.split("-");
   const dueDate = `${yearStr}-${monthStr}-25`;
 
   const items = units.map((u) => {
     const area = Number(u.exclusiveArea || 0);
-    const ratio = area > 0 && totalArea > 0 ? area / totalArea : 1 / units.length;
+    const ratio = useEqualSplitBilling ? 1 / units.length : area / totalArea;
     const commonFee = Math.round(150000 * ratio);
     const sf = Math.round(30000 * ratio);
     const utilityFee = Math.round(80000 * ratio);
