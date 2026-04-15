@@ -364,6 +364,26 @@ router.delete("/units/:id", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  const linkedTenants = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tenantsTable)
+    .where(and(eq(tenantsTable.unitId, params.data.id), eq(tenantsTable.status, "active")));
+
+  const linkedOwners = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ownersTable)
+    .where(and(eq(ownersTable.unitId, params.data.id), eq(ownersTable.status, "active")));
+
+  const tCount = linkedTenants[0]?.count ?? 0;
+  const oCount = linkedOwners[0]?.count ?? 0;
+  if (tCount > 0 || oCount > 0) {
+    const parts = [];
+    if (tCount > 0) parts.push(`입주자 ${tCount}명`);
+    if (oCount > 0) parts.push(`소유자 ${oCount}명`);
+    res.status(409).json({ error: `${parts.join(", ")}이 등록되어 있어 삭제할 수 없습니다. 먼저 연결된 입주자/소유자를 이동하거나 삭제해주세요.` });
+    return;
+  }
+
   const [unit] = await db
     .delete(unitsTable)
     .where(and(eq(unitsTable.id, params.data.id), eq(unitsTable.buildingId, buildingId)))
