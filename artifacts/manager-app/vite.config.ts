@@ -62,6 +62,7 @@ export default defineConfig({
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react/jsx-runtime", "scheduler"],
           "charts": ["recharts"],
+          "api-client": ["@workspace/api-client-react"],
         },
       },
     },

@@ -133,8 +133,9 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
-  const { data: tenants } = useListTenants({ status: "active" }, { query: { staleTime: 5 * 60 * 1000 } });
-  const { data: vehicles } = useListVehicles(undefined, { query: { staleTime: 5 * 60 * 1000 } });
+  const summaryReady = !summaryLoading && !!summary;
+  const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
+  const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
 
   const [buildingInfo, setBuildingInfo] = useState<{
     name: string; totalUnits: number | null; parkingSpaces: number | null;
