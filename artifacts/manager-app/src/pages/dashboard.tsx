@@ -641,8 +641,8 @@ export default function Dashboard() {
                     <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} unit="h" />
                     <Tooltip
-                      formatter={(value: number, _name: string, props: any) =>
-                        [`${value}시간 (${props.payload.staffCount}명)`, "근무시간"]
+                      formatter={(value: number) =>
+                        [`${value}시간`, "근무시간"]
                       }
                       labelFormatter={(label: string) => `${label}요일`}
                     />
