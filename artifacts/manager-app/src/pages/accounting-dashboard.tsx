@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,9 @@ import {
   ArrowRight,
   ShieldCheck,
   XCircle,
+  Upload,
+  File,
+  X,
 } from "lucide-react";
 
 interface MenuCard {
@@ -74,6 +77,37 @@ const DEFAULT_CHECKLIST: ChecklistItem[] = [
   { id: "specialRepair", label: "장기수선계획 반영 확인", category: "선택", checked: false },
 ];
 
+type DocCategory = "통장거래내역" | "에너지검침" | "부가서비스" | "회계증빙" | "기타";
+
+interface UploadedDoc {
+  id: string;
+  name: string;
+  size: number;
+  category: DocCategory;
+}
+
+const CATEGORY_RULES: Array<{ pattern: RegExp; category: DocCategory }> = [
+  { pattern: /통장|거래내역|입출금|계좌|bank/i, category: "통장거래내역" },
+  { pattern: /검침|에너지|전기|수도|가스|난방|meter|energy/i, category: "에너지검침" },
+  { pattern: /부가|서비스|주차|인터넷|wifi|cctv/i, category: "부가서비스" },
+  { pattern: /영수증|세금계산서|인보이스|invoice|receipt|증빙/i, category: "회계증빙" },
+];
+
+function classifyFile(filename: string): DocCategory {
+  for (const rule of CATEGORY_RULES) {
+    if (rule.pattern.test(filename)) return rule.category;
+  }
+  return "기타";
+}
+
+const CATEGORY_COLORS: Record<DocCategory, string> = {
+  "통장거래내역": "bg-blue-100 text-blue-700",
+  "에너지검침": "bg-green-100 text-green-700",
+  "부가서비스": "bg-purple-100 text-purple-700",
+  "회계증빙": "bg-orange-100 text-orange-700",
+  "기타": "bg-gray-100 text-gray-700",
+};
+
 export default function AccountingDashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const [month] = useState(currentMonth());
@@ -83,6 +117,53 @@ export default function AccountingDashboard() {
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFiles = useCallback((files: FileList | File[]) => {
+    const newDocs: UploadedDoc[] = Array.from(files).map(f => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: f.name,
+      size: f.size,
+      category: classifyFile(f.name),
+    }));
+    setUploadedDocs(prev => [...prev, ...newDocs]);
+    toast({ title: `${newDocs.length}개 파일 업로드, 자동 분류 완료` });
+  }, [toast]);
+
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  }, [processFiles]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files);
+      e.target.value = "";
+    }
+  }, [processFiles]);
+
+  function removeDoc(id: string) {
+    setUploadedDocs(prev => prev.filter(d => d.id !== id));
+  }
+
+  function updateDocCategory(id: string, category: DocCategory) {
+    setUploadedDocs(prev => prev.map(d => d.id === id ? { ...d, category } : d));
+  }
+
+  const docsByCategory = useMemo(() => {
+    const grouped: Record<DocCategory, UploadedDoc[]> = {
+      "통장거래내역": [], "에너지검침": [], "부가서비스": [], "회계증빙": [], "기타": [],
+    };
+    for (const doc of uploadedDocs) {
+      grouped[doc.category].push(doc);
+    }
+    return grouped;
+  }, [uploadedDocs]);
 
   const [calcForm, setCalcForm] = useState({
     commonMaintenanceFee: "3000000",
@@ -385,6 +466,80 @@ export default function AccountingDashboard() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                증빙 서류 업로드
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+                accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.doc,.docx"
+              />
+              <div
+                onDrop={handleFileDrop}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                  isDragOver ? "border-primary bg-primary/5" : "border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragOver ? "text-primary" : "text-muted-foreground"}`} />
+                <p className="text-sm font-medium">파일을 드래그하거나 클릭하여 업로드</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  파일명 기반 자동 분류: 통장거래내역, 에너지검침, 부가서비스, 회계증빙
+                </p>
+              </div>
+
+              {uploadedDocs.length > 0 && (
+                <div className="space-y-3">
+                  {(Object.entries(docsByCategory) as [DocCategory, UploadedDoc[]][])
+                    .filter(([, docs]) => docs.length > 0)
+                    .map(([cat, docs]) => (
+                      <div key={cat}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Badge className={`text-[10px] ${CATEGORY_COLORS[cat]}`}>{cat}</Badge>
+                          <span className="text-xs text-muted-foreground">{docs.length}건</span>
+                        </div>
+                        <div className="space-y-1">
+                          {docs.map(doc => (
+                            <div key={doc.id} className="flex items-center gap-2 p-2 rounded border bg-white text-xs">
+                              <File className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="flex-1 truncate">{doc.name}</span>
+                              <span className="text-muted-foreground shrink-0">
+                                {doc.size < 1024 ? `${doc.size}B` : `${Math.round(doc.size / 1024)}KB`}
+                              </span>
+                              <select
+                                value={doc.category}
+                                onChange={(e) => updateDocCategory(doc.id, e.target.value as DocCategory)}
+                                className="text-[10px] border rounded px-1 py-0.5 bg-white"
+                              >
+                                <option value="통장거래내역">통장거래내역</option>
+                                <option value="에너지검침">에너지검침</option>
+                                <option value="부가서비스">부가서비스</option>
+                                <option value="회계증빙">회계증빙</option>
+                                <option value="기타">기타</option>
+                              </select>
+                              <button onClick={() => removeDoc(doc.id)} className="text-muted-foreground hover:text-red-500">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -219,7 +219,7 @@ router.get("/fees/approval-check", async (req: Request, res: Response): Promise<
     approved,
     pending,
     rejected,
-    allApproved: total > 0 && approved === total,
+    allApproved: total === 0 || approved === total,
     unapprovedItems: unapproved.map(a => ({
       id: a.id,
       title: a.title,
