@@ -75,7 +75,7 @@ router.post("/owners", async (req, res): Promise<void> => {
 
   const [owner] = await db.insert(ownersTable).values({
     ...parsed.data,
-    ...(unitId ? { unitId } : {}),
+    unitId,
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   }).returning();
 
@@ -131,9 +131,9 @@ router.patch("/owners/:id", async (req, res): Promise<void> => {
     updateData.dataDestructionDate = destructionDate.toISOString().split("T")[0];
   }
 
-  if (parsed.data.unit) {
+  if (parsed.data.unit !== undefined) {
     const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
-    if (unitId) updateData.unitId = unitId;
+    updateData.unitId = unitId;
   }
 
   const [owner] = await db

@@ -97,7 +97,7 @@ router.post("/tenants", async (req, res): Promise<void> => {
 
   const [tenant] = await db.insert(tenantsTable).values({
     ...parsed.data,
-    ...(unitId ? { unitId } : {}),
+    unitId,
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   }).returning();
 
@@ -163,9 +163,9 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     updateData.dataDestructionDate = destructionDate.toISOString().split("T")[0];
   }
 
-  if (parsed.data.unit) {
+  if (parsed.data.unit !== undefined) {
     const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
-    if (unitId) updateData.unitId = unitId;
+    updateData.unitId = unitId;
   }
 
   const [tenant] = await db

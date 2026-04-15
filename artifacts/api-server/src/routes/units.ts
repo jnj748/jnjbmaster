@@ -62,7 +62,7 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
       updatedAt: unitsTable.updatedAt,
       tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = units.id AND tenants.status = 'active')`,
       ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE owners.unit_id = units.id AND owners.status = 'active')`,
-      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles v JOIN tenants t ON v.tenant_id = t.id WHERE t.unit_id = units.id AND v.status = 'registered')`,
+      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles v WHERE v.status = 'registered' AND (EXISTS (SELECT 1 FROM tenants t WHERE t.id = v.tenant_id AND t.unit_id = units.id) OR (v.tenant_id IS NULL AND v.unit = units.unit_number)))`,
     })
     .from(unitsTable)
     .where(and(...conditions))
@@ -142,7 +142,7 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
       )
     );
 
-  const vehicles = await db
+  const linkedVehicles = await db
     .select({ v: vehiclesTable })
     .from(vehiclesTable)
     .innerJoin(tenantsTable, eq(vehiclesTable.tenantId, tenantsTable.id))
@@ -153,6 +153,19 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
       )
     )
     .then(rows => rows.map(r => r.v));
+
+  const unlinkedVehicles = await db
+    .select()
+    .from(vehiclesTable)
+    .where(
+      and(
+        sql`${vehiclesTable.tenantId} IS NULL`,
+        eq(vehiclesTable.unit, unit.unitNumber),
+        eq(vehiclesTable.status, "registered")
+      )
+    );
+
+  const vehicles = [...linkedVehicles, ...unlinkedVehicles];
 
   res.json({ ...unit, tenants, owners, vehicles });
 });
