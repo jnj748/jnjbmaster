@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface FeeTrendItem {
+export type GetApprovalCheckParams = {
   month: string;
-  buildingAvg: number;
-  kaptAvg?: number;
-  priorYearAvg?: number;
-}
+};

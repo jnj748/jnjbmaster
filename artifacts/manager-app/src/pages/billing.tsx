@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,17 +12,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  useCalculateFees,
   useGetBillingList,
   useGetFeeTrend,
   useSendKakaoNotification,
   useCalculateInterimSettlement,
 } from "@workspace/api-client-react";
-import type {
-  CalculateFeesResponse,
-  InterimSettlementResponse,
-} from "@workspace/api-client-react";
+import type { InterimSettlementResponse } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import {
   Calculator,
   FileText,
@@ -30,7 +37,10 @@ import {
   TrendingUp,
   Receipt,
   DollarSign,
-  Building2,
+  MessageCircle,
+  CheckCircle2,
+  XCircle,
+  Users,
 } from "lucide-react";
 
 function formatKrw(n: number) {
@@ -45,14 +55,8 @@ const currentMonth = () => {
 export default function Billing() {
   const { toast } = useToast();
   const [month, setMonth] = useState(currentMonth());
-  const [calcOpen, setCalcOpen] = useState(false);
   const [interimOpen, setInterimOpen] = useState(false);
-
-  const [calcForm, setCalcForm] = useState({
-    commonMaintenanceFee: "3000000",
-    specialFund: "500000",
-    utilityTotal: "1500000",
-  });
+  const [searchText, setSearchText] = useState("");
 
   const [interimForm, setInterimForm] = useState({
     unitNumber: "",
@@ -63,36 +67,69 @@ export default function Billing() {
 
   const { data: billing = [] } = useGetBillingList({ month });
   const { data: trend = [] } = useGetFeeTrend();
-  const calcMutation = useCalculateFees();
   const kakaoMutation = useSendKakaoNotification();
   const interimMutation = useCalculateInterimSettlement();
 
-  const [calcResult, setCalcResult] = useState<CalculateFeesResponse | null>(null);
   const [interimResult, setInterimResult] = useState<InterimSettlementResponse | null>(null);
+  const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
 
-  async function handleCalculate() {
-    try {
-      const result = await calcMutation.mutateAsync({
-        data: {
-          month,
-          commonMaintenanceFee: Number(calcForm.commonMaintenanceFee),
-          specialFund: Number(calcForm.specialFund),
-          utilityTotal: Number(calcForm.utilityTotal),
-        },
-      });
-      setCalcResult(result);
-      toast({ title: `${result.totalUnits}세대 관리비가 산출되었습니다` });
-    } catch {
-      toast({ title: "산출에 실패했습니다", variant: "destructive" });
-    }
+  const filteredBilling = useMemo(() => {
+    if (!searchText) return billing;
+    const q = searchText.toLowerCase();
+    return billing.filter(
+      (b) =>
+        b.unitNumber.toLowerCase().includes(q) ||
+        (b.ownerName && b.ownerName.toLowerCase().includes(q))
+    );
+  }, [billing, searchText]);
+
+  const summaryStats = useMemo(() => {
+    const total = billing.reduce((s, b) => s + b.totalFee, 0);
+    const paid = billing.filter((b) => b.isPaid);
+    const unpaid = billing.filter((b) => !b.isPaid);
+    const paidAmount = paid.reduce((s, b) => s + b.totalFee, 0);
+    const unpaidAmount = unpaid.reduce((s, b) => s + b.totalFee, 0);
+    return {
+      totalUnits: billing.length,
+      totalAmount: total,
+      paidCount: paid.length,
+      paidAmount,
+      unpaidCount: unpaid.length,
+      unpaidAmount,
+      collectionRate: billing.length > 0 ? Math.round((paid.length / billing.length) * 100) : 0,
+    };
+  }, [billing]);
+
+  const trendData = useMemo(() => {
+    return trend.map((t) => ({
+      month: t.month.slice(5),
+      우리건물: t.buildingAvg,
+      KAPT평균: t.kaptAvg ?? 0,
+      전년동기: (t as { priorYearAvg?: number }).priorYearAvg ?? 0,
+    }));
+  }, [trend]);
+
+  function toggleUnit(unitNumber: string) {
+    setSelectedUnits((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitNumber)) next.delete(unitNumber);
+      else next.add(unitNumber);
+      return next;
+    });
   }
 
-  async function handleKakaoNotify() {
+  function selectAllUnpaid() {
+    const unpaid = billing.filter((b) => !b.isPaid).map((b) => b.unitNumber);
+    setSelectedUnits(new Set(unpaid));
+  }
+
+  async function handleKakaoNotify(unitNumbers?: string[]) {
     try {
       const result = await kakaoMutation.mutateAsync({
-        data: { month },
+        data: { month, unitNumbers },
       });
       toast({ title: `알림톡 발송: 성공 ${result.sent}건, 실패 ${result.failed}건` });
+      setSelectedUnits(new Set());
     } catch {
       toast({ title: "알림톡 발송에 실패했습니다", variant: "destructive" });
     }
@@ -123,7 +160,7 @@ export default function Billing() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold">관리비 부과/수납</h1>
-          <p className="text-sm text-muted-foreground">관리비 산출, 고지서 발행, 수납 현황을 관리합니다</p>
+          <p className="text-sm text-muted-foreground">세대별 고지·수납 현황 및 추세를 관리합니다</p>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -135,101 +172,81 @@ export default function Billing() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Dialog open={calcOpen} onOpenChange={setCalcOpen}>
-          <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Calculator className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">관리비 산출</p>
-                  <p className="text-xs text-muted-foreground">전유면적 비례 배분</p>
-                </div>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>관리비 산출 ({month})</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <Label>공용관리비 (원)</Label>
-                <Input type="number" value={calcForm.commonMaintenanceFee} onChange={(e) => setCalcForm((p) => ({ ...p, commonMaintenanceFee: e.target.value }))} />
-              </div>
-              <div>
-                <Label>장기수선충당금 (원)</Label>
-                <Input type="number" value={calcForm.specialFund} onChange={(e) => setCalcForm((p) => ({ ...p, specialFund: e.target.value }))} />
-              </div>
-              <div>
-                <Label>공과금 합계 (원)</Label>
-                <Input type="number" value={calcForm.utilityTotal} onChange={(e) => setCalcForm((p) => ({ ...p, utilityTotal: e.target.value }))} />
-              </div>
-              <Button className="w-full" onClick={handleCalculate} disabled={calcMutation.isPending}>
-                <Calculator className="w-4 h-4 mr-2" />
-                산출하기
-              </Button>
-            </div>
-            {calcResult && (
-              <div className="mt-4 border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>총 세대: {calcResult.totalUnits}</span>
-                  <span className="font-bold">합계: {formatKrw(calcResult.grandTotal)}원</span>
-                </div>
-                <div className="max-h-60 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="p-2 text-left">호실</th>
-                        <th className="p-2 text-right">면적</th>
-                        <th className="p-2 text-right">비율</th>
-                        <th className="p-2 text-right">합계</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calcResult.items.map((item) => (
-                        <tr key={item.unitNumber} className="border-b">
-                          <td className="p-2">{item.unitNumber}호</td>
-                          <td className="p-2 text-right">{item.exclusiveArea}㎡</td>
-                          <td className="p-2 text-right">{item.areaRatio}%</td>
-                          <td className="p-2 text-right font-medium">{formatKrw(item.totalFee)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleKakaoNotify}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-yellow-500/10">
-              <Send className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">카카오 알림톡</p>
-              <p className="text-xs text-muted-foreground">고지서 발송 (시뮬레이션)</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-muted-foreground">총 부과</p>
+            <p className="text-lg font-bold">{formatKrw(summaryStats.totalAmount)}<span className="text-xs font-normal">원</span></p>
+            <p className="text-xs text-muted-foreground">{summaryStats.totalUnits}세대</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-emerald-600">수납 완료</p>
+            <p className="text-lg font-bold text-emerald-600">{formatKrw(summaryStats.paidAmount)}<span className="text-xs font-normal">원</span></p>
+            <p className="text-xs text-muted-foreground">{summaryStats.paidCount}세대</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-red-500">미수납</p>
+            <p className="text-lg font-bold text-red-500">{formatKrw(summaryStats.unpaidAmount)}<span className="text-xs font-normal">원</span></p>
+            <p className="text-xs text-muted-foreground">{summaryStats.unpaidCount}세대</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <p className="text-xs text-blue-600">수납률</p>
+            <p className="text-lg font-bold text-blue-600">{summaryStats.collectionRate}%</p>
+            <div className="h-1.5 bg-gray-200 rounded-full mt-1 overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all"
+                style={{ width: `${summaryStats.collectionRate}%` }}
+              />
             </div>
           </CardContent>
         </Card>
+      </div>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            관리비 추세 비교 (최근 12개월)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 10000)}만`} />
+                <Tooltip
+                  formatter={(value: number) => [`${formatKrw(value)}원`]}
+                  labelFormatter={(label) => `${label}월`}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Line type="monotone" dataKey="우리건물" stroke="hsl(199, 89%, 48%)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="KAPT평균" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                <Line type="monotone" dataKey="전년동기" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="2 2" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
+              추세 데이터가 없습니다
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-2 flex-wrap">
         <Dialog open={interimOpen} onOpenChange={setInterimOpen}>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Receipt className="w-5 h-5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">이사 정산</p>
-                  <p className="text-xs text-muted-foreground">일할 계산</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Button variant="outline" size="sm">
+              <Receipt className="w-4 h-4 mr-1" />
+              이사 정산
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -271,73 +288,101 @@ export default function Billing() {
             )}
           </DialogContent>
         </Dialog>
+
+        {selectedUnits.size > 0 && (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2">
+            <Button size="sm" onClick={() => handleKakaoNotify(Array.from(selectedUnits))}>
+              <MessageCircle className="w-4 h-4 mr-1" />
+              선택 {selectedUnits.size}건 알림톡
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedUnits(new Set())}>
+              선택 해제
+            </Button>
+          </motion.div>
+        )}
+
+        <Button variant="ghost" size="sm" onClick={selectAllUnpaid} className="ml-auto">
+          <Users className="w-4 h-4 mr-1" />
+          미납 전체선택
+        </Button>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            관리비 추세 (최근 12개월)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-40 flex items-end gap-1">
-            {trend.map((t) => {
-              const max = Math.max(...trend.map((x) => x.buildingAvg));
-              const h = max > 0 ? (t.buildingAvg / max) * 100 : 0;
-              return (
-                <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full bg-primary/20 rounded-t relative group"
-                    style={{ height: `${h}%`, minHeight: 4 }}
-                  >
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 whitespace-nowrap">
-                      {formatKrw(t.buildingAvg)}
-                    </div>
-                  </div>
-                  <span className="text-[8px] text-muted-foreground">{t.month.slice(5)}</span>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              세대별 고지/수납 현황 ({month})
+            </CardTitle>
+            <Input
+              placeholder="호실·소유자 검색..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-40 h-8 text-xs"
+            />
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            세대별 고지/수납 현황 ({month})
-          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
+                <tr className="border-b text-left text-muted-foreground bg-muted/30">
+                  <th className="p-3 font-medium w-8"></th>
                   <th className="p-3 font-medium">호실</th>
+                  <th className="p-3 font-medium">소유자</th>
                   <th className="p-3 font-medium text-right">면적(㎡)</th>
                   <th className="p-3 font-medium text-right">관리비</th>
-                  <th className="p-3 font-medium">수납</th>
+                  <th className="p-3 font-medium text-center">수납</th>
+                  <th className="p-3 font-medium text-center">납기</th>
+                  <th className="p-3 font-medium text-center">알림</th>
                 </tr>
               </thead>
               <tbody>
-                {billing.length === 0 ? (
+                {filteredBilling.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                      관리비 산출 후 고지 내역이 표시됩니다
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      {billing.length === 0 ? "관리비 산출 후 고지 내역이 표시됩니다" : "검색 결과가 없습니다"}
                     </td>
                   </tr>
                 ) : (
-                  billing.map((b) => (
-                    <tr key={b.unitNumber} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="p-3 font-medium">{b.unitNumber}호</td>
-                      <td className="p-3 text-right">{b.exclusiveArea}</td>
-                      <td className="p-3 text-right">{formatKrw(b.totalFee)}원</td>
+                  filteredBilling.map((b) => (
+                    <tr key={b.unitNumber} className={`border-b last:border-0 hover:bg-muted/30 ${selectedUnits.has(b.unitNumber) ? "bg-blue-50" : ""}`}>
                       <td className="p-3">
-                        <Badge variant={b.isPaid ? "default" : "destructive"} className="text-[10px]">
-                          {b.isPaid ? "완납" : "미납"}
-                        </Badge>
+                        <input
+                          type="checkbox"
+                          checked={selectedUnits.has(b.unitNumber)}
+                          onChange={() => toggleUnit(b.unitNumber)}
+                          className="w-3.5 h-3.5"
+                        />
+                      </td>
+                      <td className="p-3 font-medium">{b.unitNumber}호</td>
+                      <td className="p-3 text-muted-foreground">{b.ownerName ?? "-"}</td>
+                      <td className="p-3 text-right">{b.exclusiveArea}</td>
+                      <td className="p-3 text-right font-medium">{formatKrw(b.totalFee)}원</td>
+                      <td className="p-3 text-center">
+                        {b.isPaid ? (
+                          <Badge variant="default" className="text-[10px]">
+                            <CheckCircle2 className="w-3 h-3 mr-0.5" /> 완납
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-[10px]">
+                            <XCircle className="w-3 h-3 mr-0.5" /> 미납
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="p-3 text-center text-xs text-muted-foreground">
+                        {b.dueDate ?? "-"}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          onClick={() => handleKakaoNotify([b.unitNumber])}
+                          disabled={kakaoMutation.isPending}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </Button>
                       </td>
                     </tr>
                   ))

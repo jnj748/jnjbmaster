@@ -7,13 +7,17 @@
  */
 
 export interface BillingItem {
+  unitId?: number;
   unitNumber: string;
+  ownerName?: string | null;
   exclusiveArea?: number;
   areaRatio?: number;
   commonFee?: number;
   specialFund?: number;
   utilityFee?: number;
   additionalFee?: number;
+  specialSurcharge?: number;
   totalFee: number;
   isPaid?: boolean;
+  dueDate?: string;
 }

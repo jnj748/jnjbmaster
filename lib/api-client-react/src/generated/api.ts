@@ -22,6 +22,7 @@ import type {
   Alert,
   AlertAction,
   Approval,
+  ApprovalCheckResponse,
   ApprovalRecipientItem,
   ApprovalStats,
   ApprovalStepItem,
@@ -102,6 +103,7 @@ import type {
   GenerateUnitsBody,
   GenerateWeeklySummaryBody,
   GetAllAttendanceParams,
+  GetApprovalCheckParams,
   GetAttendanceStatsParams,
   GetBillingListParams,
   GetCalendarEventsParams,
@@ -115,6 +117,7 @@ import type {
   GetUnregisteredVehicles200,
   GetWeeklyReportParams,
   HealthStatus,
+  IncompleteUnitIssue,
   Inspection,
   InspectionLog,
   InspectionPreset,
@@ -16073,6 +16076,178 @@ export const useSendKakaoNotification = <
 > => {
   return useMutation(getSendKakaoNotificationMutationOptions(options));
 };
+
+/**
+ * @summary Check approval status for billing month
+ */
+export const getGetApprovalCheckUrl = (params: GetApprovalCheckParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/fees/approval-check?${stringifiedParams}`
+    : `/api/fees/approval-check`;
+};
+
+export const getApprovalCheck = async (
+  params: GetApprovalCheckParams,
+  options?: RequestInit,
+): Promise<ApprovalCheckResponse> => {
+  return customFetch<ApprovalCheckResponse>(getGetApprovalCheckUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetApprovalCheckQueryKey = (
+  params?: GetApprovalCheckParams,
+) => {
+  return [`/api/fees/approval-check`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetApprovalCheckQueryOptions = <
+  TData = Awaited<ReturnType<typeof getApprovalCheck>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetApprovalCheckParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getApprovalCheck>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetApprovalCheckQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getApprovalCheck>>
+  > = ({ signal }) => getApprovalCheck(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getApprovalCheck>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetApprovalCheckQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getApprovalCheck>>
+>;
+export type GetApprovalCheckQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check approval status for billing month
+ */
+
+export function useGetApprovalCheck<
+  TData = Awaited<ReturnType<typeof getApprovalCheck>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetApprovalCheckParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getApprovalCheck>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetApprovalCheckQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get units with incomplete data for billing
+ */
+export const getGetIncompleteUnitsUrl = () => {
+  return `/api/fees/incomplete-units`;
+};
+
+export const getIncompleteUnits = async (
+  options?: RequestInit,
+): Promise<IncompleteUnitIssue[]> => {
+  return customFetch<IncompleteUnitIssue[]>(getGetIncompleteUnitsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIncompleteUnitsQueryKey = () => {
+  return [`/api/fees/incomplete-units`] as const;
+};
+
+export const getGetIncompleteUnitsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIncompleteUnits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getIncompleteUnits>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetIncompleteUnitsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getIncompleteUnits>>
+  > = ({ signal }) => getIncompleteUnits({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIncompleteUnits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetIncompleteUnitsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIncompleteUnits>>
+>;
+export type GetIncompleteUnitsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get units with incomplete data for billing
+ */
+
+export function useGetIncompleteUnits<
+  TData = Awaited<ReturnType<typeof getIncompleteUnits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getIncompleteUnits>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIncompleteUnitsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List complaints

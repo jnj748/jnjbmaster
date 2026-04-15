@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface FeeTrendItem {
-  month: string;
-  buildingAvg: number;
-  kaptAvg?: number;
-  priorYearAvg?: number;
+export interface IncompleteUnitIssue {
+  unitNumber: string;
+  unitId: number;
+  issue: string;
 }

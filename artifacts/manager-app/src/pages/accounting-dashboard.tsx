@@ -1,10 +1,22 @@
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "wouter";
 import {
   useGetDashboardSummary,
+  useGetApprovalCheck,
+  useGetIncompleteUnits,
+  useCalculateFees,
 } from "@workspace/api-client-react";
+import type { CalculateFeesResponse } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardCheck,
   DollarSign,
@@ -17,6 +29,12 @@ import {
   BookOpen,
   BarChart3,
   Settings,
+  AlertTriangle,
+  CheckCircle2,
+  GripVertical,
+  ArrowRight,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
 
 interface MenuCard {
@@ -29,8 +47,119 @@ interface MenuCard {
   badgeVariant?: "default" | "destructive" | "secondary" | "outline";
 }
 
+const currentMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+function formatKrw(n: number) {
+  return new Intl.NumberFormat("ko-KR").format(n);
+}
+
+interface ChecklistItem {
+  id: string;
+  label: string;
+  category: "필수" | "권장" | "선택";
+  checked: boolean;
+}
+
+const DEFAULT_CHECKLIST: ChecklistItem[] = [
+  { id: "area", label: "전유면적 데이터 확인", category: "필수", checked: false },
+  { id: "tenantCards", label: "입주자카드 전수 확인", category: "필수", checked: false },
+  { id: "meterReading", label: "검침 데이터 입력 완료", category: "필수", checked: false },
+  { id: "approvalDone", label: "해당월 결재 완료 확인", category: "필수", checked: false },
+  { id: "utilityBills", label: "공과금 고지서 수령 확인", category: "권장", checked: false },
+  { id: "vendorInvoices", label: "협력업체 세금계산서 확인", category: "권장", checked: false },
+  { id: "priorMonth", label: "전월 미수금 확인", category: "선택", checked: false },
+  { id: "specialRepair", label: "장기수선계획 반영 확인", category: "선택", checked: false },
+];
+
 export default function AccountingDashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
+  const [month] = useState(currentMonth());
+  const { data: approvalCheck } = useGetApprovalCheck({ month });
+  const { data: incompleteUnits = [] } = useGetIncompleteUnits();
+  const { toast } = useToast();
+
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  const [calcForm, setCalcForm] = useState({
+    commonMaintenanceFee: "3000000",
+    specialFund: "500000",
+    utilityTotal: "1500000",
+    specialSurcharge: "0",
+    splitHighCostRepairs: false,
+    amortizationMonths: "12",
+  });
+
+  const calcMutation = useCalculateFees();
+  const [calcResult, setCalcResult] = useState<CalculateFeesResponse | null>(null);
+
+  const requiredDone = useMemo(() => {
+    return checklist.filter(c => c.category === "필수").every(c => c.checked);
+  }, [checklist]);
+
+  const completionRate = useMemo(() => {
+    const done = checklist.filter(c => c.checked).length;
+    return Math.round((done / checklist.length) * 100);
+  }, [checklist]);
+
+  function toggleCheck(id: string) {
+    setChecklist(prev =>
+      prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item)
+    );
+  }
+
+  function handleDragStart(id: string) {
+    setDragId(id);
+  }
+
+  function handleDragOver(e: React.DragEvent, targetId: string) {
+    e.preventDefault();
+    if (!dragId || dragId === targetId) return;
+    setChecklist(prev => {
+      const items = [...prev];
+      const fromIdx = items.findIndex(i => i.id === dragId);
+      const toIdx = items.findIndex(i => i.id === targetId);
+      const [moved] = items.splice(fromIdx, 1);
+      items.splice(toIdx, 0, moved);
+      return items;
+    });
+  }
+
+  async function handleCalculate() {
+    if (!requiredDone) {
+      toast({ title: "필수 체크리스트를 먼저 완료해주세요", variant: "destructive" });
+      return;
+    }
+
+    if (approvalCheck && !approvalCheck.allApproved) {
+      const msgs: string[] = [];
+      if (approvalCheck.pending > 0) msgs.push(`미결재 ${approvalCheck.pending}건`);
+      if (approvalCheck.rejected > 0) msgs.push(`반려 ${approvalCheck.rejected}건`);
+      toast({ title: `${msgs.join(", ")}이 있습니다. 결재 완료 후 산출하세요.`, variant: "destructive" });
+      return;
+    }
+
+    try {
+      const result = await calcMutation.mutateAsync({
+        data: {
+          month,
+          commonMaintenanceFee: Number(calcForm.commonMaintenanceFee),
+          specialFund: Number(calcForm.specialFund),
+          utilityTotal: Number(calcForm.utilityTotal),
+          specialSurcharge: Number(calcForm.specialSurcharge),
+          splitHighCostRepairs: calcForm.splitHighCostRepairs,
+          amortizationMonths: calcForm.splitHighCostRepairs ? Number(calcForm.amortizationMonths) : undefined,
+        },
+      });
+      setCalcResult(result);
+      toast({ title: `${result.totalUnits}세대 관리비 산출 완료` });
+    } catch {
+      toast({ title: "산출에 실패했습니다", variant: "destructive" });
+    }
+  }
 
   const menuCards: MenuCard[] = [
     {
@@ -134,7 +263,7 @@ export default function AccountingDashboard() {
       <div>
         <h1 className="text-2xl font-bold">관리비회계</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          결재, 지출, 세무, 수수료 등 회계 관련 업무를 관리합니다
+          관리비 산출, 결재, 세무 등 회계 업무를 통합 관리합니다
         </p>
       </div>
 
@@ -159,30 +288,332 @@ export default function AccountingDashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {menuCards.map((item) => (
-          <Link key={item.path} href={item.path}>
-            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={`p-2.5 rounded-lg ${item.color} shrink-0`}>
-                  <item.icon className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">{item.label}</p>
-                    {item.badge && (
-                      <Badge variant={item.badgeVariant || "secondary"} className="text-[10px]">
-                        {item.badge}
-                      </Badge>
-                    )}
+      <Tabs defaultValue="checklist" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="checklist" className="flex items-center gap-1.5">
+            <ClipboardCheck className="w-4 h-4" />
+            부과 전 체크리스트
+          </TabsTrigger>
+          <TabsTrigger value="engine" className="flex items-center gap-1.5">
+            <Calculator className="w-4 h-4" />
+            관리비 산출 엔진
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="checklist" className="mt-4 space-y-4">
+          {incompleteUnits.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="border-amber-300 bg-amber-50">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-2 w-full">
+                      <p className="text-sm font-semibold text-amber-800">
+                        데이터 미비 세대 {incompleteUnits.length}건
+                      </p>
+                      <div className="space-y-1">
+                        {incompleteUnits.slice(0, 5).map((u, i) => (
+                          <div key={i} className="flex justify-between text-xs text-amber-700">
+                            <span>{u.unitNumber}호</span>
+                            <span>{u.issue}</span>
+                          </div>
+                        ))}
+                        {incompleteUnits.length > 5 && (
+                          <p className="text-xs text-amber-600">외 {incompleteUnits.length - 5}건...</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">
+                  부과 전 점검 항목 ({month})
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-24 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                      style={{ width: `${completionRate}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{completionRate}%</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <AnimatePresence>
+                {checklist.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    draggable
+                    onDragStart={() => handleDragStart(item.id)}
+                    onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent, item.id)}
+                    onDragEnd={() => setDragId(null)}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-colors ${
+                      item.checked ? "bg-emerald-50 border-emerald-200" : "bg-white hover:bg-gray-50"
+                    } ${dragId === item.id ? "opacity-50" : ""}`}
+                  >
+                    <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => toggleCheck(item.id)}
+                      className="w-4 h-4 rounded accent-emerald-600"
+                    />
+                    <span className={`flex-1 text-sm ${item.checked ? "line-through text-muted-foreground" : ""}`}>
+                      {item.label}
+                    </span>
+                    <Badge
+                      variant={item.category === "필수" ? "destructive" : item.category === "권장" ? "secondary" : "outline"}
+                      className="text-[10px]"
+                    >
+                      {item.category}
+                    </Badge>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+
+          {approvalCheck && (
+            <Card className={approvalCheck.allApproved ? "border-emerald-200" : "border-amber-200"}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  {approvalCheck.allApproved ? (
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      {approvalCheck.allApproved
+                        ? "모든 결재가 완료되었습니다"
+                        : `미결재 ${approvalCheck.pending}건 / 반려 ${approvalCheck.rejected}건`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      전체 {approvalCheck.total}건 중 승인 {approvalCheck.approved}건
+                    </p>
+                  </div>
+                  {!approvalCheck.allApproved && (
+                    <Link href="/approvals">
+                      <Button variant="outline" size="sm">
+                        결재함 이동 <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+                {approvalCheck.unapprovedItems && approvalCheck.unapprovedItems.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {approvalCheck.unapprovedItems.slice(0, 3).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between text-xs p-2 bg-white rounded border">
+                        <span>{item.title}</span>
+                        <div className="flex items-center gap-2">
+                          {item.estimatedAmount && (
+                            <span className="text-muted-foreground">{formatKrw(item.estimatedAmount)}원</span>
+                          )}
+                          <Badge variant={item.status === "rejected" ? "destructive" : "secondary"} className="text-[10px]">
+                            {item.status === "pending" ? "대기" : item.status === "in_progress" ? "진행중" : "반려"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          )}
+
+          {requiredDone && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Card className="border-emerald-300 bg-emerald-50">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <p className="text-sm font-medium text-emerald-800">
+                    필수 체크리스트 완료! 관리비 산출 탭으로 이동하세요.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="engine" className="mt-4 space-y-4">
+          {!requiredDone && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <XCircle className="w-5 h-5 text-red-500" />
+                <p className="text-sm text-red-700">
+                  필수 체크리스트를 먼저 완료해야 산출할 수 있습니다
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">관리비 산출 설정</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">공용관리비 (원)</Label>
+                  <Input
+                    type="number"
+                    value={calcForm.commonMaintenanceFee}
+                    onChange={(e) => setCalcForm(p => ({ ...p, commonMaintenanceFee: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">장기수선충당금 (원)</Label>
+                  <Input
+                    type="number"
+                    value={calcForm.specialFund}
+                    onChange={(e) => setCalcForm(p => ({ ...p, specialFund: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">공과금 합계 (원)</Label>
+                  <Input
+                    type="number"
+                    value={calcForm.utilityTotal}
+                    onChange={(e) => setCalcForm(p => ({ ...p, utilityTotal: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">특별부과금 (원)</Label>
+                  <Input
+                    type="number"
+                    value={calcForm.specialSurcharge}
+                    onChange={(e) => setCalcForm(p => ({ ...p, specialSurcharge: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+                <Switch
+                  checked={calcForm.splitHighCostRepairs}
+                  onCheckedChange={(checked) => setCalcForm(p => ({ ...p, splitHighCostRepairs: checked }))}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">고액 수선비 분할 부과</p>
+                  <p className="text-xs text-muted-foreground">장기수선충당금을 월 분할하여 부과</p>
+                </div>
+                {calcForm.splitHighCostRepairs && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={calcForm.amortizationMonths}
+                      onChange={(e) => setCalcForm(p => ({ ...p, amortizationMonths: e.target.value }))}
+                      className="w-20 text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">개월</span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleCalculate}
+                disabled={calcMutation.isPending || !requiredDone}
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                {calcMutation.isPending ? "산출 중..." : "관리비 산출 실행"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {calcResult && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">산출 결과 ({calcResult.month})</CardTitle>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">{calcResult.totalUnits}세대</p>
+                      <p className="text-lg font-bold text-primary">{formatKrw(calcResult.grandTotal)}원</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto max-h-72">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-white">
+                        <tr className="border-b text-muted-foreground">
+                          <th className="p-2 text-left">호실</th>
+                          <th className="p-2 text-right">면적</th>
+                          <th className="p-2 text-right">비율</th>
+                          <th className="p-2 text-right">공용</th>
+                          <th className="p-2 text-right">수선</th>
+                          <th className="p-2 text-right">공과금</th>
+                          {Number(calcForm.specialSurcharge) > 0 && <th className="p-2 text-right">특별</th>}
+                          <th className="p-2 text-right font-semibold">합계</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calcResult.items.map((item) => (
+                          <tr key={item.unitNumber} className="border-b last:border-0">
+                            <td className="p-2 font-medium">{item.unitNumber}호</td>
+                            <td className="p-2 text-right">{item.exclusiveArea}㎡</td>
+                            <td className="p-2 text-right">{item.areaRatio}%</td>
+                            <td className="p-2 text-right">{formatKrw(item.commonFee ?? 0)}</td>
+                            <td className="p-2 text-right">{formatKrw(item.specialFund ?? 0)}</td>
+                            <td className="p-2 text-right">{formatKrw(item.utilityFee ?? 0)}</td>
+                            {Number(calcForm.specialSurcharge) > 0 && (
+                              <td className="p-2 text-right">{formatKrw(item.specialSurcharge ?? 0)}</td>
+                            )}
+                            <td className="p-2 text-right font-semibold">{formatKrw(item.totalFee)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">회계 메뉴</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {menuCards.map((item) => (
+            <Link key={item.path} href={item.path}>
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-lg ${item.color} shrink-0`}>
+                    <item.icon className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">{item.label}</p>
+                      {item.badge && (
+                        <Badge variant={item.badgeVariant || "secondary"} className="text-[10px]">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -3903,6 +3903,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/KakaoNotifyResponse"
 
+  /fees/approval-check:
+    get:
+      operationId: getApprovalCheck
+      tags: [fees]
+      summary: Check approval status for billing month
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approval status summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalCheckResponse"
+
+  /fees/incomplete-units:
+    get:
+      operationId: getIncompleteUnits
+      tags: [fees]
+      summary: Get units with incomplete data for billing
+      responses:
+        "200":
+          description: List of unit issues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IncompleteUnitIssue"
+
   /complaints:
     get:
       operationId: listComplaints
@@ -8351,6 +8385,12 @@ components:
           type: number
         utilityTotal:
           type: number
+        specialSurcharge:
+          type: number
+        splitHighCostRepairs:
+          type: boolean
+        amortizationMonths:
+          type: integer
         additionalExpenses:
           type: array
           items:
@@ -8389,8 +8429,13 @@ components:
     BillingItem:
       type: object
       properties:
+        unitId:
+          type: integer
         unitNumber:
           type: string
+        ownerName:
+          type: string
+          nullable: true
         exclusiveArea:
           type: number
         areaRatio:
@@ -8403,10 +8448,14 @@ components:
           type: number
         additionalFee:
           type: number
+        specialSurcharge:
+          type: number
         totalFee:
           type: number
         isPaid:
           type: boolean
+        dueDate:
+          type: string
       required:
         - unitNumber
         - totalFee
@@ -8419,6 +8468,8 @@ components:
         buildingAvg:
           type: number
         kaptAvg:
+          type: number
+        priorYearAvg:
           type: number
       required:
         - month
@@ -8724,3 +8775,55 @@ components:
         - againstCount
         - abstainCount
         - turnoutRate
+
+    ApprovalCheckResponse:
+      type: object
+      properties:
+        month:
+          type: string
+        total:
+          type: integer
+        approved:
+          type: integer
+        pending:
+          type: integer
+        rejected:
+          type: integer
+        allApproved:
+          type: boolean
+        unapprovedItems:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              category:
+                type: string
+              status:
+                type: string
+              estimatedAmount:
+                type: number
+      required:
+        - month
+        - total
+        - approved
+        - pending
+        - rejected
+        - allApproved
+
+    IncompleteUnitIssue:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        unitId:
+          type: integer
+        issue:
+          type: string
+      required:
+        - unitNumber
+        - unitId
+        - issue

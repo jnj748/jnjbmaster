@@ -3369,19 +3369,26 @@ export interface CalculateFeesBody {
   commonMaintenanceFee: number;
   specialFund?: number;
   utilityTotal?: number;
+  specialSurcharge?: number;
+  splitHighCostRepairs?: boolean;
+  amortizationMonths?: number;
   additionalExpenses?: CalculateFeesBodyAdditionalExpensesItem[];
 }
 
 export interface BillingItem {
+  unitId?: number;
   unitNumber: string;
+  ownerName?: string | null;
   exclusiveArea?: number;
   areaRatio?: number;
   commonFee?: number;
   specialFund?: number;
   utilityFee?: number;
   additionalFee?: number;
+  specialSurcharge?: number;
   totalFee: number;
   isPaid?: boolean;
+  dueDate?: string;
 }
 
 export interface CalculateFeesResponse {
@@ -3395,6 +3402,7 @@ export interface FeeTrendItem {
   month: string;
   buildingAvg: number;
   kaptAvg?: number;
+  priorYearAvg?: number;
 }
 
 export interface InterimSettlementBody {
@@ -3618,6 +3626,30 @@ export interface VoteDetail {
   abstainCount: number;
   turnoutRate: number;
   ballots?: VoteDetailBallotsItem[];
+}
+
+export type ApprovalCheckResponseUnapprovedItemsItem = {
+  id?: number;
+  title?: string;
+  category?: string;
+  status?: string;
+  estimatedAmount?: number;
+};
+
+export interface ApprovalCheckResponse {
+  month: string;
+  total: number;
+  approved: number;
+  pending: number;
+  rejected: number;
+  allApproved: boolean;
+  unapprovedItems?: ApprovalCheckResponseUnapprovedItemsItem[];
+}
+
+export interface IncompleteUnitIssue {
+  unitNumber: string;
+  unitId: number;
+  issue: string;
 }
 
 export type ListTasksParams = {
@@ -4068,6 +4100,10 @@ export const ListMeterReadingsMeterType = {
 } as const;
 
 export type GetBillingListParams = {
+  month: string;
+};
+
+export type GetApprovalCheckParams = {
   month: string;
 };
 

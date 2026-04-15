@@ -12,5 +12,8 @@ export interface CalculateFeesBody {
   commonMaintenanceFee: number;
   specialFund?: number;
   utilityTotal?: number;
+  specialSurcharge?: number;
+  splitHighCostRepairs?: boolean;
+  amortizationMonths?: number;
   additionalExpenses?: CalculateFeesBodyAdditionalExpensesItem[];
 }

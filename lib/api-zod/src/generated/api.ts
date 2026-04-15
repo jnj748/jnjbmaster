@@ -4753,6 +4753,9 @@ export const CalculateFeesBody = zod.object({
   commonMaintenanceFee: zod.number(),
   specialFund: zod.number().optional(),
   utilityTotal: zod.number().optional(),
+  specialSurcharge: zod.number().optional(),
+  splitHighCostRepairs: zod.boolean().optional(),
+  amortizationMonths: zod.number().optional(),
   additionalExpenses: zod
     .array(
       zod.object({
@@ -4769,15 +4772,19 @@ export const CalculateFeesResponse = zod.object({
   grandTotal: zod.number(),
   items: zod.array(
     zod.object({
+      unitId: zod.number().optional(),
       unitNumber: zod.string(),
+      ownerName: zod.string().nullish(),
       exclusiveArea: zod.number().optional(),
       areaRatio: zod.number().optional(),
       commonFee: zod.number().optional(),
       specialFund: zod.number().optional(),
       utilityFee: zod.number().optional(),
       additionalFee: zod.number().optional(),
+      specialSurcharge: zod.number().optional(),
       totalFee: zod.number(),
       isPaid: zod.boolean().optional(),
+      dueDate: zod.string().optional(),
     }),
   ),
 });
@@ -4790,15 +4797,19 @@ export const GetBillingListQueryParams = zod.object({
 });
 
 export const GetBillingListResponseItem = zod.object({
+  unitId: zod.number().optional(),
   unitNumber: zod.string(),
+  ownerName: zod.string().nullish(),
   exclusiveArea: zod.number().optional(),
   areaRatio: zod.number().optional(),
   commonFee: zod.number().optional(),
   specialFund: zod.number().optional(),
   utilityFee: zod.number().optional(),
   additionalFee: zod.number().optional(),
+  specialSurcharge: zod.number().optional(),
   totalFee: zod.number(),
   isPaid: zod.boolean().optional(),
+  dueDate: zod.string().optional(),
 });
 export const GetBillingListResponse = zod.array(GetBillingListResponseItem);
 
@@ -4809,6 +4820,7 @@ export const GetFeeTrendResponseItem = zod.object({
   month: zod.string(),
   buildingAvg: zod.number(),
   kaptAvg: zod.number().optional(),
+  priorYearAvg: zod.number().optional(),
 });
 export const GetFeeTrendResponse = zod.array(GetFeeTrendResponseItem);
 
@@ -4853,6 +4865,45 @@ export const SendKakaoNotificationResponse = zod.object({
     )
     .optional(),
 });
+
+/**
+ * @summary Check approval status for billing month
+ */
+export const GetApprovalCheckQueryParams = zod.object({
+  month: zod.coerce.string(),
+});
+
+export const GetApprovalCheckResponse = zod.object({
+  month: zod.string(),
+  total: zod.number(),
+  approved: zod.number(),
+  pending: zod.number(),
+  rejected: zod.number(),
+  allApproved: zod.boolean(),
+  unapprovedItems: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        title: zod.string().optional(),
+        category: zod.string().optional(),
+        status: zod.string().optional(),
+        estimatedAmount: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get units with incomplete data for billing
+ */
+export const GetIncompleteUnitsResponseItem = zod.object({
+  unitNumber: zod.string(),
+  unitId: zod.number(),
+  issue: zod.string(),
+});
+export const GetIncompleteUnitsResponse = zod.array(
+  GetIncompleteUnitsResponseItem,
+);
 
 /**
  * @summary List complaints
