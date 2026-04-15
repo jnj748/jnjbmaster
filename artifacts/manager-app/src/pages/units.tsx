@@ -55,6 +55,7 @@ import {
   Eye,
   Users,
   UserCheck,
+  Car,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
@@ -65,13 +66,16 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
   maintenance: { label: "정비중", variant: "destructive" },
 };
 
+const USAGE_OPTIONS = ["주거", "사무실", "상가", "기타"] as const;
+
 const emptyForm = {
   unitNumber: "",
   floor: "",
   exclusiveArea: "",
   commonArea: "",
-  usage: "",
+  usage: "주거",
   notes: "",
+  status: "vacant" as string,
 };
 
 interface CsvRow {
@@ -149,28 +153,42 @@ export default function UnitsPage() {
       floor: String(item.floor),
       exclusiveArea: item.exclusiveArea || "",
       commonArea: item.commonArea || "",
-      usage: item.usage || "",
+      usage: item.usage || "주거",
       notes: item.notes || "",
+      status: item.status,
     });
     setDialogOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const data = {
-      unitNumber: form.unitNumber,
-      floor: parseInt(form.floor),
-      exclusiveArea: form.exclusiveArea || null,
-      commonArea: form.commonArea || null,
-      usage: form.usage || null,
-      notes: form.notes || null,
-    };
 
     if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, data });
+      await updateMutation.mutateAsync({
+        id: editing.id,
+        data: {
+          unitNumber: form.unitNumber,
+          floor: parseInt(form.floor),
+          exclusiveArea: form.exclusiveArea || null,
+          commonArea: form.commonArea || null,
+          usage: form.usage || null,
+          notes: form.notes || null,
+          status: form.status as "vacant" | "occupied" | "maintenance",
+        },
+      });
       toast({ title: "호실 정보가 수정되었습니다" });
     } else {
-      await createMutation.mutateAsync({ data });
+      await createMutation.mutateAsync({
+        data: {
+          unitNumber: form.unitNumber,
+          floor: parseInt(form.floor),
+          exclusiveArea: form.exclusiveArea || null,
+          commonArea: form.commonArea || null,
+          usage: form.usage || "주거",
+          notes: form.notes || null,
+          status: form.status as "vacant" | "occupied" | "maintenance",
+        },
+      });
       toast({ title: "호실이 등록되었습니다" });
     }
     invalidateAll();
@@ -441,9 +459,29 @@ export default function UnitsPage() {
                     <Input type="number" step="0.01" value={form.commonArea} onChange={(e) => setForm({ ...form, commonArea: e.target.value })} />
                   </div>
                 </div>
-                <div>
-                  <Label>용도</Label>
-                  <Input value={form.usage} onChange={(e) => setForm({ ...form, usage: e.target.value })} placeholder="사무실, 상가, 주거 등" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>용도</Label>
+                    <Select value={form.usage} onValueChange={(v) => setForm({ ...form, usage: v })}>
+                      <SelectTrigger><SelectValue placeholder="용도 선택" /></SelectTrigger>
+                      <SelectContent>
+                        {USAGE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>상태</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vacant">공실</SelectItem>
+                        <SelectItem value="occupied">입주</SelectItem>
+                        <SelectItem value="maintenance">정비중</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label>비고</Label>
@@ -699,6 +737,27 @@ export default function UnitsPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">해당 호실에 등록된 소유자가 없습니다</p>
+                  )}
+                </div>
+              )}
+
+              {"vehicles" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).vehicles) && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Car className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">등록 차량</p>
+                  </div>
+                  {((unitDetail as Record<string, unknown>).vehicles as Array<{vehicleNumber: string; vehicleType?: string | null; ownerName?: string | null}>).length > 0 ? (
+                    <div className="space-y-2">
+                      {((unitDetail as Record<string, unknown>).vehicles as Array<{vehicleNumber: string; vehicleType?: string | null; ownerName?: string | null}>).map((v, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                          <span className="font-medium">{v.vehicleNumber}</span>
+                          <span className="text-muted-foreground">{v.vehicleType || ""} {v.ownerName ? `(${v.ownerName})` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 차량이 없습니다</p>
                   )}
                 </div>
               )}

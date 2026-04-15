@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, ilike, or, sql } from "drizzle-orm";
-import { db, unitsTable, usersTable, tenantsTable, ownersTable } from "@workspace/db";
+import { db, unitsTable, usersTable, tenantsTable, ownersTable, vehiclesTable } from "@workspace/db";
 import {
   ListUnitsQueryParams,
   CreateUnitBody,
@@ -113,10 +113,7 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(tenantsTable.status, "active"),
-        or(
-          eq(tenantsTable.unitId, unit.id),
-          and(eq(tenantsTable.unit, unit.unitNumber), sql`${tenantsTable.unitId} IS NULL`)
-        )
+        eq(tenantsTable.unitId, unit.id)
       )
     );
 
@@ -126,14 +123,21 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(ownersTable.status, "active"),
-        or(
-          eq(ownersTable.unitId, unit.id),
-          and(eq(ownersTable.unit, unit.unitNumber), sql`${ownersTable.unitId} IS NULL`)
-        )
+        eq(ownersTable.unitId, unit.id)
       )
     );
 
-  res.json({ ...unit, tenants, owners });
+  const vehicles = await db
+    .select()
+    .from(vehiclesTable)
+    .where(
+      and(
+        eq(vehiclesTable.unit, unit.unitNumber),
+        eq(vehiclesTable.status, "registered")
+      )
+    );
+
+  res.json({ ...unit, tenants, owners, vehicles });
 });
 
 router.post("/units/bulk", async (req: Request, res: Response): Promise<void> => {
@@ -182,7 +186,7 @@ router.post("/units/bulk", async (req: Request, res: Response): Promise<void> =>
         floor: unit.floor,
         exclusiveArea: unit.exclusiveArea ?? undefined,
         commonArea: unit.commonArea ?? undefined,
-        usage: unit.usage ?? undefined,
+        usage: unit.usage ?? "주거",
         notes: unit.notes ?? undefined,
       });
       existingSet.add(unit.unitNumber);
@@ -230,7 +234,7 @@ router.post("/units/generate", async (req: Request, res: Response): Promise<void
           buildingId,
           unitNumber: unitNum,
           floor,
-          usage: usage ?? undefined,
+          usage: usage ?? "주거",
         });
       }
     }
@@ -272,8 +276,9 @@ router.post("/units", async (req: Request, res: Response): Promise<void> => {
     floor: parsed.data.floor,
     exclusiveArea: parsed.data.exclusiveArea ?? undefined,
     commonArea: parsed.data.commonArea ?? undefined,
-    usage: parsed.data.usage ?? undefined,
+    usage: parsed.data.usage ?? "주거",
     notes: parsed.data.notes ?? undefined,
+    status: parsed.data.status ?? "vacant",
   }).returning();
 
   res.status(201).json(unit);

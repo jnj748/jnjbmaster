@@ -86,6 +86,7 @@ export * from "./createTaxScheduleBodyRecurrence";
 export * from "./createTaxScheduleBodyScheduleType";
 export * from "./createTenantBody";
 export * from "./createUnitBody";
+export * from "./createUnitBodyStatus";
 export * from "./createVehicleBody";
 export * from "./createVehicleBodyOwnershipType";
 export * from "./createVendorBody";

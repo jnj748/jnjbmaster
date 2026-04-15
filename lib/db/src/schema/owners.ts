@@ -1,10 +1,11 @@
 import { pgTable, text, serial, integer, boolean, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { unitsTable } from "./units";
 
 export const ownersTable = pgTable("owners", {
   id: serial("id").primaryKey(),
-  unitId: integer("unit_id"),
+  unitId: integer("unit_id").references(() => unitsTable.id),
   unit: text("unit").notNull(),
   ownerName: text("owner_name").notNull(),
   birthDate: date("birth_date"),

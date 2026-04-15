@@ -2912,18 +2912,27 @@ export const ListUnitsResponse = zod.array(ListUnitsResponseItem);
 /**
  * @summary Create a unit
  */
+export const createUnitBodyUsageDefault = `주거`;
+export const createUnitBodyStatusDefault = `vacant`;
+
 export const CreateUnitBody = zod.object({
   unitNumber: zod.string(),
   floor: zod.number(),
   exclusiveArea: zod.string().nullish(),
   commonArea: zod.string().nullish(),
-  usage: zod.string().nullish(),
+  usage: zod.string().nullish().default(createUnitBodyUsageDefault),
   notes: zod.string().nullish(),
+  status: zod
+    .enum(["vacant", "occupied", "maintenance"])
+    .default(createUnitBodyStatusDefault),
 });
 
 /**
  * @summary Bulk create units (CSV import)
  */
+export const bulkCreateUnitsBodyUnitsItemUsageDefault = `주거`;
+export const bulkCreateUnitsBodyUnitsItemStatusDefault = `vacant`;
+
 export const BulkCreateUnitsBody = zod.object({
   units: zod.array(
     zod.object({
@@ -2931,8 +2940,14 @@ export const BulkCreateUnitsBody = zod.object({
       floor: zod.number(),
       exclusiveArea: zod.string().nullish(),
       commonArea: zod.string().nullish(),
-      usage: zod.string().nullish(),
+      usage: zod
+        .string()
+        .nullish()
+        .default(bulkCreateUnitsBodyUnitsItemUsageDefault),
       notes: zod.string().nullish(),
+      status: zod
+        .enum(["vacant", "occupied", "maintenance"])
+        .default(bulkCreateUnitsBodyUnitsItemStatusDefault),
     }),
   ),
 });
@@ -3042,6 +3057,31 @@ export const GetUnitResponse = zod
             propertyDoc: zod.boolean(),
             createdAt: zod.coerce.date(),
             dataDestructionDate: zod.coerce.date().nullish(),
+            updatedAt: zod.coerce.date(),
+          }),
+        )
+        .optional(),
+      vehicles: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            tenantId: zod.number().nullish(),
+            unit: zod.string(),
+            tenantRelation: zod.string().nullish(),
+            vehicleNumber: zod.string(),
+            vehicleType: zod.string().nullish(),
+            vehicleColor: zod.string().nullish(),
+            ownerName: zod.string().nullish(),
+            ownerContact: zod.string().nullish(),
+            isPrimary: zod.boolean(),
+            ownershipType: zod.enum(["owned", "leased", "rental", "other"]),
+            registrationDoc: zod.boolean(),
+            insuranceDoc: zod.boolean(),
+            leaseDoc: zod.boolean(),
+            status: zod.enum(["registered", "cancelled"]),
+            cancelledAt: zod.coerce.date().nullish(),
+            notes: zod.string().nullish(),
+            createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
           }),
         )

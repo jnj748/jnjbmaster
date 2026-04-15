@@ -2469,6 +2469,10 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/Owner"
+                      vehicles:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Vehicle"
         "404":
           description: Not found
     patch:
@@ -7200,8 +7204,13 @@ components:
           type: ["string", "null"]
         usage:
           type: ["string", "null"]
+          default: "주거"
         notes:
           type: ["string", "null"]
+        status:
+          type: string
+          enum: [vacant, occupied, maintenance]
+          default: vacant
 
     UpdateUnitBody:
       type: object

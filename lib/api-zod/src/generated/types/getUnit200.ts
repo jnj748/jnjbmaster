@@ -8,8 +8,10 @@
 import type { Owner } from "./owner";
 import type { Tenant } from "./tenant";
 import type { Unit } from "./unit";
+import type { Vehicle } from "./vehicle";
 
 export type GetUnit200 = Unit & {
   tenants?: Tenant[];
   owners?: Owner[];
+  vehicles?: Vehicle[];
 };

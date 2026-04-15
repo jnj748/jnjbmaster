@@ -5,6 +5,7 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateUnitBodyStatus } from "./createUnitBodyStatus";
 
 export interface CreateUnitBody {
   unitNumber: string;
@@ -17,4 +18,5 @@ export interface CreateUnitBody {
   usage?: string | null;
   /** @nullable */
   notes?: string | null;
+  status?: CreateUnitBodyStatus;
 }

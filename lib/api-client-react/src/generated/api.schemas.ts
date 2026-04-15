@@ -2934,6 +2934,15 @@ export interface Unit {
   updatedAt: string;
 }
 
+export type CreateUnitBodyStatus =
+  (typeof CreateUnitBodyStatus)[keyof typeof CreateUnitBodyStatus];
+
+export const CreateUnitBodyStatus = {
+  vacant: "vacant",
+  occupied: "occupied",
+  maintenance: "maintenance",
+} as const;
+
 export interface CreateUnitBody {
   unitNumber: string;
   floor: number;
@@ -2945,6 +2954,7 @@ export interface CreateUnitBody {
   usage?: string | null;
   /** @nullable */
   notes?: string | null;
+  status?: CreateUnitBodyStatus;
 }
 
 export type UpdateUnitBodyStatus =
@@ -3222,6 +3232,7 @@ export type GetUnitsSummary200 = {
 export type GetUnit200 = Unit & {
   tenants?: Tenant[];
   owners?: Owner[];
+  vehicles?: Vehicle[];
 };
 
 export type ListOwnersParams = {
