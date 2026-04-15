@@ -90,6 +90,13 @@ export default function Vehicles() {
     Object.keys(queryParams).length > 0 ? queryParams : undefined
   );
   const { data: tenants } = useListTenants({ status: "active" as ListVehiclesParams["search"] });
+
+  function isUnverifiedTenant(tenantId?: number | null) {
+    if (!tenantId || !tenants) return false;
+    const t = tenants.find((t) => t.id === tenantId);
+    return t && t.verificationStatus !== "verified";
+  }
+
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
   const deleteMutation = useDeleteVehicle();
@@ -476,7 +483,12 @@ export default function Vehicles() {
                             />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{vehicle.unit}</TableCell>
+                        <TableCell className="font-medium">
+                          <span>{vehicle.unit}</span>
+                          {isUnverifiedTenant(vehicle.tenantId) && (
+                            <Badge variant="secondary" className="ml-1 text-[9px] bg-orange-100 text-orange-700">미확인</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {[vehicle.vehicleType, vehicle.vehicleColor].filter(Boolean).join(" / ") || "-"}
@@ -550,6 +562,9 @@ export default function Vehicles() {
                           {vehicle.isPrimary ? "기본" : "추가"}
                         </Badge>
                         {vehicle.vehicleType && <span className="text-xs text-muted-foreground">{vehicle.vehicleType}</span>}
+                        {isUnverifiedTenant(vehicle.tenantId) && (
+                          <Badge variant="secondary" className="text-[9px] bg-orange-100 text-orange-700">입주자 미확인</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">

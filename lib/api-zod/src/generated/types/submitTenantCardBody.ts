@@ -5,34 +5,27 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateTenantBodyVerificationStatus } from "./createTenantBodyVerificationStatus";
+import type { SubmitTenantCardBodyVehiclesItem } from "./submitTenantCardBodyVehiclesItem";
 
-export interface CreateTenantBody {
-  unit: string;
+export interface SubmitTenantCardBody {
   tenantName: string;
-  /** @nullable */
-  residentId?: string | null;
-  /** @nullable */
-  phone?: string | null;
+  residentId: string;
+  phone: string;
   /** @nullable */
   emergencyContact?: string | null;
+  /** @nullable */
+  email?: string | null;
   /** @nullable */
   interiorStartDate?: Date | null;
   /** @nullable */
   moveInDate?: Date | null;
-  /** @nullable */
-  moveOutDate?: Date | null;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  companyName?: string | null;
-  /** @nullable */
-  businessNumber?: string | null;
   hasTv?: boolean;
   /** @nullable */
   registeredAddress?: string | null;
   /** @nullable */
-  notes?: string | null;
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
   /** @nullable */
   guarantorName?: string | null;
   /** @nullable */
@@ -42,11 +35,6 @@ export interface CreateTenantBody {
   /** @nullable */
   guarantorResidentId?: string | null;
   /** @nullable */
-  privacyConsentDate?: Date | null;
-  contractDoc?: boolean;
-  businessRegDoc?: boolean;
-  idDoc?: boolean;
-  /** @nullable */
   contractDocUrl?: string | null;
   /** @nullable */
   businessRegDocUrl?: string | null;
@@ -54,16 +42,11 @@ export interface CreateTenantBody {
   idDocUrl?: string | null;
   /** @nullable */
   vehicleRegDocUrl?: string | null;
-  feeObligationConsent?: boolean;
-  penaltyConsent?: boolean;
-  specialFundConsent?: boolean;
-  privacyRetentionConsent?: boolean;
+  feeObligationConsent: boolean;
+  penaltyConsent: boolean;
+  specialFundConsent: boolean;
+  privacyRetentionConsent: boolean;
   guaranteeConsent?: boolean;
-  /** @nullable */
-  signatureName?: string | null;
-  /** @nullable */
-  signatureDate?: Date | null;
-  /** @nullable */
-  billingStartDate?: Date | null;
-  verificationStatus?: CreateTenantBodyVerificationStatus;
+  signatureName: string;
+  vehicles?: SubmitTenantCardBodyVehiclesItem[];
 }

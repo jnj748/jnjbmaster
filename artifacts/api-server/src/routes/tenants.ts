@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, ilike, sql } from "drizzle-orm";
-import { db, tenantsTable, notificationsTable, unitsTable, usersTable } from "@workspace/db";
+import { db, tenantsTable, notificationsTable, unitsTable, usersTable, tenantCardTokensTable } from "@workspace/db";
 import {
   ListTenantsQueryParams,
   ListTenantsResponse,
@@ -11,6 +11,7 @@ import {
   UpdateTenantBody,
   UpdateTenantResponse,
   DeleteTenantParams,
+  VerifyTenantBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -216,6 +217,108 @@ router.delete("/tenants/:id", async (req, res): Promise<void> => {
   await syncUnitStatus(tenant.unit, req.user?.userId);
 
   res.sendStatus(204);
+});
+
+router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const parsed = VerifyTenantBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, id));
+
+  if (!existing) {
+    res.status(404).json({ error: "입주자를 찾을 수 없습니다." });
+    return;
+  }
+
+  const userId = req.user?.userId;
+  const requestUser = userId
+    ? await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0])
+    : null;
+
+  if (requestUser?.buildingId && existing.unitId) {
+    const [unit] = await db
+      .select()
+      .from(unitsTable)
+      .where(and(eq(unitsTable.id, existing.unitId), eq(unitsTable.buildingId, requestUser.buildingId)));
+    if (!unit) {
+      res.status(403).json({ error: "권한이 없습니다." });
+      return;
+    }
+  }
+
+  const userName = requestUser?.name || "관리소장";
+
+  if (parsed.data.action === "approve") {
+    const [tenant] = await db
+      .update(tenantsTable)
+      .set({
+        verificationStatus: "verified",
+        verifiedAt: new Date(),
+        verifiedBy: userName,
+      })
+      .where(eq(tenantsTable.id, id))
+      .returning();
+
+    if (existing.unitId) {
+      await db
+        .update(tenantCardTokensTable)
+        .set({ status: "approved", approvedAt: new Date(), approvedBy: userName })
+        .where(
+          and(
+            eq(tenantCardTokensTable.unitId, existing.unitId),
+            eq(tenantCardTokensTable.status, "submitted")
+          )
+        );
+    }
+
+    await db.insert(notificationsTable).values({
+      recipientType: "admin",
+      notificationType: "tenant_verified",
+      title: "입주자카드 승인 완료",
+      message: `${tenant.unit}호 ${tenant.tenantName} 입주자카드가 승인되었습니다.`,
+      relatedEntityType: "tenant",
+      relatedEntityId: tenant.id,
+    });
+
+    res.json(GetTenantResponse.parse(tenant));
+  } else {
+    const [tenant] = await db
+      .update(tenantsTable)
+      .set({
+        verificationStatus: "rejected",
+      })
+      .where(eq(tenantsTable.id, id))
+      .returning();
+
+    if (existing.unitId) {
+      await db
+        .update(tenantCardTokensTable)
+        .set({
+          status: "rejected",
+          rejectionReason: parsed.data.rejectionReason || null,
+        })
+        .where(
+          and(
+            eq(tenantCardTokensTable.unitId, existing.unitId),
+            eq(tenantCardTokensTable.status, "submitted")
+          )
+        );
+    }
+
+    res.json(GetTenantResponse.parse(tenant));
+  }
 });
 
 export default router;

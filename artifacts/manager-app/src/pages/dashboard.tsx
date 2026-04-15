@@ -301,6 +301,7 @@ export default function Dashboard() {
   }
 
   const activeTenantCount = tenants?.length ?? 0;
+  const unverifiedTenantCount = tenants?.filter((t) => t.verificationStatus === "unverified" && t.signatureName).length ?? 0;
   const totalUnits = unitsSummary?.total ?? building?.totalUnits ?? 0;
   const occupiedUnits = unitsSummary?.occupied ?? 0;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
@@ -502,6 +503,20 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      {unverifiedTenantCount > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-orange-600" />
+              <span className="text-sm text-orange-800 font-medium">
+                서류 확인 대기 중인 입주자카드가 {unverifiedTenantCount}건 있습니다
+              </span>
+            </div>
+            <a href="/tenants" className="text-sm text-orange-600 hover:underline font-medium">확인하기 →</a>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard

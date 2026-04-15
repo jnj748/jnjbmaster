@@ -36,12 +36,16 @@ import buildingsRouter from "./buildings";
 import calendarRouter from "./calendar";
 import storageRouter from "./storage";
 import unitsRouter from "./units";
+import tenantCardTokensRouter from "./tenantCardTokens";
+import managementContractTemplatesRouter from "./managementContractTemplates";
+import publicTenantCardRouter from "./publicTenantCard";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
 router.use(storageRouter);
+router.use(publicTenantCardRouter);
 
 router.use(authMiddleware);
 
@@ -82,6 +86,8 @@ buildingRouter.use(alertActionsRouter);
 buildingRouter.use(buildingsRouter);
 buildingRouter.use(unitsRouter);
 buildingRouter.use(calendarRouter);
+buildingRouter.use(tenantCardTokensRouter);
+buildingRouter.use(managementContractTemplatesRouter);
 router.use(buildingRouter);
 
 export default router;

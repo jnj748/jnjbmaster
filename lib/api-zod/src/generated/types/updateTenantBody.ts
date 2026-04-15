@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpdateTenantBodyStatus } from "./updateTenantBodyStatus";
+import type { UpdateTenantBodyVerificationStatus } from "./updateTenantBodyVerificationStatus";
 
 export interface UpdateTenantBody {
   unit?: string;
@@ -39,10 +40,32 @@ export interface UpdateTenantBody {
   guarantorPhone?: string | null;
   /** @nullable */
   guarantorRelation?: string | null;
+  /** @nullable */
+  guarantorResidentId?: string | null;
   status?: UpdateTenantBodyStatus;
   /** @nullable */
   privacyConsentDate?: Date | null;
   contractDoc?: boolean;
   businessRegDoc?: boolean;
   idDoc?: boolean;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent?: boolean;
+  penaltyConsent?: boolean;
+  specialFundConsent?: boolean;
+  privacyRetentionConsent?: boolean;
+  guaranteeConsent?: boolean;
+  /** @nullable */
+  signatureName?: string | null;
+  /** @nullable */
+  signatureDate?: Date | null;
+  /** @nullable */
+  billingStartDate?: Date | null;
+  verificationStatus?: UpdateTenantBodyVerificationStatus;
 }

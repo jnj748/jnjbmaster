@@ -1244,6 +1244,15 @@ export const TenantStatus = {
   destroyed: "destroyed",
 } as const;
 
+export type TenantVerificationStatus =
+  (typeof TenantVerificationStatus)[keyof typeof TenantVerificationStatus];
+
+export const TenantVerificationStatus = {
+  unverified: "unverified",
+  verified: "verified",
+  rejected: "rejected",
+} as const;
+
 export interface Tenant {
   id: number;
   unit: string;
@@ -1277,17 +1286,52 @@ export interface Tenant {
   guarantorPhone?: string | null;
   /** @nullable */
   guarantorRelation?: string | null;
+  /** @nullable */
+  guarantorResidentId?: string | null;
   status: TenantStatus;
   /** @nullable */
   privacyConsentDate?: string | null;
   contractDoc: boolean;
   businessRegDoc: boolean;
   idDoc: boolean;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent: boolean;
+  penaltyConsent: boolean;
+  specialFundConsent: boolean;
+  privacyRetentionConsent: boolean;
+  guaranteeConsent: boolean;
+  /** @nullable */
+  signatureName?: string | null;
+  /** @nullable */
+  signatureDate?: string | null;
+  /** @nullable */
+  billingStartDate?: string | null;
+  verificationStatus: TenantVerificationStatus;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  verifiedBy?: string | null;
   createdAt: string;
   /** @nullable */
   dataDestructionDate?: string | null;
   updatedAt: string;
 }
+
+export type CreateTenantBodyVerificationStatus =
+  (typeof CreateTenantBodyVerificationStatus)[keyof typeof CreateTenantBodyVerificationStatus];
+
+export const CreateTenantBodyVerificationStatus = {
+  unverified: "unverified",
+  verified: "verified",
+  rejected: "rejected",
+} as const;
 
 export interface CreateTenantBody {
   unit: string;
@@ -1322,10 +1366,32 @@ export interface CreateTenantBody {
   /** @nullable */
   guarantorRelation?: string | null;
   /** @nullable */
+  guarantorResidentId?: string | null;
+  /** @nullable */
   privacyConsentDate?: string | null;
   contractDoc?: boolean;
   businessRegDoc?: boolean;
   idDoc?: boolean;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent?: boolean;
+  penaltyConsent?: boolean;
+  specialFundConsent?: boolean;
+  privacyRetentionConsent?: boolean;
+  guaranteeConsent?: boolean;
+  /** @nullable */
+  signatureName?: string | null;
+  /** @nullable */
+  signatureDate?: string | null;
+  /** @nullable */
+  billingStartDate?: string | null;
+  verificationStatus?: CreateTenantBodyVerificationStatus;
 }
 
 export type UpdateTenantBodyStatus =
@@ -1335,6 +1401,15 @@ export const UpdateTenantBodyStatus = {
   active: "active",
   moved_out: "moved_out",
   destroyed: "destroyed",
+} as const;
+
+export type UpdateTenantBodyVerificationStatus =
+  (typeof UpdateTenantBodyVerificationStatus)[keyof typeof UpdateTenantBodyVerificationStatus];
+
+export const UpdateTenantBodyVerificationStatus = {
+  unverified: "unverified",
+  verified: "verified",
+  rejected: "rejected",
 } as const;
 
 export interface UpdateTenantBody {
@@ -1369,12 +1444,34 @@ export interface UpdateTenantBody {
   guarantorPhone?: string | null;
   /** @nullable */
   guarantorRelation?: string | null;
+  /** @nullable */
+  guarantorResidentId?: string | null;
   status?: UpdateTenantBodyStatus;
   /** @nullable */
   privacyConsentDate?: string | null;
   contractDoc?: boolean;
   businessRegDoc?: boolean;
   idDoc?: boolean;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent?: boolean;
+  penaltyConsent?: boolean;
+  specialFundConsent?: boolean;
+  privacyRetentionConsent?: boolean;
+  guaranteeConsent?: boolean;
+  /** @nullable */
+  signatureName?: string | null;
+  /** @nullable */
+  signatureDate?: string | null;
+  /** @nullable */
+  billingStartDate?: string | null;
+  verificationStatus?: UpdateTenantBodyVerificationStatus;
 }
 
 export type OwnerStatus = (typeof OwnerStatus)[keyof typeof OwnerStatus];
@@ -2983,6 +3080,154 @@ export interface UpdateUnitBody {
   status?: UpdateUnitBodyStatus;
 }
 
+export type TenantCardTokenStatus =
+  (typeof TenantCardTokenStatus)[keyof typeof TenantCardTokenStatus];
+
+export const TenantCardTokenStatus = {
+  pending: "pending",
+  submitted: "submitted",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface TenantCardToken {
+  id: number;
+  buildingId: number;
+  unitId: number;
+  unitLabel: string;
+  token: string;
+  status: TenantCardTokenStatus;
+  expiresAt: string;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  approvedBy?: string | null;
+  /** @nullable */
+  rejectionReason?: string | null;
+  createdAt: string;
+}
+
+export interface CreateTenantCardTokenBody {
+  unitId: number;
+  unitLabel: string;
+  expiryDays?: number;
+}
+
+export type VerifyTenantBodyAction =
+  (typeof VerifyTenantBodyAction)[keyof typeof VerifyTenantBodyAction];
+
+export const VerifyTenantBodyAction = {
+  approve: "approve",
+  reject: "reject",
+} as const;
+
+export interface VerifyTenantBody {
+  action: VerifyTenantBodyAction;
+  /** @nullable */
+  rejectionReason?: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type ManagementContractTemplateAdditionalClauses = {
+  [key: string]: unknown;
+} | null;
+
+export interface ManagementContractTemplate {
+  id: number;
+  buildingId: number;
+  feeObligationClause: string;
+  penaltyClause: string;
+  specialFundClause: string;
+  privacyRetentionClause: string;
+  /** @nullable */
+  additionalClauses?: ManagementContractTemplateAdditionalClauses;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type UpsertManagementContractTemplateBodyAdditionalClauses = {
+  [key: string]: unknown;
+} | null;
+
+export interface UpsertManagementContractTemplateBody {
+  buildingId: number;
+  feeObligationClause: string;
+  penaltyClause: string;
+  specialFundClause: string;
+  privacyRetentionClause: string;
+  /** @nullable */
+  additionalClauses?: UpsertManagementContractTemplateBodyAdditionalClauses;
+}
+
+export interface PublicTenantCardData {
+  buildingName: string;
+  unitLabel: string;
+  tokenStatus: string;
+  contractTemplate?: ManagementContractTemplate;
+  specialFundEnabled: boolean;
+}
+
+export type SubmitTenantCardBodyVehiclesItem = {
+  vehicleNumber: string;
+  /** @nullable */
+  vehicleType?: string | null;
+  /** @nullable */
+  vehicleColor?: string | null;
+  tenantRelation: string;
+  ownerContact: string;
+  isPrimary?: boolean;
+};
+
+export interface SubmitTenantCardBody {
+  tenantName: string;
+  residentId: string;
+  phone: string;
+  /** @nullable */
+  emergencyContact?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  interiorStartDate?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  hasTv?: boolean;
+  /** @nullable */
+  registeredAddress?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  guarantorName?: string | null;
+  /** @nullable */
+  guarantorPhone?: string | null;
+  /** @nullable */
+  guarantorRelation?: string | null;
+  /** @nullable */
+  guarantorResidentId?: string | null;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent: boolean;
+  penaltyConsent: boolean;
+  specialFundConsent: boolean;
+  privacyRetentionConsent: boolean;
+  guaranteeConsent?: boolean;
+  signatureName: string;
+  vehicles?: SubmitTenantCardBodyVehiclesItem[];
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -3182,6 +3427,30 @@ export const ListTenantsStatus = {
   moved_out: "moved_out",
   destroyed: "destroyed",
 } as const;
+
+export type ListTenantCardTokensParams = {
+  status?: ListTenantCardTokensStatus;
+  unitId?: number;
+};
+
+export type ListTenantCardTokensStatus =
+  (typeof ListTenantCardTokensStatus)[keyof typeof ListTenantCardTokensStatus];
+
+export const ListTenantCardTokensStatus = {
+  pending: "pending",
+  submitted: "submitted",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type GetManagementContractTemplateParams = {
+  buildingId: number;
+};
+
+export type SubmitPublicTenantCard200 = {
+  success?: boolean;
+  message?: string;
+};
 
 export type ListUnitsParams = {
   floor?: string;

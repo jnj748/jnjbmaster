@@ -61,6 +61,7 @@ import type {
   CreateTaxDeadlineChecklistBody,
   CreateTaxScheduleBody,
   CreateTenantBody,
+  CreateTenantCardTokenBody,
   CreateUnitBody,
   CreateVehicleBody,
   CreateVendorBody,
@@ -91,6 +92,7 @@ import type {
   GetAttendanceStatsParams,
   GetCalendarEventsParams,
   GetExecutiveSpendingParams,
+  GetManagementContractTemplateParams,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
   GetUnit200,
@@ -117,6 +119,7 @@ import type {
   ListTasksParams,
   ListTaxDeadlineChecklistsParams,
   ListTaxSchedulesParams,
+  ListTenantCardTokensParams,
   ListTenantsParams,
   ListUnitsParams,
   ListVehiclesParams,
@@ -124,14 +127,18 @@ import type {
   ListWeeklySummaryReportsParams,
   ListWorkReportsParams,
   MaintenanceLog,
+  ManagementContractTemplate,
   MonthlySummaryReportItem,
   Notification,
   Owner,
   ProcessApprovalStepBody,
   ProcessDestructions200,
+  PublicTenantCardData,
   Quote,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
+  RequestUploadUrlBody,
+  RequestUploadUrlResponse,
   ReviewReportBody,
   Rfq,
   RunVehicleInspection200,
@@ -144,10 +151,13 @@ import type {
   Settlement,
   StaffAttendanceSummary,
   SubmitDraftBody,
+  SubmitPublicTenantCard200,
+  SubmitTenantCardBody,
   Task,
   TaxDeadlineChecklist,
   TaxSchedule,
   Tenant,
+  TenantCardToken,
   Unit,
   UpdateCommissionBody,
   UpdateDraftBody,
@@ -171,9 +181,11 @@ import type {
   UploadUrlRequest,
   UploadUrlResponse,
   UpsertDocumentChecklistBody,
+  UpsertManagementContractTemplateBody,
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
+  VerifyTenantBody,
   WeeklyReport,
   WeeklySummaryReportItem,
   WorkReport,
@@ -9648,6 +9660,833 @@ export const useDeleteTenant = <
   TContext
 > => {
   return useMutation(getDeleteTenantMutationOptions(options));
+};
+
+/**
+ * @summary List tenant card tokens
+ */
+export const getListTenantCardTokensUrl = (
+  params?: ListTenantCardTokensParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tenant-card-tokens?${stringifiedParams}`
+    : `/api/tenant-card-tokens`;
+};
+
+export const listTenantCardTokens = async (
+  params?: ListTenantCardTokensParams,
+  options?: RequestInit,
+): Promise<TenantCardToken[]> => {
+  return customFetch<TenantCardToken[]>(getListTenantCardTokensUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTenantCardTokensQueryKey = (
+  params?: ListTenantCardTokensParams,
+) => {
+  return [`/api/tenant-card-tokens`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTenantCardTokensQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTenantCardTokens>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTenantCardTokensParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTenantCardTokens>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTenantCardTokensQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTenantCardTokens>>
+  > = ({ signal }) =>
+    listTenantCardTokens(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTenantCardTokens>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTenantCardTokensQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTenantCardTokens>>
+>;
+export type ListTenantCardTokensQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List tenant card tokens
+ */
+
+export function useListTenantCardTokens<
+  TData = Awaited<ReturnType<typeof listTenantCardTokens>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTenantCardTokensParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTenantCardTokens>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTenantCardTokensQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate a new tenant card token for a unit
+ */
+export const getCreateTenantCardTokenUrl = () => {
+  return `/api/tenant-card-tokens`;
+};
+
+export const createTenantCardToken = async (
+  createTenantCardTokenBody: CreateTenantCardTokenBody,
+  options?: RequestInit,
+): Promise<TenantCardToken> => {
+  return customFetch<TenantCardToken>(getCreateTenantCardTokenUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTenantCardTokenBody),
+  });
+};
+
+export const getCreateTenantCardTokenMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTenantCardToken>>,
+    TError,
+    { data: BodyType<CreateTenantCardTokenBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTenantCardToken>>,
+  TError,
+  { data: BodyType<CreateTenantCardTokenBody> },
+  TContext
+> => {
+  const mutationKey = ["createTenantCardToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTenantCardToken>>,
+    { data: BodyType<CreateTenantCardTokenBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTenantCardToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTenantCardTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTenantCardToken>>
+>;
+export type CreateTenantCardTokenMutationBody =
+  BodyType<CreateTenantCardTokenBody>;
+export type CreateTenantCardTokenMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a new tenant card token for a unit
+ */
+export const useCreateTenantCardToken = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTenantCardToken>>,
+    TError,
+    { data: BodyType<CreateTenantCardTokenBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTenantCardToken>>,
+  TError,
+  { data: BodyType<CreateTenantCardTokenBody> },
+  TContext
+> => {
+  return useMutation(getCreateTenantCardTokenMutationOptions(options));
+};
+
+/**
+ * @summary Delete a tenant card token
+ */
+export const getDeleteTenantCardTokenUrl = (id: number) => {
+  return `/api/tenant-card-tokens/${id}`;
+};
+
+export const deleteTenantCardToken = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTenantCardTokenUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTenantCardTokenMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTenantCardToken>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTenantCardToken>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTenantCardToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTenantCardToken>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTenantCardToken(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTenantCardTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTenantCardToken>>
+>;
+
+export type DeleteTenantCardTokenMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a tenant card token
+ */
+export const useDeleteTenantCardToken = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTenantCardToken>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTenantCardToken>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTenantCardTokenMutationOptions(options));
+};
+
+/**
+ * @summary Verify or reject a tenant card submission
+ */
+export const getVerifyTenantUrl = (id: number) => {
+  return `/api/tenants/${id}/verify`;
+};
+
+export const verifyTenant = async (
+  id: number,
+  verifyTenantBody: VerifyTenantBody,
+  options?: RequestInit,
+): Promise<Tenant> => {
+  return customFetch<Tenant>(getVerifyTenantUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(verifyTenantBody),
+  });
+};
+
+export const getVerifyTenantMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyTenant>>,
+    TError,
+    { id: number; data: BodyType<VerifyTenantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyTenant>>,
+  TError,
+  { id: number; data: BodyType<VerifyTenantBody> },
+  TContext
+> => {
+  const mutationKey = ["verifyTenant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyTenant>>,
+    { id: number; data: BodyType<VerifyTenantBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return verifyTenant(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyTenantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyTenant>>
+>;
+export type VerifyTenantMutationBody = BodyType<VerifyTenantBody>;
+export type VerifyTenantMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Verify or reject a tenant card submission
+ */
+export const useVerifyTenant = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyTenant>>,
+    TError,
+    { id: number; data: BodyType<VerifyTenantBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyTenant>>,
+  TError,
+  { id: number; data: BodyType<VerifyTenantBody> },
+  TContext
+> => {
+  return useMutation(getVerifyTenantMutationOptions(options));
+};
+
+/**
+ * @summary Get management contract template for current building
+ */
+export const getGetManagementContractTemplateUrl = (
+  params: GetManagementContractTemplateParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/management-contract-templates?${stringifiedParams}`
+    : `/api/management-contract-templates`;
+};
+
+export const getManagementContractTemplate = async (
+  params: GetManagementContractTemplateParams,
+  options?: RequestInit,
+): Promise<ManagementContractTemplate> => {
+  return customFetch<ManagementContractTemplate>(
+    getGetManagementContractTemplateUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetManagementContractTemplateQueryKey = (
+  params?: GetManagementContractTemplateParams,
+) => {
+  return [
+    `/api/management-contract-templates`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetManagementContractTemplateQueryOptions = <
+  TData = Awaited<ReturnType<typeof getManagementContractTemplate>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetManagementContractTemplateParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getManagementContractTemplate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetManagementContractTemplateQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getManagementContractTemplate>>
+  > = ({ signal }) =>
+    getManagementContractTemplate(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getManagementContractTemplate>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetManagementContractTemplateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getManagementContractTemplate>>
+>;
+export type GetManagementContractTemplateQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get management contract template for current building
+ */
+
+export function useGetManagementContractTemplate<
+  TData = Awaited<ReturnType<typeof getManagementContractTemplate>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetManagementContractTemplateParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getManagementContractTemplate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetManagementContractTemplateQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create or update management contract template
+ */
+export const getUpsertManagementContractTemplateUrl = () => {
+  return `/api/management-contract-templates`;
+};
+
+export const upsertManagementContractTemplate = async (
+  upsertManagementContractTemplateBody: UpsertManagementContractTemplateBody,
+  options?: RequestInit,
+): Promise<ManagementContractTemplate> => {
+  return customFetch<ManagementContractTemplate>(
+    getUpsertManagementContractTemplateUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertManagementContractTemplateBody),
+    },
+  );
+};
+
+export const getUpsertManagementContractTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertManagementContractTemplate>>,
+    TError,
+    { data: BodyType<UpsertManagementContractTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertManagementContractTemplate>>,
+  TError,
+  { data: BodyType<UpsertManagementContractTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertManagementContractTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertManagementContractTemplate>>,
+    { data: BodyType<UpsertManagementContractTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertManagementContractTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertManagementContractTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertManagementContractTemplate>>
+>;
+export type UpsertManagementContractTemplateMutationBody =
+  BodyType<UpsertManagementContractTemplateBody>;
+export type UpsertManagementContractTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create or update management contract template
+ */
+export const useUpsertManagementContractTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertManagementContractTemplate>>,
+    TError,
+    { data: BodyType<UpsertManagementContractTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertManagementContractTemplate>>,
+  TError,
+  { data: BodyType<UpsertManagementContractTemplateBody> },
+  TContext
+> => {
+  return useMutation(
+    getUpsertManagementContractTemplateMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Get tenant card form data by token (no auth)
+ */
+export const getGetPublicTenantCardUrl = (token: string) => {
+  return `/api/public/tenant-card/${token}`;
+};
+
+export const getPublicTenantCard = async (
+  token: string,
+  options?: RequestInit,
+): Promise<PublicTenantCardData> => {
+  return customFetch<PublicTenantCardData>(getGetPublicTenantCardUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicTenantCardQueryKey = (token: string) => {
+  return [`/api/public/tenant-card/${token}`] as const;
+};
+
+export const getGetPublicTenantCardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicTenantCard>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicTenantCard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicTenantCardQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicTenantCard>>
+  > = ({ signal }) => getPublicTenantCard(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicTenantCard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicTenantCardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicTenantCard>>
+>;
+export type GetPublicTenantCardQueryError = ErrorType<void>;
+
+/**
+ * @summary Get tenant card form data by token (no auth)
+ */
+
+export function useGetPublicTenantCard<
+  TData = Awaited<ReturnType<typeof getPublicTenantCard>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicTenantCard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicTenantCardQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit tenant card form (no auth)
+ */
+export const getSubmitPublicTenantCardUrl = (token: string) => {
+  return `/api/public/tenant-card/${token}`;
+};
+
+export const submitPublicTenantCard = async (
+  token: string,
+  submitTenantCardBody: SubmitTenantCardBody,
+  options?: RequestInit,
+): Promise<SubmitPublicTenantCard200> => {
+  return customFetch<SubmitPublicTenantCard200>(
+    getSubmitPublicTenantCardUrl(token),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(submitTenantCardBody),
+    },
+  );
+};
+
+export const getSubmitPublicTenantCardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPublicTenantCard>>,
+    TError,
+    { token: string; data: BodyType<SubmitTenantCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitPublicTenantCard>>,
+  TError,
+  { token: string; data: BodyType<SubmitTenantCardBody> },
+  TContext
+> => {
+  const mutationKey = ["submitPublicTenantCard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitPublicTenantCard>>,
+    { token: string; data: BodyType<SubmitTenantCardBody> }
+  > = (props) => {
+    const { token, data } = props ?? {};
+
+    return submitPublicTenantCard(token, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitPublicTenantCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitPublicTenantCard>>
+>;
+export type SubmitPublicTenantCardMutationBody = BodyType<SubmitTenantCardBody>;
+export type SubmitPublicTenantCardMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit tenant card form (no auth)
+ */
+export const useSubmitPublicTenantCard = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPublicTenantCard>>,
+    TError,
+    { token: string; data: BodyType<SubmitTenantCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitPublicTenantCard>>,
+  TError,
+  { token: string; data: BodyType<SubmitTenantCardBody> },
+  TContext
+> => {
+  return useMutation(getSubmitPublicTenantCardMutationOptions(options));
+};
+
+/**
+ * @summary Request upload URL for document (no auth, token-based)
+ */
+export const getRequestPublicUploadUrlUrl = (token: string) => {
+  return `/api/public/tenant-card/${token}/upload-url`;
+};
+
+export const requestPublicUploadUrl = async (
+  token: string,
+  requestUploadUrlBody: RequestUploadUrlBody,
+  options?: RequestInit,
+): Promise<RequestUploadUrlResponse> => {
+  return customFetch<RequestUploadUrlResponse>(
+    getRequestPublicUploadUrlUrl(token),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(requestUploadUrlBody),
+    },
+  );
+};
+
+export const getRequestPublicUploadUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPublicUploadUrl>>,
+    TError,
+    { token: string; data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestPublicUploadUrl>>,
+  TError,
+  { token: string; data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["requestPublicUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestPublicUploadUrl>>,
+    { token: string; data: BodyType<RequestUploadUrlBody> }
+  > = (props) => {
+    const { token, data } = props ?? {};
+
+    return requestPublicUploadUrl(token, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestPublicUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestPublicUploadUrl>>
+>;
+export type RequestPublicUploadUrlMutationBody = BodyType<RequestUploadUrlBody>;
+export type RequestPublicUploadUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request upload URL for document (no auth, token-based)
+ */
+export const useRequestPublicUploadUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPublicUploadUrl>>,
+    TError,
+    { token: string; data: BodyType<RequestUploadUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestPublicUploadUrl>>,
+  TError,
+  { token: string; data: BodyType<RequestUploadUrlBody> },
+  TContext
+> => {
+  return useMutation(getRequestPublicUploadUrlMutationOptions(options));
 };
 
 /**

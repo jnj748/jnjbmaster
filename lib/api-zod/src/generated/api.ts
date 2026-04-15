@@ -2743,11 +2743,27 @@ export const ListTenantsResponseItem = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean(),
+  penaltyConsent: zod.boolean(),
+  specialFundConsent: zod.boolean(),
+  privacyRetentionConsent: zod.boolean(),
+  guaranteeConsent: zod.boolean(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
+  verifiedAt: zod.coerce.date().nullish(),
+  verifiedBy: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
@@ -2775,10 +2791,26 @@ export const CreateTenantBody = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean().optional(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean().optional(),
+  penaltyConsent: zod.boolean().optional(),
+  specialFundConsent: zod.boolean().optional(),
+  privacyRetentionConsent: zod.boolean().optional(),
+  guaranteeConsent: zod.boolean().optional(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod
+    .enum(["unverified", "verified", "rejected"])
+    .optional(),
 });
 
 /**
@@ -2807,11 +2839,27 @@ export const GetTenantResponse = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean(),
+  penaltyConsent: zod.boolean(),
+  specialFundConsent: zod.boolean(),
+  privacyRetentionConsent: zod.boolean(),
+  guaranteeConsent: zod.boolean(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
+  verifiedAt: zod.coerce.date().nullish(),
+  verifiedBy: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
@@ -2842,11 +2890,27 @@ export const UpdateTenantBody = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean().optional(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean().optional(),
+  penaltyConsent: zod.boolean().optional(),
+  specialFundConsent: zod.boolean().optional(),
+  privacyRetentionConsent: zod.boolean().optional(),
+  guaranteeConsent: zod.boolean().optional(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod
+    .enum(["unverified", "verified", "rejected"])
+    .optional(),
 });
 
 export const UpdateTenantResponse = zod.object({
@@ -2868,11 +2932,27 @@ export const UpdateTenantResponse = zod.object({
   guarantorName: zod.string().nullish(),
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
   privacyConsentDate: zod.coerce.date().nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean(),
+  penaltyConsent: zod.boolean(),
+  specialFundConsent: zod.boolean(),
+  privacyRetentionConsent: zod.boolean(),
+  guaranteeConsent: zod.boolean(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
+  verifiedAt: zod.coerce.date().nullish(),
+  verifiedBy: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   dataDestructionDate: zod.coerce.date().nullish(),
   updatedAt: zod.coerce.date(),
@@ -2884,6 +2964,237 @@ export const UpdateTenantResponse = zod.object({
 export const DeleteTenantParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary List tenant card tokens
+ */
+export const ListTenantCardTokensQueryParams = zod.object({
+  status: zod.enum(["pending", "submitted", "approved", "rejected"]).optional(),
+  unitId: zod.coerce.number().optional(),
+});
+
+export const ListTenantCardTokensResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number(),
+  unitLabel: zod.string(),
+  token: zod.string().uuid(),
+  status: zod.enum(["pending", "submitted", "approved", "rejected"]),
+  expiresAt: zod.coerce.date(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  approvedBy: zod.string().nullish(),
+  rejectionReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTenantCardTokensResponse = zod.array(
+  ListTenantCardTokensResponseItem,
+);
+
+/**
+ * @summary Generate a new tenant card token for a unit
+ */
+export const createTenantCardTokenBodyExpiryDaysDefault = 7;
+
+export const CreateTenantCardTokenBody = zod.object({
+  unitId: zod.number(),
+  unitLabel: zod.string(),
+  expiryDays: zod.number().default(createTenantCardTokenBodyExpiryDaysDefault),
+});
+
+/**
+ * @summary Delete a tenant card token
+ */
+export const DeleteTenantCardTokenParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Verify or reject a tenant card submission
+ */
+export const VerifyTenantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const VerifyTenantBody = zod.object({
+  action: zod.enum(["approve", "reject"]),
+  rejectionReason: zod.string().nullish(),
+});
+
+export const VerifyTenantResponse = zod.object({
+  id: zod.number(),
+  unit: zod.string(),
+  tenantName: zod.string(),
+  residentId: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  emergencyContact: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  moveOutDate: zod.coerce.date().nullish(),
+  email: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  hasTv: zod.boolean(),
+  registeredAddress: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
+  status: zod.enum(["active", "moved_out", "destroyed"]),
+  privacyConsentDate: zod.coerce.date().nullish(),
+  contractDoc: zod.boolean(),
+  businessRegDoc: zod.boolean(),
+  idDoc: zod.boolean(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean(),
+  penaltyConsent: zod.boolean(),
+  specialFundConsent: zod.boolean(),
+  privacyRetentionConsent: zod.boolean(),
+  guaranteeConsent: zod.boolean(),
+  signatureName: zod.string().nullish(),
+  signatureDate: zod.coerce.date().nullish(),
+  billingStartDate: zod.coerce.date().nullish(),
+  verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
+  verifiedAt: zod.coerce.date().nullish(),
+  verifiedBy: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  dataDestructionDate: zod.coerce.date().nullish(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get management contract template for current building
+ */
+export const GetManagementContractTemplateQueryParams = zod.object({
+  buildingId: zod.coerce.number(),
+});
+
+export const GetManagementContractTemplateResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  feeObligationClause: zod.string(),
+  penaltyClause: zod.string(),
+  specialFundClause: zod.string(),
+  privacyRetentionClause: zod.string(),
+  additionalClauses: zod.object({}).passthrough().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Create or update management contract template
+ */
+export const UpsertManagementContractTemplateBody = zod.object({
+  buildingId: zod.number(),
+  feeObligationClause: zod.string(),
+  penaltyClause: zod.string(),
+  specialFundClause: zod.string(),
+  privacyRetentionClause: zod.string(),
+  additionalClauses: zod.object({}).passthrough().nullish(),
+});
+
+export const UpsertManagementContractTemplateResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  feeObligationClause: zod.string(),
+  penaltyClause: zod.string(),
+  specialFundClause: zod.string(),
+  privacyRetentionClause: zod.string(),
+  additionalClauses: zod.object({}).passthrough().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get tenant card form data by token (no auth)
+ */
+export const GetPublicTenantCardParams = zod.object({
+  token: zod.coerce.string().uuid(),
+});
+
+export const GetPublicTenantCardResponse = zod.object({
+  buildingName: zod.string(),
+  unitLabel: zod.string(),
+  tokenStatus: zod.string(),
+  contractTemplate: zod
+    .object({
+      id: zod.number(),
+      buildingId: zod.number(),
+      feeObligationClause: zod.string(),
+      penaltyClause: zod.string(),
+      specialFundClause: zod.string(),
+      privacyRetentionClause: zod.string(),
+      additionalClauses: zod.object({}).passthrough().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  specialFundEnabled: zod.boolean(),
+});
+
+/**
+ * @summary Submit tenant card form (no auth)
+ */
+export const SubmitPublicTenantCardParams = zod.object({
+  token: zod.coerce.string().uuid(),
+});
+
+export const SubmitPublicTenantCardBody = zod.object({
+  tenantName: zod.string(),
+  residentId: zod.string(),
+  phone: zod.string(),
+  emergencyContact: zod.string().nullish(),
+  email: zod.string().nullish(),
+  interiorStartDate: zod.coerce.date().nullish(),
+  moveInDate: zod.coerce.date().nullish(),
+  hasTv: zod.boolean().optional(),
+  registeredAddress: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  guarantorName: zod.string().nullish(),
+  guarantorPhone: zod.string().nullish(),
+  guarantorRelation: zod.string().nullish(),
+  guarantorResidentId: zod.string().nullish(),
+  contractDocUrl: zod.string().nullish(),
+  businessRegDocUrl: zod.string().nullish(),
+  idDocUrl: zod.string().nullish(),
+  vehicleRegDocUrl: zod.string().nullish(),
+  feeObligationConsent: zod.boolean(),
+  penaltyConsent: zod.boolean(),
+  specialFundConsent: zod.boolean(),
+  privacyRetentionConsent: zod.boolean(),
+  guaranteeConsent: zod.boolean().optional(),
+  signatureName: zod.string(),
+  vehicles: zod
+    .array(
+      zod.object({
+        vehicleNumber: zod.string(),
+        vehicleType: zod.string().nullish(),
+        vehicleColor: zod.string().nullish(),
+        tenantRelation: zod.string(),
+        ownerContact: zod.string(),
+        isPrimary: zod.boolean().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const SubmitPublicTenantCardResponse = zod.object({
+  success: zod.boolean().optional(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Request upload URL for document (no auth, token-based)
+ */
+export const RequestPublicUploadUrlParams = zod.object({
+  token: zod.coerce.string().uuid(),
+});
+
+export const RequestPublicUploadUrlBody = zod.unknown();
+
+export const RequestPublicUploadUrlResponse = zod.unknown();
 
 /**
  * @summary List units
@@ -3026,11 +3337,31 @@ export const GetUnitResponse = zod
             guarantorName: zod.string().nullish(),
             guarantorPhone: zod.string().nullish(),
             guarantorRelation: zod.string().nullish(),
+            guarantorResidentId: zod.string().nullish(),
             status: zod.enum(["active", "moved_out", "destroyed"]),
             privacyConsentDate: zod.coerce.date().nullish(),
             contractDoc: zod.boolean(),
             businessRegDoc: zod.boolean(),
             idDoc: zod.boolean(),
+            contractDocUrl: zod.string().nullish(),
+            businessRegDocUrl: zod.string().nullish(),
+            idDocUrl: zod.string().nullish(),
+            vehicleRegDocUrl: zod.string().nullish(),
+            feeObligationConsent: zod.boolean(),
+            penaltyConsent: zod.boolean(),
+            specialFundConsent: zod.boolean(),
+            privacyRetentionConsent: zod.boolean(),
+            guaranteeConsent: zod.boolean(),
+            signatureName: zod.string().nullish(),
+            signatureDate: zod.coerce.date().nullish(),
+            billingStartDate: zod.coerce.date().nullish(),
+            verificationStatus: zod.enum([
+              "unverified",
+              "verified",
+              "rejected",
+            ]),
+            verifiedAt: zod.coerce.date().nullish(),
+            verifiedBy: zod.string().nullish(),
             createdAt: zod.coerce.date(),
             dataDestructionDate: zod.coerce.date().nullish(),
             updatedAt: zod.coerce.date(),

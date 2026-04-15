@@ -41,6 +41,7 @@ const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const Units = lazy(() => import("@/pages/units"));
+const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
 
 function PageLoader() {
   return (
@@ -112,6 +113,7 @@ function AuthenticatedRoutes() {
       <Layout>
         <Suspense fallback={<PageLoader />}>
           <Switch>
+            <Route path="/tenant-card/:token" component={TenantCardForm} />
             <Route path="/" component={DashboardComponent} />
             {routes.map((r) => (
               <Route key={r.path} path={r.path} component={r.component} />
@@ -144,6 +146,7 @@ function AppRouter() {
     return (
       <Suspense fallback={<PageLoader />}>
         <Switch>
+          <Route path="/tenant-card/:token" component={TenantCardForm} />
           <Route path="/portal" component={PortalSelect} />
           <Route path="/login/:portalType" component={Login} />
           <Route>

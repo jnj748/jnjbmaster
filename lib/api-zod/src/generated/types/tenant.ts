@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TenantStatus } from "./tenantStatus";
+import type { TenantVerificationStatus } from "./tenantVerificationStatus";
 
 export interface Tenant {
   id: number;
@@ -40,12 +41,38 @@ export interface Tenant {
   guarantorPhone?: string | null;
   /** @nullable */
   guarantorRelation?: string | null;
+  /** @nullable */
+  guarantorResidentId?: string | null;
   status: TenantStatus;
   /** @nullable */
   privacyConsentDate?: Date | null;
   contractDoc: boolean;
   businessRegDoc: boolean;
   idDoc: boolean;
+  /** @nullable */
+  contractDocUrl?: string | null;
+  /** @nullable */
+  businessRegDocUrl?: string | null;
+  /** @nullable */
+  idDocUrl?: string | null;
+  /** @nullable */
+  vehicleRegDocUrl?: string | null;
+  feeObligationConsent: boolean;
+  penaltyConsent: boolean;
+  specialFundConsent: boolean;
+  privacyRetentionConsent: boolean;
+  guaranteeConsent: boolean;
+  /** @nullable */
+  signatureName?: string | null;
+  /** @nullable */
+  signatureDate?: Date | null;
+  /** @nullable */
+  billingStartDate?: Date | null;
+  verificationStatus: TenantVerificationStatus;
+  /** @nullable */
+  verifiedAt?: Date | null;
+  /** @nullable */
+  verifiedBy?: string | null;
   createdAt: Date;
   /** @nullable */
   dataDestructionDate?: Date | null;

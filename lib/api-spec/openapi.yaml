@@ -37,6 +37,8 @@ tags:
     description: Safety checklist management for facility maintenance
   - name: maintenanceLogs
     description: Facility maintenance work logs
+  - name: publicTenantCard
+    description: Public tenant card form (no auth)
   - name: safetyTrainings
     description: Safety training management
   - name: taxDeadlineChecklists
@@ -2293,6 +2295,203 @@ paths:
           description: Deleted
         "404":
           description: Not found
+
+  # ── Tenant Card Tokens (입주자카드 토큰) ──────────────────
+  /tenant-card-tokens:
+    get:
+      operationId: listTenantCardTokens
+      tags: [tenants]
+      summary: List tenant card tokens
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, submitted, approved, rejected]
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Token list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantCardToken"
+    post:
+      operationId: createTenantCardToken
+      tags: [tenants]
+      summary: Generate a new tenant card token for a unit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantCardTokenBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantCardToken"
+
+  /tenant-card-tokens/{id}:
+    delete:
+      operationId: deleteTenantCardToken
+      tags: [tenants]
+      summary: Delete a tenant card token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tenants/{id}/verify:
+    post:
+      operationId: verifyTenant
+      tags: [tenants]
+      summary: Verify or reject a tenant card submission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyTenantBody"
+      responses:
+        "200":
+          description: Verification updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /management-contract-templates:
+    get:
+      operationId: getManagementContractTemplate
+      tags: [tenants]
+      summary: Get management contract template for current building
+      parameters:
+        - name: buildingId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementContractTemplate"
+    post:
+      operationId: upsertManagementContractTemplate
+      tags: [tenants]
+      summary: Create or update management contract template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertManagementContractTemplateBody"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementContractTemplate"
+
+  # ── Public Tenant Card (공개 입주자카드) ─────────────────
+  /public/tenant-card/{token}:
+    get:
+      operationId: getPublicTenantCard
+      tags: [publicTenantCard]
+      summary: Get tenant card form data by token (no auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Form data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTenantCardData"
+        "404":
+          description: Token not found or expired
+    post:
+      operationId: submitPublicTenantCard
+      tags: [publicTenantCard]
+      summary: Submit tenant card form (no auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTenantCardBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /public/tenant-card/{token}/upload-url:
+    post:
+      operationId: requestPublicUploadUrl
+      tags: [publicTenantCard]
+      summary: Request upload URL for document (no auth, token-based)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
 
   # ── Units (호실 관리) ──────────────────────────────────────
   /units:
@@ -4839,6 +5038,8 @@ components:
           type: ["string", "null"]
         guarantorRelation:
           type: ["string", "null"]
+        guarantorResidentId:
+          type: ["string", "null"]
         status:
           type: string
           enum: [active, moved_out, destroyed]
@@ -4851,6 +5052,40 @@ components:
           type: boolean
         idDoc:
           type: boolean
+        contractDocUrl:
+          type: ["string", "null"]
+        businessRegDocUrl:
+          type: ["string", "null"]
+        idDocUrl:
+          type: ["string", "null"]
+        vehicleRegDocUrl:
+          type: ["string", "null"]
+        feeObligationConsent:
+          type: boolean
+        penaltyConsent:
+          type: boolean
+        specialFundConsent:
+          type: boolean
+        privacyRetentionConsent:
+          type: boolean
+        guaranteeConsent:
+          type: boolean
+        signatureName:
+          type: ["string", "null"]
+        signatureDate:
+          type: ["string", "null"]
+          format: date-time
+        billingStartDate:
+          type: ["string", "null"]
+          format: date
+        verificationStatus:
+          type: string
+          enum: [unverified, verified, rejected]
+        verifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        verifiedBy:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -4869,6 +5104,12 @@ components:
         - contractDoc
         - businessRegDoc
         - idDoc
+        - feeObligationConsent
+        - penaltyConsent
+        - specialFundConsent
+        - privacyRetentionConsent
+        - guaranteeConsent
+        - verificationStatus
         - createdAt
         - updatedAt
 
@@ -4912,6 +5153,8 @@ components:
           type: ["string", "null"]
         guarantorRelation:
           type: ["string", "null"]
+        guarantorResidentId:
+          type: ["string", "null"]
         privacyConsentDate:
           type: ["string", "null"]
           format: date-time
@@ -4921,6 +5164,35 @@ components:
           type: boolean
         idDoc:
           type: boolean
+        contractDocUrl:
+          type: ["string", "null"]
+        businessRegDocUrl:
+          type: ["string", "null"]
+        idDocUrl:
+          type: ["string", "null"]
+        vehicleRegDocUrl:
+          type: ["string", "null"]
+        feeObligationConsent:
+          type: boolean
+        penaltyConsent:
+          type: boolean
+        specialFundConsent:
+          type: boolean
+        privacyRetentionConsent:
+          type: boolean
+        guaranteeConsent:
+          type: boolean
+        signatureName:
+          type: ["string", "null"]
+        signatureDate:
+          type: ["string", "null"]
+          format: date-time
+        billingStartDate:
+          type: ["string", "null"]
+          format: date
+        verificationStatus:
+          type: string
+          enum: [unverified, verified, rejected]
       required:
         - unit
         - tenantName
@@ -4965,6 +5237,8 @@ components:
           type: ["string", "null"]
         guarantorRelation:
           type: ["string", "null"]
+        guarantorResidentId:
+          type: ["string", "null"]
         status:
           type: string
           enum: [active, moved_out, destroyed]
@@ -4977,6 +5251,35 @@ components:
           type: boolean
         idDoc:
           type: boolean
+        contractDocUrl:
+          type: ["string", "null"]
+        businessRegDocUrl:
+          type: ["string", "null"]
+        idDocUrl:
+          type: ["string", "null"]
+        vehicleRegDocUrl:
+          type: ["string", "null"]
+        feeObligationConsent:
+          type: boolean
+        penaltyConsent:
+          type: boolean
+        specialFundConsent:
+          type: boolean
+        privacyRetentionConsent:
+          type: boolean
+        guaranteeConsent:
+          type: boolean
+        signatureName:
+          type: ["string", "null"]
+        signatureDate:
+          type: ["string", "null"]
+          format: date-time
+        billingStartDate:
+          type: ["string", "null"]
+          format: date
+        verificationStatus:
+          type: string
+          enum: [unverified, verified, rejected]
 
     Owner:
       type: object
@@ -7236,3 +7539,227 @@ components:
         status:
           type: string
           enum: [vacant, occupied, maintenance]
+
+    TenantCardToken:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        unitId:
+          type: integer
+        unitLabel:
+          type: string
+        token:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, submitted, approved, rejected]
+        expiresAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        approvedBy:
+          type: ["string", "null"]
+        rejectionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - buildingId
+        - unitId
+        - unitLabel
+        - token
+        - status
+        - expiresAt
+        - createdAt
+
+    CreateTenantCardTokenBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        unitLabel:
+          type: string
+        expiryDays:
+          type: integer
+          default: 7
+      required:
+        - unitId
+        - unitLabel
+
+    VerifyTenantBody:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+        rejectionReason:
+          type: ["string", "null"]
+      required:
+        - action
+
+    ManagementContractTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        feeObligationClause:
+          type: string
+        penaltyClause:
+          type: string
+        specialFundClause:
+          type: string
+        privacyRetentionClause:
+          type: string
+        additionalClauses:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - buildingId
+        - feeObligationClause
+        - penaltyClause
+        - specialFundClause
+        - privacyRetentionClause
+        - createdAt
+
+    UpsertManagementContractTemplateBody:
+      type: object
+      properties:
+        buildingId:
+          type: integer
+        feeObligationClause:
+          type: string
+        penaltyClause:
+          type: string
+        specialFundClause:
+          type: string
+        privacyRetentionClause:
+          type: string
+        additionalClauses:
+          type: ["object", "null"]
+      required:
+        - buildingId
+        - feeObligationClause
+        - penaltyClause
+        - specialFundClause
+        - privacyRetentionClause
+
+    PublicTenantCardData:
+      type: object
+      properties:
+        buildingName:
+          type: string
+        unitLabel:
+          type: string
+        tokenStatus:
+          type: string
+        contractTemplate:
+          $ref: "#/components/schemas/ManagementContractTemplate"
+        specialFundEnabled:
+          type: boolean
+      required:
+        - buildingName
+        - unitLabel
+        - tokenStatus
+        - specialFundEnabled
+
+    SubmitTenantCardBody:
+      type: object
+      properties:
+        tenantName:
+          type: string
+        residentId:
+          type: string
+        phone:
+          type: string
+        emergencyContact:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        interiorStartDate:
+          type: ["string", "null"]
+          format: date
+        moveInDate:
+          type: ["string", "null"]
+          format: date
+        hasTv:
+          type: boolean
+        registeredAddress:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        guarantorName:
+          type: ["string", "null"]
+        guarantorPhone:
+          type: ["string", "null"]
+        guarantorRelation:
+          type: ["string", "null"]
+        guarantorResidentId:
+          type: ["string", "null"]
+        contractDocUrl:
+          type: ["string", "null"]
+        businessRegDocUrl:
+          type: ["string", "null"]
+        idDocUrl:
+          type: ["string", "null"]
+        vehicleRegDocUrl:
+          type: ["string", "null"]
+        feeObligationConsent:
+          type: boolean
+        penaltyConsent:
+          type: boolean
+        specialFundConsent:
+          type: boolean
+        privacyRetentionConsent:
+          type: boolean
+        guaranteeConsent:
+          type: boolean
+        signatureName:
+          type: string
+        vehicles:
+          type: array
+          items:
+            type: object
+            properties:
+              vehicleNumber:
+                type: string
+              vehicleType:
+                type: ["string", "null"]
+              vehicleColor:
+                type: ["string", "null"]
+              tenantRelation:
+                type: string
+              ownerContact:
+                type: string
+              isPrimary:
+                type: boolean
+            required:
+              - vehicleNumber
+              - tenantRelation
+              - ownerContact
+      required:
+        - tenantName
+        - residentId
+        - phone
+        - feeObligationConsent
+        - penaltyConsent
+        - specialFundConsent
+        - privacyRetentionConsent
+        - signatureName
