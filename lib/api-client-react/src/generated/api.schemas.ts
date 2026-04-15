@@ -1015,6 +1015,58 @@ export interface WeeklyReport {
   nextWeekInspections: WeeklyReportNextWeekInspectionsItem[];
 }
 
+export type DashboardAnalyticsUnpaidSummary = {
+  totalUnpaid: number;
+  unpaidCount: number;
+  totalUnits: number;
+  unpaidRate: number;
+};
+
+export type DashboardAnalyticsUnpaidByMonthItem = {
+  month: string;
+  amount: number;
+  count: number;
+};
+
+export type DashboardAnalyticsUnpaidByCategoryItem = {
+  category: string;
+  amount: number;
+};
+
+export type DashboardAnalyticsWorkHoursByDayItem = {
+  day: string;
+  date: string;
+  hours: number;
+  staffCount: number;
+};
+
+export type DashboardAnalyticsDataDestructionTargetsItemType =
+  (typeof DashboardAnalyticsDataDestructionTargetsItemType)[keyof typeof DashboardAnalyticsDataDestructionTargetsItemType];
+
+export const DashboardAnalyticsDataDestructionTargetsItemType = {
+  tenant: "tenant",
+  owner: "owner",
+} as const;
+
+export type DashboardAnalyticsDataDestructionTargetsItem = {
+  id: number;
+  type: DashboardAnalyticsDataDestructionTargetsItemType;
+  name: string;
+  unit: string;
+  destructionDate: string;
+  /** @nullable */
+  moveOutDate?: string | null;
+};
+
+export interface DashboardAnalytics {
+  unpaidSummary: DashboardAnalyticsUnpaidSummary;
+  unpaidByMonth: DashboardAnalyticsUnpaidByMonthItem[];
+  unpaidByCategory: DashboardAnalyticsUnpaidByCategoryItem[];
+  workHoursByDay: DashboardAnalyticsWorkHoursByDayItem[];
+  dataDestructionTargets: DashboardAnalyticsDataDestructionTargetsItem[];
+  dataDestructionCount: number;
+}
+
 export interface DashboardSummary {
   todayTaskCount: number;
   pendingTaskCount: number;

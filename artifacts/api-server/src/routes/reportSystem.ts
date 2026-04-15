@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable } from "@workspace/db";
+import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -237,7 +237,39 @@ router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"),
     summaryParts.push(`${type}: ${count}건`);
   }
 
-  const summary = `주간 보고 요약 (${weekStart} ~ ${weekEnd})\n\n총 ${weekDailyReports.length}건의 일간 보고서\n${summaryParts.join("\n")}\n\n${weekDailyReports.map((dr) => `- [${dr.reportDate}] ${dr.title}`).join("\n")}`;
+  const weekInspections = await db.select().from(inspectionsTable);
+  const weekInspectionsDue = weekInspections.filter(
+    (i) => i.nextDueDate >= weekStart && i.nextDueDate <= weekEnd
+  );
+  const weekLogs = await db.select().from(inspectionLogsTable);
+  const weekInspLogs = weekLogs.filter(
+    (l) => l.inspectionDate >= weekStart && l.inspectionDate <= weekEnd
+  );
+
+  let inspectionSection = "";
+  if (weekInspectionsDue.length > 0 || weekInspLogs.length > 0) {
+    inspectionSection = "\n\n■ 금주 점검 현황";
+    if (weekInspLogs.length > 0) {
+      inspectionSection += `\n  완료된 점검: ${weekInspLogs.length}건`;
+      for (const log of weekInspLogs) {
+        const insp = weekInspections.find((i) => i.id === log.inspectionId);
+        inspectionSection += `\n  - [${log.inspectionDate}] ${insp?.name ?? "점검"}: ${log.result}${log.memo ? ` (${log.memo})` : ""}`;
+      }
+    }
+    if (weekInspectionsDue.length > 0) {
+      const pending = weekInspectionsDue.filter(
+        (i) => !weekInspLogs.some((l) => l.inspectionId === i.id)
+      );
+      if (pending.length > 0) {
+        inspectionSection += `\n  예정 점검: ${pending.length}건`;
+        for (const i of pending) {
+          inspectionSection += `\n  - ${i.name} (예정일: ${i.nextDueDate})`;
+        }
+      }
+    }
+  }
+
+  const summary = `주간 보고 요약 (${weekStart} ~ ${weekEnd})\n\n총 ${weekDailyReports.length}건의 일간 보고서\n${summaryParts.join("\n")}\n\n${weekDailyReports.map((dr) => `- [${dr.reportDate}] ${dr.title}`).join("\n")}${inspectionSection}`;
 
   const [row] = await db
     .insert(weeklySummaryReportsTable)
@@ -317,7 +349,32 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
 
   const totalDailyCount = monthWeeklyReports.reduce((s, r) => s + r.totalDailyReports, 0);
 
-  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}`;
+  const monthStart = `${reportMonth}-01`;
+  const monthEndDate = new Date(parseInt(reportMonth.split("-")[0]), parseInt(reportMonth.split("-")[1]), 0);
+  const monthEnd = monthEndDate.toISOString().split("T")[0];
+
+  const monthInspections = await db.select().from(inspectionsTable);
+  const monthInspDue = monthInspections.filter(
+    (i) => i.nextDueDate >= monthStart && i.nextDueDate <= monthEnd
+  );
+  const monthLogs = await db.select().from(inspectionLogsTable);
+  const monthInspLogs = monthLogs.filter(
+    (l) => l.inspectionDate >= monthStart && l.inspectionDate <= monthEnd
+  );
+
+  let inspSummary = "";
+  if (monthInspDue.length > 0 || monthInspLogs.length > 0) {
+    inspSummary = `\n\n■ 월간 점검 현황\n  완료: ${monthInspLogs.length}건, 예정: ${monthInspDue.length}건`;
+    if (monthInspLogs.length > 0) {
+      const resultCounts: Record<string, number> = {};
+      for (const l of monthInspLogs) {
+        resultCounts[l.result] = (resultCounts[l.result] || 0) + 1;
+      }
+      inspSummary += `\n  결과: ${Object.entries(resultCounts).map(([r, c]) => `${r} ${c}건`).join(", ")}`;
+    }
+  }
+
+  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}`;
 
   const [row] = await db
     .insert(monthlySummaryReportsTable)

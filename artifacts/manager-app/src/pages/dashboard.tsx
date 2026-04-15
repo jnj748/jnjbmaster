@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
+  useGetDashboardAnalytics,
   useListTenants,
   useListVehicles,
   useGetUnitsSummary,
@@ -22,6 +23,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from "recharts";
 import {
   Select,
   SelectContent,
@@ -57,6 +62,8 @@ import {
   CalendarClock,
   FileText,
   Building2,
+  Trash2,
+  BarChart3,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
@@ -134,6 +141,8 @@ export default function Dashboard() {
   const { building } = useBuilding();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
+  const { data: analytics } = useGetDashboardAnalytics({ query: { staleTime: 5 * 60 * 1000 } });
+  const [showDestructionDialog, setShowDestructionDialog] = useState(false);
   const summaryReady = !summaryLoading && !!summary;
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
@@ -543,19 +552,147 @@ export default function Dashboard() {
         />
         <StatCard
           title="미납 관리비"
-          value="0원"
+          value={analytics ? `${(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원` : "0원"}
           icon={Coins}
           color="bg-chart-4"
-          subtitle="총 미납액"
+          subtitle={analytics ? `미납율 ${analytics.unpaidSummary.unpaidRate}%` : "총 미납액"}
         />
         <StatCard
           title="미납 호실"
-          value={0}
+          value={analytics?.unpaidSummary.unpaidCount ?? 0}
           icon={AlertTriangle}
           color="bg-muted-foreground"
-          subtitle="미납 세대 수"
+          subtitle={analytics ? `전체 ${analytics.unpaidSummary.totalUnits}세대 중` : "미납 세대 수"}
         />
       </div>
+
+      {analytics && analytics.dataDestructionCount > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-red-600" />
+              <span className="text-sm text-red-800 font-medium">
+                개인정보 파기 대상: {analytics.dataDestructionCount}건
+              </span>
+              <Badge variant="destructive" className="text-[10px] h-5">{analytics.dataDestructionCount}</Badge>
+            </div>
+            <button
+              onClick={() => setShowDestructionDialog(true)}
+              className="text-sm text-red-600 hover:underline font-medium"
+            >
+              처리하기 →
+            </button>
+          </div>
+          <p className="text-xs text-red-700 ml-6 mt-1">
+            퇴거 후 개인정보 보유기간이 만료된 데이터가 있습니다. 개인정보보호법에 따라 즉시 파기 절차를 진행해 주세요.
+          </p>
+        </div>
+      )}
+
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                <Coins className="w-4 h-4 text-chart-4" />
+                미납 관리비 현황
+              </h3>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={analytics.unpaidByCategory}
+                      dataKey="amount"
+                      nameKey="category"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                    >
+                      {analytics.unpaidByCategory.map((_, index) => (
+                        <Cell key={index} fill={["#0ea5e9", "#10b981", "#f59e0b", "#94a3b8"][index % 4]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => `${(value / 10000).toFixed(0)}만원`} />
+                    <Legend
+                      formatter={(value: string) => <span className="text-xs">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="text-center mt-1">
+                <p className="text-lg font-bold">{(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원</p>
+                <p className="text-xs text-muted-foreground">{analytics.unpaidSummary.unpaidCount}세대 미납</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-chart-2" />
+                금주 근무시간
+              </h3>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.workHoursByDay}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} unit="h" />
+                    <Tooltip
+                      formatter={(value: number, _name: string, props: any) =>
+                        [`${value}시간 (${props.payload.staffCount}명)`, "근무시간"]
+                      }
+                      labelFormatter={(label: string) => `${label}요일`}
+                    />
+                    <Bar dataKey="hours" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="text-center mt-1">
+                <p className="text-xs text-muted-foreground">
+                  주간 총 {analytics.workHoursByDay.reduce((s, d) => s + d.hours, 0).toFixed(1)}시간
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <ResponsiveDialog open={showDestructionDialog} onOpenChange={setShowDestructionDialog}>
+        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              개인정보 파기 대상 목록
+            </ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          <div className="space-y-3">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800 space-y-1">
+              <p className="font-medium">파기 절차 안내</p>
+              <p>1. 아래 대상자의 개인정보 파기 여부를 확인합니다.</p>
+              <p>2. 관리규약 및 개인정보보호법에 따라 파기 대장을 작성합니다.</p>
+              <p>3. 전자적 파일은 복구 불가능하게 삭제하고, 종이 서류는 파쇄 처리합니다.</p>
+              <p>4. 파기 완료 후 파기 기록을 남기고 관리사무소장 확인을 받습니다.</p>
+            </div>
+            {analytics?.dataDestructionTargets.map((target) => (
+              <div key={`${target.type}-${target.id}`} className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">{target.name} ({target.unit}호)</p>
+                  <p className="text-xs text-muted-foreground">
+                    {target.type === "tenant" ? "임차인" : "소유자"} · 퇴거일: {target.moveOutDate || "-"} · 파기기한: {target.destructionDate}
+                  </p>
+                </div>
+                <Badge variant="destructive" className="text-[10px]">파기 필요</Badge>
+              </div>
+            ))}
+            {(!analytics?.dataDestructionTargets || analytics.dataDestructionTargets.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-4">파기 대상이 없습니다</p>
+            )}
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       <ResponsiveDialog open={!!selectedAlert} onOpenChange={(o) => { if (!o) setSelectedAlert(null); }}>
         <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

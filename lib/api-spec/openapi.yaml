@@ -3258,6 +3258,19 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  /dashboard/analytics:
+    get:
+      operationId: getDashboardAnalytics
+      tags: [dashboard]
+      summary: Get dashboard analytics (unpaid fees, work hours, data destruction)
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardAnalytics"
+
   # ── Safety Checklists (안전점검표) ──────────────────────────
   /safety-checklists:
     get:
@@ -5107,6 +5120,86 @@ components:
       required:
         - category
         - count
+
+    DashboardAnalytics:
+      type: object
+      properties:
+        unpaidSummary:
+          type: object
+          properties:
+            totalUnpaid:
+              type: number
+            unpaidCount:
+              type: integer
+            totalUnits:
+              type: integer
+            unpaidRate:
+              type: number
+          required: [totalUnpaid, unpaidCount, totalUnits, unpaidRate]
+        unpaidByMonth:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              amount:
+                type: number
+              count:
+                type: integer
+            required: [month, amount, count]
+        unpaidByCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              amount:
+                type: number
+            required: [category, amount]
+        workHoursByDay:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              date:
+                type: string
+              hours:
+                type: number
+              staffCount:
+                type: integer
+            required: [day, date, hours, staffCount]
+        dataDestructionTargets:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              type:
+                type: string
+                enum: [tenant, owner]
+              name:
+                type: string
+              unit:
+                type: string
+              destructionDate:
+                type: string
+              moveOutDate:
+                type: ["string", "null"]
+            required: [id, type, name, unit, destructionDate]
+        dataDestructionCount:
+          type: integer
+      required:
+        - unpaidSummary
+        - unpaidByMonth
+        - unpaidByCategory
+        - workHoursByDay
+        - dataDestructionTargets
+        - dataDestructionCount
 
     DashboardSummary:
       type: object

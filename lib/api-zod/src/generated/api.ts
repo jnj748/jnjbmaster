@@ -4027,6 +4027,50 @@ export const GetRecentActivityResponse = zod.array(
 );
 
 /**
+ * @summary Get dashboard analytics (unpaid fees, work hours, data destruction)
+ */
+export const GetDashboardAnalyticsResponse = zod.object({
+  unpaidSummary: zod.object({
+    totalUnpaid: zod.number(),
+    unpaidCount: zod.number(),
+    totalUnits: zod.number(),
+    unpaidRate: zod.number(),
+  }),
+  unpaidByMonth: zod.array(
+    zod.object({
+      month: zod.string(),
+      amount: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  unpaidByCategory: zod.array(
+    zod.object({
+      category: zod.string(),
+      amount: zod.number(),
+    }),
+  ),
+  workHoursByDay: zod.array(
+    zod.object({
+      day: zod.string(),
+      date: zod.string(),
+      hours: zod.number(),
+      staffCount: zod.number(),
+    }),
+  ),
+  dataDestructionTargets: zod.array(
+    zod.object({
+      id: zod.number(),
+      type: zod.enum(["tenant", "owner"]),
+      name: zod.string(),
+      unit: zod.string(),
+      destructionDate: zod.string(),
+      moveOutDate: zod.string().nullish(),
+    }),
+  ),
+  dataDestructionCount: zod.number(),
+});
+
+/**
  * @summary List safety checklists
  */
 export const ListSafetyChecklistsQueryParams = zod.object({
