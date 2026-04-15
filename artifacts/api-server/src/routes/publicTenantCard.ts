@@ -103,6 +103,46 @@ router.post("/public/tenant-card/:token", async (req, res): Promise<void> => {
 
   const data = parsed.data;
 
+  if (!data.feeObligationConsent) {
+    res.status(400).json({ error: "관리비 납부 의무 동의는 필수입니다." });
+    return;
+  }
+  if (!data.penaltyConsent) {
+    res.status(400).json({ error: "체납 시 조치 동의는 필수입니다." });
+    return;
+  }
+  if (!data.privacyRetentionConsent) {
+    res.status(400).json({ error: "개인정보 수집·보관 동의는 필수입니다." });
+    return;
+  }
+
+  const [building] = await db
+    .select()
+    .from(buildingsTable)
+    .where(eq(buildingsTable.id, tokenRecord.buildingId));
+
+  if (building?.specialFundEnabled && !data.specialFundConsent) {
+    res.status(400).json({ error: "특별충당금 동의는 필수입니다." });
+    return;
+  }
+
+  const isBusiness = !!(data.companyName || data.businessNumber);
+  if (isBusiness) {
+    if (!data.guarantorName) {
+      res.status(400).json({ error: "법인 입주자의 경우 연대보증인 정보가 필요합니다." });
+      return;
+    }
+    if (!data.guaranteeConsent) {
+      res.status(400).json({ error: "법인 입주자의 경우 연대보증 동의가 필요합니다." });
+      return;
+    }
+  }
+
+  if (!data.signatureName || !data.signatureName.trim()) {
+    res.status(400).json({ error: "전자서명(성명)을 입력해 주세요." });
+    return;
+  }
+
   const toDateStr = (d: unknown): string | null => {
     if (!d) return null;
     if (d instanceof Date) return d.toISOString().split("T")[0];
