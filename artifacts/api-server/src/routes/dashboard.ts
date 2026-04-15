@@ -663,7 +663,7 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
     unpaidSummary: {
       totalUnpaid,
       unpaidCount,
-      totalUnits: occupiedUnits.length,
+      totalUnits: allUnits.length,
       unpaidRate: allUnits.length > 0 ? Math.round((unpaidCount / allUnits.length) * 100) : 0,
     },
     unpaidByMonth,
