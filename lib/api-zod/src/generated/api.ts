@@ -4906,6 +4906,17 @@ export const UpdateComplaintResponse = zod.object({
 });
 
 /**
+ * @summary Delete a complaint
+ */
+export const DeleteComplaintParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteComplaintResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
  * @summary List votes
  */
 export const ListVotesResponseItem = zod.object({
@@ -4986,4 +4997,44 @@ export const GetVoteDetailResponse = zod.object({
       }),
     )
     .optional(),
+});
+
+/**
+ * @summary Update a vote (status, title, description)
+ */
+export const UpdateVoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateVoteBody = zod.object({
+  status: zod.enum(["draft", "active", "closed"]).optional(),
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+});
+
+export const UpdateVoteResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  voterType: zod.enum(["owner", "tenant", "all"]),
+  status: zod.enum(["draft", "active", "closed"]),
+  startDate: zod.string(),
+  endDate: zod.string(),
+  totalEligible: zod.number().optional(),
+  forCount: zod.number().optional(),
+  againstCount: zod.number().optional(),
+  abstainCount: zod.number().optional(),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a vote and its ballots
+ */
+export const DeleteVoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteVoteResponse = zod.object({
+  success: zod.boolean().optional(),
 });

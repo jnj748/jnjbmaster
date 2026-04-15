@@ -106,6 +106,50 @@ router.get("/votes/:id", async (req: Request, res: Response): Promise<void> => {
   });
 });
 
+router.patch("/votes/:id", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+
+  const { status, title, description } = req.body as { status?: string; title?: string; description?: string };
+  const updates: Partial<typeof votesTable.$inferInsert> = {};
+  if (status) updates.status = status as "draft" | "active" | "closed";
+  if (title) updates.title = title;
+  if (description) updates.description = description;
+
+  const [row] = await db
+    .update(votesTable)
+    .set(updates)
+    .where(and(eq(votesTable.id, id), eq(votesTable.buildingId, buildingId)))
+    .returning();
+
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  res.json(row);
+});
+
+router.delete("/votes/:id", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+
+  await db.delete(voteBallotsTable).where(eq(voteBallotsTable.voteId, id));
+  const [row] = await db
+    .delete(votesTable)
+    .where(and(eq(votesTable.id, id), eq(votesTable.buildingId, buildingId)))
+    .returning();
+
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 router.post("/votes/:id/cast", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id);
   const parsed = CastBallotBody.safeParse(req.body);

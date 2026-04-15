@@ -78,8 +78,10 @@ import type {
   DailyReportItem,
   DashboardSummary,
   DataDestructionLog,
+  DeleteComplaint200,
   DeleteDocumentTemplate200,
   DeleteSignature200,
+  DeleteVote200,
   DestructionScheduleItem,
   DigitalSignatureItem,
   DocumentChecklist,
@@ -196,6 +198,7 @@ import type {
   UpdateUnitBody,
   UpdateVehicleBody,
   UpdateVendorBody,
+  UpdateVoteBody,
   UpdateWorkReportBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -16263,6 +16266,90 @@ export const useUpdateComplaint = <
 };
 
 /**
+ * @summary Delete a complaint
+ */
+export const getDeleteComplaintUrl = (id: number) => {
+  return `/api/complaints/${id}`;
+};
+
+export const deleteComplaint = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteComplaint200> => {
+  return customFetch<DeleteComplaint200>(getDeleteComplaintUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteComplaintMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteComplaint>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteComplaint>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteComplaint"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteComplaint>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteComplaint(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteComplaintMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteComplaint>>
+>;
+
+export type DeleteComplaintMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a complaint
+ */
+export const useDeleteComplaint = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteComplaint>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteComplaint>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteComplaintMutationOptions(options));
+};
+
+/**
  * @summary List votes
  */
 export const getListVotesUrl = () => {
@@ -16586,3 +16673,174 @@ export function useGetVoteDetail<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a vote (status, title, description)
+ */
+export const getUpdateVoteUrl = (id: number) => {
+  return `/api/votes/${id}`;
+};
+
+export const updateVote = async (
+  id: number,
+  updateVoteBody: UpdateVoteBody,
+  options?: RequestInit,
+): Promise<Vote> => {
+  return customFetch<Vote>(getUpdateVoteUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVoteBody),
+  });
+};
+
+export const getUpdateVoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVote>>,
+    TError,
+    { id: number; data: BodyType<UpdateVoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateVote>>,
+  TError,
+  { id: number; data: BodyType<UpdateVoteBody> },
+  TContext
+> => {
+  const mutationKey = ["updateVote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateVote>>,
+    { id: number; data: BodyType<UpdateVoteBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateVote(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateVoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateVote>>
+>;
+export type UpdateVoteMutationBody = BodyType<UpdateVoteBody>;
+export type UpdateVoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a vote (status, title, description)
+ */
+export const useUpdateVote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVote>>,
+    TError,
+    { id: number; data: BodyType<UpdateVoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateVote>>,
+  TError,
+  { id: number; data: BodyType<UpdateVoteBody> },
+  TContext
+> => {
+  return useMutation(getUpdateVoteMutationOptions(options));
+};
+
+/**
+ * @summary Delete a vote and its ballots
+ */
+export const getDeleteVoteUrl = (id: number) => {
+  return `/api/votes/${id}`;
+};
+
+export const deleteVote = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteVote200> => {
+  return customFetch<DeleteVote200>(getDeleteVoteUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteVoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteVote>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteVote>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteVote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteVote>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteVote(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteVoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteVote>>
+>;
+
+export type DeleteVoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a vote and its ballots
+ */
+export const useDeleteVote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteVote>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteVote>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteVoteMutationOptions(options));
+};

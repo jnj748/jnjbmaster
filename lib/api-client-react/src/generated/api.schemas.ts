@@ -3459,6 +3459,21 @@ export interface UpdateComplaintBody {
   resolution?: string;
 }
 
+export type UpdateVoteBodyStatus =
+  (typeof UpdateVoteBodyStatus)[keyof typeof UpdateVoteBodyStatus];
+
+export const UpdateVoteBodyStatus = {
+  draft: "draft",
+  active: "active",
+  closed: "closed",
+} as const;
+
+export interface UpdateVoteBody {
+  status?: UpdateVoteBodyStatus;
+  title?: string;
+  description?: string;
+}
+
 export type VoteVoterType = (typeof VoteVoterType)[keyof typeof VoteVoterType];
 
 export const VoteVoterType = {
@@ -4030,3 +4045,11 @@ export const ListComplaintsStatus = {
   in_progress: "in_progress",
   completed: "completed",
 } as const;
+
+export type DeleteComplaint200 = {
+  success?: boolean;
+};
+
+export type DeleteVote200 = {
+  success?: boolean;
+};

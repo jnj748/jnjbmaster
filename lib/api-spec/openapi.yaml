@@ -3957,6 +3957,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Complaint"
+    delete:
+      operationId: deleteComplaint
+      tags: [complaints]
+      summary: Delete a complaint
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
   /votes:
     get:
@@ -4033,6 +4053,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoteDetail"
+    patch:
+      operationId: updateVote
+      tags: [voting]
+      summary: Update a vote (status, title, description)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVoteBody"
+      responses:
+        "200":
+          description: Updated vote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vote"
+    delete:
+      operationId: deleteVote
+      tags: [voting]
+      summary: Delete a vote and its ballots
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 
 components:
   schemas:
@@ -8415,6 +8478,17 @@ components:
         assigneeName:
           type: string
         resolution:
+          type: string
+
+    UpdateVoteBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [draft, active, closed]
+        title:
+          type: string
+        description:
           type: string
 
     Vote:
