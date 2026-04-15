@@ -7243,13 +7243,13 @@ components:
 
     UserRole:
       type: string
-      enum: [manager, partner, platform_admin]
-      description: "관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin)"
+      enum: [manager, partner, platform_admin, hq_executive, accountant, facility_staff]
+      description: "관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin), 총괄책임자(hq_executive), 회계/행정(accountant), 시설관리(facility_staff)"
 
     PortalType:
       type: string
-      enum: [building, partner]
-      description: "건물관리(building), 파트너사(partner)"
+      enum: [building, partner, hq]
+      description: "건물관리(building), 파트너사(partner), 본사(hq)"
 
     AuthUser:
       type: object

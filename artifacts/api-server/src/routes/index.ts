@@ -55,68 +55,39 @@ router.use(notificationsRouter);
 router.use(usersRouter);
 router.use(rfqsRouter);
 
-const allBuildingRoles = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
-const managerFull = requireRole("manager", "platform_admin");
-const accountingRoles = requireRole("manager", "platform_admin", "accountant");
-const facilityRoles = requireRole("manager", "platform_admin", "facility_staff");
-const monitoringRoles = requireRole("manager", "platform_admin", "hq_executive");
-
 const buildingRouter: IRouter = Router();
-buildingRouter.use(allBuildingRoles);
-
+const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
+buildingRouter.use(buildingOnly);
 buildingRouter.use(dashboardRouter);
+buildingRouter.use(approvalsRouter);
+buildingRouter.use(tasksRouter);
+buildingRouter.use(inspectionsRouter);
+buildingRouter.use(taxSchedulesRouter);
+buildingRouter.use(quotesRouter);
+buildingRouter.use(workReportsRouter);
+buildingRouter.use(settlementsRouter);
+buildingRouter.use(draftsRouter);
+buildingRouter.use(tenantsRouter);
+buildingRouter.use(ownersRouter);
+buildingRouter.use(vehiclesRouter);
+buildingRouter.use(documentChecklistsRouter);
+buildingRouter.use(approvalStepsRouter);
+buildingRouter.use(signaturesRouter);
+buildingRouter.use(documentTemplatesRouter);
+buildingRouter.use(reportSystemRouter);
+buildingRouter.use(safetyChecklistsRouter);
+buildingRouter.use(maintenanceLogsRouter);
+buildingRouter.use(safetyTrainingsRouter);
+buildingRouter.use(facilityDashboardRouter);
+buildingRouter.use(privacyRouter);
+buildingRouter.use(taxDeadlineChecklistsRouter);
+buildingRouter.use(attendanceRouter);
+buildingRouter.use(alertActionsRouter);
 buildingRouter.use(buildingsRouter);
+buildingRouter.use(unitsRouter);
 buildingRouter.use(calendarRouter);
-buildingRouter.use(notificationsRouter);
-
-const accountingRouter: IRouter = Router();
-accountingRouter.use(accountingRoles);
-accountingRouter.use(approvalsRouter);
-accountingRouter.use(approvalStepsRouter);
-accountingRouter.use(signaturesRouter);
-accountingRouter.use(taxSchedulesRouter);
-accountingRouter.use(taxDeadlineChecklistsRouter);
-accountingRouter.use(draftsRouter);
-accountingRouter.use(settlementsRouter);
-accountingRouter.use(quotesRouter);
-accountingRouter.use(workReportsRouter);
-buildingRouter.use(accountingRouter);
-
-const facilityRouter: IRouter = Router();
-facilityRouter.use(facilityRoles);
-facilityRouter.use(facilityDashboardRouter);
-facilityRouter.use(safetyChecklistsRouter);
-facilityRouter.use(maintenanceLogsRouter);
-facilityRouter.use(attendanceRouter);
-buildingRouter.use(facilityRouter);
-
-const monitoringRouter: IRouter = Router();
-monitoringRouter.use(monitoringRoles);
-monitoringRouter.use(inspectionsRouter);
-monitoringRouter.use(safetyTrainingsRouter);
-monitoringRouter.use(reportSystemRouter);
-monitoringRouter.use(documentTemplatesRouter);
-buildingRouter.use(monitoringRouter);
-
-const tenantMgmtRoles = requireRole("manager", "platform_admin", "accountant");
-const tenantMgmtRouter: IRouter = Router();
-tenantMgmtRouter.use(tenantMgmtRoles);
-tenantMgmtRouter.use(tenantsRouter);
-tenantMgmtRouter.use(unitsRouter);
-buildingRouter.use(tenantMgmtRouter);
-
-const managerOnlyRouter: IRouter = Router();
-managerOnlyRouter.use(managerFull);
-managerOnlyRouter.use(tasksRouter);
-managerOnlyRouter.use(ownersRouter);
-managerOnlyRouter.use(vehiclesRouter);
-managerOnlyRouter.use(documentChecklistsRouter);
-managerOnlyRouter.use(privacyRouter);
-managerOnlyRouter.use(alertActionsRouter);
-managerOnlyRouter.use(tenantCardTokensRouter);
-managerOnlyRouter.use(managementContractTemplatesRouter);
-buildingRouter.use(managerOnlyRouter);
-
+buildingRouter.use(tenantCardTokensRouter);
+buildingRouter.use(managementContractTemplatesRouter);
 router.use(buildingRouter);
 
 export default router;

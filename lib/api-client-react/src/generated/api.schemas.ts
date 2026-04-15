@@ -2833,7 +2833,7 @@ export interface GenerateMonthlySummaryBody {
 }
 
 /**
- * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin)
+ * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin), 총괄책임자(hq_executive), 회계/행정(accountant), 시설관리(facility_staff)
  */
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
@@ -2841,16 +2841,20 @@ export const UserRole = {
   manager: "manager",
   partner: "partner",
   platform_admin: "platform_admin",
+  hq_executive: "hq_executive",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
 } as const;
 
 /**
- * 건물관리(building), 파트너사(partner)
+ * 건물관리(building), 파트너사(partner), 본사(hq)
  */
 export type PortalType = (typeof PortalType)[keyof typeof PortalType];
 
 export const PortalType = {
   building: "building",
   partner: "partner",
+  hq: "hq",
 } as const;
 
 export interface AuthUser {

@@ -7,11 +7,12 @@
  */
 
 /**
- * 건물관리(building), 파트너사(partner)
+ * 건물관리(building), 파트너사(partner), 본사(hq)
  */
 export type PortalType = (typeof PortalType)[keyof typeof PortalType];
 
 export const PortalType = {
   building: "building",
   partner: "partner",
+  hq: "hq",
 } as const;

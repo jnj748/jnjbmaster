@@ -7,7 +7,7 @@
  */
 
 /**
- * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin)
+ * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin), 총괄책임자(hq_executive), 회계/행정(accountant), 시설관리(facility_staff)
  */
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
@@ -15,4 +15,7 @@ export const UserRole = {
   manager: "manager",
   partner: "partner",
   platform_admin: "platform_admin",
+  hq_executive: "hq_executive",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
 } as const;
