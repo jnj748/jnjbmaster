@@ -4,6 +4,7 @@ import { db, votesTable, voteBallotsTable, usersTable, unitsTable } from "@works
 import {
   CreateVoteBody,
   CastBallotBody,
+  UpdateVoteBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 
@@ -108,14 +109,18 @@ router.get("/votes/:id", async (req: Request, res: Response): Promise<void> => {
 
 router.patch("/votes/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id);
+  const parsed = UpdateVoteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues });
+    return;
+  }
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
-  const { status, title, description } = req.body as { status?: string; title?: string; description?: string };
   const updates: Partial<typeof votesTable.$inferInsert> = {};
-  if (status) updates.status = status as "draft" | "active" | "closed";
-  if (title) updates.title = title;
-  if (description) updates.description = description;
+  if (parsed.data.status) updates.status = parsed.data.status;
+  if (parsed.data.title) updates.title = parsed.data.title;
+  if (parsed.data.description) updates.description = parsed.data.description;
 
   const [row] = await db
     .update(votesTable)
@@ -136,16 +141,18 @@ router.delete("/votes/:id", async (req: Request, res: Response): Promise<void> =
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
-  await db.delete(voteBallotsTable).where(eq(voteBallotsTable.voteId, id));
-  const [row] = await db
-    .delete(votesTable)
-    .where(and(eq(votesTable.id, id), eq(votesTable.buildingId, buildingId)))
-    .returning();
+  const [vote] = await db
+    .select()
+    .from(votesTable)
+    .where(and(eq(votesTable.id, id), eq(votesTable.buildingId, buildingId)));
 
-  if (!row) {
+  if (!vote) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+
+  await db.delete(voteBallotsTable).where(eq(voteBallotsTable.voteId, id));
+  await db.delete(votesTable).where(eq(votesTable.id, id));
 
   res.json({ success: true });
 });
