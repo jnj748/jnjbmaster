@@ -2304,7 +2304,7 @@ paths:
         - name: floor
           in: query
           schema:
-            type: integer
+            type: string
         - name: status
           in: query
           schema:

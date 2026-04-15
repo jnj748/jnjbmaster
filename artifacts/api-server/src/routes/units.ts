@@ -60,8 +60,8 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
       status: unitsTable.status,
       createdAt: unitsTable.createdAt,
       updatedAt: unitsTable.updatedAt,
-      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = ${unitsTable.id} AND tenants.status = 'active')`,
-      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE owners.unit_id = ${unitsTable.id} AND owners.status = 'active')`,
+      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE (tenants.unit_id = ${unitsTable.id} OR (tenants.unit_id IS NULL AND tenants.unit = ${unitsTable.unitNumber})) AND tenants.status = 'active')`,
+      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE (owners.unit_id = ${unitsTable.id} OR (owners.unit_id IS NULL AND owners.unit = ${unitsTable.unitNumber})) AND owners.status = 'active')`,
       vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles WHERE vehicles.unit = ${unitsTable.unitNumber} AND vehicles.status = 'registered')`,
     })
     .from(unitsTable)
@@ -128,7 +128,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(tenantsTable.status, "active"),
-        eq(tenantsTable.unitId, unit.id)
+        or(
+          eq(tenantsTable.unitId, unit.id),
+          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
+        )
       )
     );
 
@@ -138,7 +141,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(ownersTable.status, "active"),
-        eq(ownersTable.unitId, unit.id)
+        or(
+          eq(ownersTable.unitId, unit.id),
+          and(sql`${ownersTable.unitId} IS NULL`, eq(ownersTable.unit, unit.unitNumber))
+        )
       )
     );
 
@@ -148,7 +154,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .innerJoin(tenantsTable, eq(vehiclesTable.tenantId, tenantsTable.id))
     .where(
       and(
-        eq(tenantsTable.unitId, unit.id),
+        or(
+          eq(tenantsTable.unitId, unit.id),
+          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
+        ),
         eq(vehiclesTable.status, "registered")
       )
     );

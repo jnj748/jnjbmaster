@@ -8,7 +8,7 @@
 import type { ListUnitsStatus } from "./listUnitsStatus";
 
 export type ListUnitsParams = {
-  floor?: number;
+  floor?: string;
   status?: ListUnitsStatus;
   search?: string;
 };

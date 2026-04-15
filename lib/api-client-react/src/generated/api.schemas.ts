@@ -3184,7 +3184,7 @@ export const ListTenantsStatus = {
 } as const;
 
 export type ListUnitsParams = {
-  floor?: number;
+  floor?: string;
   status?: ListUnitsStatus;
   search?: string;
 };

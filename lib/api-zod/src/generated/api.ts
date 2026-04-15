@@ -2889,7 +2889,7 @@ export const DeleteTenantParams = zod.object({
  * @summary List units
  */
 export const ListUnitsQueryParams = zod.object({
-  floor: zod.coerce.number().optional(),
+  floor: zod.coerce.string().optional(),
   status: zod.enum(["vacant", "occupied", "maintenance"]).optional(),
   search: zod.coerce.string().optional(),
 });
