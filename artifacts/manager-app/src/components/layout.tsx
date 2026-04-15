@@ -41,6 +41,10 @@ import {
   MoreHorizontal,
   Building,
   CalendarDays,
+  Droplets,
+  Receipt,
+  MessageSquare,
+  Vote,
 } from "lucide-react";
 import {
   Popover,
@@ -69,6 +73,8 @@ const managerNavSections: NavSection[] = [
     title: "관리비회계",
     items: [
       { path: "/accounting", label: "관리비회계", icon: DollarSign },
+      { path: "/metering", label: "검침 관리", icon: Droplets },
+      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
       { path: "/approvals", label: "결재함", icon: ClipboardCheck },
       { path: "/spending", label: "지출 현황", icon: DollarSign },
       { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
@@ -96,6 +102,8 @@ const managerNavSections: NavSection[] = [
       { path: "/owners", label: "소유자 관리", icon: UserCheck },
       { path: "/vehicles", label: "차량 관리", icon: Car },
       { path: "/vendors", label: "협력업체", icon: Building2 },
+      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
+      { path: "/voting", label: "전자투표", icon: Vote },
     ],
   },
   {
@@ -144,6 +152,8 @@ const accountantNavSections: NavSection[] = [
     title: "관리비회계",
     items: [
       { path: "/accounting", label: "관리비회계", icon: DollarSign },
+      { path: "/metering", label: "검침 관리", icon: Droplets },
+      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
       { path: "/approvals", label: "결재함", icon: ClipboardCheck },
       { path: "/spending", label: "지출 현황", icon: DollarSign },
       { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
@@ -156,6 +166,8 @@ const accountantNavSections: NavSection[] = [
     items: [
       { path: "/units", label: "호실 관리", icon: Building },
       { path: "/tenants", label: "입주민 관리", icon: Users },
+      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
+      { path: "/voting", label: "전자투표", icon: Vote },
     ],
   },
 ];

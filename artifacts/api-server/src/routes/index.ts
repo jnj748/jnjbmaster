@@ -39,6 +39,10 @@ import unitsRouter from "./units";
 import tenantCardTokensRouter from "./tenantCardTokens";
 import managementContractTemplatesRouter from "./managementContractTemplates";
 import publicTenantCardRouter from "./publicTenantCard";
+import metersRouter from "./meters";
+import feesRouter from "./fees";
+import complaintsRouter from "./complaints";
+import votesRouter from "./votes";
 
 const router: IRouter = Router();
 
@@ -88,6 +92,10 @@ buildingRouter.use(unitsRouter);
 buildingRouter.use(calendarRouter);
 buildingRouter.use(tenantCardTokensRouter);
 buildingRouter.use(managementContractTemplatesRouter);
+buildingRouter.use(metersRouter);
+buildingRouter.use(feesRouter);
+buildingRouter.use(complaintsRouter);
+buildingRouter.use(votesRouter);
 router.use(buildingRouter);
 
 export default router;

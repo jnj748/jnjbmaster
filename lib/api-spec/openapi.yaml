@@ -51,6 +51,14 @@ tags:
     description: Unit management
   - name: Storage
     description: Object storage upload and serving endpoints.
+  - name: meters
+    description: Meter reading management (water, electricity, gas, heating)
+  - name: fees
+    description: Management fee calculation and billing
+  - name: complaints
+    description: Resident complaint management
+  - name: voting
+    description: Electronic voting management
 
 paths:
   /healthz:
@@ -2484,14 +2492,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestUploadUrlBody"
+              $ref: "#/components/schemas/UploadUrlRequest"
       responses:
         "200":
           description: Upload URL
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RequestUploadUrlResponse"
+                $ref: "#/components/schemas/UploadUrlResponse"
 
   # ── Units (호실 관리) ──────────────────────────────────────
   /units:
@@ -3712,6 +3720,319 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CalendarEvent"
+
+  /meters:
+    get:
+      operationId: listMeterReadings
+      tags: [meters]
+      summary: List meter readings
+      parameters:
+        - name: meterType
+          in: query
+          schema:
+            type: string
+            enum: [water, electricity, gas, heating]
+        - name: month
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of meter readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeterReading"
+    post:
+      operationId: createMeterReading
+      tags: [meters]
+      summary: Create a meter reading
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeterReadingBody"
+      responses:
+        "201":
+          description: Created meter reading
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterReading"
+
+  /meters/anomalies:
+    get:
+      operationId: listMeterAnomalies
+      tags: [meters]
+      summary: List anomalous meter readings
+      responses:
+        "200":
+          description: List of anomalous readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeterReading"
+
+  /meters/csv-upload:
+    post:
+      operationId: uploadMeterCsv
+      tags: [meters]
+      summary: Upload meter readings via CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeterCsvUploadBody"
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterCsvUploadResponse"
+
+  /fees/calculate:
+    post:
+      operationId: calculateFees
+      tags: [fees]
+      summary: Calculate management fees for all units
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateFeesBody"
+      responses:
+        "200":
+          description: Calculated fee breakdown per unit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculateFeesResponse"
+
+  /fees/billing:
+    get:
+      operationId: getBillingList
+      tags: [fees]
+      summary: Get billing list per unit
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billing list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BillingItem"
+
+  /fees/trend:
+    get:
+      operationId: getFeeTrend
+      tags: [fees]
+      summary: Get 12-month fee trend
+      responses:
+        "200":
+          description: Fee trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeeTrendItem"
+
+  /fees/interim:
+    post:
+      operationId: calculateInterimSettlement
+      tags: [fees]
+      summary: Calculate move-out interim settlement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterimSettlementBody"
+      responses:
+        "200":
+          description: Interim settlement calculation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterimSettlementResponse"
+
+  /fees/kakao-notify:
+    post:
+      operationId: sendKakaoNotification
+      tags: [fees]
+      summary: Simulate sending Kakao notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KakaoNotifyBody"
+      responses:
+        "200":
+          description: Notification simulation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KakaoNotifyResponse"
+
+  /complaints:
+    get:
+      operationId: listComplaints
+      tags: [complaints]
+      summary: List complaints
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [noise, parking, maintenance, cleaning, security, other]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [received, assigned, in_progress, completed]
+      responses:
+        "200":
+          description: List of complaints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Complaint"
+    post:
+      operationId: createComplaint
+      tags: [complaints]
+      summary: Create a complaint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComplaintBody"
+      responses:
+        "201":
+          description: Created complaint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Complaint"
+
+  /complaints/{id}:
+    patch:
+      operationId: updateComplaint
+      tags: [complaints]
+      summary: Update complaint (assign, progress, complete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateComplaintBody"
+      responses:
+        "200":
+          description: Updated complaint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Complaint"
+
+  /votes:
+    get:
+      operationId: listVotes
+      tags: [voting]
+      summary: List votes
+      responses:
+        "200":
+          description: List of votes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vote"
+    post:
+      operationId: createVote
+      tags: [voting]
+      summary: Create a vote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVoteBody"
+      responses:
+        "201":
+          description: Created vote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vote"
+
+  /votes/{id}/cast:
+    post:
+      operationId: castBallot
+      tags: [voting]
+      summary: Cast a ballot for a vote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CastBallotBody"
+      responses:
+        "200":
+          description: Ballot cast result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CastBallotResponse"
+
+  /votes/{id}:
+    get:
+      operationId: getVoteDetail
+      tags: [voting]
+      summary: Get vote detail with ballot counts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vote detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteDetail"
 
 components:
   schemas:
@@ -7763,3 +8084,476 @@ components:
         - specialFundConsent
         - privacyRetentionConsent
         - signatureName
+
+    MeterReading:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        unitId:
+          type: ["integer", "null"]
+        unitNumber:
+          type: string
+        meterType:
+          type: string
+          enum: [water, electricity, gas, heating]
+        readingDate:
+          type: string
+        previousReading:
+          type: ["string", "null"]
+        currentReading:
+          type: string
+        usage:
+          type: ["string", "null"]
+        isAnomaly:
+          type: boolean
+        anomalyNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - buildingId
+        - unitNumber
+        - meterType
+        - readingDate
+        - currentReading
+        - isAnomaly
+
+    CreateMeterReadingBody:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        meterType:
+          type: string
+          enum: [water, electricity, gas, heating]
+        readingDate:
+          type: string
+        previousReading:
+          type: number
+        currentReading:
+          type: number
+      required:
+        - unitNumber
+        - meterType
+        - readingDate
+        - currentReading
+
+    MeterCsvUploadBody:
+      type: object
+      properties:
+        meterType:
+          type: string
+          enum: [water, electricity, gas, heating]
+        readingDate:
+          type: string
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              unitNumber:
+                type: string
+              previousReading:
+                type: number
+              currentReading:
+                type: number
+            required:
+              - unitNumber
+              - currentReading
+      required:
+        - meterType
+        - readingDate
+        - rows
+
+    MeterCsvUploadResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+        anomalies:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+        - imported
+        - anomalies
+
+    CalculateFeesBody:
+      type: object
+      properties:
+        month:
+          type: string
+        commonMaintenanceFee:
+          type: number
+        specialFund:
+          type: number
+        utilityTotal:
+          type: number
+        additionalExpenses:
+          type: array
+          items:
+            type: object
+            properties:
+              description:
+                type: string
+              amount:
+                type: number
+            required:
+              - description
+              - amount
+      required:
+        - month
+        - commonMaintenanceFee
+
+    CalculateFeesResponse:
+      type: object
+      properties:
+        month:
+          type: string
+        totalUnits:
+          type: integer
+        grandTotal:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillingItem"
+      required:
+        - month
+        - totalUnits
+        - grandTotal
+        - items
+
+    BillingItem:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        exclusiveArea:
+          type: number
+        areaRatio:
+          type: number
+        commonFee:
+          type: number
+        specialFund:
+          type: number
+        utilityFee:
+          type: number
+        additionalFee:
+          type: number
+        totalFee:
+          type: number
+        isPaid:
+          type: boolean
+      required:
+        - unitNumber
+        - totalFee
+
+    FeeTrendItem:
+      type: object
+      properties:
+        month:
+          type: string
+        buildingAvg:
+          type: number
+        kaptAvg:
+          type: number
+      required:
+        - month
+        - buildingAvg
+
+    InterimSettlementBody:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        moveOutDate:
+          type: string
+        monthlyFee:
+          type: number
+        includeSpecialFund:
+          type: boolean
+      required:
+        - unitNumber
+        - moveOutDate
+        - monthlyFee
+
+    InterimSettlementResponse:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        moveOutDate:
+          type: string
+        daysInMonth:
+          type: integer
+        residencyDays:
+          type: integer
+        dailyRate:
+          type: number
+        proRatedFee:
+          type: number
+        specialFundRefund:
+          type: number
+        totalSettlement:
+          type: number
+      required:
+        - unitNumber
+        - moveOutDate
+        - totalSettlement
+
+    KakaoNotifyBody:
+      type: object
+      properties:
+        month:
+          type: string
+        unitNumbers:
+          type: array
+          items:
+            type: string
+      required:
+        - month
+
+    KakaoNotifyResponse:
+      type: object
+      properties:
+        sent:
+          type: integer
+        failed:
+          type: integer
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              unitNumber:
+                type: string
+              status:
+                type: string
+      required:
+        - sent
+        - failed
+
+    Complaint:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        unitNumber:
+          type: string
+        complainantName:
+          type: string
+        complainantPhone:
+          type: ["string", "null"]
+        category:
+          type: string
+          enum: [noise, parking, maintenance, cleaning, security, other]
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [received, assigned, in_progress, completed]
+        assigneeName:
+          type: ["string", "null"]
+        resolution:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - buildingId
+        - unitNumber
+        - complainantName
+        - category
+        - title
+        - description
+        - status
+
+    CreateComplaintBody:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        complainantName:
+          type: string
+        complainantPhone:
+          type: string
+        category:
+          type: string
+          enum: [noise, parking, maintenance, cleaning, security, other]
+        title:
+          type: string
+        description:
+          type: string
+      required:
+        - unitNumber
+        - complainantName
+        - category
+        - title
+        - description
+
+    UpdateComplaintBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [received, assigned, in_progress, completed]
+        assigneeName:
+          type: string
+        resolution:
+          type: string
+
+    Vote:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        voterType:
+          type: string
+          enum: [owner, tenant, all]
+        status:
+          type: string
+          enum: [draft, active, closed]
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalEligible:
+          type: integer
+        forCount:
+          type: integer
+        againstCount:
+          type: integer
+        abstainCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - buildingId
+        - title
+        - description
+        - voterType
+        - status
+        - startDate
+        - endDate
+
+    CreateVoteBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        voterType:
+          type: string
+          enum: [owner, tenant, all]
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalEligible:
+          type: integer
+      required:
+        - title
+        - description
+        - voterType
+        - startDate
+        - endDate
+        - totalEligible
+
+    CastBallotBody:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        voterName:
+          type: string
+        choice:
+          type: string
+          enum: [for, against, abstain]
+      required:
+        - unitNumber
+        - voterName
+        - choice
+
+    CastBallotResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    VoteDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        voterType:
+          type: string
+        status:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalEligible:
+          type: integer
+        forCount:
+          type: integer
+        againstCount:
+          type: integer
+        abstainCount:
+          type: integer
+        turnoutRate:
+          type: number
+        ballots:
+          type: array
+          items:
+            type: object
+            properties:
+              unitNumber:
+                type: string
+              voterName:
+                type: string
+              choice:
+                type: string
+              createdAt:
+                type: string
+      required:
+        - id
+        - title
+        - totalEligible
+        - forCount
+        - againstCount
+        - abstainCount
+        - turnoutRate

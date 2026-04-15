@@ -3232,6 +3232,327 @@ export interface SubmitTenantCardBody {
   vehicles?: SubmitTenantCardBodyVehiclesItem[];
 }
 
+export type MeterReadingMeterType =
+  (typeof MeterReadingMeterType)[keyof typeof MeterReadingMeterType];
+
+export const MeterReadingMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export interface MeterReading {
+  id: number;
+  buildingId: number;
+  /** @nullable */
+  unitId?: number | null;
+  unitNumber: string;
+  meterType: MeterReadingMeterType;
+  readingDate: string;
+  /** @nullable */
+  previousReading?: string | null;
+  currentReading: string;
+  /** @nullable */
+  usage?: string | null;
+  isAnomaly: boolean;
+  /** @nullable */
+  anomalyNote?: string | null;
+  createdAt?: string;
+}
+
+export type CreateMeterReadingBodyMeterType =
+  (typeof CreateMeterReadingBodyMeterType)[keyof typeof CreateMeterReadingBodyMeterType];
+
+export const CreateMeterReadingBodyMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export interface CreateMeterReadingBody {
+  unitNumber: string;
+  meterType: CreateMeterReadingBodyMeterType;
+  readingDate: string;
+  previousReading?: number;
+  currentReading: number;
+}
+
+export type MeterCsvUploadBodyMeterType =
+  (typeof MeterCsvUploadBodyMeterType)[keyof typeof MeterCsvUploadBodyMeterType];
+
+export const MeterCsvUploadBodyMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export type MeterCsvUploadBodyRowsItem = {
+  unitNumber: string;
+  previousReading?: number;
+  currentReading: number;
+};
+
+export interface MeterCsvUploadBody {
+  meterType: MeterCsvUploadBodyMeterType;
+  readingDate: string;
+  rows: MeterCsvUploadBodyRowsItem[];
+}
+
+export interface MeterCsvUploadResponse {
+  imported: number;
+  anomalies: number;
+  errors?: string[];
+}
+
+export type CalculateFeesBodyAdditionalExpensesItem = {
+  description: string;
+  amount: number;
+};
+
+export interface CalculateFeesBody {
+  month: string;
+  commonMaintenanceFee: number;
+  specialFund?: number;
+  utilityTotal?: number;
+  additionalExpenses?: CalculateFeesBodyAdditionalExpensesItem[];
+}
+
+export interface BillingItem {
+  unitNumber: string;
+  exclusiveArea?: number;
+  areaRatio?: number;
+  commonFee?: number;
+  specialFund?: number;
+  utilityFee?: number;
+  additionalFee?: number;
+  totalFee: number;
+  isPaid?: boolean;
+}
+
+export interface CalculateFeesResponse {
+  month: string;
+  totalUnits: number;
+  grandTotal: number;
+  items: BillingItem[];
+}
+
+export interface FeeTrendItem {
+  month: string;
+  buildingAvg: number;
+  kaptAvg?: number;
+}
+
+export interface InterimSettlementBody {
+  unitNumber: string;
+  moveOutDate: string;
+  monthlyFee: number;
+  includeSpecialFund?: boolean;
+}
+
+export interface InterimSettlementResponse {
+  unitNumber: string;
+  moveOutDate: string;
+  daysInMonth?: number;
+  residencyDays?: number;
+  dailyRate?: number;
+  proRatedFee?: number;
+  specialFundRefund?: number;
+  totalSettlement: number;
+}
+
+export interface KakaoNotifyBody {
+  month: string;
+  unitNumbers?: string[];
+}
+
+export type KakaoNotifyResponseDetailsItem = {
+  unitNumber?: string;
+  status?: string;
+};
+
+export interface KakaoNotifyResponse {
+  sent: number;
+  failed: number;
+  details?: KakaoNotifyResponseDetailsItem[];
+}
+
+export type ComplaintCategory =
+  (typeof ComplaintCategory)[keyof typeof ComplaintCategory];
+
+export const ComplaintCategory = {
+  noise: "noise",
+  parking: "parking",
+  maintenance: "maintenance",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export type ComplaintStatus =
+  (typeof ComplaintStatus)[keyof typeof ComplaintStatus];
+
+export const ComplaintStatus = {
+  received: "received",
+  assigned: "assigned",
+  in_progress: "in_progress",
+  completed: "completed",
+} as const;
+
+export interface Complaint {
+  id: number;
+  buildingId: number;
+  unitNumber: string;
+  complainantName: string;
+  /** @nullable */
+  complainantPhone?: string | null;
+  category: ComplaintCategory;
+  title: string;
+  description: string;
+  status: ComplaintStatus;
+  /** @nullable */
+  assigneeName?: string | null;
+  /** @nullable */
+  resolution?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreateComplaintBodyCategory =
+  (typeof CreateComplaintBodyCategory)[keyof typeof CreateComplaintBodyCategory];
+
+export const CreateComplaintBodyCategory = {
+  noise: "noise",
+  parking: "parking",
+  maintenance: "maintenance",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export interface CreateComplaintBody {
+  unitNumber: string;
+  complainantName: string;
+  complainantPhone?: string;
+  category: CreateComplaintBodyCategory;
+  title: string;
+  description: string;
+}
+
+export type UpdateComplaintBodyStatus =
+  (typeof UpdateComplaintBodyStatus)[keyof typeof UpdateComplaintBodyStatus];
+
+export const UpdateComplaintBodyStatus = {
+  received: "received",
+  assigned: "assigned",
+  in_progress: "in_progress",
+  completed: "completed",
+} as const;
+
+export interface UpdateComplaintBody {
+  status?: UpdateComplaintBodyStatus;
+  assigneeName?: string;
+  resolution?: string;
+}
+
+export type VoteVoterType = (typeof VoteVoterType)[keyof typeof VoteVoterType];
+
+export const VoteVoterType = {
+  owner: "owner",
+  tenant: "tenant",
+  all: "all",
+} as const;
+
+export type VoteStatus = (typeof VoteStatus)[keyof typeof VoteStatus];
+
+export const VoteStatus = {
+  draft: "draft",
+  active: "active",
+  closed: "closed",
+} as const;
+
+export interface Vote {
+  id: number;
+  buildingId: number;
+  title: string;
+  description: string;
+  voterType: VoteVoterType;
+  status: VoteStatus;
+  startDate: string;
+  endDate: string;
+  totalEligible?: number;
+  forCount?: number;
+  againstCount?: number;
+  abstainCount?: number;
+  createdAt?: string;
+}
+
+export type CreateVoteBodyVoterType =
+  (typeof CreateVoteBodyVoterType)[keyof typeof CreateVoteBodyVoterType];
+
+export const CreateVoteBodyVoterType = {
+  owner: "owner",
+  tenant: "tenant",
+  all: "all",
+} as const;
+
+export interface CreateVoteBody {
+  title: string;
+  description: string;
+  voterType: CreateVoteBodyVoterType;
+  startDate: string;
+  endDate: string;
+  totalEligible: number;
+}
+
+export type CastBallotBodyChoice =
+  (typeof CastBallotBodyChoice)[keyof typeof CastBallotBodyChoice];
+
+export const CastBallotBodyChoice = {
+  for: "for",
+  against: "against",
+  abstain: "abstain",
+} as const;
+
+export interface CastBallotBody {
+  unitNumber: string;
+  voterName: string;
+  choice: CastBallotBodyChoice;
+}
+
+export interface CastBallotResponse {
+  success: boolean;
+  message?: string;
+}
+
+export type VoteDetailBallotsItem = {
+  unitNumber?: string;
+  voterName?: string;
+  choice?: string;
+  createdAt?: string;
+};
+
+export interface VoteDetail {
+  id: number;
+  buildingId?: number;
+  title: string;
+  description?: string;
+  voterType?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  totalEligible: number;
+  forCount: number;
+  againstCount: number;
+  abstainCount: number;
+  turnoutRate: number;
+  ballots?: VoteDetailBallotsItem[];
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -3663,3 +3984,49 @@ export type GetCalendarEventsParams = {
    */
   month: number;
 };
+
+export type ListMeterReadingsParams = {
+  meterType?: ListMeterReadingsMeterType;
+  month?: string;
+};
+
+export type ListMeterReadingsMeterType =
+  (typeof ListMeterReadingsMeterType)[keyof typeof ListMeterReadingsMeterType];
+
+export const ListMeterReadingsMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export type GetBillingListParams = {
+  month: string;
+};
+
+export type ListComplaintsParams = {
+  category?: ListComplaintsCategory;
+  status?: ListComplaintsStatus;
+};
+
+export type ListComplaintsCategory =
+  (typeof ListComplaintsCategory)[keyof typeof ListComplaintsCategory];
+
+export const ListComplaintsCategory = {
+  noise: "noise",
+  parking: "parking",
+  maintenance: "maintenance",
+  cleaning: "cleaning",
+  security: "security",
+  other: "other",
+} as const;
+
+export type ListComplaintsStatus =
+  (typeof ListComplaintsStatus)[keyof typeof ListComplaintsStatus];
+
+export const ListComplaintsStatus = {
+  received: "received",
+  assigned: "assigned",
+  in_progress: "in_progress",
+  completed: "completed",
+} as const;

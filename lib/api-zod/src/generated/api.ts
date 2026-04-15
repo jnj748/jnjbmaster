@@ -3192,9 +3192,23 @@ export const RequestPublicUploadUrlParams = zod.object({
   token: zod.coerce.string().uuid(),
 });
 
-export const RequestPublicUploadUrlBody = zod.unknown();
+export const RequestPublicUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().min(1),
+  contentType: zod.string().min(1),
+});
 
-export const RequestPublicUploadUrlResponse = zod.unknown();
+export const RequestPublicUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  metadata: zod
+    .object({
+      name: zod.string().min(1),
+      size: zod.number().min(1),
+      contentType: zod.string().min(1),
+    })
+    .optional(),
+});
 
 /**
  * @summary List units
@@ -4607,3 +4621,369 @@ export const GetCalendarEventsResponseItem = zod.object({
 export const GetCalendarEventsResponse = zod.array(
   GetCalendarEventsResponseItem,
 );
+
+/**
+ * @summary List meter readings
+ */
+export const ListMeterReadingsQueryParams = zod.object({
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+  month: zod.coerce.string().optional(),
+});
+
+export const ListMeterReadingsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingDate: zod.string(),
+  previousReading: zod.string().nullish(),
+  currentReading: zod.string(),
+  usage: zod.string().nullish(),
+  isAnomaly: zod.boolean(),
+  anomalyNote: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+});
+export const ListMeterReadingsResponse = zod.array(
+  ListMeterReadingsResponseItem,
+);
+
+/**
+ * @summary Create a meter reading
+ */
+export const CreateMeterReadingBody = zod.object({
+  unitNumber: zod.string(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingDate: zod.string(),
+  previousReading: zod.number().optional(),
+  currentReading: zod.number(),
+});
+
+/**
+ * @summary List anomalous meter readings
+ */
+export const ListMeterAnomaliesResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingDate: zod.string(),
+  previousReading: zod.string().nullish(),
+  currentReading: zod.string(),
+  usage: zod.string().nullish(),
+  isAnomaly: zod.boolean(),
+  anomalyNote: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+});
+export const ListMeterAnomaliesResponse = zod.array(
+  ListMeterAnomaliesResponseItem,
+);
+
+/**
+ * @summary Upload meter readings via CSV
+ */
+export const UploadMeterCsvBody = zod.object({
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingDate: zod.string(),
+  rows: zod.array(
+    zod.object({
+      unitNumber: zod.string(),
+      previousReading: zod.number().optional(),
+      currentReading: zod.number(),
+    }),
+  ),
+});
+
+export const UploadMeterCsvResponse = zod.object({
+  imported: zod.number(),
+  anomalies: zod.number(),
+  errors: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Calculate management fees for all units
+ */
+export const CalculateFeesBody = zod.object({
+  month: zod.string(),
+  commonMaintenanceFee: zod.number(),
+  specialFund: zod.number().optional(),
+  utilityTotal: zod.number().optional(),
+  additionalExpenses: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        amount: zod.number(),
+      }),
+    )
+    .optional(),
+});
+
+export const CalculateFeesResponse = zod.object({
+  month: zod.string(),
+  totalUnits: zod.number(),
+  grandTotal: zod.number(),
+  items: zod.array(
+    zod.object({
+      unitNumber: zod.string(),
+      exclusiveArea: zod.number().optional(),
+      areaRatio: zod.number().optional(),
+      commonFee: zod.number().optional(),
+      specialFund: zod.number().optional(),
+      utilityFee: zod.number().optional(),
+      additionalFee: zod.number().optional(),
+      totalFee: zod.number(),
+      isPaid: zod.boolean().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get billing list per unit
+ */
+export const GetBillingListQueryParams = zod.object({
+  month: zod.coerce.string(),
+});
+
+export const GetBillingListResponseItem = zod.object({
+  unitNumber: zod.string(),
+  exclusiveArea: zod.number().optional(),
+  areaRatio: zod.number().optional(),
+  commonFee: zod.number().optional(),
+  specialFund: zod.number().optional(),
+  utilityFee: zod.number().optional(),
+  additionalFee: zod.number().optional(),
+  totalFee: zod.number(),
+  isPaid: zod.boolean().optional(),
+});
+export const GetBillingListResponse = zod.array(GetBillingListResponseItem);
+
+/**
+ * @summary Get 12-month fee trend
+ */
+export const GetFeeTrendResponseItem = zod.object({
+  month: zod.string(),
+  buildingAvg: zod.number(),
+  kaptAvg: zod.number().optional(),
+});
+export const GetFeeTrendResponse = zod.array(GetFeeTrendResponseItem);
+
+/**
+ * @summary Calculate move-out interim settlement
+ */
+export const CalculateInterimSettlementBody = zod.object({
+  unitNumber: zod.string(),
+  moveOutDate: zod.string(),
+  monthlyFee: zod.number(),
+  includeSpecialFund: zod.boolean().optional(),
+});
+
+export const CalculateInterimSettlementResponse = zod.object({
+  unitNumber: zod.string(),
+  moveOutDate: zod.string(),
+  daysInMonth: zod.number().optional(),
+  residencyDays: zod.number().optional(),
+  dailyRate: zod.number().optional(),
+  proRatedFee: zod.number().optional(),
+  specialFundRefund: zod.number().optional(),
+  totalSettlement: zod.number(),
+});
+
+/**
+ * @summary Simulate sending Kakao notification
+ */
+export const SendKakaoNotificationBody = zod.object({
+  month: zod.string(),
+  unitNumbers: zod.array(zod.string()).optional(),
+});
+
+export const SendKakaoNotificationResponse = zod.object({
+  sent: zod.number(),
+  failed: zod.number(),
+  details: zod
+    .array(
+      zod.object({
+        unitNumber: zod.string().optional(),
+        status: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary List complaints
+ */
+export const ListComplaintsQueryParams = zod.object({
+  category: zod
+    .enum(["noise", "parking", "maintenance", "cleaning", "security", "other"])
+    .optional(),
+  status: zod
+    .enum(["received", "assigned", "in_progress", "completed"])
+    .optional(),
+});
+
+export const ListComplaintsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitNumber: zod.string(),
+  complainantName: zod.string(),
+  complainantPhone: zod.string().nullish(),
+  category: zod.enum([
+    "noise",
+    "parking",
+    "maintenance",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["received", "assigned", "in_progress", "completed"]),
+  assigneeName: zod.string().nullish(),
+  resolution: zod.string().nullish(),
+  completedAt: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+export const ListComplaintsResponse = zod.array(ListComplaintsResponseItem);
+
+/**
+ * @summary Create a complaint
+ */
+export const CreateComplaintBody = zod.object({
+  unitNumber: zod.string(),
+  complainantName: zod.string(),
+  complainantPhone: zod.string().optional(),
+  category: zod.enum([
+    "noise",
+    "parking",
+    "maintenance",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+});
+
+/**
+ * @summary Update complaint (assign, progress, complete)
+ */
+export const UpdateComplaintParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateComplaintBody = zod.object({
+  status: zod
+    .enum(["received", "assigned", "in_progress", "completed"])
+    .optional(),
+  assigneeName: zod.string().optional(),
+  resolution: zod.string().optional(),
+});
+
+export const UpdateComplaintResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitNumber: zod.string(),
+  complainantName: zod.string(),
+  complainantPhone: zod.string().nullish(),
+  category: zod.enum([
+    "noise",
+    "parking",
+    "maintenance",
+    "cleaning",
+    "security",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["received", "assigned", "in_progress", "completed"]),
+  assigneeName: zod.string().nullish(),
+  resolution: zod.string().nullish(),
+  completedAt: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary List votes
+ */
+export const ListVotesResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  voterType: zod.enum(["owner", "tenant", "all"]),
+  status: zod.enum(["draft", "active", "closed"]),
+  startDate: zod.string(),
+  endDate: zod.string(),
+  totalEligible: zod.number().optional(),
+  forCount: zod.number().optional(),
+  againstCount: zod.number().optional(),
+  abstainCount: zod.number().optional(),
+  createdAt: zod.string().optional(),
+});
+export const ListVotesResponse = zod.array(ListVotesResponseItem);
+
+/**
+ * @summary Create a vote
+ */
+export const CreateVoteBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  voterType: zod.enum(["owner", "tenant", "all"]),
+  startDate: zod.string(),
+  endDate: zod.string(),
+  totalEligible: zod.number(),
+});
+
+/**
+ * @summary Cast a ballot for a vote
+ */
+export const CastBallotParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CastBallotBody = zod.object({
+  unitNumber: zod.string(),
+  voterName: zod.string(),
+  choice: zod.enum(["for", "against", "abstain"]),
+});
+
+export const CastBallotResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Get vote detail with ballot counts
+ */
+export const GetVoteDetailParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetVoteDetailResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number().optional(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  voterType: zod.string().optional(),
+  status: zod.string().optional(),
+  startDate: zod.string().optional(),
+  endDate: zod.string().optional(),
+  totalEligible: zod.number(),
+  forCount: zod.number(),
+  againstCount: zod.number(),
+  abstainCount: zod.number(),
+  turnoutRate: zod.number(),
+  ballots: zod
+    .array(
+      zod.object({
+        unitNumber: zod.string().optional(),
+        voterName: zod.string().optional(),
+        choice: zod.string().optional(),
+        createdAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});

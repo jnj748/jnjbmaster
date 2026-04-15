@@ -46,6 +46,10 @@ const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const Units = lazy(() => import("@/pages/units"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
+const Metering = lazy(() => import("@/pages/metering"));
+const BillingPage = lazy(() => import("@/pages/billing"));
+const ComplaintsPage = lazy(() => import("@/pages/complaints"));
+const VotingPage = lazy(() => import("@/pages/voting"));
 
 function PageLoader() {
   return (
@@ -98,6 +102,10 @@ const managerRoutes = [
   { path: "/users", component: Users },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },
+  { path: "/metering", component: Metering },
+  { path: "/billing", component: BillingPage },
+  { path: "/complaints", component: ComplaintsPage },
+  { path: "/voting", component: VotingPage },
 ];
 
 const partnerRoutes = [
@@ -130,6 +138,10 @@ const accountantRoutes = [
   { path: "/commissions", component: Commissions },
   { path: "/units", component: Units },
   { path: "/tenants", component: Tenants },
+  { path: "/metering", component: Metering },
+  { path: "/billing", component: BillingPage },
+  { path: "/complaints", component: ComplaintsPage },
+  { path: "/voting", component: VotingPage },
 ];
 
 const facilityRoutes = [
