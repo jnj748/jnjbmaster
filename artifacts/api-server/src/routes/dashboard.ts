@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, desc, sql } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable } from "@workspace/db";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
   GetDashboardAlertsResponse,
@@ -489,21 +489,54 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
-  const allUnits = await db.select().from(unitsTable);
+  const userId = _req.user?.userId;
+  let buildingId: number | null = null;
+  if (userId) {
+    const userRow = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+    buildingId = userRow?.buildingId ?? null;
+  }
+
+  const allUnits = buildingId
+    ? await db.select().from(unitsTable).where(eq(unitsTable.buildingId, buildingId))
+    : await db.select().from(unitsTable);
   const occupiedUnits = allUnits.filter((u) => u.status === "occupied");
-  const totalUnpaid = 0;
-  const unpaidCount = 0;
+  const vacantUnits = allUnits.filter((u) => u.status === "vacant");
+
+  const totalArea = allUnits.reduce((s, u) => s + Number(u.exclusiveArea || 0), 0);
+  const commonBase = 150000;
+  const specialBase = 30000;
+  const utilityBase = 80000;
+
+  let totalUnpaid = 0;
+  let unpaidCount = 0;
+  let commonUnpaid = 0;
+  let specialUnpaid = 0;
+  let utilityUnpaid = 0;
+
+  for (const unit of vacantUnits) {
+    const area = Number(unit.exclusiveArea || 0);
+    const ratio = area > 0 && totalArea > 0 ? area / totalArea : 1 / Math.max(allUnits.length, 1);
+    const common = Math.round(commonBase * ratio);
+    const special = Math.round(specialBase * ratio);
+    const utility = Math.round(utilityBase * ratio);
+    totalUnpaid += common + special + utility;
+    commonUnpaid += common;
+    specialUnpaid += special;
+    utilityUnpaid += utility;
+    unpaidCount++;
+  }
+
   const unpaidByMonth: Array<{ month: string; amount: number; count: number }> = [];
   for (let i = 2; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    unpaidByMonth.push({ month: m, amount: 0, count: 0 });
+    unpaidByMonth.push({ month: m, amount: i === 0 ? totalUnpaid : 0, count: i === 0 ? unpaidCount : 0 });
   }
 
   const unpaidByCategory = [
-    { category: "관리비", amount: 0 },
-    { category: "수선유지비", amount: 0 },
-    { category: "장기수선충당금", amount: 0 },
+    { category: "관리비", amount: commonUnpaid },
+    { category: "수선유지비", amount: utilityUnpaid },
+    { category: "장기수선충당금", amount: specialUnpaid },
     { category: "기타", amount: 0 },
   ];
 
@@ -606,7 +639,7 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
       totalUnpaid,
       unpaidCount,
       totalUnits: occupiedUnits.length,
-      unpaidRate: occupiedUnits.length > 0 ? Math.round((unpaidCount / occupiedUnits.length) * 100) : 0,
+      unpaidRate: allUnits.length > 0 ? Math.round((unpaidCount / allUnits.length) * 100) : 0,
     },
     unpaidByMonth,
     unpaidByCategory,
