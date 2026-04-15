@@ -60,9 +60,9 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
       status: unitsTable.status,
       createdAt: unitsTable.createdAt,
       updatedAt: unitsTable.updatedAt,
-      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE (tenants.unit_id = ${unitsTable.id} OR (tenants.unit_id IS NULL AND tenants.unit = ${unitsTable.unitNumber})) AND tenants.status = 'active')`,
-      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE (owners.unit_id = ${unitsTable.id} OR (owners.unit_id IS NULL AND owners.unit = ${unitsTable.unitNumber})) AND owners.status = 'active')`,
-      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles WHERE vehicles.unit = ${unitsTable.unitNumber} AND vehicles.status = 'registered')`,
+      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = units.id AND tenants.status = 'active')`,
+      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE owners.unit_id = units.id AND owners.status = 'active')`,
+      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles v JOIN tenants t ON v.tenant_id = t.id WHERE t.unit_id = units.id AND v.status = 'registered')`,
     })
     .from(unitsTable)
     .where(and(...conditions))
@@ -128,10 +128,7 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(tenantsTable.status, "active"),
-        or(
-          eq(tenantsTable.unitId, unit.id),
-          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
-        )
+        eq(tenantsTable.unitId, unit.id)
       )
     );
 
@@ -141,39 +138,21 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(ownersTable.status, "active"),
-        or(
-          eq(ownersTable.unitId, unit.id),
-          and(sql`${ownersTable.unitId} IS NULL`, eq(ownersTable.unit, unit.unitNumber))
-        )
+        eq(ownersTable.unitId, unit.id)
       )
     );
 
-  const linkedVehicles = await db
+  const vehicles = await db
     .select({ v: vehiclesTable })
     .from(vehiclesTable)
     .innerJoin(tenantsTable, eq(vehiclesTable.tenantId, tenantsTable.id))
     .where(
       and(
-        or(
-          eq(tenantsTable.unitId, unit.id),
-          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
-        ),
+        eq(tenantsTable.unitId, unit.id),
         eq(vehiclesTable.status, "registered")
       )
-    );
-
-  const unlinkedVehicles = await db
-    .select()
-    .from(vehiclesTable)
-    .where(
-      and(
-        eq(vehiclesTable.unit, unit.unitNumber),
-        eq(vehiclesTable.status, "registered"),
-        sql`${vehiclesTable.tenantId} IS NULL`
-      )
-    );
-
-  const vehicles = [...linkedVehicles.map(r => r.v), ...unlinkedVehicles];
+    )
+    .then(rows => rows.map(r => r.v));
 
   res.json({ ...unit, tenants, owners, vehicles });
 });
