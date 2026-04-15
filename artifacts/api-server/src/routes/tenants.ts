@@ -272,15 +272,24 @@ router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
       .returning();
 
     if (existing.unitId) {
-      await db
-        .update(tenantCardTokensTable)
-        .set({ status: "approved", approvedAt: new Date(), approvedBy: userName })
+      const submittedTokens = await db
+        .select()
+        .from(tenantCardTokensTable)
         .where(
           and(
             eq(tenantCardTokensTable.unitId, existing.unitId),
             eq(tenantCardTokensTable.status, "submitted")
           )
-        );
+        )
+        .orderBy(sql`${tenantCardTokensTable.createdAt} DESC`)
+        .limit(1);
+
+      if (submittedTokens.length > 0) {
+        await db
+          .update(tenantCardTokensTable)
+          .set({ status: "approved", approvedAt: new Date(), approvedBy: userName })
+          .where(eq(tenantCardTokensTable.id, submittedTokens[0].id));
+      }
     }
 
     await db.insert(notificationsTable).values({
@@ -303,18 +312,27 @@ router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
       .returning();
 
     if (existing.unitId) {
-      await db
-        .update(tenantCardTokensTable)
-        .set({
-          status: "rejected",
-          rejectionReason: parsed.data.rejectionReason || null,
-        })
+      const submittedTokens = await db
+        .select()
+        .from(tenantCardTokensTable)
         .where(
           and(
             eq(tenantCardTokensTable.unitId, existing.unitId),
             eq(tenantCardTokensTable.status, "submitted")
           )
-        );
+        )
+        .orderBy(sql`${tenantCardTokensTable.createdAt} DESC`)
+        .limit(1);
+
+      if (submittedTokens.length > 0) {
+        await db
+          .update(tenantCardTokensTable)
+          .set({
+            status: "rejected",
+            rejectionReason: parsed.data.rejectionReason || null,
+          })
+          .where(eq(tenantCardTokensTable.id, submittedTokens[0].id));
+      }
     }
 
     res.json(GetTenantResponse.parse(tenant));

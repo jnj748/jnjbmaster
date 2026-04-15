@@ -60,6 +60,22 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     return;
   }
 
+  const unitTenants = await db
+    .select()
+    .from(tenantsTable)
+    .where(and(eq(tenantsTable.unit, parsed.data.unit), eq(tenantsTable.status, "active")));
+
+  if (unitTenants.length > 0) {
+    const hasVerified = unitTenants.some((t) => t.verificationStatus === "verified");
+    if (!hasVerified) {
+      res.status(400).json({
+        error: "해당 호실의 입주자카드가 승인되지 않았습니다. 입주자카드 승인 후 차량을 등록해 주세요.",
+        verificationRequired: true,
+      });
+      return;
+    }
+  }
+
   if (parsed.data.tenantId) {
     const [tenant] = await db
       .select()
@@ -71,10 +87,6 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     }
     if (tenant.unit !== parsed.data.unit) {
       res.status(400).json({ error: `입주자의 호실(${tenant.unit})과 입력한 호실(${parsed.data.unit})이 일치하지 않습니다.` });
-      return;
-    }
-    if (tenant.verificationStatus !== "verified") {
-      res.status(400).json({ error: "입주자카드가 승인되지 않았습니다. 입주자카드 승인 후 차량을 등록해 주세요.", verificationRequired: true });
       return;
     }
   }
