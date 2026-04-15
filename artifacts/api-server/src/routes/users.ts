@@ -51,7 +51,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       return;
     }
 
-    const actorRole = (req as any).user?.role;
+    const actorRole = req.user?.role;
     const privilegedRoles = ["platform_admin", "hq_executive"];
     if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
       res.status(403).json({ error: "해당 역할의 사용자는 플랫폼 관리자만 생성할 수 있습니다" });
@@ -124,7 +124,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
         res.status(400).json({ error: "유효하지 않은 역할입니다" });
         return;
       }
-      const actorRole = (req as any).user?.role;
+      const actorRole = req.user?.role;
       const privilegedRoles = ["platform_admin", "hq_executive"];
       if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
         res.status(403).json({ error: "해당 역할로의 변경은 플랫폼 관리자만 가능합니다" });

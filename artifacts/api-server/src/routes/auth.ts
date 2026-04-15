@@ -92,7 +92,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const portalMatch = user.portalType === portalType
     || (portalType === "building" && ["building", "hq"].includes(user.portalType))
-    || (portalType === "hq" && ["hq", "building"].includes(user.portalType) && ["hq_executive", "platform_admin", "manager"].includes(user.role));
+    || (portalType === "hq" && ["hq", "building"].includes(user.portalType) && ["hq_executive", "platform_admin"].includes(user.role));
   if (!portalMatch) {
     res.status(401).json({ error: "해당 포털에서 로그인할 수 없는 계정입니다" });
     return;
