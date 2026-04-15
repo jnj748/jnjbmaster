@@ -60,9 +60,9 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
       status: unitsTable.status,
       createdAt: unitsTable.createdAt,
       updatedAt: unitsTable.updatedAt,
-      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = units.id AND tenants.status = 'active')`,
-      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE owners.unit_id = units.id AND owners.status = 'active')`,
-      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles v JOIN tenants t ON v.tenant_id = t.id WHERE t.unit_id = units.id AND v.status = 'registered')`,
+      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE (tenants.unit_id = units.id OR (tenants.unit_id IS NULL AND tenants.unit = units.unit_number)) AND tenants.status = 'active')`,
+      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE (owners.unit_id = units.id OR (owners.unit_id IS NULL AND owners.unit = units.unit_number)) AND owners.status = 'active')`,
+      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles v JOIN tenants t ON v.tenant_id = t.id WHERE (t.unit_id = units.id OR (t.unit_id IS NULL AND t.unit = units.unit_number)) AND v.status = 'registered')`,
     })
     .from(unitsTable)
     .where(and(...conditions))
@@ -128,7 +128,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(tenantsTable.status, "active"),
-        eq(tenantsTable.unitId, unit.id)
+        or(
+          eq(tenantsTable.unitId, unit.id),
+          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
+        )
       )
     );
 
@@ -138,7 +141,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .where(
       and(
         eq(ownersTable.status, "active"),
-        eq(ownersTable.unitId, unit.id)
+        or(
+          eq(ownersTable.unitId, unit.id),
+          and(sql`${ownersTable.unitId} IS NULL`, eq(ownersTable.unit, unit.unitNumber))
+        )
       )
     );
 
@@ -148,7 +154,10 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .innerJoin(tenantsTable, eq(vehiclesTable.tenantId, tenantsTable.id))
     .where(
       and(
-        eq(tenantsTable.unitId, unit.id),
+        or(
+          eq(tenantsTable.unitId, unit.id),
+          and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
+        ),
         eq(vehiclesTable.status, "registered")
       )
     )
