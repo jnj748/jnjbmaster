@@ -33,7 +33,7 @@ const SafetyTraining = lazy(() => import("@/pages/safety-training"));
 const DocumentTemplates = lazy(() => import("@/pages/document-templates"));
 const DailyReportsPage = lazy(() => import("@/pages/daily-reports"));
 const ReportSystemPage = lazy(() => import("@/pages/report-system"));
-const PartnerDashboard = lazy(() => import("@/pages/partner-dashboard"));
+import PartnerDashboard from "@/pages/partner-dashboard";
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
