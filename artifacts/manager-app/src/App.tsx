@@ -40,6 +40,7 @@ const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
+const Units = lazy(() => import("@/pages/units"));
 
 function PageLoader() {
   return (
@@ -85,6 +86,7 @@ const managerRoutes = [
   { path: "/maintenance-logs", component: MaintenanceLogs },
   { path: "/safety-training", component: SafetyTraining },
   { path: "/attendance", component: Attendance },
+  { path: "/units", component: Units },
   { path: "/building-setup", component: BuildingSetup },
   { path: "/accounting", component: AccountingDashboard },
   { path: "/calendar", component: CalendarPage },

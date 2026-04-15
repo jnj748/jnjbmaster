@@ -2908,6 +2908,67 @@ export interface CalendarEvent {
   originalId: number;
 }
 
+export type UnitStatus = (typeof UnitStatus)[keyof typeof UnitStatus];
+
+export const UnitStatus = {
+  vacant: "vacant",
+  occupied: "occupied",
+  maintenance: "maintenance",
+} as const;
+
+export interface Unit {
+  id: number;
+  unitNumber: string;
+  floor: number;
+  /** @nullable */
+  exclusiveArea?: string | null;
+  /** @nullable */
+  commonArea?: string | null;
+  /** @nullable */
+  usage?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status: UnitStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUnitBody {
+  unitNumber: string;
+  floor: number;
+  /** @nullable */
+  exclusiveArea?: string | null;
+  /** @nullable */
+  commonArea?: string | null;
+  /** @nullable */
+  usage?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateUnitBodyStatus =
+  (typeof UpdateUnitBodyStatus)[keyof typeof UpdateUnitBodyStatus];
+
+export const UpdateUnitBodyStatus = {
+  vacant: "vacant",
+  occupied: "occupied",
+  maintenance: "maintenance",
+} as const;
+
+export interface UpdateUnitBody {
+  unitNumber?: string;
+  floor?: number;
+  /** @nullable */
+  exclusiveArea?: string | null;
+  /** @nullable */
+  commonArea?: string | null;
+  /** @nullable */
+  usage?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status?: UpdateUnitBodyStatus;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -3107,6 +3168,48 @@ export const ListTenantsStatus = {
   moved_out: "moved_out",
   destroyed: "destroyed",
 } as const;
+
+export type ListUnitsParams = {
+  floor?: number;
+  status?: ListUnitsStatus;
+  search?: string;
+};
+
+export type ListUnitsStatus =
+  (typeof ListUnitsStatus)[keyof typeof ListUnitsStatus];
+
+export const ListUnitsStatus = {
+  vacant: "vacant",
+  occupied: "occupied",
+  maintenance: "maintenance",
+} as const;
+
+export type BulkCreateUnitsBody = {
+  units: CreateUnitBody[];
+};
+
+export type BulkCreateUnits201ErrorsItem = {
+  row?: number;
+  message?: string;
+};
+
+export type BulkCreateUnits201 = {
+  created: number;
+  errors: BulkCreateUnits201ErrorsItem[];
+};
+
+export type GenerateUnitsBody = {
+  startFloor: number;
+  endFloor: number;
+  unitsPerFloor: number;
+  startUnit?: number;
+  prefix?: string;
+  usage?: string;
+};
+
+export type GenerateUnits201 = {
+  created: number;
+};
 
 export type ListOwnersParams = {
   status?: ListOwnersStatus;

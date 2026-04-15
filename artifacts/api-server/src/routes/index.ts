@@ -35,6 +35,7 @@ import alertActionsRouter from "./alertActions";
 import buildingsRouter from "./buildings";
 import calendarRouter from "./calendar";
 import storageRouter from "./storage";
+import unitsRouter from "./units";
 
 const router: IRouter = Router();
 
@@ -79,6 +80,7 @@ buildingRouter.use(taxDeadlineChecklistsRouter);
 buildingRouter.use(attendanceRouter);
 buildingRouter.use(alertActionsRouter);
 buildingRouter.use(buildingsRouter);
+buildingRouter.use(unitsRouter);
 buildingRouter.use(calendarRouter);
 router.use(buildingRouter);
 

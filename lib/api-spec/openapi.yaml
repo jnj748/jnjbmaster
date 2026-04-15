@@ -45,6 +45,8 @@ tags:
     description: Attendance management
   - name: alertActions
     description: Alert action processing
+  - name: units
+    description: Unit management
   - name: Storage
     description: Object storage upload and serving endpoints.
 
@@ -2280,6 +2282,190 @@ paths:
       operationId: deleteTenant
       tags: [tenants]
       summary: Delete a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  # ── Units (호실 관리) ──────────────────────────────────────
+  /units:
+    get:
+      operationId: listUnits
+      tags: [units]
+      summary: List units
+      parameters:
+        - name: floor
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [vacant, occupied, maintenance]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unit list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Unit"
+    post:
+      operationId: createUnit
+      tags: [units]
+      summary: Create a unit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUnitBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+
+  /units/bulk:
+    post:
+      operationId: bulkCreateUnits
+      tags: [units]
+      summary: Bulk create units (CSV import)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [units]
+              properties:
+                units:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CreateUnitBody"
+      responses:
+        "201":
+          description: Bulk created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created, errors]
+                properties:
+                  created:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        row:
+                          type: integer
+                        message:
+                          type: string
+
+  /units/generate:
+    post:
+      operationId: generateUnits
+      tags: [units]
+      summary: Generate units from floor/unit range
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startFloor, endFloor, unitsPerFloor]
+              properties:
+                startFloor:
+                  type: integer
+                endFloor:
+                  type: integer
+                unitsPerFloor:
+                  type: integer
+                startUnit:
+                  type: integer
+                  default: 1
+                prefix:
+                  type: string
+                usage:
+                  type: string
+      responses:
+        "201":
+          description: Generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created]
+                properties:
+                  created:
+                    type: integer
+
+  /units/{id}:
+    get:
+      operationId: getUnit
+      tags: [units]
+      summary: Get a unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unit detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUnit
+      tags: [units]
+      summary: Update a unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUnitBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteUnit
+      tags: [units]
+      summary: Delete a unit
       parameters:
         - name: id
           in: path
@@ -6935,3 +7121,67 @@ components:
           enum: [scheduled, completed, overdue]
         originalId:
           type: integer
+
+    Unit:
+      type: object
+      required: [id, unitNumber, floor, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        unitNumber:
+          type: string
+        floor:
+          type: integer
+        exclusiveArea:
+          type: ["string", "null"]
+        commonArea:
+          type: ["string", "null"]
+        usage:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [vacant, occupied, maintenance]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateUnitBody:
+      type: object
+      required: [unitNumber, floor]
+      properties:
+        unitNumber:
+          type: string
+        floor:
+          type: integer
+        exclusiveArea:
+          type: ["string", "null"]
+        commonArea:
+          type: ["string", "null"]
+        usage:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    UpdateUnitBody:
+      type: object
+      properties:
+        unitNumber:
+          type: string
+        floor:
+          type: integer
+        exclusiveArea:
+          type: ["string", "null"]
+        commonArea:
+          type: ["string", "null"]
+        usage:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [vacant, occupied, maintenance]

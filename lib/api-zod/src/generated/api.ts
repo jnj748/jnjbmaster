@@ -2886,6 +2886,128 @@ export const DeleteTenantParams = zod.object({
 });
 
 /**
+ * @summary List units
+ */
+export const ListUnitsQueryParams = zod.object({
+  floor: zod.coerce.number().optional(),
+  status: zod.enum(["vacant", "occupied", "maintenance"]).optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListUnitsResponseItem = zod.object({
+  id: zod.number(),
+  unitNumber: zod.string(),
+  floor: zod.number(),
+  exclusiveArea: zod.string().nullish(),
+  commonArea: zod.string().nullish(),
+  usage: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vacant", "occupied", "maintenance"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListUnitsResponse = zod.array(ListUnitsResponseItem);
+
+/**
+ * @summary Create a unit
+ */
+export const CreateUnitBody = zod.object({
+  unitNumber: zod.string(),
+  floor: zod.number(),
+  exclusiveArea: zod.string().nullish(),
+  commonArea: zod.string().nullish(),
+  usage: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Bulk create units (CSV import)
+ */
+export const BulkCreateUnitsBody = zod.object({
+  units: zod.array(
+    zod.object({
+      unitNumber: zod.string(),
+      floor: zod.number(),
+      exclusiveArea: zod.string().nullish(),
+      commonArea: zod.string().nullish(),
+      usage: zod.string().nullish(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Generate units from floor/unit range
+ */
+export const generateUnitsBodyStartUnitDefault = 1;
+
+export const GenerateUnitsBody = zod.object({
+  startFloor: zod.number(),
+  endFloor: zod.number(),
+  unitsPerFloor: zod.number(),
+  startUnit: zod.number().default(generateUnitsBodyStartUnitDefault),
+  prefix: zod.string().optional(),
+  usage: zod.string().optional(),
+});
+
+/**
+ * @summary Get a unit
+ */
+export const GetUnitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetUnitResponse = zod.object({
+  id: zod.number(),
+  unitNumber: zod.string(),
+  floor: zod.number(),
+  exclusiveArea: zod.string().nullish(),
+  commonArea: zod.string().nullish(),
+  usage: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vacant", "occupied", "maintenance"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a unit
+ */
+export const UpdateUnitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateUnitBody = zod.object({
+  unitNumber: zod.string().optional(),
+  floor: zod.number().optional(),
+  exclusiveArea: zod.string().nullish(),
+  commonArea: zod.string().nullish(),
+  usage: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vacant", "occupied", "maintenance"]).optional(),
+});
+
+export const UpdateUnitResponse = zod.object({
+  id: zod.number(),
+  unitNumber: zod.string(),
+  floor: zod.number(),
+  exclusiveArea: zod.string().nullish(),
+  commonArea: zod.string().nullish(),
+  usage: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vacant", "occupied", "maintenance"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a unit
+ */
+export const DeleteUnitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List owners
  */
 export const ListOwnersQueryParams = zod.object({

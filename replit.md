@@ -53,6 +53,7 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Legal Compliance:** Incorporates Korean legal requirements for inspections (23 presets, 11 categories) and privacy data auto-destruction (tenant/owner data anonymization after 3 years).
 - **Geo-based Vendor Matching:** RFQs can auto-match vendors by region (`sido`, `sigungu`).
 - **Object Storage:** Utilizes Replit Object Storage via `@google-cloud/storage` for photo attachments (presigned URLs).
+- **Unit Management (호실 관리):** Full CRUD for building units with `unitsTable` (unitNumber, floor, exclusiveArea, commonArea, usage, notes, status). Features: floor-grouped list view, status badges (공실/입주/정비중), CSV bulk import (papaparse), auto-generate from floor/unit range, sample CSV download. Mobile-first grid layout on small screens, table layout on desktop. Navigation: 입주/자산관리 section in sidebar.
 - **Building Setup & Integration:** Includes a `buildings` table, links users to buildings, and integrates with the `건축물대장` (Building Register) API for building information and automated inspection scheduling based on legal criteria.
 
 ## External Dependencies
@@ -71,4 +72,5 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - esbuild
 - jsPDF
 - @google-cloud/storage (for Object Storage)
+- papaparse (for CSV parsing)
 - data.go.kr BldRgstHubService/getBrTitleInfo (for 건축물대장 API integration)
