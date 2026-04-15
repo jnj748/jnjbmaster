@@ -11,7 +11,7 @@ import {
   getListUnitsQueryKey,
   getGetUnitsSummaryQueryKey,
 } from "@workspace/api-client-react";
-import type { Unit } from "@workspace/api-client-react";
+import type { Unit, GetUnit200 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,7 +115,7 @@ export default function UnitsPage() {
     }
   );
   const { data: summary } = useGetUnitsSummary();
-  const { data: unitDetail } = useGetUnit(detailUnitId!, { query: { enabled: !!detailUnitId } });
+  const { data: unitDetail } = useGetUnit(detailUnitId!, { query: { enabled: !!detailUnitId } }) as { data: GetUnit200 | undefined };
   const createMutation = useCreateUnit();
   const updateMutation = useUpdateUnit();
   const deleteMutation = useDeleteUnit();
@@ -586,10 +586,11 @@ export default function UnitsPage() {
                         <TableRow>
                           <TableHead>호실</TableHead>
                           <TableHead>상태</TableHead>
-                          <TableHead>전용면적</TableHead>
-                          <TableHead>공용면적</TableHead>
                           <TableHead>용도</TableHead>
-                          <TableHead>비고</TableHead>
+                          <TableHead>면적</TableHead>
+                          <TableHead>입주자</TableHead>
+                          <TableHead>소유자</TableHead>
+                          <TableHead>차량</TableHead>
                           <TableHead className="text-right">관리</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -602,14 +603,13 @@ export default function UnitsPage() {
                               <TableCell>
                                 <Badge variant={st.variant}>{st.label}</Badge>
                               </TableCell>
-                              <TableCell className="text-muted-foreground">
+                              <TableCell className="text-muted-foreground">{unit.usage || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs">
                                 {unit.exclusiveArea ? `${unit.exclusiveArea}m²` : "-"}
                               </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {unit.commonArea ? `${unit.commonArea}m²` : "-"}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">{unit.usage || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">{unit.notes || "-"}</TableCell>
+                              <TableCell className="text-center">{unit.tenantCount || 0}</TableCell>
+                              <TableCell className="text-center">{unit.ownerCount || 0}</TableCell>
+                              <TableCell className="text-center">{unit.vehicleCount || 0}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                   <Button variant="ghost" size="sm" onClick={() => setDetailUnitId(unit.id)}>
@@ -699,68 +699,62 @@ export default function UnitsPage() {
                 )}
               </div>
 
-              {"tenants" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).tenants) && (
-                <div className="border-t pt-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-medium">입주자</p>
-                  </div>
-                  {((unitDetail as Record<string, unknown>).tenants as Array<{tenantName: string; phone?: string | null; status: string}>).length > 0 ? (
-                    <div className="space-y-2">
-                      {((unitDetail as Record<string, unknown>).tenants as Array<{tenantName: string; phone?: string | null; status: string}>).map((t, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                          <span>{t.tenantName}</span>
-                          <span className="text-muted-foreground">{t.phone || "-"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 입주자가 없습니다</p>
-                  )}
+              <div className="border-t pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">입주자</p>
                 </div>
-              )}
+                {unitDetail.tenants && unitDetail.tenants.length > 0 ? (
+                  <div className="space-y-2">
+                    {unitDetail.tenants.map((t, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                        <span>{t.tenantName}</span>
+                        <span className="text-muted-foreground">{t.phone || "-"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 입주자가 없습니다</p>
+                )}
+              </div>
 
-              {"owners" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).owners) && (
-                <div className="border-t pt-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <UserCheck className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-medium">소유자</p>
-                  </div>
-                  {((unitDetail as Record<string, unknown>).owners as Array<{ownerName: string; phone?: string | null; status: string}>).length > 0 ? (
-                    <div className="space-y-2">
-                      {((unitDetail as Record<string, unknown>).owners as Array<{ownerName: string; phone?: string | null; status: string}>).map((o, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                          <span>{o.ownerName}</span>
-                          <span className="text-muted-foreground">{o.phone || "-"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 소유자가 없습니다</p>
-                  )}
+              <div className="border-t pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <UserCheck className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">소유자</p>
                 </div>
-              )}
+                {unitDetail.owners && unitDetail.owners.length > 0 ? (
+                  <div className="space-y-2">
+                    {unitDetail.owners.map((o, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                        <span>{o.ownerName}</span>
+                        <span className="text-muted-foreground">{o.phone || "-"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 소유자가 없습니다</p>
+                )}
+              </div>
 
-              {"vehicles" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).vehicles) && (
-                <div className="border-t pt-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Car className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-medium">등록 차량</p>
-                  </div>
-                  {((unitDetail as Record<string, unknown>).vehicles as Array<{vehicleNumber: string; vehicleType?: string | null; ownerName?: string | null}>).length > 0 ? (
-                    <div className="space-y-2">
-                      {((unitDetail as Record<string, unknown>).vehicles as Array<{vehicleNumber: string; vehicleType?: string | null; ownerName?: string | null}>).map((v, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                          <span className="font-medium">{v.vehicleNumber}</span>
-                          <span className="text-muted-foreground">{v.vehicleType || ""} {v.ownerName ? `(${v.ownerName})` : ""}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 차량이 없습니다</p>
-                  )}
+              <div className="border-t pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Car className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">등록 차량</p>
                 </div>
-              )}
+                {unitDetail.vehicles && unitDetail.vehicles.length > 0 ? (
+                  <div className="space-y-2">
+                    {unitDetail.vehicles.map((v, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                        <span className="font-medium">{v.vehicleNumber}</span>
+                        <span className="text-muted-foreground">{v.vehicleType || ""} {v.ownerName ? `(${v.ownerName})` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 차량이 없습니다</p>
+                )}
+              </div>
 
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => { setDetailUnitId(null); const u = units?.find(x => x.id === detailUnitId); if (u) openEdit(u); }}>

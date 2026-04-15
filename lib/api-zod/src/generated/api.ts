@@ -2904,6 +2904,9 @@ export const ListUnitsResponseItem = zod.object({
   usage: zod.string().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
+  tenantCount: zod.number().optional(),
+  ownerCount: zod.number().optional(),
+  vehicleCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2994,6 +2997,9 @@ export const GetUnitResponse = zod
     usage: zod.string().nullish(),
     notes: zod.string().nullish(),
     status: zod.enum(["vacant", "occupied", "maintenance"]),
+    tenantCount: zod.number().optional(),
+    ownerCount: zod.number().optional(),
+    vehicleCount: zod.number().optional(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -3116,6 +3122,9 @@ export const UpdateUnitResponse = zod.object({
   usage: zod.string().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
+  tenantCount: zod.number().optional(),
+  ownerCount: zod.number().optional(),
+  vehicleCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

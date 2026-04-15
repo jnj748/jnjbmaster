@@ -48,7 +48,22 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
   }
 
   const units = await db
-    .select()
+    .select({
+      id: unitsTable.id,
+      buildingId: unitsTable.buildingId,
+      unitNumber: unitsTable.unitNumber,
+      floor: unitsTable.floor,
+      exclusiveArea: unitsTable.exclusiveArea,
+      commonArea: unitsTable.commonArea,
+      usage: unitsTable.usage,
+      notes: unitsTable.notes,
+      status: unitsTable.status,
+      createdAt: unitsTable.createdAt,
+      updatedAt: unitsTable.updatedAt,
+      tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = ${unitsTable.id} AND tenants.status = 'active')`,
+      ownerCount: sql<number>`(SELECT count(*)::int FROM owners WHERE owners.unit_id = ${unitsTable.id} AND owners.status = 'active')`,
+      vehicleCount: sql<number>`(SELECT count(*)::int FROM vehicles WHERE vehicles.unit = ${unitsTable.unitNumber} AND vehicles.status = 'registered')`,
+    })
     .from(unitsTable)
     .where(and(...conditions))
     .orderBy(unitsTable.floor, unitsTable.unitNumber);

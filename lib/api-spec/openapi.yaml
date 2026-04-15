@@ -7183,6 +7183,12 @@ components:
         status:
           type: string
           enum: [vacant, occupied, maintenance]
+        tenantCount:
+          type: integer
+        ownerCount:
+          type: integer
+        vehicleCount:
+          type: integer
         createdAt:
           type: string
           format: date-time

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, ilike } from "drizzle-orm";
-import { db, ownersTable, notificationsTable } from "@workspace/db";
+import { db, ownersTable, notificationsTable, unitsTable, usersTable } from "@workspace/db";
 import {
   ListOwnersQueryParams,
   ListOwnersResponse,
@@ -14,6 +14,17 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+async function resolveUnitId(unitNumber: string, userId?: number): Promise<number | null> {
+  if (!userId) return null;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user?.buildingId) return null;
+  const [unit] = await db
+    .select({ id: unitsTable.id })
+    .from(unitsTable)
+    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+  return unit?.id ?? null;
+}
 
 router.get("/owners", async (req, res): Promise<void> => {
   const params = ListOwnersQueryParams.safeParse(req.query);
@@ -60,8 +71,11 @@ router.post("/owners", async (req, res): Promise<void> => {
     dataDestructionDate = d.toISOString().split("T")[0];
   }
 
+  const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+
   const [owner] = await db.insert(ownersTable).values({
     ...parsed.data,
+    ...(unitId ? { unitId } : {}),
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   }).returning();
 
@@ -115,6 +129,11 @@ router.patch("/owners/:id", async (req, res): Promise<void> => {
     const destructionDate = new Date(parsed.data.moveOutDate);
     destructionDate.setFullYear(destructionDate.getFullYear() + 3);
     updateData.dataDestructionDate = destructionDate.toISOString().split("T")[0];
+  }
+
+  if (parsed.data.unit) {
+    const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+    if (unitId) updateData.unitId = unitId;
   }
 
   const [owner] = await db

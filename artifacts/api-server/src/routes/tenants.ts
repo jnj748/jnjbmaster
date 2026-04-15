@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, ilike } from "drizzle-orm";
-import { db, tenantsTable, notificationsTable } from "@workspace/db";
+import { eq, and, or, ilike, sql } from "drizzle-orm";
+import { db, tenantsTable, notificationsTable, unitsTable, usersTable } from "@workspace/db";
 import {
   ListTenantsQueryParams,
   ListTenantsResponse,
@@ -14,6 +14,39 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+async function resolveUnitId(unitNumber: string, userId?: number): Promise<number | null> {
+  if (!userId) return null;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user?.buildingId) return null;
+  const [unit] = await db
+    .select({ id: unitsTable.id })
+    .from(unitsTable)
+    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+  return unit?.id ?? null;
+}
+
+async function syncUnitStatus(unitNumber: string, userId?: number): Promise<void> {
+  if (!userId) return;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user?.buildingId) return;
+  const [unit] = await db
+    .select({ id: unitsTable.id })
+    .from(unitsTable)
+    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+  if (!unit) return;
+
+  const activeTenants = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tenantsTable)
+    .where(and(eq(tenantsTable.unitId, unit.id), eq(tenantsTable.status, "active")));
+
+  const hasActive = (activeTenants[0]?.count ?? 0) > 0;
+  await db
+    .update(unitsTable)
+    .set({ status: hasActive ? "occupied" : "vacant" })
+    .where(and(eq(unitsTable.id, unit.id), sql`${unitsTable.status} != 'maintenance'`));
+}
 
 router.get("/tenants", async (req, res): Promise<void> => {
   const params = ListTenantsQueryParams.safeParse(req.query);
@@ -60,8 +93,11 @@ router.post("/tenants", async (req, res): Promise<void> => {
     dataDestructionDate = d.toISOString().split("T")[0];
   }
 
+  const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+
   const [tenant] = await db.insert(tenantsTable).values({
     ...parsed.data,
+    ...(unitId ? { unitId } : {}),
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   }).returning();
 
@@ -73,6 +109,10 @@ router.post("/tenants", async (req, res): Promise<void> => {
     relatedEntityType: "tenant",
     relatedEntityId: tenant.id,
   });
+
+  if (parsed.data.status === "active" || !parsed.data.status) {
+    await syncUnitStatus(tenant.unit, req.user?.userId);
+  }
 
   res.status(201).json(GetTenantResponse.parse(tenant));
 });
@@ -117,6 +157,11 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     updateData.dataDestructionDate = destructionDate.toISOString().split("T")[0];
   }
 
+  if (parsed.data.unit) {
+    const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+    if (unitId) updateData.unitId = unitId;
+  }
+
   const [tenant] = await db
     .update(tenantsTable)
     .set(updateData)
@@ -137,6 +182,8 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     relatedEntityId: tenant.id,
   });
 
+  await syncUnitStatus(tenant.unit, req.user?.userId);
+
   res.json(UpdateTenantResponse.parse(tenant));
 });
 
@@ -156,6 +203,8 @@ router.delete("/tenants/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Tenant not found" });
     return;
   }
+
+  await syncUnitStatus(tenant.unit, req.user?.userId);
 
   res.sendStatus(204);
 });

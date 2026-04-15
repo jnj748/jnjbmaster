@@ -21,6 +21,9 @@ export interface Unit {
   /** @nullable */
   notes?: string | null;
   status: UnitStatus;
+  tenantCount?: number;
+  ownerCount?: number;
+  vehicleCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }
