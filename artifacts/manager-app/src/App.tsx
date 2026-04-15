@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { BuildingProvider } from "@/contexts/building-context";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
 
@@ -105,19 +106,21 @@ function AuthenticatedRoutes() {
   const DashboardComponent = isPartner ? PartnerDashboard : Dashboard;
 
   return (
-    <Layout>
-      <Suspense fallback={<PageLoader />}>
-        <Switch>
-          <Route path="/" component={DashboardComponent} />
-          {routes.map((r) => (
-            <Route key={r.path} path={r.path} component={r.component} />
-          ))}
-          <Route>
-            <Redirect to="/" />
-          </Route>
-        </Switch>
-      </Suspense>
-    </Layout>
+    <BuildingProvider>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/" component={DashboardComponent} />
+            {routes.map((r) => (
+              <Route key={r.path} path={r.path} component={r.component} />
+            ))}
+            <Route>
+              <Redirect to="/" />
+            </Route>
+          </Switch>
+        </Suspense>
+      </Layout>
+    </BuildingProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
@@ -12,7 +12,7 @@ import {
   type CreateRfqBodyCategory,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import {
   CheckSquare,
   AlertTriangle,
@@ -54,10 +55,8 @@ import {
   CheckCircle,
   CalendarClock,
   FileText,
-  MapPin,
   Building2,
 } from "lucide-react";
-import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
@@ -130,34 +129,13 @@ interface DashboardAlert {
 }
 
 export default function Dashboard() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const { building } = useBuilding();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const summaryReady = !summaryLoading && !!summary;
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
-
-  const [buildingInfo, setBuildingInfo] = useState<{
-    name: string; totalUnits: number | null; parkingSpaces: number | null;
-  } | null>(null);
-  const BASE = import.meta.env.BASE_URL ?? "/";
-  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${apiBase}/buildings/my`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.building) setBuildingInfo({
-          name: data.building.name,
-          totalUnits: data.building.totalUnits ?? null,
-          parkingSpaces: data.building.parkingSpaces ?? null,
-        });
-      } catch {}
-    })();
-  }, []);
 
   const [alertPage, setAlertPage] = useState(0);
 
@@ -170,9 +148,6 @@ export default function Dashboard() {
   const [actionNotes, setActionNotes] = useState("");
   const [rfqTitle, setRfqTitle] = useState("");
   const [rfqDeadline, setRfqDeadline] = useState("");
-  const [buildingSido, setBuildingSido] = useState(user?.buildingSido || "");
-  const [buildingSigungu, setBuildingSigungu] = useState(user?.buildingSigungu || "");
-  const [savingRegion, setSavingRegion] = useState(false);
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [rfqCloseUpPhotoUrl, setRfqCloseUpPhotoUrl] = useState<string | null>(null);
@@ -189,33 +164,6 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const createActionMutation = useCreateAlertAction();
   const createRfqMutation = useCreateRfq();
-
-  const buildingSigunguOptions = buildingSido ? getSigunguList(buildingSido) : [];
-
-  async function handleSaveBuildingRegion() {
-    if (!buildingSido) return;
-    setSavingRegion(true);
-    try {
-      const BASE = import.meta.env.BASE_URL ?? "/";
-      const apiBase = `${BASE}api`.replace(/\/+/g, "/");
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`${apiBase}/auth/building-region`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ buildingSido, buildingSigungu }),
-      });
-      if (res.ok) {
-        toast({ title: "건물 지역이 설정되었습니다" });
-        window.location.reload();
-      } else {
-        toast({ title: "지역 저장에 실패했습니다", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "지역 저장 중 오류가 발생했습니다", variant: "destructive" });
-    } finally {
-      setSavingRegion(false);
-    }
-  }
 
   function openAlertAction(alert: DashboardAlert) {
     setSelectedAlert(alert);
@@ -300,13 +248,13 @@ export default function Dashboard() {
     const rfqData: CreateRfqBody = {
       title: rfqTitle,
       category: (catMap[selectedAlert.type] || "other") as CreateRfqBodyCategory,
-      buildingName: "관리 건물",
+      buildingName: building?.name || "관리 건물",
       deadline: rfqDeadline,
       description: `${selectedAlert.title} - ${selectedAlert.message}`,
-      sido: user?.buildingSido || null,
-      sigungu: user?.buildingSigungu || null,
-      geoScope: user?.buildingSido
-        ? (user?.buildingSigungu ? "sigungu" : "sido")
+      sido: building?.sido || null,
+      sigungu: building?.sigungu || null,
+      geoScope: building?.sido
+        ? (building?.sigungu ? "sigungu" : "sido")
         : null,
       closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
       widePhotoUrl: rfqWidePhotoUrl || null,
@@ -351,7 +299,7 @@ export default function Dashboard() {
   }
 
   const activeTenantCount = tenants?.length ?? 0;
-  const totalUnits = buildingInfo?.totalUnits ?? 0;
+  const totalUnits = building?.totalUnits ?? 0;
   const occupancyRate = totalUnits > 0 ? Math.round((activeTenantCount / totalUnits) * 100) : 0;
   const vehicleCount = vehicles?.length ?? 0;
   const vehiclesPerUnit = totalUnits > 0 ? (vehicleCount / totalUnits).toFixed(1) : "-";
@@ -362,9 +310,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        {buildingInfo ? (
+        {building ? (
           <>
-            <h1 className="text-2xl font-bold">{buildingInfo.name}</h1>
+            <h1 className="text-2xl font-bold">{building.name}</h1>
             <p className="text-muted-foreground text-sm mt-1">
               오늘의 관리 현황을 한눈에 확인하세요
             </p>
@@ -582,52 +530,6 @@ export default function Dashboard() {
           subtitle="미납 세대 수"
         />
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-chart-2" />
-            건물 지역 설정
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground mb-3">
-            건물 지역을 설정하면 견적 요청 시 해당 지역 업체가 자동 매칭됩니다.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">시/도</Label>
-              <Select value={buildingSido} onValueChange={(v) => { setBuildingSido(v); setBuildingSigungu(""); }}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="시/도 선택" /></SelectTrigger>
-                <SelectContent>
-                  {sidoList.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">시/군/구</Label>
-              <Select value={buildingSigungu} onValueChange={setBuildingSigungu} disabled={!buildingSido}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="시/군/구 선택" /></SelectTrigger>
-                <SelectContent>
-                  {buildingSigunguOptions.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {user?.buildingSido && (
-            <p className="text-xs text-muted-foreground mt-2">
-              현재 설정: {user.buildingSido} {user.buildingSigungu || ""}
-            </p>
-          )}
-          <Button size="sm" className="mt-3" onClick={handleSaveBuildingRegion} disabled={!buildingSido || savingRegion}>
-            {savingRegion ? "저장 중..." : "지역 저장"}
-          </Button>
-        </CardContent>
-      </Card>
 
       <ResponsiveDialog open={!!selectedAlert} onOpenChange={(o) => { if (!o) setSelectedAlert(null); }}>
         <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
