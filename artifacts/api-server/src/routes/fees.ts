@@ -239,7 +239,9 @@ router.get("/fees/incomplete-units", async (req: Request, res: Response): Promis
   const units = await db.select().from(unitsTable)
     .where(eq(unitsTable.buildingId, buildingId));
 
-  const tenants = await db.select().from(tenantsTable);
+  const buildingUnitIds = new Set(units.map(u => u.id));
+  const allTenants = await db.select().from(tenantsTable);
+  const tenants = allTenants.filter(t => t.unitId && buildingUnitIds.has(t.unitId));
   const tenantUnitIds = new Set(
     tenants.filter(t => t.status === "active" && t.unitId).map(t => t.unitId!)
   );

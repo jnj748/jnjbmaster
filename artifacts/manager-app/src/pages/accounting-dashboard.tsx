@@ -621,6 +621,25 @@ export default function AccountingDashboard() {
             </Card>
           )}
 
+          {incompleteUnits.length > 0 && (
+            <Card className="border-amber-300 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-amber-800">
+                      데이터 미비 세대 {incompleteUnits.length}건 — 산출 정확도에 영향을 줄 수 있습니다
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      {incompleteUnits.slice(0, 3).map(u => `${u.unitNumber}호(${u.issue})`).join(", ")}
+                      {incompleteUnits.length > 3 ? ` 외 ${incompleteUnits.length - 3}건` : ""}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">관리비 산출 설정</CardTitle>
