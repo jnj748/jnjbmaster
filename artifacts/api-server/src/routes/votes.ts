@@ -1,6 +1,6 @@
-import { Router, type IRouter } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { db, votesTable, voteBallotsTable } from "@workspace/db";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { eq, and, desc } from "drizzle-orm";
+import { db, votesTable, voteBallotsTable, usersTable } from "@workspace/db";
 import {
   CreateVoteBody,
   CastBallotBody,
@@ -10,12 +10,16 @@ import { requireRole } from "../middlewares/auth";
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "accountant"));
 
-function getUserBuildingId(req: any): number {
-  return req.user?.buildingId ?? 1;
+async function getUserBuildingId(req: Request): Promise<number | null> {
+  const userId = req.user?.userId;
+  if (!userId) return null;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  return user?.buildingId ?? null;
 }
 
-router.get("/votes", async (req, res): Promise<void> => {
-  const buildingId = getUserBuildingId(req);
+router.get("/votes", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.json([]); return; }
 
   const rows = await db
     .select()
@@ -42,13 +46,14 @@ router.get("/votes", async (req, res): Promise<void> => {
   res.json(enriched);
 });
 
-router.post("/votes", async (req, res): Promise<void> => {
+router.post("/votes", async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateVoteBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const buildingId = getUserBuildingId(req);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
   const [row] = await db
     .insert(votesTable)
@@ -58,9 +63,10 @@ router.post("/votes", async (req, res): Promise<void> => {
   res.status(201).json({ ...row, forCount: 0, againstCount: 0, abstainCount: 0 });
 });
 
-router.get("/votes/:id", async (req, res): Promise<void> => {
+router.get("/votes/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id);
-  const buildingId = getUserBuildingId(req);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
   const [vote] = await db
     .select()
@@ -100,14 +106,15 @@ router.get("/votes/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/votes/:id/cast", async (req, res): Promise<void> => {
+router.post("/votes/:id/cast", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id);
   const parsed = CastBallotBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const buildingId = getUserBuildingId(req);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
   const [vote] = await db
     .select()

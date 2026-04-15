@@ -1,6 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, complaintsTable } from "@workspace/db";
+import { db, complaintsTable, usersTable } from "@workspace/db";
 import {
   CreateComplaintBody,
   UpdateComplaintBody,
@@ -10,12 +10,16 @@ import { requireRole } from "../middlewares/auth";
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "accountant"));
 
-function getUserBuildingId(req: any): number {
-  return req.user?.buildingId ?? 1;
+async function getUserBuildingId(req: Request): Promise<number | null> {
+  const userId = req.user?.userId;
+  if (!userId) return null;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  return user?.buildingId ?? null;
 }
 
-router.get("/complaints", async (req, res): Promise<void> => {
-  const buildingId = getUserBuildingId(req);
+router.get("/complaints", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.json([]); return; }
   const { category, status } = req.query as { category?: string; status?: string };
 
   let rows = await db
@@ -34,13 +38,14 @@ router.get("/complaints", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-router.post("/complaints", async (req, res): Promise<void> => {
+router.post("/complaints", async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateComplaintBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const buildingId = getUserBuildingId(req);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
   const [row] = await db
     .insert(complaintsTable)
@@ -50,14 +55,15 @@ router.post("/complaints", async (req, res): Promise<void> => {
   res.status(201).json(row);
 });
 
-router.patch("/complaints/:id", async (req, res): Promise<void> => {
+router.patch("/complaints/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id);
   const parsed = UpdateComplaintBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const buildingId = getUserBuildingId(req);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
   const updates: Record<string, any> = {};
   if (parsed.data.status) updates.status = parsed.data.status;
