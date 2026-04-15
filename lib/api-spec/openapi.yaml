@@ -7171,7 +7171,7 @@ components:
         unitNumber:
           type: string
         floor:
-          type: integer
+          type: string
         exclusiveArea:
           type: ["string", "null"]
         commonArea:
@@ -7203,7 +7203,7 @@ components:
         unitNumber:
           type: string
         floor:
-          type: integer
+          type: string
         exclusiveArea:
           type: ["string", "null"]
         commonArea:
@@ -7224,7 +7224,7 @@ components:
         unitNumber:
           type: string
         floor:
-          type: integer
+          type: string
         exclusiveArea:
           type: ["string", "null"]
         commonArea:

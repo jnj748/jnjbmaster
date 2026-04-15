@@ -2920,7 +2920,7 @@ export interface Unit {
   id: number;
   buildingId: number;
   unitNumber: string;
-  floor: number;
+  floor: string;
   /** @nullable */
   exclusiveArea?: string | null;
   /** @nullable */
@@ -2948,7 +2948,7 @@ export const CreateUnitBodyStatus = {
 
 export interface CreateUnitBody {
   unitNumber: string;
-  floor: number;
+  floor: string;
   /** @nullable */
   exclusiveArea?: string | null;
   /** @nullable */
@@ -2971,7 +2971,7 @@ export const UpdateUnitBodyStatus = {
 
 export interface UpdateUnitBody {
   unitNumber?: string;
-  floor?: number;
+  floor?: string;
   /** @nullable */
   exclusiveArea?: string | null;
   /** @nullable */

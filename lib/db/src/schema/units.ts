@@ -7,7 +7,7 @@ export const unitsTable = pgTable("units", {
   id: serial("id").primaryKey(),
   buildingId: integer("building_id").notNull().references(() => buildingsTable.id),
   unitNumber: text("unit_number").notNull(),
-  floor: integer("floor").notNull(),
+  floor: text("floor").notNull(),
   exclusiveArea: numeric("exclusive_area"),
   commonArea: numeric("common_area"),
   usage: text("usage"),

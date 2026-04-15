@@ -142,15 +142,29 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
       )
     );
 
-  const vehicles = await db
+  const linkedVehicles = await db
+    .select({ v: vehiclesTable })
+    .from(vehiclesTable)
+    .innerJoin(tenantsTable, eq(vehiclesTable.tenantId, tenantsTable.id))
+    .where(
+      and(
+        eq(tenantsTable.unitId, unit.id),
+        eq(vehiclesTable.status, "registered")
+      )
+    );
+
+  const unlinkedVehicles = await db
     .select()
     .from(vehiclesTable)
     .where(
       and(
         eq(vehiclesTable.unit, unit.unitNumber),
-        eq(vehiclesTable.status, "registered")
+        eq(vehiclesTable.status, "registered"),
+        sql`${vehiclesTable.tenantId} IS NULL`
       )
     );
+
+  const vehicles = [...linkedVehicles.map(r => r.v), ...unlinkedVehicles];
 
   res.json({ ...unit, tenants, owners, vehicles });
 });
@@ -248,7 +262,7 @@ router.post("/units/generate", async (req: Request, res: Response): Promise<void
         rows.push({
           buildingId,
           unitNumber: unitNum,
-          floor,
+          floor: String(floor),
           usage: usage ?? "주거",
         });
       }

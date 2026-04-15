@@ -150,6 +150,12 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const [oldTenant] = await db
+    .select({ unit: tenantsTable.unit })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, params.data.id));
+  const oldUnitNumber = oldTenant?.unit;
+
   const updateData: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.moveOutDate) {
     const destructionDate = new Date(parsed.data.moveOutDate);
@@ -183,6 +189,9 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
   });
 
   await syncUnitStatus(tenant.unit, req.user?.userId);
+  if (oldUnitNumber && oldUnitNumber !== tenant.unit) {
+    await syncUnitStatus(oldUnitNumber, req.user?.userId);
+  }
 
   res.json(UpdateTenantResponse.parse(tenant));
 });

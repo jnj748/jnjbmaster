@@ -11,7 +11,7 @@ export interface Unit {
   id: number;
   buildingId: number;
   unitNumber: string;
-  floor: number;
+  floor: string;
   /** @nullable */
   exclusiveArea?: string | null;
   /** @nullable */

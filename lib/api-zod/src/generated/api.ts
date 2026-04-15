@@ -2898,7 +2898,7 @@ export const ListUnitsResponseItem = zod.object({
   id: zod.number(),
   buildingId: zod.number(),
   unitNumber: zod.string(),
-  floor: zod.number(),
+  floor: zod.string(),
   exclusiveArea: zod.string().nullish(),
   commonArea: zod.string().nullish(),
   usage: zod.string().nullish(),
@@ -2920,7 +2920,7 @@ export const createUnitBodyStatusDefault = `vacant`;
 
 export const CreateUnitBody = zod.object({
   unitNumber: zod.string(),
-  floor: zod.number(),
+  floor: zod.string(),
   exclusiveArea: zod.string().nullish(),
   commonArea: zod.string().nullish(),
   usage: zod.string().nullish().default(createUnitBodyUsageDefault),
@@ -2940,7 +2940,7 @@ export const BulkCreateUnitsBody = zod.object({
   units: zod.array(
     zod.object({
       unitNumber: zod.string(),
-      floor: zod.number(),
+      floor: zod.string(),
       exclusiveArea: zod.string().nullish(),
       commonArea: zod.string().nullish(),
       usage: zod
@@ -2991,7 +2991,7 @@ export const GetUnitResponse = zod
     id: zod.number(),
     buildingId: zod.number(),
     unitNumber: zod.string(),
-    floor: zod.number(),
+    floor: zod.string(),
     exclusiveArea: zod.string().nullish(),
     commonArea: zod.string().nullish(),
     usage: zod.string().nullish(),
@@ -3104,7 +3104,7 @@ export const UpdateUnitParams = zod.object({
 
 export const UpdateUnitBody = zod.object({
   unitNumber: zod.string().optional(),
-  floor: zod.number().optional(),
+  floor: zod.string().optional(),
   exclusiveArea: zod.string().nullish(),
   commonArea: zod.string().nullish(),
   usage: zod.string().nullish(),
@@ -3116,7 +3116,7 @@ export const UpdateUnitResponse = zod.object({
   id: zod.number(),
   buildingId: zod.number(),
   unitNumber: zod.string(),
-  floor: zod.number(),
+  floor: zod.string(),
   exclusiveArea: zod.string().nullish(),
   commonArea: zod.string().nullish(),
   usage: zod.string().nullish(),

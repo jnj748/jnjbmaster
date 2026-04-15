@@ -9,7 +9,7 @@ import type { UpdateUnitBodyStatus } from "./updateUnitBodyStatus";
 
 export interface UpdateUnitBody {
   unitNumber?: string;
-  floor?: number;
+  floor?: string;
   /** @nullable */
   exclusiveArea?: string | null;
   /** @nullable */

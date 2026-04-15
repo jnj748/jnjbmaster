@@ -126,14 +126,23 @@ export default function UnitsPage() {
 
   const floorGroups = useMemo(() => {
     if (!units) return [];
-    const grouped = new Map<number, Unit[]>();
+    const grouped = new Map<string, Unit[]>();
     for (const u of units) {
       const arr = grouped.get(u.floor) || [];
       arr.push(u);
       grouped.set(u.floor, arr);
     }
     return Array.from(grouped.entries())
-      .sort((a, b) => b[0] - a[0]);
+      .sort((a, b) => {
+        const numA = parseInt(a[0]);
+        const numB = parseInt(b[0]);
+        const isNumA = !isNaN(numA);
+        const isNumB = !isNaN(numB);
+        if (isNumA && isNumB) return numB - numA;
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+        return a[0].localeCompare(b[0]);
+      });
   }, [units]);
 
   function invalidateAll() {
@@ -150,7 +159,7 @@ export default function UnitsPage() {
     setEditing(item);
     setForm({
       unitNumber: item.unitNumber,
-      floor: String(item.floor),
+      floor: item.floor,
       exclusiveArea: item.exclusiveArea || "",
       commonArea: item.commonArea || "",
       usage: item.usage || "주거",
@@ -168,7 +177,7 @@ export default function UnitsPage() {
         id: editing.id,
         data: {
           unitNumber: form.unitNumber,
-          floor: parseInt(form.floor),
+          floor: form.floor,
           exclusiveArea: form.exclusiveArea || null,
           commonArea: form.commonArea || null,
           usage: form.usage || null,
@@ -181,7 +190,7 @@ export default function UnitsPage() {
       await createMutation.mutateAsync({
         data: {
           unitNumber: form.unitNumber,
-          floor: parseInt(form.floor),
+          floor: form.floor,
           exclusiveArea: form.exclusiveArea || null,
           commonArea: form.commonArea || null,
           usage: form.usage || "주거",
@@ -217,10 +226,6 @@ export default function UnitsPage() {
             errors.push(`${i + 2}행: 호실번호와 층은 필수입니다`);
             return;
           }
-          if (isNaN(parseInt(row["층"]))) {
-            errors.push(`${i + 2}행: 층은 숫자여야 합니다`);
-            return;
-          }
           if (row["전용면적"] && isNaN(Number(row["전용면적"]))) {
             errors.push(`${i + 2}행: 전용면적은 숫자여야 합니다`);
             return;
@@ -245,7 +250,7 @@ export default function UnitsPage() {
   async function handleCsvImport() {
     const unitData = csvData.map((row) => ({
       unitNumber: row["호실번호"],
-      floor: parseInt(row["층"]),
+      floor: row["층"],
       exclusiveArea: row["전용면적"] || null,
       commonArea: row["공용면적"] || null,
       usage: row["용도"] || null,
@@ -446,7 +451,7 @@ export default function UnitsPage() {
                   </div>
                   <div>
                     <Label>층 *</Label>
-                    <Input type="number" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} required />
+                    <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="예: 1, B1, B2" required />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
