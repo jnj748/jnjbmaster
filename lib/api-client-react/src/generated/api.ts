@@ -93,6 +93,8 @@ import type {
   GetExecutiveSpendingParams,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
+  GetUnit200,
+  GetUnitsSummary200,
   GetUnreadNotificationCount200,
   GetUnregisteredVehicles200,
   GetWeeklyReportParams,
@@ -10001,7 +10003,82 @@ export const useGenerateUnits = <
 };
 
 /**
- * @summary Get a unit
+ * @summary Get units status summary
+ */
+export const getGetUnitsSummaryUrl = () => {
+  return `/api/units/summary`;
+};
+
+export const getUnitsSummary = async (
+  options?: RequestInit,
+): Promise<GetUnitsSummary200> => {
+  return customFetch<GetUnitsSummary200>(getGetUnitsSummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUnitsSummaryQueryKey = () => {
+  return [`/api/units/summary`] as const;
+};
+
+export const getGetUnitsSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUnitsSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitsSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUnitsSummaryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUnitsSummary>>> = ({
+    signal,
+  }) => getUnitsSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitsSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUnitsSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUnitsSummary>>
+>;
+export type GetUnitsSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get units status summary
+ */
+
+export function useGetUnitsSummary<
+  TData = Awaited<ReturnType<typeof getUnitsSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitsSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUnitsSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a unit with tenant/owner data
  */
 export const getGetUnitUrl = (id: number) => {
   return `/api/units/${id}`;
@@ -10010,8 +10087,8 @@ export const getGetUnitUrl = (id: number) => {
 export const getUnit = async (
   id: number,
   options?: RequestInit,
-): Promise<Unit> => {
-  return customFetch<Unit>(getGetUnitUrl(id), {
+): Promise<GetUnit200> => {
+  return customFetch<GetUnit200>(getGetUnitUrl(id), {
     ...options,
     method: "GET",
   });
@@ -10055,7 +10132,7 @@ export type GetUnitQueryResult = NonNullable<
 export type GetUnitQueryError = ErrorType<void>;
 
 /**
- * @summary Get a unit
+ * @summary Get a unit with tenant/owner data
  */
 
 export function useGetUnit<

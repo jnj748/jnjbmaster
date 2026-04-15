@@ -2417,11 +2417,34 @@ paths:
                   created:
                     type: integer
 
+  /units/summary:
+    get:
+      operationId: getUnitsSummary
+      tags: [units]
+      summary: Get units status summary
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, occupied, vacant, maintenance]
+                properties:
+                  total:
+                    type: integer
+                  occupied:
+                    type: integer
+                  vacant:
+                    type: integer
+                  maintenance:
+                    type: integer
+
   /units/{id}:
     get:
       operationId: getUnit
       tags: [units]
-      summary: Get a unit
+      summary: Get a unit with tenant/owner data
       parameters:
         - name: id
           in: path
@@ -2430,11 +2453,22 @@ paths:
             type: integer
       responses:
         "200":
-          description: Unit detail
+          description: Unit detail with tenants and owners
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Unit"
+                allOf:
+                  - $ref: "#/components/schemas/Unit"
+                  - type: object
+                    properties:
+                      tenants:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Tenant"
+                      owners:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Owner"
         "404":
           description: Not found
     patch:
@@ -7124,9 +7158,11 @@ components:
 
     Unit:
       type: object
-      required: [id, unitNumber, floor, status, createdAt, updatedAt]
+      required: [id, buildingId, unitNumber, floor, status, createdAt, updatedAt]
       properties:
         id:
+          type: integer
+        buildingId:
           type: integer
         unitNumber:
           type: string

@@ -134,6 +134,8 @@ export * from "./getCalendarEventsParams";
 export * from "./getExecutiveSpendingParams";
 export * from "./getMyAttendanceParams";
 export * from "./getRecommendedVendorsParams";
+export * from "./getUnit200";
+export * from "./getUnitsSummary200";
 export * from "./getUnreadNotificationCount200";
 export * from "./getUnregisteredVehicles200";
 export * from "./getWeeklyReportParams";

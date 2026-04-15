@@ -6,7 +6,10 @@ import {
   useDeleteUnit,
   useBulkCreateUnits,
   useGenerateUnits,
+  useGetUnit,
+  useGetUnitsSummary,
   getListUnitsQueryKey,
+  getGetUnitsSummaryQueryKey,
 } from "@workspace/api-client-react";
 import type { Unit } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,6 +52,9 @@ import {
   Layers,
   DoorOpen,
   Building2,
+  Eye,
+  Users,
+  UserCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
@@ -77,13 +83,14 @@ interface CsvRow {
   비고?: string;
 }
 
-export default function Units() {
+export default function UnitsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Unit | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [detailUnitId, setDetailUnitId] = useState<number | null>(null);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
   const [genForm, setGenForm] = useState({
@@ -103,6 +110,8 @@ export default function Units() {
       ...(searchTerm ? { search: searchTerm } : {}),
     }
   );
+  const { data: summary } = useGetUnitsSummary();
+  const { data: unitDetail } = useGetUnit(detailUnitId!, { query: { enabled: !!detailUnitId } });
   const createMutation = useCreateUnit();
   const updateMutation = useUpdateUnit();
   const deleteMutation = useDeleteUnit();
@@ -123,15 +132,10 @@ export default function Units() {
       .sort((a, b) => b[0] - a[0]);
   }, [units]);
 
-  const stats = useMemo(() => {
-    if (!units) return { total: 0, occupied: 0, vacant: 0, maintenance: 0 };
-    return {
-      total: units.length,
-      occupied: units.filter((u) => u.status === "occupied").length,
-      vacant: units.filter((u) => u.status === "vacant").length,
-      maintenance: units.filter((u) => u.status === "maintenance").length,
-    };
-  }, [units]);
+  function invalidateAll() {
+    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetUnitsSummaryQueryKey() });
+  }
 
   function resetForm() {
     setForm({ ...emptyForm });
@@ -169,14 +173,14 @@ export default function Units() {
       await createMutation.mutateAsync({ data });
       toast({ title: "호실이 등록되었습니다" });
     }
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
+    invalidateAll();
     setDialogOpen(false);
     resetForm();
   }
 
   async function handleDelete(id: number) {
     await deleteMutation.mutateAsync({ id });
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
+    invalidateAll();
     toast({ title: "호실이 삭제되었습니다" });
   }
 
@@ -189,6 +193,7 @@ export default function Units() {
       complete(results) {
         const errors: string[] = [];
         const valid: CsvRow[] = [];
+        const seen = new Set<string>();
         results.data.forEach((row, i) => {
           if (!row["호실번호"] || !row["층"]) {
             errors.push(`${i + 2}행: 호실번호와 층은 필수입니다`);
@@ -198,6 +203,19 @@ export default function Units() {
             errors.push(`${i + 2}행: 층은 숫자여야 합니다`);
             return;
           }
+          if (row["전용면적"] && isNaN(Number(row["전용면적"]))) {
+            errors.push(`${i + 2}행: 전용면적은 숫자여야 합니다`);
+            return;
+          }
+          if (row["공용면적"] && isNaN(Number(row["공용면적"]))) {
+            errors.push(`${i + 2}행: 공용면적은 숫자여야 합니다`);
+            return;
+          }
+          if (seen.has(row["호실번호"])) {
+            errors.push(`${i + 2}행: 호실번호 '${row["호실번호"]}'가 CSV 내에서 중복됩니다`);
+            return;
+          }
+          seen.add(row["호실번호"]);
           valid.push(row);
         });
         setCsvData(valid);
@@ -217,7 +235,7 @@ export default function Units() {
     }));
 
     const result = await bulkMutation.mutateAsync({ data: { units: unitData } });
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
+    invalidateAll();
     toast({
       title: `${result.created}개 호실이 등록되었습니다`,
       description: result.errors.length > 0
@@ -241,7 +259,7 @@ export default function Units() {
         usage: genForm.usage || undefined,
       },
     });
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
+    invalidateAll();
     toast({ title: `${result.created}개 호실이 자동 생성되었습니다` });
     setGenerateDialogOpen(false);
   }
@@ -438,14 +456,14 @@ export default function Units() {
         </div>
       </div>
 
-      {!isLoading && units && (
+      {summary && (
         <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3">
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">전체</p>
-                  <p className="text-xl font-bold">{stats.total}</p>
+                  <p className="text-xl font-bold">{summary.total}</p>
                 </div>
                 <Building2 className="w-5 h-5 text-muted-foreground/50" />
               </div>
@@ -456,7 +474,7 @@ export default function Units() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">입주</p>
-                  <p className="text-xl font-bold text-primary">{stats.occupied}</p>
+                  <p className="text-xl font-bold text-primary">{summary.occupied}</p>
                 </div>
                 <DoorOpen className="w-5 h-5 text-primary/50" />
               </div>
@@ -467,7 +485,7 @@ export default function Units() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">공실</p>
-                  <p className="text-xl font-bold text-amber-500">{stats.vacant}</p>
+                  <p className="text-xl font-bold text-amber-500">{summary.vacant}</p>
                 </div>
                 <DoorOpen className="w-5 h-5 text-amber-500/50" />
               </div>
@@ -478,7 +496,7 @@ export default function Units() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">정비중</p>
-                  <p className="text-xl font-bold text-destructive">{stats.maintenance}</p>
+                  <p className="text-xl font-bold text-destructive">{summary.maintenance}</p>
                 </div>
                 <Building2 className="w-5 h-5 text-destructive/50" />
               </div>
@@ -556,6 +574,9 @@ export default function Units() {
                               <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">{unit.notes || "-"}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
+                                  <Button variant="ghost" size="sm" onClick={() => setDetailUnitId(unit.id)}>
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </Button>
                                   <Button variant="ghost" size="sm" onClick={() => openEdit(unit)}>
                                     <Edit className="w-3.5 h-3.5" />
                                   </Button>
@@ -586,7 +607,7 @@ export default function Units() {
                           ? "border-destructive/30"
                           : ""
                       }`}
-                      onClick={() => openEdit(unit)}
+                      onClick={() => setDetailUnitId(unit.id)}
                     >
                       <CardContent className="p-2.5">
                         <div className="text-center">
@@ -615,6 +636,87 @@ export default function Units() {
           </CardContent>
         </Card>
       )}
+
+      <ResponsiveDialog open={!!detailUnitId} onOpenChange={(o) => { if (!o) setDetailUnitId(null); }}>
+        <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>호실 상세</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          {unitDetail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">호실번호:</span> <span className="font-medium">{unitDetail.unitNumber}</span></div>
+                <div><span className="text-muted-foreground">층:</span> <span className="font-medium">{unitDetail.floor}층</span></div>
+                <div>
+                  <span className="text-muted-foreground">상태:</span>{" "}
+                  <Badge variant={STATUS_MAP[unitDetail.status]?.variant || "secondary"}>
+                    {STATUS_MAP[unitDetail.status]?.label || unitDetail.status}
+                  </Badge>
+                </div>
+                <div><span className="text-muted-foreground">용도:</span> {unitDetail.usage || "-"}</div>
+                <div><span className="text-muted-foreground">전용면적:</span> {unitDetail.exclusiveArea ? `${unitDetail.exclusiveArea}m²` : "-"}</div>
+                <div><span className="text-muted-foreground">공용면적:</span> {unitDetail.commonArea ? `${unitDetail.commonArea}m²` : "-"}</div>
+                {unitDetail.notes && (
+                  <div className="col-span-2"><span className="text-muted-foreground">비고:</span> {unitDetail.notes}</div>
+                )}
+              </div>
+
+              {"tenants" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).tenants) && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">입주자</p>
+                  </div>
+                  {((unitDetail as Record<string, unknown>).tenants as Array<{tenantName: string; phone?: string | null; status: string}>).length > 0 ? (
+                    <div className="space-y-2">
+                      {((unitDetail as Record<string, unknown>).tenants as Array<{tenantName: string; phone?: string | null; status: string}>).map((t, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                          <span>{t.tenantName}</span>
+                          <span className="text-muted-foreground">{t.phone || "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 입주자가 없습니다</p>
+                  )}
+                </div>
+              )}
+
+              {"owners" in unitDetail && Array.isArray((unitDetail as Record<string, unknown>).owners) && (
+                <div className="border-t pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <UserCheck className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">소유자</p>
+                  </div>
+                  {((unitDetail as Record<string, unknown>).owners as Array<{ownerName: string; phone?: string | null; status: string}>).length > 0 ? (
+                    <div className="space-y-2">
+                      {((unitDetail as Record<string, unknown>).owners as Array<{ownerName: string; phone?: string | null; status: string}>).map((o, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
+                          <span>{o.ownerName}</span>
+                          <span className="text-muted-foreground">{o.phone || "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">해당 호실에 등록된 소유자가 없습니다</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setDetailUnitId(null); const u = units?.find(x => x.id === detailUnitId); if (u) openEdit(u); }}>
+                  <Edit className="w-4 h-4 mr-1" />
+                  수정
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={() => { if (detailUnitId) { handleDelete(detailUnitId); setDetailUnitId(null); } }}>
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  삭제
+                </Button>
+              </div>
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

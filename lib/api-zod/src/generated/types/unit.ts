@@ -9,6 +9,7 @@ import type { UnitStatus } from "./unitStatus";
 
 export interface Unit {
   id: number;
+  buildingId: number;
   unitNumber: string;
   floor: number;
   /** @nullable */

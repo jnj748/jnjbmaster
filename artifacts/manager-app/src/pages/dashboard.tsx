@@ -4,6 +4,7 @@ import {
   useGetDashboardAlerts,
   useListTenants,
   useListVehicles,
+  useGetUnitsSummary,
   useCreateAlertAction,
   useCreateRfq,
   getGetDashboardAlertsQueryKey,
@@ -136,6 +137,7 @@ export default function Dashboard() {
   const summaryReady = !summaryLoading && !!summary;
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
+  const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
 
   const [alertPage, setAlertPage] = useState(0);
 
@@ -299,8 +301,9 @@ export default function Dashboard() {
   }
 
   const activeTenantCount = tenants?.length ?? 0;
-  const totalUnits = building?.totalUnits ?? 0;
-  const occupancyRate = totalUnits > 0 ? Math.round((activeTenantCount / totalUnits) * 100) : 0;
+  const totalUnits = unitsSummary?.total ?? building?.totalUnits ?? 0;
+  const occupiedUnits = unitsSummary?.occupied ?? 0;
+  const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
   const vehicleCount = vehicles?.length ?? 0;
   const vehiclesPerUnit = totalUnits > 0 ? (vehicleCount / totalUnits).toFixed(1) : "-";
 

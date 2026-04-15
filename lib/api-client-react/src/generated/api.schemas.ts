@@ -2918,6 +2918,7 @@ export const UnitStatus = {
 
 export interface Unit {
   id: number;
+  buildingId: number;
   unitNumber: string;
   floor: number;
   /** @nullable */
@@ -3209,6 +3210,18 @@ export type GenerateUnitsBody = {
 
 export type GenerateUnits201 = {
   created: number;
+};
+
+export type GetUnitsSummary200 = {
+  total: number;
+  occupied: number;
+  vacant: number;
+  maintenance: number;
+};
+
+export type GetUnit200 = Unit & {
+  tenants?: Tenant[];
+  owners?: Owner[];
 };
 
 export type ListOwnersParams = {

@@ -2896,6 +2896,7 @@ export const ListUnitsQueryParams = zod.object({
 
 export const ListUnitsResponseItem = zod.object({
   id: zod.number(),
+  buildingId: zod.number(),
   unitNumber: zod.string(),
   floor: zod.number(),
   exclusiveArea: zod.string().nullish(),
@@ -2951,24 +2952,102 @@ export const GenerateUnitsBody = zod.object({
 });
 
 /**
- * @summary Get a unit
+ * @summary Get units status summary
+ */
+export const GetUnitsSummaryResponse = zod.object({
+  total: zod.number(),
+  occupied: zod.number(),
+  vacant: zod.number(),
+  maintenance: zod.number(),
+});
+
+/**
+ * @summary Get a unit with tenant/owner data
  */
 export const GetUnitParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetUnitResponse = zod.object({
-  id: zod.number(),
-  unitNumber: zod.string(),
-  floor: zod.number(),
-  exclusiveArea: zod.string().nullish(),
-  commonArea: zod.string().nullish(),
-  usage: zod.string().nullish(),
-  notes: zod.string().nullish(),
-  status: zod.enum(["vacant", "occupied", "maintenance"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
+export const GetUnitResponse = zod
+  .object({
+    id: zod.number(),
+    buildingId: zod.number(),
+    unitNumber: zod.string(),
+    floor: zod.number(),
+    exclusiveArea: zod.string().nullish(),
+    commonArea: zod.string().nullish(),
+    usage: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    status: zod.enum(["vacant", "occupied", "maintenance"]),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      tenants: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            unit: zod.string(),
+            tenantName: zod.string(),
+            residentId: zod.string().nullish(),
+            phone: zod.string().nullish(),
+            emergencyContact: zod.string().nullish(),
+            interiorStartDate: zod.coerce.date().nullish(),
+            moveInDate: zod.coerce.date().nullish(),
+            moveOutDate: zod.coerce.date().nullish(),
+            email: zod.string().nullish(),
+            companyName: zod.string().nullish(),
+            businessNumber: zod.string().nullish(),
+            hasTv: zod.boolean(),
+            registeredAddress: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            guarantorName: zod.string().nullish(),
+            guarantorPhone: zod.string().nullish(),
+            guarantorRelation: zod.string().nullish(),
+            status: zod.enum(["active", "moved_out", "destroyed"]),
+            privacyConsentDate: zod.coerce.date().nullish(),
+            contractDoc: zod.boolean(),
+            businessRegDoc: zod.boolean(),
+            idDoc: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            dataDestructionDate: zod.coerce.date().nullish(),
+            updatedAt: zod.coerce.date(),
+          }),
+        )
+        .optional(),
+      owners: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            unit: zod.string(),
+            ownerName: zod.string(),
+            birthDate: zod.coerce.date().nullish(),
+            phone: zod.string().nullish(),
+            interiorStartDate: zod.coerce.date().nullish(),
+            moveInDate: zod.coerce.date().nullish(),
+            moveOutDate: zod.coerce.date().nullish(),
+            companyName: zod.string().nullish(),
+            businessNumber: zod.string().nullish(),
+            email: zod.string().nullish(),
+            registeredAddress: zod.string().nullish(),
+            vehicleNumber: zod.string().nullish(),
+            vehicleType: zod.string().nullish(),
+            hasTv: zod.boolean(),
+            notes: zod.string().nullish(),
+            status: zod.enum(["active", "moved_out", "destroyed"]),
+            privacyConsentDate: zod.coerce.date().nullish(),
+            businessRegDoc: zod.boolean(),
+            idDoc: zod.boolean(),
+            propertyDoc: zod.boolean(),
+            createdAt: zod.coerce.date(),
+            dataDestructionDate: zod.coerce.date().nullish(),
+            updatedAt: zod.coerce.date(),
+          }),
+        )
+        .optional(),
+    }),
+  );
 
 /**
  * @summary Update a unit
@@ -2989,6 +3068,7 @@ export const UpdateUnitBody = zod.object({
 
 export const UpdateUnitResponse = zod.object({
   id: zod.number(),
+  buildingId: zod.number(),
   unitNumber: zod.string(),
   floor: zod.number(),
   exclusiveArea: zod.string().nullish(),

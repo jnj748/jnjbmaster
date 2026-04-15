@@ -1,9 +1,10 @@
-import { pgTable, text, serial, boolean, timestamp, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const tenantsTable = pgTable("tenants", {
   id: serial("id").primaryKey(),
+  unitId: integer("unit_id"),
   unit: text("unit").notNull(),
   tenantName: text("tenant_name").notNull(),
   residentId: text("resident_id"),
