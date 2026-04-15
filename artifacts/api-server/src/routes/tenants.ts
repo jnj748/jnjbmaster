@@ -39,13 +39,7 @@ async function syncUnitStatus(unitNumber: string, userId?: number): Promise<void
   const activeTenants = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(tenantsTable)
-    .where(and(
-      or(
-        eq(tenantsTable.unitId, unit.id),
-        and(sql`${tenantsTable.unitId} IS NULL`, eq(tenantsTable.unit, unit.unitNumber))
-      ),
-      eq(tenantsTable.status, "active")
-    ));
+    .where(and(eq(tenantsTable.unitId, unit.id), eq(tenantsTable.status, "active")));
 
   const hasActive = (activeTenants[0]?.count ?? 0) > 0;
   await db

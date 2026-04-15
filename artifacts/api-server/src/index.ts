@@ -6,7 +6,7 @@ import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
 
 async function backfillUnitIds() {
-  const tenantsResult = await db.execute(sql`
+  await db.execute(sql`
     UPDATE tenants t
     SET unit_id = u.id
     FROM units u
@@ -15,9 +15,14 @@ async function backfillUnitIds() {
       AND t.unit != ''
       AND t.unit = u.unit_number
       AND u.building_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM units u2
+        WHERE u2.unit_number = u.unit_number
+          AND u2.id != u.id
+      )
   `);
 
-  const ownersResult = await db.execute(sql`
+  await db.execute(sql`
     UPDATE owners o
     SET unit_id = u.id
     FROM units u
@@ -26,6 +31,11 @@ async function backfillUnitIds() {
       AND o.unit != ''
       AND o.unit = u.unit_number
       AND u.building_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM units u2
+        WHERE u2.unit_number = u.unit_number
+          AND u2.id != u.id
+      )
   `);
 
   const remainingTenants = await db
@@ -43,7 +53,7 @@ async function backfillUnitIds() {
 
   if (tRemaining > 0 || oRemaining > 0) {
     logger.warn({ tenantsWithoutUnitId: tRemaining, ownersWithoutUnitId: oRemaining },
-      "Some records could not be backfilled (unit number not found in units table)");
+      "Skipped ambiguous records (unit number exists in multiple buildings - requires manual resolution)");
   }
 }
 
