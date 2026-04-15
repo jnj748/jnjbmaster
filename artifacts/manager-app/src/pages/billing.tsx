@@ -18,6 +18,10 @@ import {
   useSendKakaoNotification,
   useCalculateInterimSettlement,
 } from "@workspace/api-client-react";
+import type {
+  CalculateFeesResponse,
+  InterimSettlementResponse,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calculator,
@@ -63,8 +67,8 @@ export default function Billing() {
   const kakaoMutation = useSendKakaoNotification();
   const interimMutation = useCalculateInterimSettlement();
 
-  const [calcResult, setCalcResult] = useState<any>(null);
-  const [interimResult, setInterimResult] = useState<any>(null);
+  const [calcResult, setCalcResult] = useState<CalculateFeesResponse | null>(null);
+  const [interimResult, setInterimResult] = useState<InterimSettlementResponse | null>(null);
 
   async function handleCalculate() {
     try {
@@ -185,7 +189,7 @@ export default function Billing() {
                       </tr>
                     </thead>
                     <tbody>
-                      {calcResult.items.map((item: any) => (
+                      {calcResult.items.map((item) => (
                         <tr key={item.unitNumber} className="border-b">
                           <td className="p-2">{item.unitNumber}호</td>
                           <td className="p-2 text-right">{item.exclusiveArea}㎡</td>
@@ -258,11 +262,11 @@ export default function Billing() {
                 <div className="flex justify-between"><span>호실</span><span>{interimResult.unitNumber}호</span></div>
                 <div className="flex justify-between"><span>퇴거일</span><span>{interimResult.moveOutDate}</span></div>
                 <div className="flex justify-between"><span>거주일수</span><span>{interimResult.residencyDays}/{interimResult.daysInMonth}일</span></div>
-                <div className="flex justify-between"><span>일할 관리비</span><span>{formatKrw(interimResult.proRatedFee)}원</span></div>
-                {interimResult.specialFundRefund > 0 && (
-                  <div className="flex justify-between text-emerald-600"><span>장기수선 환급</span><span>-{formatKrw(interimResult.specialFundRefund)}원</span></div>
+                <div className="flex justify-between"><span>일할 관리비</span><span>{formatKrw(interimResult.proRatedFee ?? 0)}원</span></div>
+                {(interimResult.specialFundRefund ?? 0) > 0 && (
+                  <div className="flex justify-between text-emerald-600"><span>장기수선 환급</span><span>-{formatKrw(interimResult.specialFundRefund ?? 0)}원</span></div>
                 )}
-                <div className="flex justify-between font-bold border-t pt-2"><span>정산 금액</span><span>{formatKrw(interimResult.totalSettlement)}원</span></div>
+                <div className="flex justify-between font-bold border-t pt-2"><span>정산 금액</span><span>{formatKrw(interimResult.totalSettlement ?? 0)}원</span></div>
               </div>
             )}
           </DialogContent>

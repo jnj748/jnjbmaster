@@ -27,6 +27,10 @@ import {
   getListVotesQueryKey,
   getGetVoteDetailQueryKey,
 } from "@workspace/api-client-react";
+import type {
+  CreateVoteBodyVoterType,
+  CastBallotBodyChoice,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -88,7 +92,7 @@ export default function Voting() {
         data: {
           title: form.title,
           description: form.description,
-          voterType: form.voterType as any,
+          voterType: form.voterType as CreateVoteBodyVoterType,
           startDate: form.startDate,
           endDate: form.endDate,
           totalEligible: Number(form.totalEligible),
@@ -114,7 +118,7 @@ export default function Voting() {
         data: {
           unitNumber: castForm.unitNumber,
           voterName: castForm.voterName,
-          choice: castForm.choice as any,
+          choice: castForm.choice as CastBallotBodyChoice,
         },
       });
       toast({ title: result.message || "투표 완료" });

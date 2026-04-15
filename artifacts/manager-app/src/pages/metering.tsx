@@ -26,6 +26,12 @@ import {
   getListMeterReadingsQueryKey,
   getListMeterAnomaliesQueryKey,
 } from "@workspace/api-client-react";
+import type {
+  ListMeterReadingsMeterType,
+  CreateMeterReadingBodyMeterType,
+  MeterCsvUploadBodyMeterType,
+  MeterReading,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -53,7 +59,7 @@ export default function Metering() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
 
-  const params = filter === "all" ? {} : { meterType: filter as any };
+  const params = filter === "all" ? {} : { meterType: filter as ListMeterReadingsMeterType };
   const { data: readings = [] } = useListMeterReadings(params);
   const { data: anomalies = [] } = useListMeterAnomalies();
   const createMutation = useCreateMeterReading();
@@ -87,7 +93,7 @@ export default function Metering() {
       await createMutation.mutateAsync({
         data: {
           unitNumber: form.unitNumber,
-          meterType: form.meterType as any,
+          meterType: form.meterType as CreateMeterReadingBodyMeterType,
           readingDate: form.readingDate,
           previousReading: form.previousReading ? Number(form.previousReading) : undefined,
           currentReading: Number(form.currentReading),
@@ -121,7 +127,7 @@ export default function Metering() {
     try {
       const result = await csvMutation.mutateAsync({
         data: {
-          meterType: csvForm.meterType as any,
+          meterType: csvForm.meterType as MeterCsvUploadBodyMeterType,
           readingDate: csvForm.readingDate,
           rows,
         },

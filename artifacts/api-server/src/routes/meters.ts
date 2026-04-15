@@ -189,8 +189,9 @@ router.post("/meters/csv-upload", async (req: Request, res: Response): Promise<v
 
       imported++;
       if (isAnomaly) anomalies++;
-    } catch (e: any) {
-      errors.push(`${row.unitNumber}: ${e.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${row.unitNumber}: ${msg}`);
     }
   }
 

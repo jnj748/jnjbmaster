@@ -1,9 +1,11 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { buildingsTable } from "./buildings";
+import { unitsTable } from "./units";
 
 export const complaintsTable = pgTable("complaints", {
   id: serial("id").primaryKey(),
   buildingId: integer("building_id").notNull().references(() => buildingsTable.id),
+  unitId: integer("unit_id").references(() => unitsTable.id),
   unitNumber: text("unit_number").notNull(),
   complainantName: text("complainant_name").notNull(),
   complainantPhone: text("complainant_phone"),

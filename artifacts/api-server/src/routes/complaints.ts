@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, complaintsTable, usersTable } from "@workspace/db";
+import { db, complaintsTable, usersTable, unitsTable } from "@workspace/db";
 import {
   CreateComplaintBody,
   UpdateComplaintBody,
@@ -47,9 +47,15 @@ router.post("/complaints", async (req: Request, res: Response): Promise<void> =>
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
+  const unit = await db
+    .select()
+    .from(unitsTable)
+    .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, parsed.data.unitNumber)))
+    .then((r) => r[0]);
+
   const [row] = await db
     .insert(complaintsTable)
-    .values({ ...parsed.data, buildingId })
+    .values({ ...parsed.data, buildingId, unitId: unit?.id ?? null })
     .returning();
 
   res.status(201).json(row);
@@ -65,7 +71,7 @@ router.patch("/complaints/:id", async (req: Request, res: Response): Promise<voi
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 
-  const updates: Record<string, any> = {};
+  const updates: Partial<typeof complaintsTable.$inferInsert> = {};
   if (parsed.data.status) updates.status = parsed.data.status;
   if (parsed.data.assigneeName) updates.assigneeName = parsed.data.assigneeName;
   if (parsed.data.resolution) updates.resolution = parsed.data.resolution;

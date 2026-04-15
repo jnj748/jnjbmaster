@@ -25,6 +25,12 @@ import {
   useUpdateComplaint,
   getListComplaintsQueryKey,
 } from "@workspace/api-client-react";
+import type {
+  ListComplaintsCategory,
+  ListComplaintsStatus,
+  CreateComplaintBodyCategory,
+  UpdateComplaintBodyStatus,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -65,9 +71,9 @@ export default function Complaints() {
   const [assignOpen, setAssignOpen] = useState<number | null>(null);
   const [assignee, setAssignee] = useState("");
 
-  const params: any = {};
-  if (filterCat !== "all") params.category = filterCat;
-  if (filterStatus !== "all") params.status = filterStatus;
+  const params: { category?: ListComplaintsCategory; status?: ListComplaintsStatus } = {};
+  if (filterCat !== "all") params.category = filterCat as ListComplaintsCategory;
+  if (filterStatus !== "all") params.status = filterStatus as ListComplaintsStatus;
 
   const { data: complaints = [] } = useListComplaints(params);
   const createMutation = useCreateComplaint();
@@ -93,7 +99,7 @@ export default function Complaints() {
           unitNumber: form.unitNumber,
           complainantName: form.complainantName,
           complainantPhone: form.complainantPhone || undefined,
-          category: form.category as any,
+          category: form.category as CreateComplaintBodyCategory,
           title: form.title,
           description: form.description,
         },
@@ -112,7 +118,7 @@ export default function Complaints() {
     try {
       await updateMutation.mutateAsync({
         id,
-        data: { status: "assigned" as any, assigneeName: assignee },
+        data: { status: "assigned" as UpdateComplaintBodyStatus, assigneeName: assignee },
       });
       toast({ title: "담당자가 배정되었습니다" });
       setAssignOpen(null);
@@ -129,7 +135,7 @@ export default function Complaints() {
     try {
       await updateMutation.mutateAsync({
         id,
-        data: { status: "completed" as any, resolution },
+        data: { status: "completed" as UpdateComplaintBodyStatus, resolution },
       });
       toast({ title: "민원이 처리 완료되었습니다" });
       queryClient.invalidateQueries({ queryKey: getListComplaintsQueryKey() });

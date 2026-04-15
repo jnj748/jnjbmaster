@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, votesTable, voteBallotsTable, usersTable } from "@workspace/db";
+import { db, votesTable, voteBallotsTable, usersTable, unitsTable } from "@workspace/db";
 import {
   CreateVoteBody,
   CastBallotBody,
@@ -131,19 +131,27 @@ router.post("/votes/:id/cast", async (req: Request, res: Response): Promise<void
     return;
   }
 
+  const unit = await db
+    .select()
+    .from(unitsTable)
+    .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, parsed.data.unitNumber)))
+    .then((r) => r[0]);
+
   try {
     await db.insert(voteBallotsTable).values({
       voteId: id,
+      unitId: unit?.id ?? null,
       unitNumber: parsed.data.unitNumber,
       voterName: parsed.data.voterName,
       choice: parsed.data.choice,
     });
     res.json({ success: true, message: "투표가 완료되었습니다" });
-  } catch (e: any) {
-    if (e.code === "23505") {
+  } catch (err: unknown) {
+    const pgErr = err as { code?: string };
+    if (pgErr.code === "23505") {
       res.status(409).json({ success: false, message: "이미 투표하셨습니다" });
     } else {
-      throw e;
+      throw err;
     }
   }
 });

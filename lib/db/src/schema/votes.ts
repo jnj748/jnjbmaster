@@ -1,5 +1,6 @@
 import { pgTable, text, serial, integer, timestamp, date, unique } from "drizzle-orm/pg-core";
 import { buildingsTable } from "./buildings";
+import { unitsTable } from "./units";
 
 export const votesTable = pgTable("votes", {
   id: serial("id").primaryKey(),
@@ -17,6 +18,7 @@ export const votesTable = pgTable("votes", {
 export const voteBallotsTable = pgTable("vote_ballots", {
   id: serial("id").primaryKey(),
   voteId: integer("vote_id").notNull().references(() => votesTable.id),
+  unitId: integer("unit_id").references(() => unitsTable.id),
   unitNumber: text("unit_number").notNull(),
   voterName: text("voter_name").notNull(),
   choice: text("choice", { enum: ["for", "against", "abstain"] }).notNull(),
