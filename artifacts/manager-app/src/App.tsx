@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -5,40 +6,61 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import Dashboard from "@/pages/dashboard";
-import Approvals from "@/pages/approvals";
-import ExecutiveSpending from "@/pages/executive-spending";
-import Tasks from "@/pages/tasks";
-import Inspections from "@/pages/inspections";
-import TaxSchedules from "@/pages/tax-schedules";
-import Vendors from "@/pages/vendors";
-import Commissions from "@/pages/commissions";
-import Rfqs from "@/pages/rfqs";
-import WorkReportsPage from "@/pages/work-reports";
-import Reports from "@/pages/reports";
-import Drafts from "@/pages/drafts";
-import Tenants from "@/pages/tenants";
-import Owners from "@/pages/owners";
-import Vehicles from "@/pages/vehicles";
-import Users from "@/pages/users";
-import PortalSelect from "@/pages/portal-select";
-import Login from "@/pages/login";
-import FacilityDashboard from "@/pages/facility-dashboard";
-import SafetyChecklists from "@/pages/safety-checklists";
-import MaintenanceLogs from "@/pages/maintenance-logs";
-import SafetyTraining from "@/pages/safety-training";
-import ApprovalCreate from "@/pages/approval-create";
-import DocumentTemplates from "@/pages/document-templates";
-import DailyReportsPage from "@/pages/daily-reports";
-import ReportSystemPage from "@/pages/report-system";
-import PartnerDashboard from "@/pages/partner-dashboard";
-import VendorPortal from "@/pages/vendor-portal";
-import Attendance from "@/pages/attendance";
-import BuildingSetup from "@/pages/building-setup";
-import AccountingDashboard from "@/pages/accounting-dashboard";
-import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+const Approvals = lazy(() => import("@/pages/approvals"));
+const ApprovalCreate = lazy(() => import("@/pages/approval-create"));
+const ExecutiveSpending = lazy(() => import("@/pages/executive-spending"));
+const Tasks = lazy(() => import("@/pages/tasks"));
+const Inspections = lazy(() => import("@/pages/inspections"));
+const TaxSchedules = lazy(() => import("@/pages/tax-schedules"));
+const Vendors = lazy(() => import("@/pages/vendors"));
+const Commissions = lazy(() => import("@/pages/commissions"));
+const Rfqs = lazy(() => import("@/pages/rfqs"));
+const WorkReportsPage = lazy(() => import("@/pages/work-reports"));
+const Reports = lazy(() => import("@/pages/reports"));
+const Drafts = lazy(() => import("@/pages/drafts"));
+const Tenants = lazy(() => import("@/pages/tenants"));
+const Owners = lazy(() => import("@/pages/owners"));
+const Vehicles = lazy(() => import("@/pages/vehicles"));
+const Users = lazy(() => import("@/pages/users"));
+const PortalSelect = lazy(() => import("@/pages/portal-select"));
+const Login = lazy(() => import("@/pages/login"));
+const FacilityDashboard = lazy(() => import("@/pages/facility-dashboard"));
+const SafetyChecklists = lazy(() => import("@/pages/safety-checklists"));
+const MaintenanceLogs = lazy(() => import("@/pages/maintenance-logs"));
+const SafetyTraining = lazy(() => import("@/pages/safety-training"));
+const DocumentTemplates = lazy(() => import("@/pages/document-templates"));
+const DailyReportsPage = lazy(() => import("@/pages/daily-reports"));
+const ReportSystemPage = lazy(() => import("@/pages/report-system"));
+const PartnerDashboard = lazy(() => import("@/pages/partner-dashboard"));
+const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
+const Attendance = lazy(() => import("@/pages/attendance"));
+const BuildingSetup = lazy(() => import("@/pages/building-setup"));
+const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
+const CalendarPage = lazy(() => import("@/pages/calendar"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-muted-foreground">로딩 중...</span>
+      </div>
+    </div>
+  );
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const managerRoutes = [
   { path: "/approvals", component: Approvals },
@@ -84,15 +106,17 @@ function AuthenticatedRoutes() {
 
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={DashboardComponent} />
-        {routes.map((r) => (
-          <Route key={r.path} path={r.path} component={r.component} />
-        ))}
-        <Route>
-          <Redirect to="/" />
-        </Route>
-      </Switch>
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/" component={DashboardComponent} />
+          {routes.map((r) => (
+            <Route key={r.path} path={r.path} component={r.component} />
+          ))}
+          <Route>
+            <Redirect to="/" />
+          </Route>
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }
@@ -103,20 +127,25 @@ function AppRouter() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-slate-500">로딩 중...</div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-slate-500">로딩 중...</span>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <Switch>
-        <Route path="/portal" component={PortalSelect} />
-        <Route path="/login/:portalType" component={Login} />
-        <Route>
-          <Redirect to="/portal" />
-        </Route>
-      </Switch>
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/portal" component={PortalSelect} />
+          <Route path="/login/:portalType" component={Login} />
+          <Route>
+            <Redirect to="/portal" />
+          </Route>
+        </Switch>
+      </Suspense>
     );
   }
 

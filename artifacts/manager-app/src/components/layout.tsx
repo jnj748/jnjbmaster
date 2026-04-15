@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -191,16 +191,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { setDrawerOpen(false); }, [location]);
 
-  const { data: unreadCount } = useGetUnreadNotificationCount();
+  const { data: unreadCount } = useGetUnreadNotificationCount({ query: { staleTime: 30 * 1000, refetchInterval: 60 * 1000 } });
   const { data: notifications } = useListNotifications({ query: { enabled: notifOpen } });
   const markRead = useMarkNotificationRead();
   const queryClient = useQueryClient();
 
-  async function handleMarkRead(id: number) {
+  const handleMarkRead = useCallback(async (id: number) => {
     await markRead.mutateAsync({ id });
     queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
-  }
+  }, [markRead, queryClient]);
 
   const isPartner = user?.portalType === "partner";
   const navItems = isPartner ? partnerNavItems : managerNavItems;
@@ -210,7 +210,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const sections = isPartner ? [{ items: partnerNavItems }] : managerNavSections;
 
-  const navLinks = sections.map((section, si) => (
+  const navLinks = useMemo(() => sections.map((section, si) => (
     <div key={si}>
       {section.title && (
         <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
@@ -236,7 +236,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         );
       })}
     </div>
-  ));
+  )), [location, isPartner]);
 
   const notifButton = (
     <Popover open={notifOpen} onOpenChange={setNotifOpen}>

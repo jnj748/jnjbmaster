@@ -47,6 +47,7 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Attendance Management:** PC/mobile check-in/out with automated detection of late/early-leave, and manager-facing visualizations.
 - **Notification System:** In-app notifications for various events.
 - **Document Templates:** 5 default system templates with CRUD management for custom ones.
+- **Performance Optimization:** React.lazy code splitting for all 34 route pages (only Dashboard loaded eagerly). Vite manualChunks splits vendor bundles (react, vendor, charts, api-client). Dashboard reduced from 8+ API calls to 4 essential ones. Layout uses useMemo/useCallback to minimize re-renders. React Query configured with 2min staleTime, 10min gcTime. Notification polling at 60s intervals with 30s staleTime.
 - **Hierarchical Reporting:** Daily reports aggregate into weekly and monthly summaries.
 - **Legal Compliance:** Incorporates Korean legal requirements for inspections (23 presets, 11 categories) and privacy data auto-destruction (tenant/owner data anonymization after 3 years).
 - **Geo-based Vendor Matching:** RFQs can auto-match vendors by region (`sido`, `sigungu`).

@@ -2,12 +2,8 @@ import { useState, useEffect } from "react";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
-  useGetRecentActivity,
-  useGetUpcomingInspections,
   useListTenants,
   useListVehicles,
-  useListMaintenanceLogs,
-  useListSafetyChecklists,
   useCreateAlertAction,
   useCreateRfq,
   getGetDashboardAlertsQueryKey,
@@ -137,12 +133,8 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
-  const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
-  const { data: upcoming, isLoading: upcomingLoading } = useGetUpcomingInspections();
-  const { data: tenants } = useListTenants({ status: "active" });
-  const { data: vehicles } = useListVehicles();
-  const { data: recentMaintenanceLogs } = useListMaintenanceLogs();
-  const { data: recentChecklists } = useListSafetyChecklists();
+  const { data: tenants } = useListTenants({ status: "active" }, { query: { staleTime: 5 * 60 * 1000 } });
+  const { data: vehicles } = useListVehicles(undefined, { query: { staleTime: 5 * 60 * 1000 } });
 
   const [buildingInfo, setBuildingInfo] = useState<{
     name: string; totalUnits: number | null; parkingSpaces: number | null;
