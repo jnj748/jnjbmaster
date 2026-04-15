@@ -59,18 +59,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("recharts") || id.includes("d3-")) {
-              return "charts";
-            }
-            if (id.includes("lucide-react")) {
-              return "icons";
-            }
-          }
-          if (id.includes("api-client-react") || id.includes("api-client/")) {
-            return "api-client";
-          }
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react/jsx-runtime", "scheduler"],
+          "charts": ["recharts"],
         },
       },
     },
