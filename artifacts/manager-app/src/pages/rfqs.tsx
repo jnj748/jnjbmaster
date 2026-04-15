@@ -50,6 +50,7 @@ import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
 
 const categoryOptions = [
@@ -73,6 +74,7 @@ export default function Rfqs() {
   const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
   const { toast } = useToast();
   const { token } = useAuth();
+  const { building } = useBuilding();
   const queryClient = useQueryClient();
 
   const queryParams: any = {};
@@ -95,12 +97,12 @@ export default function Rfqs() {
     title: "",
     category: "elevator",
     description: "",
-    buildingName: "",
+    buildingName: building?.name || "",
     desiredDate: "",
     deadline: "",
     vendorIds: [] as string[],
-    sido: "",
-    sigungu: "",
+    sido: building?.sido || "",
+    sigungu: building?.sigungu || "",
   });
 
   function resetForm() {
@@ -108,12 +110,12 @@ export default function Rfqs() {
       title: "",
       category: "elevator",
       description: "",
-      buildingName: "",
+      buildingName: building?.name || "",
       desiredDate: "",
       deadline: "",
       vendorIds: [],
-      sido: "",
-      sigungu: "",
+      sido: building?.sido || "",
+      sigungu: building?.sigungu || "",
     });
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);

@@ -35,7 +35,7 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
   const isManager = user?.role !== "partner";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["building", "my"],
+    queryKey: ["building", "my", user?.id],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/buildings/my`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -50,7 +50,7 @@ export function BuildingProvider({ children }: { children: ReactNode }) {
   });
 
   const refetch = () => {
-    queryClient.invalidateQueries({ queryKey: ["building", "my"] });
+    queryClient.invalidateQueries({ queryKey: ["building", "my", user?.id] });
   };
 
   return (
