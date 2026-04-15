@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "wouter";
 import {
   useGetDashboardSummary,
@@ -176,6 +182,7 @@ export default function AccountingDashboard() {
 
   const calcMutation = useCalculateFees();
   const [calcResult, setCalcResult] = useState<CalculateFeesResponse | null>(null);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
 
   const requiredDone = useMemo(() => {
     return checklist.filter(c => c.category === "필수").every(c => c.checked);
@@ -216,10 +223,7 @@ export default function AccountingDashboard() {
     }
 
     if (approvalCheck && !approvalCheck.allApproved) {
-      const msgs: string[] = [];
-      if (approvalCheck.pending > 0) msgs.push(`미결재 ${approvalCheck.pending}건`);
-      if (approvalCheck.rejected > 0) msgs.push(`반려 ${approvalCheck.rejected}건`);
-      toast({ title: `${msgs.join(", ")}이 있습니다. 결재 완료 후 산출하세요.`, variant: "destructive" });
+      setApprovalDialogOpen(true);
       return;
     }
 
@@ -770,6 +774,43 @@ export default function AccountingDashboard() {
           ))}
         </div>
       </div>
+
+      <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              미완료 결재 확인
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">
+              해당월에 완료되지 않은 결재가 있어 관리비를 산출할 수 없습니다.
+              결재를 먼저 완료해주세요.
+            </p>
+            {approvalCheck && (
+              <div className="space-y-1 text-xs">
+                {approvalCheck.pending > 0 && (
+                  <p className="text-amber-700">미결재 {approvalCheck.pending}건</p>
+                )}
+                {approvalCheck.rejected > 0 && (
+                  <p className="text-red-600">반려 {approvalCheck.rejected}건</p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 pt-2">
+              <Link href="/approvals" className="flex-1">
+                <Button className="w-full">
+                  결재함으로 이동 <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+              <Button variant="outline" onClick={() => setApprovalDialogOpen(false)}>
+                닫기
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
