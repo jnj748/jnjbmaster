@@ -549,7 +549,14 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
   sundayDate.setDate(monday.getDate() + 6);
   const sundayStr = sundayDate.toISOString().split("T")[0];
 
-  const attendanceRows = await db
+  let buildingUserIds: number[] | null = null;
+  if (buildingId) {
+    const buildingUsers = await db.select({ id: usersTable.id }).from(usersTable)
+      .where(eq(usersTable.buildingId, buildingId));
+    buildingUserIds = buildingUsers.map(u => u.id);
+  }
+
+  const allAttendance = await db
     .select()
     .from(attendanceTable)
     .where(
@@ -558,6 +565,9 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
         lte(attendanceTable.checkDate, sundayStr)
       )
     );
+  const attendanceRows = buildingUserIds
+    ? allAttendance.filter(a => buildingUserIds!.includes(a.userId))
+    : allAttendance;
 
   const dayLabels = ["월", "화", "수", "목", "금", "토", "일"];
   const workHoursByDay: Array<{ day: string; date: string; hours: number; staffCount: number }> = [];
@@ -590,7 +600,7 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
     });
   }
 
-  const destructionTenants = await db
+  const allDestructionTenants = await db
     .select()
     .from(tenantsTable)
     .where(
@@ -601,7 +611,7 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
       )
     );
 
-  const destructionOwners = await db
+  const allDestructionOwners = await db
     .select()
     .from(ownersTable)
     .where(
@@ -611,6 +621,21 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
         eq(ownersTable.status, "moved_out")
       )
     );
+
+  let buildingUnitIds: Set<number> | null = null;
+  if (buildingId) {
+    const buildingUnits = await db.select({ id: unitsTable.id }).from(unitsTable)
+      .where(eq(unitsTable.buildingId, buildingId));
+    buildingUnitIds = new Set(buildingUnits.map(u => u.id));
+  }
+
+  const destructionTenants = buildingUnitIds
+    ? allDestructionTenants.filter(t => t.unitId != null && buildingUnitIds!.has(t.unitId))
+    : allDestructionTenants;
+
+  const destructionOwners = buildingUnitIds
+    ? allDestructionOwners.filter(o => o.unitId != null && buildingUnitIds!.has(o.unitId))
+    : allDestructionOwners;
 
   const userRole = _req.user?.role;
   const canSeePii = ["manager", "platform_admin"].includes(userRole ?? "");

@@ -5,6 +5,60 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, userId: number, userEmail: string): Promise<void> {
+  const reportDate = new Date(row.reportDate);
+  const dayOfWeek = reportDate.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekMonday = new Date(reportDate);
+  weekMonday.setDate(reportDate.getDate() + mondayOffset);
+  const weekSunday = new Date(weekMonday);
+  weekSunday.setDate(weekMonday.getDate() + 6);
+  const weekStart = weekMonday.toISOString().split("T")[0];
+  const weekEnd = weekSunday.toISOString().split("T")[0];
+
+  const existingWeekly = await db.select().from(weeklySummaryReportsTable)
+    .where(eq(weeklySummaryReportsTable.weekStart, weekStart));
+
+  const typeLabels: Record<string, string> = {
+    expense: "경비", cleaning: "미화", maintenance: "유지보수",
+    security: "보안", other: "기타",
+  };
+  const label = typeLabels[row.reportType] || row.reportType;
+  const entryLine = `- [${row.reportDate}] (${label}) ${row.title}: ${(row.content || "").substring(0, 100)}`;
+
+  if (existingWeekly.length > 0) {
+    const weekly = existingWeekly[0];
+    const currentIds = weekly.dailyReportIds ? weekly.dailyReportIds.split(",").map(Number) : [];
+    if (!currentIds.includes(row.id)) {
+      currentIds.push(row.id);
+      const updatedSummary = weekly.summary
+        ? weekly.summary + "\n" + entryLine
+        : entryLine;
+      await db.update(weeklySummaryReportsTable)
+        .set({
+          summary: updatedSummary,
+          dailyReportIds: currentIds.join(","),
+          totalDailyReports: currentIds.length,
+        })
+        .where(eq(weeklySummaryReportsTable.id, weekly.id));
+    }
+  } else {
+    const managerUser = await db.select().from(usersTable)
+      .where(eq(usersTable.role, "manager")).then(r => r[0]);
+    await db.insert(weeklySummaryReportsTable).values({
+      title: `${weekStart} 주간 보고 (자동 생성)`,
+      weekStart,
+      weekEnd,
+      summary: `■ 금주 업무 내용\n${entryLine}`,
+      totalDailyReports: 1,
+      dailyReportIds: String(row.id),
+      authorId: managerUser?.id ?? userId,
+      authorName: managerUser?.name ?? userEmail,
+      status: "draft",
+    });
+  }
+}
+
 function serializeDaily(r: typeof dailyReportsTable.$inferSelect) {
   return {
     ...r,
@@ -91,6 +145,8 @@ router.post("/daily-reports", async (req, res): Promise<void> => {
     relatedEntityId: row.id,
   });
 
+  await linkDailyToWeekly(row, user.userId, user.email);
+
   res.status(201).json(serializeDaily(row));
 });
 
@@ -152,57 +208,7 @@ router.post("/daily-reports/:id/submit", async (req, res): Promise<void> => {
     relatedEntityId: row.id,
   });
 
-  const reportDate = new Date(row.reportDate);
-  const dayOfWeek = reportDate.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const weekMonday = new Date(reportDate);
-  weekMonday.setDate(reportDate.getDate() + mondayOffset);
-  const weekSunday = new Date(weekMonday);
-  weekSunday.setDate(weekMonday.getDate() + 6);
-  const weekStart = weekMonday.toISOString().split("T")[0];
-  const weekEnd = weekSunday.toISOString().split("T")[0];
-
-  const existingWeekly = await db.select().from(weeklySummaryReportsTable)
-    .where(eq(weeklySummaryReportsTable.weekStart, weekStart));
-
-  const typeLabel: Record<string, string> = {
-    expense: "경비", cleaning: "미화", maintenance: "유지보수",
-    security: "보안", other: "기타",
-  };
-  const label = typeLabel[row.reportType] || row.reportType;
-  const entryLine = `- [${row.reportDate}] (${label}) ${row.title}: ${(row.content || "").substring(0, 100)}`;
-
-  if (existingWeekly.length > 0) {
-    const weekly = existingWeekly[0];
-    const currentIds = weekly.dailyReportIds ? weekly.dailyReportIds.split(",").map(Number) : [];
-    if (!currentIds.includes(row.id)) {
-      currentIds.push(row.id);
-      const updatedSummary = weekly.summary
-        ? weekly.summary + "\n" + entryLine
-        : entryLine;
-      await db.update(weeklySummaryReportsTable)
-        .set({
-          summary: updatedSummary,
-          dailyReportIds: currentIds.join(","),
-          totalDailyReports: currentIds.length,
-        })
-        .where(eq(weeklySummaryReportsTable.id, weekly.id));
-    }
-  } else {
-    const managerUser = await db.select().from(usersTable)
-      .where(eq(usersTable.role, "manager")).then(r => r[0]);
-    await db.insert(weeklySummaryReportsTable).values({
-      title: `${weekStart} 주간 보고 (자동 생성)`,
-      weekStart,
-      weekEnd,
-      summary: `■ 금주 업무 내용\n${entryLine}`,
-      totalDailyReports: 1,
-      dailyReportIds: String(row.id),
-      authorId: managerUser?.id ?? user.userId,
-      authorName: managerUser?.name ?? user.email,
-      status: "draft",
-    });
-  }
+  await linkDailyToWeekly(row, user.userId, user.email);
 
   res.json(serializeDaily(row));
 });
