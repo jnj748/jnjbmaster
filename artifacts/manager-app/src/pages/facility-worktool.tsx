@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   XCircle,
   Send,
+  Image,
 } from "lucide-react";
 
 type CheckResult = "good" | "caution" | "bad" | null;
@@ -29,6 +30,7 @@ interface ChecklistItem {
   category: string;
   label: string;
   result: CheckResult;
+  photo?: string;
 }
 
 const INITIAL_CHECKLIST: ChecklistItem[] = [
@@ -72,8 +74,32 @@ export default function FacilityWorktool() {
     }
   }
 
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
+
   function setResult(id: string, result: CheckResult) {
     setChecklist((prev) => prev.map((item) => item.id === id ? { ...item, result } : item));
+  }
+
+  function handlePhotoClick(id: string) {
+    setActivePhotoId(id);
+    photoInputRef.current?.click();
+  }
+
+  function handlePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !activePhotoId) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setChecklist((prev) =>
+        prev.map((item) =>
+          item.id === activePhotoId ? { ...item, photo: reader.result as string } : item
+        )
+      );
+      setActivePhotoId(null);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
   function handleSubmit() {
@@ -157,28 +183,53 @@ export default function FacilityWorktool() {
                 <div key={cat} className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat}</p>
                   {checklist.filter((c) => c.category === cat).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2.5 rounded-lg border bg-card min-h-[48px]">
-                      <span className="text-sm font-medium">{item.label}</span>
-                      <div className="flex gap-1.5">
-                        {(["good", "caution", "bad"] as CheckResult[]).map((r) => {
-                          const cfg = resultIcons[r!];
-                          const Icon = cfg.icon;
-                          const isSelected = item.result === r;
-                          return (
-                            <button
-                              key={r}
-                              onClick={() => setResult(item.id, r)}
-                              className={`p-2 rounded-lg border transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${
-                                isSelected
-                                  ? `${cfg.color} border-current bg-current/10 scale-110`
-                                  : "text-muted-foreground/40 border-transparent hover:border-muted"
-                              }`}
-                            >
-                              <Icon className="w-5 h-5" />
-                            </button>
-                          );
-                        })}
+                    <div key={item.id} className="rounded-lg border bg-card overflow-hidden">
+                      <div className="flex items-center justify-between p-2.5 min-h-[48px]">
+                        <span className="text-sm font-medium">{item.label}</span>
+                        <div className="flex gap-1.5">
+                          {(["good", "caution", "bad"] as CheckResult[]).map((r) => {
+                            const cfg = resultIcons[r!];
+                            const Icon = cfg.icon;
+                            const isSelected = item.result === r;
+                            return (
+                              <button
+                                key={r}
+                                onClick={() => setResult(item.id, r)}
+                                className={`p-2 rounded-lg border transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                                  isSelected
+                                    ? `${cfg.color} border-current bg-current/10 scale-110`
+                                    : "text-muted-foreground/40 border-transparent hover:border-muted"
+                                }`}
+                              >
+                                <Icon className="w-5 h-5" />
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+                      {(item.result === "caution" || item.result === "bad") && (
+                        <div className="px-2.5 pb-2.5">
+                          {item.photo ? (
+                            <div className="relative">
+                              <img src={item.photo} alt="점검 사진" className="w-full h-24 object-cover rounded-md" />
+                              <button
+                                onClick={() => handlePhotoClick(item.id)}
+                                className="absolute top-1 right-1 p-1 bg-black/50 rounded text-white"
+                              >
+                                <Camera className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handlePhotoClick(item.id)}
+                              className="w-full flex items-center justify-center gap-2 p-2 rounded-md border border-dashed text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              사진 첨부
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -207,6 +258,14 @@ export default function FacilityWorktool() {
           )}
         </CardContent>
       </Card>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handlePhotoCapture}
+      />
     </div>
   );
 }

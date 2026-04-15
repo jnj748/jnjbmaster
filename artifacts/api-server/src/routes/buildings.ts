@@ -1,8 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "hq_executive"));
 
 router.get("/buildings/my", async (req: Request, res: Response) => {
   const userId = req.user?.userId;

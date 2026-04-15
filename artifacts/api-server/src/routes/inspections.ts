@@ -22,8 +22,10 @@ import {
   ApproveInspectionMatchingResponse,
   BulkRegisterInspectionsBody,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
 
 const LEGAL_PRESETS = [
   // ── 소방 분야 ──

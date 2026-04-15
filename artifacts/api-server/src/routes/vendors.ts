@@ -13,8 +13,10 @@ import {
   GetRecommendedVendorsResponse,
   RegisterPlatformVendorBody,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "hq_executive", "accountant", "partner"));
 
 router.get("/vendors", async (req, res): Promise<void> => {
   const params = ListVendorsQueryParams.safeParse(req.query);

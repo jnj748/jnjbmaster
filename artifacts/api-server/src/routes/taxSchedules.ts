@@ -10,8 +10,10 @@ import {
   UpdateTaxScheduleResponse,
   DeleteTaxScheduleParams,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 router.get("/tax-schedules", async (req, res): Promise<void> => {
   const params = ListTaxSchedulesQueryParams.safeParse(req.query);

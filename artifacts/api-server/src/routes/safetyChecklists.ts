@@ -17,6 +17,7 @@ import {
   UpdateSafetyChecklistItemBody,
   UpdateSafetyChecklistItemResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const CATEGORY_LABELS: Record<string, string> = {
   electrical: "전기설비",
@@ -35,6 +36,7 @@ const CATEGORY_TO_MAINTENANCE: Record<string, string> = {
 };
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "facility_staff"));
 
 router.get("/safety-checklists", async (req, res): Promise<void> => {
   const params = ListSafetyChecklistsQueryParams.safeParse(req.query);

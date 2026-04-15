@@ -11,8 +11,10 @@ import {
   UpdateWorkReportBody,
   UpdateWorkReportResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin"));
 
 router.get("/work-reports", async (req, res): Promise<void> => {
   const params = ListWorkReportsQueryParams.safeParse(req.query);

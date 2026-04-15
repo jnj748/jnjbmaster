@@ -7,8 +7,10 @@ import {
   GetRecentActivityResponse,
   GetWeeklyReportResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
 
 router.get("/dashboard/summary", async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];

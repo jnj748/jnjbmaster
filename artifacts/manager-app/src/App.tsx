@@ -38,6 +38,7 @@ import PartnerDashboard from "@/pages/partner-dashboard";
 const HqDashboard = lazy(() => import("@/pages/hq-dashboard"));
 const AccountantDashboard2 = lazy(() => import("@/pages/accountant-dashboard"));
 const FacilityWorktool = lazy(() => import("@/pages/facility-worktool"));
+const AdminDashboard = lazy(() => import("@/pages/admin-dashboard"));
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
@@ -113,6 +114,11 @@ const hqRoutes = [
   { path: "/users", component: Users },
 ];
 
+const adminRoutes = [
+  ...managerRoutes,
+  { path: "/users", component: Users },
+];
+
 const accountantRoutes = [
   { path: "/calendar", component: CalendarPage },
   { path: "/accounting", component: AccountingDashboard },
@@ -143,7 +149,7 @@ function AuthenticatedRoutes() {
     if (role === "hq_executive") return { routes: hqRoutes, DashboardComponent: HqDashboard };
     if (role === "accountant") return { routes: accountantRoutes, DashboardComponent: AccountantDashboard2 };
     if (role === "facility_staff") return { routes: facilityRoutes, DashboardComponent: FacilityWorktool };
-    // manager + platform_admin: full access to all building features
+    if (role === "platform_admin") return { routes: adminRoutes, DashboardComponent: AdminDashboard };
     return { routes: managerRoutes, DashboardComponent: Dashboard };
   })();
 

@@ -6,8 +6,10 @@ import {
   GetFacilityScheduledAlertsResponse,
   GetFacilityDefectTrendsResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "facility_staff"));
 
 router.get("/facility/dashboard", async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];

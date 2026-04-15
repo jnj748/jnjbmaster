@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, digitalSignaturesTable, usersTable, notificationsTable } from "@workspace/db";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 function serializeStep(r: typeof approvalStepsTable.$inferSelect) {
   return {

@@ -177,6 +177,23 @@ const facilityNavSections: NavSection[] = [
   },
 ];
 
+const adminNavSections: NavSection[] = [
+  {
+    items: [
+      { path: "/", label: "플랫폼 관리", icon: Shield },
+    ],
+  },
+  {
+    title: "시스템 관리",
+    items: [
+      { path: "/users", label: "사용자 관리", icon: Users },
+      { path: "/building-setup", label: "건물 설정", icon: Building2 },
+      { path: "/vendors", label: "협력업체", icon: Package },
+    ],
+  },
+  ...managerNavSections.filter((s) => s.title && s.title !== "입주관리"),
+];
+
 const managerNavItems = managerNavSections.flatMap((s) => s.items);
 
 const partnerNavItems = [
@@ -212,6 +229,13 @@ const facilityBottomNavItems = [
   { path: "/", label: "업무", icon: ClipboardCheck },
   { path: "/facility", label: "시설", icon: HardHat },
   { path: "/inspections", label: "점검", icon: Shield },
+];
+
+const adminBottomNavItems = [
+  { path: "/", label: "관리", icon: Shield },
+  { path: "/users", label: "사용자", icon: Users },
+  { path: "/calendar", label: "일정", icon: CalendarDays },
+  { path: "/tasks", label: "업무", icon: CheckSquare },
 ];
 
 const partnerBottomNavItems = [
@@ -301,6 +325,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     if (role === "hq_executive") return { sections: hqNavSections, navItems: hqNavSections.flatMap((s) => s.items), bottomNavItems: hqBottomNavItems };
     if (role === "accountant") return { sections: accountantNavSections, navItems: accountantNavSections.flatMap((s) => s.items), bottomNavItems: accountantBottomNavItems };
     if (role === "facility_staff") return { sections: facilityNavSections, navItems: facilityNavSections.flatMap((s) => s.items), bottomNavItems: facilityBottomNavItems };
+    if (role === "platform_admin") return { sections: adminNavSections, navItems: adminNavSections.flatMap((s) => s.items), bottomNavItems: adminBottomNavItems };
     return { sections: managerNavSections, navItems: managerNavItems, bottomNavItems: managerBottomNavItems };
   })();
 

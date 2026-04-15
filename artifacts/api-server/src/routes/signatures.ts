@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, digitalSignaturesTable, usersTable } from "@workspace/db";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 router.get("/signatures", async (req, res): Promise<void> => {
   const user = req.user!;

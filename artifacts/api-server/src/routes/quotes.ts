@@ -11,8 +11,10 @@ import {
   UpdateQuoteBody,
   UpdateQuoteResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 router.get("/quotes", async (req, res): Promise<void> => {
   const params = ListQuotesQueryParams.safeParse(req.query);

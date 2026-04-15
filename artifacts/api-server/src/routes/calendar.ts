@@ -9,8 +9,10 @@ import {
   maintenanceLogsTable,
   safetyTrainingsTable,
 } from "@workspace/db";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 interface CalendarEvent {
   id: string;

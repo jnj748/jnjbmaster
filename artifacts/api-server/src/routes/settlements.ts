@@ -9,8 +9,10 @@ import {
   UpdateSettlementBody,
   UpdateSettlementResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "accountant"));
 
 router.get("/settlements", async (req, res): Promise<void> => {
   const params = ListSettlementsQueryParams.safeParse(req.query);

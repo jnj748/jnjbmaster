@@ -14,8 +14,10 @@ import {
   SendMaintenanceReportParams,
   SendMaintenanceReportResponse,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "facility_staff"));
 
 router.get("/maintenance-logs", async (req, res): Promise<void> => {
   const params = ListMaintenanceLogsQueryParams.safeParse(req.query);

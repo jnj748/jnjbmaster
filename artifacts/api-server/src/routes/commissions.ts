@@ -9,8 +9,10 @@ import {
   UpdateCommissionResponse,
   AutoSettleCommissionBody,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+router.use(requireRole("manager", "platform_admin", "partner"));
 
 const DEFAULT_COMMISSION_RATE = 7;
 const MIN_COMMISSION_RATE = 5;
