@@ -510,6 +510,7 @@ export default function Dashboard() {
           icon={Building2}
           color="bg-chart-5"
           subtitle={totalUnits > 0 ? `입주율 ${occupancyRate}%` : "건물 등록 필요"}
+          href="/units"
         />
         <StatCard
           title="등록 차량"
