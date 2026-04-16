@@ -469,7 +469,6 @@ router.post("/buildings/calculate-safety", async (req: Request, res: Response) =
       requiredInspections.push("telecom");
     } else {
       teleField.notes.push(`⚠ 시행 예정 (${enforcementDate.toISOString().split("T")[0]}) — 현재는 선임 의무 없음`);
-      requiredInspections.push("telecom");
     }
   } else {
     teleField.notes.push("연면적 5,000㎡ 미만: 정보통신 유지관리자 선임 불요");
