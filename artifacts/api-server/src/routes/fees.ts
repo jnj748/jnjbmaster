@@ -161,7 +161,7 @@ router.get("/fees/billing", async (req: Request, res: Response): Promise<void> =
     const total = commonFee + sf + utilityFee;
 
     const payment = paymentMap.get(u.id);
-    const isPaid = payment ? payment.isPaid : true;
+    const isPaid = payment ? payment.isPaid : false;
 
     return {
       unitId: u.id,
