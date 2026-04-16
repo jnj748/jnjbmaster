@@ -470,25 +470,29 @@ async function runDelinquencyAutoResolution(): Promise<void> {
     if (billing) continue;
 
     if (action.actionType === "parking_suspended") {
-      const suspendedVehicles = await db.select().from(vehiclesTable)
-        .where(and(
-          eq(vehiclesTable.unit, action.unitNumber),
-          eq(vehiclesTable.status, "suspended")
-        ));
+      const unitTenants = await db.select({ id: tenantsTable.id }).from(tenantsTable)
+        .where(eq(tenantsTable.unitId, action.unitId));
+      const tenantIds = new Set(unitTenants.map(t => t.id));
 
-      for (const v of suspendedVehicles) {
-        await db.update(vehiclesTable)
-          .set({ status: "registered" })
-          .where(eq(vehiclesTable.id, v.id));
+      if (tenantIds.size > 0) {
+        const allSuspended = await db.select().from(vehiclesTable)
+          .where(eq(vehiclesTable.status, "suspended"));
+        const scopedVehicles = allSuspended.filter(v => v.tenantId !== null && tenantIds.has(v.tenantId));
 
-        await db.insert(vehicleHistoryTable).values({
-          vehicleId: v.id,
-          action: "reactivated",
-          vehicleNumber: v.vehicleNumber,
-          unit: v.unit,
-          performedBy: "system",
-          notes: "연체 해소 자동 감지로 주차권 복원",
-        });
+        for (const v of scopedVehicles) {
+          await db.update(vehiclesTable)
+            .set({ status: "registered" })
+            .where(eq(vehiclesTable.id, v.id));
+
+          await db.insert(vehicleHistoryTable).values({
+            vehicleId: v.id,
+            action: "reactivated",
+            vehicleNumber: v.vehicleNumber,
+            unit: v.unit,
+            performedBy: "system",
+            notes: "연체 해소 자동 감지로 주차권 복원",
+          });
+        }
       }
     }
 
