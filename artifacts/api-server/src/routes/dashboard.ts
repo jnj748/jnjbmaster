@@ -280,11 +280,10 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       let dLabel = "";
       if (daysLeft < 0) dLabel = " (기한 초과)";
       else if (daysLeft === 0) dLabel = " [D-Day]";
-      else if (daysLeft <= 3) dLabel = ` [D-${daysLeft}]`;
-      else if (daysLeft <= 7) dLabel = ` [D-${daysLeft}]`;
+      else if (daysLeft <= 30) dLabel = ` [D-${daysLeft}]`;
 
       let message = `${tax.dueDate}까지 ${tax.title}을(를) 처리해야 합니다.`;
-      if (daysLeft <= 7 && daysLeft >= 0) {
+      if (daysLeft <= 30 && daysLeft >= 0) {
         message += " 세무사에게 자료를 준비하세요. (매출/매입 증빙, 급여대장, 4대보험 등)";
       }
 
@@ -302,7 +301,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         type: "tax_due",
         title: `${tax.title} 마감 예정${dLabel}`,
         message,
-        severity: daysLeft <= 7 ? "critical" : "warning",
+        severity: daysLeft <= 30 ? "critical" : "warning",
         relatedId: tax.id,
         hasDraft: false,
         actionStatus: taxAction?.actionType || null,
@@ -378,7 +377,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       type: "data_destruction",
       title: `${tenant.unit}호 입주자 개인정보 파기 예정`,
       message: `${tenant.tenantName}의 개인정보가 ${tenant.dataDestructionDate}에 파기 예정입니다. (${daysLeft}일 남음)`,
-      severity: daysLeft <= 7 ? "critical" : "warning",
+      severity: daysLeft <= 30 ? "critical" : "warning",
       relatedId: tenant.id,
       hasDraft: false,
       actionStatus: null,
@@ -397,7 +396,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       type: "data_destruction",
       title: `${owner.unit}호 소유자 개인정보 파기 예정`,
       message: `${owner.ownerName}의 개인정보가 ${owner.dataDestructionDate}에 파기 예정입니다. (${daysLeft}일 남음)`,
-      severity: daysLeft <= 7 ? "critical" : "warning",
+      severity: daysLeft <= 30 ? "critical" : "warning",
       relatedId: owner.id,
       hasDraft: false,
       actionStatus: null,

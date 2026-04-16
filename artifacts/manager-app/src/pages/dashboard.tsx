@@ -450,7 +450,7 @@ export default function Dashboard() {
                     const dday = getDdayLabel(alert.dueDate ?? null);
                     const trafficColor = dday.isOverdue
                       ? "red"
-                      : dday.days !== null && dday.days <= 7
+                      : dday.days !== null && dday.days <= 30
                       ? "yellow"
                       : "green";
                     return (

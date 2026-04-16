@@ -241,6 +241,7 @@ export default function BuildingSetup() {
   const [activeStep, setActiveStep] = useState(0);
 
   const [registerPreview, setRegisterPreview] = useState<Record<string, unknown> | null>(null);
+  const [areaInfo, setAreaInfo] = useState<{ floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[]>([]);
   const [postcodeLoaded, setPostcodeLoaded] = useState(false);
 
   const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
@@ -478,6 +479,10 @@ export default function BuildingSetup() {
 
         toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
 
+        if (d.mgmBldrgstPk) {
+          lookupAreaInfo(d.mgmBldrgstPk);
+        }
+
         calculateSafety({
           totalArea: d.totalArea || "0",
           totalFloors: String(d.totalFloors || 0),
@@ -497,6 +502,19 @@ export default function BuildingSetup() {
     } finally {
       setLookingUp(false);
     }
+  }
+
+  async function lookupAreaInfo(mgmBldrgstPk: string) {
+    try {
+      const params = new URLSearchParams({ mgmBldrgstPk });
+      const res = await fetch(`${apiBase}/buildings/lookup-area-info?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await res.json();
+      if (result.found && result.areas?.length > 0) {
+        setAreaInfo(result.areas);
+      }
+    } catch {}
   }
 
   async function calculateSafety(data: Record<string, string>) {
@@ -779,6 +797,42 @@ export default function BuildingSetup() {
                       )}
                       {registerPreview.completionDate && (
                         <div><span className="text-muted-foreground">사용승인일:</span> <span className="font-medium">{String(registerPreview.completionDate)}</span></div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {areaInfo.length > 0 && (
+                <Card className="border-blue-200 bg-blue-50/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">전용/공용 면적 정보</CardTitle>
+                    <CardDescription>건축물대장 전유부 데이터 (층별)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-muted-foreground text-xs">
+                            <th className="text-left py-1 pr-2">층</th>
+                            <th className="text-left py-1 pr-2">용도</th>
+                            <th className="text-right py-1 pr-2">전용면적(㎡)</th>
+                            <th className="text-right py-1">공용면적(㎡)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {areaInfo.slice(0, 20).map((a, i) => (
+                            <tr key={i} className="border-b border-muted/30">
+                              <td className="py-1 pr-2">{a.floorNo}</td>
+                              <td className="py-1 pr-2">{a.purposeName}</td>
+                              <td className="text-right py-1 pr-2">{a.exposArea.toFixed(2)}</td>
+                              <td className="text-right py-1">{a.pubUseArea.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {areaInfo.length > 20 && (
+                        <p className="text-xs text-muted-foreground mt-1">외 {areaInfo.length - 20}건</p>
                       )}
                     </div>
                   </CardContent>
@@ -1320,12 +1374,28 @@ export default function BuildingSetup() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {selectedTasks.map((task) => {
+                {(() => {
+                  const sorted = [...selectedTasks].sort((a, b) => {
+                    const aReq = safetyResult?.requiredInspections?.includes(a.category) ? 0 : 1;
+                    const bReq = safetyResult?.requiredInspections?.includes(b.category) ? 0 : 1;
+                    return aReq - bReq;
+                  });
+                  const requiredCount = sorted.filter((t) => safetyResult?.requiredInspections?.includes(t.category)).length;
+                  let shownOptionalHeader = false;
+                  return sorted.map((task, idx) => {
                   const isRequired = safetyResult?.requiredInspections?.includes(task.category);
                   const dateHint = SMART_DATE_HINTS[task.name];
+                  const showOptionalHeader = !isRequired && !shownOptionalHeader && requiredCount > 0;
+                  if (showOptionalHeader) shownOptionalHeader = true;
                   return (
+                  <div key={task.name}>
+                    {showOptionalHeader && (
+                      <div className="text-xs text-muted-foreground font-medium py-1 border-t mt-2 pt-2 mb-1">추가 선택 업무</div>
+                    )}
+                    {idx === 0 && requiredCount > 0 && (
+                      <div className="text-xs text-orange-600 font-medium pb-1 mb-1">필수 법정업무 ({requiredCount}건)</div>
+                    )}
                   <div
-                    key={task.name}
                     className={`flex flex-col desktop:flex-row desktop:items-center gap-2 p-3 border rounded-lg ${
                       isRequired ? "bg-orange-50/50 border-orange-200" : "bg-background"
                     }`}
@@ -1370,8 +1440,10 @@ export default function BuildingSetup() {
                       )}
                     </div>
                   </div>
+                  </div>
                   );
-                })}
+                });
+                })()}
               </CardContent>
             </Card>
           )}
