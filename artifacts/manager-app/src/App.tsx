@@ -156,6 +156,8 @@ const facilityRoutes = [
   { path: "/inspections", component: Inspections },
   { path: "/safety-checklists", component: SafetyChecklists },
   { path: "/maintenance-logs", component: MaintenanceLogs },
+  { path: "/safety-training", component: SafetyTraining },
+  { path: "/attendance", component: Attendance },
   { path: "/building-info", component: BuildingInfo },
   { path: "/settings", component: SettingsPage },
 ];

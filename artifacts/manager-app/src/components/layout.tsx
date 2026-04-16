@@ -61,81 +61,104 @@ interface NavSection {
 
 const managerNavSections: NavSection[] = [
   {
+    title: "대시보드",
     items: [
       { path: "/", label: "대시보드", icon: LayoutDashboard },
-      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/calendar", label: "일정", icon: CalendarDays },
       { path: "/tasks", label: "업무 관리", icon: CheckSquare },
-      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
     ],
   },
   {
-    title: "관리비회계",
+    title: "호실 및 입주민 관리",
     items: [
-      { path: "/accounting", label: "관리비회계", icon: DollarSign },
-      { path: "/metering", label: "검침 관리", icon: Droplets },
-      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
-      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-      { path: "/spending", label: "지출 현황", icon: DollarSign },
-      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-      { path: "/drafts", label: "기안서", icon: ClipboardList },
-      { path: "/commissions", label: "수수료", icon: Coins },
-      { path: "/rfqs", label: "견적 요청", icon: Send },
-      { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
+      { path: "/units", label: "호실 관리", icon: Building },
+      { path: "/tenants", label: "입주민 관리", icon: Users },
+      { path: "/owners", label: "소유자 관리", icon: UserCheck },
+      { path: "/vehicles", label: "차량 관리", icon: Car },
+      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
+      { path: "/voting", label: "전자투표", icon: Vote },
     ],
   },
   {
-    title: "시설관리",
+    title: "시설 및 안전관리",
     items: [
       { path: "/facility", label: "시설관리", icon: HardHat },
       { path: "/inspections", label: "법정 점검", icon: Shield },
       { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
       { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
       { path: "/safety-training", label: "안전교육", icon: GraduationCap },
+      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
     ],
   },
   {
-    title: "입주/자산관리",
+    title: "회계 및 관리비",
     items: [
-      { path: "/units", label: "호실 관리", icon: Building },
-      { path: "/tenants", label: "입주민 관리", icon: Users },
-      { path: "/owners", label: "소유자 관리", icon: UserCheck },
-      { path: "/vehicles", label: "차량 관리", icon: Car },
-      { path: "/vendors", label: "협력업체", icon: Building2 },
-      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
-      { path: "/voting", label: "전자투표", icon: Vote },
+      { path: "/accounting", label: "관리비회계", icon: DollarSign },
+      { path: "/metering", label: "검침 관리", icon: Droplets },
+      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
+      { path: "/spending", label: "지출 현황", icon: DollarSign },
+      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
+      { path: "/commissions", label: "수수료", icon: Coins },
     ],
   },
   {
-    title: "보고/서식",
+    title: "보고 및 전자결재",
     items: [
+      { path: "/drafts", label: "기안서", icon: ClipboardList },
+      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
       { path: "/daily-reports", label: "일간보고", icon: BookOpen },
       { path: "/report-system", label: "보고 체계", icon: BarChart3 },
       { path: "/reports", label: "주간보고", icon: FileText },
       { path: "/document-templates", label: "서식 관리", icon: Settings },
+    ],
+  },
+  {
+    title: "파트너 마켓플레이스",
+    items: [
+      { path: "/rfqs", label: "견적 요청", icon: Send },
+      { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
+      { path: "/vendors", label: "협력업체", icon: Building2 },
+    ],
+  },
+  {
+    title: "설정",
+    items: [
+      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/users", label: "사용자 관리", icon: Users },
+      { path: "/settings", label: "설정", icon: Settings },
     ],
   },
 ];
 
 const hqNavSections: NavSection[] = [
   {
+    title: "대시보드",
     items: [
       { path: "/", label: "본사 대시보드", icon: LayoutDashboard },
     ],
   },
   {
-    title: "현장 모니터링",
+    title: "시설 및 안전관리",
     items: [
-      { path: "/reports", label: "월간보고서", icon: FileText },
       { path: "/inspections", label: "점검보고서", icon: Shield },
       { path: "/safety-training", label: "안전교육 현황", icon: GraduationCap },
     ],
   },
   {
-    title: "관리",
+    title: "보고 및 전자결재",
+    items: [
+      { path: "/reports", label: "월간보고서", icon: FileText },
+    ],
+  },
+  {
+    title: "파트너 마켓플레이스",
     items: [
       { path: "/vendors", label: "용역 계약", icon: Building2 },
+    ],
+  },
+  {
+    title: "설정",
+    items: [
       { path: "/users", label: "사용자 관리", icon: Users },
     ],
   },
@@ -143,26 +166,32 @@ const hqNavSections: NavSection[] = [
 
 const accountantNavSections: NavSection[] = [
   {
+    title: "대시보드",
     items: [
       { path: "/", label: "대시보드", icon: LayoutDashboard },
       { path: "/calendar", label: "일정", icon: CalendarDays },
     ],
   },
   {
-    title: "관리비회계",
+    title: "회계 및 관리비",
     items: [
       { path: "/accounting", label: "관리비회계", icon: DollarSign },
       { path: "/metering", label: "검침 관리", icon: Droplets },
       { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
-      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
       { path: "/spending", label: "지출 현황", icon: DollarSign },
       { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-      { path: "/drafts", label: "기안서", icon: ClipboardList },
       { path: "/commissions", label: "수수료", icon: Coins },
     ],
   },
   {
-    title: "입주관리",
+    title: "보고 및 전자결재",
+    items: [
+      { path: "/drafts", label: "기안서", icon: ClipboardList },
+      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
+    ],
+  },
+  {
+    title: "호실 및 입주민 관리",
     items: [
       { path: "/units", label: "호실 관리", icon: Building },
       { path: "/tenants", label: "입주민 관리", icon: Users },
@@ -174,36 +203,40 @@ const accountantNavSections: NavSection[] = [
 
 const facilityNavSections: NavSection[] = [
   {
+    title: "대시보드",
     items: [
       { path: "/", label: "일일 업무", icon: ClipboardCheck },
     ],
   },
   {
-    title: "시설관리",
+    title: "시설 및 안전관리",
     items: [
       { path: "/facility", label: "시설관리", icon: HardHat },
       { path: "/inspections", label: "법정 점검", icon: Shield },
       { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
       { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
+      { path: "/safety-training", label: "안전교육", icon: GraduationCap },
+      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
     ],
   },
 ];
 
 const adminNavSections: NavSection[] = [
   {
+    title: "대시보드",
     items: [
       { path: "/", label: "플랫폼 관리", icon: Shield },
     ],
   },
+  ...managerNavSections.filter((s) => s.title !== "대시보드" && s.title !== "설정"),
   {
-    title: "시스템 관리",
+    title: "설정",
     items: [
+      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/users", label: "사용자 관리", icon: Users },
-      { path: "/building-info", label: "건물 정보", icon: Building2 },
-      { path: "/vendors", label: "협력업체", icon: Package },
+      { path: "/settings", label: "설정", icon: Settings },
     ],
   },
-  ...managerNavSections.filter((s) => s.title && s.title !== "입주관리"),
 ];
 
 const managerNavItems = managerNavSections.flatMap((s) => s.items);
@@ -217,16 +250,16 @@ const partnerNavItems = [
 
 const managerBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/calendar", label: "일정", icon: CalendarDays },
+  { path: "/units", label: "입주민", icon: Users },
   { path: "/accounting", label: "회계", icon: DollarSign },
   { path: "/facility", label: "시설", icon: HardHat },
-  { path: "/tasks", label: "업무", icon: CheckSquare },
+  { path: "/approvals", label: "결재", icon: ClipboardCheck },
 ];
 
 const hqBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/reports", label: "보고서", icon: FileText },
   { path: "/inspections", label: "점검", icon: Shield },
+  { path: "/reports", label: "보고서", icon: FileText },
   { path: "/vendors", label: "계약", icon: Building2 },
 ];
 
@@ -234,20 +267,22 @@ const accountantBottomNavItems = [
   { path: "/", label: "홈", icon: LayoutDashboard },
   { path: "/accounting", label: "회계", icon: DollarSign },
   { path: "/approvals", label: "결재", icon: ClipboardCheck },
-  { path: "/tax-schedules", label: "세무", icon: Calculator },
+  { path: "/billing", label: "부과", icon: Receipt },
+  { path: "/units", label: "호실", icon: Building },
 ];
 
 const facilityBottomNavItems = [
   { path: "/", label: "업무", icon: ClipboardCheck },
   { path: "/facility", label: "시설", icon: HardHat },
   { path: "/inspections", label: "점검", icon: Shield },
+  { path: "/attendance", label: "출퇴근", icon: Clock },
 ];
 
 const adminBottomNavItems = [
   { path: "/", label: "관리", icon: Shield },
   { path: "/users", label: "사용자", icon: Users },
-  { path: "/calendar", label: "일정", icon: CalendarDays },
-  { path: "/tasks", label: "업무", icon: CheckSquare },
+  { path: "/accounting", label: "회계", icon: DollarSign },
+  { path: "/facility", label: "시설", icon: HardHat },
 ];
 
 const partnerBottomNavItems = [
