@@ -829,6 +829,9 @@ function getCategoryLabel(category: string): string {
     hygiene: "위생/환경",
     building_safety: "건축물안전",
     administrative: "행정",
+    mechanical: "기계설비",
+    telecom: "정보통신",
+    disinfection: "소독/방역",
     other: "기타",
   };
   return labels[category] || category;

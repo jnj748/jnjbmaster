@@ -610,12 +610,13 @@ function getCyclemonthsForCategory(category: string, presetName: string): number
   };
 
   if (presetName.includes("월간") || presetName.includes("월 1회")) return 1;
-  if (presetName.includes("분기") || presetName.includes("자체점검")) return 3;
-  if (presetName.includes("정밀") || presetName.includes("종합")) return 12;
-  if (presetName.includes("반기")) return 6;
-  if (presetName.includes("3년") || presetName.includes("정기안전점검")) return 36;
-  if (presetName.includes("동절기")) return 3;
   if (presetName.includes("하절기")) return 2;
+  if (presetName.includes("동절기")) return 3;
+  if (presetName.includes("분기")) return 3;
+  if (presetName.includes("반기")) return 6;
+  if (presetName.includes("자체점검")) return 3;
+  if (presetName.includes("정밀") || presetName.includes("종합")) return 12;
+  if (presetName.includes("3년") || presetName.includes("정기안전점검")) return 36;
 
   return cycles[category] || 12;
 }
