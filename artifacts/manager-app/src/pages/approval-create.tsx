@@ -470,7 +470,7 @@ export default function ApprovalCreate() {
               ))}
               {approvalSteps.length < 5 && (
                 <div className="space-y-2 pt-2 border-t">
-                  <Select value={selectedApproverId} onValueChange={setSelectedApproverId}>
+                  <Select value={selectedApproverId || undefined} onValueChange={setSelectedApproverId}>
                     <SelectTrigger className="text-sm">
                       <SelectValue placeholder="결재자를 선택하세요" />
                     </SelectTrigger>
@@ -527,7 +527,7 @@ export default function ApprovalCreate() {
                 </div>
               ))}
               <div className="space-y-2 pt-2 border-t">
-                <Select value={selectedRecipientId} onValueChange={setSelectedRecipientId}>
+                <Select value={selectedRecipientId || undefined} onValueChange={setSelectedRecipientId}>
                   <SelectTrigger className="text-sm">
                     <SelectValue placeholder="수신자를 선택하세요" />
                   </SelectTrigger>

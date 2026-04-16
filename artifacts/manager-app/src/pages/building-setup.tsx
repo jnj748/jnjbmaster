@@ -770,7 +770,7 @@ export default function BuildingSetup() {
               <div className="grid grid-cols-2 desktop:grid-cols-3 gap-4">
                 <div>
                   <Label>시/도</Label>
-                  <Select value={building.sido} onValueChange={(v) => {
+                  <Select value={building.sido || undefined} onValueChange={(v) => {
                     handleFieldChange("sido", v);
                     handleFieldChange("sigungu", "");
                   }}>
@@ -784,7 +784,7 @@ export default function BuildingSetup() {
                 </div>
                 <div>
                   <Label>시/군/구</Label>
-                  <Select value={building.sigungu} onValueChange={(v) => handleFieldChange("sigungu", v)}>
+                  <Select value={building.sigungu || undefined} onValueChange={(v) => handleFieldChange("sigungu", v)}>
                     <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
                     <SelectContent>
                       {(building.sido ? getSigunguList(building.sido) : []).map((s) => (

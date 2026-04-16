@@ -204,7 +204,7 @@ export default function Commissions() {
               <form onSubmit={handleAutoSettle} className="space-y-4">
                 <div>
                   <Label>업체</Label>
-                  <Select value={autoForm.vendorId} onValueChange={handleAutoVendorSelect}>
+                  <Select value={autoForm.vendorId || undefined} onValueChange={handleAutoVendorSelect}>
                     <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
                     <SelectContent>
                       {vendors?.map((v) => (
@@ -271,7 +271,7 @@ export default function Commissions() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>업체</Label>
-                  <Select value={form.vendorId} onValueChange={handleVendorSelect}>
+                  <Select value={form.vendorId || undefined} onValueChange={handleVendorSelect}>
                     <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
                     <SelectContent>
                       {vendors?.map((v) => (

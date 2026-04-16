@@ -259,7 +259,7 @@ export default function Rfqs() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>시/도</Label>
-                    <Select value={form.sido} onValueChange={(v) => setForm({ ...form, sido: v, sigungu: "" })}>
+                    <Select value={form.sido || undefined} onValueChange={(v) => setForm({ ...form, sido: v, sigungu: "" })}>
                       <SelectTrigger><SelectValue placeholder="시/도 선택" /></SelectTrigger>
                       <SelectContent>
                         {sidoList.map((s) => (
@@ -271,7 +271,7 @@ export default function Rfqs() {
                   <div>
                     <Label>시/군/구</Label>
                     <Select
-                      value={form.sigungu}
+                      value={form.sigungu || undefined}
                       onValueChange={(v) => setForm({ ...form, sigungu: v })}
                       disabled={!form.sido}
                     >
