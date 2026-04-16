@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, real, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -45,10 +45,20 @@ export const weeklySummaryReportsTable = pgTable("weekly_summary_reports", {
 export const monthlySummaryReportsTable = pgTable("monthly_summary_reports", {
   id: serial("id").primaryKey(),
   reportMonth: text("report_month").notNull(),
+  buildingId: integer("building_id"),
   title: text("title").notNull(),
   summary: text("summary").notNull(),
   weeklyReportIds: text("weekly_report_ids"),
   totalWeeklyReports: integer("total_weekly_reports").notNull().default(0),
+  totalBilled: real("total_billed"),
+  totalCollected: real("total_collected"),
+  collectionRate: real("collection_rate"),
+  unpaidAmount: real("unpaid_amount"),
+  unpaidUnits: integer("unpaid_units"),
+  occupantCardCount: integer("occupant_card_count"),
+  totalUnits: integer("total_units"),
+  vehicleCardCount: integer("vehicle_card_count"),
+  momChangePct: real("mom_change_pct"),
   authorId: integer("author_id").notNull(),
   authorName: text("author_name").notNull(),
   status: text("status", { enum: reportStatuses }).notNull().default("draft"),

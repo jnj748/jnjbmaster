@@ -10,11 +10,31 @@ import type { MonthlySummaryReportItemStatus } from "./monthlySummaryReportItemS
 export interface MonthlySummaryReportItem {
   id: number;
   reportMonth: string;
+  /** @nullable */
+  buildingId?: number | null;
   title: string;
   summary: string;
   /** @nullable */
   weeklyReportIds?: string | null;
   totalWeeklyReports: number;
+  /** @nullable */
+  totalBilled?: number | null;
+  /** @nullable */
+  totalCollected?: number | null;
+  /** @nullable */
+  collectionRate?: number | null;
+  /** @nullable */
+  unpaidAmount?: number | null;
+  /** @nullable */
+  unpaidUnits?: number | null;
+  /** @nullable */
+  occupantCardCount?: number | null;
+  /** @nullable */
+  totalUnits?: number | null;
+  /** @nullable */
+  vehicleCardCount?: number | null;
+  /** @nullable */
+  momChangePct?: number | null;
   authorId: number;
   authorName: string;
   status: MonthlySummaryReportItemStatus;

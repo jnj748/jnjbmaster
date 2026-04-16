@@ -38,6 +38,7 @@ export * from "./autoSettleCommissionResponse";
 export * from "./batchCancelVehicles200";
 export * from "./batchCancelVehiclesBody";
 export * from "./billingItem";
+export * from "./buildingListItem";
 export * from "./bulkCreateUnits201";
 export * from "./bulkCreateUnits201ErrorsItem";
 export * from "./bulkCreateUnitsBody";

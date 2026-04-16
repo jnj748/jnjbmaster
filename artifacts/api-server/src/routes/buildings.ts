@@ -6,6 +6,26 @@ import { requireRole } from "../middlewares/auth";
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "hq_executive"));
 
+router.get("/buildings/list", async (req: Request, res: Response) => {
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).then(r => r[0]);
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  if (user.role === "hq_executive" || user.role === "platform_admin") {
+    const buildings = await db.select().from(buildingsTable);
+    res.json(buildings.map(b => ({
+      id: b.id,
+      name: b.name,
+      addressFull: b.addressFull,
+      totalUnits: b.totalUnits,
+    })));
+  } else if (user.buildingId) {
+    const building = await db.select().from(buildingsTable).where(eq(buildingsTable.id, user.buildingId)).then(r => r[0]);
+    res.json(building ? [{ id: building.id, name: building.name, addressFull: building.addressFull, totalUnits: building.totalUnits }] : []);
+  } else {
+    res.json([]);
+  }
+});
+
 router.get("/buildings/my", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }

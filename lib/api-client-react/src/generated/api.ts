@@ -35,6 +35,7 @@ import type {
   BatchCancelVehicles200,
   BatchCancelVehiclesBody,
   BillingItem,
+  BuildingListItem,
   BulkCreateUnits201,
   BulkCreateUnitsBody,
   BulkRegisterInspectionsBody,
@@ -9084,6 +9085,81 @@ export const useGenerateMonthlySummaryReport = <
 > => {
   return useMutation(getGenerateMonthlySummaryReportMutationOptions(options));
 };
+
+/**
+ * @summary List buildings accessible to current user
+ */
+export const getListBuildingsUrl = () => {
+  return `/api/buildings/list`;
+};
+
+export const listBuildings = async (
+  options?: RequestInit,
+): Promise<BuildingListItem[]> => {
+  return customFetch<BuildingListItem[]>(getListBuildingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBuildingsQueryKey = () => {
+  return [`/api/buildings/list`] as const;
+};
+
+export const getListBuildingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBuildings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBuildingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBuildings>>> = ({
+    signal,
+  }) => listBuildings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBuildingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBuildings>>
+>;
+export type ListBuildingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List buildings accessible to current user
+ */
+
+export function useListBuildings<
+  TData = Awaited<ReturnType<typeof listBuildings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBuildingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get manager KPI dashboard data

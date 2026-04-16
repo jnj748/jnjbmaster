@@ -2861,11 +2861,31 @@ export const MonthlySummaryReportItemStatus = {
 export interface MonthlySummaryReportItem {
   id: number;
   reportMonth: string;
+  /** @nullable */
+  buildingId?: number | null;
   title: string;
   summary: string;
   /** @nullable */
   weeklyReportIds?: string | null;
   totalWeeklyReports: number;
+  /** @nullable */
+  totalBilled?: number | null;
+  /** @nullable */
+  totalCollected?: number | null;
+  /** @nullable */
+  collectionRate?: number | null;
+  /** @nullable */
+  unpaidAmount?: number | null;
+  /** @nullable */
+  unpaidUnits?: number | null;
+  /** @nullable */
+  occupantCardCount?: number | null;
+  /** @nullable */
+  totalUnits?: number | null;
+  /** @nullable */
+  vehicleCardCount?: number | null;
+  /** @nullable */
+  momChangePct?: number | null;
   authorId: number;
   authorName: string;
   status: MonthlySummaryReportItemStatus;
@@ -2879,6 +2899,15 @@ export interface MonthlySummaryReportItem {
   reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BuildingListItem {
+  id: number;
+  name: string;
+  /** @nullable */
+  addressFull?: string | null;
+  /** @nullable */
+  totalUnits?: number | null;
 }
 
 export interface GenerateMonthlySummaryBody {
@@ -3896,6 +3925,7 @@ export type ListWeeklySummaryReportsParams = {
 
 export type ListMonthlySummaryReportsParams = {
   month?: string;
+  buildingId?: number;
 };
 
 export type GetExecutiveSpendingParams = {

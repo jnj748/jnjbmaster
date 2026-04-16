@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable } from "@workspace/db";
+import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable, unitsTable, tenantsTable, vehiclesTable, buildingsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -373,10 +373,22 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "platf
   res.json(serializeWeekly(row));
 });
 
-router.get("/monthly-summary-reports", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
+router.get("/monthly-summary-reports", requireRole("manager", "platform_admin", "hq_executive"), async (req, res): Promise<void> => {
+  const user = req.user!;
   const month = req.query.month as string | undefined;
+  const buildingIdParam = req.query.buildingId as string | undefined;
+
+  const userRow = await db.select().from(usersTable).where(eq(usersTable.id, user.userId)).then(r => r[0]);
+  const isHqOrAdmin = userRow?.role === "hq_executive" || userRow?.role === "platform_admin";
 
   let rows = await db.select().from(monthlySummaryReportsTable).orderBy(desc(monthlySummaryReportsTable.createdAt));
+
+  if (!isHqOrAdmin && userRow?.buildingId) {
+    rows = rows.filter((r) => r.buildingId === userRow.buildingId);
+  } else if (buildingIdParam) {
+    const bid = parseInt(buildingIdParam);
+    rows = rows.filter((r) => r.buildingId === bid);
+  }
 
   if (month) {
     rows = rows.filter((r) => r.reportMonth === month);
@@ -394,11 +406,14 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
     return;
   }
 
-  const userName = await db
-    .select({ name: usersTable.name })
-    .from(usersTable)
-    .where(eq(usersTable.id, user.userId))
-    .then((rows) => rows[0]?.name ?? user.email);
+  const userRow = await db.select().from(usersTable).where(eq(usersTable.id, user.userId)).then(r => r[0]);
+  const userName = userRow?.name ?? user.email;
+  const buildingId = userRow?.buildingId ?? null;
+
+  if (!buildingId) {
+    res.status(400).json({ error: "건물이 등록되지 않은 사용자는 월간보고서를 생성할 수 없습니다" });
+    return;
+  }
 
   const weeklyReports = await db.select().from(weeklySummaryReportsTable);
   const monthWeeklyReports = weeklyReports.filter(
@@ -432,45 +447,82 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
     }
   }
 
-  const billingRecords = await db.select().from(monthlyPaymentsTable)
-    .where(eq(monthlyPaymentsTable.billingMonth, reportMonth));
+  let acctData: { totalBilled: number; totalCollected: number; collectionRate: number; unpaidAmount: number; unpaidCount: number; momChangePct: number | null; occupantCardCount: number; vehicleCardCount: number; unitCount: number } | null = null;
 
-  let accountingSummary = "";
-  if (billingRecords.length > 0) {
-    const totalBilled = billingRecords.reduce((s, r) => s + r.totalAmount, 0);
-    const totalCollected = billingRecords.reduce((s, r) => s + r.paidAmount, 0);
-    const paidCount = billingRecords.filter(r => r.isPaid).length;
-    const unpaidCount = billingRecords.length - paidCount;
+  if (buildingId) {
+    const buildingUnits = await db.select().from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+    const unitIds = new Set(buildingUnits.map(u => u.id));
+    const unitCount = buildingUnits.length;
+
+    const allBilling = await db.select().from(monthlyPaymentsTable).where(eq(monthlyPaymentsTable.billingMonth, reportMonth));
+    const billingRecords = allBilling.filter(r => unitIds.has(r.unitId));
+
+    let totalBilled = 0, totalCollected = 0, unpaidCount = 0, unpaidAmount = 0;
+    if (billingRecords.length > 0) {
+      totalBilled = billingRecords.reduce((s, r) => s + r.totalAmount, 0);
+      totalCollected = billingRecords.reduce((s, r) => s + r.paidAmount, 0);
+      unpaidCount = billingRecords.filter(r => !r.isPaid).length;
+      unpaidAmount = Math.round(totalBilled - totalCollected);
+    }
     const collectionRate = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 1000) / 10 : 0;
-    const totalUnpaidAmount = Math.round(totalBilled - totalCollected);
 
     const prevMonthDate = new Date(parseInt(reportMonth.split("-")[0]), parseInt(reportMonth.split("-")[1]) - 2, 1);
     const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
-    const prevBillingRecords = await db.select().from(monthlyPaymentsTable)
-      .where(eq(monthlyPaymentsTable.billingMonth, prevMonth));
+    const allPrevBilling = await db.select().from(monthlyPaymentsTable).where(eq(monthlyPaymentsTable.billingMonth, prevMonth));
+    const prevBillingRecords = allPrevBilling.filter(r => unitIds.has(r.unitId));
 
-    let momChange = "";
+    let momChangePct: number | null = null;
     if (prevBillingRecords.length > 0) {
       const prevTotal = prevBillingRecords.reduce((s, r) => s + r.totalAmount, 0);
-      const diff = totalBilled - prevTotal;
-      const diffPct = prevTotal > 0 ? Math.round((diff / prevTotal) * 1000) / 10 : 0;
-      const arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
-      momChange = `\n  전월 대비: ${arrow} ₩${Math.abs(Math.round(diff)).toLocaleString()} (${diffPct > 0 ? "+" : ""}${diffPct}%)`;
+      if (prevTotal > 0) {
+        momChangePct = Math.round(((totalBilled - prevTotal) / prevTotal) * 1000) / 10;
+      }
     }
 
-    accountingSummary = `\n\n■ 회계 현황\n  부과 총액: ₩${Math.round(totalBilled).toLocaleString()}\n  수납 총액: ₩${Math.round(totalCollected).toLocaleString()}\n  수납률: ${collectionRate}% (${paidCount}/${billingRecords.length}세대)\n  미납 세대: ${unpaidCount}세대 (₩${totalUnpaidAmount.toLocaleString()})${momChange}`;
+    const allTenants = await db.select().from(tenantsTable);
+    const occupantCardCount = allTenants.filter(t => t.unitId && unitIds.has(t.unitId) && t.status === "active").length;
+    const allVehicles = await db.select().from(vehiclesTable);
+    const vehicleCardCount = allVehicles.filter(v => v.buildingId === buildingId && v.status === "registered").length;
+
+    acctData = { totalBilled, totalCollected, collectionRate, unpaidAmount, unpaidCount, momChangePct, occupantCardCount, vehicleCardCount, unitCount };
   }
 
-  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}${accountingSummary}`;
+  let accountingSummary = "";
+  if (acctData && acctData.totalBilled > 0) {
+    const paidCount = acctData.unitCount - acctData.unpaidCount;
+    let momChange = "";
+    if (acctData.momChangePct !== null) {
+      const arrow = acctData.momChangePct > 0 ? "▲" : acctData.momChangePct < 0 ? "▼" : "→";
+      momChange = `\n  전월 대비: ${arrow} ${acctData.momChangePct > 0 ? "+" : ""}${acctData.momChangePct}%`;
+    }
+    accountingSummary = `\n\n■ 회계 현황\n  부과 총액: ₩${Math.round(acctData.totalBilled).toLocaleString()}\n  수납 총액: ₩${Math.round(acctData.totalCollected).toLocaleString()}\n  수납률: ${acctData.collectionRate}% (${paidCount}/${acctData.unitCount}세대)\n  미납 세대: ${acctData.unpaidCount}세대 (₩${acctData.unpaidAmount.toLocaleString()})${momChange}`;
+  }
+
+  let kpiSummary = "";
+  if (acctData) {
+    kpiSummary = `\n\n■ 현황 지표\n  입주자카드 작성: ${acctData.occupantCardCount}/${acctData.unitCount}세대\n  차량 등록: ${acctData.vehicleCardCount}대`;
+  }
+
+  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}${accountingSummary}${kpiSummary}`;
 
   const [row] = await db
     .insert(monthlySummaryReportsTable)
     .values({
       reportMonth,
+      buildingId,
       title: `월간 보고서 (${reportMonth})`,
       summary,
       weeklyReportIds: JSON.stringify(monthWeeklyReports.map((wr) => wr.id)),
       totalWeeklyReports: monthWeeklyReports.length,
+      totalBilled: acctData?.totalBilled ?? null,
+      totalCollected: acctData?.totalCollected ?? null,
+      collectionRate: acctData?.collectionRate ?? null,
+      unpaidAmount: acctData?.unpaidAmount ?? null,
+      unpaidUnits: acctData?.unpaidCount ?? null,
+      occupantCardCount: acctData?.occupantCardCount ?? null,
+      totalUnits: acctData?.unitCount ?? null,
+      vehicleCardCount: acctData?.vehicleCardCount ?? null,
+      momChangePct: acctData?.momChangePct ?? null,
       authorId: user.userId,
       authorName: userName,
       status: "draft",

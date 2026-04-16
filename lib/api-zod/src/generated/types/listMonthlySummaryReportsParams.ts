@@ -8,4 +8,5 @@
 
 export type ListMonthlySummaryReportsParams = {
   month?: string;
+  buildingId?: number;
 };

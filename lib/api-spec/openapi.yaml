@@ -2136,6 +2136,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: buildingId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Monthly reports list
@@ -2162,6 +2166,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonthlySummaryReportItem"
+
+  /buildings/list:
+    get:
+      operationId: listBuildings
+      tags: [buildings]
+      summary: List buildings accessible to current user
+      responses:
+        "200":
+          description: Buildings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BuildingListItem"
 
   /executive/kpi:
     get:
@@ -7825,6 +7844,8 @@ components:
           type: integer
         reportMonth:
           type: string
+        buildingId:
+          type: ["integer", "null"]
         title:
           type: string
         summary:
@@ -7833,6 +7854,24 @@ components:
           type: ["string", "null"]
         totalWeeklyReports:
           type: integer
+        totalBilled:
+          type: ["number", "null"]
+        totalCollected:
+          type: ["number", "null"]
+        collectionRate:
+          type: ["number", "null"]
+        unpaidAmount:
+          type: ["number", "null"]
+        unpaidUnits:
+          type: ["integer", "null"]
+        occupantCardCount:
+          type: ["integer", "null"]
+        totalUnits:
+          type: ["integer", "null"]
+        vehicleCardCount:
+          type: ["integer", "null"]
+        momChangePct:
+          type: ["number", "null"]
         authorId:
           type: integer
         authorName:
@@ -7866,6 +7905,21 @@ components:
         - status
         - createdAt
         - updatedAt
+
+    BuildingListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        addressFull:
+          type: ["string", "null"]
+        totalUnits:
+          type: ["integer", "null"]
+      required:
+        - id
+        - name
 
     GenerateMonthlySummaryBody:
       type: object

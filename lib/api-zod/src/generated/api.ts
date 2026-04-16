@@ -2643,15 +2643,26 @@ export const ForwardWeeklySummaryReportResponse = zod.object({
  */
 export const ListMonthlySummaryReportsQueryParams = zod.object({
   month: zod.coerce.string().optional(),
+  buildingId: zod.coerce.number().optional(),
 });
 
 export const ListMonthlySummaryReportsResponseItem = zod.object({
   id: zod.number(),
   reportMonth: zod.string(),
+  buildingId: zod.number().nullish(),
   title: zod.string(),
   summary: zod.string(),
   weeklyReportIds: zod.string().nullish(),
   totalWeeklyReports: zod.number(),
+  totalBilled: zod.number().nullish(),
+  totalCollected: zod.number().nullish(),
+  collectionRate: zod.number().nullish(),
+  unpaidAmount: zod.number().nullish(),
+  unpaidUnits: zod.number().nullish(),
+  occupantCardCount: zod.number().nullish(),
+  totalUnits: zod.number().nullish(),
+  vehicleCardCount: zod.number().nullish(),
+  momChangePct: zod.number().nullish(),
   authorId: zod.number(),
   authorName: zod.string(),
   status: zod.enum(["draft", "submitted", "reviewed", "forwarded"]),
@@ -2672,6 +2683,17 @@ export const ListMonthlySummaryReportsResponse = zod.array(
 export const GenerateMonthlySummaryReportBody = zod.object({
   reportMonth: zod.string(),
 });
+
+/**
+ * @summary List buildings accessible to current user
+ */
+export const ListBuildingsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  addressFull: zod.string().nullish(),
+  totalUnits: zod.number().nullish(),
+});
+export const ListBuildingsResponse = zod.array(ListBuildingsResponseItem);
 
 /**
  * @summary Get manager KPI dashboard data
