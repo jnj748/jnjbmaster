@@ -151,6 +151,8 @@ router.post("/buildings", async (req: Request, res: Response) => {
       floorAreaRatio: data.floorAreaRatio || null,
       managementOfficePhone: data.managementOfficePhone || null,
       managementOfficeFax: data.managementOfficeFax || null,
+      electricCapacityKw: data.electricCapacityKw || null,
+      gasUsageMonthly: data.gasUsageMonthly || null,
     }).returning();
 
     await db.update(usersTable)
@@ -186,7 +188,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
       "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
     ];
-    const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio"];
+    const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly"];
     const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];
     const boolFields = ["hasPlayground", "hasGas", "hasSepticTank", "safetyManagerRequired"];
 
@@ -306,78 +308,244 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
   }
 });
 
+interface AppointmentField {
+  field: string;
+  required: boolean;
+  grade: string | null;
+  type: string | null;
+  legalBasis: string;
+  notes: string[];
+}
+
 router.post("/buildings/calculate-safety", async (req: Request, res: Response) => {
-  const { totalArea, totalFloors, basementFloors, totalUnits, buildingUsage, elevatorCount } = req.body;
+  const { totalArea, totalFloors, basementFloors, totalUnits, buildingUsage, elevatorCount, electricCapacityKw, gasUsageMonthly, hasGas } = req.body;
 
   const area = parseFloat(totalArea) || 0;
   const floors = parseInt(totalFloors) || 0;
   const basement = parseInt(basementFloors) || 0;
   const units = parseInt(totalUnits) || 0;
   const elevators = parseInt(elevatorCount) || 0;
+  const electricKw = parseFloat(electricCapacityKw) || 0;
+  const gasMonthly = parseFloat(gasUsageMonthly) || 0;
+  const gasEnabled = hasGas !== false && hasGas !== "false";
+  const usage = (buildingUsage || "").toLowerCase();
+  const isResidential = usage.includes("아파트") || usage.includes("주거") || usage.includes("공동주택") || usage.includes("연립") || usage.includes("다세대");
+  const isOffice = usage.includes("사무") || usage.includes("업무") || usage.includes("오피스");
+  const isComplex = usage.includes("복합") || usage.includes("근린생활") || usage.includes("판매");
 
-  let safetyManagerRequired = false;
-  let safetyManagerType: string | null = null;
+  const fields: AppointmentField[] = [];
   const requiredInspections: string[] = [];
-  const safetyNotes: string[] = [];
 
-  if (area >= 5000 || floors >= 11 || basement >= 2) {
-    safetyManagerRequired = true;
-    if (area >= 30000 || floors >= 30) {
-      safetyManagerType = "건축물관리자(안전관리 전문기관 위탁 가능)";
-      safetyNotes.push("연면적 3만㎡ 이상 또는 30층 이상 건축물: 건축물관리자 선임 필수");
-    } else if (area >= 15000 || floors >= 16) {
-      safetyManagerType = "안전관리자 선임 또는 전문기관 위탁";
-      safetyNotes.push("연면적 1.5만㎡ 이상 또는 16층 이상: 안전관리자 선임 또는 위탁 필수");
-    } else {
-      safetyManagerType = "안전관리자 선임 (겸직 가능)";
-      safetyNotes.push("연면적 5천㎡ 이상 또는 11층 이상: 안전관리자 선임 필요 (겸직 가능)");
+  // 1. 전기안전관리자
+  const elecField: AppointmentField = {
+    field: "electrical",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "전기안전관리법 제22조",
+    notes: [],
+  };
+  if (electricKw >= 1000) {
+    elecField.required = true;
+    elecField.grade = "상주 전기안전관리자";
+    elecField.type = "상주";
+    elecField.notes.push("수전설비 용량 1,000kW 이상: 상주 전기안전관리자 선임 필수");
+  } else if (electricKw >= 75) {
+    elecField.required = true;
+    elecField.grade = "전기안전관리자";
+    elecField.type = "선임 또는 대행";
+    elecField.notes.push("수전설비 용량 75kW 이상: 전기안전관리자 선임 또는 대행 필수");
+  } else {
+    elecField.notes.push("수전설비 용량 75kW 미만: 전기안전관리자 선임 불요 (전기용량을 입력하면 정확한 판정이 가능합니다)");
+  }
+  fields.push(elecField);
+  requiredInspections.push("electrical");
+
+  // 2. 소방안전관리자
+  const fireField: AppointmentField = {
+    field: "fire_safety",
+    required: true,
+    grade: null,
+    type: "선임",
+    legalBasis: "소방시설 설치 및 관리에 관한 법률 제24조",
+    notes: [],
+  };
+  if (floors >= 30 || area >= 100000) {
+    fireField.grade = "특급 소방안전관리자";
+    fireField.notes.push("30층 이상 또는 연면적 10만㎡ 이상: 특급");
+  } else if (floors >= 11 || area >= 15000 || (basement >= 1 && area >= 5000)) {
+    fireField.grade = "1급 소방안전관리자";
+    fireField.notes.push("11층 이상 또는 연면적 1.5만㎡ 이상: 1급");
+  } else if (floors >= 5 || area >= 2000) {
+    fireField.grade = "2급 소방안전관리자";
+    fireField.notes.push("5층 이상 또는 연면적 2천㎡ 이상: 2급");
+  } else {
+    fireField.grade = "3급 소방안전관리자";
+    fireField.notes.push("그 외: 3급 (소규모 건축물)");
+  }
+  fields.push(fireField);
+  requiredInspections.push("fire_safety");
+
+  // 3. 가스안전관리자
+  const gasField: AppointmentField = {
+    field: "gas",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "도시가스사업법 제29조",
+    notes: [],
+  };
+  const isFirstClassProtection = isResidential && units >= 300;
+  const gasThreshold = isFirstClassProtection ? 1000 : 2000;
+  if (gasEnabled && gasMonthly >= gasThreshold) {
+    gasField.required = true;
+    gasField.grade = "가스안전관리자";
+    gasField.type = "선임 또는 대행";
+    gasField.notes.push(`월 사용량 ${gasMonthly.toLocaleString()}㎥ ≥ ${gasThreshold.toLocaleString()}㎥${isFirstClassProtection ? " (1종 보호시설)" : ""}: 가스안전관리자 선임 필수`);
+    requiredInspections.push("gas");
+  } else if (gasEnabled) {
+    gasField.notes.push(`월 가스사용량 ${gasThreshold.toLocaleString()}㎥ 미만: 가스안전관리자 선임 불요 (가스사용량을 입력하면 정확한 판정이 가능합니다)`);
+    if (area >= 2000 || floors >= 6) {
+      requiredInspections.push("gas");
+      gasField.notes.push("다만 가스 안전점검(연 1회)은 대상");
     }
   }
+  fields.push(gasField);
 
-  if (units >= 300) {
-    safetyNotes.push("300세대 이상: 주택관리사(보) 의무 배치");
-  } else if (units >= 150) {
-    safetyNotes.push("150세대 이상: 주택관리사(보) 선임 권장");
+  // 4. 기계설비유지관리자
+  const mechField: AppointmentField = {
+    field: "mechanical",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "기계설비법 제18조",
+    notes: [],
+  };
+  if (area >= 10000) {
+    mechField.required = true;
+    if (area >= 30000) {
+      mechField.grade = "특급 기계설비유지관리자";
+    } else if (area >= 20000) {
+      mechField.grade = "고급 기계설비유지관리자";
+    } else if (area >= 15000) {
+      mechField.grade = "중급 기계설비유지관리자";
+    } else {
+      mechField.grade = "초급 기계설비유지관리자";
+    }
+    mechField.type = "선임";
+    mechField.notes.push(`연면적 ${area.toLocaleString()}㎡: ${mechField.grade} 선임 필수`);
+    requiredInspections.push("mechanical");
+  } else {
+    mechField.notes.push("연면적 1만㎡ 미만: 기계설비유지관리자 선임 불요");
   }
+  fields.push(mechField);
 
-  requiredInspections.push("fire_safety");
-  requiredInspections.push("electrical");
+  // 5. 정보통신공사 유지관리자
+  const teleField: AppointmentField = {
+    field: "telecom",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "정보통신공사업법 제36조의3",
+    notes: [],
+  };
+  if (area >= 5000) {
+    teleField.type = "선임";
+    teleField.grade = "정보통신 유지관리자";
+    const today = new Date();
+    let enforcementDate: Date;
+    if (area >= 30000) {
+      enforcementDate = new Date("2025-07-18");
+      teleField.notes.push("연면적 3만㎡ 이상: 2025.7.18부터 선임 의무");
+    } else if (area >= 10000) {
+      enforcementDate = new Date("2026-07-18");
+      teleField.notes.push("연면적 1~3만㎡: 2026.7.18부터 선임 의무");
+    } else {
+      enforcementDate = new Date("2027-07-18");
+      teleField.notes.push("연면적 5천~1만㎡: 2027.7.18부터 선임 의무");
+    }
+    if (today >= enforcementDate) {
+      teleField.required = true;
+      requiredInspections.push("telecom");
+    } else {
+      teleField.notes.push(`⚠ 시행 예정 (${enforcementDate.toISOString().split("T")[0]}) — 현재는 선임 의무 없음`);
+      requiredInspections.push("telecom");
+    }
+  } else {
+    teleField.notes.push("연면적 5,000㎡ 미만: 정보통신 유지관리자 선임 불요");
+  }
+  fields.push(teleField);
+
+  // 6. 승강기안전관리자
+  const elevField: AppointmentField = {
+    field: "elevator",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "승강기 안전관리법 제29조",
+    notes: [],
+  };
+  if (elevators > 0) {
+    elevField.required = true;
+    elevField.grade = "승강기 안전관리자";
+    elevField.type = "선임 (관리소장 겸직 가능)";
+    elevField.notes.push(`승강기 ${elevators}대 설치: 승강기 안전관리자 선임 필수 (관리소장 겸직 가능)`);
+    requiredInspections.push("elevator");
+  } else {
+    elevField.notes.push("승강기 미설치: 선임 불요");
+  }
+  fields.push(elevField);
+
+  // 7. 소독(방역)
+  const disinfField: AppointmentField = {
+    field: "disinfection",
+    required: false,
+    grade: null,
+    type: null,
+    legalBasis: "감염병의 예방 및 관리에 관한 법률 제51조",
+    notes: [],
+  };
+  const disinfRequired = (isResidential && units >= 300) || ((isOffice || isComplex || !isResidential) && area >= 2000);
+  if (disinfRequired) {
+    disinfField.required = true;
+    disinfField.type = "전문업체 위탁";
+    if (isResidential && units >= 300) {
+      disinfField.notes.push("300세대 이상 공동주택: 의무소독 대상");
+    } else {
+      disinfField.notes.push("연면적 2,000㎡ 이상 사무실/복합용도: 의무소독 대상");
+    }
+    disinfField.notes.push("하절기(4~9월): 2개월 1회 / 동절기(10~3월): 3개월 1회");
+    requiredInspections.push("disinfection");
+  } else {
+    disinfField.notes.push("의무소독 대상 아님 (300세대 미만 공동주택 또는 연면적 2,000㎡ 미만)");
+  }
+  fields.push(disinfField);
+
+  // General building safety
   requiredInspections.push("building_safety");
   requiredInspections.push("water_tank");
   requiredInspections.push("hygiene");
 
-  if (elevators > 0) requiredInspections.push("elevator");
-
-  if (area >= 2000 || floors >= 6) {
-    requiredInspections.push("gas");
-    safetyNotes.push("가스 안전점검 대상 (연면적 2천㎡ 이상 또는 6층 이상)");
-  }
-
-  if (area >= 3000) {
-    safetyNotes.push("실내공기질 측정 대상 (연면적 3천㎡ 이상)");
-  }
-
-  if (floors >= 6) {
-    safetyNotes.push("건축물 정기점검 대상 (6층 이상)");
-  }
-
-  const facilityManagerCriteria: string[] = [];
-  if (units >= 500) {
-    facilityManagerCriteria.push("전기안전관리자 선임 필수");
-    facilityManagerCriteria.push("소방안전관리자 2급 이상 선임 필수");
-  } else if (units >= 300) {
-    facilityManagerCriteria.push("소방안전관리자 3급 이상 선임 필수");
-  }
-  if (elevators > 0) {
-    facilityManagerCriteria.push("승강기 안전관리자 선임 필수");
+  let safetyManagerRequired = false;
+  let safetyManagerType: string | null = null;
+  if (area >= 5000 || floors >= 11 || basement >= 2) {
+    safetyManagerRequired = true;
+    if (area >= 30000 || floors >= 30) {
+      safetyManagerType = "건축물관리자(안전관리 전문기관 위탁 가능)";
+    } else if (area >= 15000 || floors >= 16) {
+      safetyManagerType = "안전관리자 선임 또는 전문기관 위탁";
+    } else {
+      safetyManagerType = "안전관리자 선임 (겸직 가능)";
+    }
   }
 
   res.json({
     safetyManagerRequired,
     safetyManagerType,
     requiredInspections,
-    safetyNotes,
-    facilityManagerCriteria,
+    fields,
+    safetyNotes: fields.flatMap(f => f.notes),
+    facilityManagerCriteria: fields.filter(f => f.required).map(f => `${f.grade || f.field} ${f.type || "선임"} 필수`),
   });
 });
 
@@ -437,10 +605,16 @@ function getCyclemonthsForCategory(category: string, presetName: string): number
     building_safety: 6,
     gas: 12,
     playground: 24,
+    mechanical: 12,
+    telecom: 12,
+    disinfection: 2,
   };
 
   if (presetName.includes("정밀") || presetName.includes("종합")) return 12;
   if (presetName.includes("반기")) return 6;
+  if (presetName.includes("3년") || presetName.includes("정기안전점검")) return 36;
+  if (presetName.includes("동절기")) return 3;
+  if (presetName.includes("하절기")) return 2;
 
   return cycles[category] || 12;
 }

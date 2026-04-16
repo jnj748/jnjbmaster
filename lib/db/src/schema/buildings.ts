@@ -32,6 +32,8 @@ export const buildingsTable = pgTable("buildings", {
   floorAreaRatio: numeric("floor_area_ratio"),
   managementOfficePhone: text("management_office_phone"),
   managementOfficeFax: text("management_office_fax"),
+  electricCapacityKw: numeric("electric_capacity_kw"),
+  gasUsageMonthly: numeric("gas_usage_monthly"),
   specialFundEnabled: boolean("special_fund_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -229,16 +229,16 @@ const LEGAL_PRESETS = [
 
   // ── 건축물/안전 ──
   {
-    name: "건축물 정기점검",
+    name: "건축물 반기 자체점검",
     category: "building_safety",
-    inspectionType: "legal",
+    inspectionType: "self_regular",
     legalCycleMonths: 6,
     defaultAlertDays: 30,
-    description: "시설물안전관리법에 따른 건축물 정기점검 (반기 1회)",
+    description: "시설물안전관리법에 따른 건축물 자체 반기점검 (반기 1회)",
     legalBasis: "시설물의 안전 및 유지관리에 관한 특별법 제11조",
-    recommendedMonths: null,
+    recommendedMonths: JSON.stringify([3, 9]),
     subItems: JSON.stringify(["외벽 균열 확인", "옥상 방수 상태", "구조물 안전", "배관 누수"]),
-    seasonalNotes: null,
+    seasonalNotes: "3월, 9월 반기 자체점검 (법정 정기안전점검과 별도)",
   },
   {
     name: "안전점검의 날",
@@ -300,6 +300,86 @@ const LEGAL_PRESETS = [
     legalBasis: "도시가스사업법 제17조",
     recommendedMonths: null,
     subItems: JSON.stringify(["가스 배관 점검", "가스 감지기 작동 확인", "가스 누출 검사"]),
+    seasonalNotes: null,
+  },
+
+  // ── 기계설비 ──
+  {
+    name: "기계설비 성능점검",
+    category: "mechanical",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "기계설비법에 따른 성능점검 (연 1회, 연면적 1만㎡ 이상)",
+    legalBasis: "기계설비법 제18조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["냉난방 설비 점검", "환기 설비 점검", "급·배수 설비 점검", "자동제어 설비 점검"]),
+    seasonalNotes: null,
+  },
+  {
+    name: "기계설비 자체점검",
+    category: "mechanical",
+    inspectionType: "self_regular",
+    legalCycleMonths: 3,
+    defaultAlertDays: 14,
+    description: "기계설비 분기별 자체점검 (3, 6, 9, 12월)",
+    legalBasis: "기계설비법 제18조",
+    recommendedMonths: JSON.stringify([3, 6, 9, 12]),
+    subItems: JSON.stringify(["펌프 작동 확인", "배관 누수 점검", "보일러 상태 점검", "냉동기 점검"]),
+    seasonalNotes: null,
+  },
+
+  // ── 정보통신 ──
+  {
+    name: "정보통신설비 성능점검",
+    category: "telecom",
+    inspectionType: "legal",
+    legalCycleMonths: 12,
+    defaultAlertDays: 30,
+    description: "정보통신공사업법에 따른 성능점검 (연 1회, 연면적 5천㎡ 이상)",
+    legalBasis: "정보통신공사업법 제36조의3",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["통신배관 점검", "인터넷 설비 점검", "방송수신 설비 점검", "CCTV 설비 점검"]),
+    seasonalNotes: "3만㎡↑ 2025.7.18 시행, 1~3만㎡ 2026.7.18, 5천~1만㎡ 2027.7.18 단계적 시행",
+  },
+
+  // ── 소독/방역 ──
+  {
+    name: "의무소독 (하절기)",
+    category: "disinfection",
+    inspectionType: "legal",
+    legalCycleMonths: 2,
+    defaultAlertDays: 14,
+    description: "감염병예방법에 따른 하절기(4~9월) 의무소독 (2개월 1회)",
+    legalBasis: "감염병의 예방 및 관리에 관한 법률 제51조",
+    recommendedMonths: JSON.stringify([4, 6, 8]),
+    subItems: JSON.stringify(["외부 환경소독", "지하주차장 소독", "쓰레기집하장 소독", "놀이터·녹지 소독"]),
+    seasonalNotes: "4~9월 하절기: 모기·파리 등 해충 집중 방제 시기. 2개월 1회 실시",
+  },
+  {
+    name: "의무소독 (동절기)",
+    category: "disinfection",
+    inspectionType: "legal",
+    legalCycleMonths: 3,
+    defaultAlertDays: 14,
+    description: "감염병예방법에 따른 동절기(10~3월) 의무소독 (3개월 1회)",
+    legalBasis: "감염병의 예방 및 관리에 관한 법률 제51조",
+    recommendedMonths: JSON.stringify([10, 1]),
+    subItems: JSON.stringify(["실내 공용부 소독", "지하공간 소독", "쓰레기집하장 소독"]),
+    seasonalNotes: "10~3월 동절기: 실내 위주 소독. 12월 겨울모기 실내소독 중점. 3개월 1회 실시",
+  },
+
+  // ── 건축 정기안전점검 ──
+  {
+    name: "건축물 정기안전점검 (3년)",
+    category: "building_safety",
+    inspectionType: "legal",
+    legalCycleMonths: 36,
+    defaultAlertDays: 60,
+    description: "건축법에 따른 정기안전점검 (3년 1회, 다중이용 건축물)",
+    legalBasis: "건축법 제35조, 건축물관리법 제13조",
+    recommendedMonths: null,
+    subItems: JSON.stringify(["구조 안전성 점검", "피난·방화시설 점검", "건축마감 상태", "외벽 및 지붕 점검"]),
     seasonalNotes: null,
   },
 

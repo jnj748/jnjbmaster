@@ -87,6 +87,17 @@ interface BuildingData {
   buildingArea: string;
   buildingCoverageRatio: string;
   floorAreaRatio: string;
+  electricCapacityKw: string;
+  gasUsageMonthly: string;
+}
+
+interface AppointmentField {
+  field: string;
+  required: boolean;
+  grade: string | null;
+  type: string | null;
+  legalBasis: string;
+  notes: string[];
 }
 
 interface SafetyResult {
@@ -95,6 +106,7 @@ interface SafetyResult {
   requiredInspections: string[];
   safetyNotes: string[];
   facilityManagerCriteria: string[];
+  fields?: AppointmentField[];
 }
 
 interface PresetItem {
@@ -148,6 +160,8 @@ const EMPTY_BUILDING: BuildingData = {
   buildingArea: "",
   buildingCoverageRatio: "",
   floorAreaRatio: "",
+  electricCapacityKw: "",
+  gasUsageMonthly: "",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -161,6 +175,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   safety_check: "안전점검",
   gas: "가스",
   playground: "놀이터",
+  mechanical: "기계설비",
+  telecom: "정보통신",
+  disinfection: "소독/방역",
+  administrative: "행정",
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  electrical: "전기안전관리자",
+  fire_safety: "소방안전관리자",
+  gas: "가스안전관리자",
+  mechanical: "기계설비유지관리자",
+  telecom: "정보통신 유지관리자",
+  elevator: "승강기 안전관리자",
+  disinfection: "소독(방역)",
 };
 
 function formatCycle(months: number): string {
@@ -336,6 +364,8 @@ export default function BuildingSetup() {
           buildingArea: data.building.buildingArea || "",
           buildingCoverageRatio: data.building.buildingCoverageRatio || "",
           floorAreaRatio: data.building.floorAreaRatio || "",
+          electricCapacityKw: data.building.electricCapacityKw || "",
+          gasUsageMonthly: data.building.gasUsageMonthly || "",
         });
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
@@ -345,6 +375,9 @@ export default function BuildingSetup() {
             totalUnits: String(data.building.totalUnits || 0),
             elevatorCount: String(data.building.elevatorCount || 0),
             buildingUsage: data.building.buildingUsage || "",
+            electricCapacityKw: data.building.electricCapacityKw || "0",
+            gasUsageMonthly: data.building.gasUsageMonthly || "0",
+            hasGas: String(data.building.hasGas ?? true),
           });
         }
       }
@@ -435,6 +468,9 @@ export default function BuildingSetup() {
           totalUnits: String(d.totalUnits || 0),
           elevatorCount: String(d.elevatorCount || 0),
           buildingUsage: d.mainPurpose || "",
+          electricCapacityKw: "0",
+          gasUsageMonthly: "0",
+          hasGas: "true",
         });
       } else {
         toast({ title: "해당 주소의 건축물대장 정보를 찾을 수 없습니다. 건물 정보를 직접 입력해주세요.", variant: "destructive" });
@@ -937,6 +973,29 @@ export default function BuildingSetup() {
                   />
                 </div>
                 <div>
+                  <Label>수전설비 용량 (kW)</Label>
+                  <Input
+                    type="number"
+                    value={building.electricCapacityKw}
+                    onChange={(e) => handleFieldChange("electricCapacityKw", e.target.value)}
+                    placeholder="예: 75, 300, 1000"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">75kW 이상 시 전기안전관리자 선임</p>
+                </div>
+                <div>
+                  <Label>가스사용량 (㎥/월)</Label>
+                  <Input
+                    type="number"
+                    value={building.gasUsageMonthly}
+                    onChange={(e) => handleFieldChange("gasUsageMonthly", e.target.value)}
+                    placeholder="예: 500, 2000"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">2,000㎥/월 이상 시 가스안전관리자 선임</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4">
+                <div>
                   <Label>관리사무소 전화</Label>
                   <Input
                     value={building.managementOfficePhone}
@@ -988,6 +1047,9 @@ export default function BuildingSetup() {
               totalUnits: building.totalUnits || "0",
               elevatorCount: building.elevatorCount || "0",
               buildingUsage: building.buildingUsage || "",
+              electricCapacityKw: building.electricCapacityKw || "0",
+              gasUsageMonthly: building.gasUsageMonthly || "0",
+              hasGas: String(building.hasGas),
             });
           }} variant="outline" className="w-full" disabled={calculatingSafety}>
             {calculatingSafety ? (
@@ -998,65 +1060,72 @@ export default function BuildingSetup() {
           </Button>
 
           {safetyResult && (
-            <Card className={safetyResult.safetyManagerRequired ? "border-orange-300 bg-orange-50/50" : "border-green-300 bg-green-50/50"}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {safetyResult.safetyManagerRequired ? (
-                    <AlertTriangle className="w-5 h-5 text-orange-600" />
-                  ) : (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  )}
-                  안전관리자 선임기준 분석 결과
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant={safetyResult.safetyManagerRequired ? "destructive" : "secondary"}>
-                    {safetyResult.safetyManagerRequired ? "선임 필수" : "해당 없음"}
-                  </Badge>
-                  {safetyResult.safetyManagerType && (
-                    <span className="text-sm font-medium">{safetyResult.safetyManagerType}</span>
-                  )}
-                </div>
-
-                {safetyResult.safetyNotes.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold">관련 법적 기준:</p>
-                    {safetyResult.safetyNotes.map((note, i) => (
-                      <p key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                        <span className="text-primary mt-0.5">•</span>
-                        {note}
-                      </p>
-                    ))}
+            <div className="space-y-4">
+              <Card className={safetyResult.safetyManagerRequired ? "border-orange-300 bg-orange-50/50" : "border-green-300 bg-green-50/50"}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    {safetyResult.safetyManagerRequired ? (
+                      <AlertTriangle className="w-5 h-5 text-orange-600" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    )}
+                    안전관리자 선임기준 분석 결과
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge variant={safetyResult.safetyManagerRequired ? "destructive" : "secondary"}>
+                      {safetyResult.safetyManagerRequired ? "선임 필수" : "해당 없음"}
+                    </Badge>
+                    {safetyResult.safetyManagerType && (
+                      <span className="text-sm font-medium">{safetyResult.safetyManagerType}</span>
+                    )}
                   </div>
-                )}
-
-                {safetyResult.facilityManagerCriteria.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold">시설관리자 기준:</p>
-                    {safetyResult.facilityManagerCriteria.map((c, i) => (
-                      <p key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                        <span className="text-orange-500 mt-0.5">⚠</span>
-                        {c}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                {safetyResult.requiredInspections.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold mb-2">필수 법정점검 항목:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {safetyResult.requiredInspections.map((cat) => (
-                        <Badge key={cat} variant="outline" className="text-xs">
-                          {CATEGORY_LABELS[cat] || cat}
-                        </Badge>
-                      ))}
+                  {safetyResult.requiredInspections.length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold mb-2">필수 법정점검 항목:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[...new Set(safetyResult.requiredInspections)].map((cat) => (
+                          <span key={cat} className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">
+                            {CATEGORY_LABELS[cat] || cat}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+
+              {safetyResult.fields && safetyResult.fields.length > 0 && (
+                <div className="grid grid-cols-1 desktop:grid-cols-2 gap-3">
+                  {safetyResult.fields.map((f) => (
+                    <Card key={f.field} className={`border ${f.required ? "border-orange-200 bg-orange-50/30" : "border-gray-200 bg-gray-50/30"}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h4 className="text-sm font-bold">{FIELD_LABELS[f.field] || f.field}</h4>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${f.required ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-600"}`}>
+                            {f.required ? "선임 필수" : "해당 없음"}
+                          </span>
+                        </div>
+                        {f.grade && (
+                          <p className="text-sm font-medium text-primary mb-1">{f.grade}</p>
+                        )}
+                        {f.type && f.required && (
+                          <p className="text-xs text-muted-foreground mb-1">유형: {f.type}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mb-2">근거: {f.legalBasis}</p>
+                        {f.notes.map((note, i) => (
+                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
+                            <span className={`mt-0.5 ${f.required ? "text-orange-500" : "text-gray-400"}`}>•</span>
+                            {note}
+                          </p>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <Button
