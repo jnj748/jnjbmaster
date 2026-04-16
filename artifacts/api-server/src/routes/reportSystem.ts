@@ -337,22 +337,11 @@ router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"),
       (a) => a.delayReason && a.completedDate && a.completedDate >= weekStart && a.completedDate <= weekEnd
     );
     if (weekOverdueActions.length > 0) {
-      const DELAY_REASONS: Record<string, string> = {
-        vendor_schedule: "업체 일정 미확보",
-        budget: "예산 미확보",
-        parts: "부품/자재 미입고",
-        weather: "기상 악화",
-        tenant_coordination: "입주자 협조 필요",
-        permit: "인허가 지연",
-        priority_change: "우선순위 변경",
-        other: "기타",
-      };
       overdueSection = "\n\n■ 전주미결 처리 현황";
       overdueSection += `\n  기한 초과 후 완료: ${weekOverdueActions.length}건`;
       for (const action of weekOverdueActions) {
-        const reasonLabel = DELAY_REASONS[action.delayReason!] || action.delayReason;
         const detail = action.delayReasonDetail ? ` (${action.delayReasonDetail})` : "";
-        overdueSection += `\n  - [${action.completedDate}] ${action.alertType}#${action.relatedEntityId}: 지연사유 - ${reasonLabel}${detail}`;
+        overdueSection += `\n  - [${action.completedDate}] ${action.alertType}#${action.relatedEntityId}: 지연사유 - ${action.delayReason}${detail}`;
       }
     }
   } catch {}
