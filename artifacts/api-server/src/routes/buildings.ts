@@ -232,8 +232,7 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
   }
 
   try {
-    const baseParams = {
-      serviceKey: apiKey,
+    const queryParams = new URLSearchParams({
       sigunguCd: String(sigunguCd || ""),
       bjdongCd: String(bjdongCd || ""),
       bun: String(bun || "").padStart(4, "0"),
@@ -241,11 +240,12 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
       numOfRows: "1",
       pageNo: "1",
       _type: "json",
-    };
+    });
+    const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
 
     const [titleResult, recapResult] = await Promise.allSettled([
-      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${new URLSearchParams(baseParams)}`).then(r => r.ok ? r.json() : null),
-      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${new URLSearchParams(baseParams)}`).then(r => r.ok ? r.json() : null),
+      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${qs}`).then(r => r.ok ? r.json() : null),
+      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${qs}`).then(r => r.ok ? r.json() : null),
     ]);
 
     const titleData = titleResult.status === "fulfilled" ? titleResult.value : null;
@@ -254,10 +254,16 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
     const titleItems = titleData?.response?.body?.items?.item;
     const recapItems = recapData?.response?.body?.items?.item;
 
-    const titleItem = titleItems ? (Array.isArray(titleItems) ? titleItems[0] : titleItems) : null;
-    const recapItem = recapItems ? (Array.isArray(recapItems) ? recapItems[0] : recapItems) : null;
+    const extractFirst = (items: unknown) => {
+      if (!items) return null;
+      if (Array.isArray(items)) return items.length > 0 ? items[0] : null;
+      return items;
+    };
+    const titleItem = extractFirst(titleItems);
+    const recapItem = extractFirst(recapItems);
 
     if (!titleItem && !recapItem) {
+      req.log.info({ sigunguCd: String(sigunguCd), bjdongCd: String(bjdongCd), bun: String(bun), ji: String(ji), titleResultCode: titleData?.response?.header?.resultCode, recapResultCode: recapData?.response?.header?.resultCode }, "Building register lookup returned no results");
       res.json({ found: false, data: null });
       return;
     }

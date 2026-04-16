@@ -437,7 +437,7 @@ export default function BuildingSetup() {
           buildingUsage: d.mainPurpose || "",
         });
       } else {
-        toast({ title: "해당 건물의 건축물대장 정보를 찾을 수 없습니다", variant: "destructive" });
+        toast({ title: "해당 주소의 건축물대장 정보를 찾을 수 없습니다. 건물 정보를 직접 입력해주세요.", variant: "destructive" });
       }
     } catch {
       toast({ title: "건축물대장 조회 중 오류가 발생했습니다", variant: "destructive" });
