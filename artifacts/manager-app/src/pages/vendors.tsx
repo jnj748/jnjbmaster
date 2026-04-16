@@ -41,6 +41,11 @@ const categoryOptions = [
   { value: "septic", label: "정화조" },
   { value: "cleaning", label: "청소" },
   { value: "security", label: "보안" },
+  { value: "waterproofing", label: "방수" },
+  { value: "maintenance_repair", label: "영선/수선유지" },
+  { value: "defect_diagnosis", label: "하자진단" },
+  { value: "building_maintenance", label: "건물관리" },
+  { value: "mechanical", label: "기계설비" },
   { value: "other", label: "기타" },
 ];
 
@@ -79,6 +84,7 @@ export default function Vendors() {
     businessRegNumber: "",
     representativeName: "",
     serviceArea: "",
+    subCategories: "",
     sido: "",
     sigungu: "",
   });
@@ -89,7 +95,7 @@ export default function Vendors() {
       address: "", rating: "", isRecommended: false, notes: "",
       contractBuildingName: "", contractStartDate: "", contractEndDate: "",
       businessRegNumber: "", representativeName: "", serviceArea: "",
-      sido: "", sigungu: "",
+      subCategories: "", sido: "", sigungu: "",
     });
     setEditing(null);
   }
@@ -112,6 +118,7 @@ export default function Vendors() {
       businessRegNumber: item.businessRegNumber || "",
       representativeName: item.representativeName || "",
       serviceArea: item.serviceArea || "",
+      subCategories: item.subCategories || "",
       sido: item.sido || "",
       sigungu: item.sigungu || "",
     });
@@ -131,6 +138,7 @@ export default function Vendors() {
       rating: form.rating ? parseFloat(form.rating) : null,
       isRecommended: form.isRecommended,
       notes: form.notes || null,
+      subCategories: form.subCategories || null,
       sido: form.sido || null,
       sigungu: form.sigungu || null,
     };
@@ -205,6 +213,14 @@ export default function Vendors() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div>
+                <Label>세부 전문분야 (쉼표로 구분)</Label>
+                <Input
+                  value={form.subCategories}
+                  onChange={(e) => setForm({ ...form, subCategories: e.target.value })}
+                  placeholder="예: 옥상방수, 외벽방수, 지하층방수"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -188,6 +188,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       "name", "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
       "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
       "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
+      "approvalDate",
     ];
     const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly"];
     const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];

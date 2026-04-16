@@ -62,6 +62,11 @@ const categoryOptions = [
   { value: "septic", label: "정화조" },
   { value: "cleaning", label: "청소" },
   { value: "security", label: "보안" },
+  { value: "waterproofing", label: "방수" },
+  { value: "maintenance_repair", label: "영선/수선유지" },
+  { value: "defect_diagnosis", label: "하자진단" },
+  { value: "building_maintenance", label: "건물관리" },
+  { value: "mechanical", label: "기계설비" },
   { value: "other", label: "기타" },
 ];
 

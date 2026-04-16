@@ -61,6 +61,8 @@ tags:
     description: Electronic voting management
   - name: delinquency
     description: Delinquency detection and enforcement
+  - name: warranties
+    description: Building warranty period management
 
 paths:
   /healthz:
@@ -2181,6 +2183,126 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/BuildingListItem"
+
+  # ── Warranty Management ──────────────────────────────────
+  /warranties/presets:
+    get:
+      operationId: listWarrantyPresets
+      tags: [warranties]
+      summary: List warranty period presets by construction trade
+      responses:
+        "200":
+          description: Warranty presets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WarrantyPreset"
+
+  /warranties/building/{buildingId}:
+    get:
+      operationId: listBuildingWarranties
+      tags: [warranties]
+      summary: List warranties for a building
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Building warranties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BuildingWarranty"
+    post:
+      operationId: createBuildingWarranties
+      tags: [warranties]
+      summary: Create warranties for a building based on approval date
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBuildingWarrantiesBody"
+      responses:
+        "201":
+          description: Warranties created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BuildingWarranty"
+
+  /warranties/{id}:
+    patch:
+      operationId: updateBuildingWarranty
+      tags: [warranties]
+      summary: Update a building warranty
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBuildingWarrantyBody"
+      responses:
+        "200":
+          description: Warranty updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildingWarranty"
+
+  /warranties/check-alerts:
+    post:
+      operationId: checkWarrantyAlerts
+      tags: [warranties]
+      summary: Check and generate warranty expiry alerts
+      responses:
+        "200":
+          description: Alerts generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WarrantyAlertCheckResponse"
+
+  /dashboard/seasonal-suggestions:
+    get:
+      operationId: getSeasonalSuggestions
+      tags: [dashboard]
+      summary: Get seasonal maintenance task suggestions for current month
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Seasonal suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SeasonalSuggestion"
 
   /executive/kpi:
     get:
@@ -4596,7 +4718,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         type:
           type: string
           enum: [contracted, platform]
@@ -4619,6 +4741,8 @@ components:
         representativeName:
           type: ["string", "null"]
         serviceArea:
+          type: ["string", "null"]
+        subCategories:
           type: ["string", "null"]
         sido:
           type: ["string", "null"]
@@ -4657,7 +4781,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         type:
           type: string
           enum: [contracted, platform]
@@ -4682,6 +4806,8 @@ components:
           type: ["string", "null"]
         serviceArea:
           type: ["string", "null"]
+        subCategories:
+          type: ["string", "null"]
         sido:
           type: ["string", "null"]
         sigungu:
@@ -4705,7 +4831,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         type:
           type: string
           enum: [contracted, platform]
@@ -4729,6 +4855,8 @@ components:
           type: ["string", "null"]
         serviceArea:
           type: ["string", "null"]
+        subCategories:
+          type: ["string", "null"]
         sido:
           type: ["string", "null"]
         sigungu:
@@ -4749,7 +4877,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         contactName:
           type: string
         phone:
@@ -4863,7 +4991,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         description:
           type: ["string", "null"]
         buildingName:
@@ -4912,7 +5040,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         description:
           type: ["string", "null"]
         buildingName:
@@ -4948,7 +5076,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
         description:
           type: ["string", "null"]
         buildingName:
@@ -9145,3 +9273,138 @@ components:
         - paidAmount
         - isPaid
         - dueDate
+
+    WarrantyPreset:
+      type: object
+      properties:
+        id:
+          type: integer
+        tradeCategory:
+          type: string
+        tradeName:
+          type: string
+        warrantyYears:
+          type: integer
+        description:
+          type: ["string", "null"]
+        legalBasis:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - tradeCategory
+        - tradeName
+        - warrantyYears
+
+    BuildingWarranty:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        presetId:
+          type: ["integer", "null"]
+        tradeCategory:
+          type: string
+        tradeName:
+          type: string
+        warrantyYears:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, expiring_soon, expired]
+        contractorName:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        alertSent60:
+          type: ["string", "null"]
+          format: date-time
+        alertSent30:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - buildingId
+        - tradeCategory
+        - tradeName
+        - warrantyYears
+        - startDate
+        - expiryDate
+        - status
+
+    CreateBuildingWarrantiesBody:
+      type: object
+      properties:
+        approvalDate:
+          type: string
+          format: date
+        presetIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - approvalDate
+
+    UpdateBuildingWarrantyBody:
+      type: object
+      properties:
+        contractorName:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, expiring_soon, expired]
+
+    WarrantyAlertCheckResponse:
+      type: object
+      properties:
+        alertsGenerated:
+          type: integer
+        warranties:
+          type: array
+          items:
+            $ref: "#/components/schemas/BuildingWarranty"
+      required:
+        - alertsGenerated
+
+    SeasonalSuggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        month:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        description:
+          type: ["string", "null"]
+        priority:
+          type: string
+          enum: [high, normal, low]
+        rfqCategory:
+          type: ["string", "null"]
+      required:
+        - id
+        - month
+        - title
+        - category
+        - priority

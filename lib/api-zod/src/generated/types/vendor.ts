@@ -33,6 +33,8 @@ export interface Vendor {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  subCategories?: string | null;
+  /** @nullable */
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;

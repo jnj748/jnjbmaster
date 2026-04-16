@@ -18,5 +18,10 @@ export const UpdateVendorBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;

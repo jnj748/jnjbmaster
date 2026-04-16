@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, desc, sql, lt } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable } from "@workspace/db";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable } from "@workspace/db";
 import { LEGAL_PRESETS } from "./inspections";
 import {
   GetDashboardSummaryResponse,
@@ -406,6 +406,45 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     });
   }
 
+  const sixtyDaysFromNow2 = new Date();
+  sixtyDaysFromNow2.setDate(new Date().getDate() + 60);
+  const sixtyStr2 = sixtyDaysFromNow2.toISOString().split("T")[0];
+
+  const expiringWarranties = await db
+    .select()
+    .from(buildingWarrantiesTable)
+    .where(
+      and(
+        lte(buildingWarrantiesTable.expiryDate, sixtyStr2),
+        gte(buildingWarrantiesTable.expiryDate, today)
+      )
+    );
+
+  for (const warranty of expiringWarranties) {
+    const daysUntilExpiry = Math.ceil(
+      (new Date(warranty.expiryDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    const building = await db.select().from(buildingsTable)
+      .where(eq(buildingsTable.id, warranty.buildingId))
+      .then(r => r[0]);
+
+    const buildingName = building?.name || "관리 건물";
+
+    alerts.push({
+      id: alertId++,
+      type: "warranty_expiry",
+      title: `[하자담보] ${warranty.tradeName} 만료 ${daysUntilExpiry}일 전`,
+      message: `${buildingName}의 ${warranty.tradeName} 하자담보가 ${warranty.expiryDate}에 만료됩니다. 하자 진단을 실시하고 필요시 시공사에 보수를 요구하세요.`,
+      severity: daysUntilExpiry <= 30 ? "critical" : "warning",
+      relatedId: warranty.id,
+      hasDraft: false,
+      actionStatus: null,
+      dueDate: warranty.expiryDate,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   res.json(GetDashboardAlertsResponse.parse(alerts));
 });
 
@@ -716,6 +755,43 @@ router.get("/dashboard/analytics", async (_req, res): Promise<void> => {
     dataDestructionTargets: destructionTargets,
     dataDestructionCount: destructionTargets.length,
   });
+});
+
+const SEASONAL_MAINTENANCE_DATA = [
+  { month: 1, title: "혹한기 동파 방지 점검", category: "maintenance_repair", description: "배관 보온재 상태 확인, 동파 방지 열선 점검, 외부 배관 보호 조치", priority: "high", rfqCategory: "maintenance_repair" },
+  { month: 2, title: "봄맞이 외벽 균열 사전 조사", category: "defect_diagnosis", description: "동절기 이후 외벽 균열, 타일 탈락 여부 사전 점검", priority: "normal", rfqCategory: "defect_diagnosis" },
+  { month: 3, title: "옥상 방수층 상태 점검", category: "waterproofing", description: "우기 대비 옥상 방수층 균열·파손 점검, 드레인 청소", priority: "high", rfqCategory: "waterproofing" },
+  { month: 4, title: "봄맞이 환경정비·라인마킹", category: "maintenance_repair", description: "주차장 라인마킹, 화단 정비, 외부 도장 보수, 놀이터 안전 점검", priority: "high", rfqCategory: "maintenance_repair" },
+  { month: 4, title: "외벽 도장 보수공사", category: "maintenance_repair", description: "동절기 손상된 외벽 도장 보수, 타일 교체", priority: "normal", rfqCategory: "maintenance_repair" },
+  { month: 5, title: "우기 전 방수 사전점검", category: "waterproofing", description: "옥상·외벽·지하층 방수 상태 사전 점검 및 보수 계획 수립", priority: "high", rfqCategory: "waterproofing" },
+  { month: 6, title: "우기 대비 방수 긴급점검", category: "waterproofing", description: "장마 대비 옥상·지하주차장 방수 상태 긴급 점검, 배수구 정비", priority: "high", rfqCategory: "waterproofing" },
+  { month: 6, title: "우기 대비 지하 침수 방지", category: "waterproofing", description: "지하주차장 누수 점검, 배수펌프 작동 확인, 방수 보수", priority: "high", rfqCategory: "waterproofing" },
+  { month: 7, title: "장마 후 피해 점검 및 보수", category: "maintenance_repair", description: "장마 후 외벽·옥상·지하 피해 점검 및 긴급 보수", priority: "high", rfqCategory: "maintenance_repair" },
+  { month: 8, title: "태풍 대비 시설물 점검", category: "building_maintenance", description: "태풍 대비 옥상 구조물, 간판, 창호 안전 점검", priority: "high", rfqCategory: "building_maintenance" },
+  { month: 9, title: "태풍 후 외벽·창호 점검 및 보수", category: "maintenance_repair", description: "태풍 후 외벽 손상, 창호 파손, 옥상 시설물 점검 및 보수", priority: "high", rfqCategory: "maintenance_repair" },
+  { month: 9, title: "하자담보 만료 사전 점검", category: "defect_diagnosis", description: "연말 하자담보 만료 예정 공종에 대한 사전 진단 실시", priority: "normal", rfqCategory: "defect_diagnosis" },
+  { month: 10, title: "동절기 대비 배관 보온공사", category: "maintenance_repair", description: "배관 보온재 교체, 동파 방지 열선 설치, 외부 수전 보호", priority: "high", rfqCategory: "maintenance_repair" },
+  { month: 10, title: "난방 배관 점검 및 청소", category: "mechanical", description: "난방 시즌 전 배관 청소, 보일러 점검, 순환펌프 확인", priority: "normal", rfqCategory: "mechanical" },
+  { month: 11, title: "동절기 옥상 방수 마감점검", category: "waterproofing", description: "동절기 전 옥상 방수 최종 점검, 균열 보수", priority: "normal", rfqCategory: "waterproofing" },
+  { month: 12, title: "연말 시설물 종합 점검", category: "building_maintenance", description: "연간 시설물 종합 점검, 차년도 영선 계획 수립", priority: "normal", rfqCategory: "building_maintenance" },
+];
+
+router.get("/dashboard/seasonal-suggestions", async (req, res): Promise<void> => {
+  const monthParam = req.query.month ? parseInt(req.query.month as string) : new Date().getMonth() + 1;
+
+  let presets = await db.select().from(seasonalMaintenancePresetsTable)
+    .where(eq(seasonalMaintenancePresetsTable.month, monthParam));
+
+  if (presets.length === 0) {
+    const existingAll = await db.select().from(seasonalMaintenancePresetsTable);
+    if (existingAll.length === 0) {
+      await db.insert(seasonalMaintenancePresetsTable).values(SEASONAL_MAINTENANCE_DATA);
+    }
+    presets = await db.select().from(seasonalMaintenancePresetsTable)
+      .where(eq(seasonalMaintenancePresetsTable.month, monthParam));
+  }
+
+  res.json(presets);
 });
 
 export default router;

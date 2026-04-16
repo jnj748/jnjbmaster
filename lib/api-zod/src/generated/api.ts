@@ -857,6 +857,11 @@ export const ListVendorsResponseItem = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   type: zod.enum(["contracted", "platform"]),
@@ -870,6 +875,7 @@ export const ListVendorsResponseItem = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
@@ -897,6 +903,11 @@ export const CreateVendorBody = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   type: zod
@@ -912,6 +923,7 @@ export const CreateVendorBody = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
@@ -938,6 +950,11 @@ export const UpdateVendorBody = zod.object({
       "septic",
       "cleaning",
       "security",
+      "waterproofing",
+      "maintenance_repair",
+      "defect_diagnosis",
+      "building_maintenance",
+      "mechanical",
       "other",
     ])
     .optional(),
@@ -952,6 +969,7 @@ export const UpdateVendorBody = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
@@ -971,6 +989,11 @@ export const UpdateVendorResponse = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   type: zod.enum(["contracted", "platform"]),
@@ -984,6 +1007,7 @@ export const UpdateVendorResponse = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
@@ -1020,6 +1044,11 @@ export const GetRecommendedVendorsResponseItem = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   type: zod.enum(["contracted", "platform"]),
@@ -1033,6 +1062,7 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
@@ -1060,6 +1090,11 @@ export const RegisterPlatformVendorBody = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   contactName: zod.string(),
@@ -1169,6 +1204,11 @@ export const ListRfqsResponseItem = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   description: zod.string().nullish(),
@@ -1201,6 +1241,11 @@ export const CreateRfqBody = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   description: zod.string().nullish(),
@@ -1234,6 +1279,11 @@ export const GetRfqResponse = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   description: zod.string().nullish(),
@@ -1270,6 +1320,11 @@ export const UpdateRfqBody = zod.object({
       "septic",
       "cleaning",
       "security",
+      "waterproofing",
+      "maintenance_repair",
+      "defect_diagnosis",
+      "building_maintenance",
+      "mechanical",
       "other",
     ])
     .optional(),
@@ -1296,6 +1351,11 @@ export const UpdateRfqResponse = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   description: zod.string().nullish(),
@@ -1339,6 +1399,11 @@ export const ExpandRfqScopeResponse = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   description: zod.string().nullish(),
@@ -1375,6 +1440,11 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
     "septic",
     "cleaning",
     "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
     "other",
   ]),
   type: zod.enum(["contracted", "platform"]),
@@ -1388,6 +1458,7 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
   businessRegNumber: zod.string().nullish(),
   representativeName: zod.string().nullish(),
   serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   joinedAt: zod.coerce.date().nullish(),
@@ -2718,6 +2789,141 @@ export const ListBuildingsResponseItem = zod.object({
   totalUnits: zod.number().nullish(),
 });
 export const ListBuildingsResponse = zod.array(ListBuildingsResponseItem);
+
+/**
+ * @summary List warranty period presets by construction trade
+ */
+export const ListWarrantyPresetsResponseItem = zod.object({
+  id: zod.number(),
+  tradeCategory: zod.string(),
+  tradeName: zod.string(),
+  warrantyYears: zod.number(),
+  description: zod.string().nullish(),
+  legalBasis: zod.string().nullish(),
+  createdAt: zod.coerce.date().optional(),
+});
+export const ListWarrantyPresetsResponse = zod.array(
+  ListWarrantyPresetsResponseItem,
+);
+
+/**
+ * @summary List warranties for a building
+ */
+export const ListBuildingWarrantiesParams = zod.object({
+  buildingId: zod.coerce.number(),
+});
+
+export const ListBuildingWarrantiesResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  presetId: zod.number().nullish(),
+  tradeCategory: zod.string(),
+  tradeName: zod.string(),
+  warrantyYears: zod.number(),
+  startDate: zod.coerce.date(),
+  expiryDate: zod.coerce.date(),
+  status: zod.enum(["active", "expiring_soon", "expired"]),
+  contractorName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  alertSent60: zod.coerce.date().nullish(),
+  alertSent30: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListBuildingWarrantiesResponse = zod.array(
+  ListBuildingWarrantiesResponseItem,
+);
+
+/**
+ * @summary Create warranties for a building based on approval date
+ */
+export const CreateBuildingWarrantiesParams = zod.object({
+  buildingId: zod.coerce.number(),
+});
+
+export const CreateBuildingWarrantiesBody = zod.object({
+  approvalDate: zod.coerce.date(),
+  presetIds: zod.array(zod.number()).optional(),
+});
+
+/**
+ * @summary Update a building warranty
+ */
+export const UpdateBuildingWarrantyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBuildingWarrantyBody = zod.object({
+  contractorName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["active", "expiring_soon", "expired"]).optional(),
+});
+
+export const UpdateBuildingWarrantyResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  presetId: zod.number().nullish(),
+  tradeCategory: zod.string(),
+  tradeName: zod.string(),
+  warrantyYears: zod.number(),
+  startDate: zod.coerce.date(),
+  expiryDate: zod.coerce.date(),
+  status: zod.enum(["active", "expiring_soon", "expired"]),
+  contractorName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  alertSent60: zod.coerce.date().nullish(),
+  alertSent30: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Check and generate warranty expiry alerts
+ */
+export const CheckWarrantyAlertsResponse = zod.object({
+  alertsGenerated: zod.number(),
+  warranties: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        buildingId: zod.number(),
+        presetId: zod.number().nullish(),
+        tradeCategory: zod.string(),
+        tradeName: zod.string(),
+        warrantyYears: zod.number(),
+        startDate: zod.coerce.date(),
+        expiryDate: zod.coerce.date(),
+        status: zod.enum(["active", "expiring_soon", "expired"]),
+        contractorName: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        alertSent60: zod.coerce.date().nullish(),
+        alertSent30: zod.coerce.date().nullish(),
+        createdAt: zod.coerce.date().optional(),
+        updatedAt: zod.coerce.date().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get seasonal maintenance task suggestions for current month
+ */
+export const GetSeasonalSuggestionsQueryParams = zod.object({
+  month: zod.coerce.number().optional(),
+});
+
+export const GetSeasonalSuggestionsResponseItem = zod.object({
+  id: zod.number(),
+  month: zod.number(),
+  title: zod.string(),
+  category: zod.string(),
+  description: zod.string().nullish(),
+  priority: zod.enum(["high", "normal", "low"]),
+  rfqCategory: zod.string().nullish(),
+});
+export const GetSeasonalSuggestionsResponse = zod.array(
+  GetSeasonalSuggestionsResponseItem,
+);
 
 /**
  * @summary Get manager KPI dashboard data

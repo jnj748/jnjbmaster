@@ -439,6 +439,11 @@ export const VendorCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -474,6 +479,8 @@ export interface Vendor {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  subCategories?: string | null;
+  /** @nullable */
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
@@ -501,6 +508,11 @@ export const CreateVendorBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -536,6 +548,8 @@ export interface CreateVendorBody {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  subCategories?: string | null;
+  /** @nullable */
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
@@ -559,6 +573,11 @@ export const UpdateVendorBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -594,6 +613,8 @@ export interface UpdateVendorBody {
   /** @nullable */
   serviceArea?: string | null;
   /** @nullable */
+  subCategories?: string | null;
+  /** @nullable */
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
@@ -617,6 +638,11 @@ export const RegisterPlatformVendorBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -700,6 +726,11 @@ export const RfqCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -750,6 +781,11 @@ export const CreateRfqBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -788,6 +824,11 @@ export const UpdateRfqBodyCategory = {
   septic: "septic",
   cleaning: "cleaning",
   security: "security",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
   other: "other",
 } as const;
 
@@ -3765,6 +3806,98 @@ export interface MonthlyPayment {
   updatedAt?: string;
 }
 
+export interface WarrantyPreset {
+  id: number;
+  tradeCategory: string;
+  tradeName: string;
+  warrantyYears: number;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  legalBasis?: string | null;
+  createdAt?: string;
+}
+
+export type BuildingWarrantyStatus =
+  (typeof BuildingWarrantyStatus)[keyof typeof BuildingWarrantyStatus];
+
+export const BuildingWarrantyStatus = {
+  active: "active",
+  expiring_soon: "expiring_soon",
+  expired: "expired",
+} as const;
+
+export interface BuildingWarranty {
+  id: number;
+  buildingId: number;
+  /** @nullable */
+  presetId?: number | null;
+  tradeCategory: string;
+  tradeName: string;
+  warrantyYears: number;
+  startDate: string;
+  expiryDate: string;
+  status: BuildingWarrantyStatus;
+  /** @nullable */
+  contractorName?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  alertSent60?: string | null;
+  /** @nullable */
+  alertSent30?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBuildingWarrantiesBody {
+  approvalDate: string;
+  presetIds?: number[];
+}
+
+export type UpdateBuildingWarrantyBodyStatus =
+  (typeof UpdateBuildingWarrantyBodyStatus)[keyof typeof UpdateBuildingWarrantyBodyStatus];
+
+export const UpdateBuildingWarrantyBodyStatus = {
+  active: "active",
+  expiring_soon: "expiring_soon",
+  expired: "expired",
+} as const;
+
+export interface UpdateBuildingWarrantyBody {
+  /** @nullable */
+  contractorName?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status?: UpdateBuildingWarrantyBodyStatus;
+}
+
+export interface WarrantyAlertCheckResponse {
+  alertsGenerated: number;
+  warranties?: BuildingWarranty[];
+}
+
+export type SeasonalSuggestionPriority =
+  (typeof SeasonalSuggestionPriority)[keyof typeof SeasonalSuggestionPriority];
+
+export const SeasonalSuggestionPriority = {
+  high: "high",
+  normal: "normal",
+  low: "low",
+} as const;
+
+export interface SeasonalSuggestion {
+  id: number;
+  month: number;
+  title: string;
+  category: string;
+  /** @nullable */
+  description?: string | null;
+  priority: SeasonalSuggestionPriority;
+  /** @nullable */
+  rfqCategory?: string | null;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -3944,6 +4077,10 @@ export type ListWeeklySummaryReportsParams = {
 export type ListMonthlySummaryReportsParams = {
   month?: string;
   buildingId?: number;
+};
+
+export type GetSeasonalSuggestionsParams = {
+  month?: number;
 };
 
 export type GetExecutiveSpendingParams = {

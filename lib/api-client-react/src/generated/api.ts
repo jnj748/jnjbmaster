@@ -36,6 +36,7 @@ import type {
   BatchCancelVehiclesBody,
   BillingItem,
   BuildingListItem,
+  BuildingWarranty,
   BulkCreateUnits201,
   BulkCreateUnitsBody,
   BulkRegisterInspectionsBody,
@@ -52,6 +53,7 @@ import type {
   CompleteInspectionBody,
   CreateAlertActionBody,
   CreateApprovalBody,
+  CreateBuildingWarrantiesBody,
   CreateCommissionBody,
   CreateComplaintBody,
   CreateDailyReportBody,
@@ -115,6 +117,7 @@ import type {
   GetManagementContractTemplateParams,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
+  GetSeasonalSuggestionsParams,
   GetUnit200,
   GetUnitsSummary200,
   GetUnreadNotificationCount200,
@@ -178,6 +181,7 @@ import type {
   SafetyChecklistItem,
   SafetyTraining,
   SaveApprovalDraftBody,
+  SeasonalSuggestion,
   SendDestructionAlerts200,
   Settlement,
   StaffAttendanceSummary,
@@ -190,6 +194,7 @@ import type {
   Tenant,
   TenantCardToken,
   Unit,
+  UpdateBuildingWarrantyBody,
   UpdateCommissionBody,
   UpdateComplaintBody,
   UpdateDraftBody,
@@ -221,6 +226,8 @@ import type {
   VerifyTenantBody,
   Vote,
   VoteDetail,
+  WarrantyAlertCheckResponse,
+  WarrantyPreset,
   WeeklyReport,
   WeeklySummaryReportItem,
   WorkReport,
@@ -9153,6 +9160,542 @@ export function useListBuildings<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListBuildingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List warranty period presets by construction trade
+ */
+export const getListWarrantyPresetsUrl = () => {
+  return `/api/warranties/presets`;
+};
+
+export const listWarrantyPresets = async (
+  options?: RequestInit,
+): Promise<WarrantyPreset[]> => {
+  return customFetch<WarrantyPreset[]>(getListWarrantyPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWarrantyPresetsQueryKey = () => {
+  return [`/api/warranties/presets`] as const;
+};
+
+export const getListWarrantyPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWarrantyPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWarrantyPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWarrantyPresetsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWarrantyPresets>>
+  > = ({ signal }) => listWarrantyPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWarrantyPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWarrantyPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWarrantyPresets>>
+>;
+export type ListWarrantyPresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List warranty period presets by construction trade
+ */
+
+export function useListWarrantyPresets<
+  TData = Awaited<ReturnType<typeof listWarrantyPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWarrantyPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWarrantyPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List warranties for a building
+ */
+export const getListBuildingWarrantiesUrl = (buildingId: number) => {
+  return `/api/warranties/building/${buildingId}`;
+};
+
+export const listBuildingWarranties = async (
+  buildingId: number,
+  options?: RequestInit,
+): Promise<BuildingWarranty[]> => {
+  return customFetch<BuildingWarranty[]>(
+    getListBuildingWarrantiesUrl(buildingId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListBuildingWarrantiesQueryKey = (buildingId: number) => {
+  return [`/api/warranties/building/${buildingId}`] as const;
+};
+
+export const getListBuildingWarrantiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBuildingWarranties>>,
+  TError = ErrorType<unknown>,
+>(
+  buildingId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBuildingWarranties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListBuildingWarrantiesQueryKey(buildingId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listBuildingWarranties>>
+  > = ({ signal }) =>
+    listBuildingWarranties(buildingId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!buildingId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildingWarranties>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBuildingWarrantiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBuildingWarranties>>
+>;
+export type ListBuildingWarrantiesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List warranties for a building
+ */
+
+export function useListBuildingWarranties<
+  TData = Awaited<ReturnType<typeof listBuildingWarranties>>,
+  TError = ErrorType<unknown>,
+>(
+  buildingId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBuildingWarranties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBuildingWarrantiesQueryOptions(
+    buildingId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create warranties for a building based on approval date
+ */
+export const getCreateBuildingWarrantiesUrl = (buildingId: number) => {
+  return `/api/warranties/building/${buildingId}`;
+};
+
+export const createBuildingWarranties = async (
+  buildingId: number,
+  createBuildingWarrantiesBody: CreateBuildingWarrantiesBody,
+  options?: RequestInit,
+): Promise<BuildingWarranty[]> => {
+  return customFetch<BuildingWarranty[]>(
+    getCreateBuildingWarrantiesUrl(buildingId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createBuildingWarrantiesBody),
+    },
+  );
+};
+
+export const getCreateBuildingWarrantiesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBuildingWarranties>>,
+    TError,
+    { buildingId: number; data: BodyType<CreateBuildingWarrantiesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBuildingWarranties>>,
+  TError,
+  { buildingId: number; data: BodyType<CreateBuildingWarrantiesBody> },
+  TContext
+> => {
+  const mutationKey = ["createBuildingWarranties"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBuildingWarranties>>,
+    { buildingId: number; data: BodyType<CreateBuildingWarrantiesBody> }
+  > = (props) => {
+    const { buildingId, data } = props ?? {};
+
+    return createBuildingWarranties(buildingId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBuildingWarrantiesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBuildingWarranties>>
+>;
+export type CreateBuildingWarrantiesMutationBody =
+  BodyType<CreateBuildingWarrantiesBody>;
+export type CreateBuildingWarrantiesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create warranties for a building based on approval date
+ */
+export const useCreateBuildingWarranties = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBuildingWarranties>>,
+    TError,
+    { buildingId: number; data: BodyType<CreateBuildingWarrantiesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBuildingWarranties>>,
+  TError,
+  { buildingId: number; data: BodyType<CreateBuildingWarrantiesBody> },
+  TContext
+> => {
+  return useMutation(getCreateBuildingWarrantiesMutationOptions(options));
+};
+
+/**
+ * @summary Update a building warranty
+ */
+export const getUpdateBuildingWarrantyUrl = (id: number) => {
+  return `/api/warranties/${id}`;
+};
+
+export const updateBuildingWarranty = async (
+  id: number,
+  updateBuildingWarrantyBody: UpdateBuildingWarrantyBody,
+  options?: RequestInit,
+): Promise<BuildingWarranty> => {
+  return customFetch<BuildingWarranty>(getUpdateBuildingWarrantyUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBuildingWarrantyBody),
+  });
+};
+
+export const getUpdateBuildingWarrantyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBuildingWarranty>>,
+    TError,
+    { id: number; data: BodyType<UpdateBuildingWarrantyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBuildingWarranty>>,
+  TError,
+  { id: number; data: BodyType<UpdateBuildingWarrantyBody> },
+  TContext
+> => {
+  const mutationKey = ["updateBuildingWarranty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBuildingWarranty>>,
+    { id: number; data: BodyType<UpdateBuildingWarrantyBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateBuildingWarranty(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBuildingWarrantyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBuildingWarranty>>
+>;
+export type UpdateBuildingWarrantyMutationBody =
+  BodyType<UpdateBuildingWarrantyBody>;
+export type UpdateBuildingWarrantyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a building warranty
+ */
+export const useUpdateBuildingWarranty = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBuildingWarranty>>,
+    TError,
+    { id: number; data: BodyType<UpdateBuildingWarrantyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBuildingWarranty>>,
+  TError,
+  { id: number; data: BodyType<UpdateBuildingWarrantyBody> },
+  TContext
+> => {
+  return useMutation(getUpdateBuildingWarrantyMutationOptions(options));
+};
+
+/**
+ * @summary Check and generate warranty expiry alerts
+ */
+export const getCheckWarrantyAlertsUrl = () => {
+  return `/api/warranties/check-alerts`;
+};
+
+export const checkWarrantyAlerts = async (
+  options?: RequestInit,
+): Promise<WarrantyAlertCheckResponse> => {
+  return customFetch<WarrantyAlertCheckResponse>(getCheckWarrantyAlertsUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCheckWarrantyAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkWarrantyAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkWarrantyAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["checkWarrantyAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkWarrantyAlerts>>,
+    void
+  > = () => {
+    return checkWarrantyAlerts(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckWarrantyAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkWarrantyAlerts>>
+>;
+
+export type CheckWarrantyAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Check and generate warranty expiry alerts
+ */
+export const useCheckWarrantyAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkWarrantyAlerts>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkWarrantyAlerts>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getCheckWarrantyAlertsMutationOptions(options));
+};
+
+/**
+ * @summary Get seasonal maintenance task suggestions for current month
+ */
+export const getGetSeasonalSuggestionsUrl = (
+  params?: GetSeasonalSuggestionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/seasonal-suggestions?${stringifiedParams}`
+    : `/api/dashboard/seasonal-suggestions`;
+};
+
+export const getSeasonalSuggestions = async (
+  params?: GetSeasonalSuggestionsParams,
+  options?: RequestInit,
+): Promise<SeasonalSuggestion[]> => {
+  return customFetch<SeasonalSuggestion[]>(
+    getGetSeasonalSuggestionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSeasonalSuggestionsQueryKey = (
+  params?: GetSeasonalSuggestionsParams,
+) => {
+  return [
+    `/api/dashboard/seasonal-suggestions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetSeasonalSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSeasonalSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSeasonalSuggestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeasonalSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSeasonalSuggestionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSeasonalSuggestions>>
+  > = ({ signal }) =>
+    getSeasonalSuggestions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSeasonalSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSeasonalSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSeasonalSuggestions>>
+>;
+export type GetSeasonalSuggestionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get seasonal maintenance task suggestions for current month
+ */
+
+export function useGetSeasonalSuggestions<
+  TData = Awaited<ReturnType<typeof getSeasonalSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSeasonalSuggestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeasonalSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSeasonalSuggestionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

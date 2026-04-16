@@ -35,6 +35,7 @@ export const buildingsTable = pgTable("buildings", {
   electricCapacityKw: numeric("electric_capacity_kw"),
   gasUsageMonthly: numeric("gas_usage_monthly"),
   specialFundEnabled: boolean("special_fund_enabled").notNull().default(false),
+  approvalDate: date("approval_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

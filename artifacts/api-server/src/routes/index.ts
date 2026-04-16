@@ -44,6 +44,7 @@ import feesRouter from "./fees";
 import complaintsRouter from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
+import warrantiesRouter from "./warranties";
 
 const router: IRouter = Router();
 
@@ -98,6 +99,7 @@ buildingRouter.use(feesRouter);
 buildingRouter.use(complaintsRouter);
 buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);
+buildingRouter.use(warrantiesRouter);
 router.use(buildingRouter);
 
 export default router;
