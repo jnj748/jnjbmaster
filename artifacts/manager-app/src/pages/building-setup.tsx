@@ -393,6 +393,7 @@ export default function BuildingSetup() {
 
   async function lookupBuildingRegister(sigunguCd: string, bjdongCd: string, bun: string, ji: string) {
     setLookingUp(true);
+    setRegisterPreview(null);
     try {
       const params = new URLSearchParams({ sigunguCd, bjdongCd, bun, ji });
       const res = await fetch(`${apiBase}/buildings/lookup-register?${params}`, {
