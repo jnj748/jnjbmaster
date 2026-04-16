@@ -4,6 +4,7 @@ import { seedDocumentTemplates } from "./routes/seedTemplates";
 import { db, usersTable, unitsTable, tenantsTable, ownersTable } from "@workspace/db";
 import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
+import { seedTestUsers } from "./seed-test-users";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -112,6 +113,12 @@ app.listen(port, async (err) => {
     logger.info("Unit ID backfill completed");
   } catch (e) {
     logger.warn({ err: e }, "Failed to backfill unit IDs");
+  }
+
+  try {
+    await seedTestUsers();
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed test users");
   }
 
   startScheduler();
