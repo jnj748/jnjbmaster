@@ -4,7 +4,6 @@ import {
   db,
   unitsTable,
   usersTable,
-  tenantsTable,
   vehiclesTable,
   vehicleHistoryTable,
   notificationsTable,
@@ -28,23 +27,13 @@ async function getBuildingUnitIds(buildingId: number): Promise<Set<number>> {
   return new Set(units.map(u => u.id));
 }
 
-async function getUnitScopedVehicles(unitId: number, unitNumber: string, buildingId: number, status: string): Promise<Array<typeof vehiclesTable.$inferSelect>> {
-  const tenants = await db.select({ id: tenantsTable.id }).from(tenantsTable)
-    .where(eq(tenantsTable.unitId, unitId));
-  const tenantIds = new Set(tenants.map(t => t.id));
-
-  const buildingUnits = await db.select({ unitNumber: unitsTable.unitNumber }).from(unitsTable)
-    .where(eq(unitsTable.buildingId, buildingId));
-  const buildingUnitNumbers = new Set(buildingUnits.map(u => u.unitNumber));
-
-  const allVehicles = await db.select().from(vehiclesTable)
-    .where(eq(vehiclesTable.status, status));
-
-  return allVehicles.filter(v => {
-    if (v.tenantId !== null && tenantIds.has(v.tenantId)) return true;
-    if (v.tenantId === null && v.unit === unitNumber && buildingUnitNumbers.has(v.unit)) return true;
-    return false;
-  });
+async function getUnitScopedVehicles(unitNumber: string, buildingId: number, status: string): Promise<Array<typeof vehiclesTable.$inferSelect>> {
+  return db.select().from(vehiclesTable)
+    .where(and(
+      eq(vehiclesTable.unit, unitNumber),
+      eq(vehiclesTable.buildingId, buildingId),
+      eq(vehiclesTable.status, status)
+    ));
 }
 
 async function verifyActionOwnership(actionId: number, buildingId: number): Promise<typeof delinquencyActionsTable.$inferSelect | null> {
@@ -144,9 +133,7 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
   const action = await verifyActionOwnership(id, buildingId);
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
 
-  const unitVehicles = action.unitId
-    ? await getUnitScopedVehicles(action.unitId, action.unitNumber, buildingId, "registered")
-    : [];
+  const unitVehicles = await getUnitScopedVehicles(action.unitNumber, buildingId, "registered");
 
   let suspendedCount = 0;
   for (const v of unitVehicles) {
@@ -197,8 +184,8 @@ router.post("/delinquency/:id/resolve", async (req: Request, res: Response): Pro
   const action = await verifyActionOwnership(id, buildingId);
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
 
-  if (action.actionType === "parking_suspended" && action.unitId) {
-    const unitVehicles = await getUnitScopedVehicles(action.unitId, action.unitNumber, buildingId, "suspended");
+  if (action.actionType === "parking_suspended") {
+    const unitVehicles = await getUnitScopedVehicles(action.unitNumber, buildingId, "suspended");
 
     for (const v of unitVehicles) {
       await db.update(vehiclesTable)

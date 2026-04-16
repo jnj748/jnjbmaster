@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, ilike, ne, gte, sql, inArray } from "drizzle-orm";
-import { db, vehiclesTable, tenantsTable, notificationsTable, vehicleHistoryTable } from "@workspace/db";
+import { db, vehiclesTable, tenantsTable, notificationsTable, vehicleHistoryTable, unitsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
   ListVehiclesQueryParams,
@@ -104,7 +104,22 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     }
   }
 
-  const [vehicle] = await db.insert(vehiclesTable).values(parsed.data).returning();
+  const userId = req.user?.userId;
+  let vehicleBuildingId: number | null = null;
+  if (userId) {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    vehicleBuildingId = user?.buildingId ?? null;
+  }
+  if (!vehicleBuildingId) {
+    const [matchingUnit] = await db.select().from(unitsTable)
+      .where(eq(unitsTable.unitNumber, parsed.data.unit));
+    vehicleBuildingId = matchingUnit?.buildingId ?? null;
+  }
+
+  const [vehicle] = await db.insert(vehiclesTable).values({
+    ...parsed.data,
+    buildingId: vehicleBuildingId,
+  }).returning();
 
   await db.insert(notificationsTable).values({
     recipientType: "admin",
