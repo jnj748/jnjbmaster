@@ -42,6 +42,8 @@ const AdminDashboard = lazy(() => import("@/pages/admin-dashboard"));
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
+const BuildingInfo = lazy(() => import("@/pages/building-info"));
+const SettingsPage = lazy(() => import("@/pages/settings"));
 const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const Units = lazy(() => import("@/pages/units"));
@@ -96,7 +98,9 @@ const managerRoutes = [
   { path: "/safety-training", component: SafetyTraining },
   { path: "/attendance", component: Attendance },
   { path: "/units", component: Units },
+  { path: "/building-info", component: BuildingInfo },
   { path: "/building-setup", component: BuildingSetup },
+  { path: "/settings", component: SettingsPage },
   { path: "/accounting", component: AccountingDashboard },
   { path: "/calendar", component: CalendarPage },
   { path: "/users", component: Users },
@@ -112,6 +116,7 @@ const partnerRoutes = [
   { path: "/rfqs", component: VendorPortal },
   { path: "/vendors", component: Vendors },
   { path: "/commissions", component: Commissions },
+  { path: "/settings", component: SettingsPage },
 ];
 
 const hqRoutes = [
@@ -120,6 +125,8 @@ const hqRoutes = [
   { path: "/safety-training", component: SafetyTraining },
   { path: "/vendors", component: Vendors },
   { path: "/users", component: Users },
+  { path: "/building-info", component: BuildingInfo },
+  { path: "/settings", component: SettingsPage },
 ];
 
 const adminRoutes = [
@@ -142,6 +149,8 @@ const accountantRoutes = [
   { path: "/billing", component: BillingPage },
   { path: "/complaints", component: ComplaintsPage },
   { path: "/voting", component: VotingPage },
+  { path: "/building-info", component: BuildingInfo },
+  { path: "/settings", component: SettingsPage },
 ];
 
 const facilityRoutes = [
@@ -149,6 +158,8 @@ const facilityRoutes = [
   { path: "/inspections", component: Inspections },
   { path: "/safety-checklists", component: SafetyChecklists },
   { path: "/maintenance-logs", component: MaintenanceLogs },
+  { path: "/building-info", component: BuildingInfo },
+  { path: "/settings", component: SettingsPage },
 ];
 
 function AuthenticatedRoutes() {

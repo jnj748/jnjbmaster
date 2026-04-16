@@ -63,7 +63,7 @@ const managerNavSections: NavSection[] = [
   {
     items: [
       { path: "/", label: "대시보드", icon: LayoutDashboard },
-      { path: "/building-setup", label: "건물 정보", icon: Building },
+      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/calendar", label: "일정", icon: CalendarDays },
       { path: "/tasks", label: "업무 관리", icon: CheckSquare },
       { path: "/attendance", label: "출퇴근 관리", icon: Clock },
@@ -199,7 +199,7 @@ const adminNavSections: NavSection[] = [
     title: "시스템 관리",
     items: [
       { path: "/users", label: "사용자 관리", icon: Users },
-      { path: "/building-setup", label: "건물 설정", icon: Building2 },
+      { path: "/building-info", label: "건물 정보", icon: Building2 },
       { path: "/vendors", label: "협력업체", icon: Package },
     ],
   },
@@ -298,9 +298,16 @@ function SidebarContent({ navLinks, user, logout, base }: {
               <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
               <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
             </div>
-            <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0" title="로그아웃">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <Link href="/settings">
+                <button className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="설정">
+                  <Settings className="w-4 h-4" />
+                </button>
+              </Link>
+              <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="로그아웃">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
         <div className="text-xs text-sidebar-foreground/50">v1.0.0</div>
@@ -468,9 +475,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
                     <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
                   </div>
-                  <button onClick={logout} className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center" title="로그아웃">
-                    <LogOut className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Link href="/settings">
+                      <button className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </Link>
+                    <button onClick={logout} className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="로그아웃">
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

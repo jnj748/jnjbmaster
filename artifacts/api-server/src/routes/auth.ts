@@ -185,4 +185,69 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
   });
 });
 
+router.put("/auth/me", authMiddleware, async (req, res): Promise<void> => {
+  const userId = req.user!.userId;
+  const { name, phone } = req.body;
+
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: "이름을 입력해주세요" });
+    return;
+  }
+
+  try {
+    const [updated] = await db
+      .update(usersTable)
+      .set({ name: name.trim(), phone: phone?.trim() || null })
+      .where(eq(usersTable.id, userId))
+      .returning();
+
+    res.json({
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        phone: updated.phone,
+      },
+    });
+  } catch {
+    res.status(500).json({ error: "정보 수정에 실패했습니다" });
+  }
+});
+
+router.put("/auth/me/password", authMiddleware, async (req, res): Promise<void> => {
+  const userId = req.user!.userId;
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "현재 비밀번호와 새 비밀번호를 입력해주세요" });
+    return;
+  }
+
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "새 비밀번호는 8자 이상이어야 합니다" });
+    return;
+  }
+
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (!user) {
+      res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
+      return;
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      res.status(400).json({ error: "현재 비밀번호가 일치하지 않습니다" });
+      return;
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.update(usersTable).set({ passwordHash: hashed }).where(eq(usersTable.id, userId));
+
+    res.json({ message: "비밀번호가 변경되었습니다" });
+  } catch {
+    res.status(500).json({ error: "비밀번호 변경에 실패했습니다" });
+  }
+});
+
 export default router;

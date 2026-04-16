@@ -19,6 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string, portalType: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
+  setUser: (user: AuthUser | null) => void;
 }
 
 interface RegisterData {
@@ -108,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );
