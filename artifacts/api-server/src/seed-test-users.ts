@@ -23,18 +23,22 @@ export async function seedTestUsers() {
   let created = 0;
 
   for (const u of TEST_USERS) {
-    const existing = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, u.email));
-    if (existing.length > 0) continue;
+    try {
+      const existing = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, u.email));
+      if (existing.length > 0) continue;
 
-    await db.insert(usersTable).values({
-      email: u.email,
-      passwordHash,
-      name: u.name,
-      role: u.role,
-      portalType: u.portalType,
-      buildingId: u.buildingId,
-    });
-    created++;
+      await db.insert(usersTable).values({
+        email: u.email,
+        passwordHash,
+        name: u.name,
+        role: u.role,
+        portalType: u.portalType,
+        buildingId: u.buildingId,
+      });
+      created++;
+    } catch (e) {
+      logger.warn({ email: u.email, err: e }, "Failed to seed test user");
+    }
   }
 
   if (created > 0) {
