@@ -1,5 +1,10 @@
+import { lazy, Suspense } from "react";
 import { Building2, Briefcase, Shield } from "lucide-react";
 import { useLocation } from "wouter";
+
+const DevQuickLogin = import.meta.env.DEV
+  ? lazy(() => import("@/components/dev-quick-login"))
+  : null;
 
 export default function PortalSelect() {
   const [, navigate] = useLocation();
@@ -76,6 +81,12 @@ export default function PortalSelect() {
           신규 계정은 관리소장 또는 본사 관리자가 사용자 관리에서 생성합니다
         </p>
       </div>
+
+      {DevQuickLogin && (
+        <Suspense fallback={null}>
+          <DevQuickLogin />
+        </Suspense>
+      )}
     </div>
   );
 }
