@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable } from "@workspace/db";
 import { eq, and, lte, gte, sql, desc } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
+import { LEGAL_PRESETS } from "./inspections";
 
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
@@ -594,7 +595,10 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
 });
 
 function getCyclemonthsForCategory(category: string, presetName: string): number {
-  const cycles: Record<string, number> = {
+  const preset = LEGAL_PRESETS.find(p => p.name === presetName);
+  if (preset) return preset.legalCycleMonths;
+
+  const categoryDefaults: Record<string, number> = {
     fire_safety: 12,
     electrical: 36,
     elevator: 12,
@@ -609,16 +613,7 @@ function getCyclemonthsForCategory(category: string, presetName: string): number
     disinfection: 2,
   };
 
-  if (presetName.includes("월간") || presetName.includes("월 1회")) return 1;
-  if (presetName.includes("하절기")) return 2;
-  if (presetName.includes("동절기")) return 3;
-  if (presetName.includes("분기")) return 3;
-  if (presetName.includes("반기")) return 6;
-  if (presetName.includes("자체점검")) return 3;
-  if (presetName.includes("정밀") || presetName.includes("종합")) return 12;
-  if (presetName.includes("3년") || presetName.includes("정기안전점검")) return 36;
-
-  return cycles[category] || 12;
+  return categoryDefaults[category] || 12;
 }
 
 function calculateNextDue(lastDate: string, cycleMonths: number): string {

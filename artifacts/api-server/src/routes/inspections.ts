@@ -32,7 +32,7 @@ async function getUserBuildingId(userId: number): Promise<number | null> {
   return user?.buildingId ?? null;
 }
 
-const LEGAL_PRESETS = [
+export const LEGAL_PRESETS = [
   // ── 소방 분야 ──
   {
     name: "소방 법정점검 (작동+정밀)",
