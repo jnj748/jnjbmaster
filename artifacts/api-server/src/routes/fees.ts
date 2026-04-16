@@ -400,7 +400,12 @@ router.post("/fees/record-payment", async (req: Request, res: Response): Promise
     return;
   }
 
-  const newPaidAmount = (existing.paidAmount || 0) + (paidAmount || existing.totalAmount);
+  const paymentToApply = paidAmount != null ? paidAmount : existing.totalAmount;
+  if (paymentToApply < 0) {
+    res.status(400).json({ error: "납부 금액은 0 이상이어야 합니다" });
+    return;
+  }
+  const newPaidAmount = (existing.paidAmount || 0) + paymentToApply;
   const isPaid = newPaidAmount >= existing.totalAmount;
 
   const [updated] = await db.update(monthlyPaymentsTable)

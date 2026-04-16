@@ -110,11 +110,6 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     vehicleBuildingId = user?.buildingId ?? null;
   }
-  if (!vehicleBuildingId) {
-    const [matchingUnit] = await db.select().from(unitsTable)
-      .where(eq(unitsTable.unitNumber, parsed.data.unit));
-    vehicleBuildingId = matchingUnit?.buildingId ?? null;
-  }
 
   const [vehicle] = await db.insert(vehiclesTable).values({
     ...parsed.data,

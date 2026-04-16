@@ -7,7 +7,6 @@ import {
   managementContractTemplatesTable,
   tenantsTable,
   vehiclesTable,
-  unitsTable,
 } from "@workspace/db";
 import {
   SubmitPublicTenantCardBody,
@@ -203,13 +202,10 @@ router.post("/public/tenant-card/:token", async (req, res): Promise<void> => {
   if (data.vehicles && data.vehicles.length > 0) {
     for (let i = 0; i < data.vehicles.length; i++) {
       const v = data.vehicles[i];
-      const [matchUnit] = await db.select().from(unitsTable)
-        .where(eq(unitsTable.unitNumber, tokenRecord.unitLabel));
-
       await db.insert(vehiclesTable).values({
         unit: tokenRecord.unitLabel,
         tenantId: tenant.id,
-        buildingId: matchUnit?.buildingId ?? null,
+        buildingId: tokenRecord.buildingId,
         vehicleNumber: v.vehicleNumber,
         vehicleType: v.vehicleType || null,
         vehicleColor: v.vehicleColor || null,
