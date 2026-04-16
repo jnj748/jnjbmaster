@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PlatformFooter, FirstEntryConsentModal } from "@/components/intermediary-disclaimer";
 
 interface NavSection {
   title?: string;
@@ -428,7 +429,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
-        <div className="p-3 border-b font-medium text-sm">알림</div>
+        <div className="p-3 border-b">
+          <div className="font-medium text-sm">알림</div>
+          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+            본 알림은 법적 권고 기한 안내를 위한 정보 제공 서비스이며, 실제 이행·보증을 담보하지 않습니다.
+          </p>
+        </div>
         <ScrollArea className="max-h-80">
           {notifications && notifications.length > 0 ? (
             <div className="divide-y">
@@ -558,8 +564,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
+          <PlatformFooter />
         </div>
       </div>
+      <FirstEntryConsentModal />
 
       <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}

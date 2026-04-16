@@ -393,15 +393,20 @@ export default function Dashboard() {
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-chart-3" />
-            필수업무현황
-            {alerts && alerts.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground ml-1">
-                총 {alerts.length}건
-              </span>
-            )}
-          </h2>
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-chart-3" />
+              필수업무현황
+              {alerts && alerts.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  총 {alerts.length}건
+                </span>
+              )}
+            </h2>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              본 알림(점검 · 하자담보 · 계약 만료 등)은 정보 제공 서비스이며, 실제 이행·보증을 담보하지 않습니다.
+            </p>
+          </div>
           {totalAlertPages > 1 && (
             <div className="flex items-center gap-1">
               {alertPages.map((_, i) => (

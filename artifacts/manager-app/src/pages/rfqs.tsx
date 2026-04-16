@@ -52,6 +52,7 @@ import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-reque
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
+import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -169,6 +170,17 @@ export default function Rfqs() {
   }
 
   async function handleAcceptQuote(quoteId: number) {
+    if (!token) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+    if (!confirm("견적을 채택하면 관리단과 파트너사 간의 직접 계약이 성립됩니다.\n플랫폼 운영사는 통신판매중개자로서 계약의 당사자가 아니며, 계약 이행·하자에 대한 책임을 지지 않습니다.\n\n위 내용을 확인하고 채택을 진행하시겠습니까?")) return;
+    try {
+      await recordConsent(token, "contract_disclaimer", `quote_accept:${quoteId}`, { throwOnError: true });
+    } catch {
+      toast({ title: "동의 기록에 실패했습니다", variant: "destructive" });
+      return;
+    }
     await updateQuoteMutation.mutateAsync({ id: quoteId, data: { status: "accepted" } });
     queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
     toast({ title: "견적이 채택되었습니다" });
@@ -474,6 +486,7 @@ export default function Rfqs() {
                       <BarChart3 className="w-4 h-4" />
                       견적서 비교
                     </h4>
+                    <IntermediaryDisclaimerBanner className="mb-3" />
                     {compareQuotes && compareQuotes.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">

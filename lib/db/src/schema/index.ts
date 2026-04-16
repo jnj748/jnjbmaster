@@ -38,3 +38,4 @@ export * from "./votes";
 export * from "./delinquencyActions";
 export * from "./monthlyPayments";
 export * from "./warranties";
+export * from "./platformConsents";

@@ -45,6 +45,7 @@ import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
 import warrantiesRouter from "./warranties";
+import platformConsentsRouter from "./platformConsents";
 
 const router: IRouter = Router();
 
@@ -52,6 +53,8 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(storageRouter);
 router.use(publicTenantCardRouter);
+
+router.use(platformConsentsRouter);
 
 router.use(authMiddleware);
 

@@ -82,6 +82,14 @@ export default function PortalSelect() {
         </p>
       </div>
 
+      <div className="mt-10 max-w-3xl px-6 w-full">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+          (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
+          <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다. 견적·계약·이행·하자에 관한
+          책임은 관리단(건물)과 파트너사(용역사)에게 귀속됩니다.
+        </div>
+      </div>
+
       {DevQuickLogin && (
         <Suspense fallback={null}>
           <DevQuickLogin />

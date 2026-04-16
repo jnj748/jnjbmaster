@@ -35,6 +35,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Plus,
   MessageSquare,
@@ -92,6 +93,7 @@ const SENSITIVE_CATEGORIES = ["contract_legal", "management_dispute", "accountin
 export default function Complaints() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { token } = useAuth();
   const [filterCat, setFilterCat] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -161,6 +163,37 @@ export default function Complaints() {
     }
   }
 
+  async function handleEscalateHq(id: number) {
+    if (!confirm("이 민원을 본사(HQ)에 에스컬레이션 하시겠습니까?\n플랫폼 운영사는 직접 개입하지 않으며, 본사 담당자가 후속 조치를 안내합니다.")) return;
+    try {
+      const BASE = import.meta.env.BASE_URL ?? "/";
+      const res = await fetch(`${BASE}api/complaints/${id}/escalate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("escalate failed");
+      toast({ title: "본사 에스컬레이션이 등록되었습니다" });
+      queryClient.invalidateQueries({ queryKey: getListComplaintsQueryKey() });
+    } catch {
+      toast({ title: "에스컬레이션에 실패했습니다", variant: "destructive" });
+    }
+  }
+
+  async function handleManagementReport(id: number) {
+    const report = prompt("관리단(건물 관리위원회) 보고 내용을 입력하세요:");
+    if (!report) return;
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        data: { resolution: `[관리단 보고] ${report}` },
+      });
+      toast({ title: "관리단 보고가 기록되었습니다" });
+      queryClient.invalidateQueries({ queryKey: getListComplaintsQueryKey() });
+    } catch {
+      toast({ title: "기록에 실패했습니다", variant: "destructive" });
+    }
+  }
+
   async function handleComplete(id: number) {
     const resolution = prompt("처리 내용을 입력하세요:");
     if (!resolution) return;
@@ -191,6 +224,16 @@ export default function Complaints() {
         <div>
           <h1 className="text-xl font-bold">민원 관리</h1>
           <p className="text-sm text-muted-foreground">입주민 민원을 접수하고 처리합니다</p>
+        </div>
+        <div className="w-full">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed flex items-start gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              플랫폼 운영사는 통신판매중개자로서 민원에 직접 개입하지 않습니다. 민원은 본
+              관리단에서 1차 처리하며, 필요 시 <strong>본사(HQ) 에스컬레이션</strong> 또는
+              <strong> 관리단 보고</strong> 경로로만 진행됩니다.
+            </span>
+          </div>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
@@ -402,41 +445,82 @@ export default function Complaints() {
                           {c.resolution}
                         </p>
                       )}
-                      <div className="flex gap-2 mt-3">
-                        {c.status === "received" && (
-                          <>
-                            {assignOpen === c.id ? (
-                              <div className="flex gap-1 items-center">
-                                <Input
-                                  className="h-7 text-xs w-32"
-                                  placeholder="담당자명"
-                                  value={assignee}
-                                  onChange={(e) => setAssignee(e.target.value)}
-                                />
-                                <Button size="sm" className="h-7 text-xs" onClick={() => handleAssign(c.id)}>확인</Button>
+                      {(() => {
+                        const lockedToHq =
+                          c.escalatedToHq ||
+                          c.sensitivity === "sensitive" ||
+                          c.sensitivity === "urgent" ||
+                          c.hasRiskKeyword ||
+                          (c.isRecurring && (c.recurringCount ?? 0) >= 3);
+                        if (lockedToHq) {
+                          return (
+                            <div className="mt-3 space-y-2">
+                              <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700 leading-relaxed">
+                                본 민원은 민감/긴급/반복 사유로 <strong>본사(HQ) 에스컬레이션</strong> 또는
+                                <strong> 관리단 보고</strong> 경로로만 처리됩니다. 플랫폼 운영사는 통신판매중개자로서
+                                직접 개입하지 않습니다.
                               </div>
-                            ) : (
-                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAssignOpen(c.id)}>
-                                담당자 배정
+                              <div className="flex gap-2">
+                                {!c.escalatedToHq && (
+                                  <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={() => handleEscalateHq(c.id)}>
+                                    <ArrowUpCircle className="w-3 h-3" />
+                                    HQ 에스컬레이션
+                                  </Button>
+                                )}
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleManagementReport(c.id)}>
+                                  관리단 보고서 작성
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => setHistoryOpen(historyOpen === c.id ? null : c.id)}
+                                >
+                                  <History className="w-3 h-3" />
+                                  이력
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="flex gap-2 mt-3">
+                            {c.status === "received" && (
+                              <>
+                                {assignOpen === c.id ? (
+                                  <div className="flex gap-1 items-center">
+                                    <Input
+                                      className="h-7 text-xs w-32"
+                                      placeholder="담당자명"
+                                      value={assignee}
+                                      onChange={(e) => setAssignee(e.target.value)}
+                                    />
+                                    <Button size="sm" className="h-7 text-xs" onClick={() => handleAssign(c.id)}>확인</Button>
+                                  </div>
+                                ) : (
+                                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAssignOpen(c.id)}>
+                                    담당자 배정
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {(c.status === "assigned" || c.status === "in_progress") && (
+                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleComplete(c.id)}>
+                                처리 완료
                               </Button>
                             )}
-                          </>
-                        )}
-                        {(c.status === "assigned" || c.status === "in_progress") && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleComplete(c.id)}>
-                            처리 완료
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => setHistoryOpen(historyOpen === c.id ? null : c.id)}
-                        >
-                          <History className="w-3 h-3" />
-                          이력
-                        </Button>
-                      </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => setHistoryOpen(historyOpen === c.id ? null : c.id)}
+                            >
+                              <History className="w-3 h-3" />
+                              이력
+                            </Button>
+                          </div>
+                        );
+                      })()}
                       {historyOpen === c.id && (
                         <ComplaintHistoryPanel complaintId={c.id} />
                       )}

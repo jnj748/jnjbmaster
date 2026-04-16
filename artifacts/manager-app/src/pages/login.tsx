@@ -188,6 +188,13 @@ export default function Login() {
               </button>
             </div>
           )}
+
+          <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
+            (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
+            <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다. 최초 로그인 시
+            이용약관·개인정보처리방침{role === "partner" || portalType === "partner" ? "·파트너 이용약관" : ""}에
+            대한 동의 절차가 진행되며, 동의 이력은 별도로 기록·보관됩니다.
+          </div>
         </div>
       </div>
     </div>

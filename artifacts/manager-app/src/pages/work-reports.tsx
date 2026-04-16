@@ -33,11 +33,16 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import {
+  IntermediaryDisclaimerBanner,
+  InspectionCompletionConfirmDialog,
+} from "@/components/intermediary-disclaimer";
 
 export default function WorkReports() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [reviewId, setReviewId] = useState<number | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -198,13 +203,14 @@ export default function WorkReports() {
                   placeholder="검수 결과에 대한 의견을 입력하세요"
                 />
               </div>
+              <IntermediaryDisclaimerBanner variant="contract" />
               <div className="flex gap-2">
                 <Button
                   className="flex-1"
-                  onClick={() => handleReview("approved")}
+                  onClick={() => setConfirmOpen(true)}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  승인
+                  검수 승인
                 </Button>
                 <Button
                   variant="destructive"
@@ -219,6 +225,13 @@ export default function WorkReports() {
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
+
+      <InspectionCompletionConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => handleReview("approved")}
+        contextRef={reviewId ? `work_report:${reviewId}` : undefined}
+      />
     </div>
   );
 }

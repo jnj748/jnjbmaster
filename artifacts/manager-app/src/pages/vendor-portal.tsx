@@ -40,6 +40,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
+import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { AuthImage } from "@/components/auth-image";
 
 type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
@@ -318,6 +319,16 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
   async function handleSubmitQuote(e: React.FormEvent) {
     e.preventDefault();
     if (!quoteDialogRfq) return;
+    if (!authToken) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+    try {
+      await recordConsent(authToken, "contract_disclaimer", `quote_submit:rfq:${quoteDialogRfq.id}`, { throwOnError: true });
+    } catch {
+      toast({ title: "동의 기록에 실패했습니다. 다시 시도해 주세요.", variant: "destructive" });
+      return;
+    }
 
     await createQuoteMutation.mutateAsync({
       data: {
@@ -429,6 +440,7 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                 <p><strong>건물:</strong> {quoteDialogRfq.buildingName}</p>
                 <p><strong>마감:</strong> {formatDate(quoteDialogRfq.deadline)}</p>
               </div>
+              <IntermediaryDisclaimerBanner variant="contract" className="mb-3" />
               <form onSubmit={handleSubmitQuote} className="space-y-4">
                 <div>
                   <Label>견적 금액 (원)</Label>

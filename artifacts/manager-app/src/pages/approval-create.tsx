@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import {
   FileText,
   Plus,
@@ -260,6 +261,16 @@ export default function ApprovalCreate() {
       toast({ title: "제목과 내용을 입력해주세요", variant: "destructive" });
       return;
     }
+    if (!token) {
+      toast({ title: "로그인이 필요합니다", variant: "destructive" });
+      return;
+    }
+    try {
+      await recordConsent(token, "contract_disclaimer", `approval_submit:${draftId ?? "new"}`, { throwOnError: true });
+    } catch {
+      toast({ title: "동의 기록에 실패했습니다", variant: "destructive" });
+      return;
+    }
 
     try {
       const payload = buildPayload();
@@ -361,6 +372,8 @@ export default function ApprovalCreate() {
               </Button>
             </CardContent>
           </Card>
+
+          <IntermediaryDisclaimerBanner variant="contract" />
 
           <Card>
             <CardHeader>

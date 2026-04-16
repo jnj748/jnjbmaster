@@ -236,6 +236,30 @@ router.patch("/complaints/:id", async (req: Request, res: Response): Promise<voi
   res.json(row);
 });
 
+router.post("/complaints/:id/escalate", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id as string);
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+
+  const [row] = await db
+    .update(complaintsTable)
+    .set({ escalatedToHq: true, escalatedAt: new Date(), status: "in_progress" })
+    .where(and(eq(complaintsTable.id, id), eq(complaintsTable.buildingId, buildingId)))
+    .returning();
+
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+
+  await createHqNotification({
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    sensitivity: row.sensitivity,
+    buildingId: row.buildingId,
+  });
+
+  res.json(row);
+});
+
 router.delete("/complaints/:id", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id as string);
   const buildingId = await getUserBuildingId(req);
