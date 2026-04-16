@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable } from "@workspace/db";
+import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -432,7 +432,36 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
     }
   }
 
-  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}`;
+  const billingRecords = await db.select().from(monthlyPaymentsTable)
+    .where(eq(monthlyPaymentsTable.billingMonth, reportMonth));
+
+  let accountingSummary = "";
+  if (billingRecords.length > 0) {
+    const totalBilled = billingRecords.reduce((s, r) => s + r.totalAmount, 0);
+    const totalCollected = billingRecords.reduce((s, r) => s + r.paidAmount, 0);
+    const paidCount = billingRecords.filter(r => r.isPaid).length;
+    const unpaidCount = billingRecords.length - paidCount;
+    const collectionRate = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 1000) / 10 : 0;
+    const totalUnpaidAmount = Math.round(totalBilled - totalCollected);
+
+    const prevMonthDate = new Date(parseInt(reportMonth.split("-")[0]), parseInt(reportMonth.split("-")[1]) - 2, 1);
+    const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+    const prevBillingRecords = await db.select().from(monthlyPaymentsTable)
+      .where(eq(monthlyPaymentsTable.billingMonth, prevMonth));
+
+    let momChange = "";
+    if (prevBillingRecords.length > 0) {
+      const prevTotal = prevBillingRecords.reduce((s, r) => s + r.totalAmount, 0);
+      const diff = totalBilled - prevTotal;
+      const diffPct = prevTotal > 0 ? Math.round((diff / prevTotal) * 1000) / 10 : 0;
+      const arrow = diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
+      momChange = `\n  전월 대비: ${arrow} ₩${Math.abs(Math.round(diff)).toLocaleString()} (${diffPct > 0 ? "+" : ""}${diffPct}%)`;
+    }
+
+    accountingSummary = `\n\n■ 회계 현황\n  부과 총액: ₩${Math.round(totalBilled).toLocaleString()}\n  수납 총액: ₩${Math.round(totalCollected).toLocaleString()}\n  수납률: ${collectionRate}% (${paidCount}/${billingRecords.length}세대)\n  미납 세대: ${unpaidCount}세대 (₩${totalUnpaidAmount.toLocaleString()})${momChange}`;
+  }
+
+  const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}${accountingSummary}`;
 
   const [row] = await db
     .insert(monthlySummaryReportsTable)

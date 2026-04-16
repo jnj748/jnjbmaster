@@ -21,18 +21,42 @@ import {
   GraduationCap,
   Wallet,
   ChevronRight,
+  Receipt,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const MOCK_BUILDINGS = [
-  { id: 1, name: "테스트빌딩", units: 30, collectionRate: 94.2, delinquent: 850000 },
-  { id: 2, name: "서초파크빌딩", units: 45, collectionRate: 97.1, delinquent: 320000 },
-  { id: 3, name: "강남오피스텔", units: 120, collectionRate: 89.5, delinquent: 2100000 },
+  { id: 1, name: "테스트빌딩", units: 30, collectionRate: 94.2, delinquent: 850000, totalBilled: 7800000, totalCollected: 7348000, unpaidUnits: 3 },
+  { id: 2, name: "서초파크빌딩", units: 45, collectionRate: 97.1, delinquent: 320000, totalBilled: 11250000, totalCollected: 10930000, unpaidUnits: 2 },
+  { id: 3, name: "강남오피스텔", units: 120, collectionRate: 89.5, delinquent: 2100000, totalBilled: 20000000, totalCollected: 17900000, unpaidUnits: 8 },
 ];
 
 const MOCK_REPORTS = [
-  { id: 1, building: "테스트빌딩", month: "2026-03", status: "submitted", submittedAt: "2026-04-07" },
-  { id: 2, building: "서초파크빌딩", month: "2026-03", status: "reviewed", submittedAt: "2026-04-05" },
-  { id: 3, building: "강남오피스텔", month: "2026-03", status: "pending", submittedAt: null },
+  {
+    id: 1,
+    building: "테스트빌딩",
+    month: "2026-03",
+    status: "submitted",
+    submittedAt: "2026-04-07",
+    accounting: { totalBilled: 7800000, totalCollected: 7348000, collectionRate: 94.2, unpaidUnits: 3, momChange: 2.1 },
+  },
+  {
+    id: 2,
+    building: "서초파크빌딩",
+    month: "2026-03",
+    status: "reviewed",
+    submittedAt: "2026-04-05",
+    accounting: { totalBilled: 11250000, totalCollected: 10930000, collectionRate: 97.1, unpaidUnits: 2, momChange: -0.5 },
+  },
+  {
+    id: 3,
+    building: "강남오피스텔",
+    month: "2026-03",
+    status: "pending",
+    submittedAt: null,
+    accounting: null,
+  },
 ];
 
 const MOCK_INSPECTIONS = [
@@ -58,6 +82,7 @@ const statusLabels: Record<string, { label: string; variant: "default" | "second
 
 export default function HqDashboard() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
+  const [expandedReport, setExpandedReport] = useState<number | null>(null);
 
   const filteredReports = selectedBuilding === "all"
     ? MOCK_REPORTS
@@ -183,13 +208,63 @@ export default function HqDashboard() {
           <CardContent className="space-y-3">
             {filteredReports.map((r) => {
               const st = statusLabels[r.status];
+              const isExpanded = expandedReport === r.id;
               return (
-                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{r.building}</p>
-                    <p className="text-xs text-muted-foreground">{r.month} · {r.submittedAt ? `제출일: ${r.submittedAt}` : "미제출"}</p>
-                  </div>
-                  <Badge variant={st?.variant ?? "outline"}>{st?.label ?? r.status}</Badge>
+                <div key={r.id} className="rounded-lg border overflow-hidden">
+                  <button
+                    onClick={() => setExpandedReport(isExpanded ? null : r.id)}
+                    className="flex items-center justify-between p-3 w-full text-left hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{r.building}</p>
+                      <p className="text-xs text-muted-foreground">{r.month} · {r.submittedAt ? `제출일: ${r.submittedAt}` : "미제출"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={st?.variant ?? "outline"}>{st?.label ?? r.status}</Badge>
+                      {r.accounting && (
+                        isExpanded
+                          ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                          : <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </button>
+                  {isExpanded && r.accounting && (
+                    <div className="px-3 pb-3 border-t bg-muted/10">
+                      <div className="pt-2 space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                          <Receipt className="w-3 h-3" />
+                          회계 현황
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 rounded bg-background border">
+                            <p className="text-muted-foreground">부과 총액</p>
+                            <p className="font-bold">₩{r.accounting.totalBilled.toLocaleString()}</p>
+                          </div>
+                          <div className="p-2 rounded bg-background border">
+                            <p className="text-muted-foreground">수납 총액</p>
+                            <p className="font-bold">₩{r.accounting.totalCollected.toLocaleString()}</p>
+                          </div>
+                          <div className="p-2 rounded bg-background border">
+                            <p className="text-muted-foreground">수납률</p>
+                            <p className="font-bold">{r.accounting.collectionRate}%</p>
+                          </div>
+                          <div className="p-2 rounded bg-background border">
+                            <p className="text-muted-foreground">미납 세대</p>
+                            <p className="font-bold">{r.accounting.unpaidUnits}세대</p>
+                          </div>
+                        </div>
+                        {r.accounting.momChange !== undefined && (
+                          <div className="flex items-center gap-1 text-xs mt-1">
+                            <span className="text-muted-foreground">전월 대비:</span>
+                            <span className={r.accounting.momChange > 0 ? "text-red-500" : r.accounting.momChange < 0 ? "text-green-500" : ""}>
+                              {r.accounting.momChange > 0 ? "▲" : r.accounting.momChange < 0 ? "▼" : "→"}
+                              {Math.abs(r.accounting.momChange)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

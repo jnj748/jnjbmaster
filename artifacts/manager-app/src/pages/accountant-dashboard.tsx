@@ -2,14 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Calculator,
   CalendarDays,
   AlertTriangle,
-  FileText,
   Clock,
   CheckCircle,
   Wallet,
-  Receipt,
   Send,
   Bell,
 } from "lucide-react";
@@ -23,16 +20,48 @@ interface TaxEvent {
   title: string;
   type: "tax" | "insurance" | "invoice" | "deadline";
   done: boolean;
+  daysUntil: number;
 }
 
-const TAX_EVENTS: TaxEvent[] = [
-  { day: 5, title: "세무사 자료 마감", type: "deadline", done: today.getDate() > 5 },
-  { day: 10, title: "원천세 신고·납부", type: "tax", done: today.getDate() > 10 },
-  { day: 10, title: "전자세금계산서 발급", type: "invoice", done: today.getDate() > 10 },
-  { day: 10, title: "4대보험료 고지분 납부", type: "insurance", done: today.getDate() > 10 },
-  { day: 25, title: "관리비 고지서 발송", type: "deadline", done: today.getDate() > 25 },
-  { day: 28, title: "세무사 자료 요청 (익월분)", type: "deadline", done: today.getDate() > 28 },
-];
+function buildTaxEvents(): TaxEvent[] {
+  const dayOfMonth = today.getDate();
+
+  const monthly: TaxEvent[] = [
+    { day: 5, title: "세무사 자료 마감", type: "deadline", done: dayOfMonth > 5, daysUntil: 5 - dayOfMonth },
+    { day: 10, title: "원천세 신고·납부", type: "tax", done: dayOfMonth > 10, daysUntil: 10 - dayOfMonth },
+    { day: 10, title: "전자세금계산서 발급", type: "invoice", done: dayOfMonth > 10, daysUntil: 10 - dayOfMonth },
+    { day: 10, title: "4대보험료 고지분 납부", type: "insurance", done: dayOfMonth > 10, daysUntil: 10 - dayOfMonth },
+    { day: 25, title: "관리비 고지서 발송", type: "deadline", done: dayOfMonth > 25, daysUntil: 25 - dayOfMonth },
+    { day: 28, title: "세무사 자료 요청 (익월분)", type: "deadline", done: dayOfMonth > 28, daysUntil: 28 - dayOfMonth },
+  ];
+
+  const quarterEndMonths = [3, 6, 9, 12];
+  const isQuarterEnd = quarterEndMonths.includes(currentMonth);
+  if (isQuarterEnd) {
+    monthly.push({
+      day: 25,
+      title: "부가가치세 신고·납부",
+      type: "tax",
+      done: dayOfMonth > 25,
+      daysUntil: 25 - dayOfMonth,
+    });
+  }
+
+  const nextMonth = (currentMonth % 12) + 1;
+  if (quarterEndMonths.includes(nextMonth)) {
+    monthly.push({
+      day: 28,
+      title: "부가세 신고 자료 준비",
+      type: "tax",
+      done: dayOfMonth > 28,
+      daysUntil: 28 - dayOfMonth,
+    });
+  }
+
+  return monthly.sort((a, b) => a.day - b.day);
+}
+
+const TAX_EVENTS = buildTaxEvents();
 
 const DELINQUENT_UNITS = [
   { unit: "301호", months: 3, amount: 540000, lastAction: "문자 발송 (04/01)", lastActionType: "sms" },
@@ -56,16 +85,26 @@ const typeLabels: Record<string, string> = {
 
 export default function AccountantDashboard() {
   const nextEvent = TAX_EVENTS.find((e) => !e.done);
-  const daysUntilNext = nextEvent ? nextEvent.day - today.getDate() : null;
+  const daysUntilNext = nextEvent ? nextEvent.daysUntil : null;
   const totalDelinquent = DELINQUENT_UNITS.reduce((s, u) => s + u.amount, 0);
+
+  const urgentCount = TAX_EVENTS.filter(e => !e.done && e.daysUntil >= 0 && e.daysUntil <= 3).length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">회계/행정 대시보드</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {currentYear}년 {currentMonth}월 세무·회계 일정과 미납 현황을 관리합니다
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">회계/행정 대시보드</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {currentYear}년 {currentMonth}월 세무·회계 일정과 미납 현황을 관리합니다
+          </p>
+        </div>
+        {urgentCount > 0 && (
+          <Badge variant="destructive" className="text-xs gap-1 animate-pulse">
+            <AlertTriangle className="w-3 h-3" />
+            {urgentCount}건 D-3 이내
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -74,7 +113,9 @@ export default function AccountantDashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">다음 세무 일정</p>
-                <p className="text-2xl font-bold mt-1">{daysUntilNext !== null ? `D-${daysUntilNext}` : "완료"}</p>
+                <p className="text-2xl font-bold mt-1">
+                  {daysUntilNext !== null && daysUntilNext > 0 ? `D-${daysUntilNext}` : daysUntilNext === 0 ? "D-Day" : "완료"}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">{nextEvent?.title ?? "이번 달 완료"}</p>
               </div>
               <div className="p-2 rounded-lg bg-accent/10"><CalendarDays className="w-5 h-5 text-accent" /></div>
@@ -109,9 +150,9 @@ export default function AccountantDashboard() {
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">연차 계획</p>
-                <p className="text-2xl font-bold mt-1">미제출</p>
-                <p className="text-xs text-muted-foreground mt-1">제출 기한 확인</p>
+                <p className="text-xs text-muted-foreground">긴급 알림</p>
+                <p className="text-2xl font-bold mt-1">{urgentCount > 0 ? `${urgentCount}건` : "없음"}</p>
+                <p className="text-xs text-muted-foreground mt-1">D-3 이내 일정</p>
               </div>
               <div className="p-2 rounded-lg bg-amber-500/10"><Bell className="w-5 h-5 text-amber-500" /></div>
             </div>
@@ -128,27 +169,39 @@ export default function AccountantDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {TAX_EVENTS.map((event, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-between p-3 rounded-lg border ${event.done ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-sm font-mono font-bold w-8 text-center shrink-0">
-                    {event.day}일
-                  </span>
-                  {event.done ? (
-                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                  )}
-                  <span className="text-sm font-medium truncate">{event.title}</span>
+            {TAX_EVENTS.map((event, i) => {
+              const isUrgent = !event.done && event.daysUntil >= 0 && event.daysUntil <= 3;
+              return (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${event.done ? "opacity-60" : ""} ${isUrgent ? "border-red-300 bg-red-50/50" : ""}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-mono font-bold w-8 text-center shrink-0">
+                      {event.day}일
+                    </span>
+                    {event.done ? (
+                      <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    ) : isUrgent ? (
+                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                    )}
+                    <span className="text-sm font-medium truncate">{event.title}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isUrgent && (
+                      <Badge variant="destructive" className="text-[10px]">
+                        {event.daysUntil === 0 ? "D-Day" : `D-${event.daysUntil}`}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className={`text-[10px] ${typeColors[event.type]}`}>
+                      {typeLabels[event.type]}
+                    </Badge>
+                  </div>
                 </div>
-                <Badge variant="outline" className={`text-[10px] shrink-0 ${typeColors[event.type]}`}>
-                  {typeLabels[event.type]}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
