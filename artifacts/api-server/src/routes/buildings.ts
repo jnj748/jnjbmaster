@@ -309,6 +309,53 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
   }
 });
 
+router.get("/buildings/lookup-area-info", async (req: Request, res: Response) => {
+  const { mgmBldrgstPk } = req.query;
+  if (!mgmBldrgstPk) {
+    res.status(400).json({ error: "mgmBldrgstPk가 필요합니다" });
+    return;
+  }
+
+  const apiKey = process.env.BUILDING_REGISTER_API_KEY;
+  if (!apiKey) {
+    res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다" });
+    return;
+  }
+
+  try {
+    const queryParams = new URLSearchParams({
+      mgmBldrgstPk: String(mgmBldrgstPk),
+      numOfRows: "100",
+      pageNo: "1",
+      _type: "json",
+    });
+    const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
+
+    const result = await fetch(
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`
+    ).then((r) => (r.ok ? r.json() : null));
+
+    const items = result?.response?.body?.items?.item;
+    if (!items) {
+      res.json({ found: false, areas: [] });
+      return;
+    }
+
+    const areaList = Array.isArray(items) ? items : [items];
+    const areas = areaList.map((item: Record<string, unknown>) => ({
+      floorNo: item.flrNoNm || item.flrNo || "",
+      purposeName: item.mainPurpsCdNm || item.etcPurps || "",
+      exposArea: item.area ? parseFloat(String(item.area)) : 0,
+      pubUseArea: item.cmmnPuprpsArea ? parseFloat(String(item.cmmnPuprpsArea)) : 0,
+    }));
+
+    res.json({ found: true, areas });
+  } catch (error) {
+    req.log.error({ err: error }, "Error looking up area info");
+    res.status(500).json({ error: "전용/공용면적 조회 실패" });
+  }
+});
+
 interface AppointmentField {
   field: string;
   required: boolean;

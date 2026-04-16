@@ -134,6 +134,7 @@ interface DashboardAlert {
   hasDraft?: boolean;
   actionStatus?: string | null;
   dueDate?: string | null;
+  penaltyInfo?: string | null;
   createdAt: string;
 }
 
@@ -172,6 +173,8 @@ export default function Dashboard() {
   } | null>(null);
   const [showRfqDocument, setShowRfqDocument] = useState(false);
   const [rfqDocumentData, setRfqDocumentData] = useState<RfqDocumentData | null>(null);
+  const [delayReason, setDelayReason] = useState("");
+  const [delayReasonDetail, setDelayReasonDetail] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -194,6 +197,8 @@ export default function Dashboard() {
     setWidePhotoUrl(null);
     setRfqCloseUpPhotoUrl(null);
     setRfqWidePhotoUrl(null);
+    setDelayReason("");
+    setDelayReasonDetail("");
   }
 
   function getEntityType(alertType: string): string {
@@ -207,6 +212,7 @@ export default function Dashboard() {
 
   async function handleComplete() {
     if (!selectedAlert) return;
+    const isOverdue = selectedAlert.dueDate && getDdayLabel(selectedAlert.dueDate).isOverdue;
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
@@ -218,6 +224,8 @@ export default function Dashboard() {
         notes: actionNotes || null,
         closeUpPhotoUrl: closeUpPhotoUrl || null,
         widePhotoUrl: widePhotoUrl || null,
+        delayReason: isOverdue && delayReason ? delayReason : null,
+        delayReasonDetail: isOverdue && delayReasonDetail ? delayReasonDetail : null,
       },
     });
     queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
@@ -440,17 +448,20 @@ export default function Dashboard() {
                 <div key={pi} className="w-full shrink-0 space-y-2 px-0.5">
                   {pageAlerts.map((alert) => {
                     const dday = getDdayLabel(alert.dueDate ?? null);
+                    const trafficColor = dday.isOverdue
+                      ? "red"
+                      : dday.days !== null && dday.days <= 7
+                      ? "yellow"
+                      : "green";
                     return (
                       <div
                         key={alert.id}
                         className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
-                          dday.isOverdue
-                            ? "border-l-red-500"
-                            : dday.days !== null && dday.days <= 3
-                            ? "border-l-orange-400"
-                            : dday.days !== null && dday.days <= 7
-                            ? "border-l-yellow-400"
-                            : "border-l-blue-400"
+                          trafficColor === "red"
+                            ? "border-l-red-500 bg-red-50/40"
+                            : trafficColor === "yellow"
+                            ? "border-l-yellow-400 bg-yellow-50/30"
+                            : "border-l-green-500 bg-green-50/20"
                         }`}
                         onClick={() =>
                           alert.relatedId &&
@@ -458,22 +469,26 @@ export default function Dashboard() {
                           openAlertAction(alert)
                         }
                       >
-                        <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ${
-                            dday.isOverdue
-                              ? "bg-red-100 text-red-700"
-                              : dday.days !== null && dday.days <= 3
-                              ? "bg-orange-100 text-orange-700"
-                              : dday.days !== null && dday.days <= 7
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {dday.label}
-                        </span>
+                        <div className="flex flex-col items-center gap-0.5 shrink-0">
+                          <span className={`w-3 h-3 rounded-full ${
+                            trafficColor === "red" ? "bg-red-500 animate-pulse" :
+                            trafficColor === "yellow" ? "bg-yellow-400" :
+                            "bg-green-500"
+                          }`} />
+                          <span className={`text-[10px] font-bold whitespace-nowrap ${
+                            trafficColor === "red" ? "text-red-700" :
+                            trafficColor === "yellow" ? "text-yellow-700" :
+                            "text-green-700"
+                          }`}>
+                            {dday.label}
+                          </span>
+                        </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{alert.title}</p>
                           <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                          {trafficColor === "red" && alert.penaltyInfo && (
+                            <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {alert.penaltyInfo}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           {alert.hasDraft && (
@@ -765,8 +780,47 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              {actionTab === "complete" && (
+              {actionTab === "complete" && (() => {
+                const isOverdue = selectedAlert.dueDate && getDdayLabel(selectedAlert.dueDate).isOverdue;
+                return (
                 <div className="space-y-3">
+                  {isOverdue && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                      <p className="text-sm font-semibold text-red-800 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4" />
+                        기한 초과 항목 — 지연 사유를 기록해주세요
+                      </p>
+                      {selectedAlert.penaltyInfo && (
+                        <p className="text-xs text-red-600">⚠ {selectedAlert.penaltyInfo}</p>
+                      )}
+                      <div>
+                        <Label className="text-xs">지연 사유</Label>
+                        <Select value={delayReason || undefined} onValueChange={setDelayReason}>
+                          <SelectTrigger><SelectValue placeholder="사유 선택" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="업체 일정 미확보">업체 일정 미확보</SelectItem>
+                            <SelectItem value="예산 미확보">예산 미확보</SelectItem>
+                            <SelectItem value="우천/기상 악화">우천/기상 악화</SelectItem>
+                            <SelectItem value="자재 미입고">자재 미입고</SelectItem>
+                            <SelectItem value="관리주체 일정 미조율">관리주체 일정 미조율</SelectItem>
+                            <SelectItem value="코로나/감염병 대응">코로나/감염병 대응</SelectItem>
+                            <SelectItem value="인력 부족">인력 부족</SelectItem>
+                            <SelectItem value="기타">기타</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {delayReason === "기타" && (
+                        <div>
+                          <Label className="text-xs">상세 사유</Label>
+                          <Input
+                            value={delayReasonDetail}
+                            onChange={(e) => setDelayReasonDetail(e.target.value)}
+                            placeholder="구체적인 지연 사유를 입력하세요"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <Label>완료일</Label>
                     <Input
@@ -784,7 +838,7 @@ export default function Dashboard() {
                         onChange={(e) => setNextCycleDate(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        비워두면 해당 점검의 법정 주기(legalCycleMonths/intervalDays)에 따라 서버에서 자동 계산됩니다.
+                        비워두면 해당 점검의 법정 주기에 따라 서버에서 자동 계산됩니다.
                       </p>
                     </div>
                   )}
@@ -805,7 +859,8 @@ export default function Dashboard() {
                     처리완료
                   </Button>
                 </div>
-              )}
+                );
+              })()}
 
               {actionTab === "postpone" && (
                 <div className="space-y-3">

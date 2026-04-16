@@ -45,6 +45,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["작동기능점검", "종합정밀점검"]),
     seasonalNotes: null,
+    penaltyInfo: "소방시설 점검 미실시: 300만원 이하 과태료",
   },
   {
     name: "소방 자체점검",
@@ -57,6 +58,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([4, 7, 10]),
     subItems: JSON.stringify(["소화기 점검", "감지기 작동 확인", "스프링클러 점검", "피난구 확인"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
   {
     name: "불조심 강조의 달 점검",
@@ -69,6 +71,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([11]),
     subItems: JSON.stringify(["소방 안전 캠페인", "소화기 위치 확인", "대피 훈련"]),
     seasonalNotes: "11월 불조심 강조 기간: 소방 안전 교육 및 대피 훈련 실시",
+    penaltyInfo: null,
   },
 
   // ── 전기 분야 ──
@@ -83,6 +86,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["절연저항 측정", "접지저항 측정", "전기설비 외관 점검"]),
     seasonalNotes: null,
+    penaltyInfo: "전기안전관리 미선임: 500만원 이하 벌금",
   },
   {
     name: "변전실·분전반 월간 점검",
@@ -95,6 +99,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["변전실 점검", "절연저항 측정", "분전반 점검", "배선 상태 확인"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
   {
     name: "비상발전기 무부하 기동 점검",
@@ -107,6 +112,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["무부하 기동 테스트", "연료 잔량 확인", "배터리 상태 점검"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
   {
     name: "혹한기 동파 대비 전기설비 점검",
@@ -119,6 +125,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([1]),
     subItems: JSON.stringify(["동파 대비 열선 점검", "보온재 상태 확인", "외부 배관 점검"]),
     seasonalNotes: "1월 혹한기: 동파 방지 열선, 보온재, 외부 배관 집중 점검",
+    penaltyInfo: null,
   },
   {
     name: "우기 수배전반 누설전류 측정",
@@ -131,6 +138,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([6, 7]),
     subItems: JSON.stringify(["누설전류 측정", "접지 상태 점검", "방수 처리 확인"]),
     seasonalNotes: "6~7월 우기: 수배전반 누설전류, 접지 상태, 방수 처리 집중 점검",
+    penaltyInfo: null,
   },
 
   // ── 승강기 ──
@@ -145,6 +153,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["안전장치 검사", "와이어로프 검사", "제어반 검사", "도어장치 검사"]),
     seasonalNotes: null,
+    penaltyInfo: "승강기 정기검사 미수검: 500만원 이하 과태료",
   },
   {
     name: "승강기 자체 월간 점검",
@@ -163,6 +172,7 @@ export const LEGAL_PRESETS = [
       "안전회로 점검 (매월)",
     ]),
     seasonalNotes: null,
+    penaltyInfo: "승강기 자체점검 미실시: 300만원 이하 과태료",
   },
 
   // ── 위생/환경 ──
@@ -177,6 +187,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([3, 4, 8, 9]),
     subItems: JSON.stringify(["저수조 내부 세척", "소독", "수질 검사"]),
     seasonalNotes: "3~4월, 8~9월 실시 추천 (동절기·하절기 전 시행)",
+    penaltyInfo: "저수조 청소 미실시: 300만원 이하 과태료",
   },
   {
     name: "정화조 청소",
@@ -189,6 +200,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["정화조 내부 청소", "슬러지 제거", "기능 점검"]),
     seasonalNotes: null,
+    penaltyInfo: "정화조 청소 미이행: 100만원 이하 과태료",
   },
   {
     name: "오수정화시설 분기별 점검",
@@ -201,6 +213,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([3, 6, 9, 12]),
     subItems: JSON.stringify(["방류수 수질 확인", "송풍기 점검", "침전조 상태 확인"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
   {
     name: "수질 검사",
@@ -213,6 +226,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["일반세균", "대장균", "잔류염소", "탁도 측정"]),
     seasonalNotes: null,
+    penaltyInfo: "수질검사 미실시: 300만원 이하 과태료",
   },
   {
     name: "실내공기질 검사",
@@ -225,6 +239,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["미세먼지(PM10)", "이산화탄소", "포름알데히드", "총부유세균"]),
     seasonalNotes: null,
+    penaltyInfo: "실내공기질 미측정: 200만원 이하 과태료",
   },
 
   // ── 건축물/안전 ──
@@ -239,6 +254,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([3, 9]),
     subItems: JSON.stringify(["외벽 균열 확인", "옥상 방수 상태", "구조물 안전", "배관 누수"]),
     seasonalNotes: "3월, 9월 반기 자체점검 (법정 정기안전점검과 별도)",
+    penaltyInfo: "시설물 안전점검 미실시: 500만원 이하 과태료",
   },
   {
     name: "안전점검의 날",
@@ -251,6 +267,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["시설물 안전 순찰", "소방시설 확인", "전기시설 확인", "가스시설 확인"]),
     seasonalNotes: "매월 4일 실시 (안전점검의 날)",
+    penaltyInfo: null,
   },
   {
     name: "어린이 놀이터 자체 점검",
@@ -263,6 +280,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["놀이기구 안전 상태", "바닥 충격흡수 상태", "볼트·너트 조임 확인"]),
     seasonalNotes: null,
+    penaltyInfo: "놀이시설 안전점검 미실시: 300만원 이하 과태료",
   },
   {
     name: "어린이 놀이터 법정 안전검사",
@@ -275,6 +293,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["안전인증 확인", "설치검사 기준 적합성", "안전 표면 검사"]),
     seasonalNotes: null,
+    penaltyInfo: "정기시설검사 미수검: 500만원 이하 과태료",
   },
   {
     name: "안전교육 (기술직 대상)",
@@ -287,6 +306,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["안전작업 절차", "응급처치", "소방 안전", "전기 안전"]),
     seasonalNotes: null,
+    penaltyInfo: "안전교육 미실시: 500만원 이하 과태료",
   },
 
   // ── 가스 ──
@@ -301,6 +321,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["가스 배관 점검", "가스 감지기 작동 확인", "가스 누출 검사"]),
     seasonalNotes: null,
+    penaltyInfo: "가스 정기검사 미수검: 300만원 이하 과태료",
   },
 
   // ── 기계설비 ──
@@ -315,6 +336,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["냉난방 설비 점검", "환기 설비 점검", "급·배수 설비 점검", "자동제어 설비 점검"]),
     seasonalNotes: null,
+    penaltyInfo: "기계설비 성능점검 미실시: 500만원 이하 과태료",
   },
   {
     name: "기계설비 자체점검",
@@ -327,6 +349,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([3, 6, 9, 12]),
     subItems: JSON.stringify(["펌프 작동 확인", "배관 누수 점검", "보일러 상태 점검", "냉동기 점검"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
 
   // ── 정보통신 ──
@@ -341,6 +364,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["통신배관 점검", "인터넷 설비 점검", "방송수신 설비 점검", "CCTV 설비 점검"]),
     seasonalNotes: "3만㎡↑ 2025.7.18 시행, 1~3만㎡ 2026.7.18, 5천~1만㎡ 2027.7.18 단계적 시행",
+    penaltyInfo: "정보통신설비 유지관리 미이행: 1,000만원 이하 과태료",
   },
 
   // ── 소독/방역 ──
@@ -355,6 +379,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([4, 6, 8]),
     subItems: JSON.stringify(["외부 환경소독", "지하주차장 소독", "쓰레기집하장 소독", "놀이터·녹지 소독"]),
     seasonalNotes: "4~9월 하절기: 모기·파리 등 해충 집중 방제 시기. 2개월 1회 실시",
+    penaltyInfo: "의무소독 미실시: 100만원 이하 과태료",
   },
   {
     name: "의무소독 (동절기)",
@@ -367,6 +392,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([10, 1]),
     subItems: JSON.stringify(["실내 공용부 소독", "지하공간 소독", "쓰레기집하장 소독"]),
     seasonalNotes: "10~3월 동절기: 실내 위주 소독. 12월 겨울모기 실내소독 중점. 3개월 1회 실시",
+    penaltyInfo: "의무소독 미실시: 100만원 이하 과태료",
   },
 
   // ── 건축 정기안전점검 ──
@@ -381,6 +407,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["구조 안전성 점검", "피난·방화시설 점검", "건축마감 상태", "외벽 및 지붕 점검"]),
     seasonalNotes: null,
+    penaltyInfo: "건축물 정기안전점검 미실시: 500만원 이하 과태료",
   },
 
   // ── 행정 ──
@@ -395,6 +422,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: JSON.stringify([3, 9]),
     subItems: JSON.stringify(["차량 등록 현황 갱신", "미등록 차량 조치", "주차 위반 차량 정리"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
   {
     name: "입주자 카드 관리",
@@ -407,6 +435,7 @@ export const LEGAL_PRESETS = [
     recommendedMonths: null,
     subItems: JSON.stringify(["퇴거자 카드 정리", "보관 기한 확인", "개인정보 파기"]),
     seasonalNotes: null,
+    penaltyInfo: null,
   },
 ];
 

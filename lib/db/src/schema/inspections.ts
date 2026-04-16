@@ -39,6 +39,7 @@ export const legalInspectionPresetsTable = pgTable("legal_inspection_presets", {
   recommendedMonths: text("recommended_months"),
   subItems: text("sub_items"),
   seasonalNotes: text("seasonal_notes"),
+  penaltyInfo: text("penalty_info"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

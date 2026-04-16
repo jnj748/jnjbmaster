@@ -21,5 +21,7 @@ export interface Alert {
   actionStatus?: string | null;
   /** @nullable */
   dueDate?: Date | null;
+  /** @nullable */
+  penaltyInfo?: string | null;
   createdAt: Date;
 }

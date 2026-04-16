@@ -50,7 +50,7 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - **Document Templates:** 5 default system templates with CRUD management for custom ones.
 - **Performance Optimization:** React.lazy code splitting for route pages (Dashboard and Login eager, all others lazy). Vite manualChunks: react-vendor (react/react-dom), ui (radix-ui/lucide-react/cva), charts (recharts/d3), api-client. Dashboard uses `enabled`-gated deferred queries for tenants/vehicles (load after summary). Layout uses useMemo/useCallback. React Query: staleTime 2min, gcTime 10min. Notification polling at 60s intervals.
 - **Hierarchical Reporting:** Daily reports aggregate into weekly and monthly summaries.
-- **Legal Compliance:** Incorporates Korean legal requirements for inspections (23 presets, 11 categories) and privacy data auto-destruction (tenant/owner data anonymization after 3 years).
+- **Legal Compliance:** Incorporates Korean legal requirements for inspections (29 presets, 14 categories including mechanical, telecom, disinfection) with penaltyInfo per preset. Privacy data auto-destruction (tenant/owner data anonymization after 3 years). Dashboard alerts use traffic light system (Red=overdue with pulse animation, Yellow=≤7 days, Green=>7 days) with penalty info display on overdue items. Delay reason recording when completing overdue tasks (8 predefined options + custom). Smart auto-selection of required inspections in building setup wizard Step 3 based on safety analysis results, with SMART_DATE_HINTS for timing guidance. Public API: getBrExposPubuseAreaInfo endpoint for floor-level 전용/공용면적 data lookup.
 - **Meter Reading (검침 관리):** Water/electricity/gas/heating meter reading management. CSV bulk upload, manual entry, anomaly detection (30% above average flags as warning). Table view with type filters and usage/status display.
 - **Billing & Fees (관리비 부과/수납):** ERP-style billing page with summary cards (총 부과/수납완료/미수납/수납률), Recharts LineChart with 우리건물/KAPT평균/전년동기 trend comparison, per-unit Kakao notification (single + batch + unpaid-all), ownerName join from owners table, search by unit/owner, interim settlement (일할 계산). API: GET /fees/billing (ownerName+dueDate), GET /fees/trend (priorYearAvg), GET /fees/approval-check (building-scoped), GET /fees/incomplete-units.
 - **Complaints (민원 관리):** Tenant complaint intake and tracking with status workflow (접수→배정→처리중→완료). Category filters (소음/주차/유지보수/청결/보안/기타), status summary cards, complaint registration form.
@@ -80,4 +80,4 @@ The project is built as a pnpm workspace monorepo using Node.js 24 and TypeScrip
 - jsPDF
 - @google-cloud/storage (for Object Storage)
 - papaparse (for CSV parsing)
-- data.go.kr BldRgstHubService/getBrTitleInfo (for 건축물대장 API integration)
+- data.go.kr BldRgstHubService/getBrTitleInfo, getBrRecapTitleInfo, getBrExposPubuseAreaInfo (for 건축물대장 API integration)

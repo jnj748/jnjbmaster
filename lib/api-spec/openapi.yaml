@@ -4385,7 +4385,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, mechanical, telecom, disinfection, other]
         inspectionType:
           type: string
           enum: [legal, self_regular, biweekly, seasonal, administrative]
@@ -4439,7 +4439,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, mechanical, telecom, disinfection, other]
         inspectionType:
           type: string
           enum: [legal, self_regular, biweekly, seasonal, administrative]
@@ -4478,7 +4478,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, mechanical, telecom, disinfection, other]
         inspectionType:
           type: string
           enum: [legal, self_regular, biweekly, seasonal, administrative]
@@ -5430,6 +5430,8 @@ components:
         dueDate:
           type: ["string", "null"]
           format: date
+        penaltyInfo:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -5469,7 +5471,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, playground, safety_check, hygiene, building_safety, administrative, mechanical, telecom, disinfection, other]
         inspectionType:
           type: string
           enum: [legal, self_regular, biweekly, seasonal, administrative]
@@ -8097,6 +8099,10 @@ components:
         closeUpPhotoUrl:
           type: ["string", "null"]
         widePhotoUrl:
+          type: ["string", "null"]
+        delayReason:
+          type: ["string", "null"]
+        delayReasonDetail:
           type: ["string", "null"]
       required:
         - alertType

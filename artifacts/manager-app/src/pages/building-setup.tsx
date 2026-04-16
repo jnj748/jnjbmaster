@@ -209,6 +209,21 @@ const INSPECTION_TYPE_LABELS: Record<string, string> = {
   administrative: "행정",
 };
 
+const SMART_DATE_HINTS: Record<string, string> = {
+  "저수조 청소": "통상 3~4월 또는 8~9월 실시",
+  "소방 법정점검 (작동+정밀)": "준공월 전후 실시 권장",
+  "전기안전 법정점검": "설치일 기준 3년 주기",
+  "승강기 법정 안전검사": "등록 연도 기준 매년 실시",
+  "정화조 청소": "연 1회, 봄 또는 가을 실시 권장",
+  "수질 검사": "연 1회 실시",
+  "어린이 놀이터 법정 안전검사": "설치일 기준 2년 주기",
+  "가스 안전점검": "가스 공급 개시일 기준 연 1회",
+  "기계설비 성능점검": "사용승인일 기준 연 1회",
+  "건축물 정기안전점검 (3년)": "사용승인일 기준 3년 주기",
+  "의무소독 (하절기)": "4~9월 2개월 1회 실시",
+  "의무소독 (동절기)": "10~3월 3개월 1회 실시",
+};
+
 export default function BuildingSetup() {
   const { token } = useAuth();
   const { toast } = useToast();
@@ -229,6 +244,7 @@ export default function BuildingSetup() {
   const [postcodeLoaded, setPostcodeLoaded] = useState(false);
 
   const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
+  const allPresetsRef = useRef<PresetItem[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<SelectedTask[]>([]);
   const [taskSearch, setTaskSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -269,6 +285,7 @@ export default function BuildingSetup() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setAllPresets(data);
+        allPresetsRef.current = data;
       }
     } catch {}
   }
@@ -495,7 +512,33 @@ export default function BuildingSetup() {
       });
       const result = await res.json();
       setSafetyResult(result);
+
+      if (result.requiredInspections && result.requiredInspections.length > 0) {
+        const requiredCategories: string[] = [...new Set(result.requiredInspections)] as string[];
+        const autoTasks: SelectedTask[] = [];
+        const presets = allPresetsRef.current;
+        for (const cat of requiredCategories) {
+          const matchingPresets = presets.filter((p) => p.category === cat);
+          for (const preset of matchingPresets) {
+            if (!selectedTasks.some((t) => t.name === preset.name) && !autoTasks.some((t) => t.name === preset.name)) {
+              autoTasks.push({
+                name: preset.name,
+                category: preset.category,
+                legalCycleMonths: preset.legalCycleMonths,
+                lastDate: "",
+                description: preset.description,
+                legalBasis: preset.legalBasis,
+              });
+            }
+          }
+        }
+        if (autoTasks.length > 0) {
+          setSelectedTasks((prev) => [...prev, ...autoTasks.filter((at) => !prev.some((p) => p.name === at.name))]);
+          toast({ title: `${autoTasks.length}건의 필수 법정업무가 자동 추가되었습니다` });
+        }
+      }
     } catch {
+      toast({ title: "안전관리 분석 중 오류가 발생했습니다", variant: "destructive" });
     } finally {
       setCalculatingSafety(false);
     }
@@ -1128,6 +1171,18 @@ export default function BuildingSetup() {
             </div>
           )}
 
+          {safetyResult && selectedTasks.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-sm text-blue-800">
+                <Info className="w-4 h-4" />
+                <span className="font-medium">
+                  {selectedTasks.length}건의 법정업무가 준비되었습니다.
+                  건물 저장 후 "법정업무 선택" 단계에서 확인하세요.
+                </span>
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={saveBuilding}
             disabled={saving || !building.name}
@@ -1265,10 +1320,15 @@ export default function BuildingSetup() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {selectedTasks.map((task) => (
+                {selectedTasks.map((task) => {
+                  const isRequired = safetyResult?.requiredInspections?.includes(task.category);
+                  const dateHint = SMART_DATE_HINTS[task.name];
+                  return (
                   <div
                     key={task.name}
-                    className="flex flex-col desktop:flex-row desktop:items-center gap-2 p-3 border rounded-lg bg-background"
+                    className={`flex flex-col desktop:flex-row desktop:items-center gap-2 p-3 border rounded-lg ${
+                      isRequired ? "bg-orange-50/50 border-orange-200" : "bg-background"
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1279,30 +1339,39 @@ export default function BuildingSetup() {
                         <span className="text-xs text-muted-foreground">
                           {formatCycle(task.legalCycleMonths)}
                         </span>
+                        {isRequired && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">필수</Badge>
+                        )}
                       </div>
                       {task.legalBasis && (
                         <p className="text-xs text-muted-foreground mt-0.5">{task.legalBasis}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground whitespace-nowrap">최근 실시일</Label>
-                      <Input
-                        type="date"
-                        className="w-40"
-                        value={task.lastDate}
-                        onChange={(e) => updateTaskDate(task.name, e.target.value)}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeTask(task.name)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">최근 실시일</Label>
+                        <Input
+                          type="date"
+                          className="w-40"
+                          value={task.lastDate}
+                          onChange={(e) => updateTaskDate(task.name, e.target.value)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeTask(task.name)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {dateHint && !task.lastDate && (
+                        <p className="text-[10px] text-blue-600 ml-auto mr-10">💡 {dateHint}</p>
+                      )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

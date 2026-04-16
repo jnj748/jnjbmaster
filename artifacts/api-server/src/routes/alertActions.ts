@@ -170,6 +170,8 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
       notes: data.notes || null,
       closeUpPhotoUrl: data.closeUpPhotoUrl || null,
       widePhotoUrl: data.widePhotoUrl || null,
+      delayReason: data.delayReason || null,
+      delayReasonDetail: data.delayReasonDetail || null,
     })
     .returning();
 

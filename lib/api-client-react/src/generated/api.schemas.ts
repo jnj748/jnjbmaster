@@ -136,6 +136,9 @@ export const InspectionCategory = {
   hygiene: "hygiene",
   building_safety: "building_safety",
   administrative: "administrative",
+  mechanical: "mechanical",
+  telecom: "telecom",
+  disinfection: "disinfection",
   other: "other",
 } as const;
 
@@ -202,6 +205,9 @@ export const CreateInspectionBodyCategory = {
   hygiene: "hygiene",
   building_safety: "building_safety",
   administrative: "administrative",
+  mechanical: "mechanical",
+  telecom: "telecom",
+  disinfection: "disinfection",
   other: "other",
 } as const;
 
@@ -254,6 +260,9 @@ export const UpdateInspectionBodyCategory = {
   hygiene: "hygiene",
   building_safety: "building_safety",
   administrative: "administrative",
+  mechanical: "mechanical",
+  telecom: "telecom",
+  disinfection: "disinfection",
   other: "other",
 } as const;
 
@@ -1109,6 +1118,8 @@ export interface Alert {
   actionStatus?: string | null;
   /** @nullable */
   dueDate?: string | null;
+  /** @nullable */
+  penaltyInfo?: string | null;
   createdAt: string;
 }
 
@@ -1145,6 +1156,9 @@ export const InspectionPresetCategory = {
   hygiene: "hygiene",
   building_safety: "building_safety",
   administrative: "administrative",
+  mechanical: "mechanical",
+  telecom: "telecom",
+  disinfection: "disinfection",
   other: "other",
 } as const;
 
@@ -3047,6 +3061,10 @@ export interface CreateAlertActionBody {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
+  /** @nullable */
+  delayReason?: string | null;
+  /** @nullable */
+  delayReasonDetail?: string | null;
 }
 
 export interface UploadUrlRequest {

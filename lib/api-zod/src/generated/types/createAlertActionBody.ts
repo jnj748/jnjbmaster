@@ -28,4 +28,8 @@ export interface CreateAlertActionBody {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
+  /** @nullable */
+  delayReason?: string | null;
+  /** @nullable */
+  delayReasonDetail?: string | null;
 }

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, isNotNull, desc, sql } from "drizzle-orm";
+import { eq, and, lte, gte, isNotNull, desc, sql, lt } from "drizzle-orm";
 import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable } from "@workspace/db";
+import { LEGAL_PRESETS } from "./inspections";
 import {
   GetDashboardSummaryResponse,
   GetDashboardAlertsResponse,
@@ -164,6 +165,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     hasDraft: boolean;
     actionStatus: string | null;
     dueDate: string | null;
+    penaltyInfo: string | null;
     createdAt: string;
   }> = [];
 
@@ -211,6 +213,8 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         if (new Date(today) < suppressUntil) continue;
       }
     }
+    const preset = LEGAL_PRESETS.find((p) => p.name === inspection.name);
+    const penaltyInfo = preset?.penaltyInfo || null;
     alerts.push({
       id: alertId++,
       type: "inspection_due",
@@ -221,6 +225,43 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       hasDraft: draftByInspectionId.has(inspection.id),
       actionStatus: action?.actionType || null,
       dueDate: inspection.nextDueDate,
+      penaltyInfo,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const overdueInspections = await db
+    .select()
+    .from(inspectionsTable)
+    .where(lt(inspectionsTable.nextDueDate, today));
+
+  for (const inspection of overdueInspections) {
+    const action = actionMap.get(`inspection_due:${inspection.id}`);
+    if (action) {
+      if (action.actedOnDueDate) {
+        if (action.actedOnDueDate >= inspection.nextDueDate) continue;
+      } else if (action.actionType === "completed" && action.completedDate) {
+        if (action.completedDate >= inspection.nextDueDate) continue;
+      } else if (action.actionType === "postponed" && action.postponeDays) {
+        const actionDate = new Date(action.createdAt);
+        const suppressUntil = new Date(actionDate.getTime() + action.postponeDays * 24 * 60 * 60 * 1000);
+        if (new Date(today) < suppressUntil) continue;
+      }
+    }
+    const presetO = LEGAL_PRESETS.find((p) => p.name === inspection.name);
+    const penaltyInfoO = presetO?.penaltyInfo || null;
+    const daysOverdue = Math.ceil((new Date(today).getTime() - new Date(inspection.nextDueDate).getTime()) / (1000 * 60 * 60 * 24));
+    alerts.push({
+      id: alertId++,
+      type: "inspection_due",
+      title: `${inspection.name} 기한 초과`,
+      message: `${inspection.nextDueDate} 마감 기한이 ${daysOverdue}일 경과했습니다. 즉시 처리가 필요합니다.`,
+      severity: "critical",
+      relatedId: inspection.id,
+      hasDraft: draftByInspectionId.has(inspection.id),
+      actionStatus: action?.actionType || null,
+      dueDate: inspection.nextDueDate,
+      penaltyInfo: penaltyInfoO,
       createdAt: new Date().toISOString(),
     });
   }
@@ -266,6 +307,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         hasDraft: false,
         actionStatus: taxAction?.actionType || null,
         dueDate: tax.dueDate,
+        penaltyInfo: null,
         createdAt: new Date().toISOString(),
       });
     }
@@ -297,6 +339,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
         hasDraft: false,
         actionStatus: taskAction?.actionType || null,
         dueDate: task.dueDate,
+        penaltyInfo: null,
         createdAt: new Date().toISOString(),
       });
     }
@@ -340,6 +383,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       hasDraft: false,
       actionStatus: null,
       dueDate: tenant.dataDestructionDate,
+      penaltyInfo: null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -358,6 +402,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       hasDraft: false,
       actionStatus: null,
       dueDate: owner.dataDestructionDate,
+      penaltyInfo: null,
       createdAt: new Date().toISOString(),
     });
   }
