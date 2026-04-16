@@ -2856,7 +2856,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [registered, cancelled]
+            enum: [registered, cancelled, suspended]
       responses:
         "200":
           description: Vehicle list
@@ -6091,7 +6091,7 @@ components:
           type: boolean
         status:
           type: string
-          enum: [registered, cancelled]
+          enum: [registered, cancelled, suspended]
         cancelledAt:
           type: ["string", "null"]
           format: date-time

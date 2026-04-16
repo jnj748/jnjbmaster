@@ -11,4 +11,5 @@ export type VehicleStatus = (typeof VehicleStatus)[keyof typeof VehicleStatus];
 export const VehicleStatus = {
   registered: "registered",
   cancelled: "cancelled",
+  suspended: "suspended",
 } as const;

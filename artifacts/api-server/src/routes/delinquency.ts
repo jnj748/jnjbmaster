@@ -27,6 +27,12 @@ async function getBuildingUnitIds(buildingId: number): Promise<Set<number>> {
   return new Set(units.map(u => u.id));
 }
 
+async function getBuildingUnitNumbers(buildingId: number): Promise<Set<string>> {
+  const units = await db.select({ unitNumber: unitsTable.unitNumber }).from(unitsTable)
+    .where(eq(unitsTable.buildingId, buildingId));
+  return new Set(units.map(u => u.unitNumber));
+}
+
 async function verifyActionOwnership(actionId: number, buildingId: number): Promise<typeof delinquencyActionsTable.$inferSelect | null> {
   const [action] = await db.select().from(delinquencyActionsTable)
     .where(eq(delinquencyActionsTable.id, actionId));
@@ -123,11 +129,13 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
   const action = await verifyActionOwnership(id, buildingId);
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
 
-  const unitVehicles = await db.select().from(vehiclesTable)
+  const buildingUnitNumbers = await getBuildingUnitNumbers(buildingId);
+  const allUnitVehicles = await db.select().from(vehiclesTable)
     .where(and(
       eq(vehiclesTable.unit, action.unitNumber),
       eq(vehiclesTable.status, "registered")
     ));
+  const unitVehicles = allUnitVehicles.filter(v => buildingUnitNumbers.has(v.unit));
 
   let suspendedCount = 0;
   for (const v of unitVehicles) {
@@ -178,11 +186,13 @@ router.post("/delinquency/:id/resolve", async (req: Request, res: Response): Pro
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
 
   if (action.actionType === "parking_suspended") {
-    const unitVehicles = await db.select().from(vehiclesTable)
+    const buildingUnitNumbers = await getBuildingUnitNumbers(buildingId);
+    const allSuspended = await db.select().from(vehiclesTable)
       .where(and(
         eq(vehiclesTable.unit, action.unitNumber),
         eq(vehiclesTable.status, "suspended")
       ));
+    const unitVehicles = allSuspended.filter(v => buildingUnitNumbers.has(v.unit));
 
     for (const v of unitVehicles) {
       await db.update(vehiclesTable)

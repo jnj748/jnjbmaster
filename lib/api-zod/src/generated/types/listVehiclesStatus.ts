@@ -12,4 +12,5 @@ export type ListVehiclesStatus =
 export const ListVehiclesStatus = {
   registered: "registered",
   cancelled: "cancelled",
+  suspended: "suspended",
 } as const;

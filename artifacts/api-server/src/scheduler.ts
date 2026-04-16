@@ -351,23 +351,59 @@ async function runMonthlyReportAutoGeneration(): Promise<void> {
   logger.info({ reportMonth, weeklyCount: weeklyReports.length }, "Auto-generated monthly report");
 }
 
-async function runDelinquencyDetection(): Promise<void> {
+async function computeUnitBillingStatus(unitId: number, unitNumber: string, buildingId: number): Promise<{ overdueMonths: number; totalOverdueAmount: number } | null> {
   const now = new Date();
+  let unpaidMonths = 0;
+  let totalAmount = 0;
+
+  const allUnits = await db.select().from(unitsTable)
+    .where(eq(unitsTable.buildingId, buildingId));
+  const totalArea = allUnits.reduce((s, u) => s + Number(u.exclusiveArea || 0), 0);
+  const unit = allUnits.find(u => u.id === unitId);
+  if (!unit) return null;
+
+  const area = Number(unit.exclusiveArea || 0);
+  const useEqual = totalArea <= 0;
+  const ratio = useEqual ? 1 / allUnits.length : area / totalArea;
+
+  for (let i = 2; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const dueDate = `${monthStr}-25`;
+
+    if (new Date(dueDate) > now) continue;
+
+    const baseAmount = 260000;
+    const monthlyFee = Math.round(baseAmount * ratio);
+    const isPaid = unit.status === "occupied";
+
+    if (!isPaid) {
+      unpaidMonths++;
+      totalAmount += monthlyFee;
+    }
+  }
+
+  if (unpaidMonths >= 2) {
+    return { overdueMonths: unpaidMonths, totalOverdueAmount: totalAmount };
+  }
+  return null;
+}
+
+async function runDelinquencyDetection(): Promise<void> {
   const todayStr = getToday();
 
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const existingCheck = await db
     .select()
     .from(notificationsTable)
     .where(
       and(
         eq(notificationsTable.notificationType, "delinquency_detection"),
-        gte(notificationsTable.createdAt, monthStart)
+        gte(notificationsTable.createdAt, new Date(todayStr))
       )
     );
 
   if (existingCheck.length > 0) {
-    logger.info("Delinquency detection already run this month, skipping");
+    logger.info("Delinquency detection already run today, skipping");
     return;
   }
 
@@ -393,25 +429,22 @@ async function runDelinquencyDetection(): Promise<void> {
   for (const unit of allUnits) {
     if (activeUnitIds.has(unit.id)) continue;
 
-    const overdueMonths = 2 + Math.floor(Math.random() * 3);
-    const shouldBeOverdue = Math.random() < 0.15;
-
-    if (!shouldBeOverdue) continue;
+    const billing = await computeUnitBillingStatus(unit.id, unit.unitNumber, unit.buildingId);
+    if (!billing) continue;
 
     const tenant = tenantByUnit.get(unit.id);
-    const overdueAmount = overdueMonths * (150000 + Math.floor(Math.random() * 100000));
 
     await db.insert(delinquencyActionsTable).values({
       unitId: unit.id,
       unitNumber: unit.unitNumber,
       tenantId: tenant?.id ?? null,
       tenantName: tenant?.tenantName ?? null,
-      overdueMonths,
-      totalOverdueAmount: overdueAmount,
+      overdueMonths: billing.overdueMonths,
+      totalOverdueAmount: billing.totalOverdueAmount,
       actionType: "detected",
       status: "active",
       performedBy: "system",
-      notes: `[${todayStr}] 자동 감지: ${overdueMonths}개월 연체, 미납액 ${overdueAmount.toLocaleString()}원`,
+      notes: `[${todayStr}] 자동 감지: ${billing.overdueMonths}개월 연체, 미납액 ${billing.totalOverdueAmount.toLocaleString()}원`,
     });
 
     detectedCount++;
@@ -430,6 +463,74 @@ async function runDelinquencyDetection(): Promise<void> {
   }
 }
 
+async function runDelinquencyAutoResolution(): Promise<void> {
+  const todayStr = getToday();
+
+  const activeActions = await db.select().from(delinquencyActionsTable)
+    .where(eq(delinquencyActionsTable.status, "active"));
+
+  if (activeActions.length === 0) return;
+
+  let resolvedCount = 0;
+
+  for (const action of activeActions) {
+    if (!action.unitId) continue;
+
+    const [unit] = await db.select().from(unitsTable)
+      .where(eq(unitsTable.id, action.unitId));
+    if (!unit) continue;
+
+    const billing = await computeUnitBillingStatus(unit.id, unit.unitNumber, unit.buildingId);
+
+    if (billing) continue;
+
+    if (action.actionType === "parking_suspended") {
+      const suspendedVehicles = await db.select().from(vehiclesTable)
+        .where(and(
+          eq(vehiclesTable.unit, action.unitNumber),
+          eq(vehiclesTable.status, "suspended")
+        ));
+
+      for (const v of suspendedVehicles) {
+        await db.update(vehiclesTable)
+          .set({ status: "registered" })
+          .where(eq(vehiclesTable.id, v.id));
+
+        await db.insert(vehicleHistoryTable).values({
+          vehicleId: v.id,
+          action: "reactivated",
+          vehicleNumber: v.vehicleNumber,
+          unit: v.unit,
+          performedBy: "system",
+          notes: "연체 해소 자동 감지로 주차권 복원",
+        });
+      }
+    }
+
+    await db.update(delinquencyActionsTable)
+      .set({
+        status: "resolved",
+        resolvedDate: new Date(),
+        notes: `${action.notes ? action.notes + "\n" : ""}[${todayStr}] 자동 해소: 미납 해소 감지`,
+      })
+      .where(eq(delinquencyActionsTable.id, action.id));
+
+    resolvedCount++;
+  }
+
+  if (resolvedCount > 0) {
+    await db.insert(notificationsTable).values({
+      recipientType: "admin",
+      notificationType: "delinquency_auto_resolved",
+      title: "연체 자동 해소",
+      message: `${resolvedCount}건의 연체가 수납 확인으로 자동 해소되었습니다.`,
+      relatedEntityType: "delinquency",
+    });
+
+    logger.info({ count: resolvedCount }, "Delinquency auto-resolution completed");
+  }
+}
+
 let dailyTimer: ReturnType<typeof setInterval> | null = null;
 let monthlyTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -441,6 +542,7 @@ export function startScheduler(): void {
   autoGenerateDraftsForUpcoming().catch((err) => logger.error({ err }, "Scheduled draft/RFQ automation failed"));
   runWeeklyReportAutoGeneration().catch((err) => logger.error({ err }, "Scheduled weekly report failed"));
   runDelinquencyDetection().catch((err) => logger.error({ err }, "Scheduled delinquency detection failed"));
+  runDelinquencyAutoResolution().catch((err) => logger.error({ err }, "Scheduled delinquency auto-resolution failed"));
 
   const now = new Date();
   if (now.getDate() === 1) {
@@ -459,6 +561,7 @@ export function startScheduler(): void {
       await runWeeklyReportAutoGeneration();
       await runMonthlyReportAutoGeneration();
       await runDelinquencyDetection();
+      await runDelinquencyAutoResolution();
     } catch (err) {
       logger.error({ err }, "Daily scheduled task failed");
     }
