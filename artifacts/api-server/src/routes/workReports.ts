@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, workReportsTable } from "@workspace/db";
+import { db, workReportsTable, commissionsTable, commissionEventsTable } from "@workspace/db";
+import { isAutoCommissionEnabled } from "../lib/credits";
 import {
   ListWorkReportsQueryParams,
   ListWorkReportsResponse,
@@ -85,6 +86,8 @@ router.patch("/work-reports/:id", async (req, res): Promise<void> => {
     updateData.reviewedAt = new Date();
   }
 
+  const [prev] = await db.select().from(workReportsTable).where(eq(workReportsTable.id, params.data.id));
+
   const [report] = await db
     .update(workReportsTable)
     .set(updateData)
@@ -94,6 +97,38 @@ router.patch("/work-reports/:id", async (req, res): Promise<void> => {
   if (!report) {
     res.status(404).json({ error: "Work report not found" });
     return;
+  }
+
+  // Transition commission pending -> billed on approval
+  const becameApproved = prev && prev.status !== "approved" && report.status === "approved";
+  if (becameApproved && (await isAutoCommissionEnabled())) {
+    const [commission] = await db
+      .select()
+      .from(commissionsTable)
+      .where(and(eq(commissionsTable.quoteId, report.quoteId), eq(commissionsTable.status, "pending")));
+    if (commission) {
+      const now = new Date();
+      const invoiceNumber = commission.invoiceNumber
+        ?? `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}-${String(commission.id).padStart(6, "0")}`;
+      await db
+        .update(commissionsTable)
+        .set({
+          status: "billed",
+          billedAt: now,
+          invoiceNumber,
+          invoiceIssuedAt: commission.invoiceIssuedAt ?? now,
+        })
+        .where(eq(commissionsTable.id, commission.id))
+        .returning();
+      await db.insert(commissionEventsTable).values({
+        commissionId: commission.id,
+        fromStatus: "pending",
+        toStatus: "billed",
+        reason: "완료보고서 검수 승인 → 수수료 청구 발행",
+        actorId: req.user?.userId ?? null,
+        actorName: req.user?.email ?? null,
+      });
+    }
   }
 
   res.json(UpdateWorkReportResponse.parse(report));

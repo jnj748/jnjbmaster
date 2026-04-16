@@ -24,6 +24,10 @@ export interface Quote {
   /** @nullable */
   notes?: string | null;
   status: QuoteStatus;
+  /** @nullable */
+  contractFilePath?: string | null;
+  /** @nullable */
+  contractUploadedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -21,4 +21,5 @@ export interface CreateQuoteBody {
   availableDate?: Date | null;
   /** @nullable */
   notes?: string | null;
+  requiredDocsComplete?: boolean;
 }

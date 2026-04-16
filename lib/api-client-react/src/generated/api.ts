@@ -18,6 +18,8 @@ import type {
 
 import type {
   ActivityItem,
+  AdjustCreditsBody,
+  AdminWalletRow,
   AiMatchingResponse,
   Alert,
   AlertAction,
@@ -49,6 +51,10 @@ import type {
   CastBallotResponse,
   CheckAttendanceBody,
   Commission,
+  CommissionEvent,
+  CommissionPipeline,
+  CommissionRate,
+  CommissionTransitionBody,
   Complaint,
   ComplaintAnalytics,
   CompleteInspectionBody,
@@ -80,6 +86,10 @@ import type {
   CreateVendorBody,
   CreateVoteBody,
   CreateWorkReportBody,
+  CreditCategoryPricing,
+  CreditCostPreview,
+  CreditLedgerEntry,
+  CreditWallet,
   DailyReportItem,
   DashboardAnalytics,
   DashboardSummary,
@@ -114,6 +124,7 @@ import type {
   GetAttendanceStatsParams,
   GetBillingListParams,
   GetCalendarEventsParams,
+  GetCreditWalletParams,
   GetExecutiveSpendingParams,
   GetManagementContractTemplateParams,
   GetMyAttendanceParams,
@@ -136,6 +147,7 @@ import type {
   ListAlertActionsParams,
   ListApprovalsParams,
   ListComplaintsParams,
+  ListCreditLedgerParams,
   ListDailyReportsParams,
   ListDelinquenciesParams,
   ListDocumentChecklistsParams,
@@ -167,6 +179,8 @@ import type {
   MonthlySummaryReportItem,
   Notification,
   Owner,
+  PlatformSetting,
+  PreviewCreditCostParams,
   ProcessApprovalStepBody,
   ProcessDestructions200,
   PublicTenantCardData,
@@ -219,8 +233,11 @@ import type {
   UpdateWorkReportBody,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertCommissionRateBody,
+  UpsertCreditCategoryPricingBody,
   UpsertDocumentChecklistBody,
   UpsertManagementContractTemplateBody,
+  UpsertPlatformSettingBody,
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
@@ -18396,3 +18413,1197 @@ export const useResolveDelinquency = <
 > => {
   return useMutation(getResolveDelinquencyMutationOptions(options));
 };
+
+/**
+ * @summary Get partner credit wallet (self for partner, target for admin)
+ */
+export const getGetCreditWalletUrl = (params?: GetCreditWalletParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/credits/wallet?${stringifiedParams}`
+    : `/api/credits/wallet`;
+};
+
+export const getCreditWallet = async (
+  params?: GetCreditWalletParams,
+  options?: RequestInit,
+): Promise<CreditWallet> => {
+  return customFetch<CreditWallet>(getGetCreditWalletUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCreditWalletQueryKey = (params?: GetCreditWalletParams) => {
+  return [`/api/credits/wallet`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetCreditWalletQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCreditWallet>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetCreditWalletParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCreditWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCreditWalletQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCreditWallet>>> = ({
+    signal,
+  }) => getCreditWallet(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCreditWallet>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCreditWalletQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCreditWallet>>
+>;
+export type GetCreditWalletQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get partner credit wallet (self for partner, target for admin)
+ */
+
+export function useGetCreditWallet<
+  TData = Awaited<ReturnType<typeof getCreditWallet>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetCreditWalletParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCreditWallet>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCreditWalletQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List credit ledger entries
+ */
+export const getListCreditLedgerUrl = (params?: ListCreditLedgerParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/credits/ledger?${stringifiedParams}`
+    : `/api/credits/ledger`;
+};
+
+export const listCreditLedger = async (
+  params?: ListCreditLedgerParams,
+  options?: RequestInit,
+): Promise<CreditLedgerEntry[]> => {
+  return customFetch<CreditLedgerEntry[]>(getListCreditLedgerUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCreditLedgerQueryKey = (
+  params?: ListCreditLedgerParams,
+) => {
+  return [`/api/credits/ledger`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCreditLedgerQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCreditLedger>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCreditLedgerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCreditLedger>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCreditLedgerQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCreditLedger>>
+  > = ({ signal }) => listCreditLedger(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditLedger>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCreditLedgerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCreditLedger>>
+>;
+export type ListCreditLedgerQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List credit ledger entries
+ */
+
+export function useListCreditLedger<
+  TData = Awaited<ReturnType<typeof listCreditLedger>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCreditLedgerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCreditLedger>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCreditLedgerQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Preview credit deduction for an RFQ
+ */
+export const getPreviewCreditCostUrl = (params: PreviewCreditCostParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/credits/preview?${stringifiedParams}`
+    : `/api/credits/preview`;
+};
+
+export const previewCreditCost = async (
+  params: PreviewCreditCostParams,
+  options?: RequestInit,
+): Promise<CreditCostPreview> => {
+  return customFetch<CreditCostPreview>(getPreviewCreditCostUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getPreviewCreditCostQueryKey = (
+  params?: PreviewCreditCostParams,
+) => {
+  return [`/api/credits/preview`, ...(params ? [params] : [])] as const;
+};
+
+export const getPreviewCreditCostQueryOptions = <
+  TData = Awaited<ReturnType<typeof previewCreditCost>>,
+  TError = ErrorType<unknown>,
+>(
+  params: PreviewCreditCostParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewCreditCost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getPreviewCreditCostQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof previewCreditCost>>
+  > = ({ signal }) => previewCreditCost(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof previewCreditCost>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type PreviewCreditCostQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewCreditCost>>
+>;
+export type PreviewCreditCostQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Preview credit deduction for an RFQ
+ */
+
+export function usePreviewCreditCost<
+  TData = Awaited<ReturnType<typeof previewCreditCost>>,
+  TError = ErrorType<unknown>,
+>(
+  params: PreviewCreditCostParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof previewCreditCost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getPreviewCreditCostQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Manual credit/debit adjustment by HQ
+ */
+export const getAdjustCreditsUrl = () => {
+  return `/api/credits/adjust`;
+};
+
+export const adjustCredits = async (
+  adjustCreditsBody: AdjustCreditsBody,
+  options?: RequestInit,
+): Promise<CreditLedgerEntry> => {
+  return customFetch<CreditLedgerEntry>(getAdjustCreditsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adjustCreditsBody),
+  });
+};
+
+export const getAdjustCreditsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adjustCredits>>,
+    TError,
+    { data: BodyType<AdjustCreditsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adjustCredits>>,
+  TError,
+  { data: BodyType<AdjustCreditsBody> },
+  TContext
+> => {
+  const mutationKey = ["adjustCredits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adjustCredits>>,
+    { data: BodyType<AdjustCreditsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adjustCredits(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdjustCreditsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adjustCredits>>
+>;
+export type AdjustCreditsMutationBody = BodyType<AdjustCreditsBody>;
+export type AdjustCreditsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manual credit/debit adjustment by HQ
+ */
+export const useAdjustCredits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adjustCredits>>,
+    TError,
+    { data: BodyType<AdjustCreditsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adjustCredits>>,
+  TError,
+  { data: BodyType<AdjustCreditsBody> },
+  TContext
+> => {
+  return useMutation(getAdjustCreditsMutationOptions(options));
+};
+
+/**
+ * @summary HQ - list all vendor credit wallets
+ */
+export const getListAdminCreditWalletsUrl = () => {
+  return `/api/credits/admin/wallets`;
+};
+
+export const listAdminCreditWallets = async (
+  options?: RequestInit,
+): Promise<AdminWalletRow[]> => {
+  return customFetch<AdminWalletRow[]>(getListAdminCreditWalletsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminCreditWalletsQueryKey = () => {
+  return [`/api/credits/admin/wallets`] as const;
+};
+
+export const getListAdminCreditWalletsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminCreditWallets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditWallets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminCreditWalletsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminCreditWallets>>
+  > = ({ signal }) => listAdminCreditWallets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditWallets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminCreditWalletsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminCreditWallets>>
+>;
+export type ListAdminCreditWalletsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary HQ - list all vendor credit wallets
+ */
+
+export function useListAdminCreditWallets<
+  TData = Awaited<ReturnType<typeof listAdminCreditWallets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditWallets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminCreditWalletsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List credit tier/cost per category
+ */
+export const getListCreditCategoryPricingUrl = () => {
+  return `/api/credits/category-pricing`;
+};
+
+export const listCreditCategoryPricing = async (
+  options?: RequestInit,
+): Promise<CreditCategoryPricing[]> => {
+  return customFetch<CreditCategoryPricing[]>(
+    getListCreditCategoryPricingUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCreditCategoryPricingQueryKey = () => {
+  return [`/api/credits/category-pricing`] as const;
+};
+
+export const getListCreditCategoryPricingQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCreditCategoryPricing>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditCategoryPricing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCreditCategoryPricingQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCreditCategoryPricing>>
+  > = ({ signal }) => listCreditCategoryPricing({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditCategoryPricing>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCreditCategoryPricingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCreditCategoryPricing>>
+>;
+export type ListCreditCategoryPricingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List credit tier/cost per category
+ */
+
+export function useListCreditCategoryPricing<
+  TData = Awaited<ReturnType<typeof listCreditCategoryPricing>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditCategoryPricing>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCreditCategoryPricingQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert credit pricing for a category
+ */
+export const getUpsertCreditCategoryPricingUrl = () => {
+  return `/api/credits/category-pricing`;
+};
+
+export const upsertCreditCategoryPricing = async (
+  upsertCreditCategoryPricingBody: UpsertCreditCategoryPricingBody,
+  options?: RequestInit,
+): Promise<CreditCategoryPricing> => {
+  return customFetch<CreditCategoryPricing>(
+    getUpsertCreditCategoryPricingUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertCreditCategoryPricingBody),
+    },
+  );
+};
+
+export const getUpsertCreditCategoryPricingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCreditCategoryPricing>>,
+    TError,
+    { data: BodyType<UpsertCreditCategoryPricingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertCreditCategoryPricing>>,
+  TError,
+  { data: BodyType<UpsertCreditCategoryPricingBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertCreditCategoryPricing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertCreditCategoryPricing>>,
+    { data: BodyType<UpsertCreditCategoryPricingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertCreditCategoryPricing(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertCreditCategoryPricingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertCreditCategoryPricing>>
+>;
+export type UpsertCreditCategoryPricingMutationBody =
+  BodyType<UpsertCreditCategoryPricingBody>;
+export type UpsertCreditCategoryPricingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert credit pricing for a category
+ */
+export const useUpsertCreditCategoryPricing = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCreditCategoryPricing>>,
+    TError,
+    { data: BodyType<UpsertCreditCategoryPricingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertCreditCategoryPricing>>,
+  TError,
+  { data: BodyType<UpsertCreditCategoryPricingBody> },
+  TContext
+> => {
+  return useMutation(getUpsertCreditCategoryPricingMutationOptions(options));
+};
+
+/**
+ * @summary List platform feature flags / settings
+ */
+export const getListPlatformSettingsUrl = () => {
+  return `/api/platform-settings`;
+};
+
+export const listPlatformSettings = async (
+  options?: RequestInit,
+): Promise<PlatformSetting[]> => {
+  return customFetch<PlatformSetting[]>(getListPlatformSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPlatformSettingsQueryKey = () => {
+  return [`/api/platform-settings`] as const;
+};
+
+export const getListPlatformSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlatformSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPlatformSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlatformSettings>>
+  > = ({ signal }) => listPlatformSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlatformSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlatformSettings>>
+>;
+export type ListPlatformSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List platform feature flags / settings
+ */
+
+export function useListPlatformSettings<
+  TData = Awaited<ReturnType<typeof listPlatformSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlatformSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert a platform setting
+ */
+export const getUpsertPlatformSettingUrl = () => {
+  return `/api/platform-settings`;
+};
+
+export const upsertPlatformSetting = async (
+  upsertPlatformSettingBody: UpsertPlatformSettingBody,
+  options?: RequestInit,
+): Promise<PlatformSetting> => {
+  return customFetch<PlatformSetting>(getUpsertPlatformSettingUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertPlatformSettingBody),
+  });
+};
+
+export const getUpsertPlatformSettingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPlatformSetting>>,
+    TError,
+    { data: BodyType<UpsertPlatformSettingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertPlatformSetting>>,
+  TError,
+  { data: BodyType<UpsertPlatformSettingBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertPlatformSetting"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertPlatformSetting>>,
+    { data: BodyType<UpsertPlatformSettingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertPlatformSetting(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertPlatformSettingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertPlatformSetting>>
+>;
+export type UpsertPlatformSettingMutationBody =
+  BodyType<UpsertPlatformSettingBody>;
+export type UpsertPlatformSettingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert a platform setting
+ */
+export const useUpsertPlatformSetting = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPlatformSetting>>,
+    TError,
+    { data: BodyType<UpsertPlatformSettingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertPlatformSetting>>,
+  TError,
+  { data: BodyType<UpsertPlatformSettingBody> },
+  TContext
+> => {
+  return useMutation(getUpsertPlatformSettingMutationOptions(options));
+};
+
+/**
+ * @summary List commission rates by category
+ */
+export const getListCommissionRatesUrl = () => {
+  return `/api/commissions/rates`;
+};
+
+export const listCommissionRates = async (
+  options?: RequestInit,
+): Promise<CommissionRate[]> => {
+  return customFetch<CommissionRate[]>(getListCommissionRatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCommissionRatesQueryKey = () => {
+  return [`/api/commissions/rates`] as const;
+};
+
+export const getListCommissionRatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCommissionRates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissionRates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCommissionRatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCommissionRates>>
+  > = ({ signal }) => listCommissionRates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissionRates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCommissionRatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCommissionRates>>
+>;
+export type ListCommissionRatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List commission rates by category
+ */
+
+export function useListCommissionRates<
+  TData = Awaited<ReturnType<typeof listCommissionRates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissionRates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCommissionRatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert commission rate for a category
+ */
+export const getUpsertCommissionRateUrl = () => {
+  return `/api/commissions/rates`;
+};
+
+export const upsertCommissionRate = async (
+  upsertCommissionRateBody: UpsertCommissionRateBody,
+  options?: RequestInit,
+): Promise<CommissionRate> => {
+  return customFetch<CommissionRate>(getUpsertCommissionRateUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertCommissionRateBody),
+  });
+};
+
+export const getUpsertCommissionRateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCommissionRate>>,
+    TError,
+    { data: BodyType<UpsertCommissionRateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertCommissionRate>>,
+  TError,
+  { data: BodyType<UpsertCommissionRateBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertCommissionRate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertCommissionRate>>,
+    { data: BodyType<UpsertCommissionRateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertCommissionRate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertCommissionRateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertCommissionRate>>
+>;
+export type UpsertCommissionRateMutationBody =
+  BodyType<UpsertCommissionRateBody>;
+export type UpsertCommissionRateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert commission rate for a category
+ */
+export const useUpsertCommissionRate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertCommissionRate>>,
+    TError,
+    { data: BodyType<UpsertCommissionRateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertCommissionRate>>,
+  TError,
+  { data: BodyType<UpsertCommissionRateBody> },
+  TContext
+> => {
+  return useMutation(getUpsertCommissionRateMutationOptions(options));
+};
+
+/**
+ * @summary Commission settlement pipeline summary
+ */
+export const getGetCommissionPipelineUrl = () => {
+  return `/api/commissions/pipeline`;
+};
+
+export const getCommissionPipeline = async (
+  options?: RequestInit,
+): Promise<CommissionPipeline> => {
+  return customFetch<CommissionPipeline>(getGetCommissionPipelineUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCommissionPipelineQueryKey = () => {
+  return [`/api/commissions/pipeline`] as const;
+};
+
+export const getGetCommissionPipelineQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCommissionPipeline>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCommissionPipeline>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCommissionPipelineQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCommissionPipeline>>
+  > = ({ signal }) => getCommissionPipeline({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCommissionPipeline>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCommissionPipelineQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCommissionPipeline>>
+>;
+export type GetCommissionPipelineQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Commission settlement pipeline summary
+ */
+
+export function useGetCommissionPipeline<
+  TData = Awaited<ReturnType<typeof getCommissionPipeline>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCommissionPipeline>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCommissionPipelineQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Transition commission status
+ */
+export const getTransitionCommissionUrl = (id: number) => {
+  return `/api/commissions/${id}/transition`;
+};
+
+export const transitionCommission = async (
+  id: number,
+  commissionTransitionBody: CommissionTransitionBody,
+  options?: RequestInit,
+): Promise<Commission> => {
+  return customFetch<Commission>(getTransitionCommissionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commissionTransitionBody),
+  });
+};
+
+export const getTransitionCommissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transitionCommission>>,
+    TError,
+    { id: number; data: BodyType<CommissionTransitionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transitionCommission>>,
+  TError,
+  { id: number; data: BodyType<CommissionTransitionBody> },
+  TContext
+> => {
+  const mutationKey = ["transitionCommission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transitionCommission>>,
+    { id: number; data: BodyType<CommissionTransitionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return transitionCommission(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TransitionCommissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transitionCommission>>
+>;
+export type TransitionCommissionMutationBody =
+  BodyType<CommissionTransitionBody>;
+export type TransitionCommissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Transition commission status
+ */
+export const useTransitionCommission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transitionCommission>>,
+    TError,
+    { id: number; data: BodyType<CommissionTransitionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transitionCommission>>,
+  TError,
+  { id: number; data: BodyType<CommissionTransitionBody> },
+  TContext
+> => {
+  return useMutation(getTransitionCommissionMutationOptions(options));
+};
+
+/**
+ * @summary List commission status event history
+ */
+export const getListCommissionEventsUrl = (id: number) => {
+  return `/api/commissions/${id}/events`;
+};
+
+export const listCommissionEvents = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CommissionEvent[]> => {
+  return customFetch<CommissionEvent[]>(getListCommissionEventsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCommissionEventsQueryKey = (id: number) => {
+  return [`/api/commissions/${id}/events`] as const;
+};
+
+export const getListCommissionEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCommissionEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCommissionEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCommissionEventsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCommissionEvents>>
+  > = ({ signal }) => listCommissionEvents(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissionEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCommissionEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCommissionEvents>>
+>;
+export type ListCommissionEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List commission status event history
+ */
+
+export function useListCommissionEvents<
+  TData = Awaited<ReturnType<typeof listCommissionEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCommissionEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCommissionEventsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

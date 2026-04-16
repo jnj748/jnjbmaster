@@ -1118,9 +1118,25 @@ export const ListCommissionsResponseItem = zod.object({
   contractAmount: zod.number(),
   commissionRate: zod.number(),
   commissionAmount: zod.number(),
-  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
+  status: zod.enum([
+    "pending",
+    "billed",
+    "collected",
+    "completed",
+    "cancelled",
+    "confirmed",
+    "paid",
+  ]),
   matchedDate: zod.coerce.date(),
   notes: zod.string().nullish(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  category: zod.string().nullish(),
+  billedAt: zod.coerce.date().nullish(),
+  collectedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  invoiceIssuedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1147,7 +1163,17 @@ export const UpdateCommissionParams = zod.object({
 });
 
 export const UpdateCommissionBody = zod.object({
-  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]).optional(),
+  status: zod
+    .enum([
+      "pending",
+      "billed",
+      "collected",
+      "completed",
+      "cancelled",
+      "confirmed",
+      "paid",
+    ])
+    .optional(),
   notes: zod.string().nullish(),
 });
 
@@ -1158,9 +1184,25 @@ export const UpdateCommissionResponse = zod.object({
   contractAmount: zod.number(),
   commissionRate: zod.number(),
   commissionAmount: zod.number(),
-  status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
+  status: zod.enum([
+    "pending",
+    "billed",
+    "collected",
+    "completed",
+    "cancelled",
+    "confirmed",
+    "paid",
+  ]),
   matchedDate: zod.coerce.date(),
   notes: zod.string().nullish(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  category: zod.string().nullish(),
+  billedAt: zod.coerce.date().nullish(),
+  collectedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  invoiceIssuedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1586,6 +1628,8 @@ export const ListQuotesResponseItem = zod.object({
   availableDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
+  contractFilePath: zod.string().nullish(),
+  contractUploadedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1594,6 +1638,8 @@ export const ListQuotesResponse = zod.array(ListQuotesResponseItem);
 /**
  * @summary Submit a quote
  */
+export const createQuoteBodyRequiredDocsCompleteDefault = false;
+
 export const CreateQuoteBody = zod.object({
   rfqId: zod.number(),
   vendorId: zod.number(),
@@ -1604,6 +1650,9 @@ export const CreateQuoteBody = zod.object({
   estimatedDays: zod.number().nullish(),
   availableDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
+  requiredDocsComplete: zod
+    .boolean()
+    .default(createQuoteBodyRequiredDocsCompleteDefault),
 });
 
 /**
@@ -1625,6 +1674,8 @@ export const GetQuoteResponse = zod.object({
   availableDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
+  contractFilePath: zod.string().nullish(),
+  contractUploadedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1639,6 +1690,8 @@ export const UpdateQuoteParams = zod.object({
 export const UpdateQuoteBody = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]).optional(),
   notes: zod.string().nullish(),
+  contractFilePath: zod.string().nullish(),
+  contractUploadedAt: zod.coerce.date().nullish(),
 });
 
 export const UpdateQuoteResponse = zod.object({
@@ -1653,6 +1706,8 @@ export const UpdateQuoteResponse = zod.object({
   availableDate: zod.coerce.date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
+  contractFilePath: zod.string().nullish(),
+  contractUploadedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -5695,3 +5750,358 @@ export const ResolveDelinquencyResponse = zod.object({
   createdAt: zod.coerce.date().optional(),
   updatedAt: zod.coerce.date().optional(),
 });
+
+/**
+ * @summary Get partner credit wallet (self for partner, target for admin)
+ */
+export const GetCreditWalletQueryParams = zod.object({
+  vendorId: zod.coerce.number().optional(),
+});
+
+export const GetCreditWalletResponse = zod.object({
+  id: zod.number().optional(),
+  vendorId: zod.number(),
+  balance: zod.number(),
+  pointsBalance: zod.number(),
+  creditsEnabled: zod.boolean().optional(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary List credit ledger entries
+ */
+export const ListCreditLedgerQueryParams = zod.object({
+  vendorId: zod.coerce.number().optional(),
+});
+
+export const ListCreditLedgerResponseItem = zod.object({
+  id: zod.number(),
+  vendorId: zod.number(),
+  amount: zod.number(),
+  kind: zod.enum([
+    "consumption",
+    "refund",
+    "manual_credit",
+    "manual_debit",
+    "package_purchase",
+    "rebate",
+    "adjustment",
+    "bonus_points",
+  ]),
+  source: zod.enum([
+    "manual",
+    "package_purchase",
+    "refund",
+    "rebate",
+    "consumption",
+    "adjustment",
+    "system",
+  ]),
+  pointsAmount: zod.number(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  relatedLedgerId: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  actorId: zod.number().nullish(),
+  actorName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCreditLedgerResponse = zod.array(ListCreditLedgerResponseItem);
+
+/**
+ * @summary Preview credit deduction for an RFQ
+ */
+export const PreviewCreditCostQueryParams = zod.object({
+  rfqId: zod.coerce.number(),
+});
+
+export const PreviewCreditCostResponse = zod.object({
+  rfqId: zod.number(),
+  baseCost: zod.number(),
+  tier: zod.number(),
+  largeBuildingMultiplier: zod.number(),
+  isPremium: zod.boolean(),
+  totalCost: zod.number(),
+  reason: zod.array(zod.string()),
+  creditsEnabled: zod.boolean().optional(),
+  isPremiumRfq: zod.boolean().optional(),
+  slotLimit: zod.number().nullish(),
+  slotsRemaining: zod.number().nullish(),
+});
+
+/**
+ * @summary Manual credit/debit adjustment by HQ
+ */
+export const AdjustCreditsBody = zod.object({
+  vendorId: zod.number(),
+  amount: zod.number(),
+  kind: zod.enum([
+    "manual_credit",
+    "manual_debit",
+    "adjustment",
+    "package_purchase",
+    "rebate",
+    "bonus_points",
+  ]),
+  pointsAmount: zod.number().optional(),
+  notes: zod.string(),
+});
+
+/**
+ * @summary HQ - list all vendor credit wallets
+ */
+export const ListAdminCreditWalletsResponseItem = zod.object({
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  balance: zod.number(),
+  pointsBalance: zod.number(),
+  updatedAt: zod.coerce.date().nullish(),
+});
+export const ListAdminCreditWalletsResponse = zod.array(
+  ListAdminCreditWalletsResponseItem,
+);
+
+/**
+ * @summary List credit tier/cost per category
+ */
+export const ListCreditCategoryPricingResponseItem = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  tier: zod.number(),
+  creditCost: zod.number(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListCreditCategoryPricingResponse = zod.array(
+  ListCreditCategoryPricingResponseItem,
+);
+
+/**
+ * @summary Upsert credit pricing for a category
+ */
+export const UpsertCreditCategoryPricingBody = zod.object({
+  category: zod.string(),
+  tier: zod.number(),
+  creditCost: zod.number(),
+  description: zod.string().nullish(),
+});
+
+export const UpsertCreditCategoryPricingResponse = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  tier: zod.number(),
+  creditCost: zod.number(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary List platform feature flags / settings
+ */
+export const ListPlatformSettingsResponseItem = zod.object({
+  id: zod.number(),
+  key: zod.string(),
+  value: zod.string(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListPlatformSettingsResponse = zod.array(
+  ListPlatformSettingsResponseItem,
+);
+
+/**
+ * @summary Upsert a platform setting
+ */
+export const UpsertPlatformSettingBody = zod.object({
+  key: zod.string(),
+  value: zod.string(),
+  description: zod.string().nullish(),
+});
+
+export const UpsertPlatformSettingResponse = zod.object({
+  id: zod.number(),
+  key: zod.string(),
+  value: zod.string(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary List commission rates by category
+ */
+export const ListCommissionRatesResponseItem = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  rateType: zod.enum(["fixed", "sliding"]),
+  fixedRate: zod.number(),
+  slidingRules: zod.string().nullish(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListCommissionRatesResponse = zod.array(
+  ListCommissionRatesResponseItem,
+);
+
+/**
+ * @summary Upsert commission rate for a category
+ */
+export const UpsertCommissionRateBody = zod.object({
+  category: zod.string(),
+  rateType: zod.enum(["fixed", "sliding"]),
+  fixedRate: zod.number().optional(),
+  slidingRules: zod
+    .array(
+      zod.object({
+        minAmount: zod.number(),
+        maxAmount: zod.number().nullish(),
+        ratePercent: zod.number(),
+      }),
+    )
+    .optional(),
+  description: zod.string().nullish(),
+});
+
+export const UpsertCommissionRateResponse = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  rateType: zod.enum(["fixed", "sliding"]),
+  fixedRate: zod.number(),
+  slidingRules: zod.string().nullish(),
+  description: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Commission settlement pipeline summary
+ */
+export const GetCommissionPipelineResponse = zod.object({
+  summary: zod.object({
+    pending: zod.object({
+      count: zod.number(),
+      amount: zod.number(),
+      delayed: zod.number(),
+    }),
+    billed: zod.object({
+      count: zod.number(),
+      amount: zod.number(),
+      delayed: zod.number(),
+    }),
+    collected: zod.object({
+      count: zod.number(),
+      amount: zod.number(),
+      delayed: zod.number(),
+    }),
+    completed: zod.object({
+      count: zod.number(),
+      amount: zod.number(),
+      delayed: zod.number(),
+    }),
+    cancelled: zod.object({
+      count: zod.number(),
+      amount: zod.number(),
+      delayed: zod.number(),
+    }),
+  }),
+  delayed: zod.array(
+    zod.object({
+      id: zod.number(),
+      vendorId: zod.number(),
+      vendorName: zod.string(),
+      contractAmount: zod.number(),
+      commissionRate: zod.number(),
+      commissionAmount: zod.number(),
+      status: zod.enum([
+        "pending",
+        "billed",
+        "collected",
+        "completed",
+        "cancelled",
+        "confirmed",
+        "paid",
+      ]),
+      matchedDate: zod.coerce.date(),
+      notes: zod.string().nullish(),
+      rfqId: zod.number().nullish(),
+      quoteId: zod.number().nullish(),
+      category: zod.string().nullish(),
+      billedAt: zod.coerce.date().nullish(),
+      collectedAt: zod.coerce.date().nullish(),
+      completedAt: zod.coerce.date().nullish(),
+      invoiceNumber: zod.string().nullish(),
+      invoiceIssuedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Transition commission status
+ */
+export const TransitionCommissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const TransitionCommissionBody = zod.object({
+  toStatus: zod.enum([
+    "pending",
+    "billed",
+    "collected",
+    "completed",
+    "cancelled",
+  ]),
+  reason: zod.string().nullish(),
+});
+
+export const TransitionCommissionResponse = zod.object({
+  id: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  contractAmount: zod.number(),
+  commissionRate: zod.number(),
+  commissionAmount: zod.number(),
+  status: zod.enum([
+    "pending",
+    "billed",
+    "collected",
+    "completed",
+    "cancelled",
+    "confirmed",
+    "paid",
+  ]),
+  matchedDate: zod.coerce.date(),
+  notes: zod.string().nullish(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  category: zod.string().nullish(),
+  billedAt: zod.coerce.date().nullish(),
+  collectedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  invoiceIssuedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List commission status event history
+ */
+export const ListCommissionEventsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCommissionEventsResponseItem = zod.object({
+  id: zod.number(),
+  commissionId: zod.number(),
+  fromStatus: zod.string().nullish(),
+  toStatus: zod.string(),
+  reason: zod.string().nullish(),
+  actorId: zod.number().nullish(),
+  actorName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCommissionEventsResponse = zod.array(
+  ListCommissionEventsResponseItem,
+);

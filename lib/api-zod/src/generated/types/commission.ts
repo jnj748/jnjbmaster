@@ -18,6 +18,22 @@ export interface Commission {
   matchedDate: Date;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  billedAt?: Date | null;
+  /** @nullable */
+  collectedAt?: Date | null;
+  /** @nullable */
+  completedAt?: Date | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  invoiceIssuedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

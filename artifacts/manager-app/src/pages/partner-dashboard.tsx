@@ -1,17 +1,31 @@
-import { useListVendors, useListCommissions } from "@workspace/api-client-react";
+import {
+  useListVendors,
+  useListCommissions,
+  useGetCreditWallet,
+  useListCreditLedger,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Briefcase, Coins, Building2, ArrowRight } from "lucide-react";
+import { Briefcase, Coins, Building2, ArrowRight, Wallet, Gift } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function PartnerDashboard() {
   const { user } = useAuth();
   const { data: vendors, isLoading: vendorsLoading } = useListVendors();
   const { data: commissions, isLoading: commissionsLoading } = useListCommissions();
+  const vendorId = user?.vendorId ?? undefined;
+  const { data: wallet } = useGetCreditWallet(
+    vendorId ? { vendorId } : undefined,
+    { query: { enabled: !!vendorId } }
+  );
+  const { data: ledger } = useListCreditLedger(
+    vendorId ? { vendorId, limit: 10 } : undefined,
+    { query: { enabled: !!vendorId } }
+  );
 
-  const totalCommission = commissions?.reduce((sum, c) => sum + (c.amount ?? 0), 0) ?? 0;
+  const totalCommission = commissions?.reduce((sum, c) => sum + (c.commissionAmount ?? 0), 0) ?? 0;
   const pendingCommissions = commissions?.filter((c) => c.status === "pending") ?? [];
 
   if (vendorsLoading || commissionsLoading) {
@@ -35,6 +49,39 @@ export default function PartnerDashboard() {
           {user?.name}님, 파트너사 현황을 확인하세요
         </p>
       </div>
+
+      {vendorId && wallet && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">크레딧 잔액</p>
+                  <p className="text-2xl font-bold mt-1">{wallet.balance.toLocaleString()} C</p>
+                  <p className="text-xs text-muted-foreground mt-1">입찰에 사용 가능한 크레딧</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-indigo-500">
+                  <Wallet className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">활동 포인트</p>
+                  <p className="text-2xl font-bold mt-1">{wallet.pointsBalance.toLocaleString()} P</p>
+                  <p className="text-xs text-muted-foreground mt-1">리베이트 및 성실 제출 적립</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-pink-500">
+                  <Gift className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -148,14 +195,18 @@ export default function PartnerDashboard() {
                   <div>
                     <p className="text-sm font-medium">{commission.vendorName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {commission.amount?.toLocaleString()}원
+                      {commission.commissionAmount?.toLocaleString()}원
                     </p>
                   </div>
                   <Badge
-                    variant={commission.status === "paid" ? "default" : "secondary"}
+                    variant={commission.status === "completed" ? "default" : "secondary"}
                     className="text-xs"
                   >
-                    {commission.status === "paid" ? "정산완료" : "대기"}
+                    {commission.status === "pending" && "대기"}
+                    {commission.status === "billed" && "청구됨"}
+                    {commission.status === "collected" && "수금완료"}
+                    {commission.status === "completed" && "정산완료"}
+                    {commission.status === "cancelled" && "취소"}
                   </Badge>
                 </div>
               ))
@@ -167,6 +218,47 @@ export default function PartnerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {vendorId && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-indigo-500" />
+              크레딧 사용 내역
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {ledger && ledger.length > 0 ? (
+              ledger.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{entry.kind}</p>
+                    <p className="text-xs text-muted-foreground">{entry.notes ?? entry.source}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {new Date(entry.createdAt).toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-semibold ${entry.amount < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                      {entry.amount > 0 ? "+" : ""}{entry.amount} C
+                    </p>
+                    {entry.pointsAmount !== 0 && (
+                      <p className="text-xs text-pink-600">+{entry.pointsAmount} P</p>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                사용 내역이 없습니다
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

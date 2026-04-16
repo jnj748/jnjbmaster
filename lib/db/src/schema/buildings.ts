@@ -25,6 +25,7 @@ export const buildingsTable = pgTable("buildings", {
   hasSepticTank: boolean("has_septic_tank").default(true),
   safetyManagerRequired: boolean("safety_manager_required").default(false),
   safetyManagerType: text("safety_manager_type"),
+  fireGrade: integer("fire_grade"),
   buildingRegisterPk: text("building_register_pk"),
   landArea: numeric("land_area"),
   buildingArea: numeric("building_area"),

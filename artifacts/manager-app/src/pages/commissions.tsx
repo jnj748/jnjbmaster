@@ -5,7 +5,10 @@ import {
   useUpdateCommission,
   useAutoSettleCommission,
   useListVendors,
+  useGetCommissionPipeline,
+  useTransitionCommission,
   getListCommissionsQueryKey,
+  getGetCommissionPipelineQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,7 +137,7 @@ export default function Commissions() {
 
       const result = await autoSettleMutation.mutateAsync({ data });
       queryClient.invalidateQueries({ queryKey: getListCommissionsQueryKey() });
-      toast({ title: (result as any).message || "수수료가 자동 정산되었습니다" });
+      toast({ title: result.message || "수수료가 자동 정산되었습니다" });
       setAutoSettleDialogOpen(false);
       resetAutoForm();
     } catch {
@@ -142,9 +145,21 @@ export default function Commissions() {
     }
   }
 
+  const transitionMutation = useTransitionCommission();
+  const { data: pipeline } = useGetCommissionPipeline();
+
   async function handleStatusChange(id: number, status: string) {
-    await updateMutation.mutateAsync({ id, data: { status: status as any } });
+    const pipelineStatuses = ["pending", "billed", "collected", "completed", "cancelled"] as const;
+    type PipelineStatus = typeof pipelineStatuses[number];
+    const isPipeline = (s: string): s is PipelineStatus => (pipelineStatuses as readonly string[]).includes(s);
+    if (isPipeline(status)) {
+      await transitionMutation.mutateAsync({ id, data: { toStatus: status } });
+    } else {
+      type CommissionStatus = NonNullable<Parameters<typeof updateMutation.mutateAsync>[0]["data"]["status"]>;
+      await updateMutation.mutateAsync({ id, data: { status: status as CommissionStatus } });
+    }
     queryClient.invalidateQueries({ queryKey: getListCommissionsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetCommissionPipelineQueryKey() });
     toast({ title: "상태가 변경되었습니다" });
   }
 
@@ -157,6 +172,9 @@ export default function Commissions() {
   const statusLabel = (s: string) => {
     switch (s) {
       case "pending": return "대기";
+      case "billed": return "청구";
+      case "collected": return "입금";
+      case "completed": return "완료";
       case "confirmed": return "확정";
       case "paid": return "지급완료";
       case "cancelled": return "취소";
@@ -166,7 +184,10 @@ export default function Commissions() {
 
   const statusColor = (s: string) => {
     switch (s) {
+      case "completed": return "outline";
       case "paid": return "outline";
+      case "collected": return "default";
+      case "billed": return "secondary";
       case "confirmed": return "secondary";
       case "pending": return "secondary";
       case "cancelled": return "destructive";
@@ -322,6 +343,30 @@ export default function Commissions() {
         </div>
       </div>
 
+      {pipeline && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">정산 파이프라인</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {(["pending", "billed", "collected", "completed", "cancelled"] as const).map((st) => {
+                const bucket = pipeline.summary?.[st];
+                return (
+                  <div key={st} className="p-3 rounded-lg bg-muted/40 border">
+                    <p className="text-xs text-muted-foreground">{statusLabel(st)}</p>
+                    <p className="text-lg font-bold">{bucket?.count ?? 0}건</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(bucket?.amount ?? 0).toLocaleString()}원
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
@@ -430,8 +475,9 @@ export default function Commissions() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">대기</SelectItem>
-                            <SelectItem value="confirmed">확정</SelectItem>
-                            <SelectItem value="paid">지급완료</SelectItem>
+                            <SelectItem value="billed">청구</SelectItem>
+                            <SelectItem value="collected">입금</SelectItem>
+                            <SelectItem value="completed">완료</SelectItem>
                             <SelectItem value="cancelled">취소</SelectItem>
                           </SelectContent>
                         </Select>
@@ -476,8 +522,9 @@ export default function Commissions() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">대기</SelectItem>
-                      <SelectItem value="confirmed">확정</SelectItem>
-                      <SelectItem value="paid">지급완료</SelectItem>
+                      <SelectItem value="billed">청구</SelectItem>
+                      <SelectItem value="collected">입금</SelectItem>
+                      <SelectItem value="completed">완료</SelectItem>
                       <SelectItem value="cancelled">취소</SelectItem>
                     </SelectContent>
                   </Select>

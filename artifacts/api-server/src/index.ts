@@ -5,6 +5,7 @@ import { db, usersTable, unitsTable, tenantsTable, ownersTable } from "@workspac
 import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
 import { seedTestUsers } from "./seed-test-users";
+import { seedPartnerBm } from "./seed-partner-bm";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -119,6 +120,13 @@ app.listen(port, async (err) => {
     await seedTestUsers();
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed test users");
+  }
+
+  try {
+    await seedPartnerBm();
+    logger.info("Partner BM defaults seeded");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed partner BM defaults");
   }
 
   startScheduler();

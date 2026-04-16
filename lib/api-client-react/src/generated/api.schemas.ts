@@ -668,9 +668,12 @@ export type CommissionStatus =
 
 export const CommissionStatus = {
   pending: "pending",
+  billed: "billed",
+  collected: "collected",
+  completed: "completed",
+  cancelled: "cancelled",
   confirmed: "confirmed",
   paid: "paid",
-  cancelled: "cancelled",
 } as const;
 
 export interface Commission {
@@ -684,6 +687,22 @@ export interface Commission {
   matchedDate: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  billedAt?: string | null;
+  /** @nullable */
+  collectedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  invoiceIssuedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -704,9 +723,12 @@ export type UpdateCommissionBodyStatus =
 
 export const UpdateCommissionBodyStatus = {
   pending: "pending",
+  billed: "billed",
+  collected: "collected",
+  completed: "completed",
+  cancelled: "cancelled",
   confirmed: "confirmed",
   paid: "paid",
-  cancelled: "cancelled",
 } as const;
 
 export interface UpdateCommissionBody {
@@ -886,6 +908,10 @@ export interface Quote {
   /** @nullable */
   notes?: string | null;
   status: QuoteStatus;
+  /** @nullable */
+  contractFilePath?: string | null;
+  /** @nullable */
+  contractUploadedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -905,6 +931,7 @@ export interface CreateQuoteBody {
   availableDate?: string | null;
   /** @nullable */
   notes?: string | null;
+  requiredDocsComplete?: boolean;
 }
 
 export type UpdateQuoteBodyStatus =
@@ -920,6 +947,10 @@ export interface UpdateQuoteBody {
   status?: UpdateQuoteBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  contractFilePath?: string | null;
+  /** @nullable */
+  contractUploadedAt?: string | null;
 }
 
 export type WorkReportStatus =
@@ -3987,6 +4018,240 @@ export interface SeasonalSuggestion {
   rfqCategory?: string | null;
 }
 
+export interface CreditWallet {
+  id?: number;
+  vendorId: number;
+  balance: number;
+  pointsBalance: number;
+  creditsEnabled?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CreditLedgerEntryKind =
+  (typeof CreditLedgerEntryKind)[keyof typeof CreditLedgerEntryKind];
+
+export const CreditLedgerEntryKind = {
+  consumption: "consumption",
+  refund: "refund",
+  manual_credit: "manual_credit",
+  manual_debit: "manual_debit",
+  package_purchase: "package_purchase",
+  rebate: "rebate",
+  adjustment: "adjustment",
+  bonus_points: "bonus_points",
+} as const;
+
+export type CreditLedgerEntrySource =
+  (typeof CreditLedgerEntrySource)[keyof typeof CreditLedgerEntrySource];
+
+export const CreditLedgerEntrySource = {
+  manual: "manual",
+  package_purchase: "package_purchase",
+  refund: "refund",
+  rebate: "rebate",
+  consumption: "consumption",
+  adjustment: "adjustment",
+  system: "system",
+} as const;
+
+export interface CreditLedgerEntry {
+  id: number;
+  vendorId: number;
+  amount: number;
+  kind: CreditLedgerEntryKind;
+  source: CreditLedgerEntrySource;
+  pointsAmount: number;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  relatedLedgerId?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  actorId?: number | null;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+}
+
+export interface CreditCostPreview {
+  rfqId: number;
+  baseCost: number;
+  tier: number;
+  largeBuildingMultiplier: number;
+  isPremium: boolean;
+  totalCost: number;
+  reason: string[];
+  creditsEnabled?: boolean;
+  isPremiumRfq?: boolean;
+  /** @nullable */
+  slotLimit?: number | null;
+  /** @nullable */
+  slotsRemaining?: number | null;
+}
+
+export type AdjustCreditsBodyKind =
+  (typeof AdjustCreditsBodyKind)[keyof typeof AdjustCreditsBodyKind];
+
+export const AdjustCreditsBodyKind = {
+  manual_credit: "manual_credit",
+  manual_debit: "manual_debit",
+  adjustment: "adjustment",
+  package_purchase: "package_purchase",
+  rebate: "rebate",
+  bonus_points: "bonus_points",
+} as const;
+
+export interface AdjustCreditsBody {
+  vendorId: number;
+  amount: number;
+  kind: AdjustCreditsBodyKind;
+  pointsAmount?: number;
+  notes: string;
+}
+
+export interface AdminWalletRow {
+  vendorId: number;
+  vendorName: string;
+  category: string;
+  balance: number;
+  pointsBalance: number;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface CreditCategoryPricing {
+  id: number;
+  category: string;
+  tier: number;
+  creditCost: number;
+  /** @nullable */
+  description?: string | null;
+  updatedAt?: string;
+}
+
+export interface UpsertCreditCategoryPricingBody {
+  category: string;
+  tier: number;
+  creditCost: number;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface PlatformSetting {
+  id: number;
+  key: string;
+  value: string;
+  /** @nullable */
+  description?: string | null;
+  updatedAt?: string;
+}
+
+export interface UpsertPlatformSettingBody {
+  key: string;
+  value: string;
+  /** @nullable */
+  description?: string | null;
+}
+
+export type CommissionRateRateType =
+  (typeof CommissionRateRateType)[keyof typeof CommissionRateRateType];
+
+export const CommissionRateRateType = {
+  fixed: "fixed",
+  sliding: "sliding",
+} as const;
+
+export interface CommissionRate {
+  id: number;
+  category: string;
+  rateType: CommissionRateRateType;
+  fixedRate: number;
+  /** @nullable */
+  slidingRules?: string | null;
+  /** @nullable */
+  description?: string | null;
+  updatedAt?: string;
+}
+
+export interface SlidingRule {
+  minAmount: number;
+  /** @nullable */
+  maxAmount?: number | null;
+  ratePercent: number;
+}
+
+export type UpsertCommissionRateBodyRateType =
+  (typeof UpsertCommissionRateBodyRateType)[keyof typeof UpsertCommissionRateBodyRateType];
+
+export const UpsertCommissionRateBodyRateType = {
+  fixed: "fixed",
+  sliding: "sliding",
+} as const;
+
+export interface UpsertCommissionRateBody {
+  category: string;
+  rateType: UpsertCommissionRateBodyRateType;
+  fixedRate?: number;
+  slidingRules?: SlidingRule[];
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface CommissionPipelineBucket {
+  count: number;
+  amount: number;
+  delayed: number;
+}
+
+export type CommissionPipelineSummary = {
+  pending: CommissionPipelineBucket;
+  billed: CommissionPipelineBucket;
+  collected: CommissionPipelineBucket;
+  completed: CommissionPipelineBucket;
+  cancelled: CommissionPipelineBucket;
+};
+
+export interface CommissionPipeline {
+  summary: CommissionPipelineSummary;
+  delayed: Commission[];
+}
+
+export type CommissionTransitionBodyToStatus =
+  (typeof CommissionTransitionBodyToStatus)[keyof typeof CommissionTransitionBodyToStatus];
+
+export const CommissionTransitionBodyToStatus = {
+  pending: "pending",
+  billed: "billed",
+  collected: "collected",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface CommissionTransitionBody {
+  toStatus: CommissionTransitionBodyToStatus;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface CommissionEvent {
+  id: number;
+  commissionId: number;
+  /** @nullable */
+  fromStatus?: string | null;
+  toStatus: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  actorId?: number | null;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -4519,3 +4784,15 @@ export const ListDelinquenciesStatus = {
   active: "active",
   resolved: "resolved",
 } as const;
+
+export type GetCreditWalletParams = {
+  vendorId?: number;
+};
+
+export type ListCreditLedgerParams = {
+  vendorId?: number;
+};
+
+export type PreviewCreditCostParams = {
+  rfqId: number;
+};

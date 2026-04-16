@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, or } from "drizzle-orm";
-import { db, rfqsTable, vendorsTable, usersTable } from "@workspace/db";
+import { db, rfqsTable, vendorsTable, usersTable, quotesTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { refundRfqConsumption } from "../lib/credits";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -284,6 +285,12 @@ router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
     return;
   }
 
+  const [prev] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, params.data.id));
+  if (!prev) {
+    res.status(404).json({ error: "RFQ not found" });
+    return;
+  }
+
   const [rfq] = await db
     .update(rfqsTable)
     .set(parsed.data)
@@ -293,6 +300,19 @@ router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
   if (!rfq) {
     res.status(404).json({ error: "RFQ not found" });
     return;
+  }
+
+  // Refund all consumption on cancel or close-without-accepted-quote
+  const becameCancelled = prev.status !== "cancelled" && rfq.status === "cancelled";
+  if (becameCancelled) {
+    await refundRfqConsumption(rfq.id, req.user?.email ?? "system", "RFQ 취소");
+  }
+  if (prev.status !== "closed" && rfq.status === "closed") {
+    const quotes = await db.select().from(quotesTable).where(eq(quotesTable.rfqId, rfq.id));
+    const hasAccepted = quotes.some((q) => q.status === "accepted");
+    if (!hasAccepted) {
+      await refundRfqConsumption(rfq.id, req.user?.email ?? "system", "선정 없이 마감");
+    }
   }
 
   res.json(UpdateRfqResponse.parse(rfq));

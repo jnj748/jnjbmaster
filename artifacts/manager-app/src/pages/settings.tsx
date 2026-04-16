@@ -15,7 +15,25 @@ import {
   Phone,
   Mail,
   CheckCircle2,
+  Coins,
 } from "lucide-react";
+import {
+  useListPlatformSettings,
+  useUpsertPlatformSetting,
+  useListCreditCategoryPricing,
+  useUpsertCreditCategoryPricing,
+  useListCommissionRates,
+  useUpsertCommissionRate,
+  getListPlatformSettingsQueryKey,
+  getListCreditCategoryPricingQueryKey,
+  getListCommissionRatesQueryKey,
+  type CreditCategoryPricing,
+  type UpsertCreditCategoryPricingBody,
+  type CommissionRate,
+  type UpsertCommissionRateBody,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -25,11 +43,13 @@ const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 export default function SettingsPage() {
   const { user } = useAuth();
   const canEditBuilding = user?.role === "manager" || user?.role === "platform_admin";
-  const [activeTab, setActiveTab] = useState<"building" | "profile">("profile");
+  const canEditPlatform = user?.role === "platform_admin" || user?.role === "hq_executive";
+  const [activeTab, setActiveTab] = useState<"building" | "profile" | "platform">("profile");
 
   const tabs = [
     { key: "profile" as const, label: "내정보 수정", icon: User },
     ...(canEditBuilding ? [{ key: "building" as const, label: "건물정보 수정", icon: Building }] : []),
+    ...(canEditPlatform ? [{ key: "platform" as const, label: "플랫폼 BM", icon: Coins }] : []),
   ];
 
   return (
@@ -65,7 +85,149 @@ export default function SettingsPage() {
           <BuildingSetup />
         </Suspense>
       )}
+      {activeTab === "platform" && <PlatformSettings />}
     </div>
+  );
+}
+
+function PlatformSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: settings } = useListPlatformSettings();
+  const { data: pricing } = useListCreditCategoryPricing();
+  const { data: rates } = useListCommissionRates();
+  const upsertSetting = useUpsertPlatformSetting();
+  const upsertPrice = useUpsertCreditCategoryPricing();
+  const upsertRate = useUpsertCommissionRate();
+
+  const findFlag = (key: string) => settings?.find((s) => s.key === key)?.value === "true";
+
+  const toggleFlag = async (key: string, enabled: boolean) => {
+    await upsertSetting.mutateAsync({ data: { key, value: enabled ? "true" : "false" } });
+    qc.invalidateQueries({ queryKey: getListPlatformSettingsQueryKey() });
+    toast({ title: `${key} ${enabled ? "활성화" : "비활성화"}됨` });
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>기능 플래그</CardTitle>
+          <CardDescription>플랫폼 수익화 기능의 on/off를 제어합니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-3 rounded-lg border">
+            <div>
+              <p className="font-medium text-sm">크레딧 입찰 시스템</p>
+              <p className="text-xs text-muted-foreground">견적 제출 시 크레딧 차감 활성화</p>
+            </div>
+            <Switch
+              checked={findFlag("credits_enabled")}
+              onCheckedChange={(v) => toggleFlag("credits_enabled", v)}
+            />
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg border">
+            <div>
+              <p className="font-medium text-sm">자동 수수료 정산</p>
+              <p className="text-xs text-muted-foreground">작업 완료 승인 시 pending→billed 자동 전환</p>
+            </div>
+            <Switch
+              checked={findFlag("auto_commission_enabled")}
+              onCheckedChange={(v) => toggleFlag("auto_commission_enabled", v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>크레딧 카테고리 단가</CardTitle>
+          <CardDescription>RFQ 카테고리별 입찰 크레딧 차감 비용을 조정합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">Tier</th><th className="text-left p-2">단가(C)</th><th></th></tr></thead>
+            <tbody>
+              {pricing?.map((p) => (
+                <PricingRow
+                  key={p.category}
+                  row={p}
+                  onSave={async (data) => {
+                    await upsertPrice.mutateAsync({ data });
+                    qc.invalidateQueries({ queryKey: getListCreditCategoryPricingQueryKey() });
+                    toast({ title: "단가가 저장되었습니다" });
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>카테고리별 수수료율</CardTitle>
+          <CardDescription>정기 업무는 고정 5%, 비정기/단건은 슬라이딩 10/7/5%</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">유형</th><th className="text-left p-2">고정 요율(%)</th><th></th></tr></thead>
+            <tbody>
+              {rates?.map((r) => (
+                <RateRow
+                  key={r.category}
+                  row={r}
+                  onSave={async (data) => {
+                    await upsertRate.mutateAsync({ data });
+                    qc.invalidateQueries({ queryKey: getListCommissionRatesQueryKey() });
+                    toast({ title: "수수료율이 저장되었습니다" });
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PricingRow({ row, onSave }: { row: CreditCategoryPricing; onSave: (d: UpsertCreditCategoryPricingBody) => Promise<void> }) {
+  const [tier, setTier] = useState(String(row.tier));
+  const [cost, setCost] = useState(String(row.creditCost));
+  return (
+    <tr className="border-b">
+      <td className="p-2 font-medium">{row.category}</td>
+      <td className="p-2"><Input value={tier} onChange={(e) => setTier(e.target.value)} className="h-8 w-16" /></td>
+      <td className="p-2"><Input value={cost} onChange={(e) => setCost(e.target.value)} className="h-8 w-20" /></td>
+      <td className="p-2 text-right">
+        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, tier: Number(tier), creditCost: Number(cost), description: row.description })}>
+          저장
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
+function RateRow({ row, onSave }: { row: CommissionRate; onSave: (d: UpsertCommissionRateBody) => Promise<void> }) {
+  const [rateType, setRateType] = useState(row.rateType);
+  const [fixedRate, setFixedRate] = useState(String(row.fixedRate));
+  return (
+    <tr className="border-b">
+      <td className="p-2 font-medium">{row.category}</td>
+      <td className="p-2">
+        <select value={rateType} onChange={(e) => setRateType(e.target.value as CommissionRate["rateType"])} className="h-8 text-xs border rounded px-2">
+          <option value="fixed">고정</option>
+          <option value="sliding">슬라이딩</option>
+        </select>
+      </td>
+      <td className="p-2"><Input value={fixedRate} onChange={(e) => setFixedRate(e.target.value)} className="h-8 w-20" /></td>
+      <td className="p-2 text-right">
+        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, rateType, fixedRate: Number(fixedRate), slidingRules: row.slidingRules, description: row.description })}>
+          저장
+        </Button>
+      </td>
+    </tr>
   );
 }
 

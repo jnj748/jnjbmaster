@@ -11,8 +11,17 @@ import {
   UserPlus,
   Activity,
   ChevronRight,
+  Wallet,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import {
+  useListAdminCreditWallets,
+  useAdjustCredits,
+  getListAdminCreditWalletsQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserRecord {
   id: number;
@@ -186,6 +195,8 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
+      <VendorCreditsPanel />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/users")}>
           <CardContent className="p-4 flex items-center gap-3">
@@ -219,5 +230,91 @@ export default function AdminDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function VendorCreditsPanel() {
+  const { data: wallets } = useListAdminCreditWallets();
+  const adjustMutation = useAdjustCredits();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<number | null>(null);
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+
+  async function handleAdjust(vendorId: number) {
+    const amt = Number(amount);
+    if (!amt) return;
+    await adjustMutation.mutateAsync({
+      data: {
+        vendorId,
+        amount: amt,
+        kind: amt > 0 ? "manual_credit" : "manual_debit",
+        notes: notes || "관리자 수동 조정",
+      },
+    });
+    qc.invalidateQueries({ queryKey: getListAdminCreditWalletsQueryKey() });
+    toast({ title: "크레딧이 조정되었습니다" });
+    setEditing(null);
+    setAmount("");
+    setNotes("");
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Wallet className="w-4 h-4 text-indigo-500" />
+          파트너 크레딧 관리
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!wallets || wallets.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">지갑 데이터가 없습니다</p>
+        ) : (
+          <div className="space-y-2">
+            {wallets.map((w) => (
+              <div key={w.vendorId} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{w.vendorName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      잔액 <span className="font-semibold text-foreground">{w.balance} C</span>
+                      {" · "}포인트 <span className="font-semibold text-foreground">{w.pointsBalance} P</span>
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditing(editing === w.vendorId ? null : w.vendorId)}
+                  >
+                    {editing === w.vendorId ? "닫기" : "충전/차감"}
+                  </Button>
+                </div>
+                {editing === w.vendorId && (
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      placeholder="금액 (+ 충전 / - 차감)"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="h-9"
+                    />
+                    <Input
+                      placeholder="메모"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="h-9"
+                    />
+                    <Button size="sm" onClick={() => handleAdjust(w.vendorId)}>
+                      적용
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

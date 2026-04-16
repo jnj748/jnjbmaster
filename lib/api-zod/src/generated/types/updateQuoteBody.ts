@@ -11,4 +11,8 @@ export interface UpdateQuoteBody {
   status?: UpdateQuoteBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  contractFilePath?: string | null;
+  /** @nullable */
+  contractUploadedAt?: Date | null;
 }

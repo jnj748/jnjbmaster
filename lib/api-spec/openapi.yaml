@@ -4455,6 +4455,253 @@ paths:
               schema:
                 $ref: "#/components/schemas/DelinquencyAction"
 
+  # ── Partner Credits ─────────────────────────────────────
+  /credits/wallet:
+    get:
+      operationId: getCreditWallet
+      tags: [commissions]
+      summary: Get partner credit wallet (self for partner, target for admin)
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditWallet"
+
+  /credits/ledger:
+    get:
+      operationId: listCreditLedger
+      tags: [commissions]
+      summary: List credit ledger entries
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ledger
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditLedgerEntry"
+
+  /credits/preview:
+    get:
+      operationId: previewCreditCost
+      tags: [commissions]
+      summary: Preview credit deduction for an RFQ
+      parameters:
+        - name: rfqId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCostPreview"
+
+  /credits/adjust:
+    post:
+      operationId: adjustCredits
+      tags: [commissions]
+      summary: Manual credit/debit adjustment by HQ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustCreditsBody"
+      responses:
+        "201":
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditLedgerEntry"
+
+  /credits/admin/wallets:
+    get:
+      operationId: listAdminCreditWallets
+      tags: [commissions]
+      summary: HQ - list all vendor credit wallets
+      responses:
+        "200":
+          description: Wallets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminWalletRow"
+
+  /credits/category-pricing:
+    get:
+      operationId: listCreditCategoryPricing
+      tags: [commissions]
+      summary: List credit tier/cost per category
+      responses:
+        "200":
+          description: Pricing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditCategoryPricing"
+    put:
+      operationId: upsertCreditCategoryPricing
+      tags: [commissions]
+      summary: Upsert credit pricing for a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCreditCategoryPricingBody"
+      responses:
+        "200":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCategoryPricing"
+
+  /platform-settings:
+    get:
+      operationId: listPlatformSettings
+      tags: [commissions]
+      summary: List platform feature flags / settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformSetting"
+    put:
+      operationId: upsertPlatformSetting
+      tags: [commissions]
+      summary: Upsert a platform setting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertPlatformSettingBody"
+      responses:
+        "200":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSetting"
+
+  /commissions/rates:
+    get:
+      operationId: listCommissionRates
+      tags: [commissions]
+      summary: List commission rates by category
+      responses:
+        "200":
+          description: Rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionRate"
+    put:
+      operationId: upsertCommissionRate
+      tags: [commissions]
+      summary: Upsert commission rate for a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCommissionRateBody"
+      responses:
+        "200":
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionRate"
+
+  /commissions/pipeline:
+    get:
+      operationId: getCommissionPipeline
+      tags: [commissions]
+      summary: Commission settlement pipeline summary
+      responses:
+        "200":
+          description: Pipeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionPipeline"
+
+  /commissions/{id}/transition:
+    post:
+      operationId: transitionCommission
+      tags: [commissions]
+      summary: Transition commission status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommissionTransitionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Commission"
+
+  /commissions/{id}/events:
+    get:
+      operationId: listCommissionEvents
+      tags: [commissions]
+      summary: List commission status event history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommissionEvent"
+
 components:
   schemas:
     HealthStatus:
@@ -4970,12 +5217,32 @@ components:
           type: number
         status:
           type: string
-          enum: [pending, confirmed, paid, cancelled]
+          enum: [pending, billed, collected, completed, cancelled, confirmed, paid]
         matchedDate:
           type: string
           format: date
         notes:
           type: ["string", "null"]
+        rfqId:
+          type: ["integer", "null"]
+        quoteId:
+          type: ["integer", "null"]
+        category:
+          type: ["string", "null"]
+        billedAt:
+          type: ["string", "null"]
+          format: date-time
+        collectedAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        invoiceNumber:
+          type: ["string", "null"]
+        invoiceIssuedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -5025,7 +5292,7 @@ components:
       properties:
         status:
           type: string
-          enum: [pending, confirmed, paid, cancelled]
+          enum: [pending, billed, collected, completed, cancelled, confirmed, paid]
         notes:
           type: ["string", "null"]
 
@@ -5173,6 +5440,11 @@ components:
         status:
           type: string
           enum: [submitted, accepted, rejected]
+        contractFilePath:
+          type: ["string", "null"]
+        contractUploadedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -5211,6 +5483,9 @@ components:
           format: date
         notes:
           type: ["string", "null"]
+        requiredDocsComplete:
+          type: boolean
+          default: false
       required:
         - rfqId
         - vendorId
@@ -5225,6 +5500,11 @@ components:
           enum: [submitted, accepted, rejected]
         notes:
           type: ["string", "null"]
+        contractFilePath:
+          type: ["string", "null"]
+        contractUploadedAt:
+          type: ["string", "null"]
+          format: date-time
 
     WorkReport:
       type: object
@@ -9557,3 +9837,356 @@ components:
         - title
         - category
         - priority
+
+    CreditWallet:
+      type: object
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        balance:
+          type: integer
+        pointsBalance:
+          type: integer
+        creditsEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - vendorId
+        - balance
+        - pointsBalance
+
+    CreditLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        amount:
+          type: integer
+        kind:
+          type: string
+          enum: [consumption, refund, manual_credit, manual_debit, package_purchase, rebate, adjustment, bonus_points]
+        source:
+          type: string
+          enum: [manual, package_purchase, refund, rebate, consumption, adjustment, system]
+        pointsAmount:
+          type: integer
+        rfqId:
+          type: ["integer", "null"]
+        quoteId:
+          type: ["integer", "null"]
+        relatedLedgerId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        actorId:
+          type: ["integer", "null"]
+        actorName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - vendorId
+        - amount
+        - kind
+        - source
+        - pointsAmount
+        - createdAt
+
+    CreditCostPreview:
+      type: object
+      properties:
+        rfqId:
+          type: integer
+        baseCost:
+          type: integer
+        tier:
+          type: integer
+        largeBuildingMultiplier:
+          type: number
+        isPremium:
+          type: boolean
+        totalCost:
+          type: integer
+        reason:
+          type: array
+          items:
+            type: string
+        creditsEnabled:
+          type: boolean
+        isPremiumRfq:
+          type: boolean
+        slotLimit:
+          type: ["integer", "null"]
+        slotsRemaining:
+          type: ["integer", "null"]
+      required:
+        - rfqId
+        - baseCost
+        - tier
+        - largeBuildingMultiplier
+        - isPremium
+        - totalCost
+        - reason
+
+    AdjustCreditsBody:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        amount:
+          type: integer
+        kind:
+          type: string
+          enum: [manual_credit, manual_debit, adjustment, package_purchase, rebate, bonus_points]
+        pointsAmount:
+          type: integer
+        notes:
+          type: string
+      required:
+        - vendorId
+        - amount
+        - kind
+        - notes
+
+    AdminWalletRow:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        category:
+          type: string
+        balance:
+          type: integer
+        pointsBalance:
+          type: integer
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - vendorId
+        - vendorName
+        - category
+        - balance
+        - pointsBalance
+
+    CreditCategoryPricing:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        tier:
+          type: integer
+        creditCost:
+          type: integer
+        description:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - category
+        - tier
+        - creditCost
+
+    UpsertCreditCategoryPricingBody:
+      type: object
+      properties:
+        category:
+          type: string
+        tier:
+          type: integer
+        creditCost:
+          type: integer
+        description:
+          type: ["string", "null"]
+      required:
+        - category
+        - tier
+        - creditCost
+
+    PlatformSetting:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        value:
+          type: string
+        description:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - key
+        - value
+
+    UpsertPlatformSettingBody:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+        description:
+          type: ["string", "null"]
+      required:
+        - key
+        - value
+
+    CommissionRate:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        rateType:
+          type: string
+          enum: [fixed, sliding]
+        fixedRate:
+          type: number
+        slidingRules:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - category
+        - rateType
+        - fixedRate
+
+    SlidingRule:
+      type: object
+      properties:
+        minAmount:
+          type: number
+        maxAmount:
+          type: ["number", "null"]
+        ratePercent:
+          type: number
+      required:
+        - minAmount
+        - ratePercent
+
+    UpsertCommissionRateBody:
+      type: object
+      properties:
+        category:
+          type: string
+        rateType:
+          type: string
+          enum: [fixed, sliding]
+        fixedRate:
+          type: number
+        slidingRules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlidingRule"
+        description:
+          type: ["string", "null"]
+      required:
+        - category
+        - rateType
+
+    CommissionPipelineBucket:
+      type: object
+      properties:
+        count:
+          type: integer
+        amount:
+          type: number
+        delayed:
+          type: integer
+      required:
+        - count
+        - amount
+        - delayed
+
+    CommissionPipeline:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            pending:
+              $ref: "#/components/schemas/CommissionPipelineBucket"
+            billed:
+              $ref: "#/components/schemas/CommissionPipelineBucket"
+            collected:
+              $ref: "#/components/schemas/CommissionPipelineBucket"
+            completed:
+              $ref: "#/components/schemas/CommissionPipelineBucket"
+            cancelled:
+              $ref: "#/components/schemas/CommissionPipelineBucket"
+          required:
+            - pending
+            - billed
+            - collected
+            - completed
+            - cancelled
+        delayed:
+          type: array
+          items:
+            $ref: "#/components/schemas/Commission"
+      required:
+        - summary
+        - delayed
+
+    CommissionTransitionBody:
+      type: object
+      properties:
+        toStatus:
+          type: string
+          enum: [pending, billed, collected, completed, cancelled]
+        reason:
+          type: ["string", "null"]
+      required:
+        - toStatus
+
+    CommissionEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        commissionId:
+          type: integer
+        fromStatus:
+          type: ["string", "null"]
+        toStatus:
+          type: string
+        reason:
+          type: ["string", "null"]
+        actorId:
+          type: ["integer", "null"]
+        actorName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - commissionId
+        - toStatus
+        - createdAt

@@ -7,6 +7,8 @@ import {
   useCreateWorkReport,
   useListSettlements,
   useListVendors,
+  useGetCreditWallet,
+  usePreviewCreditCost,
   getListQuotesQueryKey,
   getListWorkReportsQueryKey,
 } from "@workspace/api-client-react";
@@ -312,6 +314,17 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
     notes: "",
   });
 
+  const { data: wallet } = useGetCreditWallet(
+    { vendorId: vendorId ?? 0 },
+    { query: { enabled: !!vendorId } },
+  );
+  const { data: costPreview } = usePreviewCreditCost(
+    quoteDialogRfq ? { rfqId: quoteDialogRfq.id } : { rfqId: 0 },
+    { query: { enabled: !!quoteDialogRfq } },
+  );
+  const creditsEnabled = wallet?.creditsEnabled ?? false;
+  const insufficient = !!(creditsEnabled && costPreview && wallet && wallet.balance < costPreview.totalCost);
+
   function resetForm() {
     setForm({ totalAmount: "", itemBreakdown: "", scope: "", estimatedDays: "", availableDate: "", notes: "" });
   }
@@ -368,6 +381,11 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                         {rfq.status === "open" ? "접수중" : rfq.status === "closed" ? "마감" : "취소"}
                       </Badge>
                       <Badge variant="outline">{categoryLabel(rfq.category)}</Badge>
+                      {(rfq.isPremium || (rfq.estimatedAmount && rfq.estimatedAmount >= 5_000_000)) && (
+                        <Badge className="bg-amber-500 hover:bg-amber-600">
+                          프리미엄 · 선착순 {rfq.premiumSlotLimit ?? 5}팀
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex gap-4 text-sm text-muted-foreground mt-2">
                       <span>건물: {rfq.buildingName}</span>
@@ -441,6 +459,28 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                 <p><strong>마감:</strong> {formatDate(quoteDialogRfq.deadline)}</p>
               </div>
               <IntermediaryDisclaimerBanner variant="contract" className="mb-3" />
+              {creditsEnabled && costPreview && (
+                <div className={`p-3 rounded-lg text-sm mb-4 border ${insufficient ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">예상 차감 크레딧</span>
+                    <span className="font-bold">{costPreview.totalCost} C</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    보유: {wallet?.balance ?? 0} C · 포인트: {wallet?.pointsBalance ?? 0} P
+                  </div>
+                  {costPreview.reason?.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {costPreview.reason.join(" · ")}
+                    </div>
+                  )}
+                  {insufficient && (
+                    <div className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      크레딧이 부족합니다. 본사에 충전 요청 후 제출해주세요.
+                    </div>
+                  )}
+                </div>
+              )}
               <form onSubmit={handleSubmitQuote} className="space-y-4">
                 <div>
                   <Label>견적 금액 (원)</Label>
@@ -492,7 +532,7 @@ function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClient, crea
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   />
                 </div>
-                <Button type="submit" className="w-full">견적서 제출</Button>
+                <Button type="submit" className="w-full" disabled={insufficient}>견적서 제출</Button>
               </form>
             </div>
           )}

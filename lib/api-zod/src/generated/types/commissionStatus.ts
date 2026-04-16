@@ -11,7 +11,10 @@ export type CommissionStatus =
 
 export const CommissionStatus = {
   pending: "pending",
+  billed: "billed",
+  collected: "collected",
+  completed: "completed",
+  cancelled: "cancelled",
   confirmed: "confirmed",
   paid: "paid",
-  cancelled: "cancelled",
 } as const;

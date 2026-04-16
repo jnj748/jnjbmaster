@@ -46,6 +46,8 @@ import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
 import warrantiesRouter from "./warranties";
 import platformConsentsRouter from "./platformConsents";
+import creditsRouter from "./credits";
+import platformSettingsRouter from "./platformSettings";
 
 const router: IRouter = Router();
 
@@ -64,6 +66,8 @@ router.use(commissionsRouter);
 router.use(notificationsRouter);
 router.use(usersRouter);
 router.use(rfqsRouter);
+router.use(creditsRouter);
+router.use(platformSettingsRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
