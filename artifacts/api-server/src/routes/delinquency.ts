@@ -102,6 +102,7 @@ router.post("/delinquency/:id/notify", async (req: Request, res: Response): Prom
   const [updated] = await db.update(delinquencyActionsTable)
     .set({
       actionType: "notice_sent",
+      noticeDate: new Date(),
       notes: `${action.notes ? action.notes + "\n" : ""}[${new Date().toISOString().split("T")[0]}] 독촉 통지 발송 (시뮬레이션)`,
     })
     .where(eq(delinquencyActionsTable.id, id))
@@ -158,6 +159,7 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
   const [updated] = await db.update(delinquencyActionsTable)
     .set({
       actionType: "parking_suspended",
+      suspensionDate: new Date(),
       notes: `${action.notes ? action.notes + "\n" : ""}[${new Date().toISOString().split("T")[0]}] 주차권 정지 (${suspendedCount}대)`,
     })
     .where(eq(delinquencyActionsTable.id, id))

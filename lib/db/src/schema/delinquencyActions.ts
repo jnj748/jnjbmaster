@@ -15,6 +15,8 @@ export const delinquencyActionsTable = pgTable("delinquency_actions", {
   actionType: text("action_type").notNull(),
   status: text("status").notNull().default("active"),
   actionDate: timestamp("action_date", { withTimezone: true }).notNull().defaultNow(),
+  noticeDate: timestamp("notice_date", { withTimezone: true }),
+  suspensionDate: timestamp("suspension_date", { withTimezone: true }),
   resolvedDate: timestamp("resolved_date", { withTimezone: true }),
   notes: text("notes"),
   performedBy: text("performed_by").notNull().default("system"),

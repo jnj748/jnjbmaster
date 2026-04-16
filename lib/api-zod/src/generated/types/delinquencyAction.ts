@@ -19,6 +19,8 @@ export interface DelinquencyAction {
   actionType: DelinquencyActionActionType;
   status: DelinquencyActionStatus;
   actionDate: Date;
+  noticeDate?: Date | null;
+  suspensionDate?: Date | null;
   resolvedDate?: Date | null;
   notes?: string | null;
   performedBy: string;

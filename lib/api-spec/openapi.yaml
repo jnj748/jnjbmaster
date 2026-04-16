@@ -8950,6 +8950,14 @@ components:
         actionDate:
           type: string
           format: date-time
+        noticeDate:
+          type: string
+          format: date-time
+          nullable: true
+        suspensionDate:
+          type: string
+          format: date-time
+          nullable: true
         resolvedDate:
           type: string
           format: date-time

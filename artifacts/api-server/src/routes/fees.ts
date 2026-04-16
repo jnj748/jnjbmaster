@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { db, unitsTable, usersTable, ownersTable, approvalsTable } from "@workspace/db";
+import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable } from "@workspace/db";
 import {
   CalculateFeesBody,
   CalculateInterimSettlementBody,
@@ -118,6 +118,13 @@ router.get("/fees/billing", async (req: Request, res: Response): Promise<void> =
   const [yearStr, monthStr] = month.split("-");
   const dueDate = `${yearStr}-${monthStr}-25`;
 
+  const paymentRecords = await db.select().from(monthlyPaymentsTable)
+    .where(eq(monthlyPaymentsTable.billingMonth, month));
+  const paymentMap = new Map<number, typeof paymentRecords[0]>();
+  for (const p of paymentRecords) {
+    paymentMap.set(p.unitId, p);
+  }
+
   const items = units.map((u) => {
     const area = Number(u.exclusiveArea || 0);
     const ratio = useEqualSplitBilling ? 1 / units.length : area / totalArea;
@@ -125,6 +132,9 @@ router.get("/fees/billing", async (req: Request, res: Response): Promise<void> =
     const sf = Math.round(30000 * ratio);
     const utilityFee = Math.round(80000 * ratio);
     const total = commonFee + sf + utilityFee;
+
+    const payment = paymentMap.get(u.id);
+    const isPaid = payment ? payment.isPaid : true;
 
     return {
       unitId: u.id,
@@ -138,7 +148,7 @@ router.get("/fees/billing", async (req: Request, res: Response): Promise<void> =
       additionalFee: 0,
       specialSurcharge: 0,
       totalFee: total,
-      isPaid: u.status === "occupied",
+      isPaid,
       dueDate,
     };
   });
