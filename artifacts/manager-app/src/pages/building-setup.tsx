@@ -28,8 +28,34 @@ import {
   ChevronRight,
   Plus,
   X,
+  MapPin,
 } from "lucide-react";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (config: {
+        oncomplete: (data: DaumPostcodeResult) => void;
+        width?: string;
+        height?: string;
+      }) => { open: () => void };
+    };
+  }
+}
+
+interface DaumPostcodeResult {
+  roadAddress: string;
+  jibunAddress: string;
+  zonecode: string;
+  sido: string;
+  sigungu: string;
+  bname: string;
+  buildingName: string;
+  bcode: string;
+  jibunAddressEnglish: string;
+  address: string;
+}
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -57,6 +83,10 @@ interface BuildingData {
   hasSepticTank: boolean;
   managementOfficePhone: string;
   managementOfficeFax: string;
+  landArea: string;
+  buildingArea: string;
+  buildingCoverageRatio: string;
+  floorAreaRatio: string;
 }
 
 interface SafetyResult {
@@ -114,6 +144,10 @@ const EMPTY_BUILDING: BuildingData = {
   hasSepticTank: true,
   managementOfficePhone: "",
   managementOfficeFax: "",
+  landArea: "",
+  buildingArea: "",
+  buildingCoverageRatio: "",
+  floorAreaRatio: "",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -163,10 +197,8 @@ export default function BuildingSetup() {
   const [inspectionsScheduled, setInspectionsScheduled] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
-  const [lookupSigunguCd, setLookupSigunguCd] = useState("");
-  const [lookupBjdongCd, setLookupBjdongCd] = useState("");
-  const [lookupBun, setLookupBun] = useState("");
-  const [lookupJi, setLookupJi] = useState("");
+  const [registerPreview, setRegisterPreview] = useState<Record<string, unknown> | null>(null);
+  const [postcodeLoaded, setPostcodeLoaded] = useState(false);
 
   const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<SelectedTask[]>([]);
@@ -180,6 +212,15 @@ export default function BuildingSetup() {
   useEffect(() => {
     fetchBuilding();
     fetchPresets();
+    if (!document.getElementById("daum-postcode-script")) {
+      const script = document.createElement("script");
+      script.id = "daum-postcode-script";
+      script.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+      script.onload = () => setPostcodeLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      setPostcodeLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -291,6 +332,10 @@ export default function BuildingSetup() {
           hasSepticTank: data.building.hasSepticTank ?? true,
           managementOfficePhone: data.building.managementOfficePhone || "",
           managementOfficeFax: data.building.managementOfficeFax || "",
+          landArea: data.building.landArea || "",
+          buildingArea: data.building.buildingArea || "",
+          buildingCoverageRatio: data.building.buildingCoverageRatio || "",
+          floorAreaRatio: data.building.floorAreaRatio || "",
         });
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
@@ -309,21 +354,47 @@ export default function BuildingSetup() {
     }
   }
 
-  async function lookupBuildingRegister() {
-    if (!lookupSigunguCd || !lookupBjdongCd || !lookupBun) {
-      toast({ title: "시군구코드, 법정동코드, 본번을 입력해주세요", variant: "destructive" });
+  function openKakaoPostcode() {
+    if (!window.daum?.Postcode) {
+      toast({ title: "주소검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
       return;
     }
 
+    new window.daum.Postcode({
+      oncomplete: (data: DaumPostcodeResult) => {
+        setBuilding((prev) => ({
+          ...prev,
+          addressFull: data.roadAddress || data.address,
+          addressJibun: data.jibunAddress || "",
+          zipCode: data.zonecode || "",
+          sido: data.sido || prev.sido,
+          sigungu: data.sigungu || prev.sigungu,
+          dong: data.bname || prev.dong,
+          name: data.buildingName || prev.name,
+        }));
+
+        const bcode = data.bcode || "";
+        const sigunguCd = bcode.substring(0, 5);
+        const bjdongCd = bcode.substring(5, 10);
+
+        const jibun = data.jibunAddress || data.address || "";
+        const jibunMatch = jibun.match(/(\d+)(?:-(\d+))?$/);
+        const bun = jibunMatch?.[1] || "";
+        const ji = jibunMatch?.[2] || "0";
+
+        if (sigunguCd && bjdongCd && bun) {
+          lookupBuildingRegister(sigunguCd, bjdongCd, bun, ji);
+        } else {
+          toast({ title: "주소에서 건축물대장 조회코드를 추출할 수 없습니다. 건물 정보를 직접 입력해주세요." });
+        }
+      },
+    }).open();
+  }
+
+  async function lookupBuildingRegister(sigunguCd: string, bjdongCd: string, bun: string, ji: string) {
     setLookingUp(true);
     try {
-      const params = new URLSearchParams({
-        sigunguCd: lookupSigunguCd,
-        bjdongCd: lookupBjdongCd,
-        bun: lookupBun,
-        ji: lookupJi || "0",
-      });
-
+      const params = new URLSearchParams({ sigunguCd, bjdongCd, bun, ji });
       const res = await fetch(`${apiBase}/buildings/lookup-register?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -331,6 +402,7 @@ export default function BuildingSetup() {
 
       if (result.found && result.data) {
         const d = result.data;
+        setRegisterPreview(d);
         setBuilding((prev) => ({
           ...prev,
           name: d.buildingName || prev.name,
@@ -346,9 +418,14 @@ export default function BuildingSetup() {
             ? `${d.completionDate.substring(0, 4)}-${d.completionDate.substring(4, 6)}-${d.completionDate.substring(6, 8)}`
             : prev.completionDate,
           elevatorCount: d.elevatorCount ? String(d.elevatorCount) : prev.elevatorCount,
+          parkingSpaces: d.parkingCount ? String(d.parkingCount) : prev.parkingSpaces,
+          landArea: d.landArea || prev.landArea,
+          buildingArea: d.buildingArea || prev.buildingArea,
+          buildingCoverageRatio: d.buildingCoverageRatio || prev.buildingCoverageRatio,
+          floorAreaRatio: d.floorAreaRatio || prev.floorAreaRatio,
         }));
 
-        toast({ title: "건축물대장 정보를 불러왔습니다" });
+        toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
 
         calculateSafety({
           totalArea: d.totalArea || "0",
@@ -359,7 +436,7 @@ export default function BuildingSetup() {
           buildingUsage: d.mainPurpose || "",
         });
       } else {
-        toast({ title: "해당 건물 정보를 찾을 수 없습니다", variant: "destructive" });
+        toast({ title: "해당 건물의 건축물대장 정보를 찾을 수 없습니다", variant: "destructive" });
       }
     } catch {
       toast({ title: "건축물대장 조회 중 오류가 발생했습니다", variant: "destructive" });
@@ -486,7 +563,7 @@ export default function BuildingSetup() {
   }
 
   const steps = [
-    { label: "건축물대장 조회", icon: Search },
+    { label: "주소 검색", icon: MapPin },
     { label: "건물 정보 입력", icon: Building },
     { label: "법정업무 선택", icon: Calendar },
   ];
@@ -519,93 +596,129 @@ export default function BuildingSetup() {
       </div>
 
       {activeStep === 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="w-5 h-5" />
-              건축물대장 조회
-            </CardTitle>
-            <CardDescription>
-              건축물대장 코드를 입력하면 건물 정보를 자동으로 가져옵니다.
-              시군구코드와 법정동코드는 행정표준코드관리시스템에서 확인할 수 있습니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs">시군구코드 *</Label>
-                <Input
-                  placeholder="예: 11680"
-                  value={lookupSigunguCd}
-                  onChange={(e) => setLookupSigunguCd(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">법정동코드 *</Label>
-                <Input
-                  placeholder="예: 10300"
-                  value={lookupBjdongCd}
-                  onChange={(e) => setLookupBjdongCd(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">본번 *</Label>
-                <Input
-                  placeholder="예: 12"
-                  value={lookupBun}
-                  onChange={(e) => setLookupBun(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">부번</Label>
-                <Input
-                  placeholder="예: 0"
-                  value={lookupJi}
-                  onChange={(e) => setLookupJi(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">코드 확인 방법</p>
-                  <p className="mt-1">1. 등기부등본 또는 건축물대장에서 지번 주소를 확인</p>
-                  <p>2. 시군구코드 5자리 + 법정동코드 5자리를 입력</p>
-                  <p>3. 지번의 본번과 부번을 각각 입력</p>
-                  <p className="mt-1 text-blue-600">
-                    예시) 서울 강남구(11680) 삼성동(10500) 12-3번지 → 시군구: 11680, 법정동: 10500, 본번: 12, 부번: 3
-                  </p>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                주소 검색
+              </CardTitle>
+              <CardDescription>
+                주소를 검색하면 건축물대장(총괄표제부 + 표제부) 정보가 자동으로 불러와집니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {building.addressFull && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-green-900">선택된 주소</p>
+                      <p className="text-sm text-green-800 mt-1">{building.addressFull}</p>
+                      {building.addressJibun && (
+                        <p className="text-xs text-green-700 mt-0.5">(지번) {building.addressJibun}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {building.sido && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.sido}</span>}
+                        {building.sigungu && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.sigungu}</span>}
+                        {building.dong && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.dong}</span>}
+                        {building.zipCode && <span className="inline-flex items-center rounded-md border border-green-300 px-2 py-0.5 text-xs font-medium text-green-700">{building.zipCode}</span>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <Button
-              onClick={lookupBuildingRegister}
-              disabled={lookingUp}
-              className="w-full"
-            >
-              {lookingUp ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  건축물대장 조회 중...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4 mr-2" />
-                  건축물대장 조회
-                </>
               )}
-            </Button>
 
-            <div className="text-center">
-              <Button variant="ghost" size="sm" onClick={() => setActiveStep(1)}>
-                직접 입력하기 →
+              <Button
+                onClick={openKakaoPostcode}
+                disabled={!postcodeLoaded}
+                className="w-full"
+                size="lg"
+                variant={building.addressFull ? "outline" : "default"}
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                {building.addressFull ? "주소 다시 검색" : "주소 검색하기"}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+
+              {lookingUp && (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">건축물대장 정보 조회 중...</span>
+                </div>
+              )}
+
+              {registerPreview && !lookingUp && (
+                <Card className="border-blue-200 bg-blue-50/30">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Search className="w-4 h-4 text-blue-600" />
+                      건축물대장 조회 결과
+                    </CardTitle>
+                    <CardDescription>총괄표제부 + 표제부 정보가 아래 건물정보에 자동 반영되었습니다</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 desktop:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                      {registerPreview.buildingName && (
+                        <div><span className="text-muted-foreground">건물명:</span> <span className="font-medium">{String(registerPreview.buildingName)}</span></div>
+                      )}
+                      {registerPreview.mainPurpose && (
+                        <div><span className="text-muted-foreground">주용도:</span> <span className="font-medium">{String(registerPreview.mainPurpose)}</span></div>
+                      )}
+                      {registerPreview.structureType && (
+                        <div><span className="text-muted-foreground">구조:</span> <span className="font-medium">{String(registerPreview.structureType)}</span></div>
+                      )}
+                      {Number(registerPreview.totalFloors) > 0 && (
+                        <div><span className="text-muted-foreground">지상층:</span> <span className="font-medium">{String(registerPreview.totalFloors)}층</span></div>
+                      )}
+                      {Number(registerPreview.basementFloors) > 0 && (
+                        <div><span className="text-muted-foreground">지하층:</span> <span className="font-medium">{String(registerPreview.basementFloors)}층</span></div>
+                      )}
+                      {Number(registerPreview.totalUnits) > 0 && (
+                        <div><span className="text-muted-foreground">세대수:</span> <span className="font-medium">{String(registerPreview.totalUnits)}세대</span></div>
+                      )}
+                      {registerPreview.totalArea && (
+                        <div><span className="text-muted-foreground">연면적:</span> <span className="font-medium">{Number(registerPreview.totalArea).toLocaleString()}㎡</span></div>
+                      )}
+                      {registerPreview.landArea && (
+                        <div><span className="text-muted-foreground">대지면적:</span> <span className="font-medium">{Number(registerPreview.landArea).toLocaleString()}㎡</span></div>
+                      )}
+                      {registerPreview.buildingArea && (
+                        <div><span className="text-muted-foreground">건축면적:</span> <span className="font-medium">{Number(registerPreview.buildingArea).toLocaleString()}㎡</span></div>
+                      )}
+                      {registerPreview.buildingCoverageRatio && (
+                        <div><span className="text-muted-foreground">건폐율:</span> <span className="font-medium">{Number(registerPreview.buildingCoverageRatio).toFixed(2)}%</span></div>
+                      )}
+                      {registerPreview.floorAreaRatio && (
+                        <div><span className="text-muted-foreground">용적률:</span> <span className="font-medium">{Number(registerPreview.floorAreaRatio).toFixed(2)}%</span></div>
+                      )}
+                      {Number(registerPreview.elevatorCount) > 0 && (
+                        <div><span className="text-muted-foreground">승강기:</span> <span className="font-medium">{String(registerPreview.elevatorCount)}대</span></div>
+                      )}
+                      {Number(registerPreview.parkingCount) > 0 && (
+                        <div><span className="text-muted-foreground">주차대수:</span> <span className="font-medium">{String(registerPreview.parkingCount)}대</span></div>
+                      )}
+                      {registerPreview.completionDate && (
+                        <div><span className="text-muted-foreground">사용승인일:</span> <span className="font-medium">{String(registerPreview.completionDate)}</span></div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {building.addressFull && (
+                <Button className="w-full" onClick={() => setActiveStep(1)}>
+                  다음: 건물 정보 확인 및 수정 →
+                </Button>
+              )}
+
+              <div className="text-center">
+                <Button variant="ghost" size="sm" onClick={() => setActiveStep(1)}>
+                  직접 입력하기 →
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {activeStep === 1 && (
@@ -731,6 +844,47 @@ export default function BuildingSetup() {
                     value={building.totalArea}
                     onChange={(e) => handleFieldChange("totalArea", e.target.value)}
                     placeholder="연면적"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4">
+                <div>
+                  <Label>대지면적 (㎡)</Label>
+                  <Input
+                    type="number"
+                    value={building.landArea}
+                    onChange={(e) => handleFieldChange("landArea", e.target.value)}
+                    placeholder="대지면적"
+                  />
+                </div>
+                <div>
+                  <Label>건축면적 (㎡)</Label>
+                  <Input
+                    type="number"
+                    value={building.buildingArea}
+                    onChange={(e) => handleFieldChange("buildingArea", e.target.value)}
+                    placeholder="건축면적"
+                  />
+                </div>
+                <div>
+                  <Label>건폐율 (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={building.buildingCoverageRatio}
+                    onChange={(e) => handleFieldChange("buildingCoverageRatio", e.target.value)}
+                    placeholder="건폐율"
+                  />
+                </div>
+                <div>
+                  <Label>용적률 (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={building.floorAreaRatio}
+                    onChange={(e) => handleFieldChange("floorAreaRatio", e.target.value)}
+                    placeholder="용적률"
                   />
                 </div>
               </div>

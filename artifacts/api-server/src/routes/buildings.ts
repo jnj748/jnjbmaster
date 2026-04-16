@@ -69,6 +69,10 @@ router.post("/buildings", async (req: Request, res: Response) => {
       safetyManagerRequired: data.safetyManagerRequired ?? false,
       safetyManagerType: data.safetyManagerType || null,
       buildingRegisterPk: data.buildingRegisterPk || null,
+      landArea: data.landArea || null,
+      buildingArea: data.buildingArea || null,
+      buildingCoverageRatio: data.buildingCoverageRatio || null,
+      floorAreaRatio: data.floorAreaRatio || null,
       managementOfficePhone: data.managementOfficePhone || null,
       managementOfficeFax: data.managementOfficeFax || null,
     }).returning();
@@ -106,6 +110,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
       "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
     ];
+    const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio"];
     const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];
     const boolFields = ["hasPlayground", "hasGas", "hasSepticTank", "safetyManagerRequired"];
 
@@ -114,6 +119,9 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
     }
     for (const f of intFields) {
       if (data[f] !== undefined) updateData[f] = data[f] ? parseInt(data[f]) : null;
+    }
+    for (const f of numericFields) {
+      if (data[f] !== undefined) updateData[f] = data[f] || null;
     }
     for (const f of boolFields) {
       if (data[f] !== undefined) updateData[f] = data[f];
@@ -148,7 +156,7 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
   }
 
   try {
-    const params = new URLSearchParams({
+    const baseParams = {
       serviceKey: apiKey,
       sigunguCd: String(sigunguCd || ""),
       bjdongCd: String(bjdongCd || ""),
@@ -157,40 +165,55 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
       numOfRows: "1",
       pageNo: "1",
       _type: "json",
-    });
+    };
 
-    const url = `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${params.toString()}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const [titleResult, recapResult] = await Promise.allSettled([
+      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${new URLSearchParams(baseParams)}`).then(r => r.ok ? r.json() : null),
+      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${new URLSearchParams(baseParams)}`).then(r => r.ok ? r.json() : null),
+    ]);
 
-    const items = data?.response?.body?.items?.item;
-    if (!items || (Array.isArray(items) && items.length === 0)) {
+    const titleData = titleResult.status === "fulfilled" ? titleResult.value : null;
+    const recapData = recapResult.status === "fulfilled" ? recapResult.value : null;
+
+    const titleItems = titleData?.response?.body?.items?.item;
+    const recapItems = recapData?.response?.body?.items?.item;
+
+    const titleItem = titleItems ? (Array.isArray(titleItems) ? titleItems[0] : titleItems) : null;
+    const recapItem = recapItems ? (Array.isArray(recapItems) ? recapItems[0] : recapItems) : null;
+
+    if (!titleItem && !recapItem) {
       res.json({ found: false, data: null });
       return;
     }
 
-    const item = Array.isArray(items) ? items[0] : items;
+    const t = titleItem || {};
+    const r = recapItem || {};
 
     const buildingInfo = {
       found: true,
       data: {
-        buildingName: item.bldNm || "",
-        mainPurpose: item.mainPurpsCdNm || item.etcPurps || "",
-        totalArea: item.totArea ? String(item.totArea) : "",
-        buildingArea: item.archArea ? String(item.archArea) : "",
-        totalFloors: item.grndFlrCnt ? parseInt(item.grndFlrCnt) : 0,
-        basementFloors: item.ugrndFlrCnt ? parseInt(item.ugrndFlrCnt) : 0,
-        structureType: item.strctCdNm || "",
-        totalUnits: item.hhldCnt ? parseInt(item.hhldCnt) : (item.hoCnt ? parseInt(item.hoCnt) : 0),
-        completionDate: item.useAprDay || "",
-        elevatorCount: (item.rideUseElvtCnt ? parseInt(item.rideUseElvtCnt) : 0)
-          + (item.emgenUseElvtCnt ? parseInt(item.emgenUseElvtCnt) : 0),
-        platPlc: item.platPlc || "",
-        newPlatPlc: item.newPlatPlc || "",
-        sigunguCd: item.sigunguCd || "",
-        bjdongCd: item.bjdongCd || "",
-        bun: item.bun || "",
-        ji: item.ji || "",
+        buildingName: t.bldNm || r.bldNm || "",
+        mainPurpose: t.mainPurpsCdNm || t.etcPurps || r.mainPurpsCdNm || "",
+        totalArea: t.totArea ? String(t.totArea) : (r.totArea ? String(r.totArea) : ""),
+        buildingArea: t.archArea ? String(t.archArea) : (r.archArea ? String(r.archArea) : ""),
+        totalFloors: t.grndFlrCnt ? parseInt(t.grndFlrCnt) : (r.grndFlrCnt ? parseInt(r.grndFlrCnt) : 0),
+        basementFloors: t.ugrndFlrCnt ? parseInt(t.ugrndFlrCnt) : (r.ugrndFlrCnt ? parseInt(r.ugrndFlrCnt) : 0),
+        structureType: t.strctCdNm || r.strctCdNm || "",
+        totalUnits: t.hhldCnt ? parseInt(t.hhldCnt) : (t.hoCnt ? parseInt(t.hoCnt) : (r.hhldCnt ? parseInt(r.hhldCnt) : 0)),
+        completionDate: t.useAprDay || r.useAprDay || "",
+        elevatorCount: (t.rideUseElvtCnt ? parseInt(t.rideUseElvtCnt) : 0)
+          + (t.emgenUseElvtCnt ? parseInt(t.emgenUseElvtCnt) : 0),
+        platPlc: t.platPlc || r.platPlc || "",
+        newPlatPlc: t.newPlatPlc || r.newPlatPlc || "",
+        sigunguCd: t.sigunguCd || r.sigunguCd || "",
+        bjdongCd: t.bjdongCd || r.bjdongCd || "",
+        bun: t.bun || r.bun || "",
+        ji: t.ji || r.ji || "",
+        mgmBldrgstPk: t.mgmBldrgstPk || r.mgmBldrgstPk || "",
+        landArea: r.platArea ? String(r.platArea) : "",
+        buildingCoverageRatio: r.bcRat ? String(r.bcRat) : "",
+        floorAreaRatio: r.vlRat ? String(r.vlRat) : "",
+        parkingCount: r.totPkngCnt ? parseInt(r.totPkngCnt) : 0,
       },
     };
 
