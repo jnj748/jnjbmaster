@@ -381,12 +381,21 @@ router.get("/monthly-summary-reports", requireRole("manager", "platform_admin", 
   const userRow = await db.select().from(usersTable).where(eq(usersTable.id, user.userId)).then(r => r[0]);
   const isHqOrAdmin = userRow?.role === "hq_executive" || userRow?.role === "platform_admin";
 
+  if (!isHqOrAdmin && !userRow?.buildingId) {
+    res.json([]);
+    return;
+  }
+
   let rows = await db.select().from(monthlySummaryReportsTable).orderBy(desc(monthlySummaryReportsTable.createdAt));
 
-  if (!isHqOrAdmin && userRow?.buildingId) {
-    rows = rows.filter((r) => r.buildingId === userRow.buildingId);
+  if (!isHqOrAdmin) {
+    rows = rows.filter((r) => r.buildingId === userRow!.buildingId);
   } else if (buildingIdParam) {
     const bid = parseInt(buildingIdParam);
+    if (!Number.isInteger(bid) || bid <= 0) {
+      res.status(400).json({ error: "잘못된 건물 ID입니다" });
+      return;
+    }
     rows = rows.filter((r) => r.buildingId === bid);
   }
 
