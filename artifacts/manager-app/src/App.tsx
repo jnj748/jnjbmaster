@@ -41,7 +41,6 @@ const FacilityWorktool = lazy(() => import("@/pages/facility-worktool"));
 const AdminDashboard = lazy(() => import("@/pages/admin-dashboard"));
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
-const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 const BuildingInfo = lazy(() => import("@/pages/building-info"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
@@ -99,7 +98,6 @@ const managerRoutes = [
   { path: "/attendance", component: Attendance },
   { path: "/units", component: Units },
   { path: "/building-info", component: BuildingInfo },
-  { path: "/building-setup", component: BuildingSetup },
   { path: "/settings", component: SettingsPage },
   { path: "/accounting", component: AccountingDashboard },
   { path: "/calendar", component: CalendarPage },
@@ -182,6 +180,9 @@ function AuthenticatedRoutes() {
         <Suspense fallback={<PageLoader />}>
           <Switch>
             <Route path="/tenant-card/:token" component={TenantCardForm} />
+            <Route path="/building-setup">
+              <Redirect to="/settings" />
+            </Route>
             <Route path="/" component={DashboardComponent} />
             {routes.map((r) => (
               <Route key={r.path} path={r.path} component={r.component} />

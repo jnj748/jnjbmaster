@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const safetyChecklistsTable = pgTable("safety_checklists", {
   id: serial("id").primaryKey(),
+  buildingId: integer("building_id"),
   category: text("category").notNull(),
   title: text("title").notNull(),
   inspectionDate: date("inspection_date").notNull(),
