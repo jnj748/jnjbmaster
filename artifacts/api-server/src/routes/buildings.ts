@@ -504,7 +504,7 @@ router.post("/buildings/calculate-safety", async (req: Request, res: Response) =
     legalBasis: "감염병의 예방 및 관리에 관한 법률 제51조",
     notes: [],
   };
-  const disinfRequired = (isResidential && units >= 300) || ((isOffice || isComplex || !isResidential) && area >= 2000);
+  const disinfRequired = (isResidential && units >= 300) || ((isOffice || isComplex) && area >= 2000);
   if (disinfRequired) {
     disinfField.required = true;
     disinfField.type = "전문업체 위탁";
@@ -609,6 +609,8 @@ function getCyclemonthsForCategory(category: string, presetName: string): number
     disinfection: 2,
   };
 
+  if (presetName.includes("월간") || presetName.includes("월 1회")) return 1;
+  if (presetName.includes("분기") || presetName.includes("자체점검")) return 3;
   if (presetName.includes("정밀") || presetName.includes("종합")) return 12;
   if (presetName.includes("반기")) return 6;
   if (presetName.includes("3년") || presetName.includes("정기안전점검")) return 36;
