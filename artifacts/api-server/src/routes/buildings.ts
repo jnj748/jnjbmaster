@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable } from "@workspace/db";
-import { eq, and, lte, gte, sql, desc, or, isNull } from "drizzle-orm";
+import { eq, and, lte, gte, sql, desc } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -63,18 +63,16 @@ router.get("/buildings/overview", async (req: Request, res: Response) => {
     const futureStr = thirtyDays.toISOString().split("T")[0];
 
     const bId = building.id;
-    const belongsToBuilding = (col: typeof inspectionsTable.buildingId) =>
-      or(eq(col, bId), isNull(col));
 
-    const allInspections = await db.select().from(inspectionsTable).where(belongsToBuilding(inspectionsTable.buildingId));
+    const allInspections = await db.select().from(inspectionsTable).where(eq(inspectionsTable.buildingId, bId));
     const upcomingInspections = allInspections.filter(i => i.nextDueDate >= today && i.nextDueDate <= futureStr);
     const overdueInspections = allInspections.filter(i => i.status === "overdue" || (i.nextDueDate < today && i.status !== "completed"));
 
-    const recentChecklists = await db.select().from(safetyChecklistsTable).where(belongsToBuilding(safetyChecklistsTable.buildingId)).orderBy(desc(safetyChecklistsTable.inspectionDate)).limit(5);
-    const checklistTotal = await db.select({ count: sql<number>`count(*)::int` }).from(safetyChecklistsTable).where(belongsToBuilding(safetyChecklistsTable.buildingId)).then(r => r[0]?.count ?? 0);
+    const recentChecklists = await db.select().from(safetyChecklistsTable).where(eq(safetyChecklistsTable.buildingId, bId)).orderBy(desc(safetyChecklistsTable.inspectionDate)).limit(5);
+    const checklistTotal = await db.select({ count: sql<number>`count(*)::int` }).from(safetyChecklistsTable).where(eq(safetyChecklistsTable.buildingId, bId)).then(r => r[0]?.count ?? 0);
 
-    const pendingMaintenance = await db.select({ count: sql<number>`count(*)::int` }).from(maintenanceLogsTable).where(and(belongsToBuilding(maintenanceLogsTable.buildingId), eq(maintenanceLogsTable.status, "pending"))).then(r => r[0]?.count ?? 0);
-    const completedMaintenance = await db.select({ count: sql<number>`count(*)::int` }).from(maintenanceLogsTable).where(and(belongsToBuilding(maintenanceLogsTable.buildingId), eq(maintenanceLogsTable.status, "completed"))).then(r => r[0]?.count ?? 0);
+    const pendingMaintenance = await db.select({ count: sql<number>`count(*)::int` }).from(maintenanceLogsTable).where(and(eq(maintenanceLogsTable.buildingId, bId), eq(maintenanceLogsTable.status, "pending"))).then(r => r[0]?.count ?? 0);
+    const completedMaintenance = await db.select({ count: sql<number>`count(*)::int` }).from(maintenanceLogsTable).where(and(eq(maintenanceLogsTable.buildingId, bId), eq(maintenanceLogsTable.status, "completed"))).then(r => r[0]?.count ?? 0);
 
     const allUnits = await db.select().from(unitsTable).where(eq(unitsTable.buildingId, user.buildingId));
     const occupiedUnits = allUnits.filter(u => u.status === "occupied" || u.status === "입주");
