@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { db, maintenanceLogsTable } from "@workspace/db";
+import { db, maintenanceLogsTable, usersTable } from "@workspace/db";
 import {
   ListMaintenanceLogsQueryParams,
   ListMaintenanceLogsResponse,
@@ -18,6 +18,11 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "facility_staff"));
+
+async function getUserBuildingId(userId: number): Promise<number | null> {
+  const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  return user?.buildingId ?? null;
+}
 
 router.get("/maintenance-logs", async (req, res): Promise<void> => {
   const params = ListMaintenanceLogsQueryParams.safeParse(req.query);
@@ -51,7 +56,8 @@ router.post("/maintenance-logs", async (req, res): Promise<void> => {
     return;
   }
 
-  const [log] = await db.insert(maintenanceLogsTable).values(parsed.data).returning();
+  const buildingId = await getUserBuildingId(req.user!.userId);
+  const [log] = await db.insert(maintenanceLogsTable).values({ ...parsed.data, buildingId }).returning();
   res.status(201).json(GetMaintenanceLogResponse.parse(log));
 });
 

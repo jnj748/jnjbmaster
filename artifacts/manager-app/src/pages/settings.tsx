@@ -23,11 +23,13 @@ const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const canEditBuilding = user?.role === "manager" || user?.role === "platform_admin";
   const [activeTab, setActiveTab] = useState<"building" | "profile">("profile");
 
   const tabs = [
     { key: "profile" as const, label: "내정보 수정", icon: User },
-    { key: "building" as const, label: "건물정보 수정", icon: Building },
+    ...(canEditBuilding ? [{ key: "building" as const, label: "건물정보 수정", icon: Building }] : []),
   ];
 
   return (

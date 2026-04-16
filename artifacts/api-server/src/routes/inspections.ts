@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc, sql } from "drizzle-orm";
-import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable } from "@workspace/db";
+import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable, usersTable } from "@workspace/db";
 import {
   ListInspectionsResponse,
   CreateInspectionBody,
@@ -26,6 +26,11 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
+
+async function getUserBuildingId(userId: number): Promise<number | null> {
+  const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  return user?.buildingId ?? null;
+}
 
 const LEGAL_PRESETS = [
   // ── 소방 분야 ──
@@ -367,8 +372,11 @@ router.post("/inspections", async (req, res): Promise<void> => {
     return;
   }
 
+  const buildingId = await getUserBuildingId(req.user!.userId);
+
   const data = {
     ...parsed.data,
+    buildingId,
     advanceAlertDays: parsed.data.advanceAlertDays ?? 30,
     inspectionType: parsed.data.inspectionType ?? "legal",
     nextDueDate: parsed.data.nextDueDate as string | undefined,
@@ -399,6 +407,7 @@ router.post("/inspections/bulk-register", async (req, res): Promise<void> => {
 
   const { presetIds, baseDate } = parsed.data;
   const baseDateStr = typeof baseDate === "string" ? baseDate : new Date(baseDate).toISOString().split("T")[0];
+  const buildingId = await getUserBuildingId(req.user!.userId);
 
   const allPresets = await db.select().from(legalInspectionPresetsTable);
   const selectedPresets = presetIds.length > 0
@@ -425,6 +434,7 @@ router.post("/inspections/bulk-register", async (req, res): Promise<void> => {
     }
 
     const [inspection] = await db.insert(inspectionsTable).values({
+      buildingId,
       name: preset.name,
       category: preset.category,
       inspectionType: inspType,

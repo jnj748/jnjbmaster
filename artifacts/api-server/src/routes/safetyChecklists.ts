@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable, usersTable } from "@workspace/db";
 import {
   ListSafetyChecklistsQueryParams,
   ListSafetyChecklistsResponse,
@@ -38,6 +38,11 @@ const CATEGORY_TO_MAINTENANCE: Record<string, string> = {
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "facility_staff"));
 
+async function getUserBuildingId(userId: number): Promise<number | null> {
+  const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  return user?.buildingId ?? null;
+}
+
 router.get("/safety-checklists", async (req, res): Promise<void> => {
   const params = ListSafetyChecklistsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -68,8 +73,9 @@ router.post("/safety-checklists", async (req, res): Promise<void> => {
   }
 
   const { items, ...checklistData } = parsed.data;
+  const buildingId = await getUserBuildingId(req.user!.userId);
 
-  const [checklist] = await db.insert(safetyChecklistsTable).values(checklistData).returning();
+  const [checklist] = await db.insert(safetyChecklistsTable).values({ ...checklistData, buildingId }).returning();
 
   if (items && items.length > 0) {
     await db.insert(safetyChecklistItemsTable).values(
@@ -224,6 +230,7 @@ router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void>
       const today = new Date().toISOString().split("T")[0];
 
       const [maintenanceLog] = await db.insert(maintenanceLogsTable).values({
+        buildingId: checklist.buildingId,
         title: `[불량] ${item.itemName}`,
         description: `안전점검표 "${checklist.title}"에서 불량 발견: ${item.itemName}. 카테고리: ${categoryLabel}`,
         category: maintenanceCategory,
