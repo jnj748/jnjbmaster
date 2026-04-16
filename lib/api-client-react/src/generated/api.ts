@@ -84,6 +84,9 @@ import type {
   DeleteDocumentTemplate200,
   DeleteSignature200,
   DeleteVote200,
+  DelinquencyAction,
+  DelinquencyParkingResult,
+  DelinquencySummary,
   DestructionScheduleItem,
   DigitalSignatureItem,
   DocumentChecklist,
@@ -129,6 +132,7 @@ import type {
   ListApprovalsParams,
   ListComplaintsParams,
   ListDailyReportsParams,
+  ListDelinquenciesParams,
   ListDocumentChecklistsParams,
   ListMaintenanceLogsParams,
   ListMeterReadingsParams,
@@ -17094,4 +17098,431 @@ export const useDeleteVote = <
   TContext
 > => {
   return useMutation(getDeleteVoteMutationOptions(options));
+};
+
+/**
+ * @summary List delinquency actions
+ */
+export const getListDelinquenciesUrl = (params?: ListDelinquenciesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/delinquency?${stringifiedParams}`
+    : `/api/delinquency`;
+};
+
+export const listDelinquencies = async (
+  params?: ListDelinquenciesParams,
+  options?: RequestInit,
+): Promise<DelinquencyAction[]> => {
+  return customFetch<DelinquencyAction[]>(getListDelinquenciesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDelinquenciesQueryKey = (
+  params?: ListDelinquenciesParams,
+) => {
+  return [`/api/delinquency`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDelinquenciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDelinquencies>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDelinquenciesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDelinquencies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDelinquenciesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDelinquencies>>
+  > = ({ signal }) => listDelinquencies(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDelinquencies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDelinquenciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDelinquencies>>
+>;
+export type ListDelinquenciesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List delinquency actions
+ */
+
+export function useListDelinquencies<
+  TData = Awaited<ReturnType<typeof listDelinquencies>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDelinquenciesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDelinquencies>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDelinquenciesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get delinquency summary counts
+ */
+export const getGetDelinquencySummaryUrl = () => {
+  return `/api/delinquency/summary`;
+};
+
+export const getDelinquencySummary = async (
+  options?: RequestInit,
+): Promise<DelinquencySummary> => {
+  return customFetch<DelinquencySummary>(getGetDelinquencySummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDelinquencySummaryQueryKey = () => {
+  return [`/api/delinquency/summary`] as const;
+};
+
+export const getGetDelinquencySummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDelinquencySummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDelinquencySummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDelinquencySummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDelinquencySummary>>
+  > = ({ signal }) => getDelinquencySummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDelinquencySummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDelinquencySummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDelinquencySummary>>
+>;
+export type GetDelinquencySummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get delinquency summary counts
+ */
+
+export function useGetDelinquencySummary<
+  TData = Awaited<ReturnType<typeof getDelinquencySummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDelinquencySummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDelinquencySummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send dunning notice for a delinquency record
+ */
+export const getSendDelinquencyNoticeUrl = (id: number) => {
+  return `/api/delinquency/${id}/notify`;
+};
+
+export const sendDelinquencyNotice = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DelinquencyAction> => {
+  return customFetch<DelinquencyAction>(getSendDelinquencyNoticeUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendDelinquencyNoticeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendDelinquencyNotice>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendDelinquencyNotice>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["sendDelinquencyNotice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendDelinquencyNotice>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return sendDelinquencyNotice(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendDelinquencyNoticeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendDelinquencyNotice>>
+>;
+
+export type SendDelinquencyNoticeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send dunning notice for a delinquency record
+ */
+export const useSendDelinquencyNotice = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendDelinquencyNotice>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendDelinquencyNotice>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSendDelinquencyNoticeMutationOptions(options));
+};
+
+/**
+ * @summary Suspend parking rights for delinquent unit
+ */
+export const getSuspendDelinquencyParkingUrl = (id: number) => {
+  return `/api/delinquency/${id}/suspend-parking`;
+};
+
+export const suspendDelinquencyParking = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DelinquencyParkingResult> => {
+  return customFetch<DelinquencyParkingResult>(
+    getSuspendDelinquencyParkingUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSuspendDelinquencyParkingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suspendDelinquencyParking>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suspendDelinquencyParking>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["suspendDelinquencyParking"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suspendDelinquencyParking>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return suspendDelinquencyParking(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuspendDelinquencyParkingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suspendDelinquencyParking>>
+>;
+
+export type SuspendDelinquencyParkingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Suspend parking rights for delinquent unit
+ */
+export const useSuspendDelinquencyParking = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suspendDelinquencyParking>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof suspendDelinquencyParking>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSuspendDelinquencyParkingMutationOptions(options));
+};
+
+/**
+ * @summary Resolve a delinquency record
+ */
+export const getResolveDelinquencyUrl = (id: number) => {
+  return `/api/delinquency/${id}/resolve`;
+};
+
+export const resolveDelinquency = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DelinquencyAction> => {
+  return customFetch<DelinquencyAction>(getResolveDelinquencyUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getResolveDelinquencyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveDelinquency>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resolveDelinquency>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["resolveDelinquency"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resolveDelinquency>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return resolveDelinquency(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResolveDelinquencyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolveDelinquency>>
+>;
+
+export type ResolveDelinquencyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Resolve a delinquency record
+ */
+export const useResolveDelinquency = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resolveDelinquency>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resolveDelinquency>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getResolveDelinquencyMutationOptions(options));
 };

@@ -35,3 +35,4 @@ export * from "./managementContractTemplates";
 export * from "./meters";
 export * from "./complaints";
 export * from "./votes";
+export * from "./delinquencyActions";

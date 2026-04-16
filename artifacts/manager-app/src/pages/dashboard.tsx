@@ -8,6 +8,7 @@ import {
   useGetUnitsSummary,
   useCreateAlertAction,
   useCreateRfq,
+  useGetDelinquencySummary,
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
   type CreateRfqBody,
@@ -147,6 +148,7 @@ export default function Dashboard() {
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
+  const { data: delinquencySummary } = useGetDelinquencySummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
 
   const [alertPage, setAlertPage] = useState(0);
 
@@ -565,6 +567,41 @@ export default function Dashboard() {
           subtitle={analytics ? `전체 ${analytics.unpaidSummary.totalUnits}세대 중` : "미납 세대 수"}
         />
       </div>
+
+      {delinquencySummary && delinquencySummary.totalOverdue > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-semibold text-red-800">
+                  연체 세대 현황
+                </span>
+                <Badge variant="destructive" className="text-[10px] h-5">
+                  {delinquencySummary.totalOverdue}건
+                </Badge>
+              </div>
+              <Link href="/accounting">
+                <span className="text-xs text-red-600 hover:underline font-medium cursor-pointer">관리 →</span>
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white rounded-lg p-2 text-center border border-red-100">
+                <p className="text-lg font-bold text-red-700">{delinquencySummary.totalOverdue - delinquencySummary.notified - delinquencySummary.parkingSuspended}</p>
+                <p className="text-[10px] text-red-600">감지됨</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 text-center border border-orange-100">
+                <p className="text-lg font-bold text-orange-600">{delinquencySummary.notified}</p>
+                <p className="text-[10px] text-orange-500">독촉 발송</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 text-center border border-red-100">
+                <p className="text-lg font-bold text-red-800">{delinquencySummary.parkingSuspended}</p>
+                <p className="text-[10px] text-red-600">주차 정지</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {analytics && analytics.dataDestructionCount > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">

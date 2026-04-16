@@ -18,10 +18,18 @@ import {
   useGetApprovalCheck,
   useGetIncompleteUnits,
   useCalculateFees,
+  useGetDelinquencySummary,
+  useListDelinquencies,
+  useSendDelinquencyNotice,
+  useSuspendDelinquencyParking,
+  useResolveDelinquency,
+  getGetDelinquencySummaryQueryKey,
+  getListDelinquenciesQueryKey,
 } from "@workspace/api-client-react";
 import type { CalculateFeesResponse } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ClipboardCheck,
@@ -119,7 +127,13 @@ export default function AccountingDashboard() {
   const [month] = useState(currentMonth());
   const { data: approvalCheck } = useGetApprovalCheck({ month });
   const { data: incompleteUnits = [] } = useGetIncompleteUnits();
+  const { data: delinquencySummary } = useGetDelinquencySummary();
+  const { data: delinquencies = [] } = useListDelinquencies({ status: "active" });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const notifyMutation = useSendDelinquencyNotice();
+  const suspendMutation = useSuspendDelinquencyParking();
+  const resolveMutation = useResolveDelinquency();
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -243,6 +257,39 @@ export default function AccountingDashboard() {
       toast({ title: `${result.totalUnits}세대 관리비 산출 완료` });
     } catch {
       toast({ title: "산출에 실패했습니다", variant: "destructive" });
+    }
+  }
+
+  async function handleDelinquencyNotify(id: number) {
+    try {
+      await notifyMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListDelinquenciesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDelinquencySummaryQueryKey() });
+      toast({ title: "독촉 통지가 발송되었습니다" });
+    } catch {
+      toast({ title: "독촉 발송 실패", variant: "destructive" });
+    }
+  }
+
+  async function handleDelinquencySuspend(id: number) {
+    try {
+      await suspendMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListDelinquenciesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDelinquencySummaryQueryKey() });
+      toast({ title: "주차권이 정지되었습니다" });
+    } catch {
+      toast({ title: "주차권 정지 실패", variant: "destructive" });
+    }
+  }
+
+  async function handleDelinquencyResolve(id: number) {
+    try {
+      await resolveMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListDelinquenciesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDelinquencySummaryQueryKey() });
+      toast({ title: "연체가 해소 처리되었습니다" });
+    } catch {
+      toast({ title: "해소 처리 실패", variant: "destructive" });
     }
   }
 
@@ -372,6 +419,79 @@ export default function AccountingDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {delinquencies.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600" />
+                연체 세대 관리
+                <Badge variant="destructive" className="text-[10px]">
+                  {delinquencySummary?.totalOverdue ?? delinquencies.length}건
+                </Badge>
+              </CardTitle>
+              {delinquencySummary && (
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  <span>독촉 {delinquencySummary.notified}</span>
+                  <span>주차정지 {delinquencySummary.parkingSuspended}</span>
+                  <span className="text-emerald-600">해소 {delinquencySummary.resolved}</span>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-0">
+            {delinquencies.slice(0, 5).map((d) => (
+              <div key={d.id} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{d.unitNumber}호</span>
+                    {d.tenantName && <span className="text-xs text-muted-foreground">{d.tenantName}</span>}
+                    <Badge
+                      variant={d.actionType === "parking_suspended" ? "destructive" : d.actionType === "notice_sent" ? "secondary" : "outline"}
+                      className="text-[10px]"
+                    >
+                      {d.actionType === "detected" ? "감지" : d.actionType === "notice_sent" ? "독촉발송" : "주차정지"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {d.overdueMonths}개월 연체 · {(d.totalOverdueAmount).toLocaleString()}원
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  {d.actionType === "detected" && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs"
+                      onClick={() => handleDelinquencyNotify(d.id)}
+                      disabled={notifyMutation.isPending}
+                    >
+                      독촉
+                    </Button>
+                  )}
+                  {(d.actionType === "detected" || d.actionType === "notice_sent") && (
+                    <Button size="sm" variant="destructive" className="h-7 text-xs"
+                      onClick={() => handleDelinquencySuspend(d.id)}
+                      disabled={suspendMutation.isPending}
+                    >
+                      주차정지
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-600"
+                    onClick={() => handleDelinquencyResolve(d.id)}
+                    disabled={resolveMutation.isPending}
+                  >
+                    해소
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {delinquencies.length > 5 && (
+              <p className="text-xs text-muted-foreground text-center">
+                외 {delinquencies.length - 5}건...
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="checklist" className="w-full">
         <TabsList className="grid w-full grid-cols-2">

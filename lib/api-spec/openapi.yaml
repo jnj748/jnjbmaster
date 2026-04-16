@@ -59,6 +59,8 @@ tags:
     description: Resident complaint management
   - name: voting
     description: Electronic voting management
+  - name: delinquency
+    description: Delinquency detection and enforcement
 
 paths:
   /healthz:
@@ -4143,6 +4145,97 @@ paths:
                 properties:
                   success:
                     type: boolean
+
+  /delinquency:
+    get:
+      operationId: listDelinquencies
+      tags: [delinquency]
+      summary: List delinquency actions
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, resolved]
+      responses:
+        "200":
+          description: Delinquency action list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DelinquencyAction"
+
+  /delinquency/summary:
+    get:
+      operationId: getDelinquencySummary
+      tags: [delinquency]
+      summary: Get delinquency summary counts
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelinquencySummary"
+
+  /delinquency/{id}/notify:
+    post:
+      operationId: sendDelinquencyNotice
+      tags: [delinquency]
+      summary: Send dunning notice for a delinquency record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Notice sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelinquencyAction"
+
+  /delinquency/{id}/suspend-parking:
+    post:
+      operationId: suspendDelinquencyParking
+      tags: [delinquency]
+      summary: Suspend parking rights for delinquent unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Parking suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelinquencyParkingResult"
+
+  /delinquency/{id}/resolve:
+    post:
+      operationId: resolveDelinquency
+      tags: [delinquency]
+      summary: Resolve a delinquency record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelinquencyAction"
 
 components:
   schemas:
@@ -8827,3 +8920,94 @@ components:
         - unitNumber
         - unitId
         - issue
+
+    DelinquencyAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        unitNumber:
+          type: string
+        tenantId:
+          type: integer
+          nullable: true
+        tenantName:
+          type: string
+          nullable: true
+        overdueMonths:
+          type: integer
+        totalOverdueAmount:
+          type: integer
+        actionType:
+          type: string
+          enum: [detected, notice_sent, parking_suspended]
+        status:
+          type: string
+          enum: [active, resolved]
+        actionDate:
+          type: string
+          format: date-time
+        resolvedDate:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        performedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - unitNumber
+        - overdueMonths
+        - totalOverdueAmount
+        - actionType
+        - status
+        - actionDate
+        - performedBy
+
+    DelinquencySummary:
+      type: object
+      properties:
+        totalOverdue:
+          type: integer
+        notified:
+          type: integer
+        parkingSuspended:
+          type: integer
+        resolved:
+          type: integer
+      required:
+        - totalOverdue
+        - notified
+        - parkingSuspended
+        - resolved
+
+    DelinquencyParkingResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        unitNumber:
+          type: string
+        actionType:
+          type: string
+        status:
+          type: string
+        suspendedVehicles:
+          type: integer
+      required:
+        - id
+        - unitNumber
+        - actionType
+        - status
+        - suspendedVehicles

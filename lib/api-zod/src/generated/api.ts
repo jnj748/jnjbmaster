@@ -5133,3 +5133,106 @@ export const DeleteVoteParams = zod.object({
 export const DeleteVoteResponse = zod.object({
   success: zod.boolean().optional(),
 });
+
+/**
+ * @summary List delinquency actions
+ */
+export const ListDelinquenciesQueryParams = zod.object({
+  status: zod.enum(["active", "resolved"]).optional(),
+});
+
+export const ListDelinquenciesResponseItem = zod.object({
+  id: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  overdueMonths: zod.number(),
+  totalOverdueAmount: zod.number(),
+  actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
+  status: zod.enum(["active", "resolved"]),
+  actionDate: zod.coerce.date(),
+  resolvedDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  performedBy: zod.string(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const ListDelinquenciesResponse = zod.array(
+  ListDelinquenciesResponseItem,
+);
+
+/**
+ * @summary Get delinquency summary counts
+ */
+export const GetDelinquencySummaryResponse = zod.object({
+  totalOverdue: zod.number(),
+  notified: zod.number(),
+  parkingSuspended: zod.number(),
+  resolved: zod.number(),
+});
+
+/**
+ * @summary Send dunning notice for a delinquency record
+ */
+export const SendDelinquencyNoticeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendDelinquencyNoticeResponse = zod.object({
+  id: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  overdueMonths: zod.number(),
+  totalOverdueAmount: zod.number(),
+  actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
+  status: zod.enum(["active", "resolved"]),
+  actionDate: zod.coerce.date(),
+  resolvedDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  performedBy: zod.string(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Suspend parking rights for delinquent unit
+ */
+export const SuspendDelinquencyParkingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SuspendDelinquencyParkingResponse = zod.object({
+  id: zod.number(),
+  unitNumber: zod.string(),
+  actionType: zod.string(),
+  status: zod.string(),
+  suspendedVehicles: zod.number(),
+});
+
+/**
+ * @summary Resolve a delinquency record
+ */
+export const ResolveDelinquencyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ResolveDelinquencyResponse = zod.object({
+  id: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  tenantId: zod.number().nullish(),
+  tenantName: zod.string().nullish(),
+  overdueMonths: zod.number(),
+  totalOverdueAmount: zod.number(),
+  actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
+  status: zod.enum(["active", "resolved"]),
+  actionDate: zod.coerce.date(),
+  resolvedDate: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  performedBy: zod.string(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});

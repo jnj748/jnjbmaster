@@ -3652,6 +3652,56 @@ export interface IncompleteUnitIssue {
   issue: string;
 }
 
+export type DelinquencyActionActionType =
+  (typeof DelinquencyActionActionType)[keyof typeof DelinquencyActionActionType];
+
+export const DelinquencyActionActionType = {
+  detected: "detected",
+  notice_sent: "notice_sent",
+  parking_suspended: "parking_suspended",
+} as const;
+
+export type DelinquencyActionStatus =
+  (typeof DelinquencyActionStatus)[keyof typeof DelinquencyActionStatus];
+
+export const DelinquencyActionStatus = {
+  active: "active",
+  resolved: "resolved",
+} as const;
+
+export interface DelinquencyAction {
+  id: number;
+  unitId?: number | null;
+  unitNumber: string;
+  tenantId?: number | null;
+  tenantName?: string | null;
+  overdueMonths: number;
+  totalOverdueAmount: number;
+  actionType: DelinquencyActionActionType;
+  status: DelinquencyActionStatus;
+  actionDate: string;
+  resolvedDate?: string | null;
+  notes?: string | null;
+  performedBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DelinquencySummary {
+  totalOverdue: number;
+  notified: number;
+  parkingSuspended: number;
+  resolved: number;
+}
+
+export interface DelinquencyParkingResult {
+  id: number;
+  unitNumber: string;
+  actionType: string;
+  status: string;
+  suspendedVehicles: number;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -4141,3 +4191,15 @@ export type DeleteComplaint200 = {
 export type DeleteVote200 = {
   success?: boolean;
 };
+
+export type ListDelinquenciesParams = {
+  status?: ListDelinquenciesStatus;
+};
+
+export type ListDelinquenciesStatus =
+  (typeof ListDelinquenciesStatus)[keyof typeof ListDelinquenciesStatus];
+
+export const ListDelinquenciesStatus = {
+  active: "active",
+  resolved: "resolved",
+} as const;
