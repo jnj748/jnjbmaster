@@ -58,6 +58,9 @@ router.post("/fees/calculate", async (req: Request, res: Response): Promise<void
     : (specialFund || 0);
   const surchargeAmount = specialSurcharge || 0;
 
+  const [yearStr, monthStr2] = month.split("-");
+  const dueDate = `${yearStr}-${monthStr2}-25`;
+
   let grandTotal = 0;
   const items = units.map((u) => {
     const area = Number(u.exclusiveArea || 0);
@@ -71,6 +74,7 @@ router.post("/fees/calculate", async (req: Request, res: Response): Promise<void
     grandTotal += total;
 
     return {
+      unitId: u.id,
       unitNumber: u.unitNumber,
       exclusiveArea: area,
       areaRatio: Math.round(ratio * 10000) / 100,
@@ -83,6 +87,29 @@ router.post("/fees/calculate", async (req: Request, res: Response): Promise<void
       isPaid: false,
     };
   });
+
+  for (const item of items) {
+    const existing = await db.select().from(monthlyPaymentsTable)
+      .where(and(
+        eq(monthlyPaymentsTable.unitId, item.unitId),
+        eq(monthlyPaymentsTable.billingMonth, month)
+      ));
+
+    if (existing.length === 0) {
+      await db.insert(monthlyPaymentsTable).values({
+        unitId: item.unitId,
+        billingMonth: month,
+        totalAmount: item.totalFee,
+        paidAmount: 0,
+        isPaid: false,
+        dueDate,
+      });
+    } else {
+      await db.update(monthlyPaymentsTable)
+        .set({ totalAmount: item.totalFee })
+        .where(eq(monthlyPaymentsTable.id, existing[0].id));
+    }
+  }
 
   res.json({ month, totalUnits: units.length, grandTotal, items });
 });
@@ -343,6 +370,49 @@ router.post("/fees/kakao-notify", async (req: Request, res: Response): Promise<v
   const failed = 0;
 
   res.json({ sent, failed, details });
+});
+
+router.post("/fees/record-payment", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+
+  const { unitId, billingMonth, paidAmount } = req.body;
+  if (!unitId || !billingMonth) {
+    res.status(400).json({ error: "unitId와 billingMonth가 필요합니다" });
+    return;
+  }
+
+  const [unit] = await db.select().from(unitsTable)
+    .where(and(eq(unitsTable.id, unitId), eq(unitsTable.buildingId, buildingId)));
+  if (!unit) {
+    res.status(404).json({ error: "해당 세대를 찾을 수 없습니다" });
+    return;
+  }
+
+  const [existing] = await db.select().from(monthlyPaymentsTable)
+    .where(and(
+      eq(monthlyPaymentsTable.unitId, unitId),
+      eq(monthlyPaymentsTable.billingMonth, billingMonth)
+    ));
+
+  if (!existing) {
+    res.status(404).json({ error: "해당 월 청구 내역이 없습니다" });
+    return;
+  }
+
+  const newPaidAmount = (existing.paidAmount || 0) + (paidAmount || existing.totalAmount);
+  const isPaid = newPaidAmount >= existing.totalAmount;
+
+  const [updated] = await db.update(monthlyPaymentsTable)
+    .set({
+      paidAmount: newPaidAmount,
+      isPaid,
+      paidAt: isPaid ? new Date() : null,
+    })
+    .where(eq(monthlyPaymentsTable.id, existing.id))
+    .returning();
+
+  res.json(updated);
 });
 
 export default router;

@@ -474,25 +474,31 @@ async function runDelinquencyAutoResolution(): Promise<void> {
         .where(eq(tenantsTable.unitId, action.unitId));
       const tenantIds = new Set(unitTenants.map(t => t.id));
 
-      if (tenantIds.size > 0) {
-        const allSuspended = await db.select().from(vehiclesTable)
-          .where(eq(vehiclesTable.status, "suspended"));
-        const scopedVehicles = allSuspended.filter(v => v.tenantId !== null && tenantIds.has(v.tenantId));
+      const buildingUnits = await db.select({ unitNumber: unitsTable.unitNumber }).from(unitsTable)
+        .where(eq(unitsTable.buildingId, unit.buildingId));
+      const buildingUnitNumbers = new Set(buildingUnits.map(u => u.unitNumber));
 
-        for (const v of scopedVehicles) {
-          await db.update(vehiclesTable)
-            .set({ status: "registered" })
-            .where(eq(vehiclesTable.id, v.id));
+      const allSuspended = await db.select().from(vehiclesTable)
+        .where(eq(vehiclesTable.status, "suspended"));
+      const scopedVehicles = allSuspended.filter(v => {
+        if (v.tenantId !== null && tenantIds.has(v.tenantId)) return true;
+        if (v.tenantId === null && v.unit === action.unitNumber && buildingUnitNumbers.has(v.unit)) return true;
+        return false;
+      });
 
-          await db.insert(vehicleHistoryTable).values({
-            vehicleId: v.id,
-            action: "reactivated",
-            vehicleNumber: v.vehicleNumber,
-            unit: v.unit,
-            performedBy: "system",
-            notes: "연체 해소 자동 감지로 주차권 복원",
-          });
-        }
+      for (const v of scopedVehicles) {
+        await db.update(vehiclesTable)
+          .set({ status: "registered" })
+          .where(eq(vehiclesTable.id, v.id));
+
+        await db.insert(vehicleHistoryTable).values({
+          vehicleId: v.id,
+          action: "reactivated",
+          vehicleNumber: v.vehicleNumber,
+          unit: v.unit,
+          performedBy: "system",
+          notes: "연체 해소 자동 감지로 주차권 복원",
+        });
       }
     }
 

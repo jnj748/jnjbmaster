@@ -4867,6 +4867,28 @@ export const SendKakaoNotificationResponse = zod.object({
 });
 
 /**
+ * @summary Record payment for a unit billing month
+ */
+export const RecordPaymentBody = zod.object({
+  unitId: zod.number(),
+  billingMonth: zod.string(),
+  paidAmount: zod.number().nullish(),
+});
+
+export const RecordPaymentResponse = zod.object({
+  id: zod.number(),
+  unitId: zod.number(),
+  billingMonth: zod.string(),
+  totalAmount: zod.number(),
+  paidAmount: zod.number(),
+  isPaid: zod.boolean(),
+  dueDate: zod.string(),
+  paidAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date().optional(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+/**
  * @summary Check approval status for billing month
  */
 export const GetApprovalCheckQueryParams = zod.object({

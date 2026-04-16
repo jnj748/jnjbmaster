@@ -158,6 +158,7 @@ import type {
   MeterCsvUploadBody,
   MeterCsvUploadResponse,
   MeterReading,
+  MonthlyPayment,
   MonthlySummaryReportItem,
   Notification,
   Owner,
@@ -165,6 +166,7 @@ import type {
   ProcessDestructions200,
   PublicTenantCardData,
   Quote,
+  RecordPaymentBody,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   ReviewReportBody,
@@ -16079,6 +16081,92 @@ export const useSendKakaoNotification = <
   TContext
 > => {
   return useMutation(getSendKakaoNotificationMutationOptions(options));
+};
+
+/**
+ * @summary Record payment for a unit billing month
+ */
+export const getRecordPaymentUrl = () => {
+  return `/api/fees/record-payment`;
+};
+
+export const recordPayment = async (
+  recordPaymentBody: RecordPaymentBody,
+  options?: RequestInit,
+): Promise<MonthlyPayment> => {
+  return customFetch<MonthlyPayment>(getRecordPaymentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(recordPaymentBody),
+  });
+};
+
+export const getRecordPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordPayment>>,
+    TError,
+    { data: BodyType<RecordPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recordPayment>>,
+  TError,
+  { data: BodyType<RecordPaymentBody> },
+  TContext
+> => {
+  const mutationKey = ["recordPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recordPayment>>,
+    { data: BodyType<RecordPaymentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return recordPayment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecordPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordPayment>>
+>;
+export type RecordPaymentMutationBody = BodyType<RecordPaymentBody>;
+export type RecordPaymentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Record payment for a unit billing month
+ */
+export const useRecordPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recordPayment>>,
+    TError,
+    { data: BodyType<RecordPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recordPayment>>,
+  TError,
+  { data: BodyType<RecordPaymentBody> },
+  TContext
+> => {
+  return useMutation(getRecordPaymentMutationOptions(options));
 };
 
 /**

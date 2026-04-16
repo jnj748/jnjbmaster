@@ -3705,6 +3705,19 @@ export interface DelinquencyParkingResult {
   suspendedVehicles: number;
 }
 
+export interface MonthlyPayment {
+  id: number;
+  unitId: number;
+  billingMonth: string;
+  totalAmount: number;
+  paidAmount: number;
+  isPaid: boolean;
+  dueDate: string;
+  paidAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -4155,6 +4168,12 @@ export const ListMeterReadingsMeterType = {
 
 export type GetBillingListParams = {
   month: string;
+};
+
+export type RecordPaymentBody = {
+  unitId: number;
+  billingMonth: string;
+  paidAmount?: number | null;
 };
 
 export type GetApprovalCheckParams = {

@@ -3905,6 +3905,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/KakaoNotifyResponse"
 
+  /fees/record-payment:
+    post:
+      operationId: recordPayment
+      tags: [fees]
+      summary: Record payment for a unit billing month
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unitId:
+                  type: integer
+                billingMonth:
+                  type: string
+                paidAmount:
+                  type: number
+                  nullable: true
+              required:
+                - unitId
+                - billingMonth
+      responses:
+        "200":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyPayment"
+
   /fees/approval-check:
     get:
       operationId: getApprovalCheck
@@ -9019,3 +9049,39 @@ components:
         - actionType
         - status
         - suspendedVehicles
+
+    MonthlyPayment:
+      type: object
+      properties:
+        id:
+          type: integer
+        unitId:
+          type: integer
+        billingMonth:
+          type: string
+        totalAmount:
+          type: number
+        paidAmount:
+          type: number
+        isPaid:
+          type: boolean
+        dueDate:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - unitId
+        - billingMonth
+        - totalAmount
+        - paidAmount
+        - isPaid
+        - dueDate
