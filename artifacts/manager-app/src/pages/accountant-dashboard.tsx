@@ -35,9 +35,8 @@ function buildTaxEvents(): TaxEvent[] {
     { day: 28, title: "세무사 자료 요청 (익월분)", type: "deadline", done: dayOfMonth > 28, daysUntil: 28 - dayOfMonth },
   ];
 
-  const quarterEndMonths = [3, 6, 9, 12];
-  const isQuarterEnd = quarterEndMonths.includes(currentMonth);
-  if (isQuarterEnd) {
+  const vatDueMonths = [1, 4, 7, 10];
+  if (vatDueMonths.includes(currentMonth)) {
     monthly.push({
       day: 25,
       title: "부가가치세 신고·납부",
@@ -47,8 +46,8 @@ function buildTaxEvents(): TaxEvent[] {
     });
   }
 
-  const nextMonth = (currentMonth % 12) + 1;
-  if (quarterEndMonths.includes(nextMonth)) {
+  const vatPrepMonths = [3, 6, 9, 12];
+  if (vatPrepMonths.includes(currentMonth)) {
     monthly.push({
       day: 28,
       title: "부가세 신고 자료 준비",
