@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ComplaintCategory } from "./complaintCategory";
+import type { ComplaintSensitivity } from "./complaintSensitivity";
 import type { ComplaintStatus } from "./complaintStatus";
 
 export interface Complaint {
@@ -23,6 +24,14 @@ export interface Complaint {
   assigneeName?: string | null;
   /** @nullable */
   resolution?: string | null;
+  sensitivity: ComplaintSensitivity;
+  isRecurring: boolean;
+  recurringCount: number;
+  hasRiskKeyword: boolean;
+  photoUrls?: string[];
+  escalatedToHq: boolean;
+  /** @nullable */
+  escalatedAt?: string | null;
   /** @nullable */
   completedAt?: string | null;
   createdAt?: string;

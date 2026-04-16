@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateComplaintBodyCategory } from "./createComplaintBodyCategory";
+import type { CreateComplaintBodySensitivity } from "./createComplaintBodySensitivity";
 
 export interface CreateComplaintBody {
   unitNumber: string;
@@ -14,4 +15,7 @@ export interface CreateComplaintBody {
   category: CreateComplaintBodyCategory;
   title: string;
   description: string;
+  sensitivity?: CreateComplaintBodySensitivity;
+  photoUrls?: string[];
+  isUrgent?: boolean;
 }

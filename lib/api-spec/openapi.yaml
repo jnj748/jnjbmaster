@@ -4120,12 +4120,25 @@ paths:
           in: query
           schema:
             type: string
-            enum: [noise, parking, maintenance, cleaning, security, other]
+            enum: [noise, parking, maintenance, cleaning, security, contract_legal, management_dispute, accounting_issue, water_leak, elevator, floor_noise, other]
         - name: status
           in: query
           schema:
             type: string
             enum: [received, assigned, in_progress, completed]
+        - name: sensitivity
+          in: query
+          schema:
+            type: string
+            enum: [normal, caution, sensitive, urgent]
+        - name: isRecurring
+          in: query
+          schema:
+            type: boolean
+        - name: escalatedToHq
+          in: query
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of complaints
@@ -4197,6 +4210,40 @@ paths:
                 properties:
                   success:
                     type: boolean
+
+  /complaints/{id}/history:
+    get:
+      operationId: getComplaintHistory
+      tags: [complaints]
+      summary: Get complaint history for same unit/category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Past complaint history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Complaint"
+
+  /complaints/analytics:
+    get:
+      operationId: getComplaintAnalytics
+      tags: [complaints]
+      summary: Get complaint analytics for HQ dashboard
+      responses:
+        "200":
+          description: Complaint analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplaintAnalytics"
 
   /votes:
     get:
@@ -5402,6 +5449,18 @@ components:
               - name
               - category
               - nextDueDate
+        complaintSummary:
+          type: object
+          properties:
+            received:
+              type: integer
+            completed:
+              type: integer
+            pending:
+              type: integer
+            sensitiveCount:
+              type: integer
+          required: [received, completed, pending, sensitiveCount]
       required:
         - weekStart
         - weekEnd
@@ -8873,7 +8932,7 @@ components:
           type: ["string", "null"]
         category:
           type: string
-          enum: [noise, parking, maintenance, cleaning, security, other]
+          enum: [noise, parking, maintenance, cleaning, security, contract_legal, management_dispute, accounting_issue, water_leak, elevator, floor_noise, other]
         title:
           type: string
         description:
@@ -8884,6 +8943,23 @@ components:
         assigneeName:
           type: ["string", "null"]
         resolution:
+          type: ["string", "null"]
+        sensitivity:
+          type: string
+          enum: [normal, caution, sensitive, urgent]
+        isRecurring:
+          type: boolean
+        recurringCount:
+          type: integer
+        hasRiskKeyword:
+          type: boolean
+        photoUrls:
+          type: array
+          items:
+            type: string
+        escalatedToHq:
+          type: boolean
+        escalatedAt:
           type: ["string", "null"]
         completedAt:
           type: ["string", "null"]
@@ -8900,6 +8976,11 @@ components:
         - title
         - description
         - status
+        - sensitivity
+        - isRecurring
+        - recurringCount
+        - hasRiskKeyword
+        - escalatedToHq
 
     CreateComplaintBody:
       type: object
@@ -8912,11 +8993,20 @@ components:
           type: string
         category:
           type: string
-          enum: [noise, parking, maintenance, cleaning, security, other]
+          enum: [noise, parking, maintenance, cleaning, security, contract_legal, management_dispute, accounting_issue, water_leak, elevator, floor_noise, other]
         title:
           type: string
         description:
           type: string
+        sensitivity:
+          type: string
+          enum: [normal, caution, sensitive, urgent]
+        photoUrls:
+          type: array
+          items:
+            type: string
+        isUrgent:
+          type: boolean
       required:
         - unitNumber
         - complainantName
@@ -8934,6 +9024,65 @@ components:
           type: string
         resolution:
           type: string
+        sensitivity:
+          type: string
+          enum: [normal, caution, sensitive, urgent]
+
+    ComplaintAnalytics:
+      type: object
+      properties:
+        sensitiveComplaintRate:
+          type: number
+        recurringAvgResolutionDays:
+          type: ["number", "null"]
+        totalComplaints:
+          type: integer
+        sensitiveCount:
+          type: integer
+        recurringCount:
+          type: integer
+        unresolvedSensitiveComplaints:
+          type: array
+          items:
+            $ref: "#/components/schemas/Complaint"
+        categoryTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              category:
+                type: string
+              count:
+                type: integer
+            required: [month, category, count]
+        buildingSummary:
+          type: array
+          items:
+            type: object
+            properties:
+              buildingId:
+                type: integer
+              buildingName:
+                type: string
+              totalComplaints:
+                type: integer
+              sensitiveCount:
+                type: integer
+              recurringCount:
+                type: integer
+              sensitiveRate:
+                type: number
+            required: [buildingId, buildingName, totalComplaints, sensitiveCount, recurringCount, sensitiveRate]
+      required:
+        - sensitiveComplaintRate
+        - totalComplaints
+        - sensitiveCount
+        - recurringCount
+        - unresolvedSensitiveComplaints
+        - categoryTrend
+        - buildingSummary
 
     UpdateVoteBody:
       type: object

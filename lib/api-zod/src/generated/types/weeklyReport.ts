@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CategoryCount } from "./categoryCount";
+import type { WeeklyReportComplaintSummary } from "./weeklyReportComplaintSummary";
 import type { WeeklyReportNextWeekInspectionsItem } from "./weeklyReportNextWeekInspectionsItem";
 
 export interface WeeklyReport {
@@ -19,4 +20,5 @@ export interface WeeklyReport {
   tasksByCategory: CategoryCount[];
   highlights: string[];
   nextWeekInspections: WeeklyReportNextWeekInspectionsItem[];
+  complaintSummary?: WeeklyReportComplaintSummary;
 }

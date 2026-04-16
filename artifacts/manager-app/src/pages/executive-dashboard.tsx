@@ -2,6 +2,7 @@ import {
   useGetExecutiveKpi,
   useGetApprovalStats,
   useGetRecentActivity,
+  useGetComplaintAnalytics,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,9 @@ import {
   Shield,
   Activity,
   ArrowRight,
-  Clock,
+  MessageSquare,
+  Repeat,
+  ArrowUpCircle,
 } from "lucide-react";
 
 function KpiCard({
@@ -64,6 +67,16 @@ const categoryLabel = (c: string) => {
   return labels[c] || c;
 };
 
+const complaintCategoryLabel = (c: string) => {
+  const labels: Record<string, string> = {
+    noise: "소음", parking: "주차", maintenance: "유지보수", cleaning: "청결",
+    security: "보안", contract_legal: "계약/법무", management_dispute: "관리단 분쟁",
+    accounting_issue: "회계 부적정", water_leak: "누수/방수", elevator: "승강기",
+    floor_noise: "층간소음", other: "기타",
+  };
+  return labels[c] || c;
+};
+
 const statusBadge = (status: string) => {
   switch (status) {
     case "pending":
@@ -77,10 +90,22 @@ const statusBadge = (status: string) => {
   }
 };
 
+const sensitivityBadge = (s: string) => {
+  const map: Record<string, { label: string; color: string }> = {
+    normal: { label: "일반", color: "bg-gray-100 text-gray-600" },
+    caution: { label: "주의", color: "bg-yellow-100 text-yellow-700" },
+    sensitive: { label: "민감", color: "bg-orange-100 text-orange-700" },
+    urgent: { label: "긴급", color: "bg-red-100 text-red-700" },
+  };
+  const info = map[s] || map.normal;
+  return <Badge className={`text-[10px] ${info.color}`}>{info.label}</Badge>;
+};
+
 export default function ExecutiveDashboard() {
   const { data: kpi, isLoading: kpiLoading } = useGetExecutiveKpi();
   const { data: stats, isLoading: statsLoading } = useGetApprovalStats();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
+  const { data: analytics, isLoading: analyticsLoading } = useGetComplaintAnalytics();
 
   if (kpiLoading) {
     return (
@@ -163,6 +188,144 @@ export default function ExecutiveDashboard() {
           subtitle={`반려 ${stats?.totalRejected ?? 0}건`}
         />
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-orange-500" />
+              민원 분석
+            </CardTitle>
+            <Link href="/complaints">
+              <Button variant="ghost" size="sm" className="text-xs gap-1">
+                전체보기 <ArrowRight className="w-3 h-3" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {analyticsLoading ? (
+            <Skeleton className="h-32" />
+          ) : analytics ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{analytics.totalComplaints}</p>
+                  <p className="text-xs text-muted-foreground">전체 민원</p>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg text-center border border-orange-200">
+                  <p className="text-2xl font-bold text-orange-600">{analytics.sensitiveCount}</p>
+                  <p className="text-xs text-orange-600">민감 민원 ({analytics.sensitiveComplaintRate}%)</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg text-center border border-blue-200">
+                  <p className="text-2xl font-bold text-blue-600">{analytics.recurringCount}</p>
+                  <p className="text-xs text-blue-600">반복 민원</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg text-center border border-purple-200">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {analytics.recurringAvgResolutionDays != null ? `${analytics.recurringAvgResolutionDays}일` : "-"}
+                  </p>
+                  <p className="text-xs text-purple-600">반복 민원 평균 처리</p>
+                </div>
+              </div>
+
+              {analytics.buildingSummary && analytics.buildingSummary.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">단지별 민원 현황</p>
+                  <div className="space-y-2">
+                    {analytics.buildingSummary.map((b) => (
+                      <div key={b.buildingId} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                        <div>
+                          <p className="text-sm font-medium">{b.buildingName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            전체 {b.totalComplaints}건 · 민감 {b.sensitiveCount}건 · 반복 {b.recurringCount}건
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {b.sensitiveRate > 0 && (
+                            <Badge className={`text-[10px] ${b.sensitiveRate >= 30 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
+                              민감 {b.sensitiveRate}%
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {analytics.unresolvedSensitiveComplaints && analytics.unresolvedSensitiveComplaints.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2 text-red-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    미처리 민감 민원 ({analytics.unresolvedSensitiveComplaints.length}건)
+                  </p>
+                  <div className="space-y-2">
+                    {analytics.unresolvedSensitiveComplaints.slice(0, 5).map((c) => (
+                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-red-50/50 border border-red-200">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{c.title}</p>
+                            {sensitivityBadge(c.sensitivity)}
+                            {c.isRecurring && (
+                              <Badge variant="outline" className="text-[9px] border-blue-300 text-blue-600 gap-0.5">
+                                <Repeat className="w-2.5 h-2.5" />
+                                반복
+                              </Badge>
+                            )}
+                            {c.escalatedToHq && (
+                              <Badge className="text-[9px] bg-red-100 text-red-700 gap-0.5">
+                                <ArrowUpCircle className="w-2.5 h-2.5" />
+                                HQ
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {c.unitNumber}호 · {complaintCategoryLabel(c.category)} · {c.complainantName}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground shrink-0 ml-3">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString("ko-KR") : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {analytics.categoryTrend && analytics.categoryTrend.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">카테고리별 월간 추이</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-1.5 pr-3">월</th>
+                          <th className="text-left py-1.5 pr-3">카테고리</th>
+                          <th className="text-right py-1.5">건수</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.categoryTrend.slice(0, 15).map((item, idx) => (
+                          <tr key={idx} className="border-b last:border-0">
+                            <td className="py-1.5 pr-3 text-muted-foreground">{item.month}</td>
+                            <td className="py-1.5 pr-3">{complaintCategoryLabel(item.category)}</td>
+                            <td className="py-1.5 text-right font-medium">{item.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              민원 데이터가 없습니다
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

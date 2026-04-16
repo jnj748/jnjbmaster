@@ -23,12 +23,14 @@ import {
   useListComplaints,
   useCreateComplaint,
   useUpdateComplaint,
+  useGetComplaintHistory,
   getListComplaintsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   ListComplaintsCategory,
   ListComplaintsStatus,
   CreateComplaintBodyCategory,
+  CreateComplaintBodySensitivity,
   UpdateComplaintBodyStatus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +46,16 @@ import {
   MoreHorizontal,
   User,
   CheckCircle,
+  AlertTriangle,
+  Repeat,
+  ArrowUpCircle,
+  FileText,
+  Droplets,
+  Zap,
+  Scale,
+  Users,
+  Calculator,
+  History,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -52,6 +64,12 @@ const CATEGORIES = [
   { value: "maintenance", label: "유지보수", icon: Wrench },
   { value: "cleaning", label: "청결", icon: Sparkles },
   { value: "security", label: "보안", icon: ShieldAlert },
+  { value: "contract_legal", label: "계약/법무", icon: Scale },
+  { value: "management_dispute", label: "관리단 분쟁", icon: Users },
+  { value: "accounting_issue", label: "회계 부적정", icon: Calculator },
+  { value: "water_leak", label: "누수/방수", icon: Droplets },
+  { value: "elevator", label: "승강기", icon: Zap },
+  { value: "floor_noise", label: "층간소음", icon: Volume2 },
   { value: "other", label: "기타", icon: MoreHorizontal },
 ] as const;
 
@@ -62,6 +80,15 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   completed: { label: "완료", color: "bg-green-100 text-green-700" },
 };
 
+const SENSITIVITY_LABELS: Record<string, { label: string; color: string }> = {
+  normal: { label: "일반", color: "bg-gray-50 text-gray-600 border-gray-200" },
+  caution: { label: "주의", color: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+  sensitive: { label: "민감", color: "bg-orange-50 text-orange-700 border-orange-200" },
+  urgent: { label: "긴급", color: "bg-red-50 text-red-700 border-red-200" },
+};
+
+const SENSITIVE_CATEGORIES = ["contract_legal", "management_dispute", "accounting_issue"];
+
 export default function Complaints() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -70,6 +97,7 @@ export default function Complaints() {
   const [createOpen, setCreateOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState<number | null>(null);
   const [assignee, setAssignee] = useState("");
+  const [historyOpen, setHistoryOpen] = useState<number | null>(null);
 
   const params: { category?: ListComplaintsCategory; status?: ListComplaintsStatus } = {};
   if (filterCat !== "all") params.category = filterCat as ListComplaintsCategory;
@@ -86,6 +114,8 @@ export default function Complaints() {
     category: "noise" as string,
     title: "",
     description: "",
+    sensitivity: "normal" as string,
+    isUrgent: false,
   });
 
   async function handleCreate() {
@@ -102,11 +132,13 @@ export default function Complaints() {
           category: form.category as CreateComplaintBodyCategory,
           title: form.title,
           description: form.description,
+          sensitivity: form.sensitivity as CreateComplaintBodySensitivity,
+          isUrgent: form.isUrgent || undefined,
         },
       });
       toast({ title: "민원이 접수되었습니다" });
       setCreateOpen(false);
-      setForm({ unitNumber: "", complainantName: "", complainantPhone: "", category: "noise", title: "", description: "" });
+      setForm({ unitNumber: "", complainantName: "", complainantPhone: "", category: "noise", title: "", description: "", sensitivity: "normal", isUrgent: false });
       queryClient.invalidateQueries({ queryKey: getListComplaintsQueryKey() });
     } catch {
       toast({ title: "접수에 실패했습니다", variant: "destructive" });
@@ -149,6 +181,10 @@ export default function Complaints() {
     return acc;
   }, {});
 
+  const sensitiveCount = complaints.filter(c => c.sensitivity === "sensitive" || c.sensitivity === "urgent").length;
+  const recurringCount = complaints.filter(c => c.isRecurring).length;
+  const escalatedCount = complaints.filter(c => c.escalatedToHq).length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -163,7 +199,7 @@ export default function Complaints() {
               민원 접수
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>민원 접수</DialogTitle>
             </DialogHeader>
@@ -195,6 +231,31 @@ export default function Complaints() {
                   <Input value={form.complainantPhone} onChange={(e) => setForm((p) => ({ ...p, complainantPhone: e.target.value }))} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>민감도</Label>
+                  <Select value={form.sensitivity} onValueChange={(v) => setForm((p) => ({ ...p, sensitivity: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">일반</SelectItem>
+                      <SelectItem value="caution">주의</SelectItem>
+                      <SelectItem value="sensitive">민감</SelectItem>
+                      <SelectItem value="urgent">긴급</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant={form.isUrgent ? "destructive" : "outline"}
+                    className="w-full"
+                    onClick={() => setForm((p) => ({ ...p, isUrgent: !p.isUrgent }))}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    {form.isUrgent ? "긴급 설정됨" : "긴급 에스컬레이션"}
+                  </Button>
+                </div>
+              </div>
               <div>
                 <Label>제목</Label>
                 <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
@@ -203,13 +264,19 @@ export default function Complaints() {
                 <Label>내용</Label>
                 <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
               </div>
+              {SENSITIVE_CATEGORIES.includes(form.category) && (
+                <div className="p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+                  <AlertTriangle className="w-3 h-3 inline mr-1" />
+                  민감 카테고리입니다. 접수 시 자동으로 HQ에 에스컬레이션됩니다.
+                </div>
+              )}
               <Button className="w-full" onClick={handleCreate} disabled={createMutation.isPending}>접수하기</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {Object.entries(STATUS_LABELS).map(([key, { label, color }]) => (
           <Card key={key} className="cursor-pointer" onClick={() => setFilterStatus(filterStatus === key ? "all" : key)}>
             <CardContent className="p-3 text-center">
@@ -220,12 +287,33 @@ export default function Complaints() {
         ))}
       </div>
 
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="border-orange-200">
+          <CardContent className="p-3 text-center">
+            <p className="text-lg font-bold text-orange-600">{sensitiveCount}</p>
+            <p className="text-[10px] text-muted-foreground">민감 민원</p>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-200">
+          <CardContent className="p-3 text-center">
+            <p className="text-lg font-bold text-blue-600">{recurringCount}</p>
+            <p className="text-[10px] text-muted-foreground">반복 민원</p>
+          </CardContent>
+        </Card>
+        <Card className="border-red-200">
+          <CardContent className="p-3 text-center">
+            <p className="text-lg font-bold text-red-600">{escalatedCount}</p>
+            <p className="text-[10px] text-muted-foreground">HQ 에스컬레이션</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Button variant={filterCat === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterCat("all")}>전체</Button>
         {CATEGORIES.map((c) => {
           const Icon = c.icon;
           return (
-            <Button key={c.value} variant={filterCat === c.value ? "default" : "outline"} size="sm" onClick={() => setFilterCat(c.value)} className="gap-1">
+            <Button key={c.value} variant={filterCat === c.value ? "default" : "outline"} size="sm" onClick={() => setFilterCat(c.value)} className="gap-1 whitespace-nowrap">
               <Icon className="w-3.5 h-3.5" />
               {c.label}
             </Button>
@@ -246,9 +334,11 @@ export default function Complaints() {
             const cat = CATEGORIES.find((x) => x.value === c.category);
             const CatIcon = cat?.icon ?? MoreHorizontal;
             const statusInfo = STATUS_LABELS[c.status];
+            const sensitivityInfo = SENSITIVITY_LABELS[c.sensitivity || "normal"];
+            const isWarrantyRelated = ["water_leak", "elevator", "maintenance"].includes(c.category);
 
             return (
-              <Card key={c.id}>
+              <Card key={c.id} className={c.escalatedToHq ? "border-red-300" : ""}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 rounded-lg bg-muted">
@@ -257,14 +347,47 @@ export default function Complaints() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-sm font-medium">{c.title}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium">{c.title}</p>
+                            {c.isRecurring && (
+                              <Badge variant="outline" className="text-[9px] border-blue-300 text-blue-600 gap-0.5">
+                                <Repeat className="w-2.5 h-2.5" />
+                                반복 ({c.recurringCount}회)
+                              </Badge>
+                            )}
+                            {c.hasRiskKeyword && (
+                              <Badge variant="destructive" className="text-[9px] gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                위험
+                              </Badge>
+                            )}
+                            {c.escalatedToHq && (
+                              <Badge className="text-[9px] bg-red-100 text-red-700 gap-0.5">
+                                <ArrowUpCircle className="w-2.5 h-2.5" />
+                                HQ
+                              </Badge>
+                            )}
+                            {isWarrantyRelated && (
+                              <Badge variant="outline" className="text-[9px] border-purple-300 text-purple-600 gap-0.5">
+                                <FileText className="w-2.5 h-2.5" />
+                                하자확인
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {c.unitNumber}호 · {c.complainantName} · {cat?.label}
                           </p>
                         </div>
-                        <Badge className={`text-[10px] shrink-0 ${statusInfo.color}`}>
-                          {statusInfo.label}
-                        </Badge>
+                        <div className="flex gap-1 shrink-0">
+                          {sensitivityInfo && c.sensitivity !== "normal" && (
+                            <Badge className={`text-[10px] ${sensitivityInfo.color}`}>
+                              {sensitivityInfo.label}
+                            </Badge>
+                          )}
+                          <Badge className={`text-[10px] ${statusInfo.color}`}>
+                            {statusInfo.label}
+                          </Badge>
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{c.description}</p>
                       {c.assigneeName && (
@@ -304,7 +427,19 @@ export default function Complaints() {
                             처리 완료
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => setHistoryOpen(historyOpen === c.id ? null : c.id)}
+                        >
+                          <History className="w-3 h-3" />
+                          이력
+                        </Button>
                       </div>
+                      {historyOpen === c.id && (
+                        <ComplaintHistoryPanel complaintId={c.id} />
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -313,6 +448,46 @@ export default function Complaints() {
           })
         )}
       </div>
+    </div>
+  );
+}
+
+function ComplaintHistoryPanel({ complaintId }: { complaintId: number }) {
+  const { data: history = [], isLoading } = useGetComplaintHistory(complaintId);
+
+  if (isLoading) {
+    return <div className="mt-2 p-2 text-xs text-muted-foreground">불러오는 중...</div>;
+  }
+
+  if (history.length === 0) {
+    return <div className="mt-2 p-2 text-xs text-muted-foreground bg-muted rounded">과거 관련 민원이 없습니다</div>;
+  }
+
+  return (
+    <div className="mt-2 border rounded p-2 bg-muted/30 space-y-1.5">
+      <p className="text-[10px] font-medium text-muted-foreground">관련 이력 ({history.length}건)</p>
+      {history.slice(0, 5).map((h) => {
+        const cat = CATEGORIES.find((x) => x.value === h.category);
+        return (
+          <div key={h.id} className="flex items-center justify-between text-xs p-1.5 bg-background rounded">
+            <div className="flex items-center gap-1.5">
+              <span>{h.unitNumber}호</span>
+              <span className="text-muted-foreground">·</span>
+              <span>{cat?.label || h.category}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="truncate max-w-[150px]">{h.title}</span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Badge className={`text-[9px] ${STATUS_LABELS[h.status]?.color}`}>
+                {STATUS_LABELS[h.status]?.label}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(h.createdAt!).toLocaleDateString("ko-KR")}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

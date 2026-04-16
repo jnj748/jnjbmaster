@@ -50,6 +50,7 @@ import type {
   CheckAttendanceBody,
   Commission,
   Complaint,
+  ComplaintAnalytics,
   CompleteInspectionBody,
   CreateAlertActionBody,
   CreateApprovalBody,
@@ -17310,6 +17311,168 @@ export const useDeleteComplaint = <
 > => {
   return useMutation(getDeleteComplaintMutationOptions(options));
 };
+
+/**
+ * @summary Get complaint history for same unit/category
+ */
+export const getGetComplaintHistoryUrl = (id: number) => {
+  return `/api/complaints/${id}/history`;
+};
+
+export const getComplaintHistory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Complaint[]> => {
+  return customFetch<Complaint[]>(getGetComplaintHistoryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetComplaintHistoryQueryKey = (id: number) => {
+  return [`/api/complaints/${id}/history`] as const;
+};
+
+export const getGetComplaintHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComplaintHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplaintHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetComplaintHistoryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComplaintHistory>>
+  > = ({ signal }) => getComplaintHistory(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComplaintHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComplaintHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComplaintHistory>>
+>;
+export type GetComplaintHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get complaint history for same unit/category
+ */
+
+export function useGetComplaintHistory<
+  TData = Awaited<ReturnType<typeof getComplaintHistory>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplaintHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComplaintHistoryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get complaint analytics for HQ dashboard
+ */
+export const getGetComplaintAnalyticsUrl = () => {
+  return `/api/complaints/analytics`;
+};
+
+export const getComplaintAnalytics = async (
+  options?: RequestInit,
+): Promise<ComplaintAnalytics> => {
+  return customFetch<ComplaintAnalytics>(getGetComplaintAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetComplaintAnalyticsQueryKey = () => {
+  return [`/api/complaints/analytics`] as const;
+};
+
+export const getGetComplaintAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComplaintAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplaintAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetComplaintAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComplaintAnalytics>>
+  > = ({ signal }) => getComplaintAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComplaintAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComplaintAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComplaintAnalytics>>
+>;
+export type GetComplaintAnalyticsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get complaint analytics for HQ dashboard
+ */
+
+export function useGetComplaintAnalytics<
+  TData = Awaited<ReturnType<typeof getComplaintAnalytics>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplaintAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComplaintAnalyticsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List votes

@@ -1920,6 +1920,14 @@ export const GetWeeklyReportResponse = zod.object({
       nextDueDate: zod.coerce.date(),
     }),
   ),
+  complaintSummary: zod
+    .object({
+      received: zod.number(),
+      completed: zod.number(),
+      pending: zod.number(),
+      sensitiveCount: zod.number(),
+    })
+    .optional(),
 });
 
 /**
@@ -5184,11 +5192,29 @@ export const GetIncompleteUnitsResponse = zod.array(
  */
 export const ListComplaintsQueryParams = zod.object({
   category: zod
-    .enum(["noise", "parking", "maintenance", "cleaning", "security", "other"])
+    .enum([
+      "noise",
+      "parking",
+      "maintenance",
+      "cleaning",
+      "security",
+      "contract_legal",
+      "management_dispute",
+      "accounting_issue",
+      "water_leak",
+      "elevator",
+      "floor_noise",
+      "other",
+    ])
     .optional(),
   status: zod
     .enum(["received", "assigned", "in_progress", "completed"])
     .optional(),
+  sensitivity: zod
+    .enum(["normal", "caution", "sensitive", "urgent"])
+    .optional(),
+  isRecurring: zod.coerce.boolean().optional(),
+  escalatedToHq: zod.coerce.boolean().optional(),
 });
 
 export const ListComplaintsResponseItem = zod.object({
@@ -5203,6 +5229,12 @@ export const ListComplaintsResponseItem = zod.object({
     "maintenance",
     "cleaning",
     "security",
+    "contract_legal",
+    "management_dispute",
+    "accounting_issue",
+    "water_leak",
+    "elevator",
+    "floor_noise",
     "other",
   ]),
   title: zod.string(),
@@ -5210,6 +5242,13 @@ export const ListComplaintsResponseItem = zod.object({
   status: zod.enum(["received", "assigned", "in_progress", "completed"]),
   assigneeName: zod.string().nullish(),
   resolution: zod.string().nullish(),
+  sensitivity: zod.enum(["normal", "caution", "sensitive", "urgent"]),
+  isRecurring: zod.boolean(),
+  recurringCount: zod.number(),
+  hasRiskKeyword: zod.boolean(),
+  photoUrls: zod.array(zod.string()).optional(),
+  escalatedToHq: zod.boolean(),
+  escalatedAt: zod.string().nullish(),
   completedAt: zod.string().nullish(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
@@ -5229,10 +5268,21 @@ export const CreateComplaintBody = zod.object({
     "maintenance",
     "cleaning",
     "security",
+    "contract_legal",
+    "management_dispute",
+    "accounting_issue",
+    "water_leak",
+    "elevator",
+    "floor_noise",
     "other",
   ]),
   title: zod.string(),
   description: zod.string(),
+  sensitivity: zod
+    .enum(["normal", "caution", "sensitive", "urgent"])
+    .optional(),
+  photoUrls: zod.array(zod.string()).optional(),
+  isUrgent: zod.boolean().optional(),
 });
 
 /**
@@ -5248,6 +5298,9 @@ export const UpdateComplaintBody = zod.object({
     .optional(),
   assigneeName: zod.string().optional(),
   resolution: zod.string().optional(),
+  sensitivity: zod
+    .enum(["normal", "caution", "sensitive", "urgent"])
+    .optional(),
 });
 
 export const UpdateComplaintResponse = zod.object({
@@ -5262,6 +5315,12 @@ export const UpdateComplaintResponse = zod.object({
     "maintenance",
     "cleaning",
     "security",
+    "contract_legal",
+    "management_dispute",
+    "accounting_issue",
+    "water_leak",
+    "elevator",
+    "floor_noise",
     "other",
   ]),
   title: zod.string(),
@@ -5269,6 +5328,13 @@ export const UpdateComplaintResponse = zod.object({
   status: zod.enum(["received", "assigned", "in_progress", "completed"]),
   assigneeName: zod.string().nullish(),
   resolution: zod.string().nullish(),
+  sensitivity: zod.enum(["normal", "caution", "sensitive", "urgent"]),
+  isRecurring: zod.boolean(),
+  recurringCount: zod.number(),
+  hasRiskKeyword: zod.boolean(),
+  photoUrls: zod.array(zod.string()).optional(),
+  escalatedToHq: zod.boolean(),
+  escalatedAt: zod.string().nullish(),
   completedAt: zod.string().nullish(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
@@ -5283,6 +5349,119 @@ export const DeleteComplaintParams = zod.object({
 
 export const DeleteComplaintResponse = zod.object({
   success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get complaint history for same unit/category
+ */
+export const GetComplaintHistoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetComplaintHistoryResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitNumber: zod.string(),
+  complainantName: zod.string(),
+  complainantPhone: zod.string().nullish(),
+  category: zod.enum([
+    "noise",
+    "parking",
+    "maintenance",
+    "cleaning",
+    "security",
+    "contract_legal",
+    "management_dispute",
+    "accounting_issue",
+    "water_leak",
+    "elevator",
+    "floor_noise",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["received", "assigned", "in_progress", "completed"]),
+  assigneeName: zod.string().nullish(),
+  resolution: zod.string().nullish(),
+  sensitivity: zod.enum(["normal", "caution", "sensitive", "urgent"]),
+  isRecurring: zod.boolean(),
+  recurringCount: zod.number(),
+  hasRiskKeyword: zod.boolean(),
+  photoUrls: zod.array(zod.string()).optional(),
+  escalatedToHq: zod.boolean(),
+  escalatedAt: zod.string().nullish(),
+  completedAt: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+export const GetComplaintHistoryResponse = zod.array(
+  GetComplaintHistoryResponseItem,
+);
+
+/**
+ * @summary Get complaint analytics for HQ dashboard
+ */
+export const GetComplaintAnalyticsResponse = zod.object({
+  sensitiveComplaintRate: zod.number(),
+  recurringAvgResolutionDays: zod.number().nullish(),
+  totalComplaints: zod.number(),
+  sensitiveCount: zod.number(),
+  recurringCount: zod.number(),
+  unresolvedSensitiveComplaints: zod.array(
+    zod.object({
+      id: zod.number(),
+      buildingId: zod.number(),
+      unitNumber: zod.string(),
+      complainantName: zod.string(),
+      complainantPhone: zod.string().nullish(),
+      category: zod.enum([
+        "noise",
+        "parking",
+        "maintenance",
+        "cleaning",
+        "security",
+        "contract_legal",
+        "management_dispute",
+        "accounting_issue",
+        "water_leak",
+        "elevator",
+        "floor_noise",
+        "other",
+      ]),
+      title: zod.string(),
+      description: zod.string(),
+      status: zod.enum(["received", "assigned", "in_progress", "completed"]),
+      assigneeName: zod.string().nullish(),
+      resolution: zod.string().nullish(),
+      sensitivity: zod.enum(["normal", "caution", "sensitive", "urgent"]),
+      isRecurring: zod.boolean(),
+      recurringCount: zod.number(),
+      hasRiskKeyword: zod.boolean(),
+      photoUrls: zod.array(zod.string()).optional(),
+      escalatedToHq: zod.boolean(),
+      escalatedAt: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      createdAt: zod.string().optional(),
+      updatedAt: zod.string().optional(),
+    }),
+  ),
+  categoryTrend: zod.array(
+    zod.object({
+      month: zod.string(),
+      category: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  buildingSummary: zod.array(
+    zod.object({
+      buildingId: zod.number(),
+      buildingName: zod.string(),
+      totalComplaints: zod.number(),
+      sensitiveCount: zod.number(),
+      recurringCount: zod.number(),
+      sensitiveRate: zod.number(),
+    }),
+  ),
 });
 
 /**

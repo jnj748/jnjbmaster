@@ -5,10 +5,12 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateComplaintBodySensitivity } from "./updateComplaintBodySensitivity";
 import type { UpdateComplaintBodyStatus } from "./updateComplaintBodyStatus";
 
 export interface UpdateComplaintBody {
   status?: UpdateComplaintBodyStatus;
   assigneeName?: string;
   resolution?: string;
+  sensitivity?: UpdateComplaintBodySensitivity;
 }

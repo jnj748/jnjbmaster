@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListComplaintsCategory } from "./listComplaintsCategory";
+import type { ListComplaintsSensitivity } from "./listComplaintsSensitivity";
 import type { ListComplaintsStatus } from "./listComplaintsStatus";
 
 export type ListComplaintsParams = {
   category?: ListComplaintsCategory;
   status?: ListComplaintsStatus;
+  sensitivity?: ListComplaintsSensitivity;
+  isRecurring?: boolean;
+  escalatedToHq?: boolean;
 };

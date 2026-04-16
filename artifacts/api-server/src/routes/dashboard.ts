@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, desc, sql, lt } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable } from "@workspace/db";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable, complaintsTable } from "@workspace/db";
 import { LEGAL_PRESETS } from "./inspections";
 import {
   GetDashboardSummaryResponse,
@@ -538,6 +538,24 @@ router.get("/reports/weekly", async (req, res): Promise<void> => {
     count,
   }));
 
+  const allComplaints = await db.select().from(complaintsTable);
+  const weekComplaints = allComplaints.filter(c => {
+    const created = c.createdAt.toISOString().split("T")[0];
+    return created >= weekStart && created <= weekEnd;
+  });
+  const completedComplaints = weekComplaints.filter(c => c.status === "completed");
+  const pendingComplaints = weekComplaints.filter(c => c.status !== "completed");
+  const sensitiveComplaints = weekComplaints.filter(c =>
+    c.sensitivity === "sensitive" || c.sensitivity === "urgent"
+  );
+
+  const complaintSummary = {
+    received: weekComplaints.length,
+    completed: completedComplaints.length,
+    pending: pendingComplaints.length,
+    sensitiveCount: sensitiveComplaints.length,
+  };
+
   const highlights: string[] = [];
   if (completedTasks.length > 0) {
     highlights.push(`${completedTasks.length}건의 업무가 완료되었습니다.`);
@@ -551,6 +569,12 @@ router.get("/reports/weekly", async (req, res): Promise<void> => {
   if (nextWeekInspections.length > 0) {
     highlights.push(`다음 주 ${nextWeekInspections.length}건의 법정 점검이 예정되어 있습니다: ${nextWeekInspections.map((i) => i.name).join(", ")}`);
   }
+  if (weekComplaints.length > 0) {
+    highlights.push(`민원 ${weekComplaints.length}건 접수, ${completedComplaints.length}건 처리 완료, ${pendingComplaints.length}건 미처리`);
+  }
+  if (sensitiveComplaints.length > 0) {
+    highlights.push(`민감 민원 ${sensitiveComplaints.length}건 발생`);
+  }
 
   const report = {
     weekStart,
@@ -563,6 +587,7 @@ router.get("/reports/weekly", async (req, res): Promise<void> => {
     tasksByCategory,
     highlights,
     nextWeekInspections,
+    complaintSummary,
   };
 
   res.json(GetWeeklyReportResponse.parse(report));

@@ -15,5 +15,11 @@ export const CreateComplaintBodyCategory = {
   maintenance: "maintenance",
   cleaning: "cleaning",
   security: "security",
+  contract_legal: "contract_legal",
+  management_dispute: "management_dispute",
+  accounting_issue: "accounting_issue",
+  water_leak: "water_leak",
+  elevator: "elevator",
+  floor_noise: "floor_noise",
   other: "other",
 } as const;

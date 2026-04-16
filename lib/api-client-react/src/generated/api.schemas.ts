@@ -1047,6 +1047,13 @@ export type WeeklyReportNextWeekInspectionsItem = {
   nextDueDate: string;
 };
 
+export type WeeklyReportComplaintSummary = {
+  received: number;
+  completed: number;
+  pending: number;
+  sensitiveCount: number;
+};
+
 export interface CategoryCount {
   category: string;
   count: number;
@@ -1063,6 +1070,7 @@ export interface WeeklyReport {
   tasksByCategory: CategoryCount[];
   highlights: string[];
   nextWeekInspections: WeeklyReportNextWeekInspectionsItem[];
+  complaintSummary?: WeeklyReportComplaintSummary;
 }
 
 export type DashboardAnalyticsUnpaidSummary = {
@@ -3537,6 +3545,12 @@ export const ComplaintCategory = {
   maintenance: "maintenance",
   cleaning: "cleaning",
   security: "security",
+  contract_legal: "contract_legal",
+  management_dispute: "management_dispute",
+  accounting_issue: "accounting_issue",
+  water_leak: "water_leak",
+  elevator: "elevator",
+  floor_noise: "floor_noise",
   other: "other",
 } as const;
 
@@ -3548,6 +3562,16 @@ export const ComplaintStatus = {
   assigned: "assigned",
   in_progress: "in_progress",
   completed: "completed",
+} as const;
+
+export type ComplaintSensitivity =
+  (typeof ComplaintSensitivity)[keyof typeof ComplaintSensitivity];
+
+export const ComplaintSensitivity = {
+  normal: "normal",
+  caution: "caution",
+  sensitive: "sensitive",
+  urgent: "urgent",
 } as const;
 
 export interface Complaint {
@@ -3565,6 +3589,14 @@ export interface Complaint {
   assigneeName?: string | null;
   /** @nullable */
   resolution?: string | null;
+  sensitivity: ComplaintSensitivity;
+  isRecurring: boolean;
+  recurringCount: number;
+  hasRiskKeyword: boolean;
+  photoUrls?: string[];
+  escalatedToHq: boolean;
+  /** @nullable */
+  escalatedAt?: string | null;
   /** @nullable */
   completedAt?: string | null;
   createdAt?: string;
@@ -3580,7 +3612,23 @@ export const CreateComplaintBodyCategory = {
   maintenance: "maintenance",
   cleaning: "cleaning",
   security: "security",
+  contract_legal: "contract_legal",
+  management_dispute: "management_dispute",
+  accounting_issue: "accounting_issue",
+  water_leak: "water_leak",
+  elevator: "elevator",
+  floor_noise: "floor_noise",
   other: "other",
+} as const;
+
+export type CreateComplaintBodySensitivity =
+  (typeof CreateComplaintBodySensitivity)[keyof typeof CreateComplaintBodySensitivity];
+
+export const CreateComplaintBodySensitivity = {
+  normal: "normal",
+  caution: "caution",
+  sensitive: "sensitive",
+  urgent: "urgent",
 } as const;
 
 export interface CreateComplaintBody {
@@ -3590,6 +3638,9 @@ export interface CreateComplaintBody {
   category: CreateComplaintBodyCategory;
   title: string;
   description: string;
+  sensitivity?: CreateComplaintBodySensitivity;
+  photoUrls?: string[];
+  isUrgent?: boolean;
 }
 
 export type UpdateComplaintBodyStatus =
@@ -3602,10 +3653,48 @@ export const UpdateComplaintBodyStatus = {
   completed: "completed",
 } as const;
 
+export type UpdateComplaintBodySensitivity =
+  (typeof UpdateComplaintBodySensitivity)[keyof typeof UpdateComplaintBodySensitivity];
+
+export const UpdateComplaintBodySensitivity = {
+  normal: "normal",
+  caution: "caution",
+  sensitive: "sensitive",
+  urgent: "urgent",
+} as const;
+
 export interface UpdateComplaintBody {
   status?: UpdateComplaintBodyStatus;
   assigneeName?: string;
   resolution?: string;
+  sensitivity?: UpdateComplaintBodySensitivity;
+}
+
+export type ComplaintAnalyticsCategoryTrendItem = {
+  month: string;
+  category: string;
+  count: number;
+};
+
+export type ComplaintAnalyticsBuildingSummaryItem = {
+  buildingId: number;
+  buildingName: string;
+  totalComplaints: number;
+  sensitiveCount: number;
+  recurringCount: number;
+  sensitiveRate: number;
+};
+
+export interface ComplaintAnalytics {
+  sensitiveComplaintRate: number;
+  /** @nullable */
+  recurringAvgResolutionDays?: number | null;
+  totalComplaints: number;
+  sensitiveCount: number;
+  recurringCount: number;
+  unresolvedSensitiveComplaints: Complaint[];
+  categoryTrend: ComplaintAnalyticsCategoryTrendItem[];
+  buildingSummary: ComplaintAnalyticsBuildingSummaryItem[];
 }
 
 export type UpdateVoteBodyStatus =
@@ -4368,6 +4457,9 @@ export type GetApprovalCheckParams = {
 export type ListComplaintsParams = {
   category?: ListComplaintsCategory;
   status?: ListComplaintsStatus;
+  sensitivity?: ListComplaintsSensitivity;
+  isRecurring?: boolean;
+  escalatedToHq?: boolean;
 };
 
 export type ListComplaintsCategory =
@@ -4379,6 +4471,12 @@ export const ListComplaintsCategory = {
   maintenance: "maintenance",
   cleaning: "cleaning",
   security: "security",
+  contract_legal: "contract_legal",
+  management_dispute: "management_dispute",
+  accounting_issue: "accounting_issue",
+  water_leak: "water_leak",
+  elevator: "elevator",
+  floor_noise: "floor_noise",
   other: "other",
 } as const;
 
@@ -4390,6 +4488,16 @@ export const ListComplaintsStatus = {
   assigned: "assigned",
   in_progress: "in_progress",
   completed: "completed",
+} as const;
+
+export type ListComplaintsSensitivity =
+  (typeof ListComplaintsSensitivity)[keyof typeof ListComplaintsSensitivity];
+
+export const ListComplaintsSensitivity = {
+  normal: "normal",
+  caution: "caution",
+  sensitive: "sensitive",
+  urgent: "urgent",
 } as const;
 
 export type DeleteComplaint200 = {

@@ -41,7 +41,7 @@ import managementContractTemplatesRouter from "./managementContractTemplates";
 import publicTenantCardRouter from "./publicTenantCard";
 import metersRouter from "./meters";
 import feesRouter from "./fees";
-import complaintsRouter from "./complaints";
+import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
 import warrantiesRouter from "./warranties";
@@ -55,6 +55,7 @@ router.use(publicTenantCardRouter);
 
 router.use(authMiddleware);
 
+router.get("/complaints/analytics", requireRole("hq_executive", "platform_admin"), handleComplaintAnalytics);
 router.use(vendorsRouter);
 router.use(commissionsRouter);
 router.use(notificationsRouter);

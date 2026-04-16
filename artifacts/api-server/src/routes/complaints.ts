@@ -1,14 +1,17 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, complaintsTable, usersTable, unitsTable } from "@workspace/db";
+import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { db, complaintsTable, usersTable, unitsTable, notificationsTable, buildingsTable } from "@workspace/db";
+import { SENSITIVE_CATEGORIES, RISK_KEYWORDS, complaintSensitivities } from "@workspace/db";
 import {
   CreateComplaintBody,
   UpdateComplaintBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 
+type ComplaintSensitivity = (typeof complaintSensitivities)[number];
+
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
+router.use(requireRole("manager", "platform_admin", "accountant", "facility_staff", "hq_executive"));
 
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;
@@ -17,23 +20,130 @@ async function getUserBuildingId(req: Request): Promise<number | null> {
   return user?.buildingId ?? null;
 }
 
-router.get("/complaints", async (req: Request, res: Response): Promise<void> => {
-  const buildingId = await getUserBuildingId(req);
-  if (!buildingId) { res.json([]); return; }
-  const { category, status } = req.query as { category?: string; status?: string };
+function detectRiskKeywords(text: string): boolean {
+  return RISK_KEYWORDS.some(keyword => text.includes(keyword));
+}
 
-  let rows = await db
+function computeSensitivity(category: string, description: string, title: string, manualSensitivity?: string, isUrgent?: boolean): {
+  sensitivity: ComplaintSensitivity;
+  hasRiskKeyword: boolean;
+  shouldEscalate: boolean;
+} {
+  let sensitivity: ComplaintSensitivity = (manualSensitivity as ComplaintSensitivity) || "normal";
+  const hasRiskKeyword = detectRiskKeywords(description) || detectRiskKeywords(title);
+  let shouldEscalate = false;
+
+  if (SENSITIVE_CATEGORIES.includes(category)) {
+    if (sensitivityLevel(sensitivity) < sensitivityLevel("sensitive")) {
+      sensitivity = "sensitive";
+    }
+    shouldEscalate = true;
+  }
+
+  if (hasRiskKeyword) {
+    if (sensitivityLevel(sensitivity) < sensitivityLevel("sensitive")) {
+      sensitivity = "sensitive";
+    }
+    shouldEscalate = true;
+  }
+
+  if (isUrgent) {
+    sensitivity = "urgent";
+    shouldEscalate = true;
+  }
+
+  return { sensitivity, hasRiskKeyword, shouldEscalate };
+}
+
+function sensitivityLevel(s: string): number {
+  const levels: Record<string, number> = { normal: 0, caution: 1, sensitive: 2, urgent: 3 };
+  return levels[s] ?? 0;
+}
+
+async function checkRecurring(buildingId: number, unitNumber: string, category: string): Promise<{ isRecurring: boolean; recurringCount: number }> {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const byUnit = await db
+    .select({ id: complaintsTable.id })
+    .from(complaintsTable)
+    .where(
+      and(
+        eq(complaintsTable.buildingId, buildingId),
+        eq(complaintsTable.unitNumber, unitNumber),
+        gte(complaintsTable.createdAt, sixMonthsAgo)
+      )
+    );
+
+  const byCategory = await db
+    .select({ id: complaintsTable.id })
+    .from(complaintsTable)
+    .where(
+      and(
+        eq(complaintsTable.buildingId, buildingId),
+        eq(complaintsTable.category, category),
+        gte(complaintsTable.createdAt, sixMonthsAgo)
+      )
+    );
+
+  const count = Math.max(byUnit.length, byCategory.length) + 1;
+  return { isRecurring: count >= 3, recurringCount: count };
+}
+
+async function createHqNotification(complaint: { id: number; title: string; category: string; sensitivity: string; buildingId: number }) {
+  let buildingName = "관리 건물";
+  try {
+    const building = await db.select({ name: buildingsTable.name }).from(buildingsTable)
+      .where(eq(buildingsTable.id, complaint.buildingId))
+      .then(r => r[0]);
+    if (building?.name) buildingName = building.name;
+  } catch {
+  }
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    noise: "소음", parking: "주차", maintenance: "유지보수", cleaning: "청결",
+    security: "보안", contract_legal: "계약/법무", management_dispute: "관리단 분쟁",
+    accounting_issue: "회계 부적정", water_leak: "누수/방수", elevator: "승강기",
+    floor_noise: "층간소음", other: "기타",
+  };
+
+  await db.insert(notificationsTable).values({
+    recipientType: "hq_executive",
+    notificationType: "complaint_escalation",
+    title: `[민감 민원] ${buildingName} - ${complaint.title}`,
+    message: `${buildingName}에서 ${CATEGORY_LABELS[complaint.category] || complaint.category} 카테고리의 민감 민원이 접수되었습니다. 민감도: ${complaint.sensitivity}`,
+    relatedEntityType: "complaint",
+    relatedEntityId: complaint.id,
+  });
+}
+
+router.get("/complaints", async (req: Request, res: Response): Promise<void> => {
+  const userRole = req.user?.role;
+  let buildingId: number | null = null;
+
+  if (userRole !== "hq_executive" && userRole !== "platform_admin") {
+    buildingId = await getUserBuildingId(req);
+    if (!buildingId) { res.json([]); return; }
+  }
+
+  const { category, status, sensitivity, isRecurring, escalatedToHq } = req.query as {
+    category?: string; status?: string; sensitivity?: string;
+    isRecurring?: string; escalatedToHq?: string;
+  };
+
+  const conditions = [];
+  if (buildingId) conditions.push(eq(complaintsTable.buildingId, buildingId));
+  if (category) conditions.push(eq(complaintsTable.category, category));
+  if (status) conditions.push(eq(complaintsTable.status, status));
+  if (sensitivity) conditions.push(eq(complaintsTable.sensitivity, sensitivity));
+  if (isRecurring === "true") conditions.push(eq(complaintsTable.isRecurring, true));
+  if (escalatedToHq === "true") conditions.push(eq(complaintsTable.escalatedToHq, true));
+
+  const rows = await db
     .select()
     .from(complaintsTable)
-    .where(eq(complaintsTable.buildingId, buildingId))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(complaintsTable.createdAt));
-
-  if (category) {
-    rows = rows.filter((r) => r.category === category);
-  }
-  if (status) {
-    rows = rows.filter((r) => r.status === status);
-  }
 
   res.json(rows);
 });
@@ -53,10 +163,42 @@ router.post("/complaints", async (req: Request, res: Response): Promise<void> =>
     .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, parsed.data.unitNumber)))
     .then((r) => r[0]);
 
+  const { sensitivity, hasRiskKeyword, shouldEscalate } = computeSensitivity(
+    parsed.data.category,
+    parsed.data.description,
+    parsed.data.title,
+    parsed.data.sensitivity,
+    parsed.data.isUrgent
+  );
+
+  const { isRecurring, recurringCount } = await checkRecurring(buildingId, parsed.data.unitNumber, parsed.data.category);
+
+  const { isUrgent, ...insertData } = parsed.data;
   const [row] = await db
     .insert(complaintsTable)
-    .values({ ...parsed.data, buildingId, unitId: unit?.id ?? null })
+    .values({
+      ...insertData,
+      buildingId,
+      unitId: unit?.id ?? null,
+      sensitivity,
+      hasRiskKeyword,
+      isRecurring,
+      recurringCount,
+      photoUrls: insertData.photoUrls || [],
+      escalatedToHq: shouldEscalate,
+      escalatedAt: shouldEscalate ? new Date() : null,
+    })
     .returning();
+
+  if (shouldEscalate) {
+    await createHqNotification({
+      id: row.id,
+      title: row.title,
+      category: row.category,
+      sensitivity: row.sensitivity,
+      buildingId: row.buildingId,
+    });
+  }
 
   res.status(201).json(row);
 });
@@ -75,6 +217,9 @@ router.patch("/complaints/:id", async (req: Request, res: Response): Promise<voi
   if (parsed.data.status) updates.status = parsed.data.status;
   if (parsed.data.assigneeName) updates.assigneeName = parsed.data.assigneeName;
   if (parsed.data.resolution) updates.resolution = parsed.data.resolution;
+  if (parsed.data.sensitivity) {
+    updates.sensitivity = parsed.data.sensitivity as ComplaintSensitivity;
+  }
   if (parsed.data.status === "completed") updates.completedAt = new Date();
 
   const [row] = await db
@@ -109,4 +254,116 @@ router.delete("/complaints/:id", async (req: Request, res: Response): Promise<vo
   res.json({ success: true });
 });
 
+router.get("/complaints/:id/history", async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id as string);
+  const userRole = req.user?.role;
+
+  const complaint = await db.select().from(complaintsTable)
+    .where(eq(complaintsTable.id, id))
+    .then(r => r[0]);
+
+  if (!complaint) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  if (userRole !== "hq_executive" && userRole !== "platform_admin") {
+    const buildingId = await getUserBuildingId(req);
+    if (!buildingId || complaint.buildingId !== buildingId) {
+      res.status(403).json({ error: "접근 권한이 없습니다" });
+      return;
+    }
+  }
+
+  const history = await db
+    .select()
+    .from(complaintsTable)
+    .where(
+      and(
+        eq(complaintsTable.buildingId, complaint.buildingId),
+        sql`(${complaintsTable.unitNumber} = ${complaint.unitNumber} OR ${complaintsTable.category} = ${complaint.category})`,
+        sql`${complaintsTable.id} != ${id}`
+      )
+    )
+    .orderBy(desc(complaintsTable.createdAt))
+    .limit(20);
+
+  res.json(history);
+});
+
+async function handleComplaintAnalytics(_req: Request, res: Response): Promise<void> {
+  const allComplaints = await db.select().from(complaintsTable).orderBy(desc(complaintsTable.createdAt));
+
+  const sensitiveCount = allComplaints.filter(c =>
+    c.sensitivity === "sensitive" || c.sensitivity === "urgent"
+  ).length;
+
+  const recurringCompleted = allComplaints.filter(c => c.isRecurring && c.completedAt);
+  let recurringAvgResolutionDays: number | null = null;
+  if (recurringCompleted.length > 0) {
+    const totalDays = recurringCompleted.reduce((sum, c) => {
+      const created = new Date(c.createdAt).getTime();
+      const completed = new Date(c.completedAt!).getTime();
+      return sum + (completed - created) / (1000 * 60 * 60 * 24);
+    }, 0);
+    recurringAvgResolutionDays = Math.round((totalDays / recurringCompleted.length) * 10) / 10;
+  }
+
+  const unresolvedSensitive = allComplaints.filter(c =>
+    (c.sensitivity === "sensitive" || c.sensitivity === "urgent") && c.status !== "completed"
+  );
+
+  const categoryTrendMap = new Map<string, number>();
+  for (const c of allComplaints) {
+    const month = new Date(c.createdAt).toISOString().substring(0, 7);
+    const key = `${month}:${c.category}`;
+    categoryTrendMap.set(key, (categoryTrendMap.get(key) || 0) + 1);
+  }
+  const categoryTrend = Array.from(categoryTrendMap.entries()).map(([key, count]) => {
+    const [month, category] = key.split(":");
+    return { month, category, count };
+  }).sort((a, b) => a.month.localeCompare(b.month));
+
+  const buildingMap = new Map<number, { totalComplaints: number; sensitiveCount: number; recurringCount: number }>();
+  for (const c of allComplaints) {
+    if (!buildingMap.has(c.buildingId)) {
+      buildingMap.set(c.buildingId, { totalComplaints: 0, sensitiveCount: 0, recurringCount: 0 });
+    }
+    const b = buildingMap.get(c.buildingId)!;
+    b.totalComplaints++;
+    if (c.sensitivity === "sensitive" || c.sensitivity === "urgent") b.sensitiveCount++;
+    if (c.isRecurring) b.recurringCount++;
+  }
+
+  let buildingNameMap = new Map<number, string>();
+  try {
+    const buildings = await db.select({ id: buildingsTable.id, name: buildingsTable.name }).from(buildingsTable);
+    buildingNameMap = new Map(buildings.map(b => [b.id, b.name]));
+  } catch {
+  }
+
+  const buildingSummary = Array.from(buildingMap.entries()).map(([buildingId, stats]) => ({
+    buildingId,
+    buildingName: buildingNameMap.get(buildingId) || "관리 건물",
+    ...stats,
+    sensitiveRate: stats.totalComplaints > 0
+      ? Math.round((stats.sensitiveCount / stats.totalComplaints) * 100 * 10) / 10
+      : 0,
+  }));
+
+  res.json({
+    sensitiveComplaintRate: allComplaints.length > 0
+      ? Math.round((sensitiveCount / allComplaints.length) * 100 * 10) / 10
+      : 0,
+    recurringAvgResolutionDays,
+    totalComplaints: allComplaints.length,
+    sensitiveCount,
+    recurringCount: allComplaints.filter(c => c.isRecurring).length,
+    unresolvedSensitiveComplaints: unresolvedSensitive.slice(0, 20),
+    categoryTrend,
+    buildingSummary,
+  });
+}
+
+export { handleComplaintAnalytics };
 export default router;
