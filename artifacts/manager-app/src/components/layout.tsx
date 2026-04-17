@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlatformFooter, FirstEntryConsentModal } from "@/components/intermediary-disclaimer";
+import { PlatformFooter } from "@/components/intermediary-disclaimer";
 
 interface NavSection {
   title?: string;
@@ -567,7 +567,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <PlatformFooter />
         </div>
       </div>
-      <FirstEntryConsentModal />
 
       <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
