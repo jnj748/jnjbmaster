@@ -120,6 +120,40 @@ async function main() {
     expect("partner GET /vehicles → 401/403", [401, 403].includes((await get("/vehicles", part1)).status));
   }
 
+  // --- tenant-card-tokens (PII issuance) ---
+  if (m1) {
+    expect("manager GET /tenant-card-tokens → 200",
+      (await get("/tenant-card-tokens", m1)).status === 200);
+  }
+  if (ac1) {
+    expect("accountant GET /tenant-card-tokens → 403",
+      (await get("/tenant-card-tokens", ac1)).status === 403);
+  }
+  if (fs1) {
+    expect("facility_staff GET /tenant-card-tokens → 403",
+      (await get("/tenant-card-tokens", fs1)).status === 403);
+  }
+  if (hq1) {
+    expect("hq_executive GET /tenant-card-tokens → 403",
+      (await get("/tenant-card-tokens", hq1)).status === 403);
+  }
+
+  // --- units detail (cross-building) ---
+  if (m1) {
+    const units1 = await get("/units", m1);
+    expect("manager1 GET /units → 200", units1.status === 200);
+    const unitB1 = Array.isArray(units1.body) ? units1.body[0] : null;
+    if (unitB1?.id) {
+      expect("manager1 GET /units/:id (own) → 200",
+        (await get(`/units/${unitB1.id}`, m1)).status === 200);
+      if (m2) {
+        const cross = await get(`/units/${unitB1.id}`, m2);
+        expect("manager2 GET /units/:id (foreign building) → 404",
+          cross.status === 404, `got ${cross.status}`);
+      }
+    }
+  }
+
   // --- platform_admin must retain access ---
   if (admin1) {
     const r = await get("/tenants", admin1);

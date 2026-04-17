@@ -20,6 +20,10 @@ const router: IRouter = Router();
 // Vehicles are PII (owner name + contact). Restrict to property-management roles
 // only — exclude accountant and hq_executive at the router level. facility_staff
 // is allowed because parking management is part of their daily operations.
+// /vehicles role policy mirrors the UI matrix in
+// manager-app/src/lib/permissions.ts:214 (access for manager / platform_admin /
+// facility_staff). PII masking for vehicle/owner contact fields is tracked
+// separately as follow-up #98 and is intentionally out of scope here.
 router.use("/vehicles", requireRole("manager", "platform_admin", "facility_staff"));
 const MAX_ADDITIONAL_VEHICLES = 4;
 
