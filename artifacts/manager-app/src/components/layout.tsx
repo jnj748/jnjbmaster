@@ -67,6 +67,7 @@ const managerNavSections: NavSection[] = [
       { path: "/", label: "대시보드", icon: LayoutDashboard },
       { path: "/calendar", label: "일정", icon: CalendarDays },
       { path: "/tasks", label: "업무 관리", icon: CheckSquare },
+      { path: "/building-info", label: "건물 정보", icon: Building },
     ],
   },
   {
@@ -124,7 +125,6 @@ const managerNavSections: NavSection[] = [
   {
     title: "설정",
     items: [
-      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/users", label: "사용자 관리", icon: Users },
       { path: "/settings", label: "설정", icon: Settings },
     ],
@@ -227,13 +227,13 @@ const adminNavSections: NavSection[] = [
     title: "대시보드",
     items: [
       { path: "/", label: "플랫폼 관리", icon: Shield },
+      { path: "/building-info", label: "건물 정보", icon: Building },
     ],
   },
   ...managerNavSections.filter((s) => s.title !== "대시보드" && s.title !== "설정"),
   {
     title: "설정",
     items: [
-      { path: "/building-info", label: "건물 정보", icon: Building },
       { path: "/users", label: "사용자 관리", icon: Users },
       { path: "/settings", label: "설정", icon: Settings },
     ],
