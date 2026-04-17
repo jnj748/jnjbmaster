@@ -2,8 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable } from "@workspace/db";
 import { eq, and, lte, gte, sql, desc } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
-import { LEGAL_PRESETS } from "./inspections";
 import {
+  LEGAL_PRESETS,
   ELECTRICAL_RESIDENT_KW,
   ELECTRICAL_REQUIRED_KW,
   FIRE_SPECIAL_GRADE_FLOORS,
