@@ -58,7 +58,9 @@ export async function recordConsent(
     });
     if (!res.ok) {
       if (options?.throwOnError) {
-        throw new Error(`동의 기록 실패 (${res.status})`);
+        const err = new Error(`동의 기록 실패 (${res.status})`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
       }
     }
   } catch (e) {
@@ -289,17 +291,33 @@ export function FirstEntryConsentModal() {
     if (!token) return;
     setSubmitting(true);
     try {
-      await recordConsent(token, "intermediary_terms", undefined, { throwOnError: true });
-      await recordConsent(token, "privacy_policy", undefined, { throwOnError: true });
+      const calls = [
+        recordConsent(token, "intermediary_terms", "migration", { throwOnError: true }),
+        recordConsent(token, "privacy_policy", "migration", { throwOnError: true }),
+      ];
       if (isPartner) {
-        await recordConsent(token, "partner_terms", undefined, { throwOnError: true });
+        calls.push(recordConsent(token, "partner_terms", "migration", { throwOnError: true }));
       }
-    } catch {
+      await Promise.all(calls);
+    } catch (e) {
       setSubmitting(false);
-      toast({
-        title: "동의 기록에 실패했습니다. 네트워크를 확인하고 다시 시도해 주세요.",
-        variant: "destructive",
-      });
+      const status = (e as { status?: number })?.status;
+      if (status === 401) {
+        toast({
+          title: "세션이 만료되었습니다. 다시 로그인해 주세요.",
+          variant: "destructive",
+        });
+      } else if (status && status >= 500) {
+        toast({
+          title: `서버 오류로 동의를 기록하지 못했습니다 (${status}). 잠시 후 다시 시도해 주세요.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "동의 기록에 실패했습니다. 네트워크를 확인하고 다시 시도해 주세요.",
+          variant: "destructive",
+        });
+      }
       return;
     }
     setSubmitting(false);
@@ -309,7 +327,11 @@ export function FirstEntryConsentModal() {
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-lg" hideClose
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-amber-600" />

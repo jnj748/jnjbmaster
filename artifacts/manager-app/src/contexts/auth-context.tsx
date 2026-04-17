@@ -29,6 +29,7 @@ interface RegisterData {
   role: string;
   phone?: string;
   portalType: string;
+  consents?: { types: string[]; version: string };
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -98,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "회원가입에 실패했습니다");
     }
 

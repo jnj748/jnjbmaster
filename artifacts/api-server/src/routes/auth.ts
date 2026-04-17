@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, platformConsentsTable, platformConsentTypes } from "@workspace/db";
 import { signToken, authMiddleware } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { email, password, name, role, phone, portalType } = req.body;
+  const { email, password, name, role, phone, portalType, consents } = req.body;
 
   if (!email || !password || !name || !role || !portalType) {
     res.status(400).json({ error: "필수 항목을 모두 입력해주세요" });
@@ -45,15 +45,55 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+  const userAgent = req.headers["user-agent"] || null;
+  const consentVersion = (consents && typeof consents === "object" && typeof consents.version === "string") ? consents.version : "1.0";
+  const requestedConsentTypes: string[] = (consents && typeof consents === "object" && Array.isArray(consents.types)) ? consents.types : [];
+  const validConsentTypes = requestedConsentTypes.filter((t): t is typeof platformConsentTypes[number] =>
+    platformConsentTypes.includes(t as typeof platformConsentTypes[number])
+  );
+
+  const requiredConsentTypes: string[] = ["intermediary_terms", "privacy_policy"];
+  if (role === "partner" || portalType === "partner") {
+    requiredConsentTypes.push("partner_terms");
+  }
+  const missingRequired = requiredConsentTypes.filter((t) => !validConsentTypes.includes(t as typeof platformConsentTypes[number]));
+  if (missingRequired.length > 0) {
+    res.status(400).json({ error: "필수 약관에 모두 동의해 주세요", missingConsents: missingRequired });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db.insert(usersTable).values({
-    email,
-    passwordHash,
-    name,
-    role,
-    phone: phone || null,
-    portalType,
-  }).returning();
+  let user;
+  try {
+    user = await db.transaction(async (tx) => {
+      const [createdUser] = await tx.insert(usersTable).values({
+        email,
+        passwordHash,
+        name,
+        role,
+        phone: phone || null,
+        portalType,
+      }).returning();
+
+      await tx.insert(platformConsentsTable).values(
+        validConsentTypes.map((consentType) => ({
+          userId: createdUser.id,
+          consentType,
+          version: consentVersion,
+          contextRef: "signup" as string | null,
+          ipAddress,
+          userAgent,
+        }))
+      );
+
+      return createdUser;
+    });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to create user with consents");
+    res.status(500).json({ error: "회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." });
+    return;
+  }
 
   const token = signToken({
     userId: user.id,
