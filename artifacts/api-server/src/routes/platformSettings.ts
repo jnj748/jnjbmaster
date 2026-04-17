@@ -17,7 +17,8 @@ const UpdateBody = z.object({
   description: z.string().optional().nullable(),
 });
 
-router.put("/platform-settings", requireRole("platform_admin", "hq_executive"), async (req, res): Promise<void> => {
+// UI matrix restricts PUT to platform_admin only (manager-app/src/lib/permissions.ts).
+router.put("/platform-settings", requireRole("platform_admin"), async (req, res): Promise<void> => {
   const parsed = UpdateBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

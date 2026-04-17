@@ -14,15 +14,15 @@
 | /tasks | manager, platform_admin | tasks.ts | manager, platform_admin | ✅ |
 | /ai-assistant | manager, platform_admin | aiAssistant/ | manager, platform_admin | ✅ |
 | /maintenance-logs | manager, platform_admin, facility_staff | maintenanceLogs.ts | manager, platform_admin, facility_staff | ✅ |
-| /safety-training | manager, platform_admin, facility_staff, hq_executive | safetyTrainings.ts | manager, platform_admin, hq_executive | ⚠️ facility_staff 있음, API 누락 |
+| /safety-training | manager, platform_admin, facility_staff, hq_executive | safetyTrainings.ts | manager, platform_admin, facility_staff, hq_executive | ✅ (이번 패치) |
 | /accounting, /metering, /billing | manager, platform_admin, accountant | (multiple) | manager, platform_admin, accountant | ✅ |
 | /tenant-card-tokens (내부) | manager, platform_admin | tenantCardTokens.ts | manager, platform_admin | ✅ |
 | /complaints/analytics | hq_executive, platform_admin | index.ts inline | hq_executive, platform_admin | ✅ |
-| /platform-settings PUT | platform_admin | platformSettings.ts | platform_admin, hq_executive | ⚠️ hq_executive 추가됨 |
+| /platform-settings PUT | platform_admin | platformSettings.ts | platform_admin | ✅ (이번 패치) |
 
 `buildingRouter` 공통 가드(index.ts:75): `manager, platform_admin, hq_executive, accountant, facility_staff`
 
-**권장**: `/safety-training` API 에 facility_staff 추가 검토(별도 작업).
+모든 UI ↔ API 권한 불일치는 이번 패치에서 해소되었습니다.
 
 ¹ **/vehicles 의 facility_staff 접근은 의도된 정책**: 시설기사가 관리동
    주차/출입 점검 업무를 수행하므로 `manager-app/src/lib/permissions.ts:214`
