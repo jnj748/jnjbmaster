@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, settlementsTable } from "@workspace/db";
+import { db, settlementsTable, contractsTable, workReportsTable } from "@workspace/db";
 import {
   ListSettlementsQueryParams,
   ListSettlementsResponse,
@@ -39,6 +39,27 @@ router.post("/settlements", async (req, res): Promise<void> => {
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  const data = parsed.data as Record<string, unknown> & { contractId?: number | null };
+  if (data.contractId) {
+    const [contract] = await db.select().from(contractsTable).where(eq(contractsTable.id, data.contractId));
+    if (!contract) {
+      res.status(400).json({ error: "연결된 계약을 찾을 수 없습니다" });
+      return;
+    }
+    if (!["active", "in_progress", "completed", "renewal_due"].includes(contract.status)) {
+      res.status(400).json({ error: `계약이 활성 상태가 아닙니다 (현재: ${contract.status}). 결재 완료 후 정산하세요.` });
+      return;
+    }
+    const approvedReports = await db
+      .select()
+      .from(workReportsTable)
+      .where(and(eq(workReportsTable.contractId, data.contractId), eq(workReportsTable.status, "approved")));
+    if (approvedReports.length === 0) {
+      res.status(400).json({ error: "승인된 작업보고서(검수완료)가 1건 이상 있어야 정산할 수 있습니다" });
+      return;
+    }
   }
 
   const [settlement] = await db.insert(settlementsTable).values(parsed.data).returning();

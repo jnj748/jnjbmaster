@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
-import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsTable, notificationsTable } from "@workspace/db";
+import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsTable, notificationsTable, contractsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { tasksTable, inspectionsTable } from "@workspace/db";
+import { transitionContractStatus } from "./contracts";
 
 const router: IRouter = Router();
 
@@ -207,6 +208,13 @@ router.post("/approvals/:id/approve", requireRole("manager", "platform_admin"), 
     })
     .where(eq(approvalsTable.id, id))
     .returning();
+
+  const linkedContracts = await db.select().from(contractsTable).where(eq(contractsTable.approvalId, id));
+  for (const c of linkedContracts) {
+    if (c.status === "in_approval" || c.status === "draft") {
+      await transitionContractStatus(c.id, "active");
+    }
+  }
 
   res.json(serializeApproval(row));
 });

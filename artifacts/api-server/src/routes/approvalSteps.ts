@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, digitalSignaturesTable, usersTable, notificationsTable } from "@workspace/db";
+import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { transitionContractStatus } from "./contracts";
 
 const router: IRouter = Router();
 router.use(requireRole("manager", "platform_admin", "accountant"));
@@ -191,6 +192,16 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
           approvedAt: new Date(),
         })
         .where(eq(approvalsTable.id, approvalId));
+
+      const linkedContracts = await db
+        .select()
+        .from(contractsTable)
+        .where(eq(contractsTable.approvalId, approvalId));
+      for (const c of linkedContracts) {
+        if (c.status === "in_approval" || c.status === "draft") {
+          await transitionContractStatus(c.id, "active");
+        }
+      }
 
       await db.insert(notificationsTable).values({
         recipientType: `user:${approval.requesterId}`,

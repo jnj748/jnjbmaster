@@ -9,6 +9,9 @@ import {
   usersTable,
   commissionsTable,
   commissionEventsTable,
+  contractsTable,
+  notificationsTable,
+  approvalsTable,
 } from "@workspace/db";
 import {
   ListQuotesQueryParams,
@@ -354,6 +357,65 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
       actorId: req.user?.userId ?? null,
       actorName: req.user?.email ?? null,
     });
+  }
+
+  // Auto-create contract draft when quote transitions to accepted (Task #65)
+  if (prev.status !== "accepted" && quote.status === "accepted") {
+    const existing = await db.select().from(contractsTable).where(eq(contractsTable.quoteId, quote.id));
+    if (existing.length === 0) {
+      const [rfq] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
+      const requesterId = req.user?.userId ?? null;
+      const [requester] = requesterId
+        ? await db.select({ name: usersTable.name, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, requesterId))
+        : [undefined];
+
+      const title = `[업체선정] ${rfq?.title ?? "RFQ"} - ${quote.vendorName}`;
+
+      const [approval] = await db
+        .insert(approvalsTable)
+        .values({
+          title,
+          description: `업체 선정 결재 (자동 생성) — ${quote.vendorName} (RFQ #${quote.rfqId}, 견적 #${quote.id}). 결재선을 추가한 뒤 상신하세요.`,
+          category: "other",
+          status: "pending",
+          isDraft: true,
+          requesterId: requesterId ?? 0,
+          requesterName: requester?.name ?? requester?.email ?? "system",
+          estimatedAmount: quote.totalAmount,
+          vendorName: quote.vendorName,
+          vendorQuoteDetails: quote.itemBreakdown ?? null,
+          totalSteps: 1,
+          currentStep: 1,
+        })
+        .returning();
+
+      const [contract] = await db
+        .insert(contractsTable)
+        .values({
+          buildingName: rfq?.buildingName ?? null,
+          vendorId: quote.vendorId,
+          vendorName: quote.vendorName,
+          category: rfq?.category ?? "other",
+          title,
+          rfqId: quote.rfqId,
+          quoteId: quote.id,
+          approvalId: approval.id,
+          contractAmount: quote.totalAmount,
+          status: "in_approval",
+          isRecurring: false,
+          notes: "견적 채택 시 자동 생성된 계약. 연결된 업체선정 품의가 최종 승인되면 자동으로 활성화됩니다.",
+        })
+        .returning();
+
+      await db.insert(notificationsTable).values({
+        recipientType: "admin",
+        notificationType: "contract_auto_created",
+        title: "[계약] 견적 채택 → 품의·계약 자동 생성",
+        message: `${quote.vendorName} 견적 채택으로 업체선정 품의(#${approval.id})와 계약(#${contract.id})이 생성되었습니다. 결재선을 추가해 상신하세요.`,
+        relatedEntityType: "contract",
+        relatedEntityId: contract.id,
+      });
+    }
   }
 
   res.json(UpdateQuoteResponse.parse(quote));

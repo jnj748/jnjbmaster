@@ -988,6 +988,8 @@ export interface CreateWorkReportBody {
   quoteId: number;
   vendorId: number;
   vendorName: string;
+  /** @nullable */
+  contractId?: number | null;
   title: string;
   /** @nullable */
   description?: string | null;
@@ -1009,6 +1011,8 @@ export interface UpdateWorkReportBody {
   status?: UpdateWorkReportBodyStatus;
   /** @nullable */
   reviewNotes?: string | null;
+  /** @nullable */
+  contractId?: number | null;
 }
 
 export type SettlementStatus =
@@ -1045,6 +1049,8 @@ export interface CreateSettlementBody {
   quoteId: number;
   vendorId: number;
   vendorName: string;
+  /** @nullable */
+  contractId?: number | null;
   contractAmount: number;
   feeRate: number;
   feeAmount: number;
@@ -4252,6 +4258,219 @@ export interface CommissionEvent {
   createdAt: string;
 }
 
+export type ContractStatus =
+  (typeof ContractStatus)[keyof typeof ContractStatus];
+
+export const ContractStatus = {
+  draft: "draft",
+  in_approval: "in_approval",
+  active: "active",
+  in_progress: "in_progress",
+  completed: "completed",
+  terminated: "terminated",
+  renewal_due: "renewal_due",
+} as const;
+
+export interface Contract {
+  id: number;
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  buildingName?: string | null;
+  vendorId: number;
+  vendorName: string;
+  category: string;
+  title: string;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  approvalId?: number | null;
+  /** @nullable */
+  contractAmount?: number | null;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  status: ContractStatus;
+  isRecurring: boolean;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  renewalAlertSent?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContractDocumentDocType =
+  (typeof ContractDocumentDocType)[keyof typeof ContractDocumentDocType];
+
+export const ContractDocumentDocType = {
+  contract: "contract",
+  business_registration: "business_registration",
+  id_card: "id_card",
+  insurance: "insurance",
+  tax_invoice: "tax_invoice",
+  other: "other",
+} as const;
+
+export interface ContractDocument {
+  id: number;
+  contractId: number;
+  docType: ContractDocumentDocType;
+  fileName: string;
+  fileUrl: string;
+  version: number;
+  /** @nullable */
+  uploadedBy?: number | null;
+  /** @nullable */
+  uploadedByName?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface ContractDetail {
+  contract: Contract;
+  documents: ContractDocument[];
+  workReports: WorkReport[];
+  settlements: Settlement[];
+}
+
+export type CreateContractBodyStatus =
+  (typeof CreateContractBodyStatus)[keyof typeof CreateContractBodyStatus];
+
+export const CreateContractBodyStatus = {
+  draft: "draft",
+  in_approval: "in_approval",
+  active: "active",
+  in_progress: "in_progress",
+  completed: "completed",
+  terminated: "terminated",
+  renewal_due: "renewal_due",
+} as const;
+
+export interface CreateContractBody {
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  buildingName?: string | null;
+  vendorId: number;
+  vendorName: string;
+  category: string;
+  title: string;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  approvalId?: number | null;
+  /** @nullable */
+  contractAmount?: number | null;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  status?: CreateContractBodyStatus;
+  isRecurring?: boolean;
+  /** @nullable */
+  notes?: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type UpdateContractBodyStatus =
+  | (typeof UpdateContractBodyStatus)[keyof typeof UpdateContractBodyStatus]
+  | null;
+
+export const UpdateContractBodyStatus = {
+  draft: "draft",
+  in_approval: "in_approval",
+  active: "active",
+  in_progress: "in_progress",
+  completed: "completed",
+  terminated: "terminated",
+  renewal_due: "renewal_due",
+} as const;
+
+export interface UpdateContractBody {
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  buildingName?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  contractAmount?: number | null;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  status?: UpdateContractBodyStatus;
+  /** @nullable */
+  isRecurring?: boolean | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UploadContractDocumentBodyDocType =
+  (typeof UploadContractDocumentBodyDocType)[keyof typeof UploadContractDocumentBodyDocType];
+
+export const UploadContractDocumentBodyDocType = {
+  contract: "contract",
+  business_registration: "business_registration",
+  id_card: "id_card",
+  insurance: "insurance",
+  tax_invoice: "tax_invoice",
+  other: "other",
+} as const;
+
+export interface UploadContractDocumentBody {
+  docType: UploadContractDocumentBodyDocType;
+  fileName: string;
+  fileUrl: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type CreateContractFromQuoteBodyApprovalStepsItem = {
+  approverId: number;
+  approverName: string;
+  /** @nullable */
+  approverRole?: string | null;
+};
+
+export interface CreateContractFromQuoteBody {
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  buildingName?: string | null;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  category?: string | null;
+  approvalSteps?: CreateContractFromQuoteBodyApprovalStepsItem[];
+}
+
+export interface CreateContractFromQuoteResponse {
+  contract: Contract;
+  approvalId: number;
+}
+
+export interface ContractRenewalAlertResponse {
+  alertsGenerated: number;
+  contracts: Contract[];
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -4431,6 +4650,17 @@ export type ListWeeklySummaryReportsParams = {
 export type ListMonthlySummaryReportsParams = {
   month?: string;
   buildingId?: number;
+};
+
+export type ListContractsParams = {
+  status?: string;
+  vendorId?: number;
+  buildingId?: number;
+  expiringWithinDays?: number;
+};
+
+export type TransitionContractStatusBody = {
+  status: string;
 };
 
 export type GetSeasonalSuggestionsParams = {

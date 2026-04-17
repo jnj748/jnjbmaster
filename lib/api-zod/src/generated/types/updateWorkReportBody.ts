@@ -11,4 +11,6 @@ export interface UpdateWorkReportBody {
   status?: UpdateWorkReportBodyStatus;
   /** @nullable */
   reviewNotes?: string | null;
+  /** @nullable */
+  contractId?: number | null;
 }

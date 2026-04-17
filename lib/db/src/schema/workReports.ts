@@ -9,6 +9,7 @@ export const workReportsTable = pgTable("work_reports", {
   vendorId: integer("vendor_id").notNull(),
   vendorName: text("vendor_name").notNull(),
   buildingId: integer("building_id"),
+  contractId: integer("contract_id"),
   title: text("title").notNull(),
   description: text("description"),
   completionDate: date("completion_date").notNull(),

@@ -1746,6 +1746,7 @@ export const CreateWorkReportBody = zod.object({
   quoteId: zod.number(),
   vendorId: zod.number(),
   vendorName: zod.string(),
+  contractId: zod.number().nullish(),
   title: zod.string(),
   description: zod.string().nullish(),
   completionDate: zod.coerce.date(),
@@ -1786,6 +1787,7 @@ export const UpdateWorkReportParams = zod.object({
 export const UpdateWorkReportBody = zod.object({
   status: zod.enum(["submitted", "approved", "rejected"]).optional(),
   reviewNotes: zod.string().nullish(),
+  contractId: zod.number().nullish(),
 });
 
 export const UpdateWorkReportResponse = zod.object({
@@ -1839,6 +1841,7 @@ export const CreateSettlementBody = zod.object({
   quoteId: zod.number(),
   vendorId: zod.number(),
   vendorName: zod.string(),
+  contractId: zod.number().nullish(),
   contractAmount: zod.number(),
   feeRate: zod.number(),
   feeAmount: zod.number(),
@@ -2966,6 +2969,384 @@ export const CheckWarrantyAlertsResponse = zod.object({
       }),
     )
     .optional(),
+});
+
+/**
+ * @summary List partner contracts
+ */
+export const ListContractsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  vendorId: zod.coerce.number().optional(),
+  buildingId: zod.coerce.number().optional(),
+  expiringWithinDays: zod.coerce.number().optional(),
+});
+
+export const ListContractsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  title: zod.string(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  approvalId: zod.number().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "draft",
+    "in_approval",
+    "active",
+    "in_progress",
+    "completed",
+    "terminated",
+    "renewal_due",
+  ]),
+  isRecurring: zod.boolean(),
+  notes: zod.string().nullish(),
+  renewalAlertSent: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListContractsResponse = zod.array(ListContractsResponseItem);
+
+/**
+ * @summary Create a contract
+ */
+export const CreateContractBody = zod.object({
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  title: zod.string(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  approvalId: zod.number().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod
+    .enum([
+      "draft",
+      "in_approval",
+      "active",
+      "in_progress",
+      "completed",
+      "terminated",
+      "renewal_due",
+    ])
+    .optional(),
+  isRecurring: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const GetContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetContractResponse = zod.object({
+  contract: zod.object({
+    id: zod.number(),
+    buildingId: zod.number().nullish(),
+    buildingName: zod.string().nullish(),
+    vendorId: zod.number(),
+    vendorName: zod.string(),
+    category: zod.string(),
+    title: zod.string(),
+    rfqId: zod.number().nullish(),
+    quoteId: zod.number().nullish(),
+    approvalId: zod.number().nullish(),
+    contractAmount: zod.number().nullish(),
+    startDate: zod.coerce.date().nullish(),
+    endDate: zod.coerce.date().nullish(),
+    status: zod.enum([
+      "draft",
+      "in_approval",
+      "active",
+      "in_progress",
+      "completed",
+      "terminated",
+      "renewal_due",
+    ]),
+    isRecurring: zod.boolean(),
+    notes: zod.string().nullish(),
+    renewalAlertSent: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+  documents: zod.array(
+    zod.object({
+      id: zod.number(),
+      contractId: zod.number(),
+      docType: zod.enum([
+        "contract",
+        "business_registration",
+        "id_card",
+        "insurance",
+        "tax_invoice",
+        "other",
+      ]),
+      fileName: zod.string(),
+      fileUrl: zod.string(),
+      version: zod.number(),
+      uploadedBy: zod.number().nullish(),
+      uploadedByName: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  workReports: zod.array(
+    zod.object({
+      id: zod.number(),
+      rfqId: zod.number(),
+      quoteId: zod.number(),
+      vendorId: zod.number(),
+      vendorName: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      completionDate: zod.coerce.date(),
+      photoUrls: zod.string().nullish(),
+      status: zod.enum(["submitted", "approved", "rejected"]),
+      reviewNotes: zod.string().nullish(),
+      reviewedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  settlements: zod.array(
+    zod.object({
+      id: zod.number(),
+      rfqId: zod.number(),
+      quoteId: zod.number(),
+      vendorId: zod.number(),
+      vendorName: zod.string(),
+      contractAmount: zod.number(),
+      feeRate: zod.number(),
+      feeAmount: zod.number(),
+      paymentAmount: zod.number(),
+      status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
+      paidAt: zod.coerce.date().nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+export const UpdateContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateContractBody = zod.object({
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  category: zod.string().nullish(),
+  title: zod.string().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod
+    .union([
+      zod.literal("draft"),
+      zod.literal("in_approval"),
+      zod.literal("active"),
+      zod.literal("in_progress"),
+      zod.literal("completed"),
+      zod.literal("terminated"),
+      zod.literal("renewal_due"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  isRecurring: zod.boolean().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateContractResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  title: zod.string(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  approvalId: zod.number().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "draft",
+    "in_approval",
+    "active",
+    "in_progress",
+    "completed",
+    "terminated",
+    "renewal_due",
+  ]),
+  isRecurring: zod.boolean(),
+  notes: zod.string().nullish(),
+  renewalAlertSent: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Transition contract status (state machine)
+ */
+export const TransitionContractStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const TransitionContractStatusBody = zod.object({
+  status: zod.string(),
+});
+
+export const TransitionContractStatusResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  title: zod.string(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  approvalId: zod.number().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "draft",
+    "in_approval",
+    "active",
+    "in_progress",
+    "completed",
+    "terminated",
+    "renewal_due",
+  ]),
+  isRecurring: zod.boolean(),
+  notes: zod.string().nullish(),
+  renewalAlertSent: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List contract documents (manager+ only)
+ */
+export const ListContractDocumentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListContractDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  docType: zod.enum([
+    "contract",
+    "business_registration",
+    "id_card",
+    "insurance",
+    "tax_invoice",
+    "other",
+  ]),
+  fileName: zod.string(),
+  fileUrl: zod.string(),
+  version: zod.number(),
+  uploadedBy: zod.number().nullish(),
+  uploadedByName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListContractDocumentsResponse = zod.array(
+  ListContractDocumentsResponseItem,
+);
+
+/**
+ * @summary Register an uploaded contract document (manager+ only)
+ */
+export const UploadContractDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UploadContractDocumentBody = zod.object({
+  docType: zod.enum([
+    "contract",
+    "business_registration",
+    "id_card",
+    "insurance",
+    "tax_invoice",
+    "other",
+  ]),
+  fileName: zod.string(),
+  fileUrl: zod.string(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Create selection approval and pending contract from accepted quote
+ */
+export const CreateContractFromQuoteParams = zod.object({
+  quoteId: zod.coerce.number(),
+});
+
+export const CreateContractFromQuoteBody = zod.object({
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  title: zod.string().nullish(),
+  category: zod.string().nullish(),
+  approvalSteps: zod
+    .array(
+      zod.object({
+        approverId: zod.number(),
+        approverName: zod.string(),
+        approverRole: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Generate renewal alerts for contracts expiring within 30 days
+ */
+export const CheckContractRenewalAlertsResponse = zod.object({
+  alertsGenerated: zod.number(),
+  contracts: zod.array(
+    zod.object({
+      id: zod.number(),
+      buildingId: zod.number().nullish(),
+      buildingName: zod.string().nullish(),
+      vendorId: zod.number(),
+      vendorName: zod.string(),
+      category: zod.string(),
+      title: zod.string(),
+      rfqId: zod.number().nullish(),
+      quoteId: zod.number().nullish(),
+      approvalId: zod.number().nullish(),
+      contractAmount: zod.number().nullish(),
+      startDate: zod.coerce.date().nullish(),
+      endDate: zod.coerce.date().nullish(),
+      status: zod.enum([
+        "draft",
+        "in_approval",
+        "active",
+        "in_progress",
+        "completed",
+        "terminated",
+        "renewal_due",
+      ]),
+      isRecurring: zod.boolean(),
+      notes: zod.string().nullish(),
+      renewalAlertSent: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
 });
 
 /**

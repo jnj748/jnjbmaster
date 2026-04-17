@@ -8,6 +8,7 @@ export const settlementsTable = pgTable("settlements", {
   quoteId: integer("quote_id").notNull(),
   vendorId: integer("vendor_id").notNull(),
   vendorName: text("vendor_name").notNull(),
+  contractId: integer("contract_id"),
   contractAmount: real("contract_amount").notNull(),
   feeRate: real("fee_rate").notNull().default(0),
   feeAmount: real("fee_amount").notNull().default(0),

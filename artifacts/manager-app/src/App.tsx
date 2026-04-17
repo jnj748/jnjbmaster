@@ -51,6 +51,7 @@ const Metering = lazy(() => import("@/pages/metering"));
 const BillingPage = lazy(() => import("@/pages/billing"));
 const ComplaintsPage = lazy(() => import("@/pages/complaints"));
 const VotingPage = lazy(() => import("@/pages/voting"));
+const ContractsPage = lazy(() => import("@/pages/contracts"));
 
 function PageLoader() {
   return (
@@ -108,6 +109,7 @@ const managerRoutes = [
   { path: "/billing", component: BillingPage },
   { path: "/complaints", component: ComplaintsPage },
   { path: "/voting", component: VotingPage },
+  { path: "/contracts", component: ContractsPage },
 ];
 
 const partnerRoutes = [
@@ -122,6 +124,7 @@ const hqRoutes = [
   { path: "/inspections", component: Inspections },
   { path: "/safety-training", component: SafetyTraining },
   { path: "/vendors", component: Vendors },
+  { path: "/contracts", component: ContractsPage },
   { path: "/users", component: Users },
   { path: "/building-info", component: BuildingInfo },
   { path: "/settings", component: SettingsPage },

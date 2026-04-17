@@ -63,6 +63,8 @@ tags:
     description: Delinquency detection and enforcement
   - name: warranties
     description: Building warranty period management
+  - name: contracts
+    description: Partner contract lifecycle management
 
 paths:
   /healthz:
@@ -2283,6 +2285,207 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WarrantyAlertCheckResponse"
+
+  # ── Contracts (파트너 계약 생애주기) ───────────────────────
+  /contracts:
+    get:
+      operationId: listContracts
+      tags: [contracts]
+      summary: List partner contracts
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: vendorId
+          in: query
+          schema:
+            type: integer
+        - name: buildingId
+          in: query
+          schema:
+            type: integer
+        - name: expiringWithinDays
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contract"
+    post:
+      operationId: createContract
+      tags: [contracts]
+      summary: Create a contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContractBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+
+  /contracts/{id}:
+    get:
+      operationId: getContract
+      tags: [contracts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractDetail"
+    patch:
+      operationId: updateContract
+      tags: [contracts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContractBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+
+  /contracts/{id}/transition:
+    post:
+      operationId: transitionContractStatus
+      tags: [contracts]
+      summary: Transition contract status (state machine)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+              required: [status]
+      responses:
+        "200":
+          description: Transitioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+
+  /contracts/{id}/documents:
+    get:
+      operationId: listContractDocuments
+      tags: [contracts]
+      summary: List contract documents (manager+ only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContractDocument"
+    post:
+      operationId: uploadContractDocument
+      tags: [contracts]
+      summary: Register an uploaded contract document (manager+ only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadContractDocumentBody"
+      responses:
+        "201":
+          description: Document registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractDocument"
+
+  /contracts/from-quote/{quoteId}:
+    post:
+      operationId: createContractFromQuote
+      tags: [contracts]
+      summary: Create selection approval and pending contract from accepted quote
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContractFromQuoteBody"
+      responses:
+        "201":
+          description: Approval and contract created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateContractFromQuoteResponse"
+
+  /contracts/check-renewal-alerts:
+    post:
+      operationId: checkContractRenewalAlerts
+      tags: [contracts]
+      summary: Generate renewal alerts for contracts expiring within 30 days
+      responses:
+        "200":
+          description: Alerts generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractRenewalAlertResponse"
 
   /dashboard/seasonal-suggestions:
     get:
@@ -5565,6 +5768,8 @@ components:
           type: integer
         vendorName:
           type: string
+        contractId:
+          type: ["integer", "null"]
         title:
           type: string
         description:
@@ -5590,6 +5795,8 @@ components:
           enum: [submitted, approved, rejected]
         reviewNotes:
           type: ["string", "null"]
+        contractId:
+          type: ["integer", "null"]
 
     Settlement:
       type: object
@@ -5651,6 +5858,8 @@ components:
           type: integer
         vendorName:
           type: string
+        contractId:
+          type: ["integer", "null"]
         contractAmount:
           type: number
         feeRate:
@@ -10190,3 +10399,258 @@ components:
         - commissionId
         - toStatus
         - createdAt
+
+    Contract:
+      type: object
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: ["integer", "null"]
+        buildingName:
+          type: ["string", "null"]
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        rfqId:
+          type: ["integer", "null"]
+        quoteId:
+          type: ["integer", "null"]
+        approvalId:
+          type: ["integer", "null"]
+        contractAmount:
+          type: ["number", "null"]
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [draft, in_approval, active, in_progress, completed, terminated, renewal_due]
+        isRecurring:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        renewalAlertSent:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - vendorId
+        - vendorName
+        - category
+        - title
+        - status
+        - isRecurring
+        - createdAt
+        - updatedAt
+
+    ContractDetail:
+      type: object
+      properties:
+        contract:
+          $ref: "#/components/schemas/Contract"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContractDocument"
+        workReports:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkReport"
+        settlements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Settlement"
+      required:
+        - contract
+        - documents
+        - workReports
+        - settlements
+
+    ContractDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: integer
+        docType:
+          type: string
+          enum: [contract, business_registration, id_card, insurance, tax_invoice, other]
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        version:
+          type: integer
+        uploadedBy:
+          type: ["integer", "null"]
+        uploadedByName:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - contractId
+        - docType
+        - fileName
+        - fileUrl
+        - version
+        - createdAt
+
+    CreateContractBody:
+      type: object
+      properties:
+        buildingId:
+          type: ["integer", "null"]
+        buildingName:
+          type: ["string", "null"]
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        rfqId:
+          type: ["integer", "null"]
+        quoteId:
+          type: ["integer", "null"]
+        approvalId:
+          type: ["integer", "null"]
+        contractAmount:
+          type: ["number", "null"]
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: string
+          enum: [draft, in_approval, active, in_progress, completed, terminated, renewal_due]
+        isRecurring:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required:
+        - vendorId
+        - vendorName
+        - category
+        - title
+
+    UpdateContractBody:
+      type: object
+      properties:
+        buildingId:
+          type: ["integer", "null"]
+        buildingName:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        contractAmount:
+          type: ["number", "null"]
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        status:
+          type: ["string", "null"]
+          enum: [draft, in_approval, active, in_progress, completed, terminated, renewal_due, null]
+        isRecurring:
+          type: ["boolean", "null"]
+        notes:
+          type: ["string", "null"]
+
+    UploadContractDocumentBody:
+      type: object
+      properties:
+        docType:
+          type: string
+          enum: [contract, business_registration, id_card, insurance, tax_invoice, other]
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required:
+        - docType
+        - fileName
+        - fileUrl
+
+    CreateContractFromQuoteBody:
+      type: object
+      properties:
+        buildingId:
+          type: ["integer", "null"]
+        buildingName:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+          format: date
+        endDate:
+          type: ["string", "null"]
+          format: date
+        title:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        approvalSteps:
+          type: array
+          items:
+            type: object
+            properties:
+              approverId:
+                type: integer
+              approverName:
+                type: string
+              approverRole:
+                type: ["string", "null"]
+            required: [approverId, approverName]
+
+    CreateContractFromQuoteResponse:
+      type: object
+      properties:
+        contract:
+          $ref: "#/components/schemas/Contract"
+        approvalId:
+          type: integer
+      required:
+        - contract
+        - approvalId
+
+    ContractRenewalAlertResponse:
+      type: object
+      properties:
+        alertsGenerated:
+          type: integer
+        contracts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contract"
+      required:
+        - alertsGenerated
+        - contracts

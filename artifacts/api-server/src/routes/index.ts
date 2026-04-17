@@ -48,6 +48,7 @@ import warrantiesRouter from "./warranties";
 import platformConsentsRouter from "./platformConsents";
 import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
+import contractsRouter from "./contracts";
 
 const router: IRouter = Router();
 
@@ -108,6 +109,7 @@ buildingRouter.use(complaintsRouter);
 buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);
 buildingRouter.use(warrantiesRouter);
+buildingRouter.use(contractsRouter);
 router.use(buildingRouter);
 
 export default router;

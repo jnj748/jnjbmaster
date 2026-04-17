@@ -11,6 +11,8 @@ export interface CreateWorkReportBody {
   quoteId: number;
   vendorId: number;
   vendorName: string;
+  /** @nullable */
+  contractId?: number | null;
   title: string;
   /** @nullable */
   description?: string | null;

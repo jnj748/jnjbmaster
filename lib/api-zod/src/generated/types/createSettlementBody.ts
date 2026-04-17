@@ -11,6 +11,8 @@ export interface CreateSettlementBody {
   quoteId: number;
   vendorId: number;
   vendorName: string;
+  /** @nullable */
+  contractId?: number | null;
   contractAmount: number;
   feeRate: number;
   feeAmount: number;
