@@ -101,7 +101,30 @@ async function main() {
   if (fs1) {
     expect("facility_staff GET /tenants → 403", (await get("/tenants", fs1)).status === 403);
     expect("facility_staff GET /owners  → 403", (await get("/owners",  fs1)).status === 403);
-    expect("facility_staff GET /vehicles → 200", (await get("/vehicles", fs1)).status === 200);
+    const fsv = await get("/vehicles", fs1);
+    expect("facility_staff GET /vehicles → 200", fsv.status === 200);
+    // Masking: vehicle PII (number / owner / contact) must be masked for facility_staff.
+    if (Array.isArray(fsv.body) && fsv.body.length > 0) {
+      const sample = fsv.body[0];
+      const hasMaskMarker = (v) =>
+        typeof v === "string" && (v.includes("*") || v.length === 0);
+      const numberMasked  = sample.vehicleNumber == null || hasMaskMarker(sample.vehicleNumber);
+      const ownerMasked   = sample.ownerName     == null || hasMaskMarker(sample.ownerName);
+      const contactMasked = sample.ownerContact  == null || hasMaskMarker(sample.ownerContact);
+      expect("facility_staff /vehicles vehicleNumber masked", numberMasked,  `got ${JSON.stringify(sample.vehicleNumber)}`);
+      expect("facility_staff /vehicles ownerName masked",     ownerMasked,   `got ${JSON.stringify(sample.ownerName)}`);
+      expect("facility_staff /vehicles ownerContact masked",  contactMasked, `got ${JSON.stringify(sample.ownerContact)}`);
+    }
+    // Manager must see raw values (no asterisks in vehicle number).
+    if (m1) {
+      const mv = await get("/vehicles", m1);
+      if (Array.isArray(mv.body) && mv.body.length > 0) {
+        const raw = mv.body[0];
+        expect("manager /vehicles vehicleNumber NOT masked",
+          typeof raw.vehicleNumber !== "string" || !raw.vehicleNumber.includes("*"),
+          `got ${JSON.stringify(raw.vehicleNumber)}`);
+      }
+    }
   }
   if (ac1) {
     expect("accountant GET /owners   → 403", (await get("/owners",   ac1)).status === 403);

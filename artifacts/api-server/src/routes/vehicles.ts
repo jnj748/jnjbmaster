@@ -19,13 +19,42 @@ const router: IRouter = Router();
 
 // Vehicles are PII (owner name + contact). Restrict to property-management roles
 // only — exclude accountant and hq_executive at the router level. facility_staff
-// is allowed because parking management is part of their daily operations.
-// /vehicles role policy mirrors the UI matrix in
-// manager-app/src/lib/permissions.ts:214 (access for manager / platform_admin /
-// facility_staff). PII masking for vehicle/owner contact fields is tracked
-// separately as follow-up #98 and is intentionally out of scope here.
+// is allowed because parking management is part of their daily operations,
+// but PII fields (owner name/contact, full vehicle number) are masked in the
+// response below — only manager / platform_admin see raw values.
 router.use("/vehicles", requireRole("manager", "platform_admin", "facility_staff"));
 const MAX_ADDITIONAL_VEHICLES = 4;
+
+// Mask vehicle PII for facility_staff. Manager / platform_admin see raw values.
+function maskVehicleNumber(n: string | null | undefined): string | null {
+  if (!n) return n ?? null;
+  // Korean plate "12가3456" → keep last 4, mask middle.
+  if (n.length <= 4) return n;
+  return n.slice(0, 2) + "*".repeat(Math.max(1, n.length - 6)) + n.slice(-4);
+}
+function maskContact(c: string | null | undefined): string | null {
+  if (!c) return c ?? null;
+  // Phone "010-1234-5678" → "010-****-5678".
+  return c.replace(/(\d{2,3})[- ]?(\d{3,4})[- ]?(\d{4})/, "$1-****-$3");
+}
+function maskOwnerName(n: string | null | undefined): string | null {
+  if (!n) return n ?? null;
+  if (n.length <= 1) return n;
+  return n[0] + "*".repeat(n.length - 1);
+}
+function applyVehicleMask<T extends Record<string, unknown>>(row: T, role?: string): T {
+  if (role !== "facility_staff") return row;
+  return {
+    ...row,
+    vehicleNumber: maskVehicleNumber(row.vehicleNumber as string | null),
+    ownerName: maskOwnerName(row.ownerName as string | null),
+    ownerContact: maskContact(row.ownerContact as string | null),
+  };
+}
+function maskList<T extends Record<string, unknown>>(rows: T[], role?: string): T[] {
+  if (role !== "facility_staff") return rows;
+  return rows.map((r) => applyVehicleMask(r, role));
+}
 
 // Restrict tenants visible to the caller (used to scope vehicle.tenantId checks).
 function tenantIdsInBuilding(buildingId: number) {
@@ -72,7 +101,7 @@ router.get("/vehicles", async (req: Request, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(vehiclesTable.unit);
 
-  res.json(ListVehiclesResponse.parse(vehicles));
+  res.json(maskList(ListVehiclesResponse.parse(vehicles), req.user?.role));
 });
 
 router.post("/vehicles", async (req: Request, res): Promise<void> => {
@@ -218,7 +247,7 @@ router.get("/vehicles/:id", async (req: Request, res): Promise<void> => {
     return;
   }
 
-  res.json(GetVehicleResponse.parse(vehicle));
+  res.json(applyVehicleMask(GetVehicleResponse.parse(vehicle), req.user?.role));
 });
 
 router.patch("/vehicles/:id", async (req: Request, res): Promise<void> => {
@@ -292,7 +321,7 @@ router.patch("/vehicles/:id", async (req: Request, res): Promise<void> => {
     .where(and(eq(vehiclesTable.id, params.data.id), eq(vehiclesTable.buildingId, buildingId)))
     .returning();
 
-  res.json(UpdateVehicleResponse.parse(vehicle));
+  res.json(applyVehicleMask(UpdateVehicleResponse.parse(vehicle), req.user?.role));
 });
 
 router.delete("/vehicles/:id", async (req: Request, res): Promise<void> => {
@@ -371,7 +400,7 @@ router.post("/vehicles/:id/cancel", async (req: Request, res): Promise<void> => 
     relatedEntityId: vehicle.id,
   });
 
-  res.json(GetVehicleResponse.parse(vehicle));
+  res.json(applyVehicleMask(GetVehicleResponse.parse(vehicle), req.user?.role));
 });
 
 router.post("/vehicles/batch-cancel", async (req: Request, res): Promise<void> => {
@@ -453,7 +482,7 @@ router.get("/vehicles/:id/history", async (req: Request, res): Promise<void> => 
     .where(eq(vehicleHistoryTable.vehicleId, idParam))
     .orderBy(sql`${vehicleHistoryTable.createdAt} DESC`);
 
-  res.json(history);
+  res.json(maskList(history, req.user?.role));
 });
 
 router.post("/vehicles/inspection", async (req: Request, res): Promise<void> => {
