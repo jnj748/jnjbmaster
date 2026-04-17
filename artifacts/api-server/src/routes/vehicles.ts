@@ -16,7 +16,7 @@ import {
 
 const router: IRouter = Router();
 
-const adminOnly = requireRole("manager", "executive", "facility_staff");
+const adminOnly = requireRole("manager", "platform_admin", "facility_staff");
 const MAX_ADDITIONAL_VEHICLES = 4;
 
 router.get("/vehicles", async (req, res): Promise<void> => {

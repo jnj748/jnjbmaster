@@ -193,7 +193,7 @@ router.get("/attendance/stats", async (req, res): Promise<void> => {
   const targetUserId = params.data.userId || user.userId;
 
   if (params.data.userId && params.data.userId !== user.userId) {
-    if (user.role !== "manager" && user.role !== "executive") {
+    if (user.role !== "manager" && user.role !== "platform_admin") {
       res.status(403).json({ error: "다른 사용자의 근태 정보를 조회할 권한이 없습니다" });
       return;
     }

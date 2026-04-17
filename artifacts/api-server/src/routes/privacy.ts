@@ -4,7 +4,7 @@ import { db, tenantsTable, ownersTable, dataDestructionLogsTable, notificationsT
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-const adminOnly = requireRole("manager", "executive");
+const adminOnly = requireRole("manager", "platform_admin");
 
 function addYears(dateStr: string, years: number): string {
   const d = new Date(dateStr);

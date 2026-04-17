@@ -62,7 +62,7 @@ async function backfillUnitIds() {
 async function migrateLegacyUsers() {
   await db.update(usersTable)
     .set({ role: "manager", portalType: "building" })
-    .where(sql`${usersTable.role} IN ('executive', 'facility_staff')`);
+    .where(sql`${usersTable.role} = 'executive'`);
 
   await db.update(usersTable)
     .set({ role: "partner", portalType: "partner" })

@@ -60,7 +60,7 @@ router.post("/tax-deadline-checklists", requireRole("manager", "platform_admin",
   res.status(201).json(UpdateTaxDeadlineChecklistResponse.parse(item));
 });
 
-router.patch("/tax-deadline-checklists/:id", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.patch("/tax-deadline-checklists/:id", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const params = UpdateTaxDeadlineChecklistParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -87,7 +87,7 @@ router.patch("/tax-deadline-checklists/:id", requireRole("manager", "executive")
   res.json(UpdateTaxDeadlineChecklistResponse.parse(item));
 });
 
-router.delete("/tax-deadline-checklists/:id", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.delete("/tax-deadline-checklists/:id", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const params = DeleteTaxDeadlineChecklistParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -107,7 +107,7 @@ router.delete("/tax-deadline-checklists/:id", requireRole("manager", "executive"
   res.sendStatus(204);
 });
 
-router.post("/tax-deadline-checklists/init/:taxScheduleId", requireRole("manager", "executive"), async (req, res): Promise<void> => {
+router.post("/tax-deadline-checklists/init/:taxScheduleId", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const params = InitTaxDeadlineChecklistParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

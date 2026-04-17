@@ -11,40 +11,12 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  LayoutDashboard,
-  CheckSquare,
-  Shield,
-  Calculator,
-  Building2,
-  Coins,
-  FileText,
-  ClipboardList,
-  ClipboardCheck,
-  Users,
-  UserCheck,
-  Car,
   Bell,
   LogOut,
-  Package,
-  Send,
-  DollarSign,
-  Wrench,
-  GraduationCap,
-  HardHat,
-  BookOpen,
-  BarChart3,
   Settings,
-  Clock,
   Menu,
   X,
   ChevronLeft,
-  MoreHorizontal,
-  Building,
-  CalendarDays,
-  Droplets,
-  Receipt,
-  MessageSquare,
-  Vote,
 } from "lucide-react";
 import {
   Popover,
@@ -54,255 +26,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlatformFooter } from "@/components/intermediary-disclaimer";
+import {
+  ROLE_LABELS,
+  getSidebarSections,
+  getBottomNavItems,
+  getEffectiveRole,
+  type NavItem,
+  type NavSection,
+  type Role,
+} from "@/lib/permissions";
 
-interface NavSection {
-  title?: string;
-  items: { path: string; label: string; icon: React.ElementType }[];
-}
+// All sidebar / bottom-nav definitions live in `@/lib/permissions` and are
+// derived from the role × screen permission matrix (single source of truth).
+// Any per-role visibility tweak must go through that file.
 
-const managerNavSections: NavSection[] = [
-  {
-    title: "대시보드",
-    items: [
-      { path: "/", label: "대시보드", icon: LayoutDashboard },
-      { path: "/calendar", label: "일정", icon: CalendarDays },
-      { path: "/tasks", label: "업무 관리", icon: CheckSquare },
-      { path: "/building-info", label: "건물 정보", icon: Building },
-    ],
-  },
-  {
-    title: "호실 및 입주민 관리",
-    items: [
-      { path: "/units", label: "호실 관리", icon: Building },
-      { path: "/tenants", label: "입주민 관리", icon: Users },
-      { path: "/owners", label: "소유자 관리", icon: UserCheck },
-      { path: "/vehicles", label: "차량 관리", icon: Car },
-      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
-      { path: "/voting", label: "전자투표", icon: Vote },
-    ],
-  },
-  {
-    title: "시설 및 안전관리",
-    items: [
-      { path: "/facility", label: "시설관리", icon: HardHat },
-      { path: "/inspections", label: "법정 점검", icon: Shield },
-      { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
-      { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
-      { path: "/safety-training", label: "안전교육", icon: GraduationCap },
-      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
-    ],
-  },
-  {
-    title: "회계 및 관리비",
-    items: [
-      { path: "/accounting", label: "관리비회계", icon: DollarSign },
-      { path: "/metering", label: "검침 관리", icon: Droplets },
-      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
-      { path: "/spending", label: "지출 현황", icon: DollarSign },
-      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-      { path: "/commissions", label: "수수료", icon: Coins },
-    ],
-  },
-  {
-    title: "보고 및 전자결재",
-    items: [
-      { path: "/drafts", label: "기안서", icon: ClipboardList },
-      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-      { path: "/daily-reports", label: "일간보고", icon: BookOpen },
-      { path: "/report-system", label: "보고 체계", icon: BarChart3 },
-      { path: "/reports", label: "주간보고", icon: FileText },
-    ],
-  },
-  {
-    title: "파트너 마켓플레이스",
-    items: [
-      { path: "/rfqs", label: "견적 요청", icon: Send },
-      { path: "/work-reports", label: "작업 검수", icon: ClipboardCheck },
-      { path: "/vendors", label: "협력업체", icon: Building2 },
-    ],
-  },
-  {
-    title: "설정",
-    items: [
-      { path: "/users", label: "사용자 관리", icon: Users },
-      { path: "/document-templates", label: "서식 관리", icon: FileText },
-      { path: "/settings", label: "설정", icon: Settings },
-    ],
-  },
-];
-
-const hqNavSections: NavSection[] = [
-  {
-    title: "대시보드",
-    items: [
-      { path: "/", label: "본사 대시보드", icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: "시설 및 안전관리",
-    items: [
-      { path: "/inspections", label: "점검보고서", icon: Shield },
-      { path: "/safety-training", label: "안전교육 현황", icon: GraduationCap },
-    ],
-  },
-  {
-    title: "보고 및 전자결재",
-    items: [
-      { path: "/reports", label: "월간보고서", icon: FileText },
-    ],
-  },
-  {
-    title: "파트너 마켓플레이스",
-    items: [
-      { path: "/vendors", label: "용역 계약", icon: Building2 },
-    ],
-  },
-  {
-    title: "설정",
-    items: [
-      { path: "/users", label: "사용자 관리", icon: Users },
-    ],
-  },
-];
-
-const accountantNavSections: NavSection[] = [
-  {
-    title: "대시보드",
-    items: [
-      { path: "/", label: "대시보드", icon: LayoutDashboard },
-      { path: "/calendar", label: "일정", icon: CalendarDays },
-    ],
-  },
-  {
-    title: "회계 및 관리비",
-    items: [
-      { path: "/accounting", label: "관리비회계", icon: DollarSign },
-      { path: "/metering", label: "검침 관리", icon: Droplets },
-      { path: "/billing", label: "관리비 부과/수납", icon: Receipt },
-      { path: "/spending", label: "지출 현황", icon: DollarSign },
-      { path: "/tax-schedules", label: "세무 일정", icon: Calculator },
-      { path: "/commissions", label: "수수료", icon: Coins },
-    ],
-  },
-  {
-    title: "보고 및 전자결재",
-    items: [
-      { path: "/drafts", label: "기안서", icon: ClipboardList },
-      { path: "/approvals", label: "결재함", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "호실 및 입주민 관리",
-    items: [
-      { path: "/units", label: "호실 관리", icon: Building },
-      { path: "/tenants", label: "입주민 관리", icon: Users },
-      { path: "/complaints", label: "민원 관리", icon: MessageSquare },
-      { path: "/voting", label: "전자투표", icon: Vote },
-    ],
-  },
-];
-
-const facilityNavSections: NavSection[] = [
-  {
-    title: "대시보드",
-    items: [
-      { path: "/", label: "일일 업무", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "시설 및 안전관리",
-    items: [
-      { path: "/facility", label: "시설관리", icon: HardHat },
-      { path: "/inspections", label: "법정 점검", icon: Shield },
-      { path: "/safety-checklists", label: "안전점검표", icon: ClipboardCheck },
-      { path: "/maintenance-logs", label: "기전 업무일지", icon: Wrench },
-      { path: "/safety-training", label: "안전교육", icon: GraduationCap },
-      { path: "/attendance", label: "출퇴근 관리", icon: Clock },
-    ],
-  },
-];
-
-const adminNavSections: NavSection[] = [
-  {
-    title: "대시보드",
-    items: [
-      { path: "/", label: "플랫폼 관리", icon: Shield },
-      { path: "/building-info", label: "건물 정보", icon: Building },
-    ],
-  },
-  ...managerNavSections.filter((s) => s.title !== "대시보드" && s.title !== "설정"),
-  {
-    title: "설정",
-    items: [
-      { path: "/users", label: "사용자 관리", icon: Users },
-      { path: "/settings", label: "설정", icon: Settings },
-    ],
-  },
-];
-
-const managerNavItems = managerNavSections.flatMap((s) => s.items);
-
-const partnerNavItems = [
-  { path: "/", label: "대시보드", icon: LayoutDashboard },
-  { path: "/rfqs", label: "견적 요청", icon: FileText },
-  { path: "/vendors", label: "업체 정보", icon: Package },
-  { path: "/commissions", label: "수수료", icon: Coins },
-];
-
-const managerBottomNavItems = [
-  { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/units", label: "입주민", icon: Users },
-  { path: "/accounting", label: "회계", icon: DollarSign },
-  { path: "/facility", label: "시설", icon: HardHat },
-  { path: "/approvals", label: "결재", icon: ClipboardCheck },
-];
-
-const hqBottomNavItems = [
-  { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/inspections", label: "점검", icon: Shield },
-  { path: "/reports", label: "보고서", icon: FileText },
-  { path: "/vendors", label: "계약", icon: Building2 },
-];
-
-const accountantBottomNavItems = [
-  { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/accounting", label: "회계", icon: DollarSign },
-  { path: "/approvals", label: "결재", icon: ClipboardCheck },
-  { path: "/billing", label: "부과", icon: Receipt },
-  { path: "/units", label: "호실", icon: Building },
-];
-
-const facilityBottomNavItems = [
-  { path: "/", label: "업무", icon: ClipboardCheck },
-  { path: "/facility", label: "시설", icon: HardHat },
-  { path: "/inspections", label: "점검", icon: Shield },
-  { path: "/attendance", label: "출퇴근", icon: Clock },
-];
-
-const adminBottomNavItems = [
-  { path: "/", label: "관리", icon: Shield },
-  { path: "/users", label: "사용자", icon: Users },
-  { path: "/accounting", label: "회계", icon: DollarSign },
-  { path: "/facility", label: "시설", icon: HardHat },
-];
-
-const partnerBottomNavItems = [
-  { path: "/", label: "홈", icon: LayoutDashboard },
-  { path: "/rfqs", label: "견적", icon: FileText },
-  { path: "/vendors", label: "업체", icon: Package },
-  { path: "/commissions", label: "수수료", icon: Coins },
-];
-
-const roleLabels: Record<string, string> = {
-  manager: "관리소장",
-  partner: "파트너사",
-  platform_admin: "플랫폼 관리자",
-  hq_executive: "총괄책임자",
-  accountant: "회계/행정",
-  facility_staff: "시설관리",
-};
-
-function getPageTitle(location: string, navItems: typeof managerNavItems): string {
+function getPageTitle(location: string, navItems: NavItem[]): string {
   if (location === "/") return "대시보드";
   const item = navItems.find((n) =>
     n.path !== "/" && location.startsWith(n.path)
@@ -315,11 +53,12 @@ function isSubPage(location: string): boolean {
   return parts.length > 1;
 }
 
-function SidebarContent({ navLinks, user, logout, base }: {
+function SidebarContent({ navLinks, user, logout, base, isPartner }: {
   navLinks: React.ReactNode;
   user: any;
   logout: () => void;
   base: string;
+  isPartner: boolean;
 }) {
   return (
     <>
@@ -332,14 +71,16 @@ function SidebarContent({ navLinks, user, logout, base }: {
           <div className="flex items-center justify-between">
             <div className="min-w-0">
               <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-              <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+              <div className="text-xs text-sidebar-foreground/50">{ROLE_LABELS[user.role as Role] || user.role}</div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Link href="/settings">
-                <button className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="설정">
-                  <Settings className="w-4 h-4" />
-                </button>
-              </Link>
+              {!isPartner && (
+                <Link href="/settings">
+                  <button className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="설정">
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </Link>
+              )}
               <button onClick={logout} className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="로그아웃">
                 <LogOut className="w-4 h-4" />
               </button>
@@ -372,27 +113,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }, [markRead, queryClient]);
 
-  const role = user?.role;
-  const isPartner = user?.portalType === "partner";
-
-  const { sections, navItems, bottomNavItems: bottomItems } = (() => {
-    const raw = (() => {
-      if (isPartner) return { sections: [{ items: partnerNavItems }] as NavSection[], navItems: partnerNavItems, bottomNavItems: partnerBottomNavItems };
-      if (role === "hq_executive") return { sections: hqNavSections, navItems: hqNavSections.flatMap((s) => s.items), bottomNavItems: hqBottomNavItems };
-      if (role === "accountant") return { sections: accountantNavSections, navItems: accountantNavSections.flatMap((s) => s.items), bottomNavItems: accountantBottomNavItems };
-      if (role === "facility_staff") return { sections: facilityNavSections, navItems: facilityNavSections.flatMap((s) => s.items), bottomNavItems: facilityBottomNavItems };
-      if (role === "platform_admin") return { sections: adminNavSections, navItems: adminNavSections.flatMap((s) => s.items), bottomNavItems: adminBottomNavItems };
-      return { sections: managerNavSections, navItems: managerNavItems, bottomNavItems: managerBottomNavItems };
-    })();
-    if (role === "platform_admin") return raw;
-    const stripAttendance = (items: { path: string; label: string; icon: React.ElementType }[]) =>
-      items.filter((it) => it.path !== "/attendance");
-    return {
-      sections: raw.sections.map((s) => ({ ...s, items: stripAttendance(s.items) })).filter((s) => s.items.length > 0),
-      navItems: stripAttendance(raw.navItems),
-      bottomNavItems: stripAttendance(raw.bottomNavItems),
-    };
-  })();
+  const effectiveRole = getEffectiveRole(user);
+  const isPartner = effectiveRole === "partner";
+  const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
+  const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
 
   const bottomNavItems = bottomItems;
   const pageTitle = getPageTitle(location, navItems);
@@ -524,14 +249,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-                    <div className="text-xs text-sidebar-foreground/50">{roleLabels[user.role] || user.role}</div>
+                    <div className="text-xs text-sidebar-foreground/50">{ROLE_LABELS[user.role as Role] || user.role}</div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Link href="/settings">
-                      <button className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
-                        <Settings className="w-4 h-4" />
-                      </button>
-                    </Link>
+                    {!isPartner && (
+                      <Link href="/settings">
+                        <button className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      </Link>
+                    )}
                     <button onClick={logout} className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="로그아웃">
                       <LogOut className="w-4 h-4" />
                     </button>
@@ -545,7 +272,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="layout-grid">
         <aside className="layout-sidebar bg-sidebar text-sidebar-foreground flex-col h-screen sticky top-0 overflow-hidden">
-          <SidebarContent navLinks={navLinks} user={user} logout={logout} base={base} />
+          <SidebarContent navLinks={navLinks} user={user} logout={logout} base={base} isPartner={isPartner} />
         </aside>
 
         <div className="flex flex-col min-h-screen min-w-0">
