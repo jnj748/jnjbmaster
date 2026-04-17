@@ -204,8 +204,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           flex-direction: column;
           width: 100%;
           min-height: 100vh;
-          max-width: 100vw;
-          overflow-x: hidden;
         }
         .layout-sidebar { display: none; }
         .layout-mobile-header { display: flex; }
@@ -213,13 +211,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
         .layout-bottom-nav { display: flex; }
         .layout-content-area { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
+        @media (max-width: 899px) {
+          .layout-grid {
+            max-width: 100vw;
+            overflow-x: hidden;
+          }
+        }
+
         @media (min-width: 900px) {
           .layout-grid {
             display: grid;
             grid-template-columns: 220px 1fr;
             grid-template-rows: 1fr;
+            align-items: start;
           }
-          .layout-sidebar { display: flex; }
+          .layout-sidebar {
+            display: flex;
+            position: sticky;
+            top: 0;
+            align-self: start;
+            height: 100vh;
+            overflow: hidden;
+          }
           .layout-mobile-header { display: none; }
           .layout-desktop-header { display: flex; }
           .layout-bottom-nav { display: none; }
@@ -271,7 +284,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="layout-grid">
-        <aside className="layout-sidebar bg-sidebar text-sidebar-foreground flex-col h-screen sticky top-0 overflow-hidden">
+        <aside className="layout-sidebar bg-sidebar text-sidebar-foreground flex-col">
           <SidebarContent navLinks={navLinks} user={user} logout={logout} base={base} isPartner={isPartner} />
         </aside>
 
