@@ -10,8 +10,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin"));
-
+router.use("/alert-actions", requireRole("manager", "platform_admin"));
 router.get("/alert-actions", async (req, res): Promise<void> => {
   const params = ListAlertActionsQueryParams.safeParse(req.query);
   const conditions = [];

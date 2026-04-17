@@ -5,8 +5,7 @@ import { requireRole } from "../middlewares/auth";
 import { LEGAL_PRESETS } from "./inspections";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
-
+router.use("/buildings", requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
 router.get("/buildings/list", async (req: Request, res: Response) => {
   const user = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).then(r => r[0]);
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }

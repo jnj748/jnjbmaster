@@ -22,8 +22,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "partner", "hq_executive", "accountant"));
-
+router.use("/commissions", requireRole("manager", "platform_admin", "partner", "hq_executive", "accountant"));
 export const DEFAULT_REGULAR_RATE = 5;
 export const DEFAULT_SLIDING_RULES: SlidingRule[] = [
   { minAmount: 0, maxAmount: 5_000_000, ratePercent: 10 },

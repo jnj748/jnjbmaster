@@ -12,8 +12,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
-
+router.use("/drafts", requireRole("manager", "platform_admin", "accountant"));
 router.get("/drafts", async (_req, res): Promise<void> => {
   const drafts = await db
     .select()

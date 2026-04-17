@@ -37,8 +37,7 @@ import {
 import { computeCommissionRate } from "./commissions";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant", "partner"));
-
+router.use("/quotes", requireRole("manager", "platform_admin", "accountant", "partner"));
 async function getPartnerVendorId(userId: number | undefined): Promise<number | null> {
   if (!userId) return null;
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId));

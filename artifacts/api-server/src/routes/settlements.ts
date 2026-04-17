@@ -12,8 +12,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
-
+router.use("/settlements", requireRole("manager", "platform_admin", "accountant"));
 router.get("/settlements", async (req, res): Promise<void> => {
   const params = ListSettlementsQueryParams.safeParse(req.query);
   const conditions = [];

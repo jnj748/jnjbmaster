@@ -12,8 +12,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
-
+router.use("/calendar", requireRole("manager", "platform_admin", "accountant"));
 interface CalendarEvent {
   id: string;
   title: string;

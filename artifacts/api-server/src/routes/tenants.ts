@@ -1,5 +1,5 @@
-import { Router, type IRouter } from "express";
-import { eq, and, or, ilike, sql } from "drizzle-orm";
+import { Router, type IRouter, type Request } from "express";
+import { eq, and, or, ilike, sql, inArray } from "drizzle-orm";
 import { db, tenantsTable, notificationsTable, unitsTable, usersTable, tenantCardTokensTable } from "@workspace/db";
 import {
   ListTenantsQueryParams,
@@ -14,29 +14,28 @@ import {
   VerifyTenantBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
+router.use("/tenants", requireRole("manager", "platform_admin", "accountant"));
+// Sub-select of unit IDs scoped to the caller's building.
+function unitIdsInBuilding(buildingId: number) {
+  return db.select({ id: unitsTable.id }).from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+}
 
-async function resolveUnitId(unitNumber: string, userId?: number): Promise<number | null> {
-  if (!userId) return null;
-  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user?.buildingId) return null;
+async function resolveUnitId(unitNumber: string, buildingId: number): Promise<number | null> {
   const [unit] = await db
     .select({ id: unitsTable.id })
     .from(unitsTable)
-    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+    .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, unitNumber)));
   return unit?.id ?? null;
 }
 
-async function syncUnitStatus(unitNumber: string, userId?: number): Promise<void> {
-  if (!userId) return;
-  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user?.buildingId) return;
+async function syncUnitStatus(unitNumber: string, buildingId: number): Promise<void> {
   const [unit] = await db
-    .select({ id: unitsTable.id, unitNumber: unitsTable.unitNumber })
+    .select({ id: unitsTable.id })
     .from(unitsTable)
-    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+    .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, unitNumber)));
   if (!unit) return;
 
   const activeTenants = await db
@@ -51,9 +50,24 @@ async function syncUnitStatus(unitNumber: string, userId?: number): Promise<void
     .where(and(eq(unitsTable.id, unit.id), sql`${unitsTable.status} != 'maintenance'`));
 }
 
-router.get("/tenants", async (req, res): Promise<void> => {
+// Verify the tenant id belongs to the caller's building. Returns the row or null.
+async function fetchTenantInBuilding(tenantId: number, buildingId: number) {
+  const [t] = await db
+    .select()
+    .from(tenantsTable)
+    .where(and(eq(tenantsTable.id, tenantId), inArray(tenantsTable.unitId, unitIdsInBuilding(buildingId))));
+  return t ?? null;
+}
+
+router.get("/tenants", async (req: Request, res): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json([]);
+    return;
+  }
+
   const params = ListTenantsQueryParams.safeParse(req.query);
-  const conditions = [];
+  const conditions = [inArray(tenantsTable.unitId, unitIdsInBuilding(buildingId))];
 
   if (params.success) {
     if (params.data.status) {
@@ -63,29 +77,34 @@ router.get("/tenants", async (req, res): Promise<void> => {
       conditions.push(eq(tenantsTable.unit, params.data.unit));
     }
     if (params.data.search) {
-      conditions.push(
-        or(
-          ilike(tenantsTable.tenantName, `%${params.data.search}%`),
-          ilike(tenantsTable.unit, `%${params.data.search}%`),
-          ilike(tenantsTable.phone, `%${params.data.search}%`)
-        )
+      const search = or(
+        ilike(tenantsTable.tenantName, `%${params.data.search}%`),
+        ilike(tenantsTable.unit, `%${params.data.search}%`),
+        ilike(tenantsTable.phone, `%${params.data.search}%`)
       );
+      if (search) conditions.push(search);
     }
   }
 
   const tenants = await db
     .select()
     .from(tenantsTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(tenantsTable.unit);
 
   res.json(ListTenantsResponse.parse(tenants));
 });
 
-router.post("/tenants", async (req, res): Promise<void> => {
+router.post("/tenants", async (req: Request, res): Promise<void> => {
   const parsed = CreateTenantBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(403).json({ error: "건물이 등록되지 않았습니다" });
     return;
   }
 
@@ -96,7 +115,11 @@ router.post("/tenants", async (req, res): Promise<void> => {
     dataDestructionDate = d.toISOString().split("T")[0];
   }
 
-  const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+  const unitId = await resolveUnitId(parsed.data.unit, buildingId);
+  if (!unitId) {
+    res.status(400).json({ error: "해당 호실을 찾을 수 없습니다" });
+    return;
+  }
 
   const [tenant] = await db.insert(tenantsTable).values({
     ...parsed.data,
@@ -114,24 +137,26 @@ router.post("/tenants", async (req, res): Promise<void> => {
   });
 
   if (parsed.data.status === "active" || !parsed.data.status) {
-    await syncUnitStatus(tenant.unit, req.user?.userId);
+    await syncUnitStatus(tenant.unit, buildingId);
   }
 
   res.status(201).json(GetTenantResponse.parse(tenant));
 });
 
-router.get("/tenants/:id", async (req, res): Promise<void> => {
+router.get("/tenants/:id", async (req: Request, res): Promise<void> => {
   const params = GetTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [tenant] = await db
-    .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, params.data.id));
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
 
+  const tenant = await fetchTenantInBuilding(params.data.id, buildingId);
   if (!tenant) {
     res.status(404).json({ error: "Tenant not found" });
     return;
@@ -140,7 +165,7 @@ router.get("/tenants/:id", async (req, res): Promise<void> => {
   res.json(GetTenantResponse.parse(tenant));
 });
 
-router.patch("/tenants/:id", async (req, res): Promise<void> => {
+router.patch("/tenants/:id", async (req: Request, res): Promise<void> => {
   const params = UpdateTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -153,11 +178,18 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [oldTenant] = await db
-    .select({ unit: tenantsTable.unit })
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, params.data.id));
-  const oldUnitNumber = oldTenant?.unit;
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
+  const oldTenant = await fetchTenantInBuilding(params.data.id, buildingId);
+  if (!oldTenant) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+  const oldUnitNumber = oldTenant.unit;
 
   const updateData: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.moveOutDate) {
@@ -167,14 +199,18 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
   }
 
   if (parsed.data.unit !== undefined) {
-    const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+    const unitId = await resolveUnitId(parsed.data.unit, buildingId);
+    if (!unitId) {
+      res.status(400).json({ error: "해당 호실을 찾을 수 없습니다" });
+      return;
+    }
     updateData.unitId = unitId;
   }
 
   const [tenant] = await db
     .update(tenantsTable)
     .set(updateData)
-    .where(eq(tenantsTable.id, params.data.id))
+    .where(and(eq(tenantsTable.id, params.data.id), inArray(tenantsTable.unitId, unitIdsInBuilding(buildingId))))
     .returning();
 
   if (!tenant) {
@@ -191,24 +227,30 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
     relatedEntityId: tenant.id,
   });
 
-  await syncUnitStatus(tenant.unit, req.user?.userId);
+  await syncUnitStatus(tenant.unit, buildingId);
   if (oldUnitNumber && oldUnitNumber !== tenant.unit) {
-    await syncUnitStatus(oldUnitNumber, req.user?.userId);
+    await syncUnitStatus(oldUnitNumber, buildingId);
   }
 
   res.json(UpdateTenantResponse.parse(tenant));
 });
 
-router.delete("/tenants/:id", async (req, res): Promise<void> => {
+router.delete("/tenants/:id", async (req: Request, res): Promise<void> => {
   const params = DeleteTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
   const [tenant] = await db
     .delete(tenantsTable)
-    .where(eq(tenantsTable.id, params.data.id))
+    .where(and(eq(tenantsTable.id, params.data.id), inArray(tenantsTable.unitId, unitIdsInBuilding(buildingId))))
     .returning();
 
   if (!tenant) {
@@ -216,12 +258,12 @@ router.delete("/tenants/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await syncUnitStatus(tenant.unit, req.user?.userId);
+  await syncUnitStatus(tenant.unit, buildingId);
 
   res.sendStatus(204);
 });
 
-router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
+router.post("/tenants/:id/verify", async (req: Request, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
@@ -234,11 +276,13 @@ router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existing] = await db
-    .select()
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, id));
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "입주자를 찾을 수 없습니다." });
+    return;
+  }
 
+  const existing = await fetchTenantInBuilding(id, buildingId);
   if (!existing) {
     res.status(404).json({ error: "입주자를 찾을 수 없습니다." });
     return;
@@ -248,17 +292,6 @@ router.post("/tenants/:id/verify", async (req, res): Promise<void> => {
   const requestUser = userId
     ? await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0])
     : null;
-
-  if (requestUser?.buildingId && existing.unitId) {
-    const [unit] = await db
-      .select()
-      .from(unitsTable)
-      .where(and(eq(unitsTable.id, existing.unitId), eq(unitsTable.buildingId, requestUser.buildingId)));
-    if (!unit) {
-      res.status(403).json({ error: "권한이 없습니다." });
-      return;
-    }
-  }
 
   const userName = requestUser?.name || "관리소장";
 

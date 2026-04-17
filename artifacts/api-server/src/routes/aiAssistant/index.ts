@@ -14,8 +14,7 @@ import { buildBuildingContext, buildSystemPrompt } from "./context";
 const router: IRouter = Router();
 
 // Single source of truth: only manager + platform_admin can use AI assistant
-router.use(requireRole("manager", "platform_admin"));
-
+router.use("/ai", requireRole("manager", "platform_admin"));
 // Simple in-memory rate limiter (per-user per-minute)
 const RATE_LIMIT_PER_MINUTE = 10;
 const MAX_INPUT_CHARS = 4000;

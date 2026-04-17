@@ -12,8 +12,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
-
+router.use("/delinquency", requireRole("manager", "platform_admin", "accountant"));
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;
   if (!userId) return null;

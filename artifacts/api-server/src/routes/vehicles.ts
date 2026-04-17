@@ -1,7 +1,8 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, and, or, ilike, ne, gte, sql, inArray } from "drizzle-orm";
-import { db, vehiclesTable, tenantsTable, notificationsTable, vehicleHistoryTable, unitsTable, usersTable } from "@workspace/db";
+import { db, vehiclesTable, tenantsTable, notificationsTable, vehicleHistoryTable, unitsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId } from "../middlewares/buildingScope";
 import {
   ListVehiclesQueryParams,
   ListVehiclesResponse,
@@ -16,12 +17,30 @@ import {
 
 const router: IRouter = Router();
 
-const adminOnly = requireRole("manager", "platform_admin", "facility_staff");
+// Vehicles are PII (owner name + contact). Restrict to property-management roles
+// only — exclude accountant and hq_executive at the router level. facility_staff
+// is allowed because parking management is part of their daily operations.
+router.use("/vehicles", requireRole("manager", "platform_admin", "facility_staff"));
 const MAX_ADDITIONAL_VEHICLES = 4;
 
-router.get("/vehicles", async (req, res): Promise<void> => {
+// Restrict tenants visible to the caller (used to scope vehicle.tenantId checks).
+function tenantIdsInBuilding(buildingId: number) {
+  return db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .innerJoin(unitsTable, eq(tenantsTable.unitId, unitsTable.id))
+    .where(eq(unitsTable.buildingId, buildingId));
+}
+
+router.get("/vehicles", async (req: Request, res): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json([]);
+    return;
+  }
+
   const params = ListVehiclesQueryParams.safeParse(req.query);
-  const conditions = [];
+  const conditions = [eq(vehiclesTable.buildingId, buildingId)];
 
   if (params.success) {
     if (params.data.unit) {
@@ -34,36 +53,49 @@ router.get("/vehicles", async (req, res): Promise<void> => {
       conditions.push(eq(vehiclesTable.status, params.data.status));
     }
     if (params.data.search) {
-      conditions.push(
-        or(
-          ilike(vehiclesTable.vehicleNumber, `%${params.data.search}%`),
-          ilike(vehiclesTable.unit, `%${params.data.search}%`),
-          ilike(vehiclesTable.ownerName, `%${params.data.search}%`)
-        )
+      const search = or(
+        ilike(vehiclesTable.vehicleNumber, `%${params.data.search}%`),
+        ilike(vehiclesTable.unit, `%${params.data.search}%`),
+        ilike(vehiclesTable.ownerName, `%${params.data.search}%`)
       );
+      if (search) conditions.push(search);
     }
   }
 
   const vehicles = await db
     .select()
     .from(vehiclesTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(vehiclesTable.unit);
 
   res.json(ListVehiclesResponse.parse(vehicles));
 });
 
-router.post("/vehicles", async (req, res): Promise<void> => {
+router.post("/vehicles", async (req: Request, res): Promise<void> => {
   const parsed = CreateVehicleBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(403).json({ error: "건물이 등록되지 않았습니다" });
+    return;
+  }
+
   const unitTenants = await db
     .select()
     .from(tenantsTable)
-    .where(and(eq(tenantsTable.unit, parsed.data.unit), eq(tenantsTable.status, "active")));
+    .innerJoin(unitsTable, eq(tenantsTable.unitId, unitsTable.id))
+    .where(
+      and(
+        eq(tenantsTable.unit, parsed.data.unit),
+        eq(tenantsTable.status, "active"),
+        eq(unitsTable.buildingId, buildingId)
+      )
+    )
+    .then((rows) => rows.map((r) => r.tenants));
 
   if (unitTenants.length > 0) {
     const hasVerified = unitTenants.some((t) => t.verificationStatus === "verified");
@@ -80,7 +112,7 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     const [tenant] = await db
       .select()
       .from(tenantsTable)
-      .where(eq(tenantsTable.id, parsed.data.tenantId));
+      .where(and(eq(tenantsTable.id, parsed.data.tenantId), inArray(tenantsTable.id, tenantIdsInBuilding(buildingId))));
     if (!tenant) {
       res.status(400).json({ error: "해당 입주자를 찾을 수 없습니다." });
       return;
@@ -94,7 +126,7 @@ router.post("/vehicles", async (req, res): Promise<void> => {
   const existingVehicles = await db
     .select()
     .from(vehiclesTable)
-    .where(eq(vehiclesTable.unit, parsed.data.unit));
+    .where(and(eq(vehiclesTable.unit, parsed.data.unit), eq(vehiclesTable.buildingId, buildingId)));
 
   if (!parsed.data.isPrimary) {
     const additionalCount = existingVehicles.filter((v) => !v.isPrimary).length;
@@ -104,16 +136,9 @@ router.post("/vehicles", async (req, res): Promise<void> => {
     }
   }
 
-  const userId = req.user?.userId;
-  let vehicleBuildingId: number | null = null;
-  if (userId) {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    vehicleBuildingId = user?.buildingId ?? null;
-  }
-
   const [vehicle] = await db.insert(vehiclesTable).values({
     ...parsed.data,
-    buildingId: vehicleBuildingId,
+    buildingId,
   }).returning();
 
   await db.insert(notificationsTable).values({
@@ -137,14 +162,24 @@ router.post("/vehicles", async (req, res): Promise<void> => {
   res.status(201).json(GetVehicleResponse.parse(vehicle));
 });
 
-router.get("/vehicles/unregistered", async (req, res): Promise<void> => {
-  const allVehicles = await db.select().from(vehiclesTable).where(eq(vehiclesTable.status, "registered"));
+router.get("/vehicles/unregistered", async (req: Request, res): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json({ unregisteredUnits: [], totalActiveUnits: 0, registeredUnits: 0, unregisteredCount: 0 });
+    return;
+  }
+
+  const allVehicles = await db
+    .select()
+    .from(vehiclesTable)
+    .where(and(eq(vehiclesTable.status, "registered"), eq(vehiclesTable.buildingId, buildingId)));
   const registeredUnits = new Set(allVehicles.map((v) => v.unit));
 
   const allTenants = await db
     .select({ unit: tenantsTable.unit, tenantName: tenantsTable.tenantName })
     .from(tenantsTable)
-    .where(eq(tenantsTable.status, "active"));
+    .innerJoin(unitsTable, eq(tenantsTable.unitId, unitsTable.id))
+    .where(and(eq(tenantsTable.status, "active"), eq(unitsTable.buildingId, buildingId)));
 
   const unregisteredUnits = allTenants.filter((t) => !registeredUnits.has(t.unit));
 
@@ -156,17 +191,23 @@ router.get("/vehicles/unregistered", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/vehicles/:id", async (req, res): Promise<void> => {
+router.get("/vehicles/:id", async (req: Request, res): Promise<void> => {
   const params = GetVehicleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Vehicle not found" });
+    return;
+  }
+
   const [vehicle] = await db
     .select()
     .from(vehiclesTable)
-    .where(eq(vehiclesTable.id, params.data.id));
+    .where(and(eq(vehiclesTable.id, params.data.id), eq(vehiclesTable.buildingId, buildingId)));
 
   if (!vehicle) {
     res.status(404).json({ error: "Vehicle not found" });
@@ -176,7 +217,7 @@ router.get("/vehicles/:id", async (req, res): Promise<void> => {
   res.json(GetVehicleResponse.parse(vehicle));
 });
 
-router.patch("/vehicles/:id", async (req, res): Promise<void> => {
+router.patch("/vehicles/:id", async (req: Request, res): Promise<void> => {
   const params = UpdateVehicleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -189,10 +230,16 @@ router.patch("/vehicles/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Vehicle not found" });
+    return;
+  }
+
   const [existing] = await db
     .select()
     .from(vehiclesTable)
-    .where(eq(vehiclesTable.id, params.data.id));
+    .where(and(eq(vehiclesTable.id, params.data.id), eq(vehiclesTable.buildingId, buildingId)));
 
   if (!existing) {
     res.status(404).json({ error: "Vehicle not found" });
@@ -206,7 +253,7 @@ router.patch("/vehicles/:id", async (req, res): Promise<void> => {
     const [tenant] = await db
       .select()
       .from(tenantsTable)
-      .where(eq(tenantsTable.id, parsed.data.tenantId));
+      .where(and(eq(tenantsTable.id, parsed.data.tenantId), inArray(tenantsTable.id, tenantIdsInBuilding(buildingId))));
     if (!tenant) {
       res.status(400).json({ error: "해당 입주자를 찾을 수 없습니다." });
       return;
@@ -225,6 +272,7 @@ router.patch("/vehicles/:id", async (req, res): Promise<void> => {
         and(
           eq(vehiclesTable.unit, targetUnit),
           eq(vehiclesTable.isPrimary, false),
+          eq(vehiclesTable.buildingId, buildingId),
           ne(vehiclesTable.id, params.data.id)
         )
       );
@@ -237,22 +285,28 @@ router.patch("/vehicles/:id", async (req, res): Promise<void> => {
   const [vehicle] = await db
     .update(vehiclesTable)
     .set(parsed.data)
-    .where(eq(vehiclesTable.id, params.data.id))
+    .where(and(eq(vehiclesTable.id, params.data.id), eq(vehiclesTable.buildingId, buildingId)))
     .returning();
 
   res.json(UpdateVehicleResponse.parse(vehicle));
 });
 
-router.delete("/vehicles/:id", async (req, res): Promise<void> => {
+router.delete("/vehicles/:id", async (req: Request, res): Promise<void> => {
   const params = DeleteVehicleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Vehicle not found" });
+    return;
+  }
+
   const [vehicle] = await db
     .delete(vehiclesTable)
-    .where(eq(vehiclesTable.id, params.data.id))
+    .where(and(eq(vehiclesTable.id, params.data.id), eq(vehiclesTable.buildingId, buildingId)))
     .returning();
 
   if (!vehicle) {
@@ -263,10 +317,16 @@ router.delete("/vehicles/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.post("/vehicles/:id/cancel", adminOnly, async (req, res): Promise<void> => {
+router.post("/vehicles/:id/cancel", async (req: Request, res): Promise<void> => {
   const idParam = parseInt(req.params.id);
   if (isNaN(idParam)) {
     res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "차량을 찾을 수 없거나 이미 말소 처리되었습니다." });
     return;
   }
 
@@ -275,7 +335,13 @@ router.post("/vehicles/:id/cancel", adminOnly, async (req, res): Promise<void> =
   const [vehicle] = await db
     .update(vehiclesTable)
     .set({ status: "cancelled", cancelledAt: new Date() })
-    .where(and(eq(vehiclesTable.id, idParam), eq(vehiclesTable.status, "registered")))
+    .where(
+      and(
+        eq(vehiclesTable.id, idParam),
+        eq(vehiclesTable.status, "registered"),
+        eq(vehiclesTable.buildingId, buildingId)
+      )
+    )
     .returning();
 
   if (!vehicle) {
@@ -304,17 +370,29 @@ router.post("/vehicles/:id/cancel", adminOnly, async (req, res): Promise<void> =
   res.json(GetVehicleResponse.parse(vehicle));
 });
 
-router.post("/vehicles/batch-cancel", adminOnly, async (req, res): Promise<void> => {
+router.post("/vehicles/batch-cancel", async (req: Request, res): Promise<void> => {
   const { ids, notes } = req.body || {};
   if (!Array.isArray(ids) || ids.length === 0) {
     res.status(400).json({ error: "ids array is required" });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json({ cancelledCount: 0 });
+    return;
+  }
+
   const vehicles = await db
     .update(vehiclesTable)
     .set({ status: "cancelled", cancelledAt: new Date() })
-    .where(and(inArray(vehiclesTable.id, ids), eq(vehiclesTable.status, "registered")))
+    .where(
+      and(
+        inArray(vehiclesTable.id, ids),
+        eq(vehiclesTable.status, "registered"),
+        eq(vehiclesTable.buildingId, buildingId)
+      )
+    )
     .returning();
 
   for (const vehicle of vehicles) {
@@ -341,10 +419,27 @@ router.post("/vehicles/batch-cancel", adminOnly, async (req, res): Promise<void>
   res.json({ cancelledCount: vehicles.length });
 });
 
-router.get("/vehicles/:id/history", async (req, res): Promise<void> => {
+router.get("/vehicles/:id/history", async (req: Request, res): Promise<void> => {
   const idParam = parseInt(req.params.id);
   if (isNaN(idParam)) {
     res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json([]);
+    return;
+  }
+
+  // Verify the vehicle belongs to the caller's building before exposing history.
+  const [vehicle] = await db
+    .select({ id: vehiclesTable.id })
+    .from(vehiclesTable)
+    .where(and(eq(vehiclesTable.id, idParam), eq(vehiclesTable.buildingId, buildingId)));
+
+  if (!vehicle) {
+    res.status(404).json({ error: "Vehicle not found" });
     return;
   }
 
@@ -357,16 +452,25 @@ router.get("/vehicles/:id/history", async (req, res): Promise<void> => {
   res.json(history);
 });
 
-router.post("/vehicles/inspection", adminOnly, async (_req, res): Promise<void> => {
+router.post("/vehicles/inspection", async (req: Request, res): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(403).json({ error: "건물이 등록되지 않았습니다" });
+    return;
+  }
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
+  // Scope dedupe by building so one building's monthly run does not block another.
   const existingInspection = await db
     .select()
     .from(notificationsTable)
     .where(
       and(
         eq(notificationsTable.notificationType, "vehicle_monthly_inspection"),
+        eq(notificationsTable.relatedEntityType, "building"),
+        eq(notificationsTable.relatedEntityId, buildingId),
         gte(notificationsTable.createdAt, monthStart)
       )
     );
@@ -379,14 +483,15 @@ router.post("/vehicles/inspection", adminOnly, async (_req, res): Promise<void> 
   const allVehicles = await db
     .select()
     .from(vehiclesTable)
-    .where(eq(vehiclesTable.status, "registered"));
+    .where(and(eq(vehiclesTable.status, "registered"), eq(vehiclesTable.buildingId, buildingId)));
 
   const registeredUnits = new Set(allVehicles.map((v) => v.unit));
 
   const allTenants = await db
     .select({ unit: tenantsTable.unit, tenantName: tenantsTable.tenantName })
     .from(tenantsTable)
-    .where(eq(tenantsTable.status, "active"));
+    .innerJoin(unitsTable, eq(tenantsTable.unitId, unitsTable.id))
+    .where(and(eq(tenantsTable.status, "active"), eq(unitsTable.buildingId, buildingId)));
 
   const unregisteredUnits = allTenants.filter((t) => !registeredUnits.has(t.unit));
 
@@ -404,7 +509,8 @@ router.post("/vehicles/inspection", adminOnly, async (_req, res): Promise<void> 
       notificationType: "vehicle_monthly_inspection",
       title: "월별 차량 점검 알림",
       message: `미등록 차량 ${unregisteredUnits.length}건 확인 필요: ${unitList}${suffix}`,
-      relatedEntityType: "vehicle",
+      relatedEntityType: "building",
+      relatedEntityId: buildingId,
     });
     notificationCreated = true;
   }

@@ -4,8 +4,7 @@ import { db, warrantyPresetsTable, buildingWarrantiesTable, buildingsTable, noti
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
-
+router.use("/warranties", requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
 const WARRANTY_PRESETS_DATA = [
   { tradeCategory: "waterproofing", tradeName: "방수공사 (옥상·외벽·지하층)", warrantyYears: 5, description: "옥상, 외벽, 지하층 방수공사", legalBasis: "주택법 시행령 별표 6" },
   { tradeCategory: "waterproofing", tradeName: "지붕공사", warrantyYears: 5, description: "지붕 방수 및 마감공사", legalBasis: "주택법 시행령 별표 6" },

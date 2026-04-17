@@ -5,8 +5,7 @@ import { requireRole } from "../middlewares/auth";
 import { transitionContractStatus } from "./contracts";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant"));
-
+router.use("/approvals", requireRole("manager", "platform_admin", "accountant"));
 function serializeStep(r: typeof approvalStepsTable.$inferSelect) {
   return {
     ...r,

@@ -11,8 +11,7 @@ import { requireRole } from "../middlewares/auth";
 type ComplaintSensitivity = (typeof complaintSensitivities)[number];
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "accountant", "facility_staff", "hq_executive"));
-
+router.use("/complaints", requireRole("manager", "platform_admin", "accountant", "facility_staff", "hq_executive"));
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;
   if (!userId) return null;

@@ -1,6 +1,6 @@
-import { Router, type IRouter } from "express";
-import { eq, and, or, ilike } from "drizzle-orm";
-import { db, ownersTable, notificationsTable, unitsTable, usersTable } from "@workspace/db";
+import { Router, type IRouter, type Request } from "express";
+import { eq, and, or, ilike, inArray } from "drizzle-orm";
+import { db, ownersTable, notificationsTable, unitsTable } from "@workspace/db";
 import {
   ListOwnersQueryParams,
   ListOwnersResponse,
@@ -13,24 +13,31 @@ import {
   DeleteOwnerParams,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin"));
+router.use("/owners", requireRole("manager", "platform_admin"));
+function unitIdsInBuilding(buildingId: number) {
+  return db.select({ id: unitsTable.id }).from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+}
 
-async function resolveUnitId(unitNumber: string, userId?: number): Promise<number | null> {
-  if (!userId) return null;
-  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user?.buildingId) return null;
+async function resolveUnitId(unitNumber: string, buildingId: number): Promise<number | null> {
   const [unit] = await db
     .select({ id: unitsTable.id })
     .from(unitsTable)
-    .where(and(eq(unitsTable.buildingId, user.buildingId), eq(unitsTable.unitNumber, unitNumber)));
+    .where(and(eq(unitsTable.buildingId, buildingId), eq(unitsTable.unitNumber, unitNumber)));
   return unit?.id ?? null;
 }
 
-router.get("/owners", async (req, res): Promise<void> => {
+router.get("/owners", async (req: Request, res): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.json([]);
+    return;
+  }
+
   const params = ListOwnersQueryParams.safeParse(req.query);
-  const conditions = [];
+  const conditions = [inArray(ownersTable.unitId, unitIdsInBuilding(buildingId))];
 
   if (params.success) {
     if (params.data.status) {
@@ -40,29 +47,34 @@ router.get("/owners", async (req, res): Promise<void> => {
       conditions.push(eq(ownersTable.unit, params.data.unit));
     }
     if (params.data.search) {
-      conditions.push(
-        or(
-          ilike(ownersTable.ownerName, `%${params.data.search}%`),
-          ilike(ownersTable.unit, `%${params.data.search}%`),
-          ilike(ownersTable.phone, `%${params.data.search}%`)
-        )
+      const search = or(
+        ilike(ownersTable.ownerName, `%${params.data.search}%`),
+        ilike(ownersTable.unit, `%${params.data.search}%`),
+        ilike(ownersTable.phone, `%${params.data.search}%`)
       );
+      if (search) conditions.push(search);
     }
   }
 
   const owners = await db
     .select()
     .from(ownersTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(ownersTable.unit);
 
   res.json(ListOwnersResponse.parse(owners));
 });
 
-router.post("/owners", async (req, res): Promise<void> => {
+router.post("/owners", async (req: Request, res): Promise<void> => {
   const parsed = CreateOwnerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(403).json({ error: "건물이 등록되지 않았습니다" });
     return;
   }
 
@@ -73,7 +85,11 @@ router.post("/owners", async (req, res): Promise<void> => {
     dataDestructionDate = d.toISOString().split("T")[0];
   }
 
-  const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+  const unitId = await resolveUnitId(parsed.data.unit, buildingId);
+  if (!unitId) {
+    res.status(400).json({ error: "해당 호실을 찾을 수 없습니다" });
+    return;
+  }
 
   const [owner] = await db.insert(ownersTable).values({
     ...parsed.data,
@@ -93,17 +109,23 @@ router.post("/owners", async (req, res): Promise<void> => {
   res.status(201).json(GetOwnerResponse.parse(owner));
 });
 
-router.get("/owners/:id", async (req, res): Promise<void> => {
+router.get("/owners/:id", async (req: Request, res): Promise<void> => {
   const params = GetOwnerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Owner not found" });
+    return;
+  }
+
   const [owner] = await db
     .select()
     .from(ownersTable)
-    .where(eq(ownersTable.id, params.data.id));
+    .where(and(eq(ownersTable.id, params.data.id), inArray(ownersTable.unitId, unitIdsInBuilding(buildingId))));
 
   if (!owner) {
     res.status(404).json({ error: "Owner not found" });
@@ -113,7 +135,7 @@ router.get("/owners/:id", async (req, res): Promise<void> => {
   res.json(GetOwnerResponse.parse(owner));
 });
 
-router.patch("/owners/:id", async (req, res): Promise<void> => {
+router.patch("/owners/:id", async (req: Request, res): Promise<void> => {
   const params = UpdateOwnerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -126,6 +148,12 @@ router.patch("/owners/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Owner not found" });
+    return;
+  }
+
   const updateData: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.moveOutDate) {
     const destructionDate = new Date(parsed.data.moveOutDate);
@@ -134,14 +162,18 @@ router.patch("/owners/:id", async (req, res): Promise<void> => {
   }
 
   if (parsed.data.unit !== undefined) {
-    const unitId = await resolveUnitId(parsed.data.unit, req.user?.userId);
+    const unitId = await resolveUnitId(parsed.data.unit, buildingId);
+    if (!unitId) {
+      res.status(400).json({ error: "해당 호실을 찾을 수 없습니다" });
+      return;
+    }
     updateData.unitId = unitId;
   }
 
   const [owner] = await db
     .update(ownersTable)
     .set(updateData)
-    .where(eq(ownersTable.id, params.data.id))
+    .where(and(eq(ownersTable.id, params.data.id), inArray(ownersTable.unitId, unitIdsInBuilding(buildingId))))
     .returning();
 
   if (!owner) {
@@ -161,16 +193,22 @@ router.patch("/owners/:id", async (req, res): Promise<void> => {
   res.json(UpdateOwnerResponse.parse(owner));
 });
 
-router.delete("/owners/:id", async (req, res): Promise<void> => {
+router.delete("/owners/:id", async (req: Request, res): Promise<void> => {
   const params = DeleteOwnerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) {
+    res.status(404).json({ error: "Owner not found" });
+    return;
+  }
+
   const [owner] = await db
     .delete(ownersTable)
-    .where(eq(ownersTable.id, params.data.id))
+    .where(and(eq(ownersTable.id, params.data.id), inArray(ownersTable.unitId, unitIdsInBuilding(buildingId))))
     .returning();
 
   if (!owner) {

@@ -15,8 +15,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "hq_executive"));
-
+router.use("/safety-trainings", requireRole("manager", "platform_admin", "hq_executive"));
 router.get("/safety-trainings", async (req, res): Promise<void> => {
   const params = ListSafetyTrainingsQueryParams.safeParse(req.query);
   const conditions = [];

@@ -17,8 +17,7 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use(requireRole("manager", "platform_admin", "facility_staff"));
-
+router.use("/maintenance-logs", requireRole("manager", "platform_admin", "facility_staff"));
 async function getUserBuildingId(userId: number): Promise<number | null> {
   const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   return user?.buildingId ?? null;
