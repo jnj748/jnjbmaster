@@ -111,7 +111,6 @@ const managerNavSections: NavSection[] = [
       { path: "/daily-reports", label: "일간보고", icon: BookOpen },
       { path: "/report-system", label: "보고 체계", icon: BarChart3 },
       { path: "/reports", label: "주간보고", icon: FileText },
-      { path: "/document-templates", label: "서식 관리", icon: Settings },
     ],
   },
   {
@@ -126,6 +125,7 @@ const managerNavSections: NavSection[] = [
     title: "설정",
     items: [
       { path: "/users", label: "사용자 관리", icon: Users },
+      { path: "/document-templates", label: "서식 관리", icon: FileText },
       { path: "/settings", label: "설정", icon: Settings },
     ],
   },
