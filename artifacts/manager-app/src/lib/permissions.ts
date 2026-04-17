@@ -255,10 +255,18 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/attendance", component: Attendance,
     label: "출퇴근 관리", icon: Clock, group: "facility",
-    // Policy: surfaced only to platform_admin in the UI. Manager retains
-    // URL access for now (backend `/attendance/all` remains
-    // manager+platform_admin); see task #88 notes.
-    access: ["manager", "platform_admin"],
+    // Canonical attendance policy (matches backend buildingStaff guard
+    // in api-server/src/routes/attendance.ts):
+    //   • URL access  : building-portal staff (manager / platform_admin
+    //     / accountant / facility_staff). The page renders a personal
+    //     clock-in section for everyone and a team-view section only
+    //     when isManager (manager + platform_admin).
+    //   • Sidebar item: surfaced only to platform_admin to keep the
+    //     other roles' menus focused.
+    //   • API parity  : /attendance/check|today|my|stats use the same
+    //     building-staff role list; /attendance/all is restricted to
+    //     manager + platform_admin only.
+    access: ["manager", "platform_admin", "accountant", "facility_staff"],
     sideMenu: ["platform_admin"],
   },
 
