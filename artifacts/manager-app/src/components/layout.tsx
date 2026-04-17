@@ -376,12 +376,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isPartner = user?.portalType === "partner";
 
   const { sections, navItems, bottomNavItems: bottomItems } = (() => {
-    if (isPartner) return { sections: [{ items: partnerNavItems }] as NavSection[], navItems: partnerNavItems, bottomNavItems: partnerBottomNavItems };
-    if (role === "hq_executive") return { sections: hqNavSections, navItems: hqNavSections.flatMap((s) => s.items), bottomNavItems: hqBottomNavItems };
-    if (role === "accountant") return { sections: accountantNavSections, navItems: accountantNavSections.flatMap((s) => s.items), bottomNavItems: accountantBottomNavItems };
-    if (role === "facility_staff") return { sections: facilityNavSections, navItems: facilityNavSections.flatMap((s) => s.items), bottomNavItems: facilityBottomNavItems };
-    if (role === "platform_admin") return { sections: adminNavSections, navItems: adminNavSections.flatMap((s) => s.items), bottomNavItems: adminBottomNavItems };
-    return { sections: managerNavSections, navItems: managerNavItems, bottomNavItems: managerBottomNavItems };
+    const raw = (() => {
+      if (isPartner) return { sections: [{ items: partnerNavItems }] as NavSection[], navItems: partnerNavItems, bottomNavItems: partnerBottomNavItems };
+      if (role === "hq_executive") return { sections: hqNavSections, navItems: hqNavSections.flatMap((s) => s.items), bottomNavItems: hqBottomNavItems };
+      if (role === "accountant") return { sections: accountantNavSections, navItems: accountantNavSections.flatMap((s) => s.items), bottomNavItems: accountantBottomNavItems };
+      if (role === "facility_staff") return { sections: facilityNavSections, navItems: facilityNavSections.flatMap((s) => s.items), bottomNavItems: facilityBottomNavItems };
+      if (role === "platform_admin") return { sections: adminNavSections, navItems: adminNavSections.flatMap((s) => s.items), bottomNavItems: adminBottomNavItems };
+      return { sections: managerNavSections, navItems: managerNavItems, bottomNavItems: managerBottomNavItems };
+    })();
+    if (role === "platform_admin") return raw;
+    const stripAttendance = (items: { path: string; label: string; icon: React.ElementType }[]) =>
+      items.filter((it) => it.path !== "/attendance");
+    return {
+      sections: raw.sections.map((s) => ({ ...s, items: stripAttendance(s.items) })).filter((s) => s.items.length > 0),
+      navItems: stripAttendance(raw.navItems),
+      bottomNavItems: stripAttendance(raw.bottomNavItems),
+    };
   })();
 
   const bottomNavItems = bottomItems;
@@ -564,7 +574,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
-          <PlatformFooter />
+          {isPartner && <PlatformFooter />}
         </div>
       </div>
 
