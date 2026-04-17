@@ -165,7 +165,6 @@
     width: 100%;
     min-height: 100vh;
     overflow-x: hidden;
-    max-width: 100vw;
   }
 
   button, [role="button"], input[type="submit"], input[type="button"] {
