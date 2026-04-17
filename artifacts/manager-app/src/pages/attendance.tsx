@@ -93,7 +93,7 @@ export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isManager = user?.role === "manager" || user?.role === "executive";
+  const isManager = user?.role === "manager" || user?.role === "platform_admin";
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const checkMutation = useCheckAttendance();

@@ -47,7 +47,9 @@ function getDeviceType(userAgent: string | undefined): string {
   return "pc";
 }
 
-router.post("/attendance/check", async (req, res): Promise<void> => {
+const buildingStaff = requireRole("manager", "platform_admin", "accountant", "facility_staff");
+
+router.post("/attendance/check", buildingStaff, async (req, res): Promise<void> => {
   const parsed = CheckAttendanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -122,7 +124,7 @@ router.post("/attendance/check", async (req, res): Promise<void> => {
   res.status(201).json(result);
 });
 
-router.get("/attendance/today", async (req, res): Promise<void> => {
+router.get("/attendance/today", buildingStaff, async (req, res): Promise<void> => {
   const user = req.user!;
   const today = new Date().toISOString().split("T")[0];
 
@@ -144,7 +146,7 @@ router.get("/attendance/today", async (req, res): Promise<void> => {
   res.json(GetTodayAttendanceResponse.parse(result));
 });
 
-router.get("/attendance/my", async (req, res): Promise<void> => {
+router.get("/attendance/my", buildingStaff, async (req, res): Promise<void> => {
   const params = GetMyAttendanceQueryParams.safeParse(req.query);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -182,7 +184,7 @@ router.get("/attendance/my", async (req, res): Promise<void> => {
   res.json(GetMyAttendanceResponse.parse(result));
 });
 
-router.get("/attendance/stats", async (req, res): Promise<void> => {
+router.get("/attendance/stats", buildingStaff, async (req, res): Promise<void> => {
   const params = GetAttendanceStatsQueryParams.safeParse(req.query);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
