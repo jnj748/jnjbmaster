@@ -2,8 +2,8 @@
 // [Task #102] 2026-04-17 routes/inspections.ts 에서 verbatim 이동.
 // 값/타입/시그니처 변경 금지. 법령 개정 시에만 수정.
 //
-// 참고: routes/buildings.ts calculate-safety 핸들러의 인라인 임계치
-//   (75kW, 1000kW, 11층, 15000㎡, 30000㎡ 등)는 v1 이후 추출 예정 (formula 위험 회피).
+// 안전관리자 선임/의무소독 임계치(전기·소방·가스·기계·정통·일반 안전관리)는
+// 본 파일 하단 "안전관리자 선임 / 의무소독 임계치 상수" 섹션에 통합되어 있다.
 
 export const LEGAL_PRESETS = [
   // ── 소방 분야 ──
@@ -411,3 +411,60 @@ export const LEGAL_PRESETS = [
     penaltyInfo: null,
   },
 ];
+
+// ─────────────────────────────────────────────────────────────────
+// 안전관리자 선임 / 의무소독 임계치 상수
+// [Task #102] routes/buildings.ts calculate-safety 핸들러에서 추출.
+// 값은 verbatim. 분기·메시지·계산식 무변경. 법령 개정 시에만 수정.
+// ─────────────────────────────────────────────────────────────────
+
+// 1. 전기안전관리자 (전기안전관리법 제22조)
+export const ELECTRICAL_RESIDENT_KW = 1000; // kW 이상: 상주 전기안전관리자
+export const ELECTRICAL_REQUIRED_KW = 75;   // kW 이상: 전기안전관리자 선임/대행
+
+// 2. 소방안전관리자 (소방시설법 제24조)
+export const FIRE_SPECIAL_GRADE_FLOORS = 30;
+export const FIRE_SPECIAL_GRADE_AREA = 100000;
+export const FIRE_GRADE_1_FLOORS = 11;
+export const FIRE_GRADE_1_AREA = 15000;
+export const FIRE_GRADE_1_BASEMENT_MIN = 1;
+export const FIRE_GRADE_1_BASEMENT_AREA = 5000;
+export const FIRE_GRADE_2_FLOORS = 5;
+export const FIRE_GRADE_2_AREA = 2000;
+
+// 3. 가스안전관리자 (도시가스사업법 제29조)
+export const GAS_PROTECTION_CLASS1_UNITS = 300;        // 공동주택 ≥ 300세대 → 1종 보호시설
+export const GAS_THRESHOLD_PROTECTED_M3 = 1000;        // 1종 보호시설 월 사용량 임계 (㎥)
+export const GAS_THRESHOLD_DEFAULT_M3 = 2000;          // 일반 월 사용량 임계 (㎥)
+export const GAS_SELF_CHECK_AREA = 2000;               // 가스 안전점검(연 1회) 대상 연면적
+export const GAS_SELF_CHECK_FLOORS = 6;                // 가스 안전점검(연 1회) 대상 층수
+
+// 4. 기계설비유지관리자 (기계설비법 제18조)
+export const MECH_REQUIRED_AREA = 10000;
+export const MECH_SPECIAL_GRADE_AREA = 30000;
+export const MECH_ADVANCED_GRADE_AREA = 20000;
+export const MECH_INTERMEDIATE_GRADE_AREA = 15000;
+
+// 5. 정보통신공사 유지관리자 (정보통신공사업법 제36조의3)
+export const TELECOM_REQUIRED_AREA = 5000;
+export const TELECOM_LARGE_AREA = 30000;
+export const TELECOM_MEDIUM_AREA = 10000;
+export const TELECOM_ENFORCEMENT_DATE_LARGE = "2025-07-18";   // ≥3만㎡
+export const TELECOM_ENFORCEMENT_DATE_MEDIUM = "2026-07-18";  // 1~3만㎡
+export const TELECOM_ENFORCEMENT_DATE_SMALL = "2027-07-18";   // 5천~1만㎡
+
+// 6. 승강기안전관리자 (승강기 안전관리법 제29조)
+export const ELEVATOR_REQUIRED_COUNT = 1; // 승강기 ≥ 1대 설치 시 선임 필수
+
+// 7. 소독(방역) (감염병예방법 제51조)
+export const DISINF_RESIDENTIAL_UNITS = 300;  // 공동주택 ≥ 300세대 의무소독
+export const DISINF_OFFICE_AREA = 2000;       // 사무/복합 ≥ 2,000㎡ 의무소독
+
+// 8. 일반 건축물 안전관리자 (건축법/건축물관리법)
+export const SAFETY_MGR_REQUIRED_AREA = 5000;
+export const SAFETY_MGR_REQUIRED_FLOORS = 11;
+export const SAFETY_MGR_REQUIRED_BASEMENT = 2;
+export const SAFETY_MGR_SPECIALIST_AREA = 30000;
+export const SAFETY_MGR_SPECIALIST_FLOORS = 30;
+export const SAFETY_MGR_PRO_AREA = 15000;
+export const SAFETY_MGR_PRO_FLOORS = 16;
