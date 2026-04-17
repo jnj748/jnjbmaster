@@ -6486,3 +6486,83 @@ export const ListCommissionEventsResponseItem = zod.object({
 export const ListCommissionEventsResponse = zod.array(
   ListCommissionEventsResponseItem,
 );
+
+/**
+ * @summary List AI chat sessions for current user
+ */
+export const ListAiSessionsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  buildingId: zod.number().nullish(),
+  title: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAiSessionsResponse = zod.array(ListAiSessionsResponseItem);
+
+/**
+ * @summary Create a new AI chat session
+ */
+export const CreateAiSessionBody = zod.object({
+  title: zod.string().optional(),
+});
+
+/**
+ * @summary Rename an AI chat session
+ */
+export const RenameAiSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RenameAiSessionBody = zod.object({
+  title: zod.string(),
+});
+
+export const RenameAiSessionResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  buildingId: zod.number().nullish(),
+  title: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete an AI chat session
+ */
+export const DeleteAiSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List messages in an AI chat session
+ */
+export const ListAiMessagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAiMessagesResponseItem = zod.object({
+  id: zod.number(),
+  sessionId: zod.number(),
+  role: zod.enum(["user", "assistant", "system"]),
+  content: zod.string(),
+  citations: zod
+    .array(
+      zod.object({
+        type: zod.string(),
+        id: zod.union([zod.number(), zod.string()]),
+        label: zod.string(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAiMessagesResponse = zod.array(ListAiMessagesResponseItem);
+
+/**
+ * @summary Send a chat message and stream AI response (SSE)
+ */
+export const SendAiChatMessageBody = zod.object({
+  sessionId: zod.number().optional(),
+  content: zod.string(),
+});

@@ -20,6 +20,8 @@ import type {
   ActivityItem,
   AdjustCreditsBody,
   AdminWalletRow,
+  AiChatMessage,
+  AiChatSession,
   AiMatchingResponse,
   Alert,
   AlertAction,
@@ -62,6 +64,7 @@ import type {
   ContractDetail,
   ContractDocument,
   ContractRenewalAlertResponse,
+  CreateAiSessionBody,
   CreateAlertActionBody,
   CreateApprovalBody,
   CreateBuildingWarrantiesBody,
@@ -196,6 +199,7 @@ import type {
   RecordPaymentBody,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
+  RenameAiSessionBody,
   ReviewReportBody,
   Rfq,
   RunVehicleInspection200,
@@ -205,6 +209,7 @@ import type {
   SafetyTraining,
   SaveApprovalDraftBody,
   SeasonalSuggestion,
+  SendAiChatMessageBody,
   SendDestructionAlerts200,
   Settlement,
   StaffAttendanceSummary,
@@ -20398,3 +20403,508 @@ export function useListCommissionEvents<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List AI chat sessions for current user
+ */
+export const getListAiSessionsUrl = () => {
+  return `/api/ai/sessions`;
+};
+
+export const listAiSessions = async (
+  options?: RequestInit,
+): Promise<AiChatSession[]> => {
+  return customFetch<AiChatSession[]>(getListAiSessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiSessionsQueryKey = () => {
+  return [`/api/ai/sessions`] as const;
+};
+
+export const getListAiSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiSessions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiSessionsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiSessions>>> = ({
+    signal,
+  }) => listAiSessions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiSessions>>
+>;
+export type ListAiSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List AI chat sessions for current user
+ */
+
+export function useListAiSessions<
+  TData = Awaited<ReturnType<typeof listAiSessions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiSessionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new AI chat session
+ */
+export const getCreateAiSessionUrl = () => {
+  return `/api/ai/sessions`;
+};
+
+export const createAiSession = async (
+  createAiSessionBody?: CreateAiSessionBody,
+  options?: RequestInit,
+): Promise<AiChatSession> => {
+  return customFetch<AiChatSession>(getCreateAiSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAiSessionBody),
+  });
+};
+
+export const getCreateAiSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiSession>>,
+    TError,
+    { data: BodyType<CreateAiSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAiSession>>,
+  TError,
+  { data: BodyType<CreateAiSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createAiSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAiSession>>,
+    { data: BodyType<CreateAiSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAiSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAiSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAiSession>>
+>;
+export type CreateAiSessionMutationBody = BodyType<CreateAiSessionBody>;
+export type CreateAiSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new AI chat session
+ */
+export const useCreateAiSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiSession>>,
+    TError,
+    { data: BodyType<CreateAiSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAiSession>>,
+  TError,
+  { data: BodyType<CreateAiSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateAiSessionMutationOptions(options));
+};
+
+/**
+ * @summary Rename an AI chat session
+ */
+export const getRenameAiSessionUrl = (id: number) => {
+  return `/api/ai/sessions/${id}`;
+};
+
+export const renameAiSession = async (
+  id: number,
+  renameAiSessionBody: RenameAiSessionBody,
+  options?: RequestInit,
+): Promise<AiChatSession> => {
+  return customFetch<AiChatSession>(getRenameAiSessionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renameAiSessionBody),
+  });
+};
+
+export const getRenameAiSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameAiSession>>,
+    TError,
+    { id: number; data: BodyType<RenameAiSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameAiSession>>,
+  TError,
+  { id: number; data: BodyType<RenameAiSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["renameAiSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameAiSession>>,
+    { id: number; data: BodyType<RenameAiSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return renameAiSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameAiSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameAiSession>>
+>;
+export type RenameAiSessionMutationBody = BodyType<RenameAiSessionBody>;
+export type RenameAiSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Rename an AI chat session
+ */
+export const useRenameAiSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameAiSession>>,
+    TError,
+    { id: number; data: BodyType<RenameAiSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renameAiSession>>,
+  TError,
+  { id: number; data: BodyType<RenameAiSessionBody> },
+  TContext
+> => {
+  return useMutation(getRenameAiSessionMutationOptions(options));
+};
+
+/**
+ * @summary Delete an AI chat session
+ */
+export const getDeleteAiSessionUrl = (id: number) => {
+  return `/api/ai/sessions/${id}`;
+};
+
+export const deleteAiSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAiSessionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAiSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAiSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAiSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAiSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAiSession>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAiSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAiSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAiSession>>
+>;
+
+export type DeleteAiSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an AI chat session
+ */
+export const useDeleteAiSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAiSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAiSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAiSessionMutationOptions(options));
+};
+
+/**
+ * @summary List messages in an AI chat session
+ */
+export const getListAiMessagesUrl = (id: number) => {
+  return `/api/ai/sessions/${id}/messages`;
+};
+
+export const listAiMessages = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AiChatMessage[]> => {
+  return customFetch<AiChatMessage[]>(getListAiMessagesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiMessagesQueryKey = (id: number) => {
+  return [`/api/ai/sessions/${id}/messages`] as const;
+};
+
+export const getListAiMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiMessagesQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiMessages>>> = ({
+    signal,
+  }) => listAiMessages(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiMessages>>
+>;
+export type ListAiMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List messages in an AI chat session
+ */
+
+export function useListAiMessages<
+  TData = Awaited<ReturnType<typeof listAiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiMessagesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a chat message and stream AI response (SSE)
+ */
+export const getSendAiChatMessageUrl = () => {
+  return `/api/ai/chat`;
+};
+
+export const sendAiChatMessage = async (
+  sendAiChatMessageBody: SendAiChatMessageBody,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getSendAiChatMessageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendAiChatMessageBody),
+  });
+};
+
+export const getSendAiChatMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendAiChatMessage>>,
+    TError,
+    { data: BodyType<SendAiChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendAiChatMessage>>,
+  TError,
+  { data: BodyType<SendAiChatMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["sendAiChatMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendAiChatMessage>>,
+    { data: BodyType<SendAiChatMessageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendAiChatMessage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendAiChatMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendAiChatMessage>>
+>;
+export type SendAiChatMessageMutationBody = BodyType<SendAiChatMessageBody>;
+export type SendAiChatMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a chat message and stream AI response (SSE)
+ */
+export const useSendAiChatMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendAiChatMessage>>,
+    TError,
+    { data: BodyType<SendAiChatMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendAiChatMessage>>,
+  TError,
+  { data: BodyType<SendAiChatMessageBody> },
+  TContext
+> => {
+  return useMutation(getSendAiChatMessageMutationOptions(options));
+};

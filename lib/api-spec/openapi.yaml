@@ -65,6 +65,8 @@ tags:
     description: Building warranty period management
   - name: contracts
     description: Partner contract lifecycle management
+  - name: ai
+    description: 관리소장 AI 도우미 (chat assistant)
 
 paths:
   /healthz:
@@ -4905,8 +4907,186 @@ paths:
                 items:
                   $ref: "#/components/schemas/CommissionEvent"
 
+  /ai/sessions:
+    get:
+      operationId: listAiSessions
+      tags: [ai]
+      summary: List AI chat sessions for current user
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiChatSession"
+    post:
+      operationId: createAiSession
+      tags: [ai]
+      summary: Create a new AI chat session
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAiSessionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChatSession"
+  /ai/sessions/{id}:
+    patch:
+      operationId: renameAiSession
+      tags: [ai]
+      summary: Rename an AI chat session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameAiSessionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChatSession"
+    delete:
+      operationId: deleteAiSession
+      tags: [ai]
+      summary: Delete an AI chat session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  /ai/sessions/{id}/messages:
+    get:
+      operationId: listAiMessages
+      tags: [ai]
+      summary: List messages in an AI chat session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiChatMessage"
+  /ai/chat:
+    post:
+      operationId: sendAiChatMessage
+      tags: [ai]
+      summary: Send a chat message and stream AI response (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendAiChatMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant tokens
+          content:
+            text/event-stream: {}
+
 components:
   schemas:
+    AiChatCitation:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          oneOf:
+            - type: integer
+            - type: string
+        label:
+          type: string
+      required:
+        - type
+        - id
+        - label
+    AiChatSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        buildingId:
+          type: ["integer", "null"]
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, title, createdAt, updatedAt]
+    AiChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiChatCitation"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, role, content, createdAt]
+    CreateAiSessionBody:
+      type: object
+      properties:
+        title:
+          type: string
+    RenameAiSessionBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required: [title]
+    SendAiChatMessageBody:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        content:
+          type: string
+      required: [content]
+
     HealthStatus:
       type: object
       properties:

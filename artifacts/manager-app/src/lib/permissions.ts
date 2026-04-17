@@ -28,6 +28,7 @@ import {
   Receipt,
   MessageSquare,
   Vote,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +74,7 @@ const ComplaintsPage = lazy(() => import("@/pages/complaints"));
 const VotingPage = lazy(() => import("@/pages/voting"));
 const ContractsPage = lazy(() => import("@/pages/contracts"));
 const Units = lazy(() => import("@/pages/units"));
+const AiAssistant = lazy(() => import("@/pages/ai-assistant"));
 
 export type Role =
   | "manager"
@@ -172,6 +174,11 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/tasks", component: Tasks,
     label: "업무 관리", icon: CheckSquare, group: "dashboard",
+    access: ["manager", "platform_admin"],
+  },
+  {
+    path: "/ai-assistant", component: AiAssistant,
+    label: "AI 도우미", icon: Sparkles, group: "dashboard",
     access: ["manager", "platform_admin"],
   },
   {

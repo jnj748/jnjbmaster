@@ -5,6 +5,53 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AiChatCitation {
+  type: string;
+  id: number | string;
+  label: string;
+}
+
+export interface AiChatSession {
+  id: number;
+  userId: number;
+  /** @nullable */
+  buildingId?: number | null;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AiChatMessageRole =
+  (typeof AiChatMessageRole)[keyof typeof AiChatMessageRole];
+
+export const AiChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+  system: "system",
+} as const;
+
+export interface AiChatMessage {
+  id: number;
+  sessionId: number;
+  role: AiChatMessageRole;
+  content: string;
+  citations?: AiChatCitation[];
+  createdAt: string;
+}
+
+export interface CreateAiSessionBody {
+  title?: string;
+}
+
+export interface RenameAiSessionBody {
+  title: string;
+}
+
+export interface SendAiChatMessageBody {
+  sessionId?: number;
+  content: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

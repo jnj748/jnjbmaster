@@ -49,6 +49,7 @@ import platformConsentsRouter from "./platformConsents";
 import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
 import contractsRouter from "./contracts";
+import aiAssistantRouter from "./aiAssistant";
 
 const router: IRouter = Router();
 
@@ -111,5 +112,7 @@ buildingRouter.use(delinquencyRouter);
 buildingRouter.use(warrantiesRouter);
 buildingRouter.use(contractsRouter);
 router.use(buildingRouter);
+
+router.use(aiAssistantRouter);
 
 export default router;
