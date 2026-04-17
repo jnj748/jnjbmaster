@@ -167,9 +167,6 @@ importers:
         specifier: ^5.5.3
         version: 5.5.3
     devDependencies:
-      '@hookform/resolvers':
-        specifier: ^3.10.0
-        version: 3.10.0(react-hook-form@7.71.2(react@18.3.1))
       '@radix-ui/react-accordion':
         specifier: ^1.2.4
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -299,9 +296,6 @@ importers:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
-      cmdk:
-        specifier: ^1.1.1
-        version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0
@@ -311,9 +305,6 @@ importers:
       framer-motion:
         specifier: 'catalog:'
         version: 12.35.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      input-otp:
-        specifier: ^1.4.2
-        version: 1.4.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lucide-react:
         specifier: 'catalog:'
         version: 0.545.0(react@18.3.1)
@@ -323,18 +314,9 @@ importers:
       react:
         specifier: 18.3.1
         version: 18.3.1
-      react-day-picker:
-        specifier: ^9.11.1
-        version: 9.14.0(react@18.3.1)
       react-dom:
         specifier: 18.3.1
         version: 18.3.1(react@18.3.1)
-      react-hook-form:
-        specifier: ^7.55.0
-        version: 7.71.2(react@18.3.1)
-      react-icons:
-        specifier: ^5.4.0
-        version: 5.6.0(react@18.3.1)
       react-resizable-panels:
         specifier: ^2.1.7
         version: 2.1.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -3920,11 +3902,6 @@ packages:
   react-hook-form@7.71.2:
     resolution: {integrity: sha512-1CHvcDYzuRUNOflt4MOq3ZM46AronNJtQ1S7tnX6YN4y72qhgiUItpacZUAQ0TyWYci3yz1X+rXaSxiuEm86PA==}
     engines: {node: '>=18.0.0'}
-    peerDependencies:
-      react: 18.3.1
-
-  react-icons@5.6.0:
-    resolution: {integrity: sha512-RH93p5ki6LfOiIt0UtDyNg/cee+HLVR6cHHtW3wALfo+eOHTp8RnU2kRkI6E+H19zMIs03DyxUG/GfZMOGvmiA==}
     peerDependencies:
       react: 18.3.1
 
@@ -7653,10 +7630,6 @@ snapshots:
       scheduler: 0.23.2
 
   react-hook-form@7.71.2(react@18.3.1):
-    dependencies:
-      react: 18.3.1
-
-  react-icons@5.6.0(react@18.3.1):
     dependencies:
       react: 18.3.1
 

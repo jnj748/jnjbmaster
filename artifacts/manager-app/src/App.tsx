@@ -16,7 +16,10 @@ import Login from "@/pages/login";
 
 const PortalSelect = lazy(() => import("@/pages/portal-select"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
-const LayoutCheck = lazy(() => import("@/pages/layout-check"));
+// 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
+const LayoutCheck = import.meta.env.DEV
+  ? lazy(() => import("@/pages/layout-check"))
+  : null;
 
 function PageLoader() {
   return (
@@ -51,7 +54,9 @@ function AuthenticatedRoutes() {
       <Layout>
         <Suspense fallback={<PageLoader />}>
           <Switch>
-            <Route path="/__layout-check" component={LayoutCheck} />
+            {LayoutCheck && (
+              <Route path="/__layout-check" component={LayoutCheck} />
+            )}
             <Route path="/tenant-card/:token" component={TenantCardForm} />
             <Route path="/building-setup">
               <Redirect to="/settings" />
@@ -88,7 +93,9 @@ function AppRouter() {
     return (
       <Suspense fallback={<PageLoader />}>
         <Switch>
-          <Route path="/__layout-check" component={LayoutCheck} />
+          {LayoutCheck && (
+            <Route path="/__layout-check" component={LayoutCheck} />
+          )}
           <Route path="/tenant-card/:token" component={TenantCardForm} />
           <Route path="/portal" component={PortalSelect} />
           <Route path="/login/:portalType" component={Login} />

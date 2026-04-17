@@ -10,6 +10,15 @@
 - I want iterative development with frequent, small updates rather than large, infrequent ones.
 - Ensure all generated code is well-commented and follows best practices for readability and maintainability.
 - Do not make changes to files related to authentication unless explicitly requested.
+- **파일럿 운영 중 (v1 미선언)**: 모든 결정/옵션 선택에서 가장 보수적인 안을 우선. v1 정식 출시 선언 전까지 유지.
+
+## Codebase Cleanup Notes (Task #102, 2026-04-17)
+- **Soft-deleted (이동만, 삭제 X)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` → `artifacts/manager-app/src/_deprecated/` (tsconfig exclude). 복원 시 원위치로 이동만 하면 됨.
+  - UI: accordion, aspect-ratio, breadcrumb, carousel, collapsible, command, context-menu, hover-card, input-otp, kbd, menubar, navigation-menu, pagination, resizable
+- **devDependencies 제거 (6개)**: react-icons, cmdk, input-otp, react-day-picker, react-hook-form, @hookform/resolvers (모두 `pnpm why`로 직접 사용처 0건 검증).
+- **개발 전용 라우트**: `/__layout-check`는 `import.meta.env.DEV` 가드로 prod 번들에서 제외.
+- **법정 상수 추출**: `LEGAL_PRESETS`(법정점검 29개)를 `artifacts/api-server/src/domain/statutory.ts`로 verbatim 이동. `routes/inspections.ts`는 import + re-export로 BC 유지. `routes/buildings.ts`의 인라인 임계치(75kW/1000kW/11층/15000㎡ 등)는 formula 위험 회피 위해 v1 이후로 추출 연기.
+- **남아있는 후속 정리 후보 (v1 이후)**: 14개 UI에 대응되는 Radix devDeps 7종(@radix-ui/react-accordion 등), embla-carousel-react, large file 분할(buildings.ts/inspections.ts).
 
 ## System Architecture
 The project is a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
