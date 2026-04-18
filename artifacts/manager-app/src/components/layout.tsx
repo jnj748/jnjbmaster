@@ -242,8 +242,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-background flex flex-col"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+          className="fixed top-0 left-0 right-0 z-20 bg-background flex flex-col"
+          style={{
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            bottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
+          }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <Link href="/" onClick={() => setDrawerOpen(false)}>
