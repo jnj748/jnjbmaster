@@ -209,6 +209,43 @@
   color: #111;
 }
 
+/*
+ * 페이지 헤더 안전망
+ * 한글 제목(h1.text-2xl)이 좁은 화면에서 액션 버튼에 밀려 글자별로
+ * 세로로 쌓이는 현상을 방지. 모든 메뉴 화면의 표준 헤더 패턴
+ *   <div className="flex items-center justify-between">
+ *     <div><h1 className="text-2xl font-bold">…</h1>…</div>
+ *     <div>…buttons…</div>
+ *   </div>
+ * 에 자동 적용됩니다.
+ */
+h1, h2, h3, h4 {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+@supports selector(:has(*)) {
+  /* 모바일에서는 제목 행을 위, 액션을 아래로 자동 줄바꿈 */
+  @media (max-width: 640px) {
+    .flex.items-center.justify-between:has(> div > h1.text-2xl),
+    .flex.items-start.justify-between:has(> div > h1.text-2xl) {
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .flex.items-center.justify-between:has(> div > h1.text-2xl) > div:first-child,
+    .flex.items-start.justify-between:has(> div > h1.text-2xl) > div:first-child {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+  }
+
+  /* 데스크톱: 제목 컨테이너가 줄어들 수 있도록 min-width:0 보장 */
+  .flex.items-center.justify-between:has(> div > h1.text-2xl) > div:first-child,
+  .flex.items-start.justify-between:has(> div > h1.text-2xl) > div:first-child {
+    min-width: 0;
+  }
+}
+
 .a4-document-frame {
   width: 100%;
   overflow-x: auto;
