@@ -31,6 +31,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import { PhotoUploadField } from "@/components/photo-upload-field";
 
 declare global {
   interface Window {
@@ -83,6 +84,7 @@ interface BuildingData {
   hasSepticTank: boolean;
   managementOfficePhone: string;
   managementOfficeFax: string;
+  logoUrl: string | null;
   landArea: string;
   buildingArea: string;
   buildingCoverageRatio: string;
@@ -157,6 +159,7 @@ const EMPTY_BUILDING: BuildingData = {
   hasSepticTank: true,
   managementOfficePhone: "",
   managementOfficeFax: "",
+  logoUrl: null,
   landArea: "",
   buildingArea: "",
   buildingCoverageRatio: "",
@@ -384,6 +387,7 @@ export default function BuildingSetup() {
           hasSepticTank: data.building.hasSepticTank ?? true,
           managementOfficePhone: data.building.managementOfficePhone || "",
           managementOfficeFax: data.building.managementOfficeFax || "",
+          logoUrl: data.building.logoUrl ?? null,
           landArea: data.building.landArea || "",
           buildingArea: data.building.buildingArea || "",
           buildingCoverageRatio: data.building.buildingCoverageRatio || "",
@@ -1123,6 +1127,17 @@ export default function BuildingSetup() {
                     placeholder="02-000-0000"
                   />
                 </div>
+              </div>
+
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <PhotoUploadField
+                  label="건물 로고 (공고문·의뢰서 상단에 자동 인쇄)"
+                  value={building.logoUrl}
+                  onChange={(url) => setBuilding((prev) => ({ ...prev, logoUrl: url }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  업로드한 로고는 점검 안내문, 처리완료 공지문, 업체 의뢰서 상단에 함께 인쇄됩니다.
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-6">

@@ -564,6 +564,8 @@ export default function Rfqs() {
           open={!!rfqDocRfq}
           onOpenChange={(o) => { if (!o) setRfqDocRfq(null); }}
           rfq={rfqDocRfq}
+          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
+          logoUrl={building?.logoUrl ?? null}
         />
       )}
     </div>

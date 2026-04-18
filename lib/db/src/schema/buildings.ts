@@ -33,6 +33,7 @@ export const buildingsTable = pgTable("buildings", {
   floorAreaRatio: numeric("floor_area_ratio"),
   managementOfficePhone: text("management_office_phone"),
   managementOfficeFax: text("management_office_fax"),
+  logoUrl: text("logo_url"),
   electricCapacityKw: numeric("electric_capacity_kw"),
   gasUsageMonthly: numeric("gas_usage_monthly"),
   specialFundEnabled: boolean("special_fund_enabled").notNull().default(false),

@@ -35,6 +35,7 @@ interface CompletionNoticeProps {
   widePhotoUrl?: string | null;
   buildingName?: string;
   officeContact?: string;
+  logoUrl?: string | null;
 }
 
 export function CompletionNotice({
@@ -48,6 +49,7 @@ export function CompletionNotice({
   widePhotoUrl,
   buildingName = "OO아파트",
   officeContact = "관리사무소 ☎ 02-0000-0000",
+  logoUrl = null,
 }: CompletionNoticeProps) {
   
   const [editMode, setEditMode] = useState(true);
@@ -94,6 +96,15 @@ export function CompletionNotice({
         )}
 
         <div className="inspection-notice-print bg-white text-black p-8 space-y-8" style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}>
+          {logoUrl && (
+            <div className="flex justify-center pb-2">
+              <AuthImage
+                src={logoUrl}
+                alt={`${buildingName} 로고`}
+                className="max-h-20 w-auto object-contain"
+              />
+            </div>
+          )}
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold tracking-wide border-b-2 border-black pb-4">
               {title}

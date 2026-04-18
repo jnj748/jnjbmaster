@@ -188,6 +188,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
       floorAreaRatio: data.floorAreaRatio || null,
       managementOfficePhone: data.managementOfficePhone || null,
       managementOfficeFax: data.managementOfficeFax || null,
+      logoUrl: data.logoUrl || null,
       electricCapacityKw: data.electricCapacityKw || null,
       gasUsageMonthly: data.gasUsageMonthly || null,
     }).returning();
@@ -224,7 +225,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       "name", "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
       "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
       "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
-      "approvalDate",
+      "logoUrl", "approvalDate",
     ];
     const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly"];
     const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];

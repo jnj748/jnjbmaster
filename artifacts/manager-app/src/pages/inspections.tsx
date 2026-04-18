@@ -38,6 +38,7 @@ import { Plus, Trash2, Edit, Shield, Printer, CheckCircle, History, ClipboardLis
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { InspectionNotice, CATEGORY_LEGAL_BASIS } from "@/components/inspection-notice";
+import { useBuilding } from "@/contexts/building-context";
 import { InformationOnlyNotice } from "@/components/intermediary-disclaimer";
 
 const categoryOptions = [
@@ -105,6 +106,7 @@ function calculateNextDueDate(lastDate: string, cycleMonths: number): string {
 }
 
 export default function Inspections() {
+  const { building } = useBuilding();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
@@ -763,6 +765,9 @@ export default function Inspections() {
             nextDueDate: typeof noticeTarget.nextDueDate === "string" ? noticeTarget.nextDueDate : new Date(noticeTarget.nextDueDate).toISOString().split("T")[0],
             legalBasis: noticeTarget.legalBasis,
           }}
+          buildingName={building?.name}
+          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
+          logoUrl={building?.logoUrl ?? null}
         />
       )}
     </div>

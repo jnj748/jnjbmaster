@@ -959,6 +959,9 @@ export default function Dashboard() {
           notes={completionNoticeData.notes}
           closeUpPhotoUrl={completionNoticeData.closeUpPhotoUrl}
           widePhotoUrl={completionNoticeData.widePhotoUrl}
+          buildingName={building?.name}
+          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
+          logoUrl={building?.logoUrl ?? null}
         />
       )}
 
@@ -967,6 +970,8 @@ export default function Dashboard() {
           open={showRfqDocument}
           onOpenChange={setShowRfqDocument}
           rfq={rfqDocumentData}
+          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
+          logoUrl={building?.logoUrl ?? null}
         />
       )}
 

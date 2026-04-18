@@ -55,6 +55,7 @@ interface RfqRequestDocumentProps {
   onOpenChange: (open: boolean) => void;
   rfq: RfqDocumentData;
   officeContact?: string;
+  logoUrl?: string | null;
 }
 
 export function RfqRequestDocument({
@@ -62,6 +63,7 @@ export function RfqRequestDocument({
   onOpenChange,
   rfq,
   officeContact = "관리사무소 ☎ 02-0000-0000",
+  logoUrl = null,
 }: RfqRequestDocumentProps) {
     const [editMode, setEditMode] = useState(true);
   const [title, setTitle] = useState(`[${rfq.buildingName}] 업체의뢰서`);
@@ -104,6 +106,15 @@ export function RfqRequestDocument({
         )}
 
         <div className="inspection-notice-print bg-white text-black p-8 space-y-8" style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}>
+          {logoUrl && (
+            <div className="flex justify-center pb-2">
+              <AuthImage
+                src={logoUrl}
+                alt={`${rfq.buildingName} 로고`}
+                className="max-h-20 w-auto object-contain"
+              />
+            </div>
+          )}
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold tracking-wide border-b-2 border-black pb-4">
               {title}

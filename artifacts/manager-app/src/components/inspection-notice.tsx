@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
+import { AuthImage } from "@/components/auth-image";
 
 export const CATEGORY_LEGAL_BASIS: Record<string, string> = {
   elevator: "승강기 안전관리법 제32조 (정기검사)",
@@ -90,6 +91,7 @@ interface InspectionNoticeProps {
   };
   buildingName?: string;
   officeContact?: string;
+  logoUrl?: string | null;
 }
 
 export function InspectionNotice({
@@ -98,6 +100,7 @@ export function InspectionNotice({
   inspection,
   buildingName = "OO아파트",
   officeContact = "관리사무소 ☎ 02-0000-0000",
+  logoUrl = null,
 }: InspectionNoticeProps) {
   const [editMode, setEditMode] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
@@ -149,6 +152,15 @@ export function InspectionNotice({
         )}
 
         <div ref={printRef} className="inspection-notice-print bg-white text-black p-8 space-y-8" style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}>
+          {logoUrl && (
+            <div className="flex justify-center pb-2">
+              <AuthImage
+                src={logoUrl}
+                alt={`${buildingName} 로고`}
+                className="max-h-20 w-auto object-contain"
+              />
+            </div>
+          )}
           <div className="text-center space-y-4">
             <h1 className="text-2xl font-bold tracking-wide border-b-2 border-black pb-4">
               {title}

@@ -16,6 +16,8 @@ interface BuildingInfo {
   totalFloors: number | null;
   totalArea: number | null;
   elevatorCount: number | null;
+  managementOfficePhone: string | null;
+  logoUrl: string | null;
 }
 
 interface BuildingContextType {
