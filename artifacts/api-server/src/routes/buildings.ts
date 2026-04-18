@@ -773,4 +773,25 @@ router.get("/buildings/legal-inspections-summary", async (req: Request, res: Res
   }
 });
 
+router.get("/buildings/legal-appointees", async (req: Request, res: Response) => {
+  try {
+    const user = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).then(r => r[0]);
+    if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+    if (!user.buildingId && user.role !== "platform_admin" && user.role !== "hq_executive") {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+    res.json({
+      appointees: {
+        electrical: null,
+        fire_safety: null,
+        mechanical: null,
+        telecom: null,
+      },
+    });
+  } catch (error) {
+    req.log.error({ err: error }, "Error fetching legal appointees");
+    res.status(500).json({ error: "Failed to fetch appointees" });
+  }
+});
+
 export default router;

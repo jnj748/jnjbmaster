@@ -42,7 +42,7 @@ function electrical(kw: number): Pick<LegalAppointment, "required" | "grade" | "
     return { required: true, grade: "1·2종 (특고압)", threshold: `≥ ${ELECTRICAL_HIGH_VOLTAGE_KW.toLocaleString()}kW` };
   }
   if (kw >= ELECTRICAL_REQUIRED_KW) {
-    return { required: true, grade: "3종 (저압)", threshold: `${ELECTRICAL_REQUIRED_KW.toLocaleString()}~${ELECTRICAL_HIGH_VOLTAGE_KW.toLocaleString()}kW` };
+    return { required: true, grade: "3종 (저압)", threshold: `${ELECTRICAL_REQUIRED_KW.toLocaleString()}~${(ELECTRICAL_HIGH_VOLTAGE_KW - 1).toLocaleString()}kW` };
   }
   return { required: false, grade: null, threshold: `< ${ELECTRICAL_REQUIRED_KW.toLocaleString()}kW (선임 불요)` };
 }

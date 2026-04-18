@@ -205,6 +205,7 @@ export default function BuildingInfo() {
       <LegalStaffingCard
         totalArea={b.totalArea as number | string | null | undefined}
         electricCapacityKw={b.electricCapacityKw as number | string | null | undefined}
+        token={token}
       />
 
       {(b.buildingArea || b.buildingCoverageRatio || b.floorAreaRatio) && (
@@ -348,13 +349,37 @@ export default function BuildingInfo() {
 function LegalStaffingCard({
   totalArea,
   electricCapacityKw,
+  token,
 }: {
   totalArea?: number | string | null;
   electricCapacityKw?: number | string | null;
+  token?: string | null;
 }) {
-  // v1: 선임자 등록 데이터 소스가 아직 없어 항상 "미등록" 으로 표시.
-  // 등록자/만료일이 추후 도입되면 classifyLegalStaffing 의 두번째 인자에 주입.
-  const items = classifyLegalStaffing({ totalArea, electricCapacityKw });
+  const [appointees, setAppointees] = useState<
+    Partial<Record<"electrical" | "fire_safety" | "mechanical" | "telecom", { name: string; certificateExpiry?: string | null } | null>>
+  >({});
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    fetch(`${apiBase}/buildings/legal-appointees`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.appointees) return;
+        setAppointees(data.appointees);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const cleanAppointees = Object.fromEntries(
+    Object.entries(appointees).filter(([, v]) => v != null),
+  ) as Partial<Record<"electrical" | "fire_safety" | "mechanical" | "telecom", { name: string; certificateExpiry?: string | null }>>;
+  const items = classifyLegalStaffing({ totalArea, electricCapacityKw }, cleanAppointees);
 
   return (
     <Card>

@@ -8,7 +8,8 @@
     "build": "vite build --config vite.config.ts && node scripts/check-viewport.mjs",
     "check:viewport": "node scripts/check-viewport.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test src/lib/legal-staffing.test.ts"
   },
   "devDependencies": {
     "@radix-ui/react-accordion": "^1.2.4",
