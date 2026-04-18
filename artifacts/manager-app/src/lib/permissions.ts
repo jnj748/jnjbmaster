@@ -211,6 +211,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/owners", component: Owners,
     label: "소유자 관리", icon: UserCheck, group: "residents",
+    // 호실관리 상세에 소유자 정보가 통합 노출되므로 사이드바에서는 숨김.
+    sideMenu: [],
     access: ["manager", "platform_admin"],
   },
   {
@@ -230,6 +232,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/voting", component: VotingPage,
     label: "전자투표", icon: Vote, group: "residents",
     access: ["manager", "platform_admin", "accountant"],
+    // 사이드바에서 숨김 (URL 직접 접근은 유지). 향후 정식 오픈 시 sideMenu 복구.
+    sideMenu: [],
   },
 
   // ── Facility group ──────────────────────────────────────────────
@@ -346,6 +350,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/daily-reports", component: DailyReportsPage,
     label: "일간보고", icon: BookOpen, group: "reports",
     access: ["manager", "platform_admin"],
+    // 주간보고 메뉴로 통합. URL 직접 접근은 유지.
+    sideMenu: [],
   },
   {
     path: "/report-system", component: ReportSystemPage,
@@ -354,7 +360,7 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     path: "/reports", component: Reports,
-    label: "주간보고", icon: FileText, group: "reports",
+    label: "일간/주간 보고", icon: FileText, group: "reports",
     access: ["manager", "platform_admin", "hq_executive"],
     bottomNav: ["hq_executive"],
     bottomLabel: "보고서",
