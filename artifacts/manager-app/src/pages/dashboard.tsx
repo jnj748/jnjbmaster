@@ -424,8 +424,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      <BuildingInfoCard />
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="관리비회계업무"
@@ -1000,6 +998,8 @@ export default function Dashboard() {
       )}
 
       <SeasonalSuggestionsCard />
+
+      <BuildingInfoCard />
     </div>
   );
 }
