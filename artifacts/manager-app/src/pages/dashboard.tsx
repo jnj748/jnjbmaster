@@ -475,12 +475,15 @@ export default function Dashboard() {
             </p>
           </div>
           {totalAlertPages > 1 && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 shrink-0">
               {alertPages.map((_, i) => (
                 <button
                   key={i}
+                  type="button"
+                  aria-label={`페이지 ${i + 1}`}
                   onClick={() => setAlertPage(i)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
+                  style={{ width: 6, height: 6, padding: 0, border: 0 }}
+                  className={`rounded-full transition-colors ${
                     i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
                   }`}
                 />
