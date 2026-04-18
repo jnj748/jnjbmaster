@@ -2469,11 +2469,36 @@ export interface FacilityStatusBadge {
   ariaLabel: string;
 }
 
+export interface FacilityTodayProgressItems {
+  /** 오늘 예정 법정점검이 모두 결과 등록되었거나 예정 자체가 없음 */
+  inspections: boolean;
+  /** 오늘 일일 안전점검표가 작성 완료됨 */
+  safetyChecklists: boolean;
+  /** 오늘 기전 업무일지가 1건 이상 작성됨 */
+  maintenanceLogs: boolean;
+  /** 오늘 미완료 안전교육 일정이 없음(일정 없음 포함) */
+  safetyTrainings: boolean;
+}
+
+export interface FacilityTodayProgress {
+  items: FacilityTodayProgressItems;
+  /**
+   * 완료된 과업 수 (0~4)
+   * @minimum 0
+   * @maximum 4
+   */
+  completedCount: number;
+  /** 총 과업 수 (현재 4 고정) */
+  totalCount: number;
+}
+
 export interface FacilityStatusSummary {
   inspections: FacilityStatusBadge;
   safetyChecklists: FacilityStatusBadge;
   maintenanceLogs: FacilityStatusBadge;
   safetyTrainings: FacilityStatusBadge;
+  /** 오늘 4대 핵심 과업 진행률 (시설 그룹 헤더 N/4 배지). */
+  todayProgress?: FacilityTodayProgress;
 }
 
 export type FacilityAlertType =

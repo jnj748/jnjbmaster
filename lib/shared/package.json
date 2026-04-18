@@ -2,9 +2,11 @@
   "name": "@workspace/shared",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "main": "./src/korean-districts.ts",
   "types": "./src/korean-districts.ts",
   "exports": {
-    "./korean-districts": "./src/korean-districts.ts"
+    "./korean-districts": "./src/korean-districts.ts",
+    "./facility-today-progress": "./src/facility-today-progress.ts"
   }
 }

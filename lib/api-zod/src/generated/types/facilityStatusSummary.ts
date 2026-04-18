@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { FacilityStatusBadge } from "./facilityStatusBadge";
+import type { FacilityTodayProgress } from "./facilityTodayProgress";
 
 export interface FacilityStatusSummary {
   inspections: FacilityStatusBadge;
   safetyChecklists: FacilityStatusBadge;
   maintenanceLogs: FacilityStatusBadge;
   safetyTrainings: FacilityStatusBadge;
+  /** 오늘 4대 핵심 과업 진행률 (시설 그룹 헤더 N/4 배지). */
+  todayProgress?: FacilityTodayProgress;
 }

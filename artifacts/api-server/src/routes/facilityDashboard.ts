@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 import { getUserBuildingId } from "../middlewares/buildingScope";
+import { computeTodayProgress, emptyTodayProgress } from "@workspace/shared/facility-today-progress";
 
 const router: IRouter = Router();
 router.use("/facility", requireRole("manager", "platform_admin", "facility_staff", "hq_executive"));
@@ -266,14 +267,25 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
         safetyChecklists: { level: "none", count: 0, ariaLabel: "오늘 안전점검표 모두 완료" },
         maintenanceLogs: { level: "none", count: 0, ariaLabel: "오늘 업무일지 모두 작성됨" },
         safetyTrainings: { level: "none", count: 0, ariaLabel: "안전교육 임박 없음" },
+        todayProgress: emptyTodayProgress(),
       }),
     );
     return;
   }
 
   // Run all aggregations in parallel.
-  const [overdueInsp, upcomingInspRows, pendingTodayChk, pendingTodayLog, overdueTrainingRows, upcomingTrainingRows] =
-    await Promise.all([
+  const [
+    overdueInsp,
+    upcomingInspRows,
+    pendingTodayChk,
+    pendingTodayLog,
+    overdueTrainingRows,
+    upcomingTrainingRows,
+    // ── 오늘 진행률(N/4) 전용 집계 ─────────────────────
+    completedTodayChk,
+    anyTodayLog,
+    pendingTodayTraining,
+  ] = await Promise.all([
       db
         .select({ count: count() })
         .from(inspectionsTable)
@@ -336,6 +348,42 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
           ),
         )
         .then((r) => r[0]),
+      // 오늘 작성된 비-pending 안전점검표 (completed | issue_found 등).
+      db
+        .select({ count: count() })
+        .from(safetyChecklistsTable)
+        .where(
+          and(
+            eq(safetyChecklistsTable.buildingId, buildingId),
+            eq(safetyChecklistsTable.inspectionDate, today),
+            ne(safetyChecklistsTable.status, "pending"),
+          ),
+        )
+        .then((r) => r[0]),
+      // 오늘 작성된 기전 업무일지 (status 무관, 1건 이상이면 완료).
+      db
+        .select({ count: count() })
+        .from(maintenanceLogsTable)
+        .where(
+          and(
+            eq(maintenanceLogsTable.buildingId, buildingId),
+            eq(maintenanceLogsTable.workDate, today),
+          ),
+        )
+        .then((r) => r[0]),
+      // 오늘 일정인 안전교육 중 미완료. trainings 테이블은 buildingId가 없어
+      // 기존 status-summary와 동일하게 글로벌 집계 (per-tenant DB 가정).
+      db
+        .select({ count: count() })
+        .from(safetyTrainingsTable)
+        .where(
+          and(
+            eq(safetyTrainingsTable.trainingYear, currentYear),
+            eq(safetyTrainingsTable.trainingDate, today),
+            ne(safetyTrainingsTable.status, "completed"),
+          ),
+        )
+        .then((r) => r[0]),
     ]);
 
   // ── 법정점검 ─────────────────────────────────
@@ -391,12 +439,23 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
     safetyTrainings = { level: "none", count: 0, ariaLabel: "안전교육 임박 없음" };
   }
 
+  // ── 오늘 4대 핵심 과업 진행률 ─────────────────────
+  // 법정점검 "오늘 남은 예정" = 지연 + 오늘 마감. 둘 다 0이면 완료.
+  const dueTodayInspCount = upcomingInspRows.filter((r) => r.nextDueDate === today).length;
+  const todayProgress = computeTodayProgress({
+    inspectionsDueRemaining: (overdueInsp?.count ?? 0) + dueTodayInspCount,
+    safetyChecklistsCompletedToday: completedTodayChk?.count ?? 0,
+    maintenanceLogsToday: anyTodayLog?.count ?? 0,
+    safetyTrainingsPendingToday: pendingTodayTraining?.count ?? 0,
+  });
+
   res.json(
     GetFacilityStatusSummaryResponse.parse({
       inspections,
       safetyChecklists,
       maintenanceLogs,
       safetyTrainings,
+      todayProgress,
     }),
   );
 });

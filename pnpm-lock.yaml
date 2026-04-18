@@ -96,6 +96,9 @@ importers:
       '@workspace/integrations-gemini-ai':
         specifier: workspace:*
         version: link:../../lib/integrations-gemini-ai
+      '@workspace/shared':
+        specifier: workspace:*
+        version: link:../../lib/shared
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

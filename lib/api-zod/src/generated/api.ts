@@ -5296,6 +5296,9 @@ export const GetFacilityDashboardResponse = zod.object({
 /**
  * @summary Compact per-icon status (red/yellow/none + count) for the sidebar facility group badges
  */
+export const getFacilityStatusSummaryResponseTodayProgressCompletedCountMin = 0;
+export const getFacilityStatusSummaryResponseTodayProgressCompletedCountMax = 4;
+
 export const GetFacilityStatusSummaryResponse = zod.object({
   inspections: zod.object({
     level: zod.enum(["none", "yellow", "red"]),
@@ -5349,6 +5352,33 @@ export const GetFacilityStatusSummaryResponse = zod.object({
         'Pre-rendered Korean label for screen readers (e.g. \"법정점검 D-3, 2건 임박\").',
       ),
   }),
+  todayProgress: zod
+    .object({
+      items: zod.object({
+        inspections: zod
+          .boolean()
+          .describe(
+            "오늘 예정 법정점검이 모두 결과 등록되었거나 예정 자체가 없음",
+          ),
+        safetyChecklists: zod
+          .boolean()
+          .describe("오늘 일일 안전점검표가 작성 완료됨"),
+        maintenanceLogs: zod
+          .boolean()
+          .describe("오늘 기전 업무일지가 1건 이상 작성됨"),
+        safetyTrainings: zod
+          .boolean()
+          .describe("오늘 미완료 안전교육 일정이 없음(일정 없음 포함)"),
+      }),
+      completedCount: zod
+        .number()
+        .min(getFacilityStatusSummaryResponseTodayProgressCompletedCountMin)
+        .max(getFacilityStatusSummaryResponseTodayProgressCompletedCountMax)
+        .describe("완료된 과업 수 (0~4)"),
+      totalCount: zod.number().describe("총 과업 수 (현재 4 고정)"),
+    })
+    .optional()
+    .describe("오늘 4대 핵심 과업 진행률 (시설 그룹 헤더 N\/4 배지)."),
 });
 
 /**

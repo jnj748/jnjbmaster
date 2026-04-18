@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ChevronLeft,
+  Check,
 } from "lucide-react";
 import {
   Popover,
@@ -43,6 +44,14 @@ import {
 // All sidebar / bottom-nav definitions live in `@/lib/permissions` and are
 // derived from the role × screen permission matrix (single source of truth).
 // Any per-role visibility tweak must go through that file.
+
+// KST 날짜 키 ("YYYY-MM-DD"). 자정 경과 감지 + stale 4/4 방지에만 사용.
+function kstDateKey(at?: Date): string {
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const base = at ? at.getTime() : Date.now();
+  const d = new Date(base + KST_OFFSET_MS);
+  return d.toISOString().split("T")[0];
+}
 
 function getPageTitle(location: string, navItems: NavItem[]): string {
   if (location === "/") return "대시보드";
@@ -158,6 +167,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => { setDrawerOpen(false); }, [location]);
 
@@ -173,15 +183,56 @@ export function Layout({ children }: { children: React.ReactNode }) {
     () => sections.some((s) => s.title === "시설 및 안전관리"),
     [sections],
   );
-  const { data: facilityStatus } = useGetFacilityStatusSummary({
-    query: {
-      queryKey: ["facility-status-summary"],
-      enabled: hasFacilitySection,
-      refetchInterval: 60 * 1000,
-      refetchOnWindowFocus: true,
-      staleTime: 30 * 1000,
-    },
-  });
+  const { data: facilityStatus, dataUpdatedAt: facilityStatusUpdatedAt } =
+    useGetFacilityStatusSummary({
+      query: {
+        queryKey: ["facility-status-summary"],
+        enabled: hasFacilitySection,
+        refetchInterval: 60 * 1000,
+        refetchOnWindowFocus: true,
+        staleTime: 30 * 1000,
+      },
+    });
+  // 시설 그룹 헤더 우측 N/4 진행률 배지.
+  // 자정 리셋: 클라이언트 KST 날짜가 바뀌면 (1) 즉시 stale 데이터를 숨기고
+  // (2) 서버에서 최신값을 다시 받아오도록 쿼리를 invalidate.
+  const [todayKey, setTodayKey] = useState(() => kstDateKey());
+  useEffect(() => {
+    const tick = () => {
+      const k = kstDateKey();
+      setTodayKey((prev) => (prev === k ? prev : k));
+    };
+    const id = window.setInterval(tick, 60 * 1000);
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+  // 데이터가 도착한 시점의 KST 날짜를 추적해, 자정 경과 후
+  // 새 데이터가 오기 전까지 이전 날짜의 4/4가 보이는 것을 차단.
+  const fetchedKstKey = useMemo(
+    () => (facilityStatusUpdatedAt ? kstDateKey(new Date(facilityStatusUpdatedAt)) : null),
+    [facilityStatusUpdatedAt],
+  );
+  useEffect(() => {
+    if (!hasFacilitySection) return;
+    if (fetchedKstKey && fetchedKstKey !== todayKey) {
+      void queryClient.invalidateQueries({ queryKey: ["facility-status-summary"] });
+    }
+  }, [todayKey, fetchedKstKey, hasFacilitySection, queryClient]);
+  const isProgressFresh = fetchedKstKey !== null && fetchedKstKey === todayKey;
+  const todayProgress =
+    isProgressFresh &&
+    facilityStatus &&
+    (facilityStatus as FacilityStatusSummary).todayProgress
+      ? (facilityStatus as FacilityStatusSummary).todayProgress!
+      : null;
+  const showTodayProgress = hasFacilitySection && todayProgress !== null;
+  const isFullyDone =
+    showTodayProgress && todayProgress!.completedCount >= todayProgress!.totalCount;
+
   const badgeForPath = useCallback(
     (path: string): FacilityBadge | undefined => {
       if (!facilityStatus) return undefined;
@@ -213,16 +264,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
       section.title === "시설 및 안전관리" && section.items.length > 0;
 
     if (isFacilityGrid) {
+      const progressPill = showTodayProgress ? (
+        <span
+          aria-label={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
+          title={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
+          className={cn(
+            "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+            isFullyDone
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-sidebar-accent/40 text-sidebar-foreground/80",
+          )}
+        >
+          {isFullyDone && <Check className="w-3 h-3" aria-hidden="true" />}
+          <span>{todayProgress!.completedCount}/{todayProgress!.totalCount}</span>
+        </span>
+      ) : null;
       const header = (
         <div
           className={cn(
-            "px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider font-semibold transition-colors",
+            "px-3 pt-4 pb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider font-semibold transition-colors",
             section.headerHref
               ? "text-sidebar-foreground/40 cursor-pointer hover:text-sidebar-foreground/70"
               : "text-sidebar-foreground/40",
           )}
         >
-          {section.title}
+          <span className="truncate">{section.title}</span>
+          {progressPill}
         </div>
       );
       return (
@@ -357,19 +424,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 py-4">
-            {sections.map((section, si) => (
+            {sections.map((section, si) => {
+              const isFacility = section.title === "시설 및 안전관리" && section.items.length > 0;
+              const drawerProgressPill = isFacility && showTodayProgress ? (
+                <span
+                  aria-label={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+                    isFullyDone
+                      ? "bg-emerald-500/15 text-emerald-700"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {isFullyDone && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                  <span>{todayProgress!.completedCount}/{todayProgress!.totalCount}</span>
+                </span>
+              ) : null;
+              const headerInner = (
+                <div className="flex items-center justify-between gap-2 pb-2">
+                  <span className="px-1 text-xs font-semibold text-muted-foreground truncate">
+                    {section.title}
+                  </span>
+                  {drawerProgressPill}
+                </div>
+              );
+              return (
               <div key={si} className="mb-6">
                 {section.title && (
                   section.headerHref ? (
                     <Link href={section.headerHref} onClick={() => setDrawerOpen(false)}>
-                      <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                        {section.title}
+                      <div className="cursor-pointer hover:text-foreground transition-colors">
+                        {headerInner}
                       </div>
                     </Link>
                   ) : (
-                    <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground">
-                      {section.title}
-                    </div>
+                    headerInner
                   )
                 )}
                 <div className="grid grid-cols-4 gap-2">
@@ -401,7 +490,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div

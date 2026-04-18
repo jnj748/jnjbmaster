@@ -200,6 +200,8 @@ export * from "./facilityDefectTrendsRepeatedDefectsItem";
 export * from "./facilityStatusBadge";
 export * from "./facilityStatusBadgeLevel";
 export * from "./facilityStatusSummary";
+export * from "./facilityTodayProgress";
+export * from "./facilityTodayProgressItems";
 export * from "./feeTrendItem";
 export * from "./finalizeUpload200";
 export * from "./finalizeUploadBody";
