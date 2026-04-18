@@ -2,23 +2,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Send, Trash2, Pencil, MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { Send, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`;
@@ -58,9 +46,6 @@ const CITATION_TYPE_LABELS: Record<string, string> = {
   contract: "계약",
 };
 
-// Map a citation back to a list page in the manager app. The current pages
-// use list-and-dialog navigation rather than per-id routes, so we link to
-// the list and let the user locate the row by id/label visible on the chip.
 const CITATION_TYPE_HREFS: Record<string, string | null> = {
   warranty: null,
   maintenance_log: "/maintenance-logs",
@@ -73,16 +58,13 @@ const CITATION_TYPE_HREFS: Record<string, string | null> = {
 export default function AiAssistantPage() {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamedText, setStreamedText] = useState("");
   const [streamedCitations, setStreamedCitations] = useState<Citation[]>([]);
-  const [renameTarget, setRenameTarget] = useState<ChatSession | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const authHeaders = useCallback(
@@ -90,77 +72,36 @@ export default function AiAssistantPage() {
     [token]
   );
 
-  const loadSessions = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/ai/sessions`, { headers: authHeaders() });
-    if (!res.ok) return;
-    const data: ChatSession[] = await res.json();
-    setSessions(data);
-    return data;
+  const loadInitial = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/ai/sessions`, { headers: authHeaders() });
+      if (!res.ok) {
+        setLoaded(true);
+        return;
+      }
+      const data: ChatSession[] = await res.json();
+      if (data.length === 0) {
+        setLoaded(true);
+        return;
+      }
+      // Use the most recently updated session as the persistent conversation.
+      const latest = data[0];
+      setActiveSessionId(latest.id);
+      const mr = await fetch(`${API_BASE}/ai/sessions/${latest.id}/messages`, { headers: authHeaders() });
+      if (mr.ok) {
+        const msgs: ChatMessage[] = await mr.json();
+        setMessages(msgs);
+      }
+    } finally {
+      setLoaded(true);
+    }
   }, [authHeaders]);
 
-  const loadMessages = useCallback(
-    async (sessionId: number) => {
-      const res = await fetch(`${API_BASE}/ai/sessions/${sessionId}/messages`, { headers: authHeaders() });
-      if (!res.ok) return;
-      const data: ChatMessage[] = await res.json();
-      setMessages(data);
-    },
-    [authHeaders]
-  );
-
-  useEffect(() => { loadSessions(); }, [loadSessions]);
-
-  useEffect(() => {
-    if (activeSessionId) loadMessages(activeSessionId);
-    else setMessages([]);
-  }, [activeSessionId, loadMessages]);
+  useEffect(() => { loadInitial(); }, [loadInitial]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, streamedText]);
-
-  const handleNewChat = () => {
-    setActiveSessionId(null);
-    setMessages([]);
-    setInput("");
-    setStreamedText("");
-    setStreamedCitations([]);
-  };
-
-  const handleSelectSession = (id: number) => {
-    if (streaming) return;
-    setActiveSessionId(id);
-    setStreamedText("");
-    setStreamedCitations([]);
-  };
-
-  const handleDelete = async (sess: ChatSession) => {
-    const res = await fetch(`${API_BASE}/ai/sessions/${sess.id}`, {
-      method: "DELETE", headers: authHeaders(),
-    });
-    if (res.ok) {
-      if (activeSessionId === sess.id) handleNewChat();
-      await loadSessions();
-      toast({ title: "대화가 삭제되었습니다." });
-    }
-    setDeleteTarget(null);
-  };
-
-  const handleRename = async () => {
-    if (!renameTarget) return;
-    const title = renameValue.trim();
-    if (!title) return;
-    const res = await fetch(`${API_BASE}/ai/sessions/${renameTarget.id}`, {
-      method: "PATCH",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    if (res.ok) {
-      await loadSessions();
-      toast({ title: "대화 제목이 변경되었습니다." });
-    }
-    setRenameTarget(null);
-  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || streaming) return;
@@ -176,8 +117,6 @@ export default function AiAssistantPage() {
     setStreaming(true);
     setStreamedText("");
     setStreamedCitations([]);
-
-    let currentSessionId = activeSessionId;
 
     try {
       const res = await fetch(`${API_BASE}/ai/chat`, {
@@ -217,8 +156,7 @@ export default function AiAssistantPage() {
           if (!payload) continue;
           try {
             const data = JSON.parse(payload);
-            if (data.session?.id && !currentSessionId) {
-              currentSessionId = data.session.id;
+            if (data.session?.id && !activeSessionId) {
               setActiveSessionId(data.session.id);
             }
             if (data.content) {
@@ -238,14 +176,12 @@ export default function AiAssistantPage() {
         }
       }
 
-      // Commit assistant message into messages list
       setMessages(prev => [
         ...prev,
         { id: Date.now() + 1, role: "assistant", content: accumulated, citations: finalCitations },
       ]);
       setStreamedText("");
       setStreamedCitations([]);
-      await loadSessions();
     } catch (err) {
       toast({
         variant: "destructive",
@@ -263,66 +199,15 @@ export default function AiAssistantPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-4 p-4">
-      {/* Sidebar */}
-      <aside className="w-72 shrink-0 hidden md:flex md:flex-col gap-2 border rounded-md p-3 bg-background">
-        <Button onClick={handleNewChat} className="w-full" data-testid="button-new-chat">
-          <Plus className="mr-2 h-4 w-4" /> 새 대화
-        </Button>
-        <ScrollArea className="flex-1">
-          <div className="flex flex-col gap-1">
-            {sessions.map(s => (
-              <div
-                key={s.id}
-                className={`group flex items-center justify-between rounded-md px-2 py-2 text-sm cursor-pointer hover-elevate ${
-                  s.id === activeSessionId ? "bg-accent" : ""
-                }`}
-                onClick={() => handleSelectSession(s.id)}
-                data-testid={`session-${s.id}`}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <MessageSquare className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{s.title}</span>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 flex">
-                  <button
-                    className="p-1 hover:text-primary"
-                    onClick={(e) => { e.stopPropagation(); setRenameTarget(s); setRenameValue(s.title); }}
-                    data-testid={`button-rename-${s.id}`}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    className="p-1 hover:text-destructive"
-                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
-                    data-testid={`button-delete-${s.id}`}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {sessions.length === 0 && (
-              <p className="text-xs text-muted-foreground px-2 py-4">대화 기록이 없습니다.</p>
-            )}
-          </div>
-        </ScrollArea>
-      </aside>
-
-      {/* Main chat */}
-      <main className="flex-1 flex flex-col border rounded-md bg-background min-w-0">
-        <header className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h1 className="font-semibold">AI 관리비서</h1>
-          </div>
-          <Button size="sm" variant="outline" className="md:hidden" onClick={handleNewChat}>
-            <Plus className="h-4 w-4 mr-1" /> 새 대화
-          </Button>
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-4">
+      <main className="flex-1 flex flex-col border rounded-md bg-background min-w-0 max-w-3xl w-full mx-auto">
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h1 className="font-semibold">AI 관리비서</h1>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && !streaming && (
+          {loaded && messages.length === 0 && !streaming && (
             <div className="text-center py-12 space-y-4">
               <Sparkles className="h-12 w-12 mx-auto text-primary" />
               <h2 className="text-lg font-medium">건물 운영에 대해 무엇이든 물어보세요</h2>
@@ -383,45 +268,6 @@ export default function AiAssistantPage() {
           </Button>
         </form>
       </main>
-
-      {/* Rename dialog */}
-      <AlertDialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>대화 이름 변경</AlertDialogTitle>
-          </AlertDialogHeader>
-          <Input
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            data-testid="input-rename"
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRename}>저장</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete confirm */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>대화 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 대화를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && handleDelete(deleteTarget)}
-              className="bg-destructive text-destructive-foreground"
-            >
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
