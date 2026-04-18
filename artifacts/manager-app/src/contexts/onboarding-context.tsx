@@ -7,8 +7,12 @@ import { useAuth } from "./auth-context";
 
 export interface OnboardingStatus {
   preference: "started" | "browsing" | null;
+  // 본 기능 출시(2026-04-18) 이전 manager 또는 이미 Gate1 완료 manager.
+  // true 면 모달/Gate 모두 면제 — 기존 운영 계정 보호.
+  isLegacyExempt: boolean;
   gate1: {
     hasBuilding: boolean;
+    hasBuildingSpecs: boolean;
     hasCompletionDate: boolean;
     hasLegalInspections: boolean;
     completed: boolean;
