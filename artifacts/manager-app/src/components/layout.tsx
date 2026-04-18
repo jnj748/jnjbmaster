@@ -121,9 +121,6 @@ function NotifBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="p-3 border-b">
           <div className="font-medium text-sm">알림</div>
-          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-            본 알림은 법적 권고 기한 안내를 위한 정보 제공 서비스이며, 실제 이행·보증을 담보하지 않습니다.
-          </p>
         </div>
         <ScrollArea className="max-h-80">
           {notifications && notifications.length > 0 ? (
@@ -279,14 +276,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <button
                           onClick={() => setDrawerOpen(false)}
                           className={cn(
-                            "w-full flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border transition-colors",
+                            "w-full min-w-0 flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border transition-colors overflow-hidden",
                             isActive
                               ? "bg-accent/10 border-accent text-accent"
                               : "bg-card border-border hover:bg-muted text-foreground"
                           )}
                         >
-                          <item.icon className="w-6 h-6" />
-                          <span className="text-[11px] font-medium leading-tight text-center break-keep">
+                          <item.icon className="w-6 h-6 shrink-0" />
+                          <span className="block w-full text-[10px] font-medium text-center whitespace-nowrap overflow-hidden text-ellipsis px-0.5">
                             {item.label}
                           </span>
                         </button>

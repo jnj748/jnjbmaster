@@ -39,7 +39,6 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { InspectionNotice, CATEGORY_LEGAL_BASIS } from "@/components/inspection-notice";
 import { useBuilding } from "@/contexts/building-context";
-import { InformationOnlyNotice } from "@/components/intermediary-disclaimer";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -369,10 +368,6 @@ export default function Inspections() {
           <p className="text-muted-foreground text-sm mt-1">
             승강기, 저수조, 소방 등 법정 점검 주기를 관리합니다
           </p>
-          <InformationOnlyNotice className="mt-2">
-            본 점검 알림은 법적 권고 기한 안내를 위한 정보 제공 서비스이며, 실제 점검 이행·보증을
-            담보하지 않습니다. 점검 실시 의무는 관리단에 있습니다.
-          </InformationOnlyNotice>
         </div>
         <div className="flex gap-2">
         <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>

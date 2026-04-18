@@ -9,7 +9,6 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import { InformationOnlyNotice } from "@/components/intermediary-disclaimer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -268,9 +267,6 @@ export default function Approvals() {
           <p className="text-muted-foreground text-sm mt-1">
             결재 요청을 확인하고 승인 또는 반려 처리하세요
           </p>
-          <InformationOnlyNotice className="mt-2 max-w-2xl">
-            본 결재 알림은 정보 제공 서비스이며, 계약·이행의 당사자는 관리단과 파트너사입니다.
-          </InformationOnlyNotice>
         </div>
         <Button size="sm" className="gap-1" onClick={() => setLocation("/approvals/create")}>
           <Plus className="w-4 h-4" />
