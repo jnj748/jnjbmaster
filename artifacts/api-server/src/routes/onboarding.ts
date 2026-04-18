@@ -17,6 +17,9 @@ const onboardingPrefValues = new Set(["started", "browsing"]);
 
 interface OnboardingStatus {
   preference: "started" | "browsing" | null;
+  // 본 기능 출시(2026-04-18) 이전에 만들어진 계정 OR 이미 Gate1 완료한 계정.
+  // 클라이언트는 이 플래그가 true 면 모달/Gate redirect 모두 비활성.
+  isLegacyExempt: boolean;
   // Gate 1 (hard lock): 건물제원 + 준공일 + 법정업무 등록.
   gate1: {
     hasBuilding: boolean;
@@ -35,9 +38,10 @@ interface OnboardingStatus {
   progressPercent: number;
 }
 
-function emptyStatus(preference: OnboardingStatus["preference"] = null): OnboardingStatus {
+function emptyStatus(preference: OnboardingStatus["preference"] = null, isLegacyExempt = false): OnboardingStatus {
   return {
     preference,
+    isLegacyExempt,
     gate1: { hasBuilding: false, hasBuildingSpecs: false, hasCompletionDate: false, hasLegalInspections: false, completed: false },
     gate2: { hasVendors: false, hasStaff: false, completed: false },
     progressPercent: 0,
@@ -59,8 +63,14 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
 
   const preference = (user.onboardingPreference as OnboardingStatus["preference"]) ?? null;
 
+  // 본 기능 출시 이전 계정은 무조건 면제(buildingId 유무 무관).
+  const ONBOARDING_RELEASE_DATE = new Date("2026-04-18T00:00:00+09:00");
+  const isPreReleaseAccount = user.createdAt
+    ? new Date(user.createdAt) < ONBOARDING_RELEASE_DATE
+    : false;
+
   if (!user.buildingId) {
-    res.json(emptyStatus(preference));
+    res.json(emptyStatus(preference, isPreReleaseAccount));
     return;
   }
 
@@ -127,19 +137,11 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
   const progressPercent = Math.round((checks.filter(Boolean).length / checks.length) * 100);
 
   // 보수: 기존 manager 계정에는 새로운 모달/Gate 동작이 발생하지 않도록 함.
-  // 1) Gate1 이미 완료된 계정 — 자동 간주
-  // 2) 본 기능 출시 이전(=ONBOARDING_RELEASE_DATE) 생성된 계정 — 자동 간주
-  // 위 두 조건 중 하나라도 해당하면 모달/리다이렉트 트리거 없음.
-  const ONBOARDING_RELEASE_DATE = new Date("2026-04-18T00:00:00+09:00");
-  const isPreExistingAccount = user.createdAt
-    ? new Date(user.createdAt) < ONBOARDING_RELEASE_DATE
-    : false;
-  const effectivePreference: OnboardingStatus["preference"] =
-    preference === null && (gate1.completed || isPreExistingAccount)
-      ? "started"
-      : preference;
+  // 면제 조건: (1) Gate1 이미 완료, OR (2) 본 기능 출시 이전 생성 계정.
+  // 클라이언트는 isLegacyExempt=true 시 모달/redirect 모두 우회.
+  const isLegacyExempt = gate1.completed || isPreReleaseAccount;
 
-  const status: OnboardingStatus = { preference: effectivePreference, gate1, gate2, progressPercent };
+  const status: OnboardingStatus = { preference, isLegacyExempt, gate1, gate2, progressPercent };
   res.json(status);
 });
 

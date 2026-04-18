@@ -22,11 +22,14 @@ export function OnboardingModal() {
   const [, setLocation] = useLocation();
   const [submitting, setSubmitting] = useState<"started" | "browsing" | null>(null);
 
-  // manager 외 역할 / 로딩 중 / 이미 선택 완료 → 표시 안 함.
+  // 표시 안 함 조건:
+  // - manager 외 역할 / 로딩 중 / 이미 선택 완료
+  // - isLegacyExempt: 출시 이전 계정 또는 이미 Gate1 완료(기존 운영 manager 보호)
   const open = !!(
     isManager &&
     !isLoading &&
     status &&
+    !status.isLegacyExempt &&
     status.preference === null &&
     user
   );

@@ -23,6 +23,8 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isManager || isLoading || !status) return;
+    // 기존 계정(출시 이전 또는 이미 Gate1 완료) — 무조건 통과.
+    if (status.isLegacyExempt) return;
     // 모달이 뜨는 단계: preference 미선택 — 게이트 동작 보류.
     if (status.preference === null) return;
     // 둘러보기 모드 — 잠금하지 않음.
