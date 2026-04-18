@@ -176,8 +176,8 @@ export function RfqRequestDocument({
 
         <div
           ref={documentRef}
-          className="bg-white text-black p-10 space-y-6"
-          style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif", color: "#111" }}
+          className="a4-document space-y-6"
+          style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
         >
           <div className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
             <div className="text-xs text-gray-700 leading-6">

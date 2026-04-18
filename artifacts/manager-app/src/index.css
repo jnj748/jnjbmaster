@@ -194,14 +194,45 @@
   }
 }
 
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+.a4-document {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 18mm 16mm;
+  background: white;
+  color: #111;
+}
+
 @media print {
   body * {
     visibility: hidden;
   }
 
+  .a4-document,
+  .a4-document *,
   .inspection-notice-print,
   .inspection-notice-print * {
     visibility: visible !important;
+  }
+
+  .a4-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 15mm;
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+    box-shadow: none !important;
   }
 
   .inspection-notice-print {
