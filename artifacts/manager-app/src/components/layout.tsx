@@ -151,8 +151,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </div>
   )), [location, isPartner]);
 
-  const notifButton = (
-    <Popover open={notifOpen} onOpenChange={setNotifOpen}>
+  const renderNotifButton = (key: string) => (
+    <Popover key={key} open={notifOpen} onOpenChange={setNotifOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
           <Bell className="w-5 h-5" />
@@ -351,11 +351,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
               <span className="text-sm font-semibold truncate">{pageTitle}</span>
             </div>
-            {notifButton}
+            {renderNotifButton("notif-mobile")}
           </div>
 
           <div className="layout-desktop-header sticky top-0 z-20 bg-background border-b px-6 py-3 justify-end">
-            {notifButton}
+            {renderNotifButton("notif-desktop")}
           </div>
 
           <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
