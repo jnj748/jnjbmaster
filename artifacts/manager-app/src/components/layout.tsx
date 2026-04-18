@@ -220,18 +220,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         @media (min-width: 900px) {
           .layout-grid {
-            display: grid;
-            grid-template-columns: 220px 1fr;
-            grid-template-rows: 1fr;
-            align-items: start;
+            display: block;
+            padding-left: 220px;
           }
           .layout-sidebar {
             display: flex;
-            position: sticky;
+            position: fixed;
             top: 0;
-            align-self: start;
+            left: 0;
+            width: 220px;
             height: 100vh;
             overflow: hidden;
+            z-index: 30;
           }
           .layout-mobile-header { display: none; }
           .layout-desktop-header { display: flex; }
