@@ -107,6 +107,8 @@ export interface RouteEntry {
   sideMenu?: Role[];
   /** Roles that see this in the bottom nav. Defaults to []. */
   bottomNav?: Role[];
+  /** Sort key for bottom-nav placement (lower first). Defaults to 100. */
+  bottomOrder?: number;
   /** Hide from sidebar even if role has access (e.g. sub-routes). */
   hidden?: boolean;
   /** Per-role label override for sidebar / page title. */
@@ -178,8 +180,11 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     path: "/ai-assistant", component: AiAssistant,
-    label: "AI 도우미", icon: Sparkles, group: "dashboard",
+    label: "AI 관리비서", icon: Sparkles, group: "dashboard",
     access: ["manager", "platform_admin"],
+    bottomNav: ["manager", "platform_admin"],
+    bottomLabel: "AI비서",
+    bottomOrder: 30,
   },
   {
     path: "/building-info", component: BuildingInfo,
@@ -200,8 +205,6 @@ export const ROUTES: RouteEntry[] = [
     path: "/tenants", component: Tenants,
     label: "입주민 관리", icon: Users, group: "residents",
     access: ["manager", "accountant", "platform_admin"],
-    bottomNav: ["manager", "platform_admin"],
-    bottomLabelOverrides: { manager: "입주민", platform_admin: "입주민" },
   },
   {
     path: "/owners", component: Owners,
@@ -234,6 +237,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "facility_staff"],
     bottomNav: ["manager", "platform_admin", "facility_staff"],
     bottomLabel: "시설",
+    bottomOrder: 10,
   },
   {
     path: "/inspections", component: Inspections,
@@ -284,6 +288,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     bottomNav: ["manager", "platform_admin", "accountant"],
     bottomLabel: "회계",
+    bottomOrder: 20,
   },
   {
     path: "/metering", component: Metering,
@@ -323,7 +328,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/approvals", component: Approvals,
     label: "결재함", icon: ClipboardCheck, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
-    bottomNav: ["manager", "platform_admin", "accountant"],
+    bottomNav: ["accountant"],
     bottomLabel: "결재",
   },
   {
@@ -527,15 +532,21 @@ export function getBottomNavItems(role: Role): NavItem[] {
     ];
   }
   const items: NavItem[] = [{ ...rootItem(role), label: roleHomeShort(role) }];
+  const tail: { entry: RouteEntry; item: NavItem }[] = [];
   for (const entry of ROUTES) {
     const inBottom = entry.bottomNav ?? [];
     if (!inBottom.includes(role)) continue;
-    items.push({
-      path: entry.path,
-      label: bottomLabelFor(entry, role),
-      icon: entry.icon,
+    tail.push({
+      entry,
+      item: {
+        path: entry.path,
+        label: bottomLabelFor(entry, role),
+        icon: entry.icon,
+      },
     });
   }
+  tail.sort((a, b) => (a.entry.bottomOrder ?? 100) - (b.entry.bottomOrder ?? 100));
+  for (const t of tail) items.push(t.item);
   return items;
 }
 

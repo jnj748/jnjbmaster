@@ -9,6 +9,7 @@ import {
   useCreateAlertAction,
   useCreateRfq,
   useGetDelinquencySummary,
+  useListApprovals,
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
   type CreateRfqBody,
@@ -134,6 +135,74 @@ interface DashboardAlert {
   dueDate?: string | null;
   penaltyInfo?: string | null;
   createdAt: string;
+}
+
+function PendingApprovalsCard() {
+  const { data: pending, isLoading } = useListApprovals({ status: "pending" });
+  const items = pending ?? [];
+  const visible = items.slice(0, 3);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-chart-1" />
+            결재
+            {items.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                대기 {items.length}건
+              </span>
+            )}
+          </h2>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            나의 결재 대기 항목입니다
+          </p>
+        </div>
+        <Link href="/approvals">
+          <button className="text-xs text-primary hover:underline font-medium">전체 보기 →</button>
+        </Link>
+      </div>
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+        </div>
+      ) : visible.length === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-center">
+            <p className="text-sm text-muted-foreground">결재 대기 중인 항목이 없습니다</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((a: any) => (
+            <Link key={a.id} href="/approvals">
+              <div className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{a.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {a.requesterName ? `요청자: ${a.requesterName} · ` : ""}
+                    {a.createdAt ? formatDate(a.createdAt) : ""}
+                  </p>
+                </div>
+                {typeof a.estimatedAmount === "number" && (
+                  <span className="text-xs font-semibold shrink-0">
+                    {"\u20A9"}{a.estimatedAmount.toLocaleString()}
+                  </span>
+                )}
+                <Badge variant="outline" className="text-[10px] shrink-0">대기</Badge>
+              </div>
+            </Link>
+          ))}
+          {items.length > visible.length && (
+            <p className="text-xs text-center text-muted-foreground pt-1">
+              외 {items.length - visible.length}건 더 있음
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -535,6 +604,8 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      <PendingApprovalsCard />
 
       {pendingCardCount > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
