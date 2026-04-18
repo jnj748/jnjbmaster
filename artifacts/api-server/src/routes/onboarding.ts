@@ -126,11 +126,18 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
   ];
   const progressPercent = Math.round((checks.filter(Boolean).length / checks.length) * 100);
 
-  // 보수: 기존 manager 계정(=Gate1 이미 완료) 중 preference 가 NULL 이라면
-  // 모달 강제 노출 없이 'started' 로 자동 간주(서버에 저장하지 않고 응답만).
-  // 이렇게 해야 기존 운영 중인 관리소장 계정에 새로운 모달이 갑자기 뜨지 않음.
+  // 보수: 기존 manager 계정에는 새로운 모달/Gate 동작이 발생하지 않도록 함.
+  // 1) Gate1 이미 완료된 계정 — 자동 간주
+  // 2) 본 기능 출시 이전(=ONBOARDING_RELEASE_DATE) 생성된 계정 — 자동 간주
+  // 위 두 조건 중 하나라도 해당하면 모달/리다이렉트 트리거 없음.
+  const ONBOARDING_RELEASE_DATE = new Date("2026-04-18T00:00:00+09:00");
+  const isPreExistingAccount = user.createdAt
+    ? new Date(user.createdAt) < ONBOARDING_RELEASE_DATE
+    : false;
   const effectivePreference: OnboardingStatus["preference"] =
-    preference === null && gate1.completed ? "started" : preference;
+    preference === null && (gate1.completed || isPreExistingAccount)
+      ? "started"
+      : preference;
 
   const status: OnboardingStatus = { preference: effectivePreference, gate1, gate2, progressPercent };
   res.json(status);
