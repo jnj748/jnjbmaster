@@ -219,33 +219,16 @@ export function BuildingInfoCard({ className }: { className?: string }) {
 
   const merged: BuildingInfoCardData = {
     name: building.name,
-    addressFull: (extra?.addressFull as string) ?? building.addressFull ?? null,
-    addressJibun:
-      (extra?.addressJibun as string) ?? (building as any).addressJibun ?? null,
-    buildingUsage:
-      (extra?.buildingUsage as string) ??
-      (building as any).buildingUsage ??
-      null,
+    addressFull: extra?.addressFull ?? building.addressFull ?? null,
+    addressJibun: extra?.addressJibun ?? building.addressJibun ?? null,
+    buildingUsage: extra?.buildingUsage ?? building.buildingUsage ?? null,
     totalUnits: extra?.totalUnits ?? building.totalUnits ?? null,
-    totalFloors:
-      (extra?.totalFloors as number) ?? (building as any).totalFloors ?? null,
-    basementFloors:
-      (extra?.basementFloors as number) ??
-      (building as any).basementFloors ??
-      null,
-    totalArea: extra?.totalArea ?? (building as any).totalArea ?? null,
-    elevatorCount:
-      (extra?.elevatorCount as number) ??
-      (building as any).elevatorCount ??
-      null,
-    parkingSpaces:
-      (extra?.parkingSpaces as number) ??
-      (building as any).parkingSpaces ??
-      null,
-    completionDate:
-      (extra?.completionDate as string) ??
-      (building as any).completionDate ??
-      null,
+    totalFloors: extra?.totalFloors ?? building.totalFloors ?? null,
+    basementFloors: extra?.basementFloors ?? building.basementFloors ?? null,
+    totalArea: extra?.totalArea ?? building.totalArea ?? null,
+    elevatorCount: extra?.elevatorCount ?? building.elevatorCount ?? null,
+    parkingSpaces: extra?.parkingSpaces ?? building.parkingSpaces ?? null,
+    completionDate: extra?.completionDate ?? building.completionDate ?? null,
   };
 
   return <BuildingInfoCardView data={merged} className={className} />;

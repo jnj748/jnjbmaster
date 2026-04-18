@@ -18,6 +18,12 @@ interface BuildingInfo {
   elevatorCount: number | null;
   managementOfficePhone: string | null;
   logoUrl: string | null;
+  // Optional extended fields surfaced by /buildings/overview and shown in
+  // BuildingInfoCard. These may be undefined when the context loader returns
+  // only the base subset, so consumers must guard with optional chaining.
+  buildingUsage?: string | null;
+  basementFloors?: number | null;
+  completionDate?: string | null;
 }
 
 interface BuildingContextType {
