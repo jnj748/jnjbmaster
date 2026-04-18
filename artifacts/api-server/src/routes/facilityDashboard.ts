@@ -440,10 +440,11 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
   }
 
   // ── 오늘 4대 핵심 과업 진행률 ─────────────────────
-  // 법정점검 "오늘 남은 예정" = 지연 + 오늘 마감. 둘 다 0이면 완료.
+  // 법정점검 "오늘 남은 예정" = 오늘 마감(due today)만. 지연(overdue)은 별도
+  // 신호등 배지로 이미 노출되며, "오늘 예정 0건이면 자동 완료" 요구사항에 맞춤.
   const dueTodayInspCount = upcomingInspRows.filter((r) => r.nextDueDate === today).length;
   const todayProgress = computeTodayProgress({
-    inspectionsDueRemaining: (overdueInsp?.count ?? 0) + dueTodayInspCount,
+    inspectionsDueRemaining: dueTodayInspCount,
     safetyChecklistsCompletedToday: completedTodayChk?.count ?? 0,
     maintenanceLogsToday: anyTodayLog?.count ?? 0,
     safetyTrainingsPendingToday: pendingTodayTraining?.count ?? 0,

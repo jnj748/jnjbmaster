@@ -8,7 +8,8 @@
  * (single source of truth).
  *
  * Judgment rules (per task #113):
- *  - 법정점검:       오늘 예정된 점검(nextDueDate <= today) 0건이면 완료.
+ *  - 법정점검:       오늘 마감(nextDueDate === today) 미등록 0건이면 완료.
+ *                    (지연 건은 별도 신호등 배지에 반영되며, 본 진행률에는 포함하지 않는다.)
  *                    1건 이상 남아 있으면 미완료. 점검 완료 시 nextDueDate가
  *                    다음 주기로 이동하므로 "남은 0건 = 모두 결과 등록"과 동치.
  *  - 안전점검표:     오늘 작성된 일일 점검표 중 status != 'pending' 인 것이
@@ -22,7 +23,7 @@
  */
 
 export interface TodayProgressInput {
-  /** Inspections with nextDueDate <= today (overdue + due today). */
+  /** 오늘(KST) 마감인 법정점검 중 결과 미등록 건수. 지연(overdue)은 포함하지 않으며 별도 신호등으로 노출된다. */
   inspectionsDueRemaining: number;
   /** Safety checklists for today with status != 'pending'. */
   safetyChecklistsCompletedToday: number;

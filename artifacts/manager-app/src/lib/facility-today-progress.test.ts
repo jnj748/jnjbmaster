@@ -30,7 +30,19 @@ test("법정점검: 오늘 예정 0건이면 완료 (예정 없으면 자동 완
   assert.equal(r.items.inspections, true);
 });
 
-test("법정점검: 오늘/지연 예정이 1건 이상이면 미완료", () => {
+test("법정점검: 지연만 있고 오늘 예정 0건이면 자동 완료 (지연은 신호등으로 별도 노출)", () => {
+  // inspectionsDueRemaining 은 "오늘 마감 미등록"만 의미. 지연 건이 따로 존재해도
+  // 이 입력에는 반영되지 않으므로 진행률은 완료로 잡힌다.
+  const r = computeTodayProgress({
+    inspectionsDueRemaining: 0,
+    safetyChecklistsCompletedToday: 0,
+    maintenanceLogsToday: 0,
+    safetyTrainingsPendingToday: 0,
+  });
+  assert.equal(r.items.inspections, true);
+});
+
+test("법정점검: 오늘 마감이 1건 이상이면 미완료", () => {
   const r = computeTodayProgress({
     inspectionsDueRemaining: 1,
     safetyChecklistsCompletedToday: 0,
