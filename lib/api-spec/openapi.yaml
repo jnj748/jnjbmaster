@@ -4025,6 +4025,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/FacilityDashboard"
 
+  /facility/status-summary:
+    get:
+      operationId: getFacilityStatusSummary
+      tags: [safetyChecklists]
+      summary: Compact per-icon status (red/yellow/none + count) for the sidebar facility group badges
+      responses:
+        "200":
+          description: Status summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilityStatusSummary"
+
   /facility/defect-trends:
     get:
       operationId: getFacilityDefectTrends
@@ -7852,6 +7865,33 @@ components:
           enum: [scheduled, completed, cancelled]
         notes:
           type: ["string", "null"]
+
+    FacilityStatusBadge:
+      type: object
+      properties:
+        level:
+          type: string
+          enum: [none, yellow, red]
+        count:
+          type: integer
+          description: Total items contributing to this badge (combined yellow + red).
+        ariaLabel:
+          type: string
+          description: Pre-rendered Korean label for screen readers (e.g. "법정점검 D-3, 2건 임박").
+      required: [level, count, ariaLabel]
+
+    FacilityStatusSummary:
+      type: object
+      properties:
+        inspections:
+          $ref: "#/components/schemas/FacilityStatusBadge"
+        safetyChecklists:
+          $ref: "#/components/schemas/FacilityStatusBadge"
+        maintenanceLogs:
+          $ref: "#/components/schemas/FacilityStatusBadge"
+        safetyTrainings:
+          $ref: "#/components/schemas/FacilityStatusBadge"
+      required: [inspections, safetyChecklists, maintenanceLogs, safetyTrainings]
 
     FacilityDashboard:
       type: object

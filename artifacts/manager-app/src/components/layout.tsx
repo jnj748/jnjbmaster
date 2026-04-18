@@ -6,9 +6,13 @@ import {
   useListNotifications,
   useGetUnreadNotificationCount,
   useMarkNotificationRead,
+  useGetFacilityStatusSummary,
   getListNotificationsQueryKey,
   getGetUnreadNotificationCountQueryKey,
+  type FacilityStatusBadge as FacilityBadge,
+  type FacilityStatusSummary,
 } from "@workspace/api-client-react";
+import { FacilityStatusBadge } from "@/components/facility-status-badge";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -163,6 +167,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
 
+  // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
+  // 시설 섹션이 노출되는 role에만 활성화하여 불필요한 호출을 막는다.
+  const hasFacilitySection = useMemo(
+    () => sections.some((s) => s.title === "시설 및 안전관리"),
+    [sections],
+  );
+  const { data: facilityStatus } = useGetFacilityStatusSummary({
+    query: {
+      queryKey: ["facility-status-summary"],
+      enabled: hasFacilitySection,
+      refetchInterval: 60 * 1000,
+      refetchOnWindowFocus: true,
+      staleTime: 30 * 1000,
+    },
+  });
+  const badgeForPath = useCallback(
+    (path: string): FacilityBadge | undefined => {
+      if (!facilityStatus) return undefined;
+      const s = facilityStatus as FacilityStatusSummary;
+      switch (path) {
+        case "/inspections":
+          return s.inspections;
+        case "/safety-checklists":
+          return s.safetyChecklists;
+        case "/maintenance-logs":
+          return s.maintenanceLogs;
+        case "/safety-training":
+          return s.safetyTrainings;
+        default:
+          return undefined;
+      }
+    },
+    [facilityStatus],
+  );
+
   const bottomNavItems = bottomItems;
   const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
@@ -193,18 +232,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {section.items.map((item) => {
               const isActive =
                 item.path === "/" ? location === "/" : location.startsWith(item.path);
+              const badge = badgeForPath(item.path);
               return (
                 <Link key={item.path} href={item.path}>
                   <div
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[10px] font-medium transition-colors cursor-pointer min-h-[56px] text-center",
+                      "relative flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[10px] font-medium transition-colors cursor-pointer min-h-[56px] text-center",
                       isActive
                         ? "bg-sidebar-accent text-white"
                         : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
                     )}
-                    title={item.label}
+                    title={badge?.ariaLabel ?? item.label}
                   >
-                    <item.icon className="w-5 h-5 shrink-0" />
+                    <span className="relative inline-flex">
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      <FacilityStatusBadge badge={badge} size="sm" />
+                    </span>
                     <span
                       className="block w-full leading-tight overflow-hidden text-ellipsis whitespace-nowrap break-keep"
                     >
@@ -332,10 +375,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="grid grid-cols-4 gap-2">
                   {section.items.map((item) => {
                     const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+                    const badge = badgeForPath(item.path);
                     return (
                       <Link key={item.path} href={item.path}>
                         <button
                           onClick={() => setDrawerOpen(false)}
+                          aria-label={badge?.ariaLabel ?? item.label}
                           className={cn(
                             "w-full min-w-0 flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border transition-colors overflow-hidden",
                             isActive
@@ -343,7 +388,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                               : "bg-card border-border hover:bg-muted text-foreground"
                           )}
                         >
-                          <item.icon className="w-6 h-6 shrink-0" />
+                          <span className="relative inline-flex">
+                            <item.icon className="w-6 h-6 shrink-0" />
+                            <FacilityStatusBadge badge={badge} size="md" />
+                          </span>
                           <span className="block w-full text-[10px] font-medium text-center whitespace-nowrap overflow-hidden text-ellipsis px-0.5">
                             {item.label}
                           </span>

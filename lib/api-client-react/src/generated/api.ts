@@ -121,6 +121,7 @@ import type {
   FacilityAlert,
   FacilityDashboard,
   FacilityDefectTrends,
+  FacilityStatusSummary,
   FeeTrendItem,
   FinalizeUpload200,
   FinalizeUploadBody,
@@ -16484,6 +16485,82 @@ export function useGetFacilityDashboard<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetFacilityDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Compact per-icon status (red/yellow/none + count) for the sidebar facility group badges
+ */
+export const getGetFacilityStatusSummaryUrl = () => {
+  return `/api/facility/status-summary`;
+};
+
+export const getFacilityStatusSummary = async (
+  options?: RequestInit,
+): Promise<FacilityStatusSummary> => {
+  return customFetch<FacilityStatusSummary>(getGetFacilityStatusSummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilityStatusSummaryQueryKey = () => {
+  return [`/api/facility/status-summary`] as const;
+};
+
+export const getGetFacilityStatusSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityStatusSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityStatusSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilityStatusSummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityStatusSummary>>
+  > = ({ signal }) => getFacilityStatusSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityStatusSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityStatusSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityStatusSummary>>
+>;
+export type GetFacilityStatusSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Compact per-icon status (red/yellow/none + count) for the sidebar facility group badges
+ */
+
+export function useGetFacilityStatusSummary<
+  TData = Awaited<ReturnType<typeof getFacilityStatusSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityStatusSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilityStatusSummaryQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -2452,6 +2452,30 @@ export interface UpdateSafetyTrainingBody {
   notes?: string | null;
 }
 
+export type FacilityStatusBadgeLevel =
+  (typeof FacilityStatusBadgeLevel)[keyof typeof FacilityStatusBadgeLevel];
+
+export const FacilityStatusBadgeLevel = {
+  none: "none",
+  yellow: "yellow",
+  red: "red",
+} as const;
+
+export interface FacilityStatusBadge {
+  level: FacilityStatusBadgeLevel;
+  /** Total items contributing to this badge (combined yellow + red). */
+  count: number;
+  /** Pre-rendered Korean label for screen readers (e.g. "법정점검 D-3, 2건 임박"). */
+  ariaLabel: string;
+}
+
+export interface FacilityStatusSummary {
+  inspections: FacilityStatusBadge;
+  safetyChecklists: FacilityStatusBadge;
+  maintenanceLogs: FacilityStatusBadge;
+  safetyTrainings: FacilityStatusBadge;
+}
+
 export type FacilityAlertType =
   (typeof FacilityAlertType)[keyof typeof FacilityAlertType];
 

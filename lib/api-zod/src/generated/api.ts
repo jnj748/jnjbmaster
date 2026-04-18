@@ -5294,6 +5294,64 @@ export const GetFacilityDashboardResponse = zod.object({
 });
 
 /**
+ * @summary Compact per-icon status (red/yellow/none + count) for the sidebar facility group badges
+ */
+export const GetFacilityStatusSummaryResponse = zod.object({
+  inspections: zod.object({
+    level: zod.enum(["none", "yellow", "red"]),
+    count: zod
+      .number()
+      .describe(
+        "Total items contributing to this badge (combined yellow + red).",
+      ),
+    ariaLabel: zod
+      .string()
+      .describe(
+        'Pre-rendered Korean label for screen readers (e.g. \"법정점검 D-3, 2건 임박\").',
+      ),
+  }),
+  safetyChecklists: zod.object({
+    level: zod.enum(["none", "yellow", "red"]),
+    count: zod
+      .number()
+      .describe(
+        "Total items contributing to this badge (combined yellow + red).",
+      ),
+    ariaLabel: zod
+      .string()
+      .describe(
+        'Pre-rendered Korean label for screen readers (e.g. \"법정점검 D-3, 2건 임박\").',
+      ),
+  }),
+  maintenanceLogs: zod.object({
+    level: zod.enum(["none", "yellow", "red"]),
+    count: zod
+      .number()
+      .describe(
+        "Total items contributing to this badge (combined yellow + red).",
+      ),
+    ariaLabel: zod
+      .string()
+      .describe(
+        'Pre-rendered Korean label for screen readers (e.g. \"법정점검 D-3, 2건 임박\").',
+      ),
+  }),
+  safetyTrainings: zod.object({
+    level: zod.enum(["none", "yellow", "red"]),
+    count: zod
+      .number()
+      .describe(
+        "Total items contributing to this badge (combined yellow + red).",
+      ),
+    ariaLabel: zod
+      .string()
+      .describe(
+        'Pre-rendered Korean label for screen readers (e.g. \"법정점검 D-3, 2건 임박\").',
+      ),
+  }),
+});
+
+/**
  * @summary Get defect trend analysis by category and month
  */
 export const GetFacilityDefectTrendsResponse = zod.object({
