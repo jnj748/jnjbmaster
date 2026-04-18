@@ -15,7 +15,9 @@ import {
   Calendar,
   Info,
   Clock,
+  Scale,
 } from "lucide-react";
+import { classifyLegalStaffing, daysUntil, type LegalAppointment } from "@/lib/legal-staffing";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -200,6 +202,11 @@ export default function BuildingInfo() {
         />
       </div>
 
+      <LegalStaffingCard
+        totalArea={b.totalArea as number | string | null | undefined}
+        electricCapacityKw={b.electricCapacityKw as number | string | null | undefined}
+      />
+
       {(b.buildingArea || b.buildingCoverageRatio || b.floorAreaRatio) && (
         <Card>
           <CardHeader className="pb-3">
@@ -333,6 +340,99 @@ export default function BuildingInfo() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function LegalStaffingCard({
+  totalArea,
+  electricCapacityKw,
+}: {
+  totalArea?: number | string | null;
+  electricCapacityKw?: number | string | null;
+}) {
+  // v1: 선임자 등록 데이터 소스가 아직 없어 항상 "미등록" 으로 표시.
+  // 등록자/만료일이 추후 도입되면 classifyLegalStaffing 의 두번째 인자에 주입.
+  const items = classifyLegalStaffing({ totalArea, electricCapacityKw });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Scale className="w-4 h-4 text-purple-600" />
+          법적 선임 현황
+        </CardTitle>
+        <CardDescription>건물 제원 기반 자동 산정 (4대 법정선임)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 desktop:grid-cols-2 gap-3">
+          {items.map((it) => (
+            <LegalStaffingRow key={it.field} item={it} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LegalStaffingRow({ item }: { item: LegalAppointment }) {
+  // 신호등 색상: 미등록(빨강) > 만료임박(노랑) > 정상(초록) > 선임 불요(회색).
+  const expiryDays = daysUntil(item.appointee?.certificateExpiry);
+  let dotClass = "bg-slate-300";
+  let statusBadge: { text: string; className: string } | null = null;
+  let appointeeText: string | null = null;
+
+  if (!item.required) {
+    dotClass = "bg-slate-300";
+    statusBadge = { text: "선임 불요", className: "bg-slate-100 text-slate-600 border-slate-200" };
+  } else if (!item.appointee) {
+    dotClass = "bg-red-500";
+    statusBadge = { text: "미등록", className: "bg-red-100 text-red-700 border-red-200" };
+  } else if (expiryDays !== null && expiryDays < 0) {
+    dotClass = "bg-red-500";
+    statusBadge = { text: "자격증 만료", className: "bg-red-100 text-red-700 border-red-200" };
+    appointeeText = `${item.appointee.name} (만료 D${expiryDays})`;
+  } else if (expiryDays !== null && expiryDays <= 30) {
+    dotClass = "bg-yellow-400";
+    statusBadge = { text: `D-${expiryDays}`, className: "bg-yellow-100 text-yellow-800 border-yellow-200" };
+    appointeeText = `${item.appointee.name} (자격증 만료 D-${expiryDays})`;
+  } else {
+    dotClass = "bg-green-500";
+    statusBadge = { text: "정상", className: "bg-green-100 text-green-700 border-green-200" };
+    appointeeText = expiryDays !== null
+      ? `${item.appointee.name} (만료 D-${expiryDays})`
+      : item.appointee.name;
+  }
+
+  return (
+    <div className="border rounded-lg p-3 flex items-start gap-3">
+      <span
+        className={`mt-1.5 inline-block w-2.5 h-2.5 rounded-full shrink-0 ${dotClass}`}
+        aria-hidden="true"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-medium text-sm">{item.label}</span>
+            {item.grade && (
+              <span className="text-xs text-muted-foreground">{item.grade}</span>
+            )}
+          </div>
+          {statusBadge && (
+            <span
+              className={`inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded border ${statusBadge.className}`}
+            >
+              {statusBadge.text}
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          {item.threshold} · {item.legalBasis}
+        </div>
+        {appointeeText && (
+          <div className="text-xs mt-1">현재 선임자: <span className="font-medium">{appointeeText}</span></div>
+        )}
       </div>
     </div>
   );
