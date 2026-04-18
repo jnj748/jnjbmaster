@@ -190,7 +190,9 @@ export const ROUTES: RouteEntry[] = [
     path: "/building-info", component: BuildingInfo,
     label: "건물 정보", icon: Building, group: "dashboard",
     access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],
-    sideMenu: ["manager", "platform_admin"],
+    // 사이드바·드로어에서 숨김 — 핵심 정보는 대시보드 카드로 임베드되며,
+    // /building-info URL은 "자세히 보기" 링크로 유지됩니다.
+    sideMenu: [],
   },
 
   // ── Residents group ─────────────────────────────────────────────
@@ -235,6 +237,9 @@ export const ROUTES: RouteEntry[] = [
     path: "/facility", component: FacilityDashboard,
     label: "시설관리", icon: HardHat, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
+    // 시설 그룹 자체가 4-아이콘 허브 역할을 하므로 사이드바에서 숨김.
+    // 그룹 헤더 클릭 시 /facility 로 이동 (layout.tsx 의 facilityGroupHref).
+    sideMenu: [],
     bottomNav: ["manager", "platform_admin", "facility_staff"],
     bottomLabel: "시설",
     bottomOrder: 10,
@@ -265,7 +270,7 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     path: "/attendance", component: Attendance,
-    label: "출퇴근 관리", icon: Clock, group: "facility",
+    label: "출퇴근 관리", icon: Clock, group: "settings",
     // Canonical attendance policy (matches backend buildingStaff guard
     // in api-server/src/routes/attendance.ts):
     //   • URL access  : building-portal staff (manager / platform_admin
@@ -448,6 +453,13 @@ export interface NavItem {
 export interface NavSection {
   title?: string;
   items: NavItem[];
+  /**
+   * Optional click target for the section header. When set, the section header
+   * acts as a hub link (e.g. facility group → /facility). Only populated when
+   * the role has route access to that path; otherwise omitted to avoid
+   * routing roles to pages they cannot access.
+   */
+  headerHref?: string;
 }
 
 const labelFor = (entry: RouteEntry, role: Role): string =>
@@ -515,7 +527,14 @@ export function getSidebarSections(role: Role): NavSection[] {
       });
     }
     if (items.length > 0) {
-      sections.push({ title: GROUP_TITLES[group], items });
+      const section: NavSection = { title: GROUP_TITLES[group], items };
+      if (group === "facility") {
+        const facilityHub = ROUTES.find((r) => r.path === "/facility");
+        if (facilityHub && facilityHub.access.includes(role)) {
+          section.headerHref = "/facility";
+        }
+      }
+      sections.push(section);
     }
   }
   return sections;

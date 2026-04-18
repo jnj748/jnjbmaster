@@ -167,33 +167,86 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
 
-  const navLinks = useMemo(() => sections.map((section, si) => (
-    <div key={si}>
-      {section.title && (
-        <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
+  const navLinks = useMemo(() => sections.map((section, si) => {
+    // 시설 및 안전관리 그룹은 4-아이콘 그리드로 렌더 (시니어 친화적 인지 속도 향상).
+    // 그룹 헤더는 role이 /facility 접근 권한이 있을 때만 클릭 가능 (headerHref 사용).
+    const isFacilityGrid =
+      section.title === "시설 및 안전관리" && section.items.length > 0;
+
+    if (isFacilityGrid) {
+      const header = (
+        <div
+          className={cn(
+            "px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider font-semibold transition-colors",
+            section.headerHref
+              ? "text-sidebar-foreground/40 cursor-pointer hover:text-sidebar-foreground/70"
+              : "text-sidebar-foreground/40",
+          )}
+        >
           {section.title}
         </div>
-      )}
-      {section.items.map((item) => {
-        const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-        return (
-          <Link key={item.path} href={item.path}>
-            <div
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
-                isActive
-                  ? "bg-sidebar-accent text-white"
-                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  )), [location, isPartner]);
+      );
+      return (
+        <div key={si}>
+          {section.headerHref ? <Link href={section.headerHref}>{header}</Link> : header}
+          <div className="grid grid-cols-4 gap-1 px-2 pb-1">
+            {section.items.map((item) => {
+              const isActive =
+                item.path === "/" ? location === "/" : location.startsWith(item.path);
+              return (
+                <Link key={item.path} href={item.path}>
+                  <div
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[10px] font-medium transition-colors cursor-pointer min-h-[56px] text-center",
+                      isActive
+                        ? "bg-sidebar-accent text-white"
+                        : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+                    )}
+                    title={item.label}
+                  >
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    <span
+                      className="block w-full leading-tight overflow-hidden text-ellipsis whitespace-nowrap break-keep"
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={si}>
+        {section.title && (
+          <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
+            {section.title}
+          </div>
+        )}
+        {section.items.map((item) => {
+          const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+          return (
+            <Link key={item.path} href={item.path}>
+              <div
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                  isActive
+                    ? "bg-sidebar-accent text-white"
+                    : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+                )}
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }), [location, isPartner, sections]);
 
   return (
     <>

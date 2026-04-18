@@ -68,6 +68,7 @@ import {
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
+import { BuildingInfoCard } from "@/components/building-info-card";
 import { Printer } from "lucide-react";
 
 function StatCard({
@@ -422,6 +423,8 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      <BuildingInfoCard />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
