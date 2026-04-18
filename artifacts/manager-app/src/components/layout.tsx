@@ -317,9 +317,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {sections.map((section, si) => (
               <div key={si} className="mb-6">
                 {section.title && (
-                  <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground">
-                    {section.title}
-                  </div>
+                  section.headerHref ? (
+                    <Link href={section.headerHref} onClick={() => setDrawerOpen(false)}>
+                      <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        {section.title}
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground">
+                      {section.title}
+                    </div>
+                  )
                 )}
                 <div className="grid grid-cols-4 gap-2">
                   {section.items.map((item) => {
