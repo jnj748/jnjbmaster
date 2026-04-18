@@ -289,7 +289,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
     );
-  }), [location, isPartner, sections]);
+  }), [location, isPartner, sections, badgeForPath]);
 
   return (
     <>
