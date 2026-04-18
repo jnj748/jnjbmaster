@@ -6,6 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { BuildingProvider } from "@/contexts/building-context";
+import { OnboardingProvider } from "@/contexts/onboarding-context";
+import { OnboardingGate } from "@/components/onboarding-gate";
+import { OnboardingModal } from "@/components/onboarding-modal";
+import { BrowsingBanner } from "@/components/browsing-banner";
 import {
   getRoutesForRole,
   getEffectiveRole,
@@ -16,6 +20,7 @@ import Login from "@/pages/login";
 
 const PortalSelect = lazy(() => import("@/pages/portal-select"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
+const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 // 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
 const LayoutCheck = import.meta.env.DEV
   ? lazy(() => import("@/pages/layout-check"))
@@ -51,26 +56,33 @@ function AuthenticatedRoutes() {
 
   return (
     <BuildingProvider>
-      <Layout>
-        <Suspense fallback={<PageLoader />}>
-          <Switch>
-            {LayoutCheck && (
-              <Route path="/__layout-check" component={LayoutCheck} />
-            )}
-            <Route path="/tenant-card/:token" component={TenantCardForm} />
-            <Route path="/building-setup">
-              <Redirect to="/settings" />
-            </Route>
-            <Route path="/" component={DashboardComponent} />
-            {routes.map((r) => (
-              <Route key={r.path} path={r.path} component={r.component} />
-            ))}
-            <Route>
-              <Redirect to="/" />
-            </Route>
-          </Switch>
-        </Suspense>
-      </Layout>
+      <OnboardingProvider>
+        <OnboardingGate>
+          <Layout>
+            <BrowsingBanner />
+            <Suspense fallback={<PageLoader />}>
+              <Switch>
+                {LayoutCheck && (
+                  <Route path="/__layout-check" component={LayoutCheck} />
+                )}
+                <Route path="/tenant-card/:token" component={TenantCardForm} />
+                <Route path="/building-setup">
+                  <Redirect to="/settings" />
+                </Route>
+                <Route path="/onboarding" component={OnboardingPage} />
+                <Route path="/" component={DashboardComponent} />
+                {routes.map((r) => (
+                  <Route key={r.path} path={r.path} component={r.component} />
+                ))}
+                <Route>
+                  <Redirect to="/" />
+                </Route>
+              </Switch>
+            </Suspense>
+          </Layout>
+          <OnboardingModal />
+        </OnboardingGate>
+      </OnboardingProvider>
     </BuildingProvider>
   );
 }

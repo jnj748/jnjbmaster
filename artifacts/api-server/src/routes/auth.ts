@@ -221,6 +221,7 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       portalType: user.portalType,
       buildingSido: user.buildingSido,
       buildingSigungu: user.buildingSigungu,
+      onboardingPreference: user.onboardingPreference,
     },
   });
 });

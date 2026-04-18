@@ -10,6 +10,7 @@ export interface AuthUser {
   portalType: "building" | "partner" | "hq";
   buildingSido?: string | null;
   buildingSigungu?: string | null;
+  onboardingPreference?: "started" | "browsing" | null;
 }
 
 interface AuthContextType {

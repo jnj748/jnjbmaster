@@ -12,6 +12,19 @@
 - Do not make changes to files related to authentication unless explicitly requested.
 - **파일럿 운영 중 (v1 미선언)**: 모든 결정/옵션 선택에서 가장 보수적인 안을 우선. v1 정식 출시 선언 전까지 유지.
 
+## 관리소장 첫 시작 자동화 (Task #106, 2026-04-18 — Phase 1)
+- **법령 임계치 정정**: `domain/statutory.ts` 기계설비유지관리자 등급 임계치 — 특급 30000→60000, 고급 20000→30000 (시행규칙 별표1 정합). 더 엄격→완화 방향이라 안전성 위배 없음.
+- **신규 컬럼**: `users.onboarding_preference` (varchar(16) NULL/'started'/'browsing'). 첫 로그인 모달 선택값 영구 저장.
+- **신규 API**: `GET /api/onboarding/status` (gate1 hard / gate2 soft 진행률), `POST /api/onboarding/preference`. manager 역할만 동작, 다른 역할은 빈 상태/403.
+- **클라이언트 신규**: `OnboardingProvider`, `OnboardingModal`(외부 닫기 차단·강제 선택), `OnboardingGate`(/onboarding redirect, started 모드 한정), `BrowsingBanner`(상단 배너), `/onboarding` 페이지(building-setup 재활용 + 진행 단계 헤더).
+- **회귀 보존**: 비-manager 역할은 OnboardingProvider 쿼리 자체가 비활성. /onboarding 직접 접근도 manager 외에는 / 로 redirect. 기존 manager 계정은 첫 로그인 시 모달 강제 선택 후 기존 동작 복귀.
+- **후속 (별도 태스크 필요)**:
+  - 준공일 기반 역산 스케줄(scheduleFromCompletion.ts) + 하자담보 D-Day 카드 + 위저드 "준공일 모름" 체크
+  - 둘러보기 모드에서 자동화 카드 회색 처리 (4개 카드 visual disable)
+  - Gate 2 강제: 직원 미등록 시 일일근무점검표 메뉴 회색, 협력사 미등록 시 지출결의서 메뉴 회색
+  - UX 가이드 헬퍼(FieldGuidePopover): 한전 청구서 계약전력 위치 등 이미지 가이드
+  - 발전용량 합산 로직, 가이드 이미지 에셋, OCR
+
 ## Codebase Cleanup Notes (Task #102, 2026-04-17)
 - **Soft-deleted (이동만, 삭제 X)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` → `artifacts/manager-app/src/_deprecated/` (tsconfig exclude). 복원 시 원위치로 이동만 하면 됨.
   - UI: accordion, aspect-ratio, breadcrumb, carousel, collapsible, command, context-menu, hover-card, input-otp, kbd, menubar, navigation-menu, pagination, resizable

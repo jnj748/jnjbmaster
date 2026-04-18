@@ -50,6 +50,7 @@ import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
 import contractsRouter from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
+import onboardingRouter from "./onboarding";
 
 const router: IRouter = Router();
 
@@ -111,6 +112,7 @@ buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);
 buildingRouter.use(warrantiesRouter);
 buildingRouter.use(contractsRouter);
+buildingRouter.use(onboardingRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);
