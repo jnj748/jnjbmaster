@@ -356,7 +356,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
     );
-  }), [location, isPartner, sections, badgeForPath]);
+  }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone]);
 
   return (
     <>
