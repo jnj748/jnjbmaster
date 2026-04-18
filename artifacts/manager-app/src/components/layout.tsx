@@ -93,15 +93,8 @@ function SidebarContent({ navLinks, user, logout, base, isPartner }: {
   );
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
-  const { user, logout } = useAuth();
-  const base = import.meta.env.BASE_URL ?? "/";
+function NotifBell() {
   const [notifOpen, setNotifOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  useEffect(() => { setDrawerOpen(false); }, [location]);
-
   const { data: unreadCount } = useGetUnreadNotificationCount({ query: { staleTime: 30 * 1000, refetchInterval: 60 * 1000 } });
   const { data: notifications } = useListNotifications({ query: { enabled: notifOpen } });
   const markRead = useMarkNotificationRead();
@@ -113,46 +106,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }, [markRead, queryClient]);
 
-  const effectiveRole = getEffectiveRole(user);
-  const isPartner = effectiveRole === "partner";
-  const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
-  const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
-  const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
-
-  const bottomNavItems = bottomItems;
-  const pageTitle = getPageTitle(location, navItems);
-  const showBack = isSubPage(location);
-
-  const navLinks = useMemo(() => sections.map((section, si) => (
-    <div key={si}>
-      {section.title && (
-        <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
-          {section.title}
-        </div>
-      )}
-      {section.items.map((item) => {
-        const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-        return (
-          <Link key={item.path} href={item.path}>
-            <div
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
-                isActive
-                  ? "bg-sidebar-accent text-white"
-                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  )), [location, isPartner]);
-
-  const renderNotifButton = (key: string) => (
-    <Popover key={key} open={notifOpen} onOpenChange={setNotifOpen}>
+  return (
+    <Popover open={notifOpen} onOpenChange={setNotifOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
           <Bell className="w-5 h-5" />
@@ -195,6 +150,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </PopoverContent>
     </Popover>
   );
+}
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  const [location, setLocation] = useLocation();
+  const { user, logout } = useAuth();
+  const base = import.meta.env.BASE_URL ?? "/";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => { setDrawerOpen(false); }, [location]);
+
+  const effectiveRole = getEffectiveRole(user);
+  const isPartner = effectiveRole === "partner";
+  const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
+  const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
+
+  const bottomNavItems = bottomItems;
+  const pageTitle = getPageTitle(location, navItems);
+  const showBack = isSubPage(location);
+
+  const navLinks = useMemo(() => sections.map((section, si) => (
+    <div key={si}>
+      {section.title && (
+        <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
+          {section.title}
+        </div>
+      )}
+      {section.items.map((item) => {
+        const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+        return (
+          <Link key={item.path} href={item.path}>
+            <div
+              className={cn(
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                isActive
+                  ? "bg-sidebar-accent text-white"
+                  : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+              )}
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  )), [location, isPartner]);
 
   return (
     <>
@@ -351,11 +353,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
               <span className="text-sm font-semibold truncate">{pageTitle}</span>
             </div>
-            {renderNotifButton("notif-mobile")}
+            <NotifBell />
           </div>
 
           <div className="layout-desktop-header sticky top-0 z-20 bg-background border-b px-6 py-3 justify-end">
-            {renderNotifButton("notif-desktop")}
+            <NotifBell />
           </div>
 
           <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
