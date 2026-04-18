@@ -707,4 +707,70 @@ function calculateNextDue(lastDate: string, cycleMonths: number): string {
   return d.toISOString().split("T")[0];
 }
 
+// HQ 총괄: 건물별 법정점검 임박/초과 현황.
+// 버킷: overdue (마감일 < 오늘, 미완료) / due7 (오늘~+7일) / due30 (+8~+30일)
+router.get("/buildings/legal-inspections-summary", async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user || (user.role !== "hq_executive" && user.role !== "platform_admin")) {
+    res.status(403).json({ error: "총괄책임자 전용입니다" });
+    return;
+  }
+
+  try {
+    // KST(Asia/Seoul) 기준 오늘 날짜로 버킷을 계산해야 자정 경계 오차가 없다.
+    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayStr = kstNow.toISOString().split("T")[0];
+    const d7 = new Date(kstNow); d7.setUTCDate(d7.getUTCDate() + 7);
+    const d30 = new Date(kstNow); d30.setUTCDate(d30.getUTCDate() + 30);
+    const d7Str = d7.toISOString().split("T")[0];
+    const d30Str = d30.toISOString().split("T")[0];
+
+    const buildings = await db.select({ id: buildingsTable.id, name: buildingsTable.name }).from(buildingsTable);
+
+    // 법정점검만 집계 (inspectionType='legal'). 완료된 건은 제외.
+    const allLegal = await db
+      .select()
+      .from(inspectionsTable)
+      .where(and(eq(inspectionsTable.inspectionType, "legal"), sql`${inspectionsTable.status} <> 'completed'`));
+
+    type Bucket = { id: number; name: string; category: string; nextDueDate: string };
+    const summaries = buildings.map((b) => {
+      const items = allLegal.filter((i) => i.buildingId === b.id);
+      const overdue: Bucket[] = [];
+      const due7: Bucket[] = [];
+      const due30: Bucket[] = [];
+      for (const i of items) {
+        if (!i.nextDueDate) continue;
+        const due = i.nextDueDate;
+        const bucket: Bucket = { id: i.id, name: i.name, category: i.category, nextDueDate: due };
+        if (due < todayStr) overdue.push(bucket);
+        else if (due <= d7Str) due7.push(bucket);
+        else if (due <= d30Str) due30.push(bucket);
+      }
+      const sortByDue = (a: Bucket, b: Bucket) => a.nextDueDate.localeCompare(b.nextDueDate);
+      overdue.sort(sortByDue);
+      due7.sort(sortByDue);
+      due30.sort(sortByDue);
+      return {
+        buildingId: b.id,
+        buildingName: b.name,
+        overdueCount: overdue.length,
+        due7Count: due7.length,
+        due30Count: due30.length,
+        overdueItems: overdue,
+        due7Items: due7,
+        due30Items: due30,
+      };
+    });
+
+    res.json({ summaries });
+  } catch (error) {
+    req.log.error({ err: error }, "Error fetching HQ legal inspections summary");
+    res.status(500).json({ error: "Failed to fetch summary" });
+  }
+});
+
 export default router;

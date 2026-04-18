@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
+import { ShieldAlert, Clock, CalendarClock } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -48,11 +51,77 @@ function CollectionGauge({ rate, size = 64 }: { rate: number; size?: number }) {
   );
 }
 
+const CATEGORY_LABELS_HQ: Record<string, string> = {
+  elevator: "승강기", water_tank: "저수조", fire_safety: "소방", electrical: "전기",
+  gas: "가스", septic: "정화조", playground: "놀이터", safety_check: "안전점검",
+  hygiene: "위생/환경", building_safety: "건축물안전", administrative: "행정", other: "기타",
+};
+
+interface LegalInspectionItem {
+  id: number;
+  name: string;
+  category: string;
+  nextDueDate: string;
+}
+
+interface LegalInspectionSummary {
+  buildingId: number;
+  buildingName: string;
+  overdueCount: number;
+  due7Count: number;
+  due30Count: number;
+  overdueItems: LegalInspectionItem[];
+  due7Items: LegalInspectionItem[];
+  due30Items: LegalInspectionItem[];
+}
+
+function formatDueLabel(dateStr: string): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr); due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+  if (diff < 0) return `${Math.abs(diff)}일 초과`;
+  if (diff === 0) return "오늘";
+  return `D-${diff}`;
+}
+
 export default function HqDashboard() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [expandedReport, setExpandedReport] = useState<number | null>(null);
+  const [expandedLegal, setExpandedLegal] = useState<number | null>(null);
+  const { token } = useAuth();
 
   const { data: buildings = [] } = useListBuildings();
+
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+  const { data: legalSummary } = useQuery({
+    queryKey: ["hq", "legal-inspections-summary"],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/buildings/legal-inspections-summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return { summaries: [] as LegalInspectionSummary[] };
+      return (await res.json()) as { summaries: LegalInspectionSummary[] };
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
+  const legalSummaries = useMemo(() => {
+    const list = legalSummary?.summaries ?? [];
+    const filtered = selectedBuilding !== "all"
+      ? list.filter((s) => s.buildingId === parseInt(selectedBuilding))
+      : list;
+    return [...filtered].sort((a, b) => {
+      const score = (s: LegalInspectionSummary) => s.overdueCount * 100 + s.due7Count * 10 + s.due30Count;
+      return score(b) - score(a);
+    });
+  }, [legalSummary, selectedBuilding]);
+
+  const legalTotals = useMemo(() => ({
+    overdue: legalSummaries.reduce((s, b) => s + b.overdueCount, 0),
+    due7: legalSummaries.reduce((s, b) => s + b.due7Count, 0),
+    due30: legalSummaries.reduce((s, b) => s + b.due30Count, 0),
+  }), [legalSummaries]);
   const { data: reports = [], isLoading: reportsLoading } = useListMonthlySummaryReports(
     selectedBuilding !== "all" ? { buildingId: parseInt(selectedBuilding) } : undefined
   );
@@ -176,6 +245,151 @@ export default function HqDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-destructive" />
+            현장별 법정점검 마감 현황
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            완료되지 않은 법정점검 항목을 마감일 기준으로 분류합니다
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">기한 초과</p>
+              <p className="text-2xl font-bold text-destructive mt-0.5">{legalTotals.overdue}</p>
+              <p className="text-[10px] text-muted-foreground">건</p>
+            </div>
+            <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">7일 이내</p>
+              <p className="text-2xl font-bold text-orange-600 mt-0.5">{legalTotals.due7}</p>
+              <p className="text-[10px] text-muted-foreground">건</p>
+            </div>
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">30일 이내</p>
+              <p className="text-2xl font-bold text-amber-600 mt-0.5">{legalTotals.due30}</p>
+              <p className="text-[10px] text-muted-foreground">건</p>
+            </div>
+          </div>
+
+          {legalSummaries.length === 0 ? (
+            <div className="text-center py-6">
+              <ShieldAlert className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">표시할 법정점검이 없습니다</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {legalSummaries.map((s) => {
+                const total = s.overdueCount + s.due7Count + s.due30Count;
+                const isExpanded = expandedLegal === s.buildingId;
+                const isClean = total === 0;
+                return (
+                  <div key={s.buildingId} className="rounded-lg border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedLegal(isExpanded ? null : s.buildingId)}
+                      disabled={isClean}
+                      className="w-full flex items-center justify-between gap-2 p-3 text-left hover:bg-muted/30 transition-colors disabled:cursor-default disabled:hover:bg-transparent"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{s.buildingName}</p>
+                        {isClean && <p className="text-[11px] text-muted-foreground mt-0.5">임박/초과 항목 없음</p>}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {s.overdueCount > 0 && (
+                          <Badge variant="destructive" className="gap-1">
+                            <ShieldAlert className="w-3 h-3" />초과 {s.overdueCount}
+                          </Badge>
+                        )}
+                        {s.due7Count > 0 && (
+                          <Badge className="gap-1 bg-orange-500 hover:bg-orange-500/90">
+                            <Clock className="w-3 h-3" />7일 {s.due7Count}
+                          </Badge>
+                        )}
+                        {s.due30Count > 0 && (
+                          <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700">
+                            <CalendarClock className="w-3 h-3" />30일 {s.due30Count}
+                          </Badge>
+                        )}
+                        {isClean && (
+                          <Badge variant="secondary" className="text-[10px]">정상</Badge>
+                        )}
+                      </div>
+                    </button>
+                    {isExpanded && !isClean && (
+                      <div className="border-t bg-muted/10 p-3 space-y-3">
+                        {s.overdueItems.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-destructive mb-1.5 flex items-center gap-1">
+                              <ShieldAlert className="w-3 h-3" />기한 초과 ({s.overdueItems.length})
+                            </p>
+                            <ul className="space-y-1">
+                              {s.overdueItems.map((it) => (
+                                <li key={it.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-destructive/5">
+                                  <span className="truncate">
+                                    <span className="text-muted-foreground mr-1">[{CATEGORY_LABELS_HQ[it.category] || it.category}]</span>
+                                    {it.name}
+                                  </span>
+                                  <span className="text-destructive font-medium shrink-0 ml-2">
+                                    {it.nextDueDate} · {formatDueLabel(it.nextDueDate)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {s.due7Items.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-orange-600 mb-1.5 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />7일 이내 ({s.due7Items.length})
+                            </p>
+                            <ul className="space-y-1">
+                              {s.due7Items.map((it) => (
+                                <li key={it.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-orange-50">
+                                  <span className="truncate">
+                                    <span className="text-muted-foreground mr-1">[{CATEGORY_LABELS_HQ[it.category] || it.category}]</span>
+                                    {it.name}
+                                  </span>
+                                  <span className="text-orange-700 font-medium shrink-0 ml-2">
+                                    {it.nextDueDate} · {formatDueLabel(it.nextDueDate)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {s.due30Items.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-amber-700 mb-1.5 flex items-center gap-1">
+                              <CalendarClock className="w-3 h-3" />30일 이내 ({s.due30Items.length})
+                            </p>
+                            <ul className="space-y-1">
+                              {s.due30Items.map((it) => (
+                                <li key={it.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-amber-50">
+                                  <span className="truncate">
+                                    <span className="text-muted-foreground mr-1">[{CATEGORY_LABELS_HQ[it.category] || it.category}]</span>
+                                    {it.name}
+                                  </span>
+                                  <span className="text-amber-700 font-medium shrink-0 ml-2">
+                                    {it.nextDueDate} · {formatDueLabel(it.nextDueDate)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {!hasData && !reportsLoading && (
         <Card>
