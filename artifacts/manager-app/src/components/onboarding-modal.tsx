@@ -12,7 +12,6 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogDescription,
 } from "@/components/ui/responsive-dialog";
-import { Button } from "@/components/ui/button";
 import { Building2, Eye } from "lucide-react";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -91,17 +90,11 @@ export function OnboardingModal() {
           </button>
         </div>
 
-        <div className="text-center">
-          <Button
-            variant="link"
-            size="sm"
-            className="text-xs text-muted-foreground"
-            disabled={submitting !== null}
-            onClick={handleStart}
-          >
-            {submitting === "started" ? "이동 중..." : ""}
-          </Button>
-        </div>
+        {submitting && (
+          <p className="text-center text-xs text-muted-foreground">
+            {submitting === "started" ? "이동 중..." : "저장 중..."}
+          </p>
+        )}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );

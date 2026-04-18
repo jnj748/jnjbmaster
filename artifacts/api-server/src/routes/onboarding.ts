@@ -20,6 +20,7 @@ interface OnboardingStatus {
   // Gate 1 (hard lock): 건물제원 + 준공일 + 법정업무 등록.
   gate1: {
     hasBuilding: boolean;
+    hasBuildingSpecs: boolean; // totalArea/totalFloors/totalUnits 모두 채워졌는가
     hasCompletionDate: boolean;
     hasLegalInspections: boolean;
     completed: boolean;
@@ -37,7 +38,7 @@ interface OnboardingStatus {
 function emptyStatus(preference: OnboardingStatus["preference"] = null): OnboardingStatus {
   return {
     preference,
-    gate1: { hasBuilding: false, hasCompletionDate: false, hasLegalInspections: false, completed: false },
+    gate1: { hasBuilding: false, hasBuildingSpecs: false, hasCompletionDate: false, hasLegalInspections: false, completed: false },
     gate2: { hasVendors: false, hasStaff: false, completed: false },
     progressPercent: 0,
   };
@@ -66,6 +67,13 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
   const [building] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, user.buildingId));
   const hasBuilding = !!building;
   const hasCompletionDate = !!building?.completionDate;
+  // 제원: totalArea/totalFloors/totalUnits 가 모두 채워져 있어야 Gate1 통과.
+  const hasBuildingSpecs = !!(
+    building &&
+    building.totalArea != null && Number(building.totalArea) > 0 &&
+    building.totalFloors != null && building.totalFloors > 0 &&
+    building.totalUnits != null && building.totalUnits > 0
+  );
 
   const [legalCount] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -96,9 +104,10 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
 
   const gate1 = {
     hasBuilding,
+    hasBuildingSpecs,
     hasCompletionDate,
     hasLegalInspections,
-    completed: hasBuilding && hasCompletionDate && hasLegalInspections,
+    completed: hasBuilding && hasBuildingSpecs && hasCompletionDate && hasLegalInspections,
   };
   const gate2 = {
     hasVendors,
@@ -106,9 +115,10 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
     completed: hasVendors && hasStaff,
   };
 
-  // 진행률: gate1 항목 3개 × 20% + gate2 항목 2개 × 20%.
+  // 진행률: gate1 항목 4개 + gate2 항목 2개 = 6개 균등 가중.
   const checks = [
     gate1.hasBuilding,
+    gate1.hasBuildingSpecs,
     gate1.hasCompletionDate,
     gate1.hasLegalInspections,
     gate2.hasVendors,
@@ -116,7 +126,13 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
   ];
   const progressPercent = Math.round((checks.filter(Boolean).length / checks.length) * 100);
 
-  const status: OnboardingStatus = { preference, gate1, gate2, progressPercent };
+  // 보수: 기존 manager 계정(=Gate1 이미 완료) 중 preference 가 NULL 이라면
+  // 모달 강제 노출 없이 'started' 로 자동 간주(서버에 저장하지 않고 응답만).
+  // 이렇게 해야 기존 운영 중인 관리소장 계정에 새로운 모달이 갑자기 뜨지 않음.
+  const effectivePreference: OnboardingStatus["preference"] =
+    preference === null && gate1.completed ? "started" : preference;
+
+  const status: OnboardingStatus = { preference: effectivePreference, gate1, gate2, progressPercent };
   res.json(status);
 });
 

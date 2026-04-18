@@ -7,14 +7,15 @@
 //     모달이 뜬 동안에는 Gate redirect 보류.
 //   - browsing 모드에선 회색 배너만 표시(별도 BrowsingBanner 컴포넌트로 처리).
 //
-// 게이트가 허용하는 경로:
-//   /onboarding, /building-setup, /settings, /tenant-card/* (외부 토큰), /__layout-check
+// 게이트가 허용하는 경로 (started+gate1 미완 상태에서만 적용):
+//   /onboarding, /building-setup, /tenant-card/* (외부 토큰), /__layout-check (DEV 전용)
+//   /settings 는 Gate1 완료 전에는 차단(요구사항: 모든 라우트 → /onboarding 강제).
 
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useOnboarding } from "@/contexts/onboarding-context";
 
-const ALLOWED_PREFIXES = ["/onboarding", "/building-setup", "/settings", "/tenant-card", "/__layout-check"];
+const ALLOWED_PREFIXES = ["/onboarding", "/building-setup", "/tenant-card", "/__layout-check"];
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { status, isManager, isLoading } = useOnboarding();
