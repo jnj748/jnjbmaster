@@ -70,7 +70,7 @@ export default function DailyReports() {
   const isManager = user?.role === "manager";
 
   const [dateFilter, setDateFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
 
@@ -83,7 +83,7 @@ export default function DailyReports() {
   const { data: reports, isLoading } = useListDailyReports(
     {
       ...(dateFilter ? { date: dateFilter } : {}),
-      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(typeFilter && typeFilter !== "all" ? { type: typeFilter } : {}),
     }
   );
 
@@ -174,7 +174,7 @@ export default function DailyReports() {
             <SelectValue placeholder="전체 유형" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">전체</SelectItem>
+            <SelectItem value="all">전체</SelectItem>
             <SelectItem value="expense">경비 일지</SelectItem>
             <SelectItem value="cleaning">미화 일지</SelectItem>
             <SelectItem value="maintenance">유지보수</SelectItem>
