@@ -470,9 +470,6 @@ export default function Dashboard() {
                 </span>
               )}
             </h2>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              본 알림(점검 · 하자담보 · 계약 만료 등)은 정보 제공 서비스이며, 실제 이행·보증을 담보하지 않습니다.
-            </p>
           </div>
         </div>
         {alertsLoading ? (
