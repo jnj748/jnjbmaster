@@ -209,6 +209,34 @@
   color: #111;
 }
 
+.a4-document-frame {
+  width: 100%;
+  overflow-x: auto;
+  background: #f3f4f6;
+  padding: 8px 0;
+}
+
+.a4-document-actions {
+  position: sticky;
+  bottom: 0;
+  background: hsl(var(--background));
+  padding-top: 8px;
+  margin-top: 8px;
+  border-top: 1px solid hsl(var(--border));
+  z-index: 5;
+}
+
+@media print {
+  .a4-document-frame {
+    overflow: visible !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+  .a4-document-actions {
+    display: none !important;
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;

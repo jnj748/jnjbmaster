@@ -53,6 +53,16 @@ function getNoticeNumber(): string {
   return `${y}-${m}${d}-${seq}`;
 }
 
+function stripDday(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/\s*\[\s*D\s*[-+]?\s*\w+\s*\]\s*/gi, " ")
+    .replace(/\s*\[\s*D-?Day\s*\]\s*/gi, " ")
+    .replace(/\s*\[\s*기한[^\]]*\]\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function buildingNameSizeClass(name: string): string {
   const len = name.length;
   if (len <= 8) return "text-xl";
@@ -96,9 +106,11 @@ export function CompletionNotice({
   const [editMode, setEditMode] = useState(true);
   const [noticeNo] = useState(getNoticeNumber());
   const [postingPeriod, setPostingPeriod] = useState("상시게재");
-  const [title, setTitle] = useState(`${alertTitle} 처리 완료 안내`);
+  const cleanAlertTitle = stripDday(alertTitle);
+  const cleanAlertMessage = stripDday(alertMessage);
+  const [title, setTitle] = useState(`${cleanAlertTitle} 처리 완료 안내`);
   const [body, setBody] = useState(
-    `안녕하십니까, 입주민 여러분.\n\n금번 「${alertTitle}」 업무가 아래와 같이 완료되었음을 안내드립니다.\n${alertMessage}\n\n안전하고 쾌적한 주거환경 조성을 위해 최선을 다하겠습니다.\n주민 여러분의 양해와 협조에 깊이 감사드립니다.`
+    `안녕하십니까, 입주민 여러분.\n\n금번 「${cleanAlertTitle}」 업무가 아래와 같이 완료되었음을 안내드립니다.\n${cleanAlertMessage}\n\n안전하고 쾌적한 주거환경 조성을 위해 최선을 다하겠습니다.\n주민 여러분의 양해와 협조에 깊이 감사드립니다.`
   );
   const [contact, setContact] = useState(officeContact);
   const [notesText, setNotesText] = useState(notes || "");
@@ -186,6 +198,7 @@ export function CompletionNotice({
           </div>
         )}
 
+        <div className="a4-document-frame">
         <div
           ref={documentRef}
           className="a4-document"
@@ -313,8 +326,9 @@ export function CompletionNotice({
             </div>
           </div>
         </div>
+        </div>
 
-        <div className="flex flex-wrap justify-end gap-2 mt-4 print:hidden">
+        <div className="a4-document-actions flex flex-wrap justify-end gap-2 print:hidden">
           {!editMode && (
             <Button variant="outline" onClick={() => setEditMode(true)}>수정</Button>
           )}

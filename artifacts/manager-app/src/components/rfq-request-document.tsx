@@ -174,6 +174,7 @@ export function RfqRequestDocument({
           </div>
         )}
 
+        <div className="a4-document-frame">
         <div
           ref={documentRef}
           className="a4-document space-y-6"
@@ -289,8 +290,9 @@ export function RfqRequestDocument({
             <p className="text-xs text-gray-600">{contact}</p>
           </div>
         </div>
+        </div>
 
-        <div className="flex flex-wrap justify-end gap-2 mt-4 print:hidden">
+        <div className="a4-document-actions flex flex-wrap justify-end gap-2 print:hidden">
           {!editMode && (
             <Button variant="outline" onClick={() => setEditMode(true)}>수정</Button>
           )}
