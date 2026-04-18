@@ -474,22 +474,6 @@ export default function Dashboard() {
               본 알림(점검 · 하자담보 · 계약 만료 등)은 정보 제공 서비스이며, 실제 이행·보증을 담보하지 않습니다.
             </p>
           </div>
-          {totalAlertPages > 1 && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {alertPages.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`페이지 ${i + 1}`}
-                  onClick={() => setAlertPage(i)}
-                  style={{ width: 6, height: 6, padding: 0, border: 0 }}
-                  className={`rounded-full transition-colors ${
-                    i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </div>
         {alertsLoading ? (
           <div className="space-y-2">
@@ -579,6 +563,22 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+            {totalAlertPages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-3">
+                {alertPages.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`페이지 ${i + 1}`}
+                    onClick={() => setAlertPage(i)}
+                    style={{ width: 6, height: 6, padding: 0, border: 0 }}
+                    className={`rounded-full transition-colors ${
+                      i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <Card>
