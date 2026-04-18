@@ -199,7 +199,15 @@ export default function AiAssistantPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-4">
+    <div
+      className="flex flex-col p-4"
+      style={{
+        // 모바일: 상단 헤더(64px) + 하단 네비(60px + safe-area) 제외하고 채팅창 입력창이 항상 보이도록 고정.
+        // 데스크탑(lg+): 하단 네비가 숨겨지므로 헤더만 차감.
+        height:
+          "calc(100dvh - 4rem - 60px - env(safe-area-inset-bottom, 0px))",
+      }}
+    >
       <main className="flex-1 flex flex-col border rounded-md bg-background min-w-0 max-w-3xl w-full mx-auto">
         <header className="flex items-center gap-2 border-b px-4 py-3">
           <Sparkles className="h-5 w-5 text-primary" />
