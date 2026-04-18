@@ -241,46 +241,88 @@ export function Layout({ children }: { children: React.ReactNode }) {
       `}</style>
 
       {drawerOpen && (
-        <>
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
-            onClick={() => setDrawerOpen(false)}
-          />
-          <aside
-            style={{ position: "fixed", top: 0, left: 0, width: 260, height: "100%", zIndex: 50 }}
-            className="bg-sidebar text-sidebar-foreground flex flex-col"
-          >
-            <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-              <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
-              <button onClick={() => setDrawerOpen(false)} className="p-2 text-sidebar-foreground/60 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
-            <div className="p-3 border-t border-sidebar-border space-y-2" style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}>
-              {user && (
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</div>
-                    <div className="text-xs text-sidebar-foreground/50">{ROLE_LABELS[user.role as Role] || user.role}</div>
+        <div
+          className="fixed inset-0 z-50 bg-background flex flex-col"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <Link href="/" onClick={() => setDrawerOpen(false)}>
+              <img src={`${base}logo.png`} alt="관리의달인" className="h-9 w-auto" />
+            </Link>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="닫기"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-3 py-4">
+            {sections.map((section, si) => (
+              <div key={si} className="mb-6">
+                {section.title && (
+                  <div className="px-1 pb-2 text-xs font-semibold text-muted-foreground">
+                    {section.title}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!isPartner && (
-                      <Link href="/settings">
-                        <button className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
-                          <Settings className="w-4 h-4" />
+                )}
+                <div className="grid grid-cols-4 gap-2">
+                  {section.items.map((item) => {
+                    const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+                    return (
+                      <Link key={item.path} href={item.path}>
+                        <button
+                          onClick={() => setDrawerOpen(false)}
+                          className={cn(
+                            "w-full flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border transition-colors",
+                            isActive
+                              ? "bg-accent/10 border-accent text-accent"
+                              : "bg-card border-border hover:bg-muted text-foreground"
+                          )}
+                        >
+                          <item.icon className="w-6 h-6" />
+                          <span className="text-[11px] font-medium leading-tight text-center break-keep">
+                            {item.label}
+                          </span>
                         </button>
                       </Link>
-                    )}
-                    <button onClick={logout} className="p-2 text-sidebar-foreground/50 hover:text-white rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="로그아웃">
-                      <LogOut className="w-4 h-4" />
-                    </button>
-                  </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          </aside>
-        </>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="border-t px-4 py-3 bg-background"
+            style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
+          >
+            {user && (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{user.name}</div>
+                  <div className="text-xs text-muted-foreground">{ROLE_LABELS[user.role as Role] || user.role}</div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isPartner && (
+                    <Link href="/settings" onClick={() => setDrawerOpen(false)}>
+                      <button className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
+                        <Settings className="w-5 h-5" />
+                      </button>
+                    </Link>
+                  )}
+                  <button
+                    onClick={logout}
+                    className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    title="로그아웃"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="layout-grid">
