@@ -147,11 +147,11 @@ export const GROUP_TITLES: Record<Group, string> = {
 };
 
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
-  manager: ["dashboard", "residents", "facility", "accounting", "reports", "marketplace", "settings"],
-  platform_admin: ["dashboard", "residents", "facility", "accounting", "reports", "marketplace", "settings"],
+  manager: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
+  platform_admin: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   accountant: ["dashboard", "accounting", "reports", "residents"],
   facility_staff: ["dashboard", "facility"],
-  hq_executive: ["dashboard", "residents", "facility", "reports", "marketplace", "settings"],
+  hq_executive: ["dashboard", "facility", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
 };
 
