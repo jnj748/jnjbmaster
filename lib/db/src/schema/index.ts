@@ -47,3 +47,4 @@ export * from "./commissionRates";
 export * from "./commissionEvents";
 export * from "./contracts";
 export * from "./aiChat";
+export * from "./legalAppointees";
