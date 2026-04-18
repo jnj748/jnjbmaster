@@ -568,7 +568,7 @@ export default function Dashboard() {
                     type="button"
                     aria-label={`페이지 ${i + 1}`}
                     onClick={() => setAlertPage(i)}
-                    style={{ width: 6, height: 6, padding: 0, border: 0 }}
+                    style={{ width: 6, height: 6, minWidth: 0, minHeight: 0, padding: 0, border: 0 }}
                     className={`rounded-full transition-colors ${
                       i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
                     }`}
