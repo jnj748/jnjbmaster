@@ -26,7 +26,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
   Select,
@@ -64,7 +63,6 @@ import {
   FileText,
   Building2,
   Trash2,
-  BarChart3,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
@@ -685,35 +683,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-chart-2" />
-                금주 근무시간
-              </h3>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics.workHoursByDay}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} unit="h" />
-                    <Tooltip
-                      formatter={(value: number) =>
-                        [`${value}시간`, "근무시간"]
-                      }
-                      labelFormatter={(label: string) => `${label}요일`}
-                    />
-                    <Bar dataKey="hours" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="text-center mt-1">
-                <p className="text-xs text-muted-foreground">
-                  주간 총 {analytics.workHoursByDay.reduce((s, d) => s + d.hours, 0).toFixed(1)}시간
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
