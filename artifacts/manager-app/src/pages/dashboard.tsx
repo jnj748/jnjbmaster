@@ -576,25 +576,6 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            {totalAlertPages > 1 && (
-              <div className="flex justify-center gap-4 mt-3">
-                <button
-                  onClick={() => setAlertPage(Math.max(0, alertPage - 1))}
-                  disabled={alertPage === 0}
-                  className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-                >
-                  ← 이전
-                </button>
-                <span className="text-xs text-muted-foreground">{alertPage + 1} / {totalAlertPages}</span>
-                <button
-                  onClick={() => setAlertPage(Math.min(totalAlertPages - 1, alertPage + 1))}
-                  disabled={alertPage === totalAlertPages - 1}
-                  className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-                >
-                  다음 →
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           <Card>
