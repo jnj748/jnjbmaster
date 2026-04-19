@@ -75,6 +75,11 @@ const VotingPage = lazy(() => import("@/pages/voting"));
 const ContractsPage = lazy(() => import("@/pages/contracts"));
 const Units = lazy(() => import("@/pages/units"));
 const AiAssistant = lazy(() => import("@/pages/ai-assistant"));
+const ErpPhase0 = lazy(() => import("@/pages/erp/phase-0-foundation"));
+const ErpPhase1 = lazy(() => import("@/pages/erp/phase-1-metering"));
+const ErpPhase2 = lazy(() => import("@/pages/erp/phase-2-accounting"));
+const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
+const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
 
 export type Role =
   | "manager"
@@ -325,6 +330,33 @@ export const ROUTES: RouteEntry[] = [
     path: "/commissions", component: Commissions,
     label: "수수료", icon: Coins, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "partner"],
+  },
+
+  // ── Asset-Manager ERP (Phase 0~4) ───────────────────────────────
+  {
+    path: "/erp/foundation", component: ErpPhase0,
+    label: "ERP · 기초/온보딩", icon: Building2, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+  },
+  {
+    path: "/erp/metering", component: ErpPhase1,
+    label: "ERP · 검침/에너지", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+  },
+  {
+    path: "/erp/accounting", component: ErpPhase2,
+    label: "ERP · 회계 엔진", icon: Calculator, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+  },
+  {
+    path: "/erp/billing", component: ErpPhase3,
+    label: "ERP · 고지/수납", icon: Receipt, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+  },
+  {
+    path: "/erp/governance", component: ErpPhase4,
+    label: "ERP · 민원/투표", icon: MessageSquare, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
   },
 
   // ── Reports / approvals group ───────────────────────────────────

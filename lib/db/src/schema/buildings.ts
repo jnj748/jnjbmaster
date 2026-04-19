@@ -1,6 +1,33 @@
-import { pgTable, text, serial, integer, timestamp, date, numeric, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, date, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export type BuildingFeatures = {
+  metering: boolean;
+  accounting: boolean;
+  complaint: boolean;
+  vendor: boolean;
+  aiAnomaly: boolean;
+  eVoting: boolean;
+};
+
+export const BASIC_FEATURES: BuildingFeatures = {
+  metering: true,
+  accounting: true,
+  complaint: true,
+  vendor: true,
+  aiAnomaly: false,
+  eVoting: false,
+};
+
+export const PREMIUM_FEATURES: BuildingFeatures = {
+  metering: true,
+  accounting: true,
+  complaint: true,
+  vendor: true,
+  aiAnomaly: true,
+  eVoting: true,
+};
 
 export const buildingsTable = pgTable("buildings", {
   id: serial("id").primaryKey(),
@@ -38,6 +65,16 @@ export const buildingsTable = pgTable("buildings", {
   gasUsageMonthly: numeric("gas_usage_monthly"),
   specialFundEnabled: boolean("special_fund_enabled").notNull().default(false),
   approvalDate: date("approval_date"),
+  normalizedAddress: text("normalized_address").notNull().default(""),
+  pricePerUnit: integer("price_per_unit").notNull().default(200),
+  plan: text("plan").notNull().default("basic").$type<"basic" | "premium" | "enterprise">(),
+  featuresEnabled: jsonb("features_enabled").$type<BuildingFeatures>().notNull().default(BASIC_FEATURES),
+  isActive: boolean("is_active").notNull().default(true),
+  isReadOnly: boolean("is_read_only").notNull().default(false),
+  billingDay: integer("billing_day").notNull().default(1),
+  subscriptionStatus: text("subscription_status").notNull().default("trial").$type<"trial" | "active" | "overdue" | "suspended">(),
+  lastPaidAt: timestamp("last_paid_at", { withTimezone: true }),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
