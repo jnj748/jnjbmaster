@@ -19,6 +19,8 @@ import {
 import Login from "@/pages/login";
 
 const PortalSelect = lazy(() => import("@/pages/portal-select"));
+const AuthCallback = lazy(() => import("@/pages/auth-callback"));
+const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 // 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
@@ -111,6 +113,8 @@ function AppRouter() {
           <Route path="/tenant-card/:token" component={TenantCardForm} />
           <Route path="/portal" component={PortalSelect} />
           <Route path="/login/:portalType" component={Login} />
+          <Route path="/auth/callback" component={AuthCallback} />
+          <Route path="/auth/social-signup" component={SocialSignup} />
           <Route>
             <Redirect to="/portal" />
           </Route>

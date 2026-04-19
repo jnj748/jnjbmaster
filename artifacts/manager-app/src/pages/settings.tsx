@@ -16,6 +16,8 @@ import {
   Mail,
   CheckCircle2,
   Coins,
+  Link2,
+  Unlink,
 } from "lucide-react";
 import {
   useListPlatformSettings,
@@ -231,6 +233,136 @@ function RateRow({ row, onSave }: { row: CommissionRate; onSave: (d: UpsertCommi
   );
 }
 
+type SocialProvider = "naver" | "kakao" | "google";
+const SOCIAL_PROVIDER_LABEL: Record<SocialProvider, string> = {
+  naver: "네이버",
+  kakao: "카카오",
+  google: "구글",
+};
+
+interface ConnectedSocialAccount {
+  provider: SocialProvider;
+  email: string | null;
+  displayName: string | null;
+  connectedAt: string;
+}
+
+interface ProviderEnabled {
+  provider: SocialProvider;
+  enabled: boolean;
+}
+
+function SocialAccountsCard() {
+  const { token } = useAuth();
+  const { toast } = useToast();
+  const [accounts, setAccounts] = useState<ConnectedSocialAccount[]>([]);
+  const [providers, setProviders] = useState<ProviderEnabled[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    if (!token) return;
+    try {
+      const [accRes, provRes] = await Promise.all([
+        fetch(`${apiBase}/auth/social-accounts`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiBase}/auth/oauth/providers`),
+      ]);
+      const accData = await accRes.json();
+      const provData = await provRes.json();
+      setAccounts(accData.accounts || []);
+      setProviders(provData.providers || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    // detect link callback in hash
+    const hash = window.location.hash.replace(/^#/, "");
+    const params = new URLSearchParams(hash);
+    const linked = params.get("linked");
+    const errCode = params.get("error");
+    if (linked) {
+      toast({ title: `${SOCIAL_PROVIDER_LABEL[linked as SocialProvider] || linked} 계정이 연결되었습니다` });
+      window.location.hash = "";
+    } else if (errCode === "already_linked_to_other_account") {
+      toast({ title: "해당 소셜 계정은 이미 다른 사용자에 연결되어 있습니다", variant: "destructive" });
+      window.location.hash = "";
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function handleUnlink(provider: SocialProvider) {
+    if (!confirm(`${SOCIAL_PROVIDER_LABEL[provider]} 계정 연결을 해제하시겠습니까?`)) return;
+    const res = await fetch(`${apiBase}/auth/social-accounts/${provider}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: data.error || "해제에 실패했습니다", variant: "destructive" });
+      return;
+    }
+    toast({ title: "연결이 해제되었습니다" });
+    refresh();
+  }
+
+  function handleLink(provider: SocialProvider) {
+    window.location.href = `${apiBase}/auth/oauth/${provider}/link/init`;
+  }
+
+  const connectedSet = new Set(accounts.map((a) => a.provider));
+  const allProviders: SocialProvider[] = ["naver", "kakao", "google"];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Link2 className="w-4 h-4" />
+          연결된 소셜 계정
+        </CardTitle>
+        <CardDescription>네이버·카카오·구글 계정으로 빠르게 로그인할 수 있습니다</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {loading ? (
+          <div className="text-sm text-muted-foreground">불러오는 중...</div>
+        ) : (
+          allProviders.map((p) => {
+            const isConnected = connectedSet.has(p);
+            const acc = accounts.find((a) => a.provider === p);
+            const enabled = providers.find((x) => x.provider === p)?.enabled ?? false;
+            return (
+              <div key={p} className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <p className="font-medium text-sm">{SOCIAL_PROVIDER_LABEL[p]}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isConnected
+                      ? `연결됨${acc?.email ? ` · ${acc.email}` : ""}`
+                      : enabled
+                      ? "미연결"
+                      : "관리자가 아직 구성하지 않음"}
+                  </p>
+                </div>
+                {isConnected ? (
+                  <Button size="sm" variant="outline" onClick={() => handleUnlink(p)}>
+                    <Unlink className="w-3.5 h-3.5 mr-1" /> 해제
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" disabled={!enabled} onClick={() => handleLink(p)}>
+                    <Link2 className="w-3.5 h-3.5 mr-1" /> 연결
+                  </Button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ProfileSettings() {
   const { token, user, setUser } = useAuth();
   const { toast } = useToast();
@@ -373,6 +505,8 @@ function ProfileSettings() {
           </Button>
         </CardContent>
       </Card>
+
+      <SocialAccountsCard />
 
       <Card>
         <CardHeader>

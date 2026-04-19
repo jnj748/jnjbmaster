@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
+import oauthRouter from "./oauth";
 import tasksRouter from "./tasks";
 import inspectionsRouter from "./inspections";
 import taxSchedulesRouter from "./taxSchedules";
@@ -56,6 +57,7 @@ const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(oauthRouter);
 router.use(storageRouter);
 router.use(publicTenantCardRouter);
 

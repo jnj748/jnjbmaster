@@ -1,9 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { Building2, Store, Shield, ArrowLeft, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 
 const CONSENT_VERSION = "1.0";
+const BASE = import.meta.env.BASE_URL ?? "/";
+const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
+
+type SocialProvider = "naver" | "kakao" | "google";
+
+interface ProviderInfo {
+  provider: SocialProvider;
+  enabled: boolean;
+}
+
+const PROVIDER_LABEL: Record<SocialProvider, string> = {
+  naver: "네이버로 시작하기",
+  kakao: "카카오로 시작하기",
+  google: "구글로 시작하기",
+};
+
+const PROVIDER_STYLE: Record<SocialProvider, string> = {
+  naver: "bg-[#03C75A] hover:bg-[#02b350] text-white border-transparent",
+  kakao: "bg-[#FEE500] hover:bg-[#f5dc00] text-[#3C1E1E] border-transparent",
+  google: "bg-white hover:bg-slate-50 text-slate-800 border-slate-300",
+};
+
+function ProviderIcon({ provider }: { provider: SocialProvider }) {
+  if (provider === "google") {
+    return (
+      <svg className="w-4 h-4" viewBox="0 0 48 48" aria-hidden>
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.6 8.5 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29 35.7 26.7 36.5 24 36.5c-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.5 39.5 16.2 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.3 4.1-4.1 5.5l6.2 5.2C40.9 35.6 44 30.3 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+      </svg>
+    );
+  }
+  if (provider === "naver") {
+    return (
+      <span className="w-4 h-4 inline-flex items-center justify-center font-extrabold text-[11px]">N</span>
+    );
+  }
+  return (
+    <span className="w-4 h-4 inline-flex items-center justify-center font-extrabold text-[11px]">K</span>
+  );
+}
 
 const TERMS_PREVIEW = `[이용약관 요지]
 
@@ -40,6 +82,15 @@ export default function Login() {
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreePartner, setAgreePartner] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+
+  useEffect(() => {
+    if (portalType === "hq") return;
+    fetch(`${API_BASE}/auth/oauth/providers`)
+      .then((r) => (r.ok ? r.json() : { providers: [] }))
+      .then((d) => setProviders(d.providers || []))
+      .catch(() => setProviders([]));
+  }, [portalType]);
 
   const isBuilding = portalType === "building";
   const isHq = portalType === "hq";
@@ -128,6 +179,31 @@ export default function Login() {
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">
               {error}
+            </div>
+          )}
+
+          {!isHq && providers.length > 0 && (
+            <div className="mb-5 space-y-2">
+              {providers.map((p) => {
+                const startUrl = `${API_BASE}/auth/oauth/${p.provider}/init?portalType=${portalType}`;
+                return (
+                  <a
+                    key={p.provider}
+                    href={p.enabled ? startUrl : undefined}
+                    aria-disabled={!p.enabled}
+                    className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border text-sm font-medium transition-colors ${PROVIDER_STYLE[p.provider]} ${!p.enabled ? "opacity-40 pointer-events-none" : ""}`}
+                    title={!p.enabled ? "관리자가 해당 공급자를 아직 구성하지 않았습니다" : undefined}
+                  >
+                    <ProviderIcon provider={p.provider} />
+                    {PROVIDER_LABEL[p.provider]}
+                  </a>
+                );
+              })}
+              <div className="flex items-center gap-3 pt-2">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] text-slate-400">또는 이메일로</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
             </div>
           )}
 

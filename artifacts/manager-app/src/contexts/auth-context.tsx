@@ -21,6 +21,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
+  applyToken: (token: string) => void;
 }
 
 interface RegisterData {
@@ -110,8 +111,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("auth_token", data.token);
   };
 
+  const applyToken = useCallback((newToken: string) => {
+    localStorage.setItem("auth_token", newToken);
+    setToken(newToken);
+    setIsLoading(true);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, applyToken }}>
       {children}
     </AuthContext.Provider>
   );

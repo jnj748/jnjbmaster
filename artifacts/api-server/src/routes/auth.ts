@@ -138,6 +138,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!user.passwordHash) {
+    res.status(401).json({ error: "이 계정은 소셜 로그인으로 가입되었습니다. 소셜 로그인 버튼을 사용하거나 비밀번호를 먼저 설정해 주세요." });
+    return;
+  }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" });
@@ -276,10 +280,13 @@ router.put("/auth/me/password", authMiddleware, async (req, res): Promise<void> 
       return;
     }
 
-    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isValid) {
-      res.status(400).json({ error: "현재 비밀번호가 일치하지 않습니다" });
-      return;
+    // Social-only users: allow setting an initial password without currentPassword check
+    if (user.passwordHash) {
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        res.status(400).json({ error: "현재 비밀번호가 일치하지 않습니다" });
+        return;
+      }
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);

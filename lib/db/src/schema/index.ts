@@ -10,6 +10,7 @@ export * from "./vehicles";
 export * from "./notifications";
 export * from "./documentChecklists";
 export * from "./users";
+export * from "./userSocialAccounts";
 export * from "./rfqs";
 export * from "./quotes";
 export * from "./workReports";
