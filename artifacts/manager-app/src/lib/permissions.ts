@@ -156,7 +156,7 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   platform_admin: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   accountant: ["dashboard", "accounting", "reports", "residents"],
   facility_staff: ["dashboard", "facility"],
-  hq_executive: ["dashboard", "facility", "reports", "residents", "marketplace", "settings"],
+  hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
 };
 
@@ -230,7 +230,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/complaints", component: ComplaintsPage,
     label: "민원 관리", icon: MessageSquare, group: "residents",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
-    sideMenu: ["manager", "platform_admin", "accountant", "hq_executive"],
+    // [Task #122] 민원/투표 단일화 — ERP · 민원/투표(/erp/governance)로 통합. URL 직접 접근은 유지.
+    sideMenu: [],
     labelOverrides: { hq_executive: "에스컬레이션 민원" },
   },
   {
@@ -296,25 +297,35 @@ export const ROUTES: RouteEntry[] = [
   },
 
   // ── Accounting group ────────────────────────────────────────────
+  // [Task #122] 빈도 기반 재정렬: 매월 빈도 높은 ERP(회계 엔진→검침→고지/수납→민원/투표)
+  //   → 분기/연간 빈도 낮은 항목(지출→세무→수수료) 순으로 노출.
+  //   레거시 /accounting · /metering · /billing · /erp/foundation 은 사이드바에서 숨기고
+  //   ERP 통합 화면이 단일 진입점이 됩니다. URL 직접 접근(북마크·외부 링크)은 유지.
   {
-    path: "/accounting", component: AccountingDashboard,
-    label: "관리비회계", icon: DollarSign, group: "accounting",
+    path: "/erp/accounting", component: ErpPhase2,
+    label: "회계 엔진", icon: Calculator, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     bottomNav: ["manager", "platform_admin", "accountant"],
     bottomLabel: "회계",
     bottomOrder: 20,
   },
   {
-    path: "/metering", component: Metering,
-    label: "검침 관리", icon: Droplets, group: "accounting",
+    path: "/erp/metering", component: ErpPhase1,
+    label: "검침/에너지", icon: Droplets, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
   },
   {
-    path: "/billing", component: BillingPage,
-    label: "관리비 부과/수납", icon: Receipt, group: "accounting",
+    path: "/erp/billing", component: ErpPhase3,
+    label: "고지/수납", icon: Receipt, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     bottomNav: ["accountant"],
     bottomLabelOverrides: { accountant: "부과" },
+  },
+  {
+    path: "/erp/governance", component: ErpPhase4,
+    label: "민원/투표", icon: MessageSquare, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
+    labelOverrides: { hq_executive: "에스컬레이션 민원" },
   },
   {
     path: "/spending", component: ExecutiveSpending,
@@ -332,31 +343,32 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant", "partner"],
   },
 
-  // ── Asset-Manager ERP (Phase 0~4) ───────────────────────────────
+  // ── 레거시 회계 화면 (사이드바 숨김, URL 유지) ──────────────────
+  // ERP 통합으로 단일 진입점 정착 후 단계적 폐기 예정.
+  {
+    path: "/accounting", component: AccountingDashboard,
+    label: "관리비회계", icon: DollarSign, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: [],
+  },
+  {
+    path: "/metering", component: Metering,
+    label: "검침 관리", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: [],
+  },
+  {
+    path: "/billing", component: BillingPage,
+    label: "관리비 부과/수납", icon: Receipt, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: [],
+  },
   {
     path: "/erp/foundation", component: ErpPhase0,
     label: "ERP · 기초/온보딩", icon: Building2, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-  },
-  {
-    path: "/erp/metering", component: ErpPhase1,
-    label: "ERP · 검침/에너지", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-  },
-  {
-    path: "/erp/accounting", component: ErpPhase2,
-    label: "ERP · 회계 엔진", icon: Calculator, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-  },
-  {
-    path: "/erp/billing", component: ErpPhase3,
-    label: "ERP · 고지/수납", icon: Receipt, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-  },
-  {
-    path: "/erp/governance", component: ErpPhase4,
-    label: "ERP · 민원/투표", icon: MessageSquare, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // Phase 0 기능은 온보딩 위저드 + 설정·건물정보 수정 탭으로 흡수.
+    sideMenu: [],
   },
 
   // ── Reports / approvals group ───────────────────────────────────
