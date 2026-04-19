@@ -49,7 +49,7 @@ const CITATION_TYPE_LABELS: Record<string, string> = {
 const CITATION_TYPE_HREFS: Record<string, string | null> = {
   warranty: null,
   maintenance_log: "/maintenance-logs",
-  complaint: "/complaints",
+  complaint: "/erp/governance",
   inspection: "/inspections",
   contract: "/contracts",
   tax_schedule: null,

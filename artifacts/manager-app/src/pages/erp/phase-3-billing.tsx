@@ -1,7 +1,6 @@
-import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Send, ArrowRight } from "lucide-react";
+import { Receipt, Send } from "lucide-react";
 
 export default function Phase3BillingPage() {
   return (
@@ -9,7 +8,7 @@ export default function Phase3BillingPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Phase 3 — 고지·수납</h1>
         <p className="text-base text-muted-foreground">
-          고지서 발행과 수납 관리. (Asset-Manager 통합 진행 중 — 기존 부과 화면 연결)
+          고지서 발행과 수납 관리.
         </p>
       </div>
 
@@ -24,13 +23,6 @@ export default function Phase3BillingPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Link href="/billing">
-              <Button className="w-full" variant="outline">
-                기존 부과 화면 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
         </Card>
 
         <Card>

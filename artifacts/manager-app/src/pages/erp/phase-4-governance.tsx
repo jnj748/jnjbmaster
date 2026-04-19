@@ -9,7 +9,7 @@ export default function Phase4GovernancePage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Phase 4 — 민원·투표</h1>
         <p className="text-base text-muted-foreground">
-          입주자 민원 처리와 전자투표. (Asset-Manager 통합 진행 중 — 기존 화면 연결)
+          입주자 민원 처리와 전자투표.
         </p>
       </div>
 
@@ -24,13 +24,6 @@ export default function Phase4GovernancePage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <Link href="/complaints">
-              <Button className="w-full" variant="outline">
-                민원 화면 열기 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
         </Card>
 
         <Card>

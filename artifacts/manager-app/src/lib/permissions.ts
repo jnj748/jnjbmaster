@@ -66,16 +66,11 @@ const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingInfo = lazy(() => import("@/pages/building-info"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
-const AccountingDashboard = lazy(() => import("@/pages/accounting-dashboard"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
-const Metering = lazy(() => import("@/pages/metering"));
-const BillingPage = lazy(() => import("@/pages/billing"));
-const ComplaintsPage = lazy(() => import("@/pages/complaints"));
 const VotingPage = lazy(() => import("@/pages/voting"));
 const ContractsPage = lazy(() => import("@/pages/contracts"));
 const Units = lazy(() => import("@/pages/units"));
 const AiAssistant = lazy(() => import("@/pages/ai-assistant"));
-const ErpPhase0 = lazy(() => import("@/pages/erp/phase-0-foundation"));
 const ErpPhase1 = lazy(() => import("@/pages/erp/phase-1-metering"));
 const ErpPhase2 = lazy(() => import("@/pages/erp/phase-2-accounting"));
 const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
@@ -227,14 +222,6 @@ export const ROUTES: RouteEntry[] = [
     sideMenu: ["manager", "platform_admin"],
   },
   {
-    path: "/complaints", component: ComplaintsPage,
-    label: "민원 관리", icon: MessageSquare, group: "residents",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
-    // [Task #122] 민원/투표 단일화 — ERP · 민원/투표(/erp/governance)로 통합. URL 직접 접근은 유지.
-    sideMenu: [],
-    labelOverrides: { hq_executive: "에스컬레이션 민원" },
-  },
-  {
     path: "/voting", component: VotingPage,
     label: "전자투표", icon: Vote, group: "residents",
     access: ["manager", "platform_admin", "accountant"],
@@ -299,8 +286,8 @@ export const ROUTES: RouteEntry[] = [
   // ── Accounting group ────────────────────────────────────────────
   // [Task #122] 빈도 기반 재정렬: 매월 빈도 높은 ERP(회계 엔진→검침→고지/수납→민원/투표)
   //   → 분기/연간 빈도 낮은 항목(지출→세무→수수료) 순으로 노출.
-  //   레거시 /accounting · /metering · /billing · /erp/foundation 은 사이드바에서 숨기고
-  //   ERP 통합 화면이 단일 진입점이 됩니다. URL 직접 접근(북마크·외부 링크)은 유지.
+  // [Task #124] 레거시 /accounting · /metering · /billing · /complaints · /erp/foundation
+  //   라우트 및 컴포넌트는 ERP 통합 화면 안정 운영을 확인한 뒤 제거됨.
   {
     path: "/erp/accounting", component: ErpPhase2,
     label: "회계 엔진", icon: Calculator, group: "accounting",
@@ -341,34 +328,6 @@ export const ROUTES: RouteEntry[] = [
     path: "/commissions", component: Commissions,
     label: "수수료", icon: Coins, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "partner"],
-  },
-
-  // ── 레거시 회계 화면 (사이드바 숨김, URL 유지) ──────────────────
-  // ERP 통합으로 단일 진입점 정착 후 단계적 폐기 예정.
-  {
-    path: "/accounting", component: AccountingDashboard,
-    label: "관리비회계", icon: DollarSign, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: [],
-  },
-  {
-    path: "/metering", component: Metering,
-    label: "검침 관리", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: [],
-  },
-  {
-    path: "/billing", component: BillingPage,
-    label: "관리비 부과/수납", icon: Receipt, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: [],
-  },
-  {
-    path: "/erp/foundation", component: ErpPhase0,
-    label: "ERP · 기초/온보딩", icon: Building2, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    // Phase 0 기능은 온보딩 위저드 + 설정·건물정보 수정 탭으로 흡수.
-    sideMenu: [],
   },
 
   // ── Reports / approvals group ───────────────────────────────────

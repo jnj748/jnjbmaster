@@ -1,7 +1,5 @@
-import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Droplet, Zap, Flame, ArrowRight } from "lucide-react";
+import { Droplet, Zap, Flame } from "lucide-react";
 
 export default function Phase1MeteringPage() {
   return (
@@ -9,7 +7,7 @@ export default function Phase1MeteringPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Phase 1 — 검침·에너지</h1>
         <p className="text-base text-muted-foreground">
-          수도·전기·가스 검침 및 이상치 감지. (Asset-Manager 통합 진행 중 — 기존 검침 메뉴로 연결)
+          수도·전기·가스 검침 및 이상치 감지.
         </p>
       </div>
 
@@ -32,20 +30,6 @@ export default function Phase1MeteringPage() {
           </Card>
         ))}
       </div>
-
-      <Card>
-        <CardContent className="py-6 flex items-center justify-between">
-          <div>
-            <p className="font-semibold mb-1">기존 검침 입력 화면</p>
-            <p className="text-sm text-muted-foreground">현재 등록된 검침 데이터 확인 및 입력</p>
-          </div>
-          <Link href="/metering">
-            <Button>
-              검침 화면 열기 <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
 
       <Card className="border-dashed">
         <CardContent className="py-6">

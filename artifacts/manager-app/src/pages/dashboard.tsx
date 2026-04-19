@@ -431,7 +431,7 @@ export default function Dashboard() {
           icon={Calculator}
           color="bg-accent"
           subtitle={`세무 ${summary?.pendingTaxCount ?? 0}건 대기`}
-          href="/accounting"
+          href="/erp/accounting"
         />
         <StatCard
           title="시설업무"
@@ -652,7 +652,7 @@ export default function Dashboard() {
                   {delinquencySummary.totalOverdue}건
                 </Badge>
               </div>
-              <Link href="/accounting">
+              <Link href="/erp/accounting">
                 <span className="text-xs text-red-600 hover:underline font-medium cursor-pointer">관리 →</span>
               </Link>
             </div>
