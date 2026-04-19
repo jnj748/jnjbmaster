@@ -26,7 +26,7 @@
   - 발전용량 합산 로직, 가이드 이미지 에셋, OCR
 
 ## Codebase Cleanup Notes (Task #102, 2026-04-17)
-- **Soft-deleted (이동만, 삭제 X)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` → `artifacts/manager-app/src/_deprecated/` (tsconfig exclude). 복원 시 원위치로 이동만 하면 됨.
+- **삭제 완료 (Task #125, 2026-04-19)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` (이전 `artifacts/manager-app/src/_deprecated/`) 영구 삭제. 참조 0건 재확인 후 폴더 제거.
   - UI: accordion, aspect-ratio, breadcrumb, carousel, collapsible, command, context-menu, hover-card, input-otp, kbd, menubar, navigation-menu, pagination, resizable
 - **devDependencies 제거 (6개)**: react-icons, cmdk, input-otp, react-day-picker, react-hook-form, @hookform/resolvers (모두 `pnpm why`로 직접 사용처 0건 검증).
 - **개발 전용 라우트**: `/__layout-check`는 `import.meta.env.DEV` 가드로 prod 번들에서 제외.
