@@ -29,6 +29,13 @@
       "when": 1776513633064,
       "tag": "0003_legal_appointees",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776670800000,
+      "tag": "0004_task137_signup_fixes",
+      "breakpoints": true
     }
   ]
 }

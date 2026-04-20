@@ -19,6 +19,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #137] 전화번호 필수화. 후속 응대(연체 안내·견적 회신 등) 연락 단절 방지.
+  if (typeof phone !== "string" || phone.trim().length === 0) {
+    res.status(400).json({ error: "전화번호를 입력해 주세요" });
+    return;
+  }
+
   const selfRegistrableRoles = ["manager", "accountant", "facility_staff", "partner"];
   const validPortals = ["building", "partner", "hq"];
 
@@ -94,7 +100,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
         passwordHash,
         name,
         role: role as typeof userRoles[number],
-        phone: phone || null,
+        phone: phone.trim(),
         portalType: portalType as typeof portalTypes[number],
         approvalStatus: initialApprovalStatus,
         roleSelected,

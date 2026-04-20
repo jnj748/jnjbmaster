@@ -84,6 +84,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreePartner, setAgreePartner] = useState(false);
@@ -102,6 +104,11 @@ export default function Login() {
   const isHq = portalType === "hq";
   const isPartnerSignup = isRegister && (portalType === "partner" || role === "partner");
   const consentsOk = !isRegister || (agreeTerms && agreePrivacy && (!isPartnerSignup || agreePartner));
+  // [Task #137] 비밀번호 확인 일치 여부.
+  const passwordsMatch = !isRegister || (password.length > 0 && password === passwordConfirm);
+  // [Task #137] 전화번호 필수.
+  const phoneOk = !isRegister || phone.trim().length > 0;
+  const canSubmit = consentsOk && passwordsMatch && phoneOk;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +116,18 @@ export default function Login() {
 
     if (isRegister && !consentsOk) {
       setError("필수 약관에 모두 동의해 주세요");
+      return;
+    }
+
+    // [Task #137] 전화번호 필수 검증.
+    if (isRegister && !phoneOk) {
+      setError("전화번호를 입력해 주세요");
+      return;
+    }
+
+    // [Task #137] 비밀번호 확인 일치 검증.
+    if (isRegister && !passwordsMatch) {
+      setError("비밀번호와 비밀번호 확인이 일치하지 않습니다");
       return;
     }
 
@@ -126,7 +145,7 @@ export default function Login() {
           password,
           name,
           role: unified ? undefined : role,
-          phone: phone || undefined,
+          phone: phone.trim(),
           portalType: unified ? undefined : (portalType as "building" | "partner" | "hq"),
           consents: { types: consentTypes, version: CONSENT_VERSION },
         });
@@ -269,15 +288,53 @@ export default function Login() {
 
             {isRegister && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">전화번호 (선택)</label>
+                {/* [Task #137] 비밀번호 확인 필드. */}
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  비밀번호 확인 <span className="text-red-600">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswordConfirm ? "text" : "password"}
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10"
+                    placeholder="비밀번호를 한번 더 입력하세요"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {passwordConfirm.length > 0 && password !== passwordConfirm && (
+                  <p className="mt-1 text-xs text-red-600">비밀번호가 일치하지 않습니다</p>
+                )}
+              </div>
+            )}
+
+            {isRegister && (
+              <div>
+                {/* [Task #137] 전화번호 필수화. */}
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  전화번호 <span className="text-red-600">*</span>
+                </label>
                 <input
                   type="tel"
                   inputMode="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  required
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="전화번호를 입력하세요"
                 />
+                {/* [Task #137] 빈 값일 때 인라인 안내(즉시 검증). */}
+                {phone.trim().length === 0 && (
+                  <p className="mt-1 text-xs text-slate-500">전화번호는 필수 입력 항목입니다</p>
+                )}
               </div>
             )}
 
@@ -354,7 +411,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading || (isRegister && !consentsOk)}
+              disabled={loading || (isRegister && !canSubmit)}
               className={`w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 isBuilding
                   ? "bg-blue-600 hover:bg-blue-700"
