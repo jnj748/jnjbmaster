@@ -2,6 +2,7 @@ import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
+import { useHasHover } from "@/hooks/use-has-hover"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -98,7 +99,17 @@ ${colorConfig
   )
 }
 
-const ChartTooltip = RechartsPrimitive.Tooltip
+// [Task #152] 호버를 지원하지 않는 입력장치(터치)에서는 Recharts Tooltip 의
+// hover trigger 를 비활성화해 탭 잔상/의도치 않은 호버 표시를 막는다.
+// 데이터 확인이 필요할 때는 차트 영역을 탭하면 Recharts 가 동일한 툴팁을
+// 표시하므로(activeIndex 갱신) 정보 접근성은 유지된다.
+const ChartTooltip = (
+  props: React.ComponentProps<typeof RechartsPrimitive.Tooltip>,
+) => {
+  const hasHover = useHasHover()
+  if (!hasHover) return null
+  return <RechartsPrimitive.Tooltip {...props} />
+}
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,

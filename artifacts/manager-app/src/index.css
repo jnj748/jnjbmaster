@@ -4,6 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * [Task #152] 모바일·데스크톱 모두에서 마우스 호버 효과를 비활성화한다.
+ * `hover` variant 를 어떤 환경에서도 매칭되지 않는 미디어 쿼리로 재정의해
+ * 코드베이스 전반의 `hover:` 유틸리티(버튼/링크/사이드바 항목/테이블 행/캘린더 등)가
+ * 출력은 되지만 절대 활성화되지 않게 한다. 데스크톱에서도 호버 잔상이 사라진다.
+ * focus / active / 키보드 인터랙션은 영향을 받지 않는다.
+ */
+@custom-variant hover {
+  @media not all {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
