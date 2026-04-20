@@ -138,10 +138,10 @@ function AuthenticatedRoutes() {
                   <Redirect to="/settings?tab=building" />
                 </Route>
                 <Route path="/owners">
-                  <Redirect to="/units" />
+                  <Redirect to="/units?tab=owners" />
                 </Route>
                 <Route path="/daily-reports">
-                  <Redirect to="/reports" />
+                  <Redirect to="/reports?tab=daily" />
                 </Route>
                 <Route path="/onboarding" component={OnboardingPage} />
                 <Route path="/onboarding/role-select" component={RoleSelectPage} />

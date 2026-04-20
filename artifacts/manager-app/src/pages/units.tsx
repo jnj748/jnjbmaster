@@ -115,6 +115,12 @@ export default function UnitsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const canManageOwners = user?.role === "manager" || user?.role === "platform_admin";
+  // [Task #141] /owners 레거시 진입은 /units?tab=owners 로 리디렉트되어 오므로 초기 탭에 반영.
+  const initialUnitsTab = (() => {
+    if (typeof window === "undefined") return "units";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "owners" && canManageOwners ? "owners" : "units";
+  })();
 
   const { data: units, isLoading } = useListUnits(
     {
@@ -307,7 +313,7 @@ export default function UnitsPage() {
   }
 
   return (
-    <Tabs defaultValue="units" className="space-y-6">
+    <Tabs defaultValue={initialUnitsTab} className="space-y-6">
       <TabsList>
         <TabsTrigger value="units">호실 관리</TabsTrigger>
         {canManageOwners && <TabsTrigger value="owners">소유자 관리</TabsTrigger>}

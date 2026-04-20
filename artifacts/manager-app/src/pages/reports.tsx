@@ -44,6 +44,12 @@ const categoryLabel = (c: string) => {
 export default function Reports() {
   const { user } = useAuth();
   const canViewDaily = user?.role === "manager" || user?.role === "platform_admin";
+  // [Task #141] /daily-reports 레거시 진입은 /reports?tab=daily 로 리디렉트되어 오므로 초기 탭에 반영.
+  const initialReportsTab = (() => {
+    if (typeof window === "undefined") return "weekly";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "daily" && canViewDaily ? "daily" : "weekly";
+  })();
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek());
   const { data: report, isLoading } = useGetWeeklyReport(
     { weekStart },
@@ -51,7 +57,7 @@ export default function Reports() {
   );
 
   return (
-    <Tabs defaultValue="weekly" className="space-y-6">
+    <Tabs defaultValue={initialReportsTab} className="space-y-6">
       <TabsList>
         <TabsTrigger value="weekly">주간 보고서</TabsTrigger>
         {canViewDaily && <TabsTrigger value="daily">일간 일지</TabsTrigger>}
