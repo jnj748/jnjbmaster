@@ -22,6 +22,15 @@ import {
 const router: IRouter = Router();
 const managerOnly = requireRole("manager", "platform_admin");
 
+function toIsoDate(d: Date | string | null | undefined): string | null {
+  if (d == null) return null;
+  if (d instanceof Date) {
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().split("T")[0];
+  }
+  return d;
+}
+
 router.get("/rfqs", async (req, res): Promise<void> => {
   const params = ListRfqsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -186,7 +195,11 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     return;
   }
 
-  const data = { ...parsed.data };
+  const data = {
+    ...parsed.data,
+    deadline: toIsoDate(parsed.data.deadline)!,
+    desiredDate: toIsoDate(parsed.data.desiredDate),
+  };
 
   if (data.sido && data.sigungu && !data.geoScope) {
     data.geoScope = "sigungu";
