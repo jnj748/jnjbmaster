@@ -367,53 +367,6 @@ export default function FacilityDashboard() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/safety-checklists">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-accent/10">
-                <ClipboardCheck className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <p className="font-medium">안전점검표</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  전기, 소방, 발전기, 저수조 점검
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/maintenance-logs">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-chart-2/10">
-                <Wrench className="w-6 h-6 text-chart-2" />
-              </div>
-              <div>
-                <p className="font-medium">시설 업무일지</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  일상 업무 기록 및 보고
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/safety-training">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <GraduationCap className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">안전교육 관리</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  월별 교육 이수 현황
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
     </div>
   );
 }
