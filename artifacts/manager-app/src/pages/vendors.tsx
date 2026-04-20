@@ -370,9 +370,9 @@ export default function Vendors() {
         </button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-2">
         <Select value={filterCategory || "all"} onValueChange={(v) => setFilterCategory(v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="분류" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px] h-11"><SelectValue placeholder="분류" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 분류</SelectItem>
             {categoryOptions.map((o) => (

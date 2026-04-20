@@ -276,10 +276,10 @@ export default function Tasks() {
                         {task.title}
                       </p>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={() => openEdit(task)}>
+                        <Button variant="ghost" size="sm" className="h-10 w-10 p-0 min-h-0 min-w-0" onClick={() => openEdit(task)}>
                           <Edit className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={() => handleDelete(task.id)}>
+                        <Button variant="ghost" size="sm" className="h-10 w-10 p-0 min-h-0 min-w-0" onClick={() => handleDelete(task.id)}>
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </Button>
                       </div>

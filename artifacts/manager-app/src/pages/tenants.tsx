@@ -367,7 +367,7 @@ export default function Tenants() {
                               {t.status === "pending" ? "대기" : t.status === "submitted" ? "제출됨" : t.status === "approved" ? "승인" : "반려"}
                             </Badge>
                           </div>
-                          <Button variant="ghost" size="sm" className="h-7" onClick={() => copyTokenLink(t.token)}>
+                          <Button variant="ghost" size="sm" className="h-9" onClick={() => copyTokenLink(t.token)}>
                             <Copy className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -623,10 +623,10 @@ export default function Tenants() {
                       {tenant.phone && <p className="text-xs text-muted-foreground mt-1">{tenant.phone}</p>}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); openEdit(tenant); }}>
+                      <Button variant="ghost" size="sm" className="h-10 w-10 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); openEdit(tenant); }}>
                         <Edit className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); handleDelete(tenant.id); }}>
+                      <Button variant="ghost" size="sm" className="h-10 w-10 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); handleDelete(tenant.id); }}>
                         <Trash2 className="w-3.5 h-3.5 text-destructive" />
                       </Button>
                     </div>

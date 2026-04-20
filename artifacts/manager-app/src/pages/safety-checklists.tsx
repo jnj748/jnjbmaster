@@ -249,9 +249,9 @@ export default function SafetyChecklists() {
         </ResponsiveDialog>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-2">
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="카테고리" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px] h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 카테고리</SelectItem>
             {CATEGORIES.map((c) => (
@@ -260,7 +260,7 @@ export default function SafetyChecklists() {
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="상태" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px] h-11"><SelectValue placeholder="상태" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 상태</SelectItem>
             <SelectItem value="pending">대기</SelectItem>
@@ -308,7 +308,7 @@ export default function SafetyChecklists() {
                           value=""
                           onValueChange={(val) => handleStatusChange(cl.id, val)}
                         >
-                          <SelectTrigger className="h-8 w-[100px] text-xs">
+                          <SelectTrigger className="h-10 w-[100px] text-xs">
                             <SelectValue placeholder="상태변경" />
                           </SelectTrigger>
                           <SelectContent>
@@ -429,7 +429,7 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                         value={item.result || ""}
                         onValueChange={(val) => handleResultChange(item.id, val)}
                       >
-                        <SelectTrigger className="h-7 w-[80px] text-xs">
+                        <SelectTrigger className="h-10 w-[88px] text-xs">
                           <SelectValue placeholder="결과" />
                         </SelectTrigger>
                         <SelectContent>

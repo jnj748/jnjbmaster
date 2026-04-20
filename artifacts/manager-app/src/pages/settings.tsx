@@ -156,7 +156,8 @@ function PlatformSettings() {
           <CardDescription>RFQ 카테고리별 입찰 크레딧 차감 비용을 조정합니다</CardDescription>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
+         <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">Tier</th><th className="text-left p-2">단가(C)</th><th></th></tr></thead>
             <tbody>
               {pricing?.map((p) => (
@@ -172,6 +173,7 @@ function PlatformSettings() {
               ))}
             </tbody>
           </table>
+         </div>
         </CardContent>
       </Card>
 
@@ -181,7 +183,8 @@ function PlatformSettings() {
           <CardDescription>정기 업무는 고정 5%, 비정기/단건은 슬라이딩 10/7/5%</CardDescription>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
+         <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[520px]">
             <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">유형</th><th className="text-left p-2">고정 요율(%)</th><th></th></tr></thead>
             <tbody>
               {rates?.map((r) => (
@@ -197,6 +200,7 @@ function PlatformSettings() {
               ))}
             </tbody>
           </table>
+         </div>
         </CardContent>
       </Card>
     </div>

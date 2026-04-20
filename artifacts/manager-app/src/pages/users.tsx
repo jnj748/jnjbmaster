@@ -101,7 +101,8 @@ export default function Users() {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table className="w-full">
+       <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">이름</th>
@@ -158,6 +159,7 @@ export default function Users() {
             )}
           </tbody>
         </table>
+       </div>
       </div>
 
       {showModal && (

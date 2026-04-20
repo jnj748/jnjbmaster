@@ -314,7 +314,7 @@ export default function Voting() {
                     <div className="border-t pt-3 space-y-2">
                       <p className="text-xs font-medium">투표 현황 (투표율: {detail.turnoutRate}%)</p>
                       {detail.ballots && detail.ballots.length > 0 ? (
-                        <div className="max-h-40 overflow-y-auto">
+                        <div className="max-h-40 overflow-y-auto overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b text-muted-foreground">

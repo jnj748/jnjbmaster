@@ -563,38 +563,62 @@ function VendorQuoteList({ quotes }: { quotes: any[] }) {
   return (
     <div className="space-y-4">
       {quotes.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium">RFQ ID</th>
-                  <th className="text-right p-3 font-medium">견적 금액</th>
-                  <th className="text-center p-3 font-medium">소요일</th>
-                  <th className="text-center p-3 font-medium">착수일</th>
-                  <th className="text-center p-3 font-medium">제출일</th>
-                  <th className="text-center p-3 font-medium">상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.map((q: any) => (
-                  <tr key={q.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3">#{q.rfqId}</td>
-                    <td className="p-3 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
-                    <td className="p-3 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
-                    <td className="p-3 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
-                    <td className="p-3 text-center">{formatDate(q.createdAt)}</td>
-                    <td className="p-3 text-center">
-                      <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
-                        {statusLabel(q.status)}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <>
+          <Card className="hidden desktop:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 font-medium">RFQ ID</th>
+                      <th className="text-right p-3 font-medium">견적 금액</th>
+                      <th className="text-center p-3 font-medium">소요일</th>
+                      <th className="text-center p-3 font-medium">착수일</th>
+                      <th className="text-center p-3 font-medium">제출일</th>
+                      <th className="text-center p-3 font-medium">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotes.map((q: any) => (
+                      <tr key={q.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="p-3">#{q.rfqId}</td>
+                        <td className="p-3 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
+                        <td className="p-3 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
+                        <td className="p-3 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
+                        <td className="p-3 text-center">{formatDate(q.createdAt)}</td>
+                        <td className="p-3 text-center">
+                          <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
+                            {statusLabel(q.status)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="desktop:hidden space-y-3">
+            {quotes.map((q: any) => (
+              <Card key={q.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm">RFQ #{q.rfqId}</p>
+                    <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
+                      {statusLabel(q.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-base font-semibold">{q.totalAmount.toLocaleString()}원</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>소요: {q.estimatedDays ? `${q.estimatedDays}일` : "-"}</span>
+                    <span>착수: {q.availableDate ? formatDate(q.availableDate) : "-"}</span>
+                    <span className="col-span-2">제출일: {formatDate(q.createdAt)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
@@ -733,34 +757,56 @@ function VendorSettlements({ settlements }: { settlements: any[] }) {
   return (
     <div className="space-y-4">
       {settlements.length > 0 ? (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium">정산 항목</th>
-                  <th className="text-right p-3 font-medium">금액</th>
-                  <th className="text-center p-3 font-medium">상태</th>
-                  <th className="text-center p-3 font-medium">예정일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {settlements.map((s: any) => (
-                  <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3">{s.description || `정산 #${s.id}`}</td>
-                    <td className="p-3 text-right font-medium">{s.paymentAmount.toLocaleString()}원</td>
-                    <td className="p-3 text-center">
-                      <Badge variant={s.status === "paid" ? "default" : "secondary"}>
-                        {s.status === "paid" ? "지급완료" : "미지급"}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">{s.paymentDate ? formatDate(s.paymentDate) : "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <>
+          <Card className="hidden desktop:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 font-medium">정산 항목</th>
+                      <th className="text-right p-3 font-medium">금액</th>
+                      <th className="text-center p-3 font-medium">상태</th>
+                      <th className="text-center p-3 font-medium">예정일</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {settlements.map((s: any) => (
+                      <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="p-3">{s.description || `정산 #${s.id}`}</td>
+                        <td className="p-3 text-right font-medium">{s.paymentAmount.toLocaleString()}원</td>
+                        <td className="p-3 text-center">
+                          <Badge variant={s.status === "paid" ? "default" : "secondary"}>
+                            {s.status === "paid" ? "지급완료" : "미지급"}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-center">{s.paymentDate ? formatDate(s.paymentDate) : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="desktop:hidden space-y-3">
+            {settlements.map((s: any) => (
+              <Card key={s.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm">{s.description || `정산 #${s.id}`}</p>
+                    <Badge variant={s.status === "paid" ? "default" : "secondary"}>
+                      {s.status === "paid" ? "지급완료" : "미지급"}
+                    </Badge>
+                  </div>
+                  <p className="text-base font-semibold">{s.paymentAmount.toLocaleString()}원</p>
+                  <p className="text-xs text-muted-foreground">
+                    예정일: {s.paymentDate ? formatDate(s.paymentDate) : "-"}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
