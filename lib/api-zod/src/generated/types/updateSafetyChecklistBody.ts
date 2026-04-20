@@ -16,4 +16,8 @@ export interface UpdateSafetyChecklistBody {
   status?: UpdateSafetyChecklistBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }

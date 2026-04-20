@@ -25,6 +25,10 @@ export interface MaintenanceLog {
   sourceType?: string | null;
   /** @nullable */
   checklistItemId?: number | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

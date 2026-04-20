@@ -31,13 +31,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { Plus, Wrench, Trash2, Send } from "lucide-react";
+import { PhotoUploadField } from "@/components/photo-upload-field";
+import { AuthImage } from "@/components/auth-image";
 
 const CATEGORIES = [
+  { value: "fire_safety", label: "소방" },
+  { value: "electrical", label: "전기" },
+  { value: "elevator", label: "승강기" },
+  { value: "generator", label: "발전기" },
+  { value: "water_tank", label: "저수조" },
+  { value: "plumbing", label: "배관" },
+  { value: "hvac", label: "냉난방" },
   { value: "bulb_replacement", label: "전구 교체" },
   { value: "drain_cleaning", label: "배수로 청소" },
   { value: "equipment_repair", label: "설비 수리" },
-  { value: "plumbing", label: "배관" },
-  { value: "hvac", label: "냉난방" },
   { value: "other", label: "기타" },
 ];
 
@@ -55,15 +62,18 @@ export default function MaintenanceLogs() {
   const deleteMutation = useDeleteMaintenanceLog();
   const sendReport = useSendMaintenanceReport();
 
-  const [form, setForm] = useState({
+  const initialForm = {
     title: "",
     description: "",
-    category: "equipment_repair",
+    category: "fire_safety",
     workDate: new Date().toISOString().split("T")[0],
     worker: "",
     status: "completed",
     notes: "",
-  });
+    closeUpPhotoUrl: null as string | null,
+    widePhotoUrl: null as string | null,
+  };
+  const [form, setForm] = useState(initialForm);
 
   async function handleCreate() {
     if (!form.title || !form.description || !form.worker) {
@@ -80,20 +90,14 @@ export default function MaintenanceLogs() {
         worker: form.worker,
         status: form.status as any,
         notes: form.notes || undefined,
+        closeUpPhotoUrl: form.closeUpPhotoUrl,
+        widePhotoUrl: form.widePhotoUrl,
       },
     });
 
     queryClient.invalidateQueries({ queryKey: getListMaintenanceLogsQueryKey() });
     setCreateOpen(false);
-    setForm({
-      title: "",
-      description: "",
-      category: "equipment_repair",
-      workDate: new Date().toISOString().split("T")[0],
-      worker: "",
-      status: "completed",
-      notes: "",
-    });
+    setForm(initialForm);
     toast({ title: "업무 일지가 등록되었습니다" });
   }
 
@@ -113,9 +117,9 @@ export default function MaintenanceLogs() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">기전 업무 일지</h1>
+          <h1 className="text-2xl font-bold">시설 업무 일지</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            전구 교체, 배수로 청소, 설비 수리 등 일상 업무를 기록하고 관리소장에게 보고
+            소방, 전기, 승강기, 배관 등 시설 업무를 카테고리별로 통합 기록하고 관리소장에게 보고
           </p>
         </div>
         <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -127,7 +131,7 @@ export default function MaintenanceLogs() {
           </ResponsiveDialogTrigger>
           <ResponsiveDialogContent className="max-w-lg">
             <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>기전 업무 일지 작성</ResponsiveDialogTitle>
+              <ResponsiveDialogTitle>시설 업무 일지 작성</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div>
@@ -186,6 +190,18 @@ export default function MaintenanceLogs() {
                     <SelectItem value="pending">대기</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <PhotoUploadField
+                  label="원경 사진"
+                  value={form.widePhotoUrl}
+                  onChange={(url) => setForm((f) => ({ ...f, widePhotoUrl: url }))}
+                />
+                <PhotoUploadField
+                  label="근경 사진"
+                  value={form.closeUpPhotoUrl}
+                  onChange={(url) => setForm((f) => ({ ...f, closeUpPhotoUrl: url }))}
+                />
               </div>
               <div>
                 <Label>비고</Label>
@@ -246,8 +262,32 @@ export default function MaintenanceLogs() {
                       <p className="text-sm text-muted-foreground mt-1.5 ml-6">{log.description}</p>
                       <p className="text-xs text-muted-foreground mt-1 ml-6">
                         {formatDate(log.workDate)} &middot; 작업자: {log.worker}
-                        {log.notes && ` &middot; ${log.notes}`}
+                        {log.notes && ` · ${log.notes}`}
                       </p>
+                      {(log.widePhotoUrl || log.closeUpPhotoUrl) && (
+                        <div className="flex gap-2 mt-2 ml-6">
+                          {log.widePhotoUrl && (
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] text-muted-foreground">원경</p>
+                              <AuthImage
+                                src={log.widePhotoUrl}
+                                alt="원경"
+                                className="w-20 h-20 rounded border object-cover"
+                              />
+                            </div>
+                          )}
+                          {log.closeUpPhotoUrl && (
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] text-muted-foreground">근경</p>
+                              <AuthImage
+                                src={log.closeUpPhotoUrl}
+                                alt="근경"
+                                className="w-20 h-20 rounded border object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-3">
                       {!log.reportSent && (

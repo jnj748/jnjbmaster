@@ -4790,6 +4790,8 @@ export const ListSafetyChecklistsResponseItem = zod.object({
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4812,6 +4814,8 @@ export const CreateSafetyChecklistBody = zod.object({
   inspectionDate: zod.coerce.date(),
   inspector: zod.string(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   items: zod
     .array(
       zod.object({
@@ -4845,6 +4849,8 @@ export const GetSafetyChecklistResponse = zod.object({
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -4876,6 +4882,8 @@ export const UpdateSafetyChecklistBody = zod.object({
   inspector: zod.string().optional(),
   status: zod.enum(["pending", "completed", "issue_found"]).optional(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
 });
 
 export const UpdateSafetyChecklistResponse = zod.object({
@@ -4892,6 +4900,8 @@ export const UpdateSafetyChecklistResponse = zod.object({
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4968,6 +4978,11 @@ export const ListMaintenanceLogsResponseItem = zod.object({
     "equipment_repair",
     "plumbing",
     "hvac",
+    "fire_safety",
+    "electrical",
+    "elevator",
+    "generator",
+    "water_tank",
     "other",
   ]),
   workDate: zod.coerce.date(),
@@ -4978,6 +4993,8 @@ export const ListMaintenanceLogsResponseItem = zod.object({
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -4997,12 +5014,19 @@ export const CreateMaintenanceLogBody = zod.object({
     "equipment_repair",
     "plumbing",
     "hvac",
+    "fire_safety",
+    "electrical",
+    "elevator",
+    "generator",
+    "water_tank",
     "other",
   ]),
   workDate: zod.coerce.date().optional(),
   worker: zod.string().optional(),
   status: zod.enum(["completed", "in_progress", "pending"]).optional(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
 });
 
 /**
@@ -5022,6 +5046,11 @@ export const GetMaintenanceLogResponse = zod.object({
     "equipment_repair",
     "plumbing",
     "hvac",
+    "fire_safety",
+    "electrical",
+    "elevator",
+    "generator",
+    "water_tank",
     "other",
   ]),
   workDate: zod.coerce.date(),
@@ -5032,6 +5061,8 @@ export const GetMaintenanceLogResponse = zod.object({
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -5053,6 +5084,11 @@ export const UpdateMaintenanceLogBody = zod.object({
       "equipment_repair",
       "plumbing",
       "hvac",
+      "fire_safety",
+      "electrical",
+      "elevator",
+      "generator",
+      "water_tank",
       "other",
     ])
     .optional(),
@@ -5060,6 +5096,8 @@ export const UpdateMaintenanceLogBody = zod.object({
   worker: zod.string().optional(),
   status: zod.enum(["completed", "in_progress", "pending"]).optional(),
   notes: zod.string().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
 });
 
 export const UpdateMaintenanceLogResponse = zod.object({
@@ -5072,6 +5110,11 @@ export const UpdateMaintenanceLogResponse = zod.object({
     "equipment_repair",
     "plumbing",
     "hvac",
+    "fire_safety",
+    "electrical",
+    "elevator",
+    "generator",
+    "water_tank",
     "other",
   ]),
   workDate: zod.coerce.date(),
@@ -5082,6 +5125,8 @@ export const UpdateMaintenanceLogResponse = zod.object({
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -5110,6 +5155,11 @@ export const SendMaintenanceReportResponse = zod.object({
     "equipment_repair",
     "plumbing",
     "hvac",
+    "fire_safety",
+    "electrical",
+    "elevator",
+    "generator",
+    "water_tank",
     "other",
   ]),
   workDate: zod.coerce.date(),
@@ -5120,6 +5170,8 @@ export const SendMaintenanceReportResponse = zod.object({
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
+  closeUpPhotoUrl: zod.string().nullish(),
+  widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -5259,6 +5311,11 @@ export const GetFacilityDashboardResponse = zod.object({
         "equipment_repair",
         "plumbing",
         "hvac",
+        "fire_safety",
+        "electrical",
+        "elevator",
+        "generator",
+        "water_tank",
         "other",
       ]),
       workDate: zod.coerce.date(),
@@ -5269,6 +5326,8 @@ export const GetFacilityDashboardResponse = zod.object({
       notes: zod.string().nullish(),
       sourceType: zod.string().nullish(),
       checklistItemId: zod.number().nullish(),
+      closeUpPhotoUrl: zod.string().nullish(),
+      widePhotoUrl: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -5365,7 +5424,7 @@ export const GetFacilityStatusSummaryResponse = zod.object({
           .describe("오늘 일일 안전점검표가 작성 완료됨"),
         maintenanceLogs: zod
           .boolean()
-          .describe("오늘 기전 업무일지가 1건 이상 작성됨"),
+          .describe("오늘 시설 업무일지가 1건 이상 작성됨"),
         safetyTrainings: zod
           .boolean()
           .describe("오늘 미완료 안전교육 일정이 없음(일정 없음 포함)"),

@@ -11,7 +11,7 @@ export interface FacilityTodayProgressItems {
   inspections: boolean;
   /** 오늘 일일 안전점검표가 작성 완료됨 */
   safetyChecklists: boolean;
-  /** 오늘 기전 업무일지가 1건 이상 작성됨 */
+  /** 오늘 시설 업무일지가 1건 이상 작성됨 */
   maintenanceLogs: boolean;
   /** 오늘 미완료 안전교육 일정이 없음(일정 없음 포함) */
   safetyTrainings: boolean;

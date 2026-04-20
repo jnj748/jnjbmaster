@@ -2085,6 +2085,10 @@ export interface SafetyChecklist {
   status: SafetyChecklistStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2130,6 +2134,10 @@ export interface SafetyChecklistDetail {
   status: SafetyChecklistDetailStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   items: SafetyChecklistItem[];
   createdAt: string;
   updatedAt: string;
@@ -2162,6 +2170,10 @@ export interface CreateSafetyChecklistBody {
   inspector: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   items?: CreateSafetyChecklistBodyItemsItem[];
 }
 
@@ -2193,6 +2205,10 @@ export interface UpdateSafetyChecklistBody {
   status?: UpdateSafetyChecklistBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }
 
 export interface CreateSafetyChecklistItemBody {
@@ -2221,6 +2237,11 @@ export const MaintenanceLogCategory = {
   equipment_repair: "equipment_repair",
   plumbing: "plumbing",
   hvac: "hvac",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  elevator: "elevator",
+  generator: "generator",
+  water_tank: "water_tank",
   other: "other",
 } as const;
 
@@ -2250,6 +2271,10 @@ export interface MaintenanceLog {
   sourceType?: string | null;
   /** @nullable */
   checklistItemId?: number | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2279,6 +2304,11 @@ export const CreateMaintenanceLogBodyCategory = {
   equipment_repair: "equipment_repair",
   plumbing: "plumbing",
   hvac: "hvac",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  elevator: "elevator",
+  generator: "generator",
+  water_tank: "water_tank",
   other: "other",
 } as const;
 
@@ -2300,6 +2330,10 @@ export interface CreateMaintenanceLogBody {
   status?: CreateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }
 
 export interface RejectApprovalBody {
@@ -2355,6 +2389,11 @@ export const UpdateMaintenanceLogBodyCategory = {
   equipment_repair: "equipment_repair",
   plumbing: "plumbing",
   hvac: "hvac",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  elevator: "elevator",
+  generator: "generator",
+  water_tank: "water_tank",
   other: "other",
 } as const;
 
@@ -2376,6 +2415,10 @@ export interface UpdateMaintenanceLogBody {
   status?: UpdateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }
 
 export type SafetyTrainingStatus =
@@ -2474,7 +2517,7 @@ export interface FacilityTodayProgressItems {
   inspections: boolean;
   /** 오늘 일일 안전점검표가 작성 완료됨 */
   safetyChecklists: boolean;
-  /** 오늘 기전 업무일지가 1건 이상 작성됨 */
+  /** 오늘 시설 업무일지가 1건 이상 작성됨 */
   maintenanceLogs: boolean;
   /** 오늘 미완료 안전교육 일정이 없음(일정 없음 포함) */
   safetyTrainings: boolean;

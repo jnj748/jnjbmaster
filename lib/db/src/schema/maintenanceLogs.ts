@@ -16,6 +16,8 @@ export const maintenanceLogsTable = pgTable("maintenance_logs", {
   notes: text("notes"),
   sourceType: text("source_type"),
   checklistItemId: integer("checklist_item_id"),
+  closeUpPhotoUrl: text("close_up_photo_url"),
+  widePhotoUrl: text("wide_photo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

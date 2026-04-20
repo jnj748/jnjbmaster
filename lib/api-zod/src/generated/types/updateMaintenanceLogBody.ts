@@ -17,4 +17,8 @@ export interface UpdateMaintenanceLogBody {
   status?: UpdateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }

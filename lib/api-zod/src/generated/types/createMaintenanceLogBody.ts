@@ -17,4 +17,8 @@ export interface CreateMaintenanceLogBody {
   status?: CreateMaintenanceLogBodyStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
 }

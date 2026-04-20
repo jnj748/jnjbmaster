@@ -256,7 +256,7 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     path: "/maintenance-logs", component: MaintenanceLogs,
-    label: "기전 업무일지", icon: Wrench, group: "facility",
+    label: "시설 업무일지", icon: Wrench, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
   },
   {

@@ -3774,7 +3774,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/SafetyChecklistItem"
 
-  # ── Maintenance Logs (기전 업무 일지) ──────────────────────
+  # ── Maintenance Logs (시설 업무 일지) ──────────────────────
   /maintenance-logs:
     get:
       operationId: listMaintenanceLogs
@@ -7371,6 +7371,10 @@ components:
           enum: [pending, completed, issue_found]
         notes:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -7406,6 +7410,10 @@ components:
           type: string
           enum: [pending, completed, issue_found]
         notes:
+          type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
           type: ["string", "null"]
         items:
           type: array
@@ -7468,6 +7476,10 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
         items:
           type: array
           items:
@@ -7507,6 +7519,10 @@ components:
           enum: [pending, completed, issue_found]
         notes:
           type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
 
     CreateSafetyChecklistItemBody:
       type: object
@@ -7543,7 +7559,7 @@ components:
           type: string
         category:
           type: string
-          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, fire_safety, electrical, elevator, generator, water_tank, other]
         workDate:
           type: string
           format: date
@@ -7563,6 +7579,10 @@ components:
           type: ["string", "null"]
         checklistItemId:
           type: ["integer", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -7614,7 +7634,7 @@ components:
           type: string
         category:
           type: string
-          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, fire_safety, electrical, elevator, generator, water_tank, other]
         workDate:
           type: string
           format: date
@@ -7624,6 +7644,10 @@ components:
           type: string
           enum: [completed, in_progress, pending]
         notes:
+          type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
           type: ["string", "null"]
       required:
         - title
@@ -7747,7 +7771,7 @@ components:
           type: string
         category:
           type: string
-          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, other]
+          enum: [bulb_replacement, drain_cleaning, equipment_repair, plumbing, hvac, fire_safety, electrical, elevator, generator, water_tank, other]
         workDate:
           type: string
           format: date
@@ -7757,6 +7781,10 @@ components:
           type: string
           enum: [completed, in_progress, pending]
         notes:
+          type: ["string", "null"]
+        closeUpPhotoUrl:
+          type: ["string", "null"]
+        widePhotoUrl:
           type: ["string", "null"]
 
     SafetyTraining:
@@ -7907,7 +7935,7 @@ components:
           description: "오늘 일일 안전점검표가 작성 완료됨"
         maintenanceLogs:
           type: boolean
-          description: "오늘 기전 업무일지가 1건 이상 작성됨"
+          description: "오늘 시설 업무일지가 1건 이상 작성됨"
         safetyTrainings:
           type: boolean
           description: "오늘 미완료 안전교육 일정이 없음(일정 없음 포함)"

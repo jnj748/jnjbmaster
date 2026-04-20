@@ -11,6 +11,8 @@ export const safetyChecklistsTable = pgTable("safety_checklists", {
   inspector: text("inspector").notNull(),
   status: text("status").notNull().default("pending"),
   notes: text("notes"),
+  closeUpPhotoUrl: text("close_up_photo_url"),
+  widePhotoUrl: text("wide_photo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

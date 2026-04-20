@@ -15,5 +15,9 @@ export interface CreateSafetyChecklistBody {
   inspector: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   items?: CreateSafetyChecklistBodyItemsItem[];
 }

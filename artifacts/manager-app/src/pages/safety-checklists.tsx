@@ -35,6 +35,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench } from "lucide-react";
+import { PhotoUploadField } from "@/components/photo-upload-field";
+import { AuthImage } from "@/components/auth-image";
 
 const CATEGORIES = [
   { value: "electrical", label: "전기설비" },
@@ -81,6 +83,8 @@ export default function SafetyChecklists() {
     inspectionDate: new Date().toISOString().split("T")[0],
     inspector: "",
     notes: "",
+    closeUpPhotoUrl: null as string | null,
+    widePhotoUrl: null as string | null,
     items: [] as { itemName: string; checked: boolean }[],
   });
 
@@ -105,6 +109,8 @@ export default function SafetyChecklists() {
         inspectionDate: form.inspectionDate,
         inspector: form.inspector,
         notes: form.notes || undefined,
+        closeUpPhotoUrl: form.closeUpPhotoUrl,
+        widePhotoUrl: form.widePhotoUrl,
         items: form.items.length > 0 ? form.items : undefined,
       },
     });
@@ -117,6 +123,8 @@ export default function SafetyChecklists() {
       inspectionDate: new Date().toISOString().split("T")[0],
       inspector: "",
       notes: "",
+      closeUpPhotoUrl: null,
+      widePhotoUrl: null,
       items: [],
     });
     toast({ title: "안전점검표가 생성되었습니다" });
@@ -212,6 +220,18 @@ export default function SafetyChecklists() {
                   </div>
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-3">
+                <PhotoUploadField
+                  label="원경 사진"
+                  value={form.widePhotoUrl}
+                  onChange={(url) => setForm((f) => ({ ...f, widePhotoUrl: url }))}
+                />
+                <PhotoUploadField
+                  label="근경 사진"
+                  value={form.closeUpPhotoUrl}
+                  onChange={(url) => setForm((f) => ({ ...f, closeUpPhotoUrl: url }))}
+                />
+              </div>
               <div>
                 <Label>비고</Label>
                 <Textarea

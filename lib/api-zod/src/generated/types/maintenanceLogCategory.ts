@@ -15,5 +15,10 @@ export const MaintenanceLogCategory = {
   equipment_repair: "equipment_repair",
   plumbing: "plumbing",
   hvac: "hvac",
+  fire_safety: "fire_safety",
+  electrical: "electrical",
+  elevator: "elevator",
+  generator: "generator",
+  water_tank: "water_tank",
   other: "other",
 } as const;

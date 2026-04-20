@@ -18,6 +18,10 @@ export interface SafetyChecklistDetail {
   status: SafetyChecklistDetailStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  closeUpPhotoUrl?: string | null;
+  /** @nullable */
+  widePhotoUrl?: string | null;
   items: SafetyChecklistItem[];
   createdAt: Date;
   updatedAt: Date;
