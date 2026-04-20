@@ -139,7 +139,7 @@ export function ConsentSection({ role, value, onChange, onDocsLoaded }: Props) {
           onChange={(e) => toggleAll(e.target.checked)}
           aria-label="전체 동의"
         />
-        <span>전체 동의 (필수 + 선택)</span>
+        <span>전체 동의</span>
       </label>
 
       <div className="space-y-1.5">
