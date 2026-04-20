@@ -9,13 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Printer, Download, Mail, Share2 } from "lucide-react";
+import { Printer, Download, Share2, FileText } from "lucide-react";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
-  openMailtoWithDocument,
   safeFilename,
 } from "@/lib/document-export";
 import { shareDocument } from "@/lib/official-document";
@@ -130,6 +129,7 @@ export function CompletionNotice({
   const [notesText, setNotesText] = useState(notes || "");
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [exportingDoc, setExportingDoc] = useState(false);
 
   async function withReadyDocument<T>(fn: () => Promise<T> | T): Promise<T> {
     setEditMode(false);
@@ -200,9 +200,45 @@ export function CompletionNotice({
     }
   }
 
-  function handleEmail() {
-    const subject = `[${buildingName}] ${title}`;
-    openMailtoWithDocument({ subject, body: buildPlainText() });
+  async function handleDownloadDoc() {
+    if (!documentRef.current) return;
+    setExportingDoc(true);
+    try {
+      await withReadyDocument(async () => {
+        if (!documentRef.current) return;
+        const inner = documentRef.current.outerHTML;
+        const html =
+          `<html xmlns:o="urn:schemas-microsoft-com:office:office" ` +
+          `xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
+          `<head><meta charset="utf-8"><title>${title}</title>` +
+          `<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml>` +
+          `<style>` +
+          `body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;}` +
+          `table{border-collapse:collapse;}td,th{padding:6px 8px;}` +
+          `img{max-width:100%;}` +
+          `@page{size:A4;margin:1.5cm;}` +
+          `</style></head><body>${inner}</body></html>`;
+        const bom = "\uFEFF";
+        const blob = new Blob([bom + html], { type: "application/msword;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download =
+          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".doc";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+          title: "문서 저장 완료",
+          description: "Word(.doc) 파일이 저장되었습니다. 워드/한글에서 열어 편집할 수 있습니다.",
+        });
+      });
+    } catch (e) {
+      toast({ title: "문서 저장 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setExportingDoc(false);
+    }
   }
 
   const buildingNameClass = buildingNameSizeClass(buildingName);
@@ -321,38 +357,57 @@ export function CompletionNotice({
           </div>
         </A4DocumentFrame>
 
-        <div className="a4-document-actions flex flex-wrap justify-end gap-2 print:hidden">
-          {!editMode && (
-            <Button variant="outline" onClick={() => setEditMode(true)}>
-              수정
-            </Button>
+        <div className="a4-document-actions space-y-2 print:hidden">
+          {(!editMode || true) && (
+            <div className="flex justify-end gap-2">
+              {!editMode && (
+                <Button variant="ghost" size="sm" onClick={() => setEditMode(true)}>
+                  수정
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={handlePrint}
+                data-testid="btn-print"
+                className="hidden md:inline-flex"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                인쇄
+              </Button>
+            </div>
           )}
-          <Button
-            variant="outline"
-            onClick={handleShare}
-            disabled={sharing}
-            data-testid="btn-share"
-          >
-            <Share2 className="w-4 h-4 mr-2" />
-            {sharing ? "공유 중..." : "외부 공유"}
-          </Button>
-          <Button variant="outline" onClick={handleEmail} data-testid="btn-email">
-            <Mail className="w-4 h-4 mr-2" />
-            이메일
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleDownloadImage}
-            disabled={exporting}
-            data-testid="btn-save-image"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {exporting ? "저장 중..." : "이미지 저장"}
-          </Button>
-          <Button onClick={handlePrint} data-testid="btn-print">
-            <Printer className="w-4 h-4 mr-2" />
-            인쇄
-          </Button>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={handleShare}
+              disabled={sharing}
+              data-testid="btn-share"
+              className="w-full"
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              {sharing ? "공유 중..." : "외부 공유"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadImage}
+              disabled={exporting}
+              data-testid="btn-save-image"
+              className="w-full"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {exporting ? "저장 중..." : "이미지 저장"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadDoc}
+              disabled={exportingDoc}
+              data-testid="btn-save-doc"
+              className="w-full"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              {exportingDoc ? "저장 중..." : "문서로 저장"}
+            </Button>
+          </div>
         </div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
