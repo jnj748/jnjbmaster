@@ -37,6 +37,8 @@ import {
   IntermediaryDisclaimerBanner,
   InspectionCompletionConfirmDialog,
 } from "@/components/intermediary-disclaimer";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import type { OfficialDocumentInput } from "@/lib/official-document";
 
 export default function WorkReports() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
@@ -157,6 +159,38 @@ export default function WorkReports() {
                     )}
                   </div>
                 </div>
+                {report.status === "approved" && (
+                  <div className="mt-3">
+                    <OfficialDocumentTriggers
+                      buildInput={(): OfficialDocumentInput => {
+                        const photos = report.photoUrls
+                          ? String(report.photoUrls)
+                              .split(",")
+                              .map((s: string) => s.trim())
+                              .filter(Boolean)
+                          : [];
+                        return {
+                          source: "work-reports",
+                          sourceLabel: "작업 완료 보고",
+                          title: report.title,
+                          date: report.completionDate,
+                          authorName: report.vendorName,
+                          summary: [
+                            { label: "업체", value: String(report.vendorName ?? "") },
+                            { label: "완료일", value: formatDate(report.completionDate) },
+                            { label: "검수 결과", value: "승인" },
+                            { label: "첨부 사진", value: `${photos.length}장` },
+                          ],
+                          items: report.description
+                            ? [{ label: "작업 내용", value: String(report.description), status: "info" }]
+                            : [],
+                          notes: report.reviewNotes ? `검수 의견: ${report.reviewNotes}` : undefined,
+                          photos,
+                        };
+                      }}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

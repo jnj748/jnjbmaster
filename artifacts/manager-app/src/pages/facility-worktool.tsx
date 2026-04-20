@@ -22,6 +22,9 @@ import {
   Send,
   Image,
 } from "lucide-react";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import { useAuth } from "@/contexts/auth-context";
+import type { OfficialDocumentInput } from "@/lib/official-document";
 
 type CheckResult = "good" | "caution" | "bad" | null;
 
@@ -55,6 +58,7 @@ const resultIcons: Record<string, { icon: typeof CheckCircle; color: string; lab
 export default function FacilityWorktool() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const checkMutation = useCheckAttendance();
   const { data: todayRecords } = useGetTodayAttendance();
   const hasCheckedIn = todayRecords?.some((r) => r.checkType === "check_in");
@@ -164,13 +168,36 @@ export default function FacilityWorktool() {
         </CardHeader>
         <CardContent className="space-y-4">
           {submitted ? (
-            <div className="text-center py-8 space-y-3">
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
-              <p className="font-medium">점검표가 제출되었습니다</p>
-              <p className="text-sm text-muted-foreground">
-                양호 {checklist.filter((c) => c.result === "good").length} · 주의 {cautionCount} · 불량 {badCount}
-              </p>
-              <Button variant="outline" onClick={() => setSubmitted(false)}>다시 작성</Button>
+            <div className="space-y-4">
+              <div className="text-center py-6 space-y-3">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+                <p className="font-medium">점검표가 제출되었습니다</p>
+                <p className="text-sm text-muted-foreground">
+                  양호 {checklist.filter((c) => c.result === "good").length} · 주의 {cautionCount} · 불량 {badCount}
+                </p>
+                <Button variant="outline" onClick={() => setSubmitted(false)}>다시 작성</Button>
+              </div>
+              <OfficialDocumentTriggers
+                buildInput={(): OfficialDocumentInput => ({
+                  source: "facility-worktool",
+                  sourceLabel: "시설담당자 일일 점검",
+                  title: `시설담당자 일일 점검표 (${new Date().toISOString().slice(0, 10)})`,
+                  date: new Date().toISOString(),
+                  authorName: user?.name,
+                  summary: [
+                    { label: "총 항목", value: `${checklist.length}건` },
+                    { label: "양호", value: `${checklist.filter((c) => c.result === "good").length}건` },
+                    { label: "주의", value: `${cautionCount}건` },
+                    { label: "불량", value: `${badCount}건` },
+                  ],
+                  items: checklist.map((c) => ({
+                    label: `[${c.category}] ${c.label}`,
+                    status: c.result ?? "info",
+                  })),
+                  notes: notes || undefined,
+                  photos: checklist.map((c) => c.photo).filter((p): p is string => !!p),
+                })}
+              />
             </div>
           ) : (
             <>

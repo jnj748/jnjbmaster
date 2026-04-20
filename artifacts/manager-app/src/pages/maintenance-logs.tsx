@@ -42,6 +42,8 @@ import { formatDate } from "@/lib/utils";
 import { Plus, Wrench, Trash2, Send } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { AuthImage } from "@/components/auth-image";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import type { OfficialDocumentInput } from "@/lib/official-document";
 
 const CATEGORIES = [
   { value: "fire_safety", label: "소방" },
@@ -407,6 +409,32 @@ export default function MaintenanceLogs() {
                       </Button>
                     </div>
                   </div>
+                  {(log.status === "completed" || log.reportSent) && (
+                    <div className="mt-3">
+                      <OfficialDocumentTriggers
+                        buildInput={(): OfficialDocumentInput => ({
+                          source: "maintenance-logs",
+                          sourceLabel: `시설 업무 (${catLabel})`,
+                          title: log.title,
+                          date: log.workDate,
+                          authorName: log.worker,
+                          summary: [
+                            { label: "카테고리", value: catLabel },
+                            { label: "상태", value: log.status === "completed" ? "완료" : log.status === "in_progress" ? "진행중" : "대기" },
+                            { label: "보고", value: log.reportSent ? "보고완료" : "미보고" },
+                            { label: "작업일", value: formatDate(log.workDate) },
+                          ],
+                          items: log.description
+                            ? [{ label: "작업 내용", value: log.description, status: "info" }]
+                            : [],
+                          notes: log.notes ?? undefined,
+                          photos: [log.widePhotoUrl, log.closeUpPhotoUrl].filter(
+                            (p): p is string => !!p,
+                          ),
+                        })}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

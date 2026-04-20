@@ -35,6 +35,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench } from "lucide-react";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import type { OfficialDocumentInput } from "@/lib/official-document";
 import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { AuthImage } from "@/components/auth-image";
@@ -538,6 +540,56 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                   ))}
                 </div>
               </div>
+            )}
+            {detail.status !== "pending" && (
+              <OfficialDocumentTriggers
+                buildInput={(): OfficialDocumentInput => {
+                  const items = (detail.items ?? []).map((it) => ({
+                    label: it.itemName,
+                    status:
+                      it.result === "불량"
+                        ? ("bad" as const)
+                        : it.result === "양호"
+                        ? ("good" as const)
+                        : it.checked
+                        ? ("good" as const)
+                        : ("info" as const),
+                    meta: it.checked ? "점검완료" : "미점검",
+                  }));
+                  const goodCount = items.filter((i) => i.status === "good").length;
+                  const badCount = items.filter((i) => i.status === "bad").length;
+                  const catLabel =
+                    CATEGORIES.find((c) => c.value === detail.category)?.label ??
+                    detail.category;
+                  return {
+                    source: "safety-checklists",
+                    sourceLabel: `안전점검 (${catLabel})`,
+                    title: detail.title,
+                    date: detail.inspectionDate,
+                    authorName: detail.inspector,
+                    summary: [
+                      { label: "카테고리", value: catLabel },
+                      { label: "총 항목", value: `${items.length}건` },
+                      { label: "양호", value: `${goodCount}건` },
+                      { label: "불량", value: `${badCount}건` },
+                      {
+                        label: "결과",
+                        value:
+                          detail.status === "issue_found"
+                            ? "이상발견"
+                            : detail.status === "completed"
+                            ? "완료"
+                            : "진행",
+                      },
+                    ],
+                    items,
+                    notes: detail.notes ?? undefined,
+                    photos: [detail.widePhotoUrl, detail.closeUpPhotoUrl].filter(
+                      (p): p is string => !!p,
+                    ),
+                  };
+                }}
+              />
             )}
           </div>
         ) : (

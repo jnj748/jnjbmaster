@@ -40,6 +40,8 @@ import {
   Eye,
   Calendar,
 } from "lucide-react";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import type { OfficialDocumentInput } from "@/lib/official-document";
 
 const reportTypeLabels: Record<string, string> = {
   expense: "경비 일지",
@@ -364,6 +366,37 @@ export default function DailyReports() {
                     ))}
                   </div>
                 </div>
+              )}
+              {selectedReport.status !== "draft" && (
+                <OfficialDocumentTriggers
+                  buildInput={(): OfficialDocumentInput => {
+                    const photos = selectedReport.photos
+                      ? selectedReport.photos
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : [];
+                    return {
+                      source: "daily-reports",
+                      sourceLabel: `일간 보고 (${reportTypeLabels[selectedReport.reportType] ?? selectedReport.reportType})`,
+                      title: selectedReport.title,
+                      date: selectedReport.reportDate,
+                      authorName: selectedReport.authorName,
+                      summary: [
+                        { label: "유형", value: reportTypeLabels[selectedReport.reportType] ?? selectedReport.reportType },
+                        { label: "보고일", value: selectedReport.reportDate },
+                        { label: "상태", value: statusLabels[selectedReport.status] ?? selectedReport.status },
+                        ...(selectedReport.reviewerName
+                          ? [{ label: "검토자", value: selectedReport.reviewerName }]
+                          : []),
+                      ],
+                      items: [
+                        { label: "보고 내용", value: selectedReport.content, status: "info" as const },
+                      ],
+                      photos,
+                    };
+                  }}
+                />
               )}
             </div>
             <ResponsiveDialogFooter>
