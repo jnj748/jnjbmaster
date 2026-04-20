@@ -310,7 +310,7 @@ export default function TenantCardForm() {
   const template = cardData?.contractTemplate;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-safe">
+    <div className="min-h-screen bg-slate-50 pb-[max(env(safe-area-inset-bottom),8rem)]">
       <div className="max-w-lg mx-auto px-4 py-6">
         <div className="text-center mb-6">
           <Building2 className="w-10 h-10 mx-auto text-primary mb-2" />

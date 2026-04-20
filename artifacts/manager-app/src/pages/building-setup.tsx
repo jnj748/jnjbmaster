@@ -687,7 +687,7 @@ export default function BuildingSetup() {
   ];
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-[max(env(safe-area-inset-bottom),8rem)] [scroll-padding-bottom:8rem]">
       <div>
         <h1 className="text-2xl font-bold">건물 관리정보 설정</h1>
         <p className="text-muted-foreground text-sm mt-1">

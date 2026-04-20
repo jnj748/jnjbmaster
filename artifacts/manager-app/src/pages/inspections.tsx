@@ -700,8 +700,7 @@ export default function Inspections() {
                       {item.status === "scheduled" && (
                         <Button
                           variant="outline"
-                          size="sm"
-                          className="mt-2"
+                          className="mt-2 h-11"
                           onClick={() => openNotice(item)}
                         >
                           <Printer className="w-3.5 h-3.5 mr-1" />
@@ -715,20 +714,20 @@ export default function Inspections() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {item.advanceAlertDays}일 전 알림
                     </p>
-                    <div className="flex gap-1 mt-2 justify-end">
+                    <div className="flex flex-wrap gap-1 mt-2 justify-end">
                       {item.status !== "completed" && (
-                        <Button variant="ghost" size="sm" onClick={() => openComplete(item.id)} title="완료 처리">
-                          <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openComplete(item.id)} title="완료 처리">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => openHistory(item.id)} title="점검 이력">
-                        <History className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openHistory(item.id)} title="점검 이력">
+                        <History className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                        <Edit className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openEdit(item)} title="수정">
+                        <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleDelete(item.id)} title="삭제">
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
