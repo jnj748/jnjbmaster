@@ -120,12 +120,7 @@ export default function FacilityWorktool() {
 
   return (
     <div className="space-y-4 max-w-lg mx-auto">
-      <div>
-        <h1 className="text-xl font-bold">일일 업무</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          출퇴근 체크와 일일 점검표를 작성합니다
-        </p>
-      </div>
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다. */}
 
       <Card>
         <CardContent className="p-4">

@@ -6,12 +6,7 @@ import { Link } from "wouter";
 import { ClipboardCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-/**
- * Local view-model for the fields this widget actually renders.
- * The OpenAPI-generated response type is wider and (for legacy reasons)
- * loosely typed across approval flows; we narrow to exactly what the
- * widget needs and read fields defensively.
- */
+// Narrowed view-model for the fields this widget renders.
 interface PendingApprovalRow {
   id: number | string;
   title: string;
@@ -20,11 +15,6 @@ interface PendingApprovalRow {
   estimatedAmount?: number | null;
 }
 
-/**
- * 결재 대기 위젯 — 자신의 결재 대기열 상위 3건을 보여주고 전체보기 링크를 제공.
- * 결재 시스템에 접근 가능한 모든 역할(관리소장 / 경리·행정 / 플랫폼 관리자)이
- * 동일한 컴포넌트를 사용한다.
- */
 export default function PendingApprovalsWidget() {
   const { data: pending, isLoading } = useListApprovals({ status: "pending" });
   const items: PendingApprovalRow[] = (pending ?? []) as PendingApprovalRow[];

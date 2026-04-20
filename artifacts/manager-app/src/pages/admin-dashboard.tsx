@@ -79,13 +79,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">플랫폼 관리</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            시스템 전체 사용자와 건물 현황을 관리합니다
-          </p>
-        </div>
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
+          사용자 관리 진입 버튼만 남긴다. */}
+      <div className="flex items-start justify-end flex-wrap gap-3">
         <Button onClick={() => navigate("/users")} className="gap-2">
           <UserPlus className="w-4 h-4" />
           사용자 관리

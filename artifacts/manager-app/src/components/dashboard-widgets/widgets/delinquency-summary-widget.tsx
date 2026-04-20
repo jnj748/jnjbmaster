@@ -5,14 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { AlertTriangle } from "lucide-react";
 
-/**
- * 미납·연체 요약 위젯 — 연체 세대 수와 단계별(감지/독촉/주차정지)
- * 분포를 한 카드에 보여준다. 미납률 지표를 다루는 관리소장 / 경리·행정 /
- * 플랫폼 관리자가 동일한 컴포넌트를 공유한다.
- *
- * 연체 건수가 0이면 위젯은 빈 상태(noop)로 자체 처리되어 그리드에서
- * 시각적 노이즈를 만들지 않는다.
- */
 export default function DelinquencySummaryWidget() {
   const { data, isLoading } = useGetDelinquencySummary();
 

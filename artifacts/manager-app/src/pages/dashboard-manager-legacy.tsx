@@ -370,26 +370,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        {building ? (
-          <>
-            <h1 className="text-2xl font-bold">{building.name}</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              오늘의 관리 현황을 한눈에 확인하세요
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold">대시보드</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              <Link href="/settings?tab=building" className="text-primary hover:underline">
-                건물 정보를 등록하면
-              </Link>{" "}
-              더 정확한 관리 현황을 확인할 수 있습니다
-            </p>
-          </>
-        )}
-      </div>
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
+          건물 미등록 시 안내 링크는 building-info-widget 이 담당한다. */}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard

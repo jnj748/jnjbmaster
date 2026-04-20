@@ -173,14 +173,9 @@ export default function HqDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">본사 총괄 대시보드</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            전체 현장의 운영 현황을 한눈에 확인합니다
-            {latestMonth && <span className="ml-2">· {latestMonth} 기준</span>}
-          </p>
-        </div>
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
+          건물 선택 셀렉터만 남긴다. */}
+      <div className="flex items-start justify-end flex-wrap gap-3">
         <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
           <SelectTrigger className="w-48">
             <Building2 className="w-4 h-4 mr-2" />

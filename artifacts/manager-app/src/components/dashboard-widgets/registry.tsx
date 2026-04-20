@@ -2,37 +2,12 @@ import { lazy } from "react";
 import type { Role } from "@/lib/permissions";
 import type { WidgetDefinition } from "./types";
 
-/**
- * ─── Widget Catalog ──────────────────────────────────────────────
- *
- * Single source of truth for every dashboard widget the app knows
- * about. The shell page (pages/dashboard.tsx) only renders widgets
- * that appear in this catalog and the role layout below — there is
- * no other dispatch path.
- *
- * There are two kinds of entries:
- *
- *   1. **Shared widgets** (preferred). Small, single-responsibility
- *      components under `widgets/*` that any role can compose. The
- *      *same metric is the same component everywhere* — e.g. the
- *      pending-approvals widget renders identically for the manager,
- *      the accountant, and the platform admin.
- *
- *   2. **Per-role "main" widgets** that wrap a legacy role-specific
- *      page. These are transitional wrappers: as more pieces of those
- *      pages get extracted into shared widgets, the per-role main
- *      widget shrinks to only the genuinely role-unique bits.
- *
- * To add a widget:
- *   1. Define a component (lazy import recommended).
- *   2. Add an entry to WIDGETS below with a stable key + span hint.
- *   3. Reference its key in ROLE_LAYOUTS for the roles that need it.
- *
- * To share a widget across roles, list the same key under multiple
- * roles — the catalog deduplicates the import via lazy().
- */
+// Widget catalog and per-role layout. Shared widgets (building-info,
+// pending-approvals, delinquency-summary) render the same component for
+// every role that has the metric; *-main entries wrap the legacy role
+// page bodies pending further decomposition under #146.
 
-// ─── Shared widgets (composed by multiple roles) ────────────────
+// Shared widgets
 const PendingApprovalsWidget = lazy(
   () => import("./widgets/pending-approvals-widget"),
 );
@@ -43,11 +18,7 @@ const DelinquencySummaryWidget = lazy(
   () => import("./widgets/delinquency-summary-widget"),
 );
 
-// ─── Per-role main widgets (legacy page wrappers) ───────────────
-//
-// Each existing dashboard page is treated as one "main" widget. The
-// page already owns its own header / building context / sections.
-// Future tasks will continue to peel shared pieces off of these.
+// Role-specific main wrappers (legacy page bodies)
 const ManagerMainWidget = lazy(
   () => import("@/pages/dashboard-manager-legacy"),
 );
@@ -58,7 +29,6 @@ const PartnerMainWidget = lazy(() => import("@/pages/partner-dashboard"));
 const AdminMainWidget = lazy(() => import("@/pages/admin-dashboard"));
 
 export const WIDGETS = {
-  // ── Shared ──
   "pending-approvals": {
     key: "pending-approvals",
     component: PendingApprovalsWidget,
@@ -77,8 +47,6 @@ export const WIDGETS = {
     span: "half",
     label: "연체 세대 현황",
   },
-
-  // ── Role-specific main wrappers ──
   "manager-main": {
     key: "manager-main",
     component: ManagerMainWidget,
@@ -117,15 +85,8 @@ export const WIDGETS = {
   },
 } as const satisfies Record<string, WidgetDefinition>;
 
-/** Catalog-derived widget key — typos in ROLE_LAYOUTS fail at compile time. */
 export type CatalogWidgetKey = keyof typeof WIDGETS;
 
-// ─── Role → widget layout ───────────────────────────────────────
-//
-// Each role composes a small sequence of catalog keys. Shared keys
-// (pending-approvals / building-info / delinquency-summary) appear
-// for every role that legitimately sees that metric, and roles only
-// diverge on their tail "main" widget.
 export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   manager: {
     widgets: [
@@ -157,9 +118,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   },
 };
 
-/** Resolve the ordered widget definitions to render for a role.
- *  Falls back to the manager layout when the role is unknown so we never
- *  surface a fully blank dashboard for an unexpected role string. */
+// Falls back to the manager layout for unknown roles so we never blank out.
 export function getWidgetsForRole(role: Role): WidgetDefinition[] {
   const layout = ROLE_LAYOUTS[role] ?? ROLE_LAYOUTS.manager;
   return layout.widgets

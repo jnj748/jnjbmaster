@@ -43,13 +43,7 @@ export default function PartnerDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">파트너 대시보드</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {user?.name}님, 파트너사 현황을 확인하세요
-        </p>
-      </div>
-
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다. */}
       {vendorId && wallet && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>

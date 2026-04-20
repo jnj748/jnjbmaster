@@ -6,17 +6,11 @@ import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { WidgetErrorBoundary } from "./error-boundary";
 import type { WidgetDefinition, WidgetSpan } from "./types";
 
-/**
- * Tailwind class for a widget's desktop column span. Mobile is always 1
- * column (single stack); the grid template at the shell level expands at
- * `md` and `xl` breakpoints.
- */
 function spanClass(span: WidgetSpan = "full"): string {
   switch (span) {
     case "quarter":
       return "md:col-span-2 xl:col-span-1";
     case "third":
-      // Approximated on a 4-col grid; on md (2-col) we let it wrap naturally.
       return "md:col-span-2 xl:col-span-2";
     case "half":
       return "md:col-span-2 xl:col-span-2";
@@ -36,27 +30,17 @@ function WidgetSkeleton() {
 }
 
 interface DashboardShellProps {
-  /** Ordered widget catalog entries to render. */
   widgets: WidgetDefinition[];
-  /** Current user role — drives the shell-level header label. */
   role: Role;
 }
 
-/**
- * ShellHeader — single, role-agnostic header rendered above the widget
- * grid. Owns the "what role am I, which building am I looking at" framing
- * for every dashboard so individual widgets don't have to repeat it.
- */
 function ShellHeader({ role }: { role: Role }) {
   const { building } = useBuilding();
   const roleLabel = ROLE_LABELS[role];
   const buildingName = building?.name ?? null;
 
   return (
-    <header
-      className="flex flex-col gap-1 mb-4"
-      data-dashboard-header
-    >
+    <header className="flex flex-col gap-1 mb-4" data-dashboard-header>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium">{roleLabel}</span>
         {buildingName && (
@@ -74,21 +58,10 @@ function ShellHeader({ role }: { role: Role }) {
   );
 }
 
-/**
- * DashboardShell — single entry point for every role's dashboard.
- *
- * Responsibilities owned at the shell level (so widgets don't repeat them):
- *  • Role-agnostic header (current role label + active building name).
- *  • Empty-state when the role has no widgets configured.
- *  • Responsive grid that stacks 1-col on mobile and expands to 2/4-col
- *    on md/xl.
- *  • Per-widget Suspense + ErrorBoundary so loading / failure are isolated
- *    and one bad widget cannot blank the entire dashboard.
- *
- * Per-widget chrome (titles, sections, building-specific copy) still lives
- * inside each widget — sub-widget extraction of remaining role-specific
- * pieces continues under #146 (large-page decomposition).
- */
+// DashboardShell owns the role/building header, the empty state, the
+// responsive grid (1↔2↔4 col), and per-widget Suspense + ErrorBoundary
+// isolation. Role pages should not render their own page headers — the
+// shell is the single source of dashboard framing.
 export function DashboardShell({ widgets, role }: DashboardShellProps) {
   if (widgets.length === 0) {
     return (

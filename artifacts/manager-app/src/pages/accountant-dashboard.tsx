@@ -91,13 +91,9 @@ export default function AccountantDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">회계/행정 대시보드</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {currentYear}년 {currentMonth}월 세무·회계 일정과 미납 현황을 관리합니다
-          </p>
-        </div>
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
+          긴급 배지(있을 때)만 남긴다. */}
+      <div className="flex items-start justify-end">
         {urgentCount > 0 && (
           <Badge variant="destructive" className="text-xs gap-1 animate-pulse">
             <AlertTriangle className="w-3 h-3" />
