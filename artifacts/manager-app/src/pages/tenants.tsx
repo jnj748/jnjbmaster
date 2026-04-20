@@ -21,9 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -31,26 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@/components/ui/responsive-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Trash2, Edit, Users, Search, Download, Eye, ShieldAlert, Link2, CheckCircle, XCircle, Copy, FileText, Settings, Loader2 } from "lucide-react";
+import { Users, Search, CheckCircle, FileText, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DocLink } from "@/components/tenants/doc-link";
 import { ContractTemplateDialog } from "@/components/tenants/contract-template-dialog";
+import { TokenDialog } from "@/components/tenants/token-dialog";
+import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
+import { TenantTable } from "@/components/tenants/tenant-table";
+import { TenantDetailDialog } from "@/components/tenants/tenant-detail-dialog";
+import { TenantVerifyDialog } from "@/components/tenants/tenant-verify-dialog";
 
 const emptyForm = {
   unit: "",
@@ -322,196 +308,26 @@ export default function Tenants() {
           <Button variant="outline" size="icon" onClick={() => setTemplateDialog(true)} title="관리계약서 양식 설정">
             <Settings className="w-4 h-4" />
           </Button>
-          <ResponsiveDialog open={tokenDialog} onOpenChange={setTokenDialog}>
-            <ResponsiveDialogTrigger asChild>
-              <Button variant="outline">
-                <Link2 className="w-4 h-4 mr-2" />
-                입주자카드 발송
-              </Button>
-            </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent className="max-w-md">
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle>입주자카드 링크 생성</ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  입주민이 직접 입주자카드를 작성할 수 있는 링크를 생성합니다.
-                  생성된 링크를 카카오톡 등으로 전달해 주세요.
-                </p>
-                <div>
-                  <Label>호실 선택</Label>
-                  <Select
-                    value={tokenUnitId ? String(tokenUnitId) : ""}
-                    onValueChange={(v) => {
-                      const unit = units?.find((u) => u.id === Number(v));
-                      if (unit) {
-                        setTokenUnitId(unit.id);
-                        setTokenUnitLabel(unit.unitNumber);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="호실을 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units?.map((u) => (
-                        <SelectItem key={u.id} value={String(u.id)}>
-                          {u.unitNumber}호
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button className="w-full" onClick={handleCreateToken} disabled={!tokenUnitId || !tokenUnitLabel}>
-                  링크 생성 및 복사
-                </Button>
-
-                {tokens && tokens.length > 0 && (
-                  <div className="border-t pt-4">
-                    <p className="text-sm font-medium mb-2">생성된 토큰 목록</p>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {tokens.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between text-sm p-2 border rounded">
-                          <div>
-                            <span className="font-medium">{t.unitLabel}호</span>
-                            <Badge variant={t.status === "approved" ? "default" : t.status === "submitted" ? "secondary" : "outline"} className="ml-2 text-[10px]">
-                              {t.status === "pending" ? "대기" : t.status === "submitted" ? "제출됨" : t.status === "approved" ? "승인" : "반려"}
-                            </Badge>
-                          </div>
-                          <Button variant="ghost" size="sm" className="h-11" onClick={() => copyTokenLink(t.token)}>
-                            <Copy className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
-          <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-            <ResponsiveDialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                입주자 등록
-              </Button>
-            </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent className="max-w-2xl">
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle>{editing ? "입주자 수정" : "새 입주자 등록"}</ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>호실 *</Label>
-                    <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
-                  </div>
-                  <div>
-                    <Label>입주자명 *</Label>
-                    <Input value={form.tenantName} onChange={(e) => setForm({ ...form, tenantName: e.target.value })} required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>주민등록번호</Label>
-                    <Input value={form.residentId} onChange={(e) => setForm({ ...form, residentId: e.target.value })} placeholder="000000-0000000" />
-                  </div>
-                  <div>
-                    <Label>휴대폰</Label>
-                    <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>비상연락처</Label>
-                    <Input type="tel" inputMode="tel" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>이메일</Label>
-                    <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>인테리어 개시일</Label>
-                    <Input type="date" value={form.interiorStartDate} onChange={(e) => setForm({ ...form, interiorStartDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>입주일</Label>
-                    <Input type="date" value={form.moveInDate} onChange={(e) => setForm({ ...form, moveInDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>퇴거일</Label>
-                    <Input type="date" value={form.moveOutDate} onChange={(e) => setForm({ ...form, moveOutDate: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>상호명 (법인)</Label>
-                    <Input value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>사업자등록번호</Label>
-                    <Input value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <Label>주민등록주소</Label>
-                  <Input value={form.registeredAddress} onChange={(e) => setForm({ ...form, registeredAddress: e.target.value })} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox checked={form.hasTv} onCheckedChange={(v) => setForm({ ...form, hasTv: !!v })} />
-                  <Label>TV 소유</Label>
-                </div>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-3">법인 연대보증인 정보</p>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>보증인명</Label>
-                      <Input value={form.guarantorName} onChange={(e) => setForm({ ...form, guarantorName: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>연락처</Label>
-                      <Input value={form.guarantorPhone} onChange={(e) => setForm({ ...form, guarantorPhone: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>관계</Label>
-                      <Input value={form.guarantorRelation} onChange={(e) => setForm({ ...form, guarantorRelation: e.target.value })} />
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-3">제출서류 체크리스트</p>
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={form.contractDoc} onCheckedChange={(v) => setForm({ ...form, contractDoc: !!v })} />
-                      <Label>매매/임대차계약서</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={form.businessRegDoc} onCheckedChange={(v) => setForm({ ...form, businessRegDoc: !!v })} />
-                      <Label>사업자등록증</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={form.idDoc} onCheckedChange={(v) => setForm({ ...form, idDoc: !!v })} />
-                      <Label>신분증 사본</Label>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-3">개인정보 수집·이용 동의</p>
-                  <div>
-                    <Label>동의일시</Label>
-                    <Input type="datetime-local" value={form.privacyConsentDate} onChange={(e) => setForm({ ...form, privacyConsentDate: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <Label>기타사항</Label>
-                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-                </div>
-                <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
-              </form>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
+          <TokenDialog
+            open={tokenDialog}
+            onOpenChange={setTokenDialog}
+            units={units}
+            tokens={tokens}
+            tokenUnitId={tokenUnitId}
+            tokenUnitLabel={tokenUnitLabel}
+            setTokenUnitId={setTokenUnitId}
+            setTokenUnitLabel={setTokenUnitLabel}
+            onCreate={handleCreateToken}
+            onCopy={copyTokenLink}
+          />
+          <TenantFormDialog
+              open={dialogOpen}
+              onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}
+              editing={!!editing}
+              form={form}
+              setForm={setForm}
+              onSubmit={handleSubmit}
+            />
         </div>
       </div>
 
@@ -552,101 +368,16 @@ export default function Tenants() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
         </div>
       ) : tenants && tenants.length > 0 ? (
-        <>
-          <div className="hidden desktop:block">
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>호실</TableHead>
-                      <TableHead>입주자명</TableHead>
-                      <TableHead>휴대폰</TableHead>
-                      <TableHead>입주일</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead>확인</TableHead>
-                      <TableHead>서류</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tenants.map((tenant) => (
-                      <TableRow key={tenant.id}>
-                        <TableCell className="font-medium">{tenant.unit}</TableCell>
-                        <TableCell>{tenant.tenantName}</TableCell>
-                        <TableCell className="text-muted-foreground">{tenant.phone || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{tenant.moveInDate || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"}>
-                            {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{getVerificationBadge(tenant.verificationStatus)}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {tenant.contractDoc && <Badge variant="outline" className="text-xs">계약서</Badge>}
-                            {tenant.businessRegDoc && <Badge variant="outline" className="text-xs">사업자</Badge>}
-                            {tenant.idDoc && <Badge variant="outline" className="text-xs">신분증</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => setDetailDialog(tenant)}>
-                              <Eye className="w-3.5 h-3.5" />
-                            </Button>
-                            {tenant.verificationStatus === "unverified" && tenant.signatureName && (
-                              <Button variant="ghost" size="sm" onClick={() => setVerifyDialog(tenant)} className="text-orange-600">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="sm" onClick={() => exportTenantCard(tenant)} disabled={exportingId === tenant.id}>
-                              {exportingId === tenant.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(tenant)}>
-                              <Edit className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
-                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="desktop:hidden space-y-2">
-            {tenants.map((tenant) => (
-              <Card key={tenant.id} className="cursor-pointer" onClick={() => setDetailDialog(tenant)}>
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm">{tenant.unit}호</span>
-                        <span className="text-sm">{tenant.tenantName}</span>
-                        <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"} className="text-[10px]">
-                          {tenant.status === "active" ? "입주중" : tenant.status === "destroyed" ? "파기완료" : "퇴거"}
-                        </Badge>
-                        {getVerificationBadge(tenant.verificationStatus)}
-                      </div>
-                      {tenant.phone && <p className="text-xs text-muted-foreground mt-1">{tenant.phone}</p>}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={(e) => { e.stopPropagation(); openEdit(tenant); }}>
-                        <Edit className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={(e) => { e.stopPropagation(); handleDelete(tenant.id); }}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
+        <TenantTable
+          tenants={tenants}
+          exportingId={exportingId}
+          getVerificationBadge={getVerificationBadge}
+          onView={(t) => setDetailDialog(t)}
+          onVerify={(t) => setVerifyDialog(t)}
+          onExport={exportTenantCard}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
@@ -656,162 +387,23 @@ export default function Tenants() {
         </Card>
       )}
 
-      <ResponsiveDialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
-        <ResponsiveDialogContent className="max-w-2xl">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>입주자카드 상세</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          {detailDialog && (
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">호실:</span> <span className="font-medium">{detailDialog.unit}</span></div>
-                <div><span className="text-muted-foreground">입주자명:</span> <span className="font-medium">{detailDialog.tenantName}</span></div>
-                <div><span className="text-muted-foreground">주민등록번호:</span> {detailDialog.residentId || "-"}</div>
-                <div><span className="text-muted-foreground">휴대폰:</span> {detailDialog.phone || "-"}</div>
-                <div><span className="text-muted-foreground">비상연락처:</span> {detailDialog.emergencyContact || "-"}</div>
-                <div><span className="text-muted-foreground">이메일:</span> {detailDialog.email || "-"}</div>
-                <div><span className="text-muted-foreground">인테리어 개시일:</span> {detailDialog.interiorStartDate || "-"}</div>
-                <div><span className="text-muted-foreground">입주일:</span> {detailDialog.moveInDate || "-"}</div>
-                <div><span className="text-muted-foreground">퇴거일:</span> {detailDialog.moveOutDate || "-"}</div>
-                <div><span className="text-muted-foreground">관리비 부과 시작일:</span> <span className="font-medium text-primary">{detailDialog.billingStartDate || "-"}</span></div>
-                <div><span className="text-muted-foreground">상호명:</span> {detailDialog.companyName || "-"}</div>
-                <div><span className="text-muted-foreground">사업자등록번호:</span> {detailDialog.businessNumber || "-"}</div>
-                <div><span className="text-muted-foreground">TV소유:</span> {detailDialog.hasTv ? "예" : "아니오"}</div>
-                <div className="col-span-2"><span className="text-muted-foreground">주민등록주소:</span> {detailDialog.registeredAddress || "-"}</div>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">법인 연대보증인</p>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div><span className="text-muted-foreground">보증인명:</span> {detailDialog.guarantorName || "-"}</div>
-                  <div><span className="text-muted-foreground">연락처:</span> {detailDialog.guarantorPhone || "-"}</div>
-                  <div><span className="text-muted-foreground">관계:</span> {detailDialog.guarantorRelation || "-"}</div>
-                </div>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">관리계약 동의 내역</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {detailDialog.feeObligationConsent ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}
-                    <span>관리비 납부 의무</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {detailDialog.penaltyConsent ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}
-                    <span>체납 시 조치</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {detailDialog.specialFundConsent ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}
-                    <span>특별충당금</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {detailDialog.privacyRetentionConsent ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-muted-foreground" />}
-                    <span>개인정보 보관</span>
-                  </div>
-                </div>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">전자서명</p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="text-muted-foreground">서명자:</span> <span className="font-medium">{detailDialog.signatureName || "-"}</span></div>
-                  <div><span className="text-muted-foreground">서명일시:</span> {detailDialog.signatureDate ? new Date(detailDialog.signatureDate).toLocaleString("ko-KR") : "-"}</div>
-                </div>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">첨부 서류</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <DocLink label="임대차계약서" url={detailDialog.contractDocUrl} hasFlag={detailDialog.contractDoc} />
-                  <DocLink label="신분증" url={detailDialog.idDocUrl} hasFlag={detailDialog.idDoc} />
-                  <DocLink label="사업자등록증" url={detailDialog.businessRegDocUrl} hasFlag={detailDialog.businessRegDoc} />
-                  <DocLink label="자동차등록증" url={detailDialog.vehicleRegDocUrl} hasFlag={false} />
-                </div>
-              </div>
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">서류 확인 상태</p>
-                <div className="flex items-center gap-2 text-sm">
-                  {getVerificationBadge(detailDialog.verificationStatus)}
-                  {detailDialog.verifiedBy && <span className="text-muted-foreground">확인자: {detailDialog.verifiedBy}</span>}
-                  {detailDialog.verifiedAt && <span className="text-muted-foreground">({new Date(detailDialog.verifiedAt).toLocaleString("ko-KR")})</span>}
-                </div>
-              </div>
-              {detailDialog.status === "moved_out" && detailDialog.dataDestructionDate && (
-                <div className="border-t pt-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldAlert className="w-4 h-4 text-orange-500" />
-                    <p className="text-sm font-medium">개인정보 파기 예정</p>
-                  </div>
-                  <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 space-y-1">
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">파기 예정일:</span>{" "}
-                      <span className="font-medium text-orange-600">{detailDialog.dataDestructionDate}</span>
-                    </p>
-                  </div>
-                </div>
-              )}
-              {detailDialog.notes && (
-                <div className="border-t pt-3">
-                  <p className="text-sm font-medium mb-1">기타사항</p>
-                  <p className="text-sm text-muted-foreground">{detailDialog.notes}</p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                {detailDialog.verificationStatus === "unverified" && detailDialog.signatureName && (
-                  <>
-                    <Button
-                      className="flex-1"
-                      onClick={() => handleVerify(detailDialog.id, "approve")}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      서류 확인 승인
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setVerifyDialog(detailDialog)}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      반려
-                    </Button>
-                  </>
-                )}
-                <Button variant="outline" className={detailDialog.verificationStatus === "unverified" && detailDialog.signatureName ? "" : "w-full"} onClick={() => exportTenantCard(detailDialog)} disabled={exportingId === detailDialog.id}>
-                  {exportingId === detailDialog.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                  PDF 내보내기
-                </Button>
-              </div>
-            </div>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <TenantDetailDialog
+          tenant={detailDialog}
+          exportingId={exportingId}
+          getVerificationBadge={getVerificationBadge}
+          onClose={() => setDetailDialog(null)}
+          onApprove={(id) => handleVerify(id, "approve")}
+          onReject={(t) => setVerifyDialog(t)}
+          onExport={exportTenantCard}
+        />
 
-      <ResponsiveDialog open={!!verifyDialog} onOpenChange={(o) => { if (!o) { setVerifyDialog(null); setRejectionReason(""); } }}>
-        <ResponsiveDialogContent className="max-w-md">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>입주자카드 반려</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          {verifyDialog && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {verifyDialog.unit}호 {verifyDialog.tenantName} 입주자카드를 반려합니다.
-                사유를 입력해 주세요.
-              </p>
-              <div>
-                <Label>반려 사유</Label>
-                <Textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="서류 불일치, 정보 오류 등"
-                />
-              </div>
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => handleVerify(verifyDialog.id, "reject")}
-              >
-                반려 처리
-              </Button>
-            </div>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <TenantVerifyDialog
+          tenant={verifyDialog}
+          rejectionReason={rejectionReason}
+          setRejectionReason={setRejectionReason}
+          onClose={() => { setVerifyDialog(null); setRejectionReason(""); }}
+          onReject={(id) => handleVerify(id, "reject")}
+        />
 
       <ContractTemplateDialog
         open={templateDialog}

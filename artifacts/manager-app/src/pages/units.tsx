@@ -39,20 +39,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Trash2,
-  Edit,
-  Search,
-  Layers,
-  DoorOpen,
-  Building2,
-  Eye,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
 import { GenerateDialog, type GenForm } from "@/components/units/generate-dialog";
 import { UnitFormDialog, type UnitFormState } from "@/components/units/unit-form-dialog";
 import { UnitDetailDialog } from "@/components/units/unit-detail-dialog";
+import { UnitsSummaryCards } from "@/components/units/units-summary-cards";
+import { UnitsFloorList } from "@/components/units/units-floor-list";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
@@ -349,54 +343,7 @@ export default function UnitsPage() {
         </div>
       </div>
 
-      {summary && (
-        <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">전체</p>
-                  <p className="text-xl font-bold">{summary.total}</p>
-                </div>
-                <Building2 className="w-5 h-5 text-muted-foreground/50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">입주</p>
-                  <p className="text-xl font-bold text-primary">{summary.occupied}</p>
-                </div>
-                <DoorOpen className="w-5 h-5 text-primary/50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">공실</p>
-                  <p className="text-xl font-bold text-amber-500">{summary.vacant}</p>
-                </div>
-                <DoorOpen className="w-5 h-5 text-amber-500/50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">정비중</p>
-                  <p className="text-xl font-bold text-destructive">{summary.maintenance}</p>
-                </div>
-                <Building2 className="w-5 h-5 text-destructive/50" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {summary && <UnitsSummaryCards summary={summary} />}
 
       <div className="flex gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -419,116 +366,15 @@ export default function UnitsPage() {
         </Select>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
-        </div>
-      ) : units && units.length > 0 ? (
-        <div className="space-y-4">
-          {floorGroups.map(([floor, floorUnits]) => (
-            <div key={floor}>
-              <div className="flex items-center gap-2 mb-2">
-                <Layers className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">{floor}층</h3>
-                <Badge variant="outline" className="text-xs">{floorUnits.length}개</Badge>
-              </div>
-
-              <div className="hidden desktop:block">
-                <Card>
-                  <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>호실</TableHead>
-                          <TableHead>상태</TableHead>
-                          <TableHead>용도</TableHead>
-                          <TableHead>면적</TableHead>
-                          <TableHead>입주자</TableHead>
-                          <TableHead>소유자</TableHead>
-                          <TableHead>차량</TableHead>
-                          <TableHead className="text-right">관리</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {floorUnits.map((unit) => {
-                          const st = STATUS_MAP[unit.status] || STATUS_MAP.vacant;
-                          return (
-                            <TableRow key={unit.id}>
-                              <TableCell className="font-medium">{unit.unitNumber}</TableCell>
-                              <TableCell>
-                                <Badge variant={st.variant}>{st.label}</Badge>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">{unit.usage || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground text-xs">
-                                {unit.exclusiveArea ? `${unit.exclusiveArea}m²` : "-"}
-                              </TableCell>
-                              <TableCell className="text-center">{unit.tenantCount || 0}</TableCell>
-                              <TableCell className="text-center">{unit.ownerCount || 0}</TableCell>
-                              <TableCell className="text-center">{unit.vehicleCount || 0}</TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                  <Button variant="ghost" size="sm" onClick={() => setDetailUnitId(unit.id)}>
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => openEdit(unit)}>
-                                    <Edit className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => handleDelete(unit.id)}>
-                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="desktop:hidden grid grid-cols-3 gap-2">
-                {floorUnits.map((unit) => {
-                  const st = STATUS_MAP[unit.status] || STATUS_MAP.vacant;
-                  return (
-                    <Card
-                      key={unit.id}
-                      className={`cursor-pointer active:bg-muted/50 ${
-                        unit.status === "occupied"
-                          ? "border-primary/30"
-                          : unit.status === "maintenance"
-                          ? "border-destructive/30"
-                          : ""
-                      }`}
-                      onClick={() => setDetailUnitId(unit.id)}
-                    >
-                      <CardContent className="p-2.5">
-                        <div className="text-center">
-                          <p className="font-semibold text-sm">{unit.unitNumber}</p>
-                          <Badge variant={st.variant} className="text-[10px] mt-1">{st.label}</Badge>
-                          {unit.usage && (
-                            <p className="text-[10px] text-muted-foreground mt-1 truncate">{unit.usage}</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Building2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground mb-4">등록된 호실이 없습니다</p>
-            <p className="text-sm text-muted-foreground">
-              호실을 개별 추가하거나, CSV 업로드 또는 자동 생성으로 일괄 등록하세요
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <UnitsFloorList
+        isLoading={isLoading}
+        units={units}
+        floorGroups={floorGroups}
+        statusMap={STATUS_MAP}
+        onView={(id) => setDetailUnitId(id)}
+        onEdit={(unit) => openEdit(unit)}
+        onDelete={(id) => handleDelete(id)}
+      />
 
       <UnitDetailDialog
         detailUnitId={detailUnitId}
