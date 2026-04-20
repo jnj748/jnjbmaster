@@ -34,7 +34,8 @@ import {
 
 // [Task #142] 단일 대시보드 셸. 역할별 화면 차이는 위젯 카탈로그
 // (components/dashboard-widgets/registry.tsx)에서 선언적으로 관리한다.
-import Dashboard from "@/pages/dashboard";
+// [Task #145] 통합 대시보드 셸도 lazy 화 — 비-대시보드 진입 경로의 초기 번들 절감.
+const Dashboard = lazy(() => import("@/pages/dashboard"));
 
 const Approvals = lazy(() => import("@/pages/approvals"));
 const ApprovalCreate = lazy(() => import("@/pages/approval-create"));

@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, UserCheck, Search, Download, Eye, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, Edit, UserCheck, Search, Download, Eye, ShieldAlert, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const emptyForm = {
@@ -69,6 +69,7 @@ export default function Owners() {
   const [editing, setEditing] = useState<Owner | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -159,6 +160,9 @@ export default function Owners() {
   }
 
   async function exportOwnerCard(owner: Owner) {
+    if (exportingId !== null) return;
+    setExportingId(owner.id);
+    try {
     const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -193,6 +197,11 @@ export default function Owners() {
     });
     doc.save(`소유자카드_${owner.unit}_${owner.ownerName}.pdf`);
     toast({ title: "소유자카드 PDF가 내보내기되었습니다" });
+    } catch (e) {
+      toast({ title: "PDF 내보내기 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
   }
 
   return (
@@ -388,8 +397,8 @@ export default function Owners() {
                           <Button variant="ghost" size="sm" onClick={() => setDetailDialog(owner)}>
                             <Eye className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => exportOwnerCard(owner)}>
-                            <Download className="w-3.5 h-3.5" />
+                          <Button variant="ghost" size="sm" onClick={() => exportOwnerCard(owner)} disabled={exportingId === owner.id}>
+                            {exportingId === owner.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => openEdit(owner)}>
                             <Edit className="w-3.5 h-3.5" />
@@ -434,8 +443,8 @@ export default function Owners() {
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => setDetailDialog(owner)}>
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => exportOwnerCard(owner)}>
-                    <Download className="w-4 h-4" />
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => exportOwnerCard(owner)} disabled={exportingId === owner.id}>
+                    {exportingId === owner.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => openEdit(owner)}>
                     <Edit className="w-4 h-4" />
@@ -529,8 +538,8 @@ export default function Owners() {
                   <p className="text-sm text-muted-foreground">{detailDialog.notes}</p>
                 </div>
               )}
-              <Button variant="outline" className="w-full" onClick={() => exportOwnerCard(detailDialog)}>
-                <Download className="w-4 h-4 mr-2" />
+              <Button variant="outline" className="w-full" onClick={() => exportOwnerCard(detailDialog)} disabled={exportingId === detailDialog.id}>
+                {exportingId === detailDialog.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                 소유자카드 PDF 내보내기
               </Button>
             </div>

@@ -43,7 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck } from "lucide-react";
+import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const ownershipOptions: { value: CreateVehicleBodyOwnershipType; label: string }[] = [
@@ -78,6 +78,7 @@ export default function Vehicles() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -242,6 +243,9 @@ export default function Vehicles() {
   }
 
   async function exportVehicleCard(vehicle: Vehicle) {
+    if (exportingId !== null) return;
+    setExportingId(vehicle.id);
+    try {
     const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -269,6 +273,11 @@ export default function Vehicles() {
     });
     doc.save(`차량카드_${vehicle.unit}_${vehicle.vehicleNumber}.pdf`);
     toast({ title: "차량카드 PDF가 내보내기되었습니다" });
+    } catch (e) {
+      toast({ title: "PDF 내보내기 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
   }
 
   const ownershipLabel = (t: string) => ownershipOptions.find((o) => o.value === t)?.label || t;
@@ -519,8 +528,8 @@ export default function Vehicles() {
                             <Button variant="ghost" size="sm" onClick={() => setHistoryDialog(vehicle)}>
                               <History className="w-3.5 h-3.5" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => exportVehicleCard(vehicle)}>
-                              <Download className="w-3.5 h-3.5" />
+                            <Button variant="ghost" size="sm" onClick={() => exportVehicleCard(vehicle)} disabled={exportingId === vehicle.id}>
+                              {exportingId === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                             </Button>
                             {vehicle.status === "registered" && (
                               <>
@@ -634,8 +643,8 @@ export default function Vehicles() {
                   <p className="text-sm text-muted-foreground">{detailDialog.notes}</p>
                 </div>
               )}
-              <Button variant="outline" className="w-full" onClick={() => exportVehicleCard(detailDialog)}>
-                <Download className="w-4 h-4 mr-2" />
+              <Button variant="outline" className="w-full" onClick={() => exportVehicleCard(detailDialog)} disabled={exportingId === detailDialog.id}>
+                {exportingId === detailDialog.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                 차량카드 PDF 내보내기
               </Button>
             </div>

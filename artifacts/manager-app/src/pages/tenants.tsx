@@ -47,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Users, Search, Download, Eye, ShieldAlert, Link2, CheckCircle, XCircle, Copy, FileText, Settings } from "lucide-react";
+import { Plus, Trash2, Edit, Users, Search, Download, Eye, ShieldAlert, Link2, CheckCircle, XCircle, Copy, FileText, Settings, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const emptyForm = {
@@ -84,6 +84,7 @@ export default function Tenants() {
   const [verifyDialog, setVerifyDialog] = useState<Tenant | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [templateDialog, setTemplateDialog] = useState(false);
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { building } = useBuilding();
@@ -247,6 +248,9 @@ export default function Tenants() {
   }
 
   async function exportTenantCard(tenant: Tenant) {
+    if (exportingId !== null) return;
+    setExportingId(tenant.id);
+    try {
     const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -294,6 +298,11 @@ export default function Tenants() {
     });
     doc.save(`입주자카드_${tenant.unit}_${tenant.tenantName}.pdf`);
     toast({ title: "입주자카드 PDF가 내보내기되었습니다" });
+    } catch (e) {
+      toast({ title: "PDF 내보내기 실패", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setExportingId(null);
+    }
   }
 
   const unverifiedCount = tenants?.filter((t) => t.verificationStatus === "unverified" && t.signatureName).length || 0;
@@ -588,8 +597,8 @@ export default function Tenants() {
                                 <CheckCircle className="w-3.5 h-3.5" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" onClick={() => exportTenantCard(tenant)}>
-                              <Download className="w-3.5 h-3.5" />
+                            <Button variant="ghost" size="sm" onClick={() => exportTenantCard(tenant)} disabled={exportingId === tenant.id}>
+                              {exportingId === tenant.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => openEdit(tenant)}>
                               <Edit className="w-3.5 h-3.5" />
@@ -761,8 +770,8 @@ export default function Tenants() {
                     </Button>
                   </>
                 )}
-                <Button variant="outline" className={detailDialog.verificationStatus === "unverified" && detailDialog.signatureName ? "" : "w-full"} onClick={() => exportTenantCard(detailDialog)}>
-                  <Download className="w-4 h-4 mr-2" />
+                <Button variant="outline" className={detailDialog.verificationStatus === "unverified" && detailDialog.signatureName ? "" : "w-full"} onClick={() => exportTenantCard(detailDialog)} disabled={exportingId === detailDialog.id}>
+                  {exportingId === detailDialog.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                   PDF 내보내기
                 </Button>
               </div>

@@ -102,6 +102,7 @@ export default function UnitsPage() {
   const [detailUnitId, setDetailUnitId] = useState<number | null>(null);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
+  const [csvParsing, setCsvParsing] = useState(false);
   const [genForm, setGenForm] = useState({
     startFloor: "1",
     endFloor: "10",
@@ -227,6 +228,8 @@ export default function UnitsPage() {
   async function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCsvParsing(true);
+    try {
     const { default: Papa } = await import("papaparse");
     Papa.parse<CsvRow>(file, {
       header: true,
@@ -257,8 +260,17 @@ export default function UnitsPage() {
         });
         setCsvData(valid);
         setCsvErrors(errors);
+        setCsvParsing(false);
+      },
+      error() {
+        setCsvParsing(false);
+        toast({ title: "CSV 파싱 실패", variant: "destructive" });
       },
     });
+    } catch (err) {
+      setCsvParsing(false);
+      toast({ title: "CSV 모듈 로드 실패", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
   }
 
   async function handleCsvImport() {
@@ -348,7 +360,8 @@ export default function UnitsPage() {
                 <p className="text-xs text-muted-foreground">
                   CSV 형식: 호실번호, 층, 전용면적, 공용면적, 용도, 비고
                 </p>
-                <Input type="file" accept=".csv" onChange={handleCsvFile} />
+                <Input type="file" accept=".csv" onChange={handleCsvFile} disabled={csvParsing} />
+                {csvParsing && <p className="text-xs text-muted-foreground">CSV 파싱 중...</p>}
                 {csvErrors.length > 0 && (
                   <div className="bg-destructive/10 p-3 rounded text-sm space-y-1">
                     {csvErrors.map((err, i) => (
