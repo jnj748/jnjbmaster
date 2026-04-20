@@ -9,6 +9,7 @@ export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
 export interface ProviderProfile {
   providerUserId: string;
   email: string | null;
+  emailVerified: boolean;
   name: string | null;
 }
 
@@ -46,6 +47,9 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
           return {
             providerUserId: String(r2.id),
             email: r2.email || null,
+            // Naver does not expose an email-verified flag; treat as unverified
+            // so silent auto-link by email is not allowed.
+            emailVerified: false,
             name: r2.name || r2.nickname || null,
           };
         },
@@ -65,13 +69,20 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
         parseProfile: (raw) => {
           const r = raw as {
             id?: number | string;
-            kakao_account?: { email?: string; profile?: { nickname?: string } };
+            kakao_account?: {
+              email?: string;
+              is_email_verified?: boolean;
+              is_email_valid?: boolean;
+              profile?: { nickname?: string };
+            };
           };
           if (!r.id) throw new Error("카카오 프로필 ID를 찾을 수 없습니다");
+          const ka = r.kakao_account;
           return {
             providerUserId: String(r.id),
-            email: r.kakao_account?.email || null,
-            name: r.kakao_account?.profile?.nickname || null,
+            email: ka?.email || null,
+            emailVerified: !!(ka?.email && ka.is_email_verified === true && ka.is_email_valid !== false),
+            name: ka?.profile?.nickname || null,
           };
         },
       };
@@ -89,11 +100,12 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
           init: { headers: { Authorization: `Bearer ${token}` } },
         }),
         parseProfile: (raw) => {
-          const r = raw as { sub?: string; email?: string; name?: string };
+          const r = raw as { sub?: string; email?: string; email_verified?: boolean; name?: string };
           if (!r.sub) throw new Error("Google 프로필 ID를 찾을 수 없습니다");
           return {
             providerUserId: String(r.sub),
             email: r.email || null,
+            emailVerified: !!(r.email && r.email_verified === true),
             name: r.name || null,
           };
         },

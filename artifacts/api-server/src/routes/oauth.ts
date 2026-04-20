@@ -60,6 +60,9 @@ router.get("/auth/oauth/:provider/init", async (req, res): Promise<void> => {
   res.redirect(buildAuthorizeUrl(provider, state));
 });
 
+// Returns the authorize URL as JSON so the SPA (which sends a Bearer token via fetch)
+// can then perform window.location.href = authorizeUrl. A 302 here would be useless
+// because the browser navigation that follows wouldn't carry the Authorization header.
 router.get("/auth/oauth/:provider/link/init", authMiddleware, async (req, res): Promise<void> => {
   const provider = String(req.params.provider);
   if (!isSocialProvider(provider)) {
@@ -70,12 +73,16 @@ router.get("/auth/oauth/:provider/link/init", authMiddleware, async (req, res): 
     res.status(503).json({ error: `${provider} 로그인이 구성되지 않았습니다` });
     return;
   }
+  if (req.user!.portalType === "hq") {
+    res.status(403).json({ error: "본사 포털 계정은 소셜 계정을 연결할 수 없습니다" });
+    return;
+  }
   const state = createState({
-    portalType: req.user!.portalType as "building" | "partner" | "hq",
+    portalType: req.user!.portalType as "building" | "partner",
     intent: "link",
     linkUserId: req.user!.userId,
   });
-  res.redirect(buildAuthorizeUrl(provider, state));
+  res.json({ authorizeUrl: buildAuthorizeUrl(provider, state) });
 });
 
 router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => {
@@ -175,8 +182,11 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
     }
   }
 
-  // === Branch 2: existing email account → auto-link ===
-  if (profile.email) {
+  // === Branch 2: existing email account → auto-link (only if provider verified the email) ===
+  // If the provider didn't verify the email (e.g. Naver, or Google without email_verified),
+  // we must NOT silently take over an existing local account — fall through to the pending
+  // signup path, where the user must explicitly authenticate (collision check happens there).
+  if (profile.email && profile.emailVerified) {
     const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, profile.email));
     if (existingUser) {
       // Refuse silent link to HQ admin accounts via social

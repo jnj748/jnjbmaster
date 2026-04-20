@@ -309,8 +309,24 @@ function SocialAccountsCard() {
     refresh();
   }
 
-  function handleLink(provider: SocialProvider) {
-    window.location.href = `${apiBase}/auth/oauth/${provider}/link/init`;
+  async function handleLink(provider: SocialProvider) {
+    try {
+      const r = await fetch(`${apiBase}/auth/oauth/${provider}/link/init`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data?.authorizeUrl) {
+        toast({
+          title: "연결 실패",
+          description: data?.error || "소셜 계정 연결을 시작할 수 없습니다",
+          variant: "destructive",
+        });
+        return;
+      }
+      window.location.href = data.authorizeUrl;
+    } catch {
+      toast({ title: "네트워크 오류", description: "잠시 후 다시 시도해 주세요", variant: "destructive" });
+    }
   }
 
   const connectedSet = new Set(accounts.map((a) => a.provider));
