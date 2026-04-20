@@ -24,6 +24,8 @@ interface ProviderConfig {
   /** Some providers require sending client credentials in the token request body. */
   tokenAuthMethod: "basic" | "body";
   extraAuthorizeParams?: Record<string, string>;
+  /** Whether this provider supports PKCE (RFC 7636). Naver currently does not document support. */
+  supportsPkce: boolean;
 }
 
 export function getProviderConfig(provider: SocialProvider): ProviderConfig {
@@ -36,6 +38,7 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
         tokenUrl: "https://nid.naver.com/oauth2.0/token",
         scope: "",
         tokenAuthMethod: "body",
+        supportsPkce: false,
         buildProfileRequest: (token) => ({
           url: "https://openapi.naver.com/v1/nid/me",
           init: { headers: { Authorization: `Bearer ${token}` } },
@@ -62,6 +65,7 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
         tokenUrl: "https://kauth.kakao.com/oauth/token",
         scope: "account_email profile_nickname",
         tokenAuthMethod: "body",
+        supportsPkce: true,
         buildProfileRequest: (token) => ({
           url: "https://kapi.kakao.com/v2/user/me",
           init: { headers: { Authorization: `Bearer ${token}` } },
@@ -94,6 +98,7 @@ export function getProviderConfig(provider: SocialProvider): ProviderConfig {
         tokenUrl: "https://oauth2.googleapis.com/token",
         scope: "openid email profile",
         tokenAuthMethod: "body",
+        supportsPkce: true,
         extraAuthorizeParams: { access_type: "online", prompt: "select_account" },
         buildProfileRequest: (token) => ({
           url: "https://openidconnect.googleapis.com/v1/userinfo",
@@ -137,30 +142,79 @@ export function getCallbackUrl(provider: SocialProvider): string {
 }
 
 export interface OAuthStatePayload {
-  nonce: string;
+  /** Hash of the secret nonce stored in the httpOnly cookie. CSRF binding. */
+  nonceHash: string;
   portalType: "building" | "partner" | "hq";
   intent: "login" | "link";
   linkUserId?: number;
+  /** SHA-256(verifier) when PKCE is enabled; verifier itself lives only in the cookie. */
+  pkceChallenge?: string;
   exp: number;
 }
 
-export function createState(payload: Omit<OAuthStatePayload, "nonce" | "exp">): string {
-  const fullPayload: OAuthStatePayload = {
-    ...payload,
-    nonce: crypto.randomBytes(16).toString("hex"),
-    exp: Math.floor(Date.now() / 1000) + 600,
-  };
-  return jwt.sign(fullPayload, STATE_SECRET);
+export interface OAuthCookiePayload {
+  nonce: string;
+  pkceVerifier?: string;
 }
 
-export function verifyState(state: string): OAuthStatePayload {
-  return jwt.verify(state, STATE_SECRET) as OAuthStatePayload;
+export const OAUTH_COOKIE_NAME = "oauth_csrf";
+
+function sha256base64url(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("base64url");
+}
+
+/** Generates the secret cookie payload + the corresponding signed state JWT. */
+export function createStateAndCookie(
+  payload: Omit<OAuthStatePayload, "nonceHash" | "pkceChallenge" | "exp">,
+  withPkce: boolean,
+): { state: string; cookie: OAuthCookiePayload } {
+  const nonce = crypto.randomBytes(24).toString("base64url");
+  const pkceVerifier = withPkce ? crypto.randomBytes(32).toString("base64url") : undefined;
+  const fullPayload: OAuthStatePayload = {
+    ...payload,
+    nonceHash: sha256base64url(nonce),
+    pkceChallenge: pkceVerifier ? sha256base64url(pkceVerifier) : undefined,
+    exp: Math.floor(Date.now() / 1000) + 600,
+  };
+  return {
+    state: jwt.sign(fullPayload, STATE_SECRET),
+    cookie: { nonce, pkceVerifier },
+  };
+}
+
+/**
+ * Verifies the state JWT and binds it to the cookie payload (defends CSRF).
+ * Throws on signature/expiry/cookie-mismatch failures.
+ */
+export function verifyStateWithCookie(state: string, cookieRaw: string | undefined): {
+  state: OAuthStatePayload;
+  pkceVerifier?: string;
+} {
+  const decoded = jwt.verify(state, STATE_SECRET) as OAuthStatePayload;
+  if (!cookieRaw) throw new Error("missing_cookie");
+  let cookie: OAuthCookiePayload;
+  try {
+    cookie = JSON.parse(cookieRaw) as OAuthCookiePayload;
+  } catch {
+    throw new Error("bad_cookie");
+  }
+  if (!cookie.nonce || sha256base64url(cookie.nonce) !== decoded.nonceHash) {
+    throw new Error("nonce_mismatch");
+  }
+  if (decoded.pkceChallenge) {
+    if (!cookie.pkceVerifier || sha256base64url(cookie.pkceVerifier) !== decoded.pkceChallenge) {
+      throw new Error("pkce_mismatch");
+    }
+  }
+  return { state: decoded, pkceVerifier: cookie.pkceVerifier };
 }
 
 export interface PendingSignupPayload {
   provider: SocialProvider;
   providerUserId: string;
   email: string | null;
+  /** Whether the OAuth provider attested ownership of `email`. Required for email-based auto-link. */
+  emailVerified: boolean;
   name: string | null;
   portalType: "building" | "partner";
   exp: number;
@@ -182,6 +236,7 @@ export async function exchangeCodeForToken(
   provider: SocialProvider,
   code: string,
   state: string,
+  pkceVerifier?: string,
 ): Promise<string> {
   const cfg = getProviderConfig(provider);
   if (!cfg.clientId || !cfg.clientSecret) {
@@ -195,6 +250,7 @@ export async function exchangeCodeForToken(
   });
   // Naver requires state in token request
   if (provider === "naver") params.set("state", state);
+  if (cfg.supportsPkce && pkceVerifier) params.set("code_verifier", pkceVerifier);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -238,6 +294,7 @@ export async function fetchProfile(
 export function buildAuthorizeUrl(
   provider: SocialProvider,
   state: string,
+  pkceVerifier?: string,
 ): string {
   const cfg = getProviderConfig(provider);
   if (!cfg.clientId) throw new Error(`${provider} OAuth가 구성되지 않았습니다`);
@@ -248,6 +305,10 @@ export function buildAuthorizeUrl(
     state,
   });
   if (cfg.scope) params.set("scope", cfg.scope);
+  if (cfg.supportsPkce && pkceVerifier) {
+    params.set("code_challenge", sha256base64url(pkceVerifier));
+    params.set("code_challenge_method", "S256");
+  }
   if (cfg.extraAuthorizeParams) {
     for (const [k, v] of Object.entries(cfg.extraAuthorizeParams)) params.set(k, v);
   }

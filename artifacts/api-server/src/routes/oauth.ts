@@ -14,14 +14,24 @@ import {
   buildAuthorizeUrl,
   checkCallbackRateLimit,
   createPendingSignupToken,
-  createState,
+  createStateAndCookie,
   exchangeCodeForToken,
   fetchProfile,
+  getProviderConfig,
   getRedirectBaseUrl,
   isProviderEnabled,
+  OAUTH_COOKIE_NAME,
   verifyPendingSignupToken,
-  verifyState,
+  verifyStateWithCookie,
 } from "../lib/oauth";
+
+const COOKIE_OPTS = {
+  httpOnly: true as const,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: 10 * 60 * 1000,
+};
 
 const router: IRouter = Router();
 
@@ -56,8 +66,13 @@ router.get("/auth/oauth/:provider/init", async (req, res): Promise<void> => {
     return;
   }
 
-  const state = createState({ portalType: portalType as "building" | "partner", intent: "login" });
-  res.redirect(buildAuthorizeUrl(provider, state));
+  const cfg = getProviderConfig(provider);
+  const { state, cookie } = createStateAndCookie(
+    { portalType: portalType as "building" | "partner", intent: "login" },
+    cfg.supportsPkce,
+  );
+  res.cookie(OAUTH_COOKIE_NAME, JSON.stringify(cookie), COOKIE_OPTS);
+  res.redirect(buildAuthorizeUrl(provider, state, cookie.pkceVerifier));
 });
 
 // Returns the authorize URL as JSON so the SPA (which sends a Bearer token via fetch)
@@ -77,12 +92,17 @@ router.get("/auth/oauth/:provider/link/init", authMiddleware, async (req, res): 
     res.status(403).json({ error: "본사 포털 계정은 소셜 계정을 연결할 수 없습니다" });
     return;
   }
-  const state = createState({
-    portalType: req.user!.portalType as "building" | "partner",
-    intent: "link",
-    linkUserId: req.user!.userId,
-  });
-  res.json({ authorizeUrl: buildAuthorizeUrl(provider, state) });
+  const cfg = getProviderConfig(provider);
+  const { state, cookie } = createStateAndCookie(
+    {
+      portalType: req.user!.portalType as "building" | "partner",
+      intent: "link",
+      linkUserId: req.user!.userId,
+    },
+    cfg.supportsPkce,
+  );
+  res.cookie(OAUTH_COOKIE_NAME, JSON.stringify(cookie), COOKIE_OPTS);
+  res.json({ authorizeUrl: buildAuthorizeUrl(provider, state, cookie.pkceVerifier) });
 });
 
 router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => {
@@ -111,16 +131,23 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
   }
 
   let state;
+  let pkceVerifier: string | undefined;
   try {
-    state = verifyState(stateParam);
-  } catch {
+    const verified = verifyStateWithCookie(stateParam, req.cookies?.[OAUTH_COOKIE_NAME]);
+    state = verified.state;
+    pkceVerifier = verified.pkceVerifier;
+  } catch (err) {
+    req.log?.warn?.({ err: (err as Error).message, provider }, "OAuth state verification failed");
+    res.clearCookie(OAUTH_COOKIE_NAME, { path: "/" });
     res.redirect(frontendUrl(`/auth/callback#error=invalid_state`));
     return;
   }
+  // One-shot: clear the CSRF cookie immediately so it cannot be replayed
+  res.clearCookie(OAUTH_COOKIE_NAME, { path: "/" });
 
   let profile;
   try {
-    const accessToken = await exchangeCodeForToken(provider, code, stateParam);
+    const accessToken = await exchangeCodeForToken(provider, code, stateParam, pkceVerifier);
     profile = await fetchProfile(provider, accessToken);
   } catch (err) {
     req.log?.error?.({ err, provider }, "OAuth exchange failed");
@@ -223,6 +250,7 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
     provider,
     providerUserId: profile.providerUserId,
     email: profile.email,
+    emailVerified: profile.emailVerified,
     name: profile.name,
     portalType: state.portalType as "building" | "partner",
   });
@@ -269,10 +297,25 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
     return;
   }
 
-  // Block duplicate email collisions
+  // Collision: an account with this email already exists.
+  // We MUST NOT silently link & log the user in unless we can prove ownership of the email.
+  // - pending.email + pending.emailVerified: the OAuth provider attested ownership → safe to link.
+  // - Otherwise (user-typed fallback email or unverified provider email): refuse the link
+  //   and require the user to log in normally first, then link from Settings.
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, finalEmail));
   if (existing) {
-    // existing email → just link to that account
+    const providerVerifiedThisEmail = !!(
+      pending.email
+      && pending.emailVerified
+      && pending.email.trim().toLowerCase() === finalEmail
+    );
+    if (!providerVerifiedThisEmail) {
+      res.status(409).json({
+        error: "이미 가입된 이메일입니다. 이메일·비밀번호로 로그인한 뒤 [설정 > 소셜 계정]에서 연결해 주세요.",
+        code: "email_collision_unverified",
+      });
+      return;
+    }
     if (existing.portalType === "hq") {
       res.status(403).json({ error: "본사 포털 계정에는 소셜 로그인을 연결할 수 없습니다" });
       return;
