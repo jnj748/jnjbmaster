@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 // [Task #142] formatDate 는 추출된 pending-approvals-widget 에서 사용.
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
 } from "recharts";
@@ -124,7 +124,14 @@ function getDdayLabel(dueDate: string | null): { label: string; days: number | n
 
 type AlertActionTab = "complete" | "postpone" | "rfq";
 
-const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue"] as const;
+const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue", "warranty_expiry"] as const;
+
+const ALERT_FALLBACK_ROUTES: Record<string, string> = {
+  inspection_due: "/inspections",
+  tax_due: "/tax-schedules",
+  task_overdue: "/tasks",
+  warranty_expiry: "/settings?tab=building",
+};
 
 interface DashboardAlert {
   id: number;
@@ -213,8 +220,42 @@ export default function Dashboard() {
       case "inspection_due": return "inspection";
       case "tax_due": return "tax";
       case "task_overdue": return "task";
+      case "warranty_expiry": return "warranty";
       default: return "task";
     }
+  }
+
+  const [, navigate] = useLocation();
+
+  function handleAlertClick(alert: DashboardAlert) {
+    if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
+      if (alert.relatedId) {
+        openAlertAction(alert);
+        return;
+      }
+      const fallback = ALERT_FALLBACK_ROUTES[alert.type];
+      if (fallback) {
+        navigate(fallback);
+        return;
+      }
+      toast({ title: "처리할 항목 정보를 찾을 수 없습니다", description: alert.title });
+      return;
+    }
+
+    if (alert.type === "data_destruction") {
+      if (!alert.relatedId) {
+        toast({ title: "대상 정보를 찾을 수 없습니다", description: alert.title });
+        return;
+      }
+      const isOwner = alert.title.includes("소유자");
+      navigate(isOwner ? `/units?tab=owners&highlight=${alert.relatedId}` : `/tenants?highlight=${alert.relatedId}`);
+      return;
+    }
+
+    toast({
+      title: "이 항목은 별도 처리 화면이 없습니다",
+      description: alert.title,
+    });
   }
 
   async function handleComplete() {
@@ -459,21 +500,31 @@ export default function Dashboard() {
                       : dday.days !== null && dday.days <= 30
                       ? "yellow"
                       : "green";
+                    const isInteractive =
+                      (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
+                      alert.type === "data_destruction";
                     return (
                       <div
                         key={alert.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
+                        role={isInteractive ? "button" : undefined}
+                        tabIndex={isInteractive ? 0 : undefined}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors border-l-4 ${
+                          isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
+                        } ${
                           trafficColor === "red"
                             ? "border-l-red-500 bg-red-50/40"
                             : trafficColor === "yellow"
                             ? "border-l-yellow-400 bg-yellow-50/30"
                             : "border-l-green-500 bg-green-50/20"
                         }`}
-                        onClick={() =>
-                          alert.relatedId &&
-                          (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) &&
-                          openAlertAction(alert)
-                        }
+                        onClick={() => isInteractive && handleAlertClick(alert)}
+                        onKeyDown={(e) => {
+                          if (!isInteractive) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleAlertClick(alert);
+                          }
+                        }}
                       >
                         <div className="flex flex-col items-center gap-0.5 shrink-0">
                           <span className={`w-3 h-3 rounded-full ${
