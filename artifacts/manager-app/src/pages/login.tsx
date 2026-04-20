@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { Building2, Store, Shield, ArrowLeft, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+
+const DevQuickLogin = import.meta.env.DEV
+  ? lazy(() => import("@/components/dev-quick-login"))
+  : null;
 
 const CONSENT_VERSION = "1.0";
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -386,6 +390,12 @@ export default function Login() {
             </div>
           )}
         </div>
+
+        {DevQuickLogin && (
+          <Suspense fallback={null}>
+            <DevQuickLogin />
+          </Suspense>
+        )}
       </div>
     </div>
   );
