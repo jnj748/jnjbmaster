@@ -529,7 +529,7 @@ function ProfileSettings() {
         </CardContent>
       </Card>
 
-      <SocialAccountsCard />
+      {user?.portalType !== "hq" && <SocialAccountsCard />}
 
       <Card>
         <CardHeader>
