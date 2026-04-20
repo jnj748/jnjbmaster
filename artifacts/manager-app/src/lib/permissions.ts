@@ -184,7 +184,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin"],
     bottomNav: ["manager", "platform_admin"],
     bottomLabel: "AI비서",
-    bottomOrder: 30,
+    bottomOrder: 20,
   },
   {
     path: "/building-info", component: BuildingInfo,
@@ -287,7 +287,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     bottomNav: ["manager", "platform_admin", "accountant"],
     bottomLabel: "회계",
-    bottomOrder: 20,
+    bottomOrder: 30,
   },
   {
     path: "/erp/metering", component: ErpPhase1,
