@@ -172,7 +172,7 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
         providerUserId: profile.providerUserId,
         email: profile.email,
         displayName: profile.name,
-      });
+      }).onConflictDoNothing();
     }
     res.redirect(frontendUrl(`/settings#linked=${provider}`));
     return;
@@ -233,7 +233,7 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
         providerUserId: profile.providerUserId,
         email: profile.email,
         displayName: profile.name,
-      });
+      }).onConflictDoNothing();
       const token = signToken({
         userId: existingUser.id,
         email: existingUser.email,
