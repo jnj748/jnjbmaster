@@ -280,7 +280,19 @@ export default function Dashboard() {
 
   async function handleComplete() {
     if (!selectedAlert) return;
+    if (!completeDate) {
+      toast({ title: "완료일을 입력해주세요", variant: "destructive" });
+      return;
+    }
     const isOverdue = selectedAlert.dueDate && getDdayLabel(selectedAlert.dueDate).isOverdue;
+    if (isOverdue && !delayReason) {
+      toast({ title: "기한 초과 항목입니다. 지연 사유를 선택해주세요", variant: "destructive" });
+      return;
+    }
+    if (isOverdue && delayReason === "기타" && !delayReasonDetail.trim()) {
+      toast({ title: "지연 사유의 상세 내용을 입력해주세요", variant: "destructive" });
+      return;
+    }
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
@@ -312,6 +324,14 @@ export default function Dashboard() {
 
   async function handlePostpone() {
     if (!selectedAlert) return;
+    if (!postponeDays) {
+      toast({ title: "연기 일수를 선택해주세요", variant: "destructive" });
+      return;
+    }
+    if (!postponeReason) {
+      toast({ title: "연기 사유를 선택해주세요", variant: "destructive" });
+      return;
+    }
     await createActionMutation.mutateAsync({
       data: {
         alertType: selectedAlert.type,
@@ -330,6 +350,14 @@ export default function Dashboard() {
 
   async function handleRfqRequest() {
     if (!selectedAlert) return;
+    if (!rfqTitle.trim()) {
+      toast({ title: "견적 요청 제목을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    if (!rfqDeadline) {
+      toast({ title: "견적 마감일을 선택해주세요", variant: "destructive" });
+      return;
+    }
     const catMap: Record<string, string> = {
       inspection_due: "elevator",
     };
@@ -790,7 +818,7 @@ export default function Dashboard() {
                 {[
                   { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle },
                   { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock },
-                  ...(["inspection_due", "task_overdue"].includes(selectedAlert.type) ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
+                  ...(["inspection_due", "task_overdue", "warranty_expiry"].includes(selectedAlert.type) ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -881,9 +909,9 @@ export default function Dashboard() {
                       placeholder="처리 내용을 기록하세요"
                     />
                   </div>
-                  <Button className="w-full" onClick={handleComplete}>
+                  <Button className="w-full" onClick={handleComplete} disabled={createActionMutation.isPending}>
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    처리완료
+                    {createActionMutation.isPending ? "처리 중..." : "처리완료"}
                   </Button>
                 </div>
                 );
@@ -924,9 +952,9 @@ export default function Dashboard() {
                       placeholder="연기 관련 상세 내용"
                     />
                   </div>
-                  <Button className="w-full" variant="secondary" onClick={handlePostpone}>
+                  <Button className="w-full" variant="secondary" onClick={handlePostpone} disabled={createActionMutation.isPending}>
                     <CalendarClock className="w-4 h-4 mr-2" />
-                    일정 연기
+                    {createActionMutation.isPending ? "처리 중..." : "일정 연기"}
                   </Button>
                 </div>
               )}
@@ -960,9 +988,9 @@ export default function Dashboard() {
                       placeholder="견적 요청 시 참고사항"
                     />
                   </div>
-                  <Button className="w-full" variant="default" onClick={handleRfqRequest}>
+                  <Button className="w-full" variant="default" onClick={handleRfqRequest} disabled={createActionMutation.isPending || createRfqMutation.isPending}>
                     <FileText className="w-4 h-4 mr-2" />
-                    견적 요청 생성
+                    {createActionMutation.isPending || createRfqMutation.isPending ? "처리 중..." : "견적 요청 생성"}
                   </Button>
                 </div>
               )}
