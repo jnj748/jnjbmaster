@@ -19,9 +19,12 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  Upload,
   Loader2,
 } from "lucide-react";
+import { Section } from "@/components/tenant-card-form/section";
+import { Field } from "@/components/tenant-card-form/field";
+import { ConsentItem } from "@/components/tenant-card-form/consent-item";
+import { DocUpload } from "@/components/tenant-card-form/doc-upload";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -670,135 +673,6 @@ export default function TenantCardForm() {
           </Button>
         </form>
       </div>
-    </div>
-  );
-}
-
-function Section({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-primary">{icon}</span>
-          <h2 className="font-semibold text-sm">{title}</h2>
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label className="text-xs mb-1 block">
-        {label}
-      </Label>
-      {children}
-    </div>
-  );
-}
-
-function ConsentItem({
-  title,
-  text,
-  checked,
-  onCheck,
-  required,
-}: {
-  title: string;
-  text: string;
-  checked: boolean;
-  onCheck: (v: boolean) => void;
-  required?: boolean;
-}) {
-  return (
-    <div className="border rounded-lg p-3">
-      <p className="text-sm font-medium mb-1">
-        {title}
-        {required && <span className="text-destructive ml-1">*</span>}
-      </p>
-      <p className="text-xs text-muted-foreground mb-2 leading-relaxed">{text}</p>
-      <div className="flex items-center gap-2">
-        <Checkbox checked={checked} onCheckedChange={(v) => onCheck(!!v)} />
-        <span className="text-sm">동의합니다</span>
-      </div>
-    </div>
-  );
-}
-
-function DocUpload({
-  label,
-  value,
-  uploading,
-  onUpload,
-  onRemove,
-}: {
-  label: string;
-  value: string | null;
-  uploading: boolean;
-  onUpload: (file: File) => void;
-  onRemove: () => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  return (
-    <div>
-      <Label className="text-xs mb-1 block">{label}</Label>
-      {value ? (
-        <div className="flex items-center gap-2 p-2 border rounded-lg bg-green-50">
-          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-          <span className="text-sm text-green-800 flex-1 truncate">첨부 완료</span>
-          <Button type="button" variant="ghost" size="sm" className="h-11 px-3" onClick={onRemove}>
-            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-          </Button>
-        </div>
-      ) : (
-        <>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*,.pdf"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full h-10 border-dashed"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Upload className="w-4 h-4 mr-2" />
-            )}
-            {uploading ? "업로드 중..." : "촬영 또는 파일 선택"}
-          </Button>
-        </>
-      )}
     </div>
   );
 }
