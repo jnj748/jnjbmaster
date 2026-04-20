@@ -15,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
   inspection_due: "법정점검 예정",
   inspection_completed: "법정점검 완료",
   safety_checklist: "안전점검",
-  maintenance: "기전 업무",
+  maintenance: "시설 업무",
   safety_training: "안전교육",
 };
 

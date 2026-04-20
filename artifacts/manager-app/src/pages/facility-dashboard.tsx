@@ -106,7 +106,7 @@ export default function FacilityDashboard() {
   const facilityMenuCards = [
     { path: "/inspections", label: "법정 점검", description: "법정점검 일정 및 관리", icon: ShieldAlert, color: "bg-blue-500" },
     { path: "/safety-checklists", label: "안전점검표", description: "일상 안전점검 체크리스트", icon: ClipboardCheck, color: "bg-emerald-500" },
-    { path: "/maintenance-logs", label: "기전 업무일지", description: "설비 유지보수 업무 기록", icon: Wrench, color: "bg-orange-500" },
+    { path: "/maintenance-logs", label: "시설 업무일지", description: "설비 유지보수 업무 기록", icon: Wrench, color: "bg-orange-500" },
     { path: "/safety-training", label: "안전교육", description: "안전교육 이수 현황", icon: GraduationCap, color: "bg-violet-500" },
   ];
 
@@ -115,7 +115,7 @@ export default function FacilityDashboard() {
       <div>
         <h1 className="text-2xl font-bold">시설관리</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          설비 안전점검, 기전 업무, 안전교육 현황을 한눈에 확인하세요
+          설비 안전점검, 시설 업무, 안전교육 현황을 한눈에 확인하세요
         </p>
       </div>
 
@@ -390,7 +390,7 @@ export default function FacilityDashboard() {
                 <Wrench className="w-6 h-6 text-chart-2" />
               </div>
               <div>
-                <p className="font-medium">기전 업무 일지</p>
+                <p className="font-medium">시설 업무일지</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   일상 업무 기록 및 보고
                 </p>

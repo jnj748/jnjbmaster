@@ -39,7 +39,7 @@ const SUGGESTED_PROMPTS = [
 
 const CITATION_TYPE_LABELS: Record<string, string> = {
   warranty: "보증",
-  maintenance_log: "기전일지",
+  maintenance_log: "시설일지",
   complaint: "민원",
   inspection: "점검",
   tax_schedule: "세무",

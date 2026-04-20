@@ -360,7 +360,7 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
           ),
         )
         .then((r) => r[0]),
-      // 오늘 작성된 기전 업무일지 (status 무관, 1건 이상이면 완료).
+      // 오늘 작성된 시설 업무일지 (status 무관, 1건 이상이면 완료).
       db
         .select({ count: count() })
         .from(maintenanceLogsTable)
@@ -412,7 +412,7 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
       ? { level: "red", count: chkCount, ariaLabel: `오늘 미작성 안전점검표 ${chkCount}건` }
       : { level: "none", count: 0, ariaLabel: "오늘 안전점검표 모두 완료" };
 
-  // ── 기전 업무일지 ─────────────────────────────
+  // ── 시설 업무일지 ─────────────────────────────
   const logCount = pendingTodayLog?.count ?? 0;
   const maintenanceLogs: StatusBadge =
     logCount > 0
