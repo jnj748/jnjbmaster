@@ -20,20 +20,13 @@ import { useBuilding } from "@/contexts/building-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Users, Search, CheckCircle, FileText, Settings } from "lucide-react";
+import { Users, CheckCircle, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ContractTemplateDialog } from "@/components/tenants/contract-template-dialog";
 import { TokenDialog } from "@/components/tenants/token-dialog";
 import { TenantFormDialog } from "@/components/tenants/tenant-form-dialog";
+import { TenantToolbar } from "@/components/tenants/tenant-toolbar";
 import { TenantTable } from "@/components/tenants/tenant-table";
 import { TenantDetailDialog } from "@/components/tenants/tenant-detail-dialog";
 import { TenantVerifyDialog } from "@/components/tenants/tenant-verify-dialog";
@@ -331,37 +324,13 @@ export default function Tenants() {
         </div>
       </div>
 
-      {unverifiedCount > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-orange-600" />
-            <span className="text-sm text-orange-800 font-medium">
-              서류 확인이 필요한 입주자카드가 {unverifiedCount}건 있습니다
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="이름, 호실, 전화번호 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="상태" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="active">입주중</SelectItem>
-            <SelectItem value="moved_out">퇴거</SelectItem>
-            <SelectItem value="destroyed">파기완료</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <TenantToolbar
+        unverifiedCount={unverifiedCount}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+      />
 
       {isLoading ? (
         <div className="space-y-2">
