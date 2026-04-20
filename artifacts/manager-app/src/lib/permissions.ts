@@ -32,8 +32,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+// [Task #142] 단일 대시보드 셸. 역할별 화면 차이는 위젯 카탈로그
+// (components/dashboard-widgets/registry.tsx)에서 선언적으로 관리한다.
 import Dashboard from "@/pages/dashboard";
-import PartnerDashboard from "@/pages/partner-dashboard";
 
 const Approvals = lazy(() => import("@/pages/approvals"));
 const ApprovalCreate = lazy(() => import("@/pages/approval-create"));
@@ -58,10 +59,8 @@ const SafetyTraining = lazy(() => import("@/pages/safety-training"));
 const DocumentTemplates = lazy(() => import("@/pages/document-templates"));
 // [Task #141] /daily-reports 라우트 폐지 — DailyReports 컴포넌트는 보고서(/reports) 화면의 "일간 일지" 탭으로 흡수.
 const ReportSystemPage = lazy(() => import("@/pages/report-system"));
-const HqDashboard = lazy(() => import("@/pages/hq-dashboard"));
-const AccountantDashboard2 = lazy(() => import("@/pages/accountant-dashboard"));
-const FacilityWorktool = lazy(() => import("@/pages/facility-worktool"));
-const AdminDashboard = lazy(() => import("@/pages/admin-dashboard"));
+// [Task #142] 역할별 대시보드 컴포넌트 직접 import 제거 — 모두 통합 셸을 통해
+// 진입하며, 위젯 코드는 dashboard-widgets/registry.tsx 에서 lazy 로딩한다.
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingInfo = lazy(() => import("@/pages/building-info"));
@@ -418,13 +417,16 @@ export const ROUTES: RouteEntry[] = [
 ];
 
 // ── Role-specific root ("/") dashboard mapping ───────────────────
+// [Task #142] 모든 역할이 동일한 통합 대시보드 셸을 통해 진입한다.
+// 셸이 useAuth → getEffectiveRole 로 역할을 읽어 위젯 카탈로그
+// (dashboard-widgets/registry.tsx)에서 위젯 구성을 가져와 렌더링한다.
 export const ROOT_DASHBOARDS: Record<Role, AnyComponent> = {
   manager: Dashboard,
-  platform_admin: AdminDashboard,
-  hq_executive: HqDashboard,
-  accountant: AccountantDashboard2,
-  facility_staff: FacilityWorktool,
-  partner: PartnerDashboard,
+  platform_admin: Dashboard,
+  hq_executive: Dashboard,
+  accountant: Dashboard,
+  facility_staff: Dashboard,
+  partner: Dashboard,
 };
 
 const ROOT_LABELS: Record<Role, string> = {
