@@ -58,6 +58,12 @@ const emptyForm = {
 export default function Tenants() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<Tenant | null>(null);
+  const [pendingOpenTenantId, setPendingOpenTenantId] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("openTenant");
+    const n = v ? parseInt(v, 10) : NaN;
+    return Number.isFinite(n) ? n : null;
+  });
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
@@ -287,6 +293,21 @@ export default function Tenants() {
   }
 
   const unverifiedCount = tenants?.filter((t) => t.verificationStatus === "unverified" && t.signatureName).length || 0;
+
+  useEffect(() => {
+    if (pendingOpenTenantId == null || !tenants) return;
+    const target = tenants.find((t) => t.id === pendingOpenTenantId);
+    if (target) {
+      setDetailDialog(target);
+      setPendingOpenTenantId(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("openTenant");
+      window.history.replaceState({}, "", url.toString());
+    } else if (tenants.length > 0) {
+      toast({ title: "해당 입주자를 찾을 수 없습니다", description: "이미 삭제되었거나 다른 건물 데이터일 수 있습니다." });
+      setPendingOpenTenantId(null);
+    }
+  }, [pendingOpenTenantId, tenants, toast]);
 
   return (
     <div className="space-y-6">

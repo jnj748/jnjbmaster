@@ -248,7 +248,7 @@ export default function Dashboard() {
         return;
       }
       const isOwner = alert.title.includes("소유자");
-      navigate(isOwner ? `/units?tab=owners&highlight=${alert.relatedId}` : `/tenants?highlight=${alert.relatedId}`);
+      navigate(isOwner ? `/units?tab=owners&openOwner=${alert.relatedId}` : `/tenants?openTenant=${alert.relatedId}`);
       return;
     }
 

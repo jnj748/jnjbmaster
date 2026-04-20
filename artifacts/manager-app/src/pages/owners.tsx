@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useListOwners,
   useCreateOwner,
@@ -70,6 +70,12 @@ export default function Owners() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [exportingId, setExportingId] = useState<number | null>(null);
+  const [pendingOpenOwnerId, setPendingOpenOwnerId] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("openOwner");
+    const n = v ? parseInt(v, 10) : NaN;
+    return Number.isFinite(n) ? n : null;
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -83,6 +89,21 @@ export default function Owners() {
   const createMutation = useCreateOwner();
   const updateMutation = useUpdateOwner();
   const deleteMutation = useDeleteOwner();
+
+  useEffect(() => {
+    if (pendingOpenOwnerId == null || !owners) return;
+    const target = owners.find((o) => o.id === pendingOpenOwnerId);
+    if (target) {
+      setDetailDialog(target);
+      setPendingOpenOwnerId(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("openOwner");
+      window.history.replaceState({}, "", url.toString());
+    } else if (owners.length > 0) {
+      toast({ title: "해당 소유자를 찾을 수 없습니다", description: "이미 삭제되었거나 다른 건물 데이터일 수 있습니다." });
+      setPendingOpenOwnerId(null);
+    }
+  }, [pendingOpenOwnerId, owners, toast]);
 
   const [form, setForm] = useState({ ...emptyForm });
 
