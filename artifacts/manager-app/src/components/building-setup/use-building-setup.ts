@@ -428,9 +428,30 @@ export function useBuildingSetup() {
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-      if (result.building) {
-        setExistingId(result.building.id);
+      // [Task #160] 상태 코드별 토스트 분기. 서버가 error 메시지를 주면 우선 사용한다.
+      let body: { building?: { id: number }; error?: string } = {};
+      try {
+        body = await res.json();
+      } catch {
+        body = {};
+      }
+
+      if (!res.ok) {
+        const fallback =
+          res.status === 423 ? "건물 주소가 잠겨 있습니다. 변경이 필요한 경우 고객센터(1800-0416)로 문의하세요." :
+          res.status === 400 ? "입력 데이터에 오류가 있습니다. 입력값을 확인해 주세요." :
+          (res.status === 401 || res.status === 403) ? "이 건물을 수정할 권한이 없습니다." :
+          res.status >= 500 ? "서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요." :
+          "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        toast({
+          title: body.error || fallback,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (body.building) {
+        setExistingId(body.building.id);
         toast({ title: "건물 정보가 저장되었습니다" });
         setActiveStep(2);
         const params = new URLSearchParams(window.location.search);
@@ -438,9 +459,17 @@ export function useBuildingSetup() {
         if (returnTo && returnTo.startsWith("/onboarding/")) {
           window.location.href = `${import.meta.env.BASE_URL}${returnTo.replace(/^\//, "")}`;
         }
+      } else {
+        toast({
+          title: "저장 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          variant: "destructive",
+        });
       }
     } catch {
-      toast({ title: "저장 중 오류가 발생했습니다", variant: "destructive" });
+      toast({
+        title: "서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }

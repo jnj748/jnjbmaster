@@ -471,6 +471,12 @@ export function StepInfo({
           <><Save className="w-4 h-4 mr-2" />{existingId ? "건물 정보 수정" : "건물 정보 저장"}</>
         )}
       </Button>
+      {/* [Task #160] 주소 잠금 상태에서 저장 버튼 인근에 보조 안내 표시 */}
+      {existingId && building.addressLocked && (
+        <p className="mt-2 text-xs text-amber-700 text-center">
+          🔒 주소 외 정보만 수정 가능 (변경 필요 시 1800-0416)
+        </p>
+      )}
     </>
   );
 }

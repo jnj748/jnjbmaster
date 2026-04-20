@@ -153,45 +153,68 @@ router.get("/buildings/overview", async (req: Request, res: Response) => {
   }
 });
 
+// [Task #160] POST/PUT 핸들러가 동일한 화이트리스트를 사용해 필드 누락을 방지한다.
+const BUILDING_TEXT_FIELDS = [
+  "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
+  "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
+  "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
+  "logoUrl", "approvalDate", "areaBasis",
+] as const;
+const BUILDING_NUMERIC_FIELDS = [
+  "totalArea", "landArea", "buildingArea", "buildingCoverageRatio",
+  "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly",
+] as const;
+const BUILDING_INT_FIELDS = [
+  "totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces",
+] as const;
+const BUILDING_BOOL_FIELDS = [
+  "hasPlayground", "hasGas", "hasSepticTank", "safetyManagerRequired",
+] as const;
+const BUILDING_BOOL_DEFAULTS: Record<string, boolean> = {
+  hasPlayground: false, hasGas: true, hasSepticTank: true, safetyManagerRequired: false,
+};
+
+function buildBuildingInsertValues(data: Record<string, unknown>): Record<string, unknown> {
+  const v: Record<string, unknown> = { name: data.name };
+  for (const f of BUILDING_TEXT_FIELDS) v[f] = data[f] || null;
+  for (const f of BUILDING_INT_FIELDS) v[f] = data[f] ? parseInt(String(data[f])) : null;
+  for (const f of BUILDING_NUMERIC_FIELDS) v[f] = data[f] || null;
+  for (const f of BUILDING_BOOL_FIELDS) v[f] = data[f] ?? BUILDING_BOOL_DEFAULTS[f];
+  return v;
+}
+
+function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string, unknown> {
+  const v: Record<string, unknown> = {};
+  if (data.name !== undefined) v.name = data.name;
+  for (const f of BUILDING_TEXT_FIELDS) {
+    if (data[f] !== undefined) v[f] = data[f];
+  }
+  for (const f of BUILDING_INT_FIELDS) {
+    if (data[f] !== undefined) v[f] = data[f] ? parseInt(String(data[f])) : null;
+  }
+  for (const f of BUILDING_NUMERIC_FIELDS) {
+    if (data[f] !== undefined) v[f] = data[f] || null;
+  }
+  for (const f of BUILDING_BOOL_FIELDS) {
+    if (data[f] !== undefined) v[f] = data[f];
+  }
+  return v;
+}
+
 router.post("/buildings", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   try {
     const data = req.body;
-    const [building] = await db.insert(buildingsTable).values({
-      name: data.name,
-      addressFull: data.addressFull || null,
-      addressJibun: data.addressJibun || null,
-      sido: data.sido || null,
-      sigungu: data.sigungu || null,
-      dong: data.dong || null,
-      zipCode: data.zipCode || null,
-      totalUnits: data.totalUnits ? parseInt(data.totalUnits) : null,
-      totalFloors: data.totalFloors ? parseInt(data.totalFloors) : null,
-      basementFloors: data.basementFloors ? parseInt(data.basementFloors) : null,
-      totalArea: data.totalArea || null,
-      buildingUsage: data.buildingUsage || null,
-      structureType: data.structureType || null,
-      completionDate: data.completionDate || null,
-      elevatorCount: data.elevatorCount ? parseInt(data.elevatorCount) : null,
-      parkingSpaces: data.parkingSpaces ? parseInt(data.parkingSpaces) : null,
-      hasPlayground: data.hasPlayground ?? false,
-      hasGas: data.hasGas ?? true,
-      hasSepticTank: data.hasSepticTank ?? true,
-      safetyManagerRequired: data.safetyManagerRequired ?? false,
-      safetyManagerType: data.safetyManagerType || null,
-      buildingRegisterPk: data.buildingRegisterPk || null,
-      landArea: data.landArea || null,
-      buildingArea: data.buildingArea || null,
-      buildingCoverageRatio: data.buildingCoverageRatio || null,
-      floorAreaRatio: data.floorAreaRatio || null,
-      managementOfficePhone: data.managementOfficePhone || null,
-      managementOfficeFax: data.managementOfficeFax || null,
-      logoUrl: data.logoUrl || null,
-      electricCapacityKw: data.electricCapacityKw || null,
-      gasUsageMonthly: data.gasUsageMonthly || null,
-    }).returning();
+    if (!data.name) {
+      res.status(400).json({ error: "건물명은 필수입니다." });
+      return;
+    }
+    const [building] = await db
+      .insert(buildingsTable)
+      .values(buildBuildingInsertValues(data) as typeof buildingsTable.$inferInsert)
+      .returning();
 
     await db.update(usersTable)
       .set({
@@ -230,30 +253,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
         return;
       }
     }
-    const updateData: Record<string, unknown> = {};
-    const fields = [
-      "name", "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
-      "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
-      "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
-      "logoUrl", "approvalDate", "areaBasis",
-    ];
-    const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly"];
-    const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];
-    const boolFields = ["hasPlayground", "hasGas", "hasSepticTank", "safetyManagerRequired"];
-
-    for (const f of fields) {
-      if (data[f] !== undefined) updateData[f] = data[f];
-    }
-    for (const f of intFields) {
-      if (data[f] !== undefined) updateData[f] = data[f] ? parseInt(data[f]) : null;
-    }
-    for (const f of numericFields) {
-      if (data[f] !== undefined) updateData[f] = data[f] || null;
-    }
-    for (const f of boolFields) {
-      if (data[f] !== undefined) updateData[f] = data[f];
-    }
-    if (data.totalArea !== undefined) updateData.totalArea = data.totalArea;
+    const updateData = buildBuildingUpdateValues(data);
 
     const [building] = await db.update(buildingsTable).set(updateData).where(eq(buildingsTable.id, id)).returning();
 

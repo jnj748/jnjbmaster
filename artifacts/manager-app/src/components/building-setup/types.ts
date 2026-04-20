@@ -29,6 +29,7 @@ export interface BuildingData {
   electricCapacityKw: string;
   gasUsageMonthly: string;
   approvalDate: string;
+  areaBasis?: string | null;
   addressLocked?: boolean;
 }
 
