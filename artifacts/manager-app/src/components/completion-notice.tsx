@@ -221,7 +221,7 @@ export function CompletionNotice({
         </ResponsiveDialogHeader>
 
         {/* 양식 선택 탭 */}
-        <div className="flex gap-2 print:hidden" data-testid="doc-kind-selector">
+        <div className="grid grid-cols-3 gap-2 print:hidden" data-testid="doc-kind-selector">
           {(Object.keys(DOC_KIND_LABELS) as DocKind[]).map((k) => (
             <Button
               key={k}
@@ -230,6 +230,7 @@ export function CompletionNotice({
               variant={docKind === k ? "default" : "outline"}
               onClick={() => setDocKind(k)}
               data-testid={`doc-kind-${k}`}
+              className="w-full"
             >
               {DOC_KIND_LABELS[k]}
             </Button>
