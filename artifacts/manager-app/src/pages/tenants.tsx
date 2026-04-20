@@ -367,7 +367,7 @@ export default function Tenants() {
                               {t.status === "pending" ? "대기" : t.status === "submitted" ? "제출됨" : t.status === "approved" ? "승인" : "반려"}
                             </Badge>
                           </div>
-                          <Button variant="ghost" size="sm" className="h-9" onClick={() => copyTokenLink(t.token)}>
+                          <Button variant="ghost" size="sm" className="h-11" onClick={() => copyTokenLink(t.token)}>
                             <Copy className="w-3.5 h-3.5" />
                           </Button>
                         </div>

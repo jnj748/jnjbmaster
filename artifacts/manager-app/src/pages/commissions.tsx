@@ -517,7 +517,7 @@ export default function Commissions() {
                 </div>
                 <div className="mt-3">
                   <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v)}>
-                    <SelectTrigger className="h-9 text-xs">
+                    <SelectTrigger className="h-11 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
