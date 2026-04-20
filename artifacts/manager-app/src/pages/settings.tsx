@@ -1,5 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -381,11 +382,14 @@ function SocialAccountsCard() {
 
 function ProfileSettings() {
   const { token, user, setUser } = useAuth();
+  const { building } = useBuilding();
   const { toast } = useToast();
 
-  const [name, setName] = useState(user?.name || "");
+  const derivedName = building?.name ? `${building.name} 관리사무소` : "";
+  const [name, setName] = useState(user?.name || derivedName);
   const [phone, setPhone] = useState(user?.phone || "");
   const [saving, setSaving] = useState(false);
+  const prevDerivedRef = useRef(derivedName);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -394,10 +398,22 @@ function ProfileSettings() {
 
   useEffect(() => {
     if (user) {
-      setName(user.name || "");
+      setName(user.name || derivedName);
       setPhone(user.phone || "");
     }
+    // intentionally not depending on derivedName — initial sync only on user change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Auto-update name when building name changes, but only if the user hasn't
+  // customized it (i.e., the field is empty or still matches the previous derived value).
+  useEffect(() => {
+    setName((prev) => {
+      const wasDerived = !prev || prev === prevDerivedRef.current;
+      prevDerivedRef.current = derivedName;
+      return wasDerived ? derivedName : prev;
+    });
+  }, [derivedName]);
 
   async function handleSaveProfile() {
     if (!name.trim()) {
