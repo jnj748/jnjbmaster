@@ -486,7 +486,7 @@ export default function TenantCardForm() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-9 w-9 p-0"
+                      className="h-11 w-11 p-0"
                       onClick={() => removeVehicle(idx)}
                     >
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -764,7 +764,7 @@ function DocUpload({
         <div className="flex items-center gap-2 p-2 border rounded-lg bg-green-50">
           <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
           <span className="text-sm text-green-800 flex-1 truncate">첨부 완료</span>
-          <Button type="button" variant="ghost" size="sm" className="h-9 px-3" onClick={onRemove}>
+          <Button type="button" variant="ghost" size="sm" className="h-11 px-3" onClick={onRemove}>
             <Trash2 className="w-3.5 h-3.5 text-destructive" />
           </Button>
         </div>
