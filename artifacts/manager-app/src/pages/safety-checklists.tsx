@@ -86,15 +86,39 @@ export default function SafetyChecklists() {
     notes: "",
     closeUpPhotoUrl: null as string | null,
     widePhotoUrl: null as string | null,
-    items: [] as { itemName: string; checked: boolean }[],
+    items: [] as { itemName: string; checked: boolean; custom?: boolean }[],
   });
+  const [customItemInput, setCustomItemInput] = useState("");
 
   function handleCategoryChange(cat: string) {
-    const items = (DEFAULT_ITEMS[cat] || []).map((name) => ({
-      itemName: name,
-      checked: false,
-    }));
-    setForm((f) => ({ ...f, category: cat, items }));
+    setForm((f) => {
+      const defaults = (DEFAULT_ITEMS[cat] || []).map((name) => ({
+        itemName: name,
+        checked: false,
+      }));
+      const defaultNames = new Set(defaults.map((d) => d.itemName));
+      const customItems = f.items.filter(
+        (i) => i.custom && !defaultNames.has(i.itemName),
+      );
+      return { ...f, category: cat, items: [...defaults, ...customItems] };
+    });
+  }
+
+  function handleAddCustomItem() {
+    const name = customItemInput.trim();
+    if (!name) return;
+    setForm((f) => {
+      if (f.items.some((i) => i.itemName === name)) return f;
+      return {
+        ...f,
+        items: [...f.items, { itemName: name, checked: false, custom: true }],
+      };
+    });
+    setCustomItemInput("");
+  }
+
+  function handleRemoveCustomItem(idx: number) {
+    setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
   }
 
   async function handleCreate() {
@@ -112,7 +136,7 @@ export default function SafetyChecklists() {
         notes: form.notes || undefined,
         closeUpPhotoUrl: form.closeUpPhotoUrl,
         widePhotoUrl: form.widePhotoUrl,
-        items: form.items.length > 0 ? form.items : undefined,
+        items: form.items.length > 0 ? form.items.map(({ itemName, checked }) => ({ itemName, checked })) : undefined,
       },
     });
 
@@ -128,6 +152,7 @@ export default function SafetyChecklists() {
       widePhotoUrl: null,
       items: [],
     });
+    setCustomItemInput("");
     toast({ title: "안전점검표가 생성되었습니다" });
   }
 
@@ -201,12 +226,15 @@ export default function SafetyChecklists() {
                   />
                 </div>
               </div>
-              {form.items.length > 0 && (
-                <div>
-                  <Label>점검 항목</Label>
-                  <div className="space-y-2 mt-2">
+              <div>
+                <Label>점검 항목</Label>
+                {form.items.length > 0 && (
+                  <div className="space-y-1 mt-2">
                     {form.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 border rounded">
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 px-2 py-1 border-b last:border-b-0"
+                      >
                         <Checkbox
                           checked={item.checked}
                           onCheckedChange={(checked) => {
@@ -214,13 +242,49 @@ export default function SafetyChecklists() {
                             newItems[idx] = { ...item, checked: !!checked };
                             setForm((f) => ({ ...f, items: newItems }));
                           }}
+                          className="h-4 w-4"
                         />
-                        <span className="text-sm flex-1">{item.itemName}</span>
+                        <span className="text-xs flex-1 leading-tight">{item.itemName}</span>
+                        {item.custom && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveCustomItem(idx)}
+                            aria-label="항목 삭제"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    value={customItemInput}
+                    onChange={(e) => setCustomItemInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomItem();
+                      }
+                    }}
+                    placeholder="기타 (직접입력)"
+                    className="h-8 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddCustomItem}
+                    className="h-8 px-3"
+                  >
+                    추가
+                  </Button>
                 </div>
-              )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <PhotoUploadField
                   label="원경 사진"
