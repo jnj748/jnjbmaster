@@ -32,7 +32,19 @@
   - `html-to-image` (purify.es ~23KB + chunk): `lib/document-export.ts::downloadElementAsPng` 내부 (rfq/완료통지 발급 시점).
 - **App.tsx**: `Login` 도 `lazy()` 로 전환 (인증 후 사용자에는 다운로드 안 됨).
 - **vite manualChunks 추가**: `framer-motion`→`motion`, `react-day-picker`+`date-fns`→`date`. (recharts/lucide/@radix-ui 는 기존 분리 유지.)
-- **빌드 결과 (gzip)**: motion 40KB, date 21KB, charts 110KB, jspdf 125KB, html2canvas 47KB, papaparse 7KB — 모두 라우트/이벤트 단위로 lazy. 초기 진입(react-vendor 46 + ui 58 + index 32 + api-client 19 ≈ 155KB gzip) 외에는 필요 시점에만 로드.
+- **번들 비교 (gzip)**:
+  | 항목 | Before | After | 비고 |
+  |---|---|---|---|
+  | initial `index` | 32 KB | 30 KB | Dashboard 셸 분리 |
+  | jspdf | tenants/owners/vehicles 페이지 청크에 inline | **125 KB lazy chunk** | 클릭 시점 로드 |
+  | papaparse | units 페이지 청크에 inline | **7 KB lazy chunk** | CSV 업로드 시점 |
+  | html-to-image (purify+core) | rfq/완료통지 청크에 inline | **8 KB lazy chunk** (+47 KB html2canvas 별도) | PNG 다운로드 시점 |
+  | framer-motion | (manualChunks 미설정) | **40 KB `motion` chunk** | |
+  | date-fns + react-day-picker | (manualChunks 미설정) | **21 KB `date` chunk** | |
+  | recharts | 110 KB `charts` (기존) | 110 KB (변동 없음) | 기존 분리 유지 |
+  | Dashboard 셸 | 정적 import (`index` 포함) | 별도 lazy 청크 | 비-대시보드 첫 진입 시 절감 |
+- **초기 진입 (gzip 기준)**: react-vendor 46 + ui 58 + index 30 + api-client 19 ≈ **153 KB**. 그 외 청크는 라우트/이벤트 시점 로드.
+- **사용자 피드백**: 모든 PDF/CSV 핸들러는 동적 import 중 버튼 disabled + Loader2 스피너 + 실패 시 destructive toast.
 
 ## Codebase Cleanup Notes (Task #102, 2026-04-17)
 - **삭제 완료 (Task #125, 2026-04-19)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` (이전 `artifacts/manager-app/src/_deprecated/`) 영구 삭제. 참조 0건 재확인 후 폴더 제거.
