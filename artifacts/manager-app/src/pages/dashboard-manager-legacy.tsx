@@ -953,6 +953,7 @@ export default function Dashboard() {
           buildingName={building?.name}
           officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
           logoUrl={building?.logoUrl ?? null}
+          authorName={user?.name ?? null}
         />
       )}
 
