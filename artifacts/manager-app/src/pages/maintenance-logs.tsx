@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListMaintenanceLogs,
   useCreateMaintenanceLog,
   useDeleteMaintenanceLog,
   useSendMaintenanceReport,
   getListMaintenanceLogsQueryKey,
+  type CreateMaintenanceLogBody,
+  type CreateMaintenanceLogBodyCategory,
+  type CreateMaintenanceLogBodyStatus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -48,11 +57,49 @@ const CATEGORIES = [
   { value: "other", label: "기타" },
 ];
 
+interface UserRecord {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export default function MaintenanceLogs() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { token } = useAuth();
+
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const API_BASE = `${BASE}api`;
+
+  const [userList, setUserList] = useState<UserRecord[]>([]);
+  const [workerPopoverOpen, setWorkerPopoverOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data: UserRecord[] = await res.json();
+          setUserList(data);
+        } else if (res.status === 401 || res.status === 403) {
+          setUserList([]);
+        } else {
+          console.error("Failed to load users:", res.status, await res.text());
+          setUserList([]);
+        }
+      } catch (err) {
+        console.error("Failed to load users:", err);
+        setUserList([]);
+      }
+    }
+    fetchUsers();
+  }, [API_BASE, token]);
 
   const { data: logs, isLoading } = useListMaintenanceLogs({
     category: filterCategory !== "all" ? filterCategory as any : undefined,
@@ -76,24 +123,20 @@ export default function MaintenanceLogs() {
   const [form, setForm] = useState(initialForm);
 
   async function handleCreate() {
-    if (!form.title || !form.description || !form.worker) {
-      toast({ title: "필수 항목을 입력해주세요", variant: "destructive" });
-      return;
-    }
-
-    await createMutation.mutateAsync({
-      data: {
-        title: form.title,
-        description: form.description,
-        category: form.category as any,
-        workDate: form.workDate,
-        worker: form.worker,
-        status: form.status as any,
-        notes: form.notes || undefined,
-        closeUpPhotoUrl: form.closeUpPhotoUrl,
-        widePhotoUrl: form.widePhotoUrl,
-      },
-    });
+    const data: CreateMaintenanceLogBody = {
+      title: form.title.trim() || "-",
+      description: form.description.trim() || "-",
+      category: (form.category || "other") as CreateMaintenanceLogBodyCategory,
+      workDate: form.workDate || undefined,
+      worker: form.worker || undefined,
+      status: form.status
+        ? (form.status as CreateMaintenanceLogBodyStatus)
+        : undefined,
+      notes: form.notes || undefined,
+      closeUpPhotoUrl: form.closeUpPhotoUrl,
+      widePhotoUrl: form.widePhotoUrl,
+    };
+    await createMutation.mutateAsync({ data });
 
     queryClient.invalidateQueries({ queryKey: getListMaintenanceLogsQueryKey() });
     setCreateOpen(false);
@@ -135,14 +178,6 @@ export default function MaintenanceLogs() {
             </ResponsiveDialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>제목</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="업무 제목"
-                />
-              </div>
-              <div>
                 <Label>카테고리</Label>
                 <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -152,6 +187,14 @@ export default function MaintenanceLogs() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>제목</Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="업무 제목"
+                />
               </div>
               <div>
                 <Label>작업 내용</Label>
@@ -173,11 +216,65 @@ export default function MaintenanceLogs() {
                 </div>
                 <div>
                   <Label>작업자</Label>
-                  <Input
-                    value={form.worker}
-                    onChange={(e) => setForm((f) => ({ ...f, worker: e.target.value }))}
-                    placeholder="작업자 이름"
-                  />
+                  {userList.length > 0 ? (
+                    <Popover open={workerPopoverOpen} onOpenChange={setWorkerPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Input
+                          value={form.worker}
+                          onChange={(e) => {
+                            setForm((f) => ({ ...f, worker: e.target.value }));
+                            if (!workerPopoverOpen) setWorkerPopoverOpen(true);
+                          }}
+                          onFocus={() => setWorkerPopoverOpen(true)}
+                          placeholder="작업자 검색 또는 직접 입력"
+                          autoComplete="off"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="p-0 w-[--radix-popover-trigger-width] max-h-60 overflow-auto"
+                        align="start"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        {(() => {
+                          const q = form.worker.trim().toLowerCase();
+                          const filtered = q
+                            ? userList.filter((u) => u.name.toLowerCase().includes(q))
+                            : userList;
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="px-3 py-2 text-sm text-muted-foreground">
+                                일치하는 사용자가 없습니다. 직접 입력하세요.
+                              </div>
+                            );
+                          }
+                          return (
+                            <ul className="py-1">
+                              {filtered.map((u) => (
+                                <li key={u.id}>
+                                  <button
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+                                    onClick={() => {
+                                      setForm((f) => ({ ...f, worker: u.name }));
+                                      setWorkerPopoverOpen(false);
+                                    }}
+                                  >
+                                    {u.name}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        })()}
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <Input
+                      value={form.worker}
+                      onChange={(e) => setForm((f) => ({ ...f, worker: e.target.value }))}
+                      placeholder="작업자 이름"
+                    />
+                  )}
                 </div>
               </div>
               <div>
