@@ -3,16 +3,31 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
+// React Query options (staleTime / gcTime / retry) come from the global
+// QueryClient in App.tsx so the same metric is cached uniformly across
+// every role that mounts this widget.
 export default function DelinquencySummaryWidget() {
   const { data, isLoading } = useGetDelinquencySummary();
 
   if (isLoading) {
     return <Skeleton className="h-28 rounded-lg" />;
   }
+
+  // Render a positive empty state instead of null so the shell grid
+  // doesn't leave a hole for this cell.
   if (!data || data.totalOverdue <= 0) {
-    return null;
+    return (
+      <Card className="border-emerald-200 bg-emerald-50">
+        <CardContent className="p-4 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span className="text-sm font-medium text-emerald-800">
+            미납 세대 없음
+          </span>
+        </CardContent>
+      </Card>
+    );
   }
 
   const detected = data.totalOverdue - data.notified - data.parkingSuspended;

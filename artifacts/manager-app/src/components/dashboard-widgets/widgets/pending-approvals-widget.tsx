@@ -15,6 +15,9 @@ interface PendingApprovalRow {
   estimatedAmount?: number | null;
 }
 
+// React Query options (staleTime / gcTime / retry) are centralized on the
+// global QueryClient in App.tsx; widgets rely on those defaults so the
+// same metric is fetched/cached uniformly across roles and call sites.
 export default function PendingApprovalsWidget() {
   const { data: pending, isLoading } = useListApprovals({ status: "pending" });
   const items: PendingApprovalRow[] = (pending ?? []) as PendingApprovalRow[];
