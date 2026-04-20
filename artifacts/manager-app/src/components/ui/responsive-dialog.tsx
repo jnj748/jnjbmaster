@@ -21,7 +21,6 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ResponsiveDialogProps {
   open?: boolean;
@@ -56,10 +55,10 @@ function ResponsiveDialogContent({ children, className, ...rest }: ContentProps)
   const isMobile = useIsMobile();
   if (isMobile) {
     return (
-      <DrawerContent className={cn("max-h-[85vh]", className)}>
-        <ScrollArea className="overflow-y-auto px-4 pb-4">
+      <DrawerContent className={cn("max-h-[90vh] flex flex-col", className)}>
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-4">
           {children}
-        </ScrollArea>
+        </div>
       </DrawerContent>
     );
   }

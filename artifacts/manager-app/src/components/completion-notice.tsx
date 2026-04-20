@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Printer, Download, Mail } from "lucide-react";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
+import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
   openMailtoWithDocument,
@@ -103,6 +104,7 @@ export function CompletionNotice({
 }: CompletionNoticeProps) {
   const { toast } = useToast();
   const documentRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [editMode, setEditMode] = useState(true);
   const [noticeNo] = useState(getNoticeNumber());
   const [postingPeriod, setPostingPeriod] = useState("상시게재");
@@ -119,6 +121,9 @@ export function CompletionNotice({
   async function withReadyDocument<T>(fn: () => Promise<T> | T): Promise<T> {
     setEditMode(false);
     await new Promise((r) => setTimeout(r, 120));
+    if (frameRef.current) {
+      return await frameRef.current.withFullScale(fn);
+    }
     return await fn();
   }
 
@@ -198,7 +203,7 @@ export function CompletionNotice({
           </div>
         )}
 
-        <div className="a4-document-frame">
+        <A4DocumentFrame ref={frameRef}>
         <div
           ref={documentRef}
           className="a4-document"
@@ -326,7 +331,7 @@ export function CompletionNotice({
             </div>
           </div>
         </div>
-        </div>
+        </A4DocumentFrame>
 
         <div className="a4-document-actions flex flex-wrap justify-end gap-2 print:hidden">
           {!editMode && (
