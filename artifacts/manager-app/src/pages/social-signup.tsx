@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
-import { Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { Shield } from "lucide-react";
+import {
+  ConsentSection,
+  OptionalConsentRePromptDialog,
+  buildDecisions,
+  getMissingOptional,
+  getMissingRequired,
+  type ConsentDocument,
+  type ConsentRole,
+} from "@/components/consent-section";
 
-const CONSENT_VERSION = "1.0";
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
@@ -41,12 +49,14 @@ export default function SocialSignup() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [agreePartner, setAgreePartner] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // [Task #133]
+  const [consentDocs, setConsentDocs] = useState<ConsentDocument[]>([]);
+  const [consentValue, setConsentValue] = useState<Record<string, boolean>>({});
+  const [rePromptOpen, setRePromptOpen] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<((finalValue: Record<string, boolean>) => void) | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, "");
@@ -93,29 +103,14 @@ export default function SocialSignup() {
   }
 
   const isPartner = pending.portalType === "partner";
-  const consentsOk = agreeTerms && agreePrivacy && (!isPartner || agreePartner);
+  const consentRole: ConsentRole = isPartner ? "partner" : "manager";
+  const missingRequired = getMissingRequired(consentDocs, consentValue);
+  const consentsOk = missingRequired.length === 0;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (!consentsOk) {
-      setError("필수 약관에 모두 동의해 주세요");
-      return;
-    }
-    if (!email.trim()) {
-      setError("이메일을 입력해 주세요");
-      return;
-    }
-    if (!name.trim()) {
-      setError("이름을 입력해 주세요");
-      return;
-    }
-
+  async function performSubmit(finalValue: Record<string, boolean>) {
     setLoading(true);
     try {
-      const consentTypes = ["intermediary_terms", "privacy_policy"];
-      if (isPartner) consentTypes.push("partner_terms");
-
+      const decisions = buildDecisions(consentDocs, finalValue);
       const res = await fetch(`${API_BASE}/auth/oauth/complete-signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,7 +119,7 @@ export default function SocialSignup() {
           email: email.trim(),
           name: name.trim(),
           phone: phone.trim() || undefined,
-          consents: { types: consentTypes, version: CONSENT_VERSION },
+          consents: { decisions, version: "1.0" },
         }),
       });
       const data = await res.json();
@@ -139,6 +134,50 @@ export default function SocialSignup() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!email.trim()) {
+      setError("이메일을 입력해 주세요");
+      return;
+    }
+    if (!name.trim()) {
+      setError("이름을 입력해 주세요");
+      return;
+    }
+    if (!consentsOk) {
+      setError("필수 약관에 모두 동의해 주세요");
+      return;
+    }
+
+    const missingOptional = getMissingOptional(consentDocs, consentValue);
+    if (missingOptional.length > 0) {
+      setPendingSubmit(() => (finalValue: Record<string, boolean>) => {
+        void performSubmit(finalValue);
+      });
+      setRePromptOpen(true);
+      return;
+    }
+    void performSubmit(consentValue);
+  }
+
+  function handleRePromptConfirm() {
+    const next = { ...consentValue };
+    for (const d of consentDocs) next[d.consentType] = true;
+    setConsentValue(next);
+    setRePromptOpen(false);
+    const submit = pendingSubmit;
+    setPendingSubmit(null);
+    if (submit) submit(next);
+  }
+
+  function handleRePromptReject() {
+    setRePromptOpen(false);
+    const submit = pendingSubmit;
+    setPendingSubmit(null);
+    if (submit) submit(consentValue);
   }
 
   return (
@@ -193,48 +232,18 @@ export default function SocialSignup() {
               />
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-amber-600" />
-                  플랫폼 이용 안내 및 약관 동의
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowTerms(!showTerms)}
-                  className="text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-0.5"
-                >
-                  약관 전문
-                  {showTerms ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-              </div>
-
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
-                (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
-                <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
-              </div>
-
-              {showTerms && (
-                <div className="max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] text-slate-600 leading-4">
-                  자세한 약관은 로그인 화면 또는 설정에서 확인할 수 있습니다.
-                </div>
-              )}
-
-              <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                <input type="checkbox" className="mt-0.5" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} />
-                <span><strong className="text-red-600">[필수]</strong> 이용약관에 동의합니다.</span>
-              </label>
-              <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                <input type="checkbox" className="mt-0.5" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} />
-                <span><strong className="text-red-600">[필수]</strong> 개인정보처리방침에 동의합니다.</span>
-              </label>
-              {isPartner && (
-                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                  <input type="checkbox" className="mt-0.5" checked={agreePartner} onChange={(e) => setAgreePartner(e.target.checked)} />
-                  <span><strong className="text-red-600">[필수]</strong> 파트너 이용약관에 동의합니다.</span>
-                </label>
-              )}
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
+              <Shield className="inline w-3 h-3 mr-1 -mt-0.5" />
+              (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
+              <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
             </div>
+
+            <ConsentSection
+              role={consentRole}
+              value={consentValue}
+              onChange={setConsentValue}
+              onDocsLoaded={setConsentDocs}
+            />
 
             <button
               type="submit"
@@ -246,6 +255,11 @@ export default function SocialSignup() {
           </form>
         </div>
       </div>
+      <OptionalConsentRePromptDialog
+        open={rePromptOpen}
+        onConfirm={handleRePromptConfirm}
+        onReject={handleRePromptReject}
+      />
     </div>
   );
 }

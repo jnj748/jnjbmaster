@@ -47,6 +47,7 @@ import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
 import warrantiesRouter from "./warranties";
 import platformConsentsRouter from "./platformConsents";
+import platformConsentDocumentsRouter from "./platformConsentDocuments";
 import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
 import contractsRouter from "./contracts";
@@ -64,6 +65,11 @@ router.use(oauthRouter);
 router.use(storageRouter);
 router.use(publicTenantCardRouter);
 
+// [Task #133] Public GET for active docs is mounted before authMiddleware (and
+// before platformConsentsRouter, which applies authMiddleware globally on its
+// own sub-router) so signup screens can fetch them without a session.
+// Admin endpoints inside platformConsentDocumentsRouter enforce auth themselves.
+router.use(platformConsentDocumentsRouter);
 router.use(platformConsentsRouter);
 
 router.use(authMiddleware);

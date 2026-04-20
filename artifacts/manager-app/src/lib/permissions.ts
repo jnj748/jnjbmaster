@@ -418,6 +418,12 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin"],
   },
   {
+    // [Task #133] 약관 문서 편집 (역할 × 동의 항목 × 버전)
+    path: "/platform-consents", component: lazy(() => import("@/pages/platform-consents")),
+    label: "약관 관리", icon: FileText, group: "settings",
+    access: ["platform_admin"],
+  },
+  {
     path: "/settings", component: SettingsPage,
     label: "설정", icon: Settings, group: "settings",
     access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],

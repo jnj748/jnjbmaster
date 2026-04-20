@@ -7,6 +7,7 @@ import { startScheduler, stopScheduler } from "./scheduler";
 import { seedTestUsers } from "./seed-test-users";
 import { seedPartnerBm } from "./seed-partner-bm";
 import { seedVendorCategories } from "./routes/vendorCategories";
+import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -135,6 +136,14 @@ app.listen(port, async (err) => {
     logger.info("Vendor categories seeded");
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed vendor categories");
+  }
+
+  try {
+    await ensureConsentSchema();
+    await seedConsentDocuments();
+    logger.info("Consent documents seeded");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed consent documents");
   }
 
   startScheduler();

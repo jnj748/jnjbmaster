@@ -1,13 +1,23 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
-import { Building2, Store, Shield, ArrowLeft, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Building2, Store, Shield, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import {
+  ConsentSection,
+  OptionalConsentRePromptDialog,
+  buildDecisions,
+  getMissingOptional,
+  getMissingRequired,
+  resolveConsentRole,
+  type ConsentDocument,
+} from "@/components/consent-section";
 
 const DevQuickLogin = import.meta.env.DEV
   ? lazy(() => import("@/components/dev-quick-login"))
   : null;
 
 const CONSENT_VERSION = "1.0";
+
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
@@ -51,24 +61,6 @@ function ProviderIcon({ provider }: { provider: SocialProvider }) {
   );
 }
 
-const TERMS_PREVIEW = `[이용약관 요지]
-
-제1조 (목적)
-본 약관은 (주)관리의달인이 제공하는 집합건물 관리행정 및 견적·계약 중개 서비스의 이용 조건을 정합니다.
-
-제2조 (회사의 지위)
-회사는 「전자상거래 등에서의 소비자보호에 관한 법률」 상의 통신판매중개자이며, 통신판매의 당사자가 아닙니다. 회사는 관리단(건물)과 파트너사(용역사) 간의 견적·계약·이행을 위한 도구·정보·중개 환경을 제공합니다. 개별 용역계약의 이행·의무·하자·분쟁에 대한 당사자로서의 책임을 지지 않으며, 책임은 관리단과 파트너사에게 귀속됩니다.
-
-[개인정보처리방침 요지]
-1. 수집 항목: 이메일, 이름, 전화번호, 소속 건물·업체 정보 및 서비스 이용 기록
-2. 수집 목적: 서비스 제공, 본인 확인, 결재·계약 이력 관리, 알림 발송
-3. 보유 기간: 회원 탈퇴 시까지 (관계 법령에 따라 일정 기간 보관 가능)
-
-[파트너 이용약관 요지]
-1. 파트너사는 회사가 제공하는 견적 요청에 응할 수 있으며, 계약 체결 및 이행의 당사자는 파트너사와 관리단입니다.
-2. 회사는 견적 매칭·정산 도구만 제공하며, 계약 이행 결과에 대한 보증을 하지 않습니다.
-3. 파트너사는 정확한 사업자 정보·자격을 등록할 의무가 있습니다.`;
-
 export default function Login() {
   // [Task #132] portalType URL 파라미터가 없으면 통합 로그인 모드(building 기본).
   const { portalType: portalTypeParam } = useParams<{ portalType: string }>();
@@ -84,13 +76,17 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // [Task #137] 비밀번호 확인 필드.
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [agreePartner, setAgreePartner] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+
+  // [Task #133] Consent state: dynamic per-role docs, decisions stored as a map.
+  const [consentDocs, setConsentDocs] = useState<ConsentDocument[]>([]);
+  const [consentValue, setConsentValue] = useState<Record<string, boolean>>({});
+  const [rePromptOpen, setRePromptOpen] = useState(false);
+  // Pending submit handler stored when re-prompt opens, so user choice can resume.
+  const [pendingSubmit, setPendingSubmit] = useState<((finalValue: Record<string, boolean>) => void) | null>(null);
 
   useEffect(() => {
     if (portalType === "hq") return;
@@ -103,12 +99,47 @@ export default function Login() {
   const isBuilding = portalType === "building";
   const isHq = portalType === "hq";
   const isPartnerSignup = isRegister && (portalType === "partner" || role === "partner");
-  const consentsOk = !isRegister || (agreeTerms && agreePrivacy && (!isPartnerSignup || agreePartner));
+
+  // [Task #133] Consent role for the documents API. For unified signup we still
+  // need to show some matrix; default to manager which has the same required set.
+  const consentRole = resolveConsentRole({
+    selectedRole: portalTypeParam ? role : undefined,
+    portalType: portalTypeParam ? portalType : "building",
+  });
+
+  const missingRequired = isRegister ? getMissingRequired(consentDocs, consentValue) : [];
+  const consentsOk = !isRegister || missingRequired.length === 0;
   // [Task #137] 비밀번호 확인 일치 여부.
   const passwordsMatch = !isRegister || (password.length > 0 && password === passwordConfirm);
   // [Task #137] 전화번호 필수.
   const phoneOk = !isRegister || phone.trim().length > 0;
   const canSubmit = consentsOk && passwordsMatch && phoneOk;
+
+  async function performSubmit(finalValue: Record<string, boolean>) {
+    setLoading(true);
+    try {
+      if (isRegister) {
+        const decisions = buildDecisions(consentDocs, finalValue);
+        const unified = !portalTypeParam;
+        await register({
+          email,
+          password,
+          name,
+          role: unified ? undefined : role,
+          phone: phone.trim() || undefined,
+          portalType: unified ? undefined : (portalType as "building" | "partner" | "hq"),
+          consents: { decisions, version: CONSENT_VERSION },
+        });
+      } else {
+        await login(email, password, portalTypeParam ? (portalType as "building" | "partner" | "hq") : undefined);
+      }
+      setLocation(isRegister ? "/onboarding/role-select" : "/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "오류가 발생했습니다");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,36 +162,37 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      if (isRegister) {
-        const consentTypes = ["intermediary_terms", "privacy_policy"];
-        if (isPartnerSignup) consentTypes.push("partner_terms");
-        // [Task #132] 통합 로그인(URL portalType 미지정)에서는 role/portalType을 보내지 않아
-        // 백엔드가 role_selected=false 로 사용자를 만든다. 이후 /onboarding/role-select 에서 확정.
-        const unified = !portalTypeParam;
-        await register({
-          email,
-          password,
-          name,
-          role: unified ? undefined : role,
-          phone: phone.trim(),
-          portalType: unified ? undefined : (portalType as "building" | "partner" | "hq"),
-          consents: { types: consentTypes, version: CONSENT_VERSION },
+    if (isRegister) {
+      const missingOptional = getMissingOptional(consentDocs, consentValue);
+      if (missingOptional.length > 0) {
+        setPendingSubmit(() => (finalValue: Record<string, boolean>) => {
+          void performSubmit(finalValue);
         });
-      } else {
-        // [Task #132] 통합 로그인: URL portalType 파라미터가 없으면 portalType 미전송.
-        await login(email, password, portalTypeParam ? (portalType as "building" | "partner" | "hq") : undefined);
+        setRePromptOpen(true);
+        return;
       }
-      // [Task #132] 회원가입 직후엔 역할 선택·위저드로 이동, 로그인은 기존대로 메인.
-      setLocation(isRegister ? "/onboarding/role-select" : "/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다");
-    } finally {
-      setLoading(false);
     }
+
+    void performSubmit(consentValue);
   };
+
+  function handleRePromptConfirm() {
+    const next = { ...consentValue };
+    for (const d of consentDocs) next[d.consentType] = true;
+    setConsentValue(next);
+    setRePromptOpen(false);
+    const submit = pendingSubmit;
+    setPendingSubmit(null);
+    if (submit) submit(next);
+  }
+
+  function handleRePromptReject() {
+    // Keep current decisions (declines preserved) and proceed.
+    setRePromptOpen(false);
+    const submit = pendingSubmit;
+    setPendingSubmit(null);
+    if (submit) submit(consentValue);
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -339,74 +371,20 @@ export default function Login() {
             )}
 
             {isRegister && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-amber-600" />
-                    플랫폼 이용 안내 및 약관 동의
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowTerms(!showTerms)}
-                    className="text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-0.5"
-                  >
-                    약관 전문
-                    {showTerms ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-                </div>
-
+              <>
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
+                  <Shield className="inline w-3 h-3 mr-1 -mt-0.5" />
                   (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
                   <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다. 개별 용역계약의
                   이행·의무·하자에 관한 책임은 관리단(건물)과 파트너사(용역사)에게 있습니다.
                 </div>
-
-                {showTerms && (
-                  <div className="max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white px-2.5 py-2">
-                    <pre className="text-[10px] whitespace-pre-wrap font-sans leading-4 text-slate-600">
-                      {TERMS_PREVIEW}
-                    </pre>
-                  </div>
-                )}
-
-                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                  />
-                  <span>
-                    <strong className="text-red-600">[필수]</strong> 이용약관에 동의합니다.
-                    (회사는 통신판매중개자이며, 통신판매의 당사자가 아닙니다)
-                  </span>
-                </label>
-                <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={agreePrivacy}
-                    onChange={(e) => setAgreePrivacy(e.target.checked)}
-                  />
-                  <span>
-                    <strong className="text-red-600">[필수]</strong> 개인정보처리방침에 동의합니다.
-                  </span>
-                </label>
-                {isPartnerSignup && (
-                  <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={agreePartner}
-                      onChange={(e) => setAgreePartner(e.target.checked)}
-                    />
-                    <span>
-                      <strong className="text-red-600">[필수]</strong> 파트너 이용약관에 동의합니다.
-                      (계약 당사자는 파트너사와 관리단이며, 플랫폼은 이행을 보증하지 않습니다)
-                    </span>
-                  </label>
-                )}
-              </div>
+                <ConsentSection
+                  role={consentRole}
+                  value={consentValue}
+                  onChange={setConsentValue}
+                  onDocsLoaded={setConsentDocs}
+                />
+              </>
             )}
 
             <button
@@ -454,6 +432,11 @@ export default function Login() {
           </Suspense>
         )}
       </div>
+      <OptionalConsentRePromptDialog
+        open={rePromptOpen}
+        onConfirm={handleRePromptConfirm}
+        onReject={handleRePromptReject}
+      />
     </div>
   );
 }

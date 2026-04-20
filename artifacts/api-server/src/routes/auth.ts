@@ -73,16 +73,44 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
   const userAgent = req.headers["user-agent"] || null;
   const consentVersion = (consents && typeof consents === "object" && typeof consents.version === "string") ? consents.version : "1.0";
-  const requestedConsentTypes: string[] = (consents && typeof consents === "object" && Array.isArray(consents.types)) ? consents.types : [];
-  const validConsentTypes = requestedConsentTypes.filter((t): t is typeof platformConsentTypes[number] =>
-    platformConsentTypes.includes(t as typeof platformConsentTypes[number])
-  );
 
+  // [Task #133] Two formats supported for backward compatibility:
+  //   - decisions: [{type, agreed, version?}, ...]    ← preferred (records declines too)
+  //   - types: ["intermediary_terms", ...]            ← legacy (agreed-only list)
+  type Decision = { type: typeof platformConsentTypes[number]; agreed: boolean; version: string };
+  const decisions: Decision[] = [];
+  if (consents && typeof consents === "object" && Array.isArray((consents as { decisions?: unknown }).decisions)) {
+    for (const d of (consents as { decisions: unknown[] }).decisions) {
+      if (!d || typeof d !== "object") continue;
+      const type = (d as { type?: unknown }).type;
+      const agreed = (d as { agreed?: unknown }).agreed;
+      const version = (d as { version?: unknown }).version;
+      if (typeof type !== "string") continue;
+      if (!platformConsentTypes.includes(type as typeof platformConsentTypes[number])) continue;
+      decisions.push({
+        type: type as typeof platformConsentTypes[number],
+        agreed: agreed === true,
+        version: typeof version === "string" && version ? version : consentVersion,
+      });
+    }
+  } else if (consents && typeof consents === "object" && Array.isArray((consents as { types?: unknown }).types)) {
+    for (const t of (consents as { types: unknown[] }).types) {
+      if (typeof t !== "string") continue;
+      if (!platformConsentTypes.includes(t as typeof platformConsentTypes[number])) continue;
+      decisions.push({
+        type: t as typeof platformConsentTypes[number],
+        agreed: true,
+        version: consentVersion,
+      });
+    }
+  }
+
+  const agreedTypes = new Set(decisions.filter((d) => d.agreed).map((d) => d.type));
   const requiredConsentTypes: string[] = ["intermediary_terms", "privacy_policy"];
   if (roleSelected && (role === "partner" || portalType === "partner")) {
     requiredConsentTypes.push("partner_terms");
   }
-  const missingRequired = requiredConsentTypes.filter((t) => !validConsentTypes.includes(t as typeof platformConsentTypes[number]));
+  const missingRequired = requiredConsentTypes.filter((t) => !agreedTypes.has(t as typeof platformConsentTypes[number]));
   if (missingRequired.length > 0) {
     res.status(400).json({ error: "필수 약관에 모두 동의해 주세요", missingConsents: missingRequired });
     return;
@@ -106,16 +134,21 @@ router.post("/auth/register", async (req, res): Promise<void> => {
         roleSelected,
       }).returning();
 
-      await tx.insert(platformConsentsTable).values(
-        validConsentTypes.map((consentType) => ({
-          userId: createdUser.id,
-          consentType,
-          version: consentVersion,
-          contextRef: "signup" as string | null,
-          ipAddress,
-          userAgent,
-        }))
-      );
+      // [Task #133] Persist all decisions including declines so we have the full
+      // consent history per user/version.
+      if (decisions.length > 0) {
+        await tx.insert(platformConsentsTable).values(
+          decisions.map((d) => ({
+            userId: createdUser.id,
+            consentType: d.type,
+            version: d.version,
+            status: d.agreed ? ("agreed" as const) : ("declined" as const),
+            contextRef: "signup" as string | null,
+            ipAddress,
+            userAgent,
+          }))
+        );
+      }
 
       // [Task #132] 역할이 가입 시점에 확정된 경우에만 시설기사 신청 레코드 생성.
       let createdSignupRequestId: number | null = null;

@@ -37,7 +37,10 @@ interface RegisterData {
   role?: string;
   phone?: string;
   portalType?: string;
-  consents?: { types: string[]; version: string };
+  // [Task #133] Either decisions[] (records declines) or types[] (legacy, agreed-only).
+  consents?:
+    | { types: string[]; version: string }
+    | { decisions: { type: string; agreed: boolean; version: string }[]; version?: string };
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

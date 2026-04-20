@@ -291,11 +291,36 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
   const requiredConsentTypes = ["intermediary_terms", "privacy_policy"];
   if (role === "partner") requiredConsentTypes.push("partner_terms");
 
-  const requestedTypes: string[] = Array.isArray(consents?.types) ? consents.types : [];
-  const validTypes = requestedTypes.filter((t): t is typeof platformConsentTypes[number] =>
-    platformConsentTypes.includes(t as typeof platformConsentTypes[number])
-  );
-  const missing = requiredConsentTypes.filter((t) => !validTypes.includes(t as typeof platformConsentTypes[number]));
+  // [Task #133] Accept either decisions[] (preferred) or types[] (legacy).
+  const consentVersionFromBody = (consents && typeof consents.version === "string") ? consents.version : "1.0";
+  type Decision = { type: typeof platformConsentTypes[number]; agreed: boolean; version: string };
+  const decisions: Decision[] = [];
+  if (consents && Array.isArray(consents.decisions)) {
+    for (const d of consents.decisions) {
+      if (!d || typeof d !== "object") continue;
+      const type = d.type;
+      if (typeof type !== "string") continue;
+      if (!platformConsentTypes.includes(type as typeof platformConsentTypes[number])) continue;
+      decisions.push({
+        type: type as typeof platformConsentTypes[number],
+        agreed: d.agreed === true,
+        version: typeof d.version === "string" && d.version ? d.version : consentVersionFromBody,
+      });
+    }
+  } else if (consents && Array.isArray(consents.types)) {
+    for (const t of consents.types) {
+      if (typeof t !== "string") continue;
+      if (!platformConsentTypes.includes(t as typeof platformConsentTypes[number])) continue;
+      decisions.push({
+        type: t as typeof platformConsentTypes[number],
+        agreed: true,
+        version: consentVersionFromBody,
+      });
+    }
+  }
+
+  const agreedTypes = new Set(decisions.filter((d) => d.agreed).map((d) => d.type));
+  const missing = requiredConsentTypes.filter((t) => !agreedTypes.has(t as typeof platformConsentTypes[number]));
   if (missing.length > 0) {
     res.status(400).json({ error: "필수 약관에 모두 동의해 주세요", missingConsents: missing });
     return;
@@ -354,7 +379,6 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
 
   const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
   const userAgent = req.headers["user-agent"] || null;
-  const consentVersion = (consents && typeof consents.version === "string") ? consents.version : "1.0";
 
   let createdUser;
   try {
@@ -378,16 +402,20 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
         displayName: pending.name,
       });
 
-      await tx.insert(platformConsentsTable).values(
-        validTypes.map((consentType) => ({
-          userId: newUser.id,
-          consentType,
-          version: consentVersion,
-          contextRef: `signup_${pending.provider}` as string | null,
-          ipAddress,
-          userAgent,
-        }))
-      );
+      // [Task #133] Persist all decisions including declines.
+      if (decisions.length > 0) {
+        await tx.insert(platformConsentsTable).values(
+          decisions.map((d) => ({
+            userId: newUser.id,
+            consentType: d.type,
+            version: d.version,
+            status: d.agreed ? ("agreed" as const) : ("declined" as const),
+            contextRef: `signup_${pending.provider}` as string | null,
+            ipAddress,
+            userAgent,
+          }))
+        );
+      }
 
       return newUser;
     });
