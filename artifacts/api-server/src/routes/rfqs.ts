@@ -232,7 +232,20 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     }
   }
 
-  const [rfq] = await db.insert(rfqsTable).values(data).returning();
+  let rfq;
+  try {
+    [rfq] = await db.insert(rfqsTable).values(data).returning();
+  } catch (e: any) {
+    console.error("RFQ insert failed:", {
+      message: e?.message,
+      cause: e?.cause?.message,
+      code: e?.cause?.code,
+      detail: e?.cause?.detail,
+      column: e?.cause?.column,
+      data,
+    });
+    throw e;
+  }
   res.status(201).json(UpdateRfqResponse.parse(rfq));
 });
 
