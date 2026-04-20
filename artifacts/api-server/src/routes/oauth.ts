@@ -192,9 +192,13 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
   if (existingSocial) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, existingSocial.userId));
     if (user) {
-      const portalMatch = user.portalType === state.portalType
-        || (state.portalType === "building" && ["building", "hq"].includes(user.portalType));
-      if (!portalMatch) {
+      // Hard policy: HQ portal accounts must never receive a JWT via social login,
+      // even if a stale social link from before the policy still exists in DB.
+      if (user.portalType === "hq") {
+        res.redirect(frontendUrl(`/auth/callback#error=hq_not_allowed`));
+        return;
+      }
+      if (user.portalType !== state.portalType) {
         res.redirect(frontendUrl(`/auth/callback#error=portal_mismatch`));
         return;
       }
