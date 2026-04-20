@@ -263,8 +263,8 @@ router.put("/auth/me/password", authMiddleware, async (req, res): Promise<void> 
   const userId = req.user!.userId;
   const { currentPassword, newPassword } = req.body;
 
-  if (!currentPassword || !newPassword) {
-    res.status(400).json({ error: "현재 비밀번호와 새 비밀번호를 입력해주세요" });
+  if (!newPassword) {
+    res.status(400).json({ error: "새 비밀번호를 입력해주세요" });
     return;
   }
 
@@ -280,8 +280,13 @@ router.put("/auth/me/password", authMiddleware, async (req, res): Promise<void> 
       return;
     }
 
-    // Social-only users: allow setting an initial password without currentPassword check
+    // Social-only users (no existing password) can set an initial password without currentPassword.
+    // Users with an existing password must provide and prove the current one.
     if (user.passwordHash) {
+      if (!currentPassword) {
+        res.status(400).json({ error: "현재 비밀번호를 입력해주세요" });
+        return;
+      }
       const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!isValid) {
         res.status(400).json({ error: "현재 비밀번호가 일치하지 않습니다" });
