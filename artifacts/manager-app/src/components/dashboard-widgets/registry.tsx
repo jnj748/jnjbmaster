@@ -10,12 +10,18 @@ import type { WidgetDefinition } from "./types";
  * that appear in this catalog and the role layout below — there is
  * no other dispatch path.
  *
- * Today most roles map to a single "main" widget that wraps the old
- * per-role dashboard page (kept as legacy components). Sub-widget
- * extraction (so that e.g. "결재 대기", "미납률", "공지" are each their
- * own catalog entry shared across roles) is handled incrementally
- * under the large-page-decomposition task — the framework here is
- * what makes that work cheap.
+ * There are two kinds of entries:
+ *
+ *   1. **Shared widgets** (preferred). Small, single-responsibility
+ *      components under `widgets/*` that any role can compose. The
+ *      *same metric is the same component everywhere* — e.g. the
+ *      pending-approvals widget renders identically for the manager,
+ *      the accountant, and the platform admin.
+ *
+ *   2. **Per-role "main" widgets** that wrap a legacy role-specific
+ *      page. These are transitional wrappers: as more pieces of those
+ *      pages get extracted into shared widgets, the per-role main
+ *      widget shrinks to only the genuinely role-unique bits.
  *
  * To add a widget:
  *   1. Define a component (lazy import recommended).
@@ -23,14 +29,25 @@ import type { WidgetDefinition } from "./types";
  *   3. Reference its key in ROLE_LAYOUTS for the roles that need it.
  *
  * To share a widget across roles, list the same key under multiple
- * roles — the catalog will deduplicate the import via lazy().
+ * roles — the catalog deduplicates the import via lazy().
  */
+
+// ─── Shared widgets (composed by multiple roles) ────────────────
+const PendingApprovalsWidget = lazy(
+  () => import("./widgets/pending-approvals-widget"),
+);
+const BuildingInfoWidget = lazy(
+  () => import("./widgets/building-info-widget"),
+);
+const DelinquencySummaryWidget = lazy(
+  () => import("./widgets/delinquency-summary-widget"),
+);
 
 // ─── Per-role main widgets (legacy page wrappers) ───────────────
 //
 // Each existing dashboard page is treated as one "main" widget. The
 // page already owns its own header / building context / sections.
-// Future tasks will split these into smaller catalog entries.
+// Future tasks will continue to peel shared pieces off of these.
 const ManagerMainWidget = lazy(
   () => import("@/pages/dashboard-manager-legacy"),
 );
@@ -41,6 +58,27 @@ const PartnerMainWidget = lazy(() => import("@/pages/partner-dashboard"));
 const AdminMainWidget = lazy(() => import("@/pages/admin-dashboard"));
 
 export const WIDGETS = {
+  // ── Shared ──
+  "pending-approvals": {
+    key: "pending-approvals",
+    component: PendingApprovalsWidget,
+    span: "half",
+    label: "결재 대기",
+  },
+  "building-info": {
+    key: "building-info",
+    component: BuildingInfoWidget,
+    span: "full",
+    label: "건물 정보",
+  },
+  "delinquency-summary": {
+    key: "delinquency-summary",
+    component: DelinquencySummaryWidget,
+    span: "half",
+    label: "연체 세대 현황",
+  },
+
+  // ── Role-specific main wrappers ──
   "manager-main": {
     key: "manager-main",
     component: ManagerMainWidget,
@@ -83,13 +121,40 @@ export const WIDGETS = {
 export type CatalogWidgetKey = keyof typeof WIDGETS;
 
 // ─── Role → widget layout ───────────────────────────────────────
+//
+// Each role composes a small sequence of catalog keys. Shared keys
+// (pending-approvals / building-info / delinquency-summary) appear
+// for every role that legitimately sees that metric, and roles only
+// diverge on their tail "main" widget.
 export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
-  manager: { widgets: ["manager-main"] },
-  platform_admin: { widgets: ["admin-main"] },
-  hq_executive: { widgets: ["hq-main"] },
-  accountant: { widgets: ["accountant-main"] },
-  facility_staff: { widgets: ["facility-main"] },
-  partner: { widgets: ["partner-main"] },
+  manager: {
+    widgets: [
+      "building-info",
+      "pending-approvals",
+      "delinquency-summary",
+      "manager-main",
+    ],
+  },
+  accountant: {
+    widgets: [
+      "building-info",
+      "pending-approvals",
+      "delinquency-summary",
+      "accountant-main",
+    ],
+  },
+  facility_staff: {
+    widgets: ["building-info", "facility-main"],
+  },
+  platform_admin: {
+    widgets: ["pending-approvals", "admin-main"],
+  },
+  hq_executive: {
+    widgets: ["hq-main"],
+  },
+  partner: {
+    widgets: ["partner-main"],
+  },
 };
 
 /** Resolve the ordered widget definitions to render for a role.

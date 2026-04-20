@@ -8,8 +8,9 @@ import {
   useGetUnitsSummary,
   useCreateAlertAction,
   useCreateRfq,
-  useGetDelinquencySummary,
-  useListApprovals,
+  // [Task #142] useGetDelinquencySummary, useListApprovals 는 공유 위젯
+  // (delinquency-summary-widget / pending-approvals-widget)으로 분리되어
+  // 이 페이지에서는 더 이상 사용하지 않는다.
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
   type CreateRfqBody,
@@ -22,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDate } from "@/lib/utils";
+// [Task #142] formatDate 는 추출된 pending-approvals-widget 에서 사용.
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
@@ -68,7 +69,8 @@ import {
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
-import { BuildingInfoCard } from "@/components/building-info-card";
+// [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
+// 위젯 카탈로그를 통해 렌더링된다.
 import { Printer } from "lucide-react";
 
 function StatCard({
@@ -138,73 +140,9 @@ interface DashboardAlert {
   createdAt: string;
 }
 
-function PendingApprovalsCard() {
-  const { data: pending, isLoading } = useListApprovals({ status: "pending" });
-  const items = pending ?? [];
-  const visible = items.slice(0, 3);
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-bold flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-chart-1" />
-            결재
-            {items.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground ml-1">
-                대기 {items.length}건
-              </span>
-            )}
-          </h2>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            나의 결재 대기 항목입니다
-          </p>
-        </div>
-        <Link href="/approvals">
-          <button className="text-xs text-primary hover:underline font-medium">전체 보기 →</button>
-        </Link>
-      </div>
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
-        </div>
-      ) : visible.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">결재 대기 중인 항목이 없습니다</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((a: any) => (
-            <Link key={a.id} href="/approvals">
-              <div className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{a.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {a.requesterName ? `요청자: ${a.requesterName} · ` : ""}
-                    {a.createdAt ? formatDate(a.createdAt) : ""}
-                  </p>
-                </div>
-                {typeof a.estimatedAmount === "number" && (
-                  <span className="text-xs font-semibold shrink-0">
-                    {"\u20A9"}{a.estimatedAmount.toLocaleString()}
-                  </span>
-                )}
-                <Badge variant="outline" className="text-[10px] shrink-0">대기</Badge>
-              </div>
-            </Link>
-          ))}
-          {items.length > visible.length && (
-            <p className="text-xs text-center text-muted-foreground pt-1">
-              외 {items.length - visible.length}건 더 있음
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+// [Task #142] PendingApprovalsCard 는 components/dashboard-widgets/widgets/
+// pending-approvals-widget.tsx 로 추출되어 결재 권한이 있는 모든 역할이
+// 동일한 컴포넌트를 공유한다.
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -217,7 +155,8 @@ export default function Dashboard() {
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
-  const { data: delinquencySummary } = useGetDelinquencySummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
+  // [Task #142] 연체 요약은 delinquency-summary-widget 으로 추출되어
+  // 카탈로그가 별도 위젯으로 렌더링한다.
 
   const [alertPage, setAlertPage] = useState(0);
 
@@ -615,7 +554,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      <PendingApprovalsCard />
+      {/* [Task #142] <PendingApprovalsCard /> 는 카탈로그의 pending-approvals
+          위젯으로 분리되어 셸이 렌더링한다. */}
 
       {pendingCardCount > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
@@ -667,40 +607,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {delinquencySummary && delinquencySummary.totalOverdue > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
-                <span className="text-sm font-semibold text-red-800">
-                  연체 세대 현황
-                </span>
-                <Badge variant="destructive" className="text-[10px] h-5">
-                  {delinquencySummary.totalOverdue}건
-                </Badge>
-              </div>
-              <Link href="/erp/accounting">
-                <span className="text-xs text-red-600 hover:underline font-medium cursor-pointer">관리 →</span>
-              </Link>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white rounded-lg p-2 text-center border border-red-100">
-                <p className="text-lg font-bold text-red-700">{delinquencySummary.totalOverdue - delinquencySummary.notified - delinquencySummary.parkingSuspended}</p>
-                <p className="text-[10px] text-red-600">감지됨</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 text-center border border-orange-100">
-                <p className="text-lg font-bold text-orange-600">{delinquencySummary.notified}</p>
-                <p className="text-[10px] text-orange-500">독촉 발송</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 text-center border border-red-100">
-                <p className="text-lg font-bold text-red-800">{delinquencySummary.parkingSuspended}</p>
-                <p className="text-[10px] text-red-600">주차 정지</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* [Task #142] 연체 세대 현황 카드는 delinquency-summary-widget 으로
+          추출되어 카탈로그의 별도 위젯으로 렌더링된다. */}
 
       {analytics && analytics.dataDestructionCount > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1027,7 +935,8 @@ export default function Dashboard() {
 
       <SeasonalSuggestionsCard />
 
-      <BuildingInfoCard />
+      {/* [Task #142] <BuildingInfoCard /> 는 building-info-widget 으로
+          추출되어 셸의 위젯 그리드 상단에서 렌더링된다. */}
     </div>
   );
 }
