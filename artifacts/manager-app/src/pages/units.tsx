@@ -1,4 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/auth-context";
+
+// [Task #141] 소유자 관리(/owners) 라우트 폐지 — 호실 관리 화면의 탭으로 흡수.
+//   백엔드 /api/owners 가 manager/platform_admin 만 허용하므로, 동일 권한일 때만 탭 노출.
+const Owners = lazy(() => import("@/pages/owners"));
 import {
   useListUnits,
   useCreateUnit,
@@ -107,6 +113,8 @@ export default function UnitsPage() {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canManageOwners = user?.role === "manager" || user?.role === "platform_admin";
 
   const { data: units, isLoading } = useListUnits(
     {
@@ -299,7 +307,12 @@ export default function UnitsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="units" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="units">호실 관리</TabsTrigger>
+        {canManageOwners && <TabsTrigger value="owners">소유자 관리</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="units" className="space-y-6 mt-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">호실 관리</h1>
@@ -775,6 +788,14 @@ export default function UnitsPage() {
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-    </div>
+      </TabsContent>
+      {canManageOwners && (
+        <TabsContent value="owners" className="mt-0">
+          <Suspense fallback={<Skeleton className="h-64" />}>
+            <Owners />
+          </Suspense>
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }

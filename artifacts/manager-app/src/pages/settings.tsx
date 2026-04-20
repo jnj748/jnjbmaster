@@ -47,7 +47,15 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const canEditBuilding = user?.role === "manager" || user?.role === "platform_admin";
   const canEditPlatform = user?.role === "platform_admin" || user?.role === "hq_executive";
-  const [activeTab, setActiveTab] = useState<"building" | "profile" | "platform">("profile");
+  // [Task #141] /building-setup 라우트 폐지 후 진입점은 /settings?tab=building.
+  const initialTab = (() => {
+    if (typeof window === "undefined") return "profile" as const;
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "building" && canEditBuilding) return "building" as const;
+    if (t === "platform" && canEditPlatform) return "platform" as const;
+    return "profile" as const;
+  })();
+  const [activeTab, setActiveTab] = useState<"building" | "profile" | "platform">(initialTab);
 
   const tabs = [
     { key: "profile" as const, label: "내정보 수정", icon: User },

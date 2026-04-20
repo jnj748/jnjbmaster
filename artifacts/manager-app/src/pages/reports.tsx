@@ -1,5 +1,11 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useGetWeeklyReport } from "@workspace/api-client-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/auth-context";
+
+// [Task #141] /daily-reports 라우트 폐지 — 주간 보고서 화면의 "일간 일지" 탭으로 흡수.
+//   기존 라우트 권한(manager/platform_admin)을 동일하게 유지: hq_executive 는 일간 탭 미노출.
+const DailyReports = lazy(() => import("@/pages/daily-reports"));
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +42,8 @@ const categoryLabel = (c: string) => {
 };
 
 export default function Reports() {
+  const { user } = useAuth();
+  const canViewDaily = user?.role === "manager" || user?.role === "platform_admin";
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek());
   const { data: report, isLoading } = useGetWeeklyReport(
     { weekStart },
@@ -43,7 +51,12 @@ export default function Reports() {
   );
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="weekly" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="weekly">주간 보고서</TabsTrigger>
+        {canViewDaily && <TabsTrigger value="daily">일간 일지</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="weekly" className="space-y-6 mt-0">
       <div>
         <h1 className="text-2xl font-bold">주간 업무 보고서</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -190,6 +203,14 @@ export default function Reports() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </TabsContent>
+      {canViewDaily && (
+        <TabsContent value="daily" className="mt-0">
+          <Suspense fallback={<Skeleton className="h-64" />}>
+            <DailyReports />
+          </Suspense>
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }

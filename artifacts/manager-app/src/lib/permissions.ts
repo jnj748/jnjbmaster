@@ -48,7 +48,7 @@ const WorkReportsPage = lazy(() => import("@/pages/work-reports"));
 const Reports = lazy(() => import("@/pages/reports"));
 const Drafts = lazy(() => import("@/pages/drafts"));
 const Tenants = lazy(() => import("@/pages/tenants"));
-const Owners = lazy(() => import("@/pages/owners"));
+// [Task #141] /owners 라우트 폐지 — Owners 컴포넌트는 호실 관리(/units) 화면의 "소유자 관리" 탭으로 흡수.
 const Vehicles = lazy(() => import("@/pages/vehicles"));
 const Users_ = lazy(() => import("@/pages/users"));
 const FacilityDashboard = lazy(() => import("@/pages/facility-dashboard"));
@@ -56,7 +56,7 @@ const SafetyChecklists = lazy(() => import("@/pages/safety-checklists"));
 const MaintenanceLogs = lazy(() => import("@/pages/maintenance-logs"));
 const SafetyTraining = lazy(() => import("@/pages/safety-training"));
 const DocumentTemplates = lazy(() => import("@/pages/document-templates"));
-const DailyReportsPage = lazy(() => import("@/pages/daily-reports"));
+// [Task #141] /daily-reports 라우트 폐지 — DailyReports 컴포넌트는 보고서(/reports) 화면의 "일간 일지" 탭으로 흡수.
 const ReportSystemPage = lazy(() => import("@/pages/report-system"));
 const HqDashboard = lazy(() => import("@/pages/hq-dashboard"));
 const AccountantDashboard2 = lazy(() => import("@/pages/accountant-dashboard"));
@@ -209,13 +209,6 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "accountant", "platform_admin"],
   },
   {
-    path: "/owners", component: Owners,
-    label: "소유자 관리", icon: UserCheck, group: "residents",
-    // 호실관리 상세에 소유자 정보가 통합 노출되므로 사이드바에서는 숨김.
-    sideMenu: [],
-    access: ["manager", "platform_admin"],
-  },
-  {
     path: "/vehicles", component: Vehicles,
     label: "차량 관리", icon: Car, group: "residents",
     access: ["manager", "platform_admin", "facility_staff"],
@@ -348,13 +341,6 @@ export const ROUTES: RouteEntry[] = [
     label: "결재 상신", icon: ClipboardList, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
     hidden: true,
-  },
-  {
-    path: "/daily-reports", component: DailyReportsPage,
-    label: "일간보고", icon: BookOpen, group: "reports",
-    access: ["manager", "platform_admin"],
-    // 주간보고 메뉴로 통합. URL 직접 접근은 유지.
-    sideMenu: [],
   },
   {
     path: "/report-system", component: ReportSystemPage,

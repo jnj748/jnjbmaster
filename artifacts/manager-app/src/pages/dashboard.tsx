@@ -443,7 +443,7 @@ export default function Dashboard() {
           <>
             <h1 className="text-2xl font-bold">대시보드</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              <Link href="/building-setup" className="text-primary hover:underline">
+              <Link href="/settings?tab=building" className="text-primary hover:underline">
                 건물 정보를 등록하면
               </Link>{" "}
               더 정확한 관리 현황을 확인할 수 있습니다

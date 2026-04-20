@@ -203,7 +203,7 @@ export function BuildingInfoCard({ className }: { className?: string }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">건물 정보 미등록</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                <Link href="/building-setup">
+                <Link href="/settings?tab=building">
                   <span className="text-primary hover:underline cursor-pointer">
                     건물 정보를 등록
                   </span>

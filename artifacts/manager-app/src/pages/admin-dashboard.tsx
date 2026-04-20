@@ -208,7 +208,7 @@ export default function AdminDashboard() {
             <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/building-setup")}>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/settings?tab=building")}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10"><Building2 className="w-5 h-5 text-blue-500" /></div>
             <div>

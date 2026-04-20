@@ -18,7 +18,6 @@ import {
 } from "@/lib/permissions";
 import Login from "@/pages/login";
 
-const PortalSelect = lazy(() => import("@/pages/portal-select"));
 const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
@@ -134,8 +133,15 @@ function AuthenticatedRoutes() {
                   <Route path="/__layout-check" component={LayoutCheck} />
                 )}
                 <Route path="/tenant-card/:token" component={TenantCardForm} />
+                {/* [Task #141] 폐지된 라우트의 레거시 북마크는 흡수된 화면(또는 탭)으로 안내. */}
                 <Route path="/building-setup">
-                  <Redirect to="/settings" />
+                  <Redirect to="/settings?tab=building" />
+                </Route>
+                <Route path="/owners">
+                  <Redirect to="/units" />
+                </Route>
+                <Route path="/daily-reports">
+                  <Redirect to="/reports" />
                 </Route>
                 <Route path="/onboarding" component={OnboardingPage} />
                 <Route path="/onboarding/role-select" component={RoleSelectPage} />
@@ -184,10 +190,7 @@ function AppRouter() {
             <Route path="/__layout-check" component={LayoutCheck} />
           )}
           <Route path="/tenant-card/:token" component={TenantCardForm} />
-          {/* [Task #132] /portal 폐지: 통합 로그인 화면(/login)으로 진입. /login/hq는 본사 전용으로 유지. */}
-          <Route path="/portal">
-            <Redirect to="/login" />
-          </Route>
+          {/* [Task #132·#141] /portal 폐지 — 통합 로그인 화면(/login)으로 일원화. /login/hq는 본사 전용으로 유지. */}
           <Route path="/login" component={Login} />
           <Route path="/login/:portalType" component={Login} />
           <Route path="/auth/callback" component={AuthCallback} />
