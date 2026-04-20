@@ -7,13 +7,27 @@ import { ClipboardCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 /**
+ * Local view-model for the fields this widget actually renders.
+ * The OpenAPI-generated response type is wider and (for legacy reasons)
+ * loosely typed across approval flows; we narrow to exactly what the
+ * widget needs and read fields defensively.
+ */
+interface PendingApprovalRow {
+  id: number | string;
+  title: string;
+  requesterName?: string | null;
+  createdAt?: string | null;
+  estimatedAmount?: number | null;
+}
+
+/**
  * 결재 대기 위젯 — 자신의 결재 대기열 상위 3건을 보여주고 전체보기 링크를 제공.
  * 결재 시스템에 접근 가능한 모든 역할(관리소장 / 경리·행정 / 플랫폼 관리자)이
  * 동일한 컴포넌트를 사용한다.
  */
 export default function PendingApprovalsWidget() {
   const { data: pending, isLoading } = useListApprovals({ status: "pending" });
-  const items = pending ?? [];
+  const items: PendingApprovalRow[] = (pending ?? []) as PendingApprovalRow[];
   const visible = items.slice(0, 3);
 
   return (
@@ -55,7 +69,7 @@ export default function PendingApprovalsWidget() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {visible.map((a: any) => (
+          {visible.map((a) => (
             <Link key={a.id} href="/approvals">
               <div className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
                 <div className="min-w-0 flex-1">

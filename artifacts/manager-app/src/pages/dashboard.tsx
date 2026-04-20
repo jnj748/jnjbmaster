@@ -7,8 +7,9 @@ import { getWidgetsForRole } from "@/components/dashboard-widgets/registry";
  * Unified dashboard entry for every role.
  *
  * Reads the effective role from auth context, looks up the role's
- * widget layout in the catalog, and lets DashboardShell render them
- * with per-widget Suspense + ErrorBoundary isolation.
+ * widget layout in the catalog, and lets DashboardShell handle the
+ * header, empty state, responsive grid, and per-widget Suspense /
+ * ErrorBoundary isolation.
  *
  * All six legacy ROOT_DASHBOARDS (manager / accountant / facility /
  * hq / partner / platform_admin) now route through this single shell;
@@ -20,13 +21,5 @@ export default function Dashboard() {
   const role = getEffectiveRole(user);
   const widgets = getWidgetsForRole(role);
 
-  if (widgets.length === 0) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        이 역할에 구성된 대시보드 위젯이 없습니다.
-      </div>
-    );
-  }
-
-  return <DashboardShell widgets={widgets} />;
+  return <DashboardShell widgets={widgets} role={role} />;
 }
