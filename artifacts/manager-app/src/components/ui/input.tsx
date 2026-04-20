@@ -1,36 +1,43 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
-
-const PICKER_TYPES = new Set(["date", "time", "datetime-local", "month", "week"])
+import { DatePicker } from "@/components/ui/date-picker"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, onClick, onFocus, ...props }, ref) => {
-    const isPickerType = type ? PICKER_TYPES.has(type) : false
-    const tryShowPicker = (el: HTMLInputElement) => {
-      if (!isPickerType) return
-      const anyEl = el as HTMLInputElement & { showPicker?: () => void }
-      if (typeof anyEl.showPicker === "function") {
-        try { anyEl.showPicker() } catch { /* ignored: requires user activation or unsupported */ }
-      }
+  ({ className, type, value, onChange, ...props }, ref) => {
+    if (type === "date") {
+      const stringValue = typeof value === "string" ? value : value == null ? "" : String(value)
+      return (
+        <DatePicker
+          value={stringValue}
+          onChange={(newValue) => {
+            if (onChange) {
+              const synthetic = {
+                target: { value: newValue, name: props.name ?? "" },
+                currentTarget: { value: newValue, name: props.name ?? "" },
+              } as unknown as React.ChangeEvent<HTMLInputElement>
+              onChange(synthetic)
+            }
+          }}
+          disabled={props.disabled}
+          id={props.id}
+          min={typeof props.min === "string" ? props.min : undefined}
+          max={typeof props.max === "string" ? props.max : undefined}
+          placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined}
+          className={className}
+        />
+      )
     }
     return (
       <input
         type={type}
         className={cn(
           "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          isPickerType && "cursor-pointer",
           className
         )}
         ref={ref}
-        onClick={(e) => {
-          tryShowPicker(e.currentTarget)
-          onClick?.(e)
-        }}
-        onFocus={(e) => {
-          tryShowPicker(e.currentTarget)
-          onFocus?.(e)
-        }}
+        value={value}
+        onChange={onChange}
         {...props}
       />
     )
