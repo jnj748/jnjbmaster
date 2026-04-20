@@ -11,6 +11,7 @@ export interface AuthUser {
   buildingSido?: string | null;
   buildingSigungu?: string | null;
   onboardingPreference?: "started" | "browsing" | null;
+  hasPassword?: boolean;
 }
 
 interface AuthContextType {

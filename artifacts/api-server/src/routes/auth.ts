@@ -226,6 +226,7 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       buildingSido: user.buildingSido,
       buildingSigungu: user.buildingSigungu,
       onboardingPreference: user.onboardingPreference,
+      hasPassword: !!user.passwordHash,
     },
   });
 });

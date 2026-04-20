@@ -430,9 +430,15 @@ function ProfileSettings() {
     }
   }
 
+  const hasPassword = user?.hasPassword !== false; // default true if undefined (legacy)
+
   async function handleChangePassword() {
-    if (!currentPassword || !newPassword) {
-      toast({ title: "비밀번호를 모두 입력해주세요", variant: "destructive" });
+    if (!newPassword) {
+      toast({ title: "새 비밀번호를 입력해주세요", variant: "destructive" });
+      return;
+    }
+    if (hasPassword && !currentPassword) {
+      toast({ title: "현재 비밀번호를 입력해주세요", variant: "destructive" });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -452,14 +458,15 @@ function ProfileSettings() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify(hasPassword ? { currentPassword, newPassword } : { newPassword }),
       });
       const result = await res.json();
       if (res.ok) {
-        toast({ title: "비밀번호가 변경되었습니다" });
+        toast({ title: hasPassword ? "비밀번호가 변경되었습니다" : "비밀번호가 설정되었습니다" });
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
+        if (setUser && user) setUser({ ...user, hasPassword: true });
       } else {
         toast({ title: result.error || "비밀번호 변경에 실패했습니다", variant: "destructive" });
       }
@@ -528,22 +535,28 @@ function ProfileSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Lock className="w-4 h-4" />
-            비밀번호 변경
+            {hasPassword ? "비밀번호 변경" : "비밀번호 설정"}
           </CardTitle>
-          <CardDescription>현재 비밀번호를 확인 후 새 비밀번호로 변경합니다</CardDescription>
+          <CardDescription>
+            {hasPassword
+              ? "현재 비밀번호를 확인 후 새 비밀번호로 변경합니다"
+              : "소셜 로그인 외에 이메일·비밀번호로도 로그인하려면 비밀번호를 설정해 주세요"}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 desktop:grid-cols-3 gap-4">
-            <div>
-              <Label>현재 비밀번호</Label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                placeholder="현재 비밀번호"
-                className="mt-1"
-              />
-            </div>
+          <div className={`grid grid-cols-1 ${hasPassword ? "desktop:grid-cols-3" : "desktop:grid-cols-2"} gap-4`}>
+            {hasPassword && (
+              <div>
+                <Label>현재 비밀번호</Label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  placeholder="현재 비밀번호"
+                  className="mt-1"
+                />
+              </div>
+            )}
             <div>
               <Label>새 비밀번호</Label>
               <Input
