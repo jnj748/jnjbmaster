@@ -78,13 +78,13 @@ export default function CalendarPage() {
       <Card>
         <CardContent className="p-3 sm:p-4">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="icon" onClick={prevMonth} className="h-10 w-10">
+            <Button variant="ghost" size="icon" onClick={prevMonth} className="h-11 w-11">
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <h2 className="text-base font-semibold">
               {year}년 {month}월
             </h2>
-            <Button variant="ghost" size="icon" onClick={nextMonth} className="h-10 w-10">
+            <Button variant="ghost" size="icon" onClick={nextMonth} className="h-11 w-11">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>

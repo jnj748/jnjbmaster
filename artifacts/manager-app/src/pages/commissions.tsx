@@ -470,7 +470,7 @@ export default function Commissions() {
                       </td>
                       <td className="p-3 text-center">
                         <Select value={c.status} onValueChange={(v) => handleStatusChange(c.id, v)}>
-                          <SelectTrigger className="h-10 w-24 text-xs">
+                          <SelectTrigger className="h-11 w-24 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

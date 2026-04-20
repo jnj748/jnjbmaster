@@ -569,7 +569,7 @@ export default function Vehicles() {
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {vehicle.status === "registered" && (
-                        <Button variant="ghost" size="sm" className="h-10 w-10 p-0 min-h-0 min-w-0" onClick={(e) => { e.stopPropagation(); openEdit(vehicle); }}>
+                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={(e) => { e.stopPropagation(); openEdit(vehicle); }}>
                           <Edit className="w-3.5 h-3.5" />
                         </Button>
                       )}

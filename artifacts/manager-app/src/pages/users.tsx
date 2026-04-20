@@ -100,7 +100,48 @@ export default function Users() {
         <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="desktop:hidden space-y-2">
+        {users.map((user) => (
+          <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-slate-900 truncate">{user.name}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                    {roleLabels[user.role] || user.role}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 truncate mt-1">{user.email}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{portalLabels[user.portalType] || user.portalType} · {user.phone || "전화 미등록"}</p>
+                <p className="text-xs text-slate-400 mt-0.5">가입 {new Date(user.createdAt).toLocaleDateString("ko-KR")}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => { setEditUser(user); setShowModal(true); }}
+                  className="h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-blue-600 rounded transition-colors"
+                  aria-label="수정"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(user.id)}
+                  className="h-11 w-11 inline-flex items-center justify-center text-slate-400 hover:text-red-600 rounded transition-colors"
+                  aria-label="삭제"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {users.length === 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+            등록된 사용자가 없습니다
+          </div>
+        )}
+      </div>
+
+      <div className="hidden desktop:block bg-white rounded-xl border border-slate-200 overflow-hidden">
        <div className="overflow-x-auto">
         <table className="w-full min-w-[640px]">
           <thead>

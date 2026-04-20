@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench } from "lucide-react";
+import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { AuthImage } from "@/components/auth-image";
 
@@ -249,9 +250,9 @@ export default function SafetyChecklists() {
         </ResponsiveDialog>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="hidden desktop:flex gap-3">
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-full sm:w-[160px] h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 카테고리</SelectItem>
             {CATEGORIES.map((c) => (
@@ -260,7 +261,7 @@ export default function SafetyChecklists() {
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full sm:w-[140px] h-11"><SelectValue placeholder="상태" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] h-11"><SelectValue placeholder="상태" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 상태</SelectItem>
             <SelectItem value="pending">대기</SelectItem>
@@ -269,6 +270,32 @@ export default function SafetyChecklists() {
           </SelectContent>
         </Select>
       </div>
+      <MobileFilterSheet activeCount={(filterCategory !== "all" ? 1 : 0) + (filterStatus !== "all" ? 1 : 0)}>
+        <div>
+          <Label className="mb-2 block">카테고리</Label>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-full h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 카테고리</SelectItem>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="mb-2 block">상태</Label>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-full h-11"><SelectValue placeholder="상태" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 상태</SelectItem>
+              <SelectItem value="pending">대기</SelectItem>
+              <SelectItem value="completed">완료</SelectItem>
+              <SelectItem value="issue_found">이상발견</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </MobileFilterSheet>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -308,7 +335,7 @@ export default function SafetyChecklists() {
                           value=""
                           onValueChange={(val) => handleStatusChange(cl.id, val)}
                         >
-                          <SelectTrigger className="h-10 w-[100px] text-xs">
+                          <SelectTrigger className="h-11 w-[110px] text-xs">
                             <SelectValue placeholder="상태변경" />
                           </SelectTrigger>
                           <SelectContent>
@@ -429,7 +456,7 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                         value={item.result || ""}
                         onValueChange={(val) => handleResultChange(item.id, val)}
                       >
-                        <SelectTrigger className="h-10 w-[88px] text-xs">
+                        <SelectTrigger className="h-11 w-[88px] text-xs">
                           <SelectValue placeholder="결과" />
                         </SelectTrigger>
                         <SelectContent>

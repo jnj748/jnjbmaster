@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin } from "lucide-react";
+import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { koreanDistricts, sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 
@@ -370,9 +371,9 @@ export default function Vendors() {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="hidden desktop:flex gap-3">
         <Select value={filterCategory || "all"} onValueChange={(v) => setFilterCategory(v === "all" ? undefined : v)}>
-          <SelectTrigger className="w-full sm:w-[160px] h-11"><SelectValue placeholder="분류" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] h-11"><SelectValue placeholder="분류" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 분류</SelectItem>
             {categoryOptions.map((o) => (
@@ -381,6 +382,20 @@ export default function Vendors() {
           </SelectContent>
         </Select>
       </div>
+      <MobileFilterSheet activeCount={filterCategory && filterCategory !== "all" ? 1 : 0}>
+        <div>
+          <Label className="mb-2 block">분류</Label>
+          <Select value={filterCategory || "all"} onValueChange={(v) => setFilterCategory(v === "all" ? undefined : v)}>
+            <SelectTrigger className="w-full h-11"><SelectValue placeholder="분류" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체 분류</SelectItem>
+              {categoryOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </MobileFilterSheet>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

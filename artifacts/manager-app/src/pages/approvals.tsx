@@ -392,7 +392,7 @@ export default function Approvals() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-10 w-10 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          className="h-11 w-11 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleApprove(approval.id);
@@ -403,7 +403,7 @@ export default function Approvals() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-10 w-10 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="h-11 w-11 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={(e) => {
                             e.stopPropagation();
                             openRejectDialog(approval.id);

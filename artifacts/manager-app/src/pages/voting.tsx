@@ -314,8 +314,8 @@ export default function Voting() {
                     <div className="border-t pt-3 space-y-2">
                       <p className="text-xs font-medium">투표 현황 (투표율: {detail.turnoutRate}%)</p>
                       {detail.ballots && detail.ballots.length > 0 ? (
-                        <div className="max-h-40 overflow-y-auto overflow-x-auto">
-                          <table className="w-full text-xs">
+                        <div className="max-h-60 overflow-y-auto">
+                          <table className="hidden desktop:table w-full text-xs">
                             <thead>
                               <tr className="border-b text-muted-foreground">
                                 <th className="p-1 text-left">호실</th>
@@ -335,6 +335,23 @@ export default function Voting() {
                               ))}
                             </tbody>
                           </table>
+                          <div className="desktop:hidden divide-y">
+                            {detail.ballots.map((b, i) => (
+                              <div key={i} className="flex items-center justify-between py-2 text-xs">
+                                <div className="min-w-0">
+                                  <span className="font-medium">{b.unitNumber}호</span>
+                                  <span className="text-muted-foreground ml-2">{b.voterName}</span>
+                                </div>
+                                <span className={
+                                  b.choice === "for" ? "text-green-600 font-medium" :
+                                  b.choice === "against" ? "text-red-600 font-medium" :
+                                  "text-muted-foreground"
+                                }>
+                                  {b.choice === "for" ? "찬성" : b.choice === "against" ? "반대" : "기권"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">아직 투표한 사람이 없습니다</p>
