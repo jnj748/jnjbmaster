@@ -34,7 +34,6 @@ export function DocUpload({
             ref={fileRef}
             type="file"
             accept="image/*,.pdf"
-            capture="environment"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];

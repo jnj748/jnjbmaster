@@ -92,18 +92,50 @@ export default function FacilityWorktool() {
 
   function handlePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file || !activePhotoId) return;
+    const MAX_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      toast({
+        title: "사진 용량이 너무 큽니다",
+        description: "최대 10MB까지 첨부할 수 있습니다. 사진 크기를 줄여 다시 시도해주세요.",
+        variant: "destructive",
+      });
+      setActivePhotoId(null);
+      return;
+    }
+    const targetId = activePhotoId;
     const reader = new FileReader();
     reader.onload = () => {
-      setChecklist((prev) =>
-        prev.map((item) =>
-          item.id === activePhotoId ? { ...item, photo: reader.result as string } : item
-        )
-      );
+      try {
+        setChecklist((prev) =>
+          prev.map((item) =>
+            item.id === targetId ? { ...item, photo: reader.result as string } : item
+          )
+        );
+      } catch (err) {
+        console.error("[facility-worktool] photo state update failed:", err);
+        toast({ title: "사진 처리에 실패했습니다", variant: "destructive" });
+      } finally {
+        setActivePhotoId(null);
+      }
+    };
+    reader.onerror = () => {
+      console.error("[facility-worktool] FileReader error:", reader.error);
+      toast({
+        title: "사진을 읽지 못했습니다",
+        description: "다른 사진으로 다시 시도해주세요.",
+        variant: "destructive",
+      });
       setActivePhotoId(null);
     };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    try {
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[facility-worktool] readAsDataURL threw:", err);
+      toast({ title: "사진을 읽지 못했습니다", variant: "destructive" });
+      setActivePhotoId(null);
+    }
   }
 
   function handleSubmit() {
