@@ -11,6 +11,9 @@ export interface AuthUser {
   buildingSido?: string | null;
   buildingSigungu?: string | null;
   onboardingPreference?: "started" | "browsing" | null;
+  approvalStatus?: "active" | "pending" | "rejected";
+  // [Task #132] 가입 직후 역할 선택 완료 여부.
+  roleSelected?: boolean;
   hasPassword?: boolean;
 }
 
@@ -18,20 +21,22 @@ interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string, portalType: string) => Promise<void>;
+  login: (email: string, password: string, portalType?: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
   applyToken: (token: string) => void;
+  refreshUser: () => Promise<void>;
 }
 
 interface RegisterData {
   email: string;
   password: string;
   name: string;
-  role: string;
+  // [Task #132] 통합 가입에서는 role/portalType 미지정 가능. 이후 /onboarding/role-select 에서 확정.
+  role?: string;
   phone?: string;
-  portalType: string;
+  portalType?: string;
   consents?: { types: string[]; version: string };
 }
 
@@ -118,8 +123,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
   }, []);
 
+  // [Task #132] /auth/select-role 후 user 새로고침용.
+  const refreshUser = useCallback(async () => {
+    const t = localStorage.getItem("auth_token");
+    if (!t) return;
+    const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
+    if (res.ok) {
+      const data = await res.json();
+      setUser(data.user);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, applyToken }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, applyToken, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

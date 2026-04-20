@@ -6,12 +6,12 @@ import {
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
-import { authMiddleware, verifyToken } from "../middlewares/auth";
+import { authMiddleware, verifyToken, approvalGateMiddleware } from "../middlewares/auth";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-router.post("/storage/uploads/request-url", authMiddleware, async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", authMiddleware, approvalGateMiddleware, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -36,7 +36,7 @@ router.post("/storage/uploads/request-url", authMiddleware, async (req: Request,
   }
 });
 
-router.post("/storage/uploads/finalize", authMiddleware, async (req: Request, res: Response) => {
+router.post("/storage/uploads/finalize", authMiddleware, approvalGateMiddleware, async (req: Request, res: Response) => {
   const { objectPath } = req.body;
   if (!objectPath || typeof objectPath !== "string") {
     res.status(400).json({ error: "objectPath is required" });

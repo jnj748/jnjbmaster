@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable, legalAppointeesTable } from "@workspace/db";
+import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable, legalAppointeesTable, accountingInitialFilesTable } from "@workspace/db";
 import { eq, and, lte, gte, sql, desc } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 import {
@@ -209,7 +209,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
 });
 
 router.put("/buildings/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const data = req.body;
@@ -220,12 +220,22 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       res.status(403).json({ error: "이 건물을 수정할 권한이 없습니다" });
       return;
     }
+    // [Task #132] 주소 잠금: platform_admin이 아니면 주소 관련 필드 변경 차단.
+    const existing = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
+    if (existing?.addressLocked && user.role !== "platform_admin") {
+      const addressFields = ["addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode", "buildingRegisterPk"];
+      const attemptedAddressEdit = addressFields.some(f => data[f] !== undefined && data[f] !== existing[f as keyof typeof existing]);
+      if (attemptedAddressEdit) {
+        res.status(423).json({ error: "건물 주소는 잠겨 있어 변경할 수 없습니다. 변경이 필요한 경우 1800-0416으로 연락해 주세요." });
+        return;
+      }
+    }
     const updateData: Record<string, unknown> = {};
     const fields = [
       "name", "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
       "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
       "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
-      "logoUrl", "approvalDate",
+      "logoUrl", "approvalDate", "areaBasis",
     ];
     const numericFields = ["landArea", "buildingArea", "buildingCoverageRatio", "floorAreaRatio", "electricCapacityKw", "gasUsageMonthly"];
     const intFields = ["totalUnits", "totalFloors", "basementFloors", "elevatorCount", "parkingSpaces"];
@@ -635,11 +645,24 @@ router.post("/buildings/calculate-safety", async (req: Request, res: Response) =
 });
 
 router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Response) => {
-  const { buildingId, inspectionDates } = req.body;
+  const { buildingId, inspectionDates, useFallbackCompletionDate } = req.body;
 
   if (!buildingId || !inspectionDates || typeof inspectionDates !== "object") {
     res.status(400).json({ error: "buildingId와 inspectionDates가 필요합니다" });
     return;
+  }
+
+  // [Task #132] 사용자가 최종 점검일을 모르는 경우, 건물 준공일을 fallback으로 사용한다.
+  let fallbackLastDate: string | null = null;
+  if (useFallbackCompletionDate) {
+    const [bld] = await db.select({ completionDate: buildingsTable.completionDate })
+      .from(buildingsTable)
+      .where(eq(buildingsTable.id, buildingId));
+    if (bld?.completionDate) {
+      fallbackLastDate = typeof bld.completionDate === "string"
+        ? bld.completionDate
+        : new Date(bld.completionDate as unknown as string | number | Date).toISOString().slice(0, 10);
+    }
   }
 
   try {
@@ -649,7 +672,8 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
       if (!dates || typeof dates !== "object") continue;
       const dateEntries = dates as Record<string, string>;
 
-      for (const [presetName, lastDate] of Object.entries(dateEntries)) {
+      for (const [presetName, lastDateInput] of Object.entries(dateEntries)) {
+        const lastDate = lastDateInput || fallbackLastDate;
         if (!lastDate) continue;
 
         const cycleMonths = getCyclemonthsForCategory(category, presetName);
@@ -820,6 +844,62 @@ router.get("/buildings/legal-appointees", async (req: Request, res: Response) =>
     req.log.error({ err: error }, "Error fetching legal appointees");
     res.status(500).json({ error: "Failed to fetch appointees" });
   }
+});
+
+// [Task #132] 관리소장 위저드 완료 시 호출. 주소 잠금 + areaBasis 옵션.
+router.post("/buildings/:id/lock-address", async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id));
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role)) {
+    res.status(403).json({ error: "이 건물을 잠글 권한이 없습니다" }); return;
+  }
+  try {
+    const [b] = await db.update(buildingsTable).set({ addressLocked: true }).where(eq(buildingsTable.id, id)).returning();
+    res.json({ building: b });
+  } catch (e) {
+    req.log.error({ err: e }, "Failed to lock building address");
+    res.status(500).json({ error: "주소 잠금에 실패했습니다" });
+  }
+});
+
+router.put("/buildings/:id/area-basis", async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id));
+  const { areaBasis } = req.body;
+  if (!["standard", "exclusive", "common"].includes(areaBasis)) {
+    res.status(400).json({ error: "유효하지 않은 면적 기준입니다" }); return;
+  }
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user || (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role))) {
+    res.status(403).json({ error: "권한이 없습니다" }); return;
+  }
+  const [b] = await db.update(buildingsTable).set({ areaBasis }).where(eq(buildingsTable.id, id)).returning();
+
+  // [Task #132] 면적 기준 확정 시 회계 엔진 부트스트랩 파라미터를 함께 산정·기록한다.
+  // 연면적과 기준에 따른 초기 단가(원/㎡)를 안내값으로 산출하고
+  // accountingInitialFiles 테이블에 area_basis_init 카테고리로 보존한다(관리자가
+  // 추후 조정 가능하도록 텍스트 메모로 기록).
+  try {
+    const totalArea = b.totalArea ? parseFloat(String(b.totalArea)) : 0;
+    const baseRatePerSqm = areaBasis === "exclusive" ? 1800 : areaBasis === "common" ? 1200 : 1500;
+    const initialMonthlyTotal = Math.round(totalArea * baseRatePerSqm);
+    await db.insert(accountingInitialFilesTable).values({
+      buildingId: id,
+      category: "area_basis_init",
+      fileUrl: "",
+      originalName: "면적기준 초기 산정",
+      periodNote: `basis=${areaBasis}; totalArea=${totalArea}㎡; ratePerSqm=${baseRatePerSqm}원; initialMonthlyTotal=${initialMonthlyTotal}원`,
+      uploadedBy: userId,
+    });
+  } catch (e) {
+    req.log?.warn?.({ err: e }, "Failed to seed area_basis_init");
+  }
+
+  res.json({ building: b });
 });
 
 export default router;

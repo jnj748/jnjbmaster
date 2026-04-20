@@ -29,8 +29,9 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const { status } = useOnboarding();
 
-  // 보수: manager 외 역할은 온보딩 화면 진입 차단(직접 URL 접근 시 대시보드로).
-  if (user && user.role !== "manager") {
+  // [Task #132] 통합 온보딩: 관리소장·경리(주소 조회 위해 returnTo로 진입) 허용.
+  // 그 외 역할(파트너·시설기사)은 본인 위저드로 안내.
+  if (user && user.role !== "manager" && user.role !== "accountant") {
     return <Redirect to="/" />;
   }
 

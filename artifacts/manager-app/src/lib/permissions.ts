@@ -407,6 +407,12 @@ export const ROUTES: RouteEntry[] = [
     bottomLabelOverrides: { platform_admin: "사용자" },
   },
   {
+    // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼관리자)
+    path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
+    label: "시설기사 승인", icon: UserCheck, group: "settings",
+    access: ["manager", "platform_admin", "hq_executive"],
+  },
+  {
     path: "/document-templates", component: DocumentTemplates,
     label: "서식 관리", icon: FileText, group: "settings",
     access: ["manager", "platform_admin"],

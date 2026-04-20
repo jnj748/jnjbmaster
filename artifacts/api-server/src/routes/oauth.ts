@@ -9,7 +9,7 @@ import {
   socialProviders,
   type SocialProvider,
 } from "@workspace/db";
-import { signToken, authMiddleware } from "../middlewares/auth";
+import { signToken, authMiddleware, approvalGateMiddleware } from "../middlewares/auth";
 import {
   buildAuthorizeUrl,
   checkCallbackRateLimit,
@@ -78,7 +78,7 @@ router.get("/auth/oauth/:provider/init", async (req, res): Promise<void> => {
 // Returns the authorize URL as JSON so the SPA (which sends a Bearer token via fetch)
 // can then perform window.location.href = authorizeUrl. A 302 here would be useless
 // because the browser navigation that follows wouldn't carry the Authorization header.
-router.get("/auth/oauth/:provider/link/init", authMiddleware, async (req, res): Promise<void> => {
+router.get("/auth/oauth/:provider/link/init", authMiddleware, approvalGateMiddleware, async (req, res): Promise<void> => {
   const provider = String(req.params.provider);
   if (!isSocialProvider(provider)) {
     res.status(400).json({ error: "지원하지 않는 공급자입니다" });
@@ -366,6 +366,8 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
         role,
         phone: phone?.trim() || null,
         portalType: pending.portalType,
+        // [Task #132] OAuth 가입은 가입 시점에 역할이 확정되므로 역할 선택 화면을 거치지 않는다.
+        roleSelected: true,
       }).returning();
 
       await tx.insert(userSocialAccountsTable).values({
@@ -417,7 +419,7 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
 });
 
 // Authenticated: list and unlink social accounts
-router.get("/auth/social-accounts", authMiddleware, async (req, res): Promise<void> => {
+router.get("/auth/social-accounts", authMiddleware, approvalGateMiddleware, async (req, res): Promise<void> => {
   const rows = await db
     .select({
       provider: userSocialAccountsTable.provider,
@@ -430,7 +432,7 @@ router.get("/auth/social-accounts", authMiddleware, async (req, res): Promise<vo
   res.json({ accounts: rows });
 });
 
-router.delete("/auth/social-accounts/:provider", authMiddleware, async (req, res): Promise<void> => {
+router.delete("/auth/social-accounts/:provider", authMiddleware, approvalGateMiddleware, async (req, res): Promise<void> => {
   const provider = String(req.params.provider);
   if (!isSocialProvider(provider)) {
     res.status(400).json({ error: "지원하지 않는 공급자입니다" });

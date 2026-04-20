@@ -6,6 +6,7 @@ import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
 import { seedTestUsers } from "./seed-test-users";
 import { seedPartnerBm } from "./seed-partner-bm";
+import { seedVendorCategories } from "./routes/vendorCategories";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -127,6 +128,13 @@ app.listen(port, async (err) => {
     logger.info("Partner BM defaults seeded");
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed partner BM defaults");
+  }
+
+  try {
+    await seedVendorCategories();
+    logger.info("Vendor categories seeded");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed vendor categories");
   }
 
   startScheduler();

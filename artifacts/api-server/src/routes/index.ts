@@ -16,7 +16,7 @@ import notificationsRouter from "./notifications";
 import documentChecklistsRouter from "./documentChecklists";
 import usersRouter from "./users";
 import approvalsRouter from "./approvals";
-import { authMiddleware, requireRole } from "../middlewares/auth";
+import { authMiddleware, requireRole, approvalGateMiddleware } from "../middlewares/auth";
 import rfqsRouter from "./rfqs";
 import quotesRouter from "./quotes";
 import workReportsRouter from "./workReports";
@@ -52,6 +52,9 @@ import platformSettingsRouter from "./platformSettings";
 import contractsRouter from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
 import onboardingRouter from "./onboarding";
+import vendorCategoriesRouter from "./vendorCategories";
+import accountingInitialFilesRouter from "./accountingInitialFiles";
+import facilitySignupRequestsRouter from "./facilitySignupRequests";
 
 const router: IRouter = Router();
 
@@ -64,6 +67,8 @@ router.use(publicTenantCardRouter);
 router.use(platformConsentsRouter);
 
 router.use(authMiddleware);
+// [Task #132] 시설기사 가입 승인 전이라면 화이트리스트 외 모든 API를 차단.
+router.use(approvalGateMiddleware);
 
 router.get("/complaints/analytics", requireRole("hq_executive", "platform_admin"), handleComplaintAnalytics);
 router.use(vendorsRouter);
@@ -118,5 +123,8 @@ buildingRouter.use(onboardingRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);
+router.use(vendorCategoriesRouter);
+router.use(accountingInitialFilesRouter);
+router.use(facilitySignupRequestsRouter);
 
 export default router;

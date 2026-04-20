@@ -92,6 +92,8 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       role,
       phone: phone || null,
       portalType,
+      // [Task #132] 관리자/HQ가 직접 만든 계정은 역할 선택 화면을 거치지 않는다.
+      roleSelected: true,
     }).returning();
 
     res.status(201).json({

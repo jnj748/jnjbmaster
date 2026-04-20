@@ -1,42 +1,61 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable, platformConsentsTable, platformConsentTypes } from "@workspace/db";
+import { db, usersTable, platformConsentsTable, platformConsentTypes, facilityStaffSignupRequestsTable, buildingsTable, userRoles, portalTypes } from "@workspace/db";
+import { resolveTargetsAndNotify } from "./facilitySignupRequests";
 import { signToken, authMiddleware } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { email, password, name, role, phone, portalType, consents } = req.body;
+  // [Task #132] 통합 가입: role/portalType은 옵션. 미지정 시 placeholder('manager'/'building')로 생성하고
+  // role_selected=false 로 설정하여 /onboarding/role-select 에서 확정한다.
+  const { email, password, name, phone, consents } = req.body;
+  const requestedRole: string | undefined = req.body?.role;
+  const requestedPortal: string | undefined = req.body?.portalType;
 
-  if (!email || !password || !name || !role || !portalType) {
+  if (!email || !password || !name) {
     res.status(400).json({ error: "필수 항목을 모두 입력해주세요" });
     return;
   }
 
-  const selfRegistrableRoles = ["manager", "partner"];
-  if (!selfRegistrableRoles.includes(role)) {
-    res.status(400).json({ error: "자가 등록은 관리소장 또는 파트너사만 가능합니다. 플랫폼 관리자에게 문의해주세요." });
-    return;
-  }
-
+  const selfRegistrableRoles = ["manager", "accountant", "facility_staff", "partner"];
   const validPortals = ["building", "partner", "hq"];
-  if (!validPortals.includes(portalType)) {
-    res.status(400).json({ error: "유효하지 않은 포털 유형입니다" });
-    return;
-  }
 
-  if (portalType === "partner" && role !== "partner") {
-    res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
-    return;
-  }
-  if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
-    res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
-    return;
-  }
-  if (portalType === "building" && role === "partner") {
-    res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
-    return;
+  let role: string;
+  let portalType: string;
+  let roleSelected: boolean;
+  if (!requestedRole) {
+    // [Task #132] 통합 가입: 역할 미지정. 권한 노출을 막기 위해 facility_staff(가장 제한적)
+    // placeholder + approvalStatus=pending 으로 생성. /onboarding/role-select 에서 확정한다.
+    // 백엔드 approvalGateMiddleware가 roleSelected=false 도 함께 차단한다.
+    role = "facility_staff";
+    portalType = "building";
+    roleSelected = false;
+  } else {
+    if (!selfRegistrableRoles.includes(requestedRole)) {
+      res.status(400).json({ error: "자가 등록할 수 없는 역할입니다. 플랫폼 관리자에게 문의해주세요." });
+      return;
+    }
+    role = requestedRole;
+    portalType = requestedPortal ?? (role === "partner" ? "partner" : "building");
+    if (!validPortals.includes(portalType)) {
+      res.status(400).json({ error: "유효하지 않은 포털 유형입니다" });
+      return;
+    }
+    if (portalType === "partner" && role !== "partner") {
+      res.status(400).json({ error: "파트너사 포털은 파트너사 역할만 가능합니다" });
+      return;
+    }
+    if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
+      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
+      return;
+    }
+    if (portalType === "building" && role === "partner") {
+      res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
+      return;
+    }
+    roleSelected = true;
   }
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email));
@@ -54,7 +73,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   );
 
   const requiredConsentTypes: string[] = ["intermediary_terms", "privacy_policy"];
-  if (role === "partner" || portalType === "partner") {
+  if (roleSelected && (role === "partner" || portalType === "partner")) {
     requiredConsentTypes.push("partner_terms");
   }
   const missingRequired = requiredConsentTypes.filter((t) => !validConsentTypes.includes(t as typeof platformConsentTypes[number]));
@@ -63,17 +82,22 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #132] 시설기사 placeholder 가입은 active. 역할 선택 시 pending 으로 전환.
+  const initialApprovalStatus = roleSelected && role === "facility_staff" ? "pending" : "active";
+
   const passwordHash = await bcrypt.hash(password, 10);
   let user;
   try {
-    user = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [createdUser] = await tx.insert(usersTable).values({
         email,
         passwordHash,
         name,
-        role,
+        role: role as typeof userRoles[number],
         phone: phone || null,
-        portalType,
+        portalType: portalType as typeof portalTypes[number],
+        approvalStatus: initialApprovalStatus,
+        roleSelected,
       }).returning();
 
       await tx.insert(platformConsentsTable).values(
@@ -87,8 +111,29 @@ router.post("/auth/register", async (req, res): Promise<void> => {
         }))
       );
 
-      return createdUser;
+      // [Task #132] 역할이 가입 시점에 확정된 경우에만 시설기사 신청 레코드 생성.
+      let createdSignupRequestId: number | null = null;
+      if (roleSelected && role === "facility_staff") {
+        const requestedAddress: string = (req.body?.facilityRequest?.address ?? "").trim();
+        const sido: string | null = req.body?.facilityRequest?.sido ?? null;
+        const sigungu: string | null = req.body?.facilityRequest?.sigungu ?? null;
+        const [reqRow] = await tx.insert(facilityStaffSignupRequestsTable).values({
+          userId: createdUser.id,
+          requestedAddress: requestedAddress || "(주소 미지정)",
+          sido,
+          sigungu,
+          status: "pending",
+        }).returning();
+        createdSignupRequestId = reqRow?.id ?? null;
+      }
+
+      return { user: createdUser, signupRequestId: createdSignupRequestId };
     });
+    user = result.user;
+    if (result.signupRequestId) {
+      try { await resolveTargetsAndNotify(result.signupRequestId); }
+      catch (e) { req.log?.warn?.({ err: e }, "Failed to resolve facility signup targets"); }
+    }
   } catch (err) {
     req.log?.error?.({ err }, "Failed to create user with consents");
     res.status(500).json({ error: "회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." });
@@ -112,15 +157,98 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       phone: user.phone,
       vendorId: user.vendorId,
       portalType: user.portalType,
+      roleSelected: user.roleSelected,
+      approvalStatus: user.approvalStatus,
     },
   });
 });
 
+// [Task #132] 가입 직후 역할 선택. role_selected=false 인 사용자만 호출 가능.
+router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void> => {
+  const userId = req.user!.userId;
+  const { role: selectedRole, facilityRequest } = req.body ?? {};
+  const allowed = ["manager", "accountant", "facility_staff", "partner"];
+  if (!allowed.includes(selectedRole)) {
+    res.status(400).json({ error: "유효하지 않은 역할입니다" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "사용자를 찾을 수 없습니다" });
+    return;
+  }
+  if (user.roleSelected) {
+    res.status(409).json({ error: "이미 역할이 확정된 계정입니다" });
+    return;
+  }
+
+  const newPortalType: "building" | "partner" = selectedRole === "partner" ? "partner" : "building";
+  const newApprovalStatus = selectedRole === "facility_staff" ? "pending" : "active";
+
+  try {
+    const updated = await db.transaction(async (tx) => {
+      const [u] = await tx.update(usersTable).set({
+        role: selectedRole,
+        portalType: newPortalType,
+        approvalStatus: newApprovalStatus,
+        roleSelected: true,
+      }).where(eq(usersTable.id, userId)).returning();
+
+      let createdSignupRequestId: number | null = null;
+      if (selectedRole === "facility_staff") {
+        const requestedAddress: string = (facilityRequest?.address ?? "").trim();
+        const sido: string | null = facilityRequest?.sido ?? null;
+        const sigungu: string | null = facilityRequest?.sigungu ?? null;
+        const [reqRow] = await tx.insert(facilityStaffSignupRequestsTable).values({
+          userId: u.id,
+          requestedAddress: requestedAddress || "(주소 미지정)",
+          sido,
+          sigungu,
+          status: "pending",
+        }).returning();
+        createdSignupRequestId = reqRow?.id ?? null;
+      }
+      return { user: u, signupRequestId: createdSignupRequestId };
+    });
+    const updatedUser = updated.user;
+    if (updated.signupRequestId) {
+      try { await resolveTargetsAndNotify(updated.signupRequestId); }
+      catch (e) { req.log?.warn?.({ err: e }, "Failed to resolve facility signup targets (select-role)"); }
+    }
+
+    const newToken = signToken({
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      portalType: updatedUser.portalType,
+    });
+
+    res.json({
+      token: newToken,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        vendorId: updatedUser.vendorId,
+        portalType: updatedUser.portalType,
+        roleSelected: updatedUser.roleSelected,
+        approvalStatus: updatedUser.approvalStatus,
+      },
+    });
+  } catch (err) {
+    req.log?.error?.({ err }, "Failed to select role");
+    res.status(500).json({ error: "역할 설정 중 오류가 발생했습니다" });
+  }
+});
+
 router.post("/auth/login", async (req, res): Promise<void> => {
+  // [Task #132] 통합 로그인: portalType 미지정 허용. 지정 시 hq 포털만 별도 검증.
   const { email, password, portalType } = req.body;
 
-  if (!email || !password || !portalType) {
-    res.status(400).json({ error: "이메일, 비밀번호, 포털 유형을 입력해주세요" });
+  if (!email || !password) {
+    res.status(400).json({ error: "이메일과 비밀번호를 입력해주세요" });
     return;
   }
 
@@ -130,12 +258,15 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const portalMatch = user.portalType === portalType
-    || (portalType === "building" && ["building", "hq"].includes(user.portalType))
-    || (portalType === "hq" && ["hq", "building"].includes(user.portalType) && ["hq_executive", "platform_admin"].includes(user.role));
-  if (!portalMatch) {
-    res.status(401).json({ error: "해당 포털에서 로그인할 수 없는 계정입니다" });
-    return;
+  if (portalType) {
+    // 명시적 portalType이 들어오면 검증. 통합 로그인(/login)에서는 portalType을 보내지 않음.
+    const portalMatch = user.portalType === portalType
+      || (portalType === "building" && ["building", "hq"].includes(user.portalType))
+      || (portalType === "hq" && ["hq", "building"].includes(user.portalType) && ["hq_executive", "platform_admin"].includes(user.role));
+    if (!portalMatch) {
+      res.status(401).json({ error: "해당 포털에서 로그인할 수 없는 계정입니다" });
+      return;
+    }
   }
 
   if (!user.passwordHash) {
@@ -167,6 +298,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       portalType: user.portalType,
       buildingSido: user.buildingSido,
       buildingSigungu: user.buildingSigungu,
+      roleSelected: user.roleSelected,
+      approvalStatus: user.approvalStatus,
     },
   });
 });
@@ -226,6 +359,8 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       buildingSido: user.buildingSido,
       buildingSigungu: user.buildingSigungu,
       onboardingPreference: user.onboardingPreference,
+      approvalStatus: user.approvalStatus,
+      roleSelected: user.roleSelected,
       hasPassword: !!user.passwordHash,
     },
   });

@@ -92,6 +92,8 @@ interface BuildingData {
   electricCapacityKw: string;
   gasUsageMonthly: string;
   approvalDate: string;
+  // [Task #132] 위저드 완료 후 주소 잠금. UI에서 주소 입력 비활성화.
+  addressLocked?: boolean;
 }
 
 interface AppointmentField {
@@ -395,6 +397,7 @@ export default function BuildingSetup() {
           electricCapacityKw: data.building.electricCapacityKw || "",
           gasUsageMonthly: data.building.gasUsageMonthly || "",
           approvalDate: data.building.approvalDate || "",
+          addressLocked: data.building.addressLocked || false,
         });
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
@@ -604,6 +607,12 @@ export default function BuildingSetup() {
         setExistingId(result.building.id);
         toast({ title: "건물 정보가 저장되었습니다" });
         setActiveStep(2);
+        // [Task #132] 위저드에서 진입한 경우 위저드로 복귀.
+        const params = new URLSearchParams(window.location.search);
+        const returnTo = params.get("returnTo");
+        if (returnTo && returnTo.startsWith("/onboarding/")) {
+          window.location.href = `${import.meta.env.BASE_URL}${returnTo.replace(/^\//, "")}`;
+        }
       }
     } catch {
       toast({ title: "저장 중 오류가 발생했습니다", variant: "destructive" });
@@ -876,6 +885,13 @@ export default function BuildingSetup() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {building.addressLocked && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                  <strong>건물 주소가 잠겨 있습니다.</strong>{" "}
+                  관리소장 위저드 완료 후 모든 회계·법무 문서에 동일 주소가 사용되도록 잠겼습니다.
+                  변경이 필요한 경우 <strong>1800-0416</strong>으로 연락해 주세요.
+                </div>
+              )}
               <div className="grid grid-cols-1 desktop:grid-cols-2 gap-4">
                 <div>
                   <Label>건물명 *</Label>
@@ -891,6 +907,7 @@ export default function BuildingSetup() {
                     value={building.addressFull}
                     onChange={(e) => handleFieldChange("addressFull", e.target.value)}
                     placeholder="도로명 주소"
+                    disabled={building.addressLocked}
                   />
                 </div>
                 <div>

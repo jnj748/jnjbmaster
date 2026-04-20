@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation as useLocationForGate } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +23,13 @@ const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding"));
+// [Task #132] 통합 가입 후 역할 선택·역할별 위저드.
+const RoleSelectPage = lazy(() => import("@/pages/onboarding/role-select"));
+const ManagerWizardPage = lazy(() => import("@/pages/onboarding/manager-wizard"));
+const AccountantWizardPage = lazy(() => import("@/pages/onboarding/accountant-wizard"));
+const FacilityWizardPage = lazy(() => import("@/pages/onboarding/facility-wizard"));
+const PartnerWizardPage = lazy(() => import("@/pages/onboarding/partner-wizard"));
+const FacilityPendingPage = lazy(() => import("@/pages/onboarding/facility-pending"));
 // 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
 const LayoutCheck = import.meta.env.DEV
   ? lazy(() => import("@/pages/layout-check"))
@@ -55,6 +62,65 @@ function AuthenticatedRoutes() {
   const role = getEffectiveRole(user);
   const routes = getRoutesForRole(role);
   const DashboardComponent = ROOT_DASHBOARDS[role] ?? ROOT_DASHBOARDS.manager;
+  const [location] = useLocationForGate();
+
+  // [Task #132] 가입 후 역할 미선택이면 무조건 /onboarding/role-select 로 강제.
+  if (user && user.roleSelected === false) {
+    if (!location.startsWith("/onboarding/role-select")) {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/onboarding/role-select" component={RoleSelectPage} />
+            <Route>
+              <Redirect to="/onboarding/role-select" />
+            </Route>
+          </Switch>
+        </Suspense>
+      );
+    }
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/onboarding/role-select" component={RoleSelectPage} />
+        </Switch>
+      </Suspense>
+    );
+  }
+
+  // [Task #132] 시설기사 가입 미활성(pending/rejected):
+  // - 위저드(/onboarding/role-select, /onboarding/facility-staff)와 대기화면(/onboarding/facility-pending)은 통과
+  // - 그 외 모든 경로는 대기화면으로 강제 이동 (rejected도 동일하게 가두어 백엔드 403과 정합)
+  if (user?.role === "facility_staff" && user?.approvalStatus !== "active") {
+    const allowedPrefixes = [
+      "/onboarding/facility-pending",
+      "/onboarding/facility-staff",
+      "/onboarding/role-select",
+    ];
+    const isAllowed = allowedPrefixes.some((p) => location.startsWith(p));
+    if (!isAllowed) {
+      return (
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
+            <Route path="/onboarding/facility-staff" component={lazy(() => import("@/pages/onboarding/facility-wizard"))} />
+            <Route path="/onboarding/role-select" component={lazy(() => import("@/pages/onboarding/role-select"))} />
+            <Route>
+              <Redirect to="/onboarding/facility-pending" />
+            </Route>
+          </Switch>
+        </Suspense>
+      );
+    }
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
+          <Route path="/onboarding/facility-staff" component={lazy(() => import("@/pages/onboarding/facility-wizard"))} />
+          <Route path="/onboarding/role-select" component={lazy(() => import("@/pages/onboarding/role-select"))} />
+        </Switch>
+      </Suspense>
+    );
+  }
 
   return (
     <BuildingProvider>
@@ -72,6 +138,13 @@ function AuthenticatedRoutes() {
                   <Redirect to="/settings" />
                 </Route>
                 <Route path="/onboarding" component={OnboardingPage} />
+                <Route path="/onboarding/role-select" component={RoleSelectPage} />
+                <Route path="/onboarding/manager" component={ManagerWizardPage} />
+                <Route path="/onboarding/accountant" component={AccountantWizardPage} />
+                <Route path="/onboarding/facility-staff" component={FacilityWizardPage} />
+                <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
+                <Route path="/onboarding/partner" component={PartnerWizardPage} />
+                <Route path="/facility-approvals" component={lazy(() => import("@/pages/facility-approvals"))} />
                 <Route path="/" component={DashboardComponent} />
                 {routes.map((r) => (
                   <Route key={r.path} path={r.path} component={r.component} />
@@ -111,12 +184,16 @@ function AppRouter() {
             <Route path="/__layout-check" component={LayoutCheck} />
           )}
           <Route path="/tenant-card/:token" component={TenantCardForm} />
-          <Route path="/portal" component={PortalSelect} />
+          {/* [Task #132] /portal 폐지: 통합 로그인 화면(/login)으로 진입. /login/hq는 본사 전용으로 유지. */}
+          <Route path="/portal">
+            <Redirect to="/login" />
+          </Route>
+          <Route path="/login" component={Login} />
           <Route path="/login/:portalType" component={Login} />
           <Route path="/auth/callback" component={AuthCallback} />
           <Route path="/auth/social-signup" component={SocialSignup} />
           <Route>
-            <Redirect to="/portal" />
+            <Redirect to="/login" />
           </Route>
         </Switch>
       </Suspense>

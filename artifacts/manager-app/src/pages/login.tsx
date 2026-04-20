@@ -66,7 +66,9 @@ const TERMS_PREVIEW = `[이용약관 요지]
 3. 파트너사는 정확한 사업자 정보·자격을 등록할 의무가 있습니다.`;
 
 export default function Login() {
-  const { portalType } = useParams<{ portalType: string }>();
+  // [Task #132] portalType URL 파라미터가 없으면 통합 로그인 모드(building 기본).
+  const { portalType: portalTypeParam } = useParams<{ portalType: string }>();
+  const portalType = portalTypeParam ?? "building";
   const { login, register } = useAuth();
   const [, setLocation] = useLocation();
   const [isRegister, setIsRegister] = useState(false);
@@ -112,19 +114,24 @@ export default function Login() {
       if (isRegister) {
         const consentTypes = ["intermediary_terms", "privacy_policy"];
         if (isPartnerSignup) consentTypes.push("partner_terms");
+        // [Task #132] 통합 로그인(URL portalType 미지정)에서는 role/portalType을 보내지 않아
+        // 백엔드가 role_selected=false 로 사용자를 만든다. 이후 /onboarding/role-select 에서 확정.
+        const unified = !portalTypeParam;
         await register({
           email,
           password,
           name,
-          role,
+          role: unified ? undefined : role,
           phone: phone || undefined,
-          portalType: portalType!,
+          portalType: unified ? undefined : (portalType as "building" | "partner" | "hq"),
           consents: { types: consentTypes, version: CONSENT_VERSION },
         });
       } else {
-        await login(email, password, portalType!);
+        // [Task #132] 통합 로그인: URL portalType 파라미터가 없으면 portalType 미전송.
+        await login(email, password, portalTypeParam ? (portalType as "building" | "partner" | "hq") : undefined);
       }
-      setLocation("/");
+      // [Task #132] 회원가입 직후엔 역할 선택·위저드로 이동, 로그인은 기존대로 메인.
+      setLocation(isRegister ? "/onboarding/role-select" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다");
     } finally {
@@ -136,11 +143,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="w-full max-w-md px-6">
         <button
-          onClick={() => setLocation("/portal")}
+          onClick={() => setLocation("/login")}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          포털 선택으로 돌아가기
+          로그인으로 돌아가기
         </button>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">

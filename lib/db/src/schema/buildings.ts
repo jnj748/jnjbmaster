@@ -65,6 +65,10 @@ export const buildingsTable = pgTable("buildings", {
   gasUsageMonthly: numeric("gas_usage_monthly"),
   specialFundEnabled: boolean("special_fund_enabled").notNull().default(false),
   approvalDate: date("approval_date"),
+  // [Task #132] 위저드 완료 후 주소 잠금. 잠긴 후엔 platform_admin만 변경 가능.
+  addressLocked: boolean("address_locked").notNull().default(false),
+  // [Task #132] 회계 부과면적 기준: standard(전용+공용) | exclusive(전용) | common(공용).
+  areaBasis: text("area_basis"),
   normalizedAddress: text("normalized_address").notNull().default(""),
   pricePerUnit: integer("price_per_unit").notNull().default(200),
   plan: text("plan").notNull().default("basic").$type<"basic" | "premium" | "enterprise">(),

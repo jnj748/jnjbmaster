@@ -43,10 +43,10 @@ export default function AuthCallback() {
           <h1 className="text-lg font-semibold text-slate-900 mb-2">로그인 실패</h1>
           <p className="text-sm text-slate-600 mb-6">{error}</p>
           <button
-            onClick={() => setLocation("/portal")}
+            onClick={() => setLocation("/login")}
             className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium text-sm hover:bg-slate-800"
           >
-            포털 선택으로 돌아가기
+            로그인으로 돌아가기
           </button>
         </div>
       </div>

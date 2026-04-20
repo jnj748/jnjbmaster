@@ -1,6 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, vendorsTable } from "@workspace/db";
+import { db, vendorsTable, usersTable, platformConsentsTable } from "@workspace/db";
 import {
   ListVendorsQueryParams,
   ListVendorsResponse,
@@ -115,6 +115,68 @@ router.get("/vendors/recommend", async (req, res): Promise<void> => {
     .orderBy(desc(vendorsTable.rating));
 
   res.json(GetRecommendedVendorsResponse.parse(vendors));
+});
+
+// [Task #132] 파트너사 위저드 완료. 회사 + 사업자등록증 + 분야 저장 후 user.vendorId 연결.
+router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user!.userId;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (user.role !== "partner") { res.status(403).json({ error: "파트너사 계정만 사용 가능합니다" }); return; }
+
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const businessNumber = typeof req.body?.businessNumber === "string" ? req.body.businessNumber.trim() : "";
+  const representativeName = typeof req.body?.representativeName === "string" ? req.body.representativeName.trim() : "";
+  const phone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
+  const businessRegUrl = typeof req.body?.businessRegUrl === "string" ? req.body.businessRegUrl : null;
+  const categories: string[] = Array.isArray(req.body?.categories) ? req.body.categories.filter((c: unknown) => typeof c === "string") : [];
+
+  if (!name || !businessNumber || !representativeName) { res.status(400).json({ error: "회사명·사업자등록번호·대표자명은 필수입니다" }); return; }
+  // [Task #132] 사업자등록증 업로드는 필수.
+  if (!businessRegUrl) { res.status(400).json({ error: "사업자등록증을 업로드해 주세요" }); return; }
+  if (categories.length === 0) { res.status(400).json({ error: "최소 1개 이상의 취급 분야를 선택해 주세요" }); return; }
+
+  // 약관 동의 필수.
+  const [consent] = await db.select().from(platformConsentsTable)
+    .where(and(eq(platformConsentsTable.userId, userId), eq(platformConsentsTable.consentType, "partner_terms")))
+    .orderBy(desc(platformConsentsTable.consentedAt));
+  if (!consent) { res.status(403).json({ error: "파트너사 약관 동의가 필요합니다" }); return; }
+
+  // 기존 vendorId가 있으면 update, 없으면 insert.
+  let vendorRow;
+  if (user.vendorId) {
+    const [updated] = await db.update(vendorsTable)
+      .set({
+        name,
+        category: categories[0],
+        subCategories: categories.join(","),
+        businessRegNumber: businessNumber,
+        representativeName,
+        phone,
+        notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
+        type: "platform",
+      })
+      .where(eq(vendorsTable.id, user.vendorId))
+      .returning();
+    vendorRow = updated;
+  } else {
+    const [inserted] = await db.insert(vendorsTable)
+      .values({
+        name,
+        category: categories[0],
+        subCategories: categories.join(","),
+        businessRegNumber: businessNumber,
+        representativeName,
+        phone,
+        notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
+        type: "platform",
+        joinedAt: new Date(),
+      })
+      .returning();
+    vendorRow = inserted;
+    await db.update(usersTable).set({ vendorId: vendorRow.id }).where(eq(usersTable.id, userId));
+  }
+  res.status(200).json({ vendor: vendorRow });
 });
 
 router.post("/vendors/register", async (req, res): Promise<void> => {
