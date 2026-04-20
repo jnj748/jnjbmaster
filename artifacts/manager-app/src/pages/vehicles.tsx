@@ -45,7 +45,6 @@ import {
 } from "@/components/ui/table";
 import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
 
 const ownershipOptions: { value: CreateVehicleBodyOwnershipType; label: string }[] = [
   { value: "owned", label: "자가" },
@@ -242,7 +241,8 @@ export default function Vehicles() {
     }
   }
 
-  function exportVehicleCard(vehicle: Vehicle) {
+  async function exportVehicleCard(vehicle: Vehicle) {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("차량등록카드", 20, 20);

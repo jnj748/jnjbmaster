@@ -25,6 +25,15 @@
   - UX 가이드 헬퍼(FieldGuidePopover): 한전 청구서 계약전력 위치 등 이미지 가이드
   - 발전용량 합산 로직, 가이드 이미지 에셋, OCR
 
+## 번들 다이나믹 임포트 정비 (Task #145, 2026-04-20)
+- **무거운 라이브러리를 동적 import 로 전환** — 초기 번들에서 제외, 실제 사용 시점에만 다운로드:
+  - `jspdf` (~386KB / gzip 125KB): `tenants.tsx`/`vehicles.tsx`/`owners.tsx`의 `exportXxxCard()` 핸들러 내부에서 `await import("jspdf")`.
+  - `papaparse` (~20KB): `units.tsx`의 `handleCsvFile()` 내부.
+  - `html-to-image` (purify.es ~23KB + chunk): `lib/document-export.ts::downloadElementAsPng` 내부 (rfq/완료통지 발급 시점).
+- **App.tsx**: `Login` 도 `lazy()` 로 전환 (인증 후 사용자에는 다운로드 안 됨).
+- **vite manualChunks 추가**: `framer-motion`→`motion`, `react-day-picker`+`date-fns`→`date`. (recharts/lucide/@radix-ui 는 기존 분리 유지.)
+- **빌드 결과 (gzip)**: motion 40KB, date 21KB, charts 110KB, jspdf 125KB, html2canvas 47KB, papaparse 7KB — 모두 라우트/이벤트 단위로 lazy. 초기 진입(react-vendor 46 + ui 58 + index 32 + api-client 19 ≈ 155KB gzip) 외에는 필요 시점에만 로드.
+
 ## Codebase Cleanup Notes (Task #102, 2026-04-17)
 - **삭제 완료 (Task #125, 2026-04-19)**: 미사용 UI 컴포넌트 14개 + `executive-dashboard.tsx` (이전 `artifacts/manager-app/src/_deprecated/`) 영구 삭제. 참조 0건 재확인 후 폴더 제거.
   - UI: accordion, aspect-ratio, breadcrumb, carousel, collapsible, command, context-menu, hover-card, input-otp, kbd, menubar, navigation-menu, pagination, resizable

@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/table";
 import { Plus, Trash2, Edit, Users, Search, Download, Eye, ShieldAlert, Link2, CheckCircle, XCircle, Copy, FileText, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
 
 const emptyForm = {
   unit: "",
@@ -247,7 +246,8 @@ export default function Tenants() {
     }
   }
 
-  function exportTenantCard(tenant: Tenant) {
+  async function exportTenantCard(tenant: Tenant) {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("입주자카드 / 관리계약서", 20, 20);

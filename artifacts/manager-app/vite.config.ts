@@ -69,6 +69,12 @@ export default defineConfig({
           if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) {
             return "charts";
           }
+          if (id.includes("node_modules/framer-motion") || id.includes("node_modules/motion-")) {
+            return "motion";
+          }
+          if (id.includes("node_modules/react-day-picker") || id.includes("node_modules/date-fns")) {
+            return "date";
+          }
           if (id.includes("api-client-react") || id.includes("api-client/")) {
             return "api-client";
           }

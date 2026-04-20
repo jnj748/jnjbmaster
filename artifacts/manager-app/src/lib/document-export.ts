@@ -1,9 +1,8 @@
-import { toPng } from "html-to-image";
-
 export async function downloadElementAsPng(
   element: HTMLElement,
   filename: string,
 ): Promise<void> {
+  const { toPng } = await import("html-to-image");
   const dataUrl = await toPng(element, {
     cacheBust: true,
     backgroundColor: "#ffffff",

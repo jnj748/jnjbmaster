@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/table";
 import { Plus, Trash2, Edit, UserCheck, Search, Download, Eye, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
 
 const emptyForm = {
   unit: "",
@@ -159,7 +158,8 @@ export default function Owners() {
     toast({ title: "소유자가 삭제되었습니다" });
   }
 
-  function exportOwnerCard(owner: Owner) {
+  async function exportOwnerCard(owner: Owner) {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("소유자카드", 20, 20);

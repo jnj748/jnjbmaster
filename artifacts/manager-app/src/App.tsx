@@ -16,8 +16,7 @@ import {
   ROOT_DASHBOARDS,
   type Role,
 } from "@/lib/permissions";
-import Login from "@/pages/login";
-
+const Login = lazy(() => import("@/pages/login"));
 const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));

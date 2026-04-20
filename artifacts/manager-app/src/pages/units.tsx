@@ -64,7 +64,6 @@ import {
   Car,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Papa from "papaparse";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
@@ -225,9 +224,10 @@ export default function UnitsPage() {
     toast({ title: "호실이 삭제되었습니다" });
   }
 
-  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const { default: Papa } = await import("papaparse");
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
