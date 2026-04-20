@@ -9,100 +9,25 @@ import {
   useListInspectionLogs,
   useBulkRegisterInspections,
   getListInspectionsQueryKey,
-  getListInspectionLogsQueryKey,
 } from "@workspace/api-client-react";
 import type { Inspection, InspectionPreset, CompleteInspectionBodyResult, BulkRegisterInspectionsResponse } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@/components/ui/responsive-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Shield, Printer, CheckCircle, History, ClipboardList } from "lucide-react";
+import { Shield, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate } from "@/lib/utils";
 import { InspectionNotice, CATEGORY_LEGAL_BASIS } from "@/components/inspection-notice";
 import { useBuilding } from "@/contexts/building-context";
-
-const categoryOptions = [
-  { value: "elevator", label: "승강기" },
-  { value: "water_tank", label: "저수조" },
-  { value: "fire_safety", label: "소방" },
-  { value: "electrical", label: "전기" },
-  { value: "gas", label: "가스" },
-  { value: "septic", label: "정화조" },
-  { value: "playground", label: "놀이터" },
-  { value: "safety_check", label: "안전점검" },
-  { value: "hygiene", label: "위생/환경" },
-  { value: "building_safety", label: "건축물안전" },
-  { value: "administrative", label: "행정" },
-  { value: "other", label: "기타" },
-];
-
-const INSPECTION_TYPE_LABELS: Record<string, string> = {
-  legal: "법정",
-  self_regular: "자체정기",
-  biweekly: "격주",
-  seasonal: "계절별",
-  administrative: "행정",
-};
-
-const INSPECTION_TYPE_COLORS: Record<string, string> = {
-  legal: "text-red-600 bg-red-50 border-red-200",
-  self_regular: "text-blue-600 bg-blue-50 border-blue-200",
-  biweekly: "text-purple-600 bg-purple-50 border-purple-200",
-  seasonal: "text-orange-600 bg-orange-50 border-orange-200",
-  administrative: "text-gray-600 bg-gray-50 border-gray-200",
-};
-
-const CATEGORY_GROUP_ORDER = [
-  "fire_safety",
-  "electrical",
-  "elevator",
-  "water_tank",
-  "septic",
-  "hygiene",
-  "building_safety",
-  "safety_check",
-  "playground",
-  "gas",
-  "administrative",
-];
-
-const statusOptions = [
-  { value: "upcoming", label: "예정" },
-  { value: "scheduled", label: "일정 확정" },
-  { value: "completed", label: "완료" },
-  { value: "overdue", label: "기한 초과" },
-];
-
-const resultOptions = [
-  { value: "good", label: "양호" },
-  { value: "fair", label: "보통" },
-  { value: "poor", label: "불량" },
-];
-
-function calculateNextDueDate(lastDate: string, cycleMonths: number): string {
-  const d = new Date(lastDate);
-  d.setMonth(d.getMonth() + cycleMonths);
-  return d.toISOString().split("T")[0];
-}
+import {
+  resultOptions,
+  calculateNextDueDate,
+} from "@/lib/page-constants/inspections";
+import { InspectionFormDialog, type InspectionFormState } from "@/components/inspections/inspection-form-dialog";
+import { BulkRegisterDialog } from "@/components/inspections/bulk-register-dialog";
+import { CompleteDialog, type CompleteFormState } from "@/components/inspections/complete-dialog";
+import { HistoryDialog } from "@/components/inspections/history-dialog";
+import { InspectionCard } from "@/components/inspections/inspection-card";
 
 export default function Inspections() {
   const { building } = useBuilding();
@@ -132,23 +57,23 @@ export default function Inspections() {
     query: { enabled: historyId !== null },
   });
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<InspectionFormState>({
     name: "",
     category: "elevator",
     frequencyPerYear: 1,
-    legalCycleMonths: null as number | null,
+    legalCycleMonths: null,
     lastInspectionDate: "",
     nextDueDate: "",
     notes: "",
     legalBasis: CATEGORY_LEGAL_BASIS["elevator"],
     advanceAlertDays: 30,
-    inspectionType: "legal" as string,
-    intervalDays: null as number | null,
-    fixedDay: null as number | null,
-    recommendedMonths: null as string | null,
+    inspectionType: "legal",
+    intervalDays: null,
+    fixedDay: null,
+    recommendedMonths: null,
   });
 
-  const [completeForm, setCompleteForm] = useState({
+  const [completeForm, setCompleteForm] = useState<CompleteFormState>({
     inspectionDate: new Date().toISOString().split("T")[0],
     result: "good",
     memo: "",
@@ -196,22 +121,6 @@ export default function Inspections() {
       fixedDay,
       recommendedMonths: preset.recommendedMonths || null,
     }));
-  }
-
-  function getGroupedPresets() {
-    if (!presets) return [];
-    const groups: Record<string, typeof presets> = {};
-    for (const p of presets) {
-      if (!groups[p.category]) groups[p.category] = [];
-      groups[p.category].push(p);
-    }
-    return CATEGORY_GROUP_ORDER
-      .filter((cat) => groups[cat])
-      .map((cat) => ({
-        category: cat,
-        label: categoryOptions.find((o) => o.value === cat)?.label || cat,
-        presets: groups[cat],
-      }));
   }
 
   function getCycleLabel(preset: InspectionPreset): string {
@@ -334,31 +243,23 @@ export default function Inspections() {
     setNoticeOpen(true);
   }
 
-  const categoryLabel = (c: string) =>
-    categoryOptions.find((o) => o.value === c)?.label || c;
-  const statusLabel = (s: string) =>
-    statusOptions.find((o) => o.value === s)?.label || s;
-  const resultLabel = (r: string) =>
-    resultOptions.find((o) => o.value === r)?.label || r;
-
-  const statusColor = (s: string) => {
-    switch (s) {
-      case "overdue": return "destructive";
-      case "upcoming": return "secondary";
-      case "scheduled": return "outline";
-      case "completed": return "outline";
-      default: return "outline" as const;
+  async function handleBulkRegister() {
+    try {
+      const result = await bulkRegisterMutation.mutateAsync({
+        data: {
+          presetIds: bulkSelectedIds,
+          baseDate: bulkBaseDate,
+          category: bulkSelectedCategory,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: getListInspectionsQueryKey() });
+      setBulkDialogOpen(false);
+      setBulkSelectedIds([]);
+      toast({ title: `${(result as BulkRegisterInspectionsResponse).registeredCount}개 점검이 일괄 등록되었습니다` });
+    } catch {
+      toast({ title: "일괄 등록 실패", variant: "destructive" });
     }
-  };
-
-  const resultColor = (r: string) => {
-    switch (r) {
-      case "good": return "text-green-600";
-      case "fair": return "text-yellow-600";
-      case "poor": return "text-red-600";
-      default: return "";
-    }
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -370,300 +271,53 @@ export default function Inspections() {
           </p>
         </div>
         <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>
-          <ClipboardList className="w-4 h-4 mr-2" />
-          일괄 등록
-        </Button>
-        <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-          <ResponsiveDialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              점검 등록
-            </Button>
-          </ResponsiveDialogTrigger>
-          <ResponsiveDialogContent className="max-w-lg">
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>{editing ? "점검 수정" : "새 점검 등록"}</ResponsiveDialogTitle>
-            </ResponsiveDialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!editing && presets && presets.length > 0 && (
-                <div>
-                  <Label>법정 프리셋 선택</Label>
-                  <Select onValueChange={handlePresetSelect}>
-                    <SelectTrigger><SelectValue placeholder="프리셋을 선택하면 자동으로 채워집니다" /></SelectTrigger>
-                    <SelectContent className="max-h-80">
-                      {getGroupedPresets().map((group) => (
-                        <div key={group.category}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
-                            {group.label}
-                          </div>
-                          {group.presets.map((p) => (
-                            <SelectItem key={p.id} value={String(p.id)}>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${INSPECTION_TYPE_COLORS[p.inspectionType] || INSPECTION_TYPE_COLORS.legal}`}>
-                                  {INSPECTION_TYPE_LABELS[p.inspectionType] || "법정"}
-                                </span>
-                                <span>{p.name}</span>
-                                <span className="text-xs text-muted-foreground">({getCycleLabel(p)})</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.name && presets.find((p) => p.name === form.name) && (() => {
-                    const selectedPreset = presets.find((p) => p.name === form.name) as InspectionPreset;
-                    const subItems = selectedPreset?.subItems ? JSON.parse(selectedPreset.subItems) : [];
-                    const recMonths = selectedPreset?.recommendedMonths ? JSON.parse(selectedPreset.recommendedMonths) : [];
-                    const seasonalNote = selectedPreset?.seasonalNotes;
-                    return (subItems.length > 0 || recMonths.length > 0 || seasonalNote) ? (
-                      <div className="mt-2 p-3 bg-muted/50 rounded-lg text-sm space-y-1.5">
-                        {selectedPreset?.legalBasis && (
-                          <p className="text-xs text-muted-foreground"><span className="font-medium">법적 근거:</span> {selectedPreset.legalBasis}</p>
-                        )}
-                        {subItems.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">세부 점검 항목:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {subItems.map((item: string, i: number) => (
-                                <span key={i} className="text-xs bg-background px-2 py-0.5 rounded border">{item}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {recMonths.length > 0 && (
-                          <p className="text-xs text-muted-foreground"><span className="font-medium">추천 시행월:</span> {recMonths.map((m: number) => `${m}월`).join(", ")}</p>
-                        )}
-                        {seasonalNote && (
-                          <p className="text-xs text-orange-600"><span className="font-medium">계절별 참고:</span> {seasonalNote}</p>
-                        )}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              )}
-              <div>
-                <Label>점검명</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예: 승강기 정기검사" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>분류</Label>
-                  <Select value={form.category} onValueChange={handleCategoryChange}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>법정 주기 (개월)</Label>
-                  <Input type="number" inputMode="numeric" min={1} value={form.legalCycleMonths ?? ""} onChange={(e) => setForm({ ...form, legalCycleMonths: e.target.value ? parseInt(e.target.value) : null })} placeholder="예: 6" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>연간 횟수</Label>
-                  <Input type="number" inputMode="numeric" min={1} value={form.frequencyPerYear} onChange={(e) => setForm({ ...form, frequencyPerYear: parseInt(e.target.value) || 1 })} />
-                </div>
-                <div>
-                  <Label>사전 알림 일수</Label>
-                  <Input type="number" inputMode="numeric" min={1} value={form.advanceAlertDays} onChange={(e) => setForm({ ...form, advanceAlertDays: parseInt(e.target.value) || 30 })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>최근 점검일</Label>
-                  <Input type="date" value={form.lastInspectionDate} onChange={(e) => handleLastDateChange(e.target.value)} />
-                </div>
-                <div>
-                  <Label>다음 예정일 {form.legalCycleMonths && form.lastInspectionDate ? "(자동계산)" : ""}</Label>
-                  <Input type="date" value={form.nextDueDate} onChange={(e) => setForm({ ...form, nextDueDate: e.target.value })} required />
-                </div>
-              </div>
-              <div>
-                <Label>법정근거</Label>
-                <Input value={form.legalBasis} onChange={(e) => setForm({ ...form, legalBasis: e.target.value })} placeholder="예: 승강기 안전관리법 제32조" />
-              </div>
-              <div>
-                <Label>비고</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="점검 관련 메모" />
-              </div>
-              <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
-            </form>
-          </ResponsiveDialogContent>
-        </ResponsiveDialog>
+          <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>
+            <ClipboardList className="w-4 h-4 mr-2" />
+            일괄 등록
+          </Button>
+          <InspectionFormDialog
+            open={dialogOpen}
+            onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}
+            editing={!!editing}
+            form={form}
+            setForm={setForm}
+            presets={presets}
+            onSubmit={handleSubmit}
+            onPresetSelect={handlePresetSelect}
+            onCategoryChange={handleCategoryChange}
+            onLastDateChange={handleLastDateChange}
+            getCycleLabel={getCycleLabel}
+          />
         </div>
       </div>
 
-      <ResponsiveDialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <ResponsiveDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>법정 점검 일괄 등록</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>카테고리 선택</Label>
-              <Select value={bulkSelectedCategory} onValueChange={(v) => { setBulkSelectedCategory(v); setBulkSelectedIds([]); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>기준일 (최근 점검일)</Label>
-              <Input type="date" value={bulkBaseDate} onChange={(e) => setBulkBaseDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>등록할 점검 항목 선택</Label>
-              <div className="border rounded-md p-3 space-y-2 max-h-60 overflow-y-auto">
-                {presets?.filter((p) => p.category === bulkSelectedCategory).map((preset) => (
-                  <label key={preset.id} className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={bulkSelectedIds.includes(preset.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setBulkSelectedIds([...bulkSelectedIds, preset.id]);
-                        } else {
-                          setBulkSelectedIds(bulkSelectedIds.filter((id) => id !== preset.id));
-                        }
-                      }}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{preset.name}</div>
-                      {preset.legalBasis && <div className="text-xs text-muted-foreground">{preset.legalBasis}</div>}
-                      {preset.inspectionType && (
-                        <Badge variant="outline" className="text-xs mt-0.5">
-                          {preset.inspectionType === "legal" ? "법정" : preset.inspectionType === "biweekly" ? "격주" : preset.inspectionType === "seasonal" ? "계절별" : preset.inspectionType === "administrative" ? "행정" : "자체정기"}
-                        </Badge>
-                      )}
-                    </div>
-                  </label>
-                ))}
-                {presets?.filter((p) => p.category === bulkSelectedCategory).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">해당 카테고리에 프리셋이 없습니다</p>
-                )}
-              </div>
-              <div className="flex justify-between mt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const categoryPresets = presets?.filter((p) => p.category === bulkSelectedCategory) || [];
-                    setBulkSelectedIds(categoryPresets.map((p) => p.id));
-                  }}
-                >
-                  전체 선택
-                </Button>
-                <span className="text-sm text-muted-foreground self-center">
-                  {bulkSelectedIds.length}개 선택됨
-                </span>
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              disabled={bulkSelectedIds.length === 0 || bulkRegisterMutation.isPending}
-              onClick={async () => {
-                try {
-                  const result = await bulkRegisterMutation.mutateAsync({
-                    data: {
-                      presetIds: bulkSelectedIds,
-                      baseDate: bulkBaseDate,
-                      category: bulkSelectedCategory,
-                    },
-                  });
-                  queryClient.invalidateQueries({ queryKey: getListInspectionsQueryKey() });
-                  setBulkDialogOpen(false);
-                  setBulkSelectedIds([]);
-                  toast({ title: `${(result as BulkRegisterInspectionsResponse).registeredCount}개 점검이 일괄 등록되었습니다` });
-                } catch {
-                  toast({ title: "일괄 등록 실패", variant: "destructive" });
-                }
-              }}
-            >
-              {bulkRegisterMutation.isPending ? "등록 중..." : `${bulkSelectedIds.length}개 일괄 등록`}
-            </Button>
-          </div>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <BulkRegisterDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        bulkSelectedCategory={bulkSelectedCategory}
+        setBulkSelectedCategory={setBulkSelectedCategory}
+        bulkBaseDate={bulkBaseDate}
+        setBulkBaseDate={setBulkBaseDate}
+        bulkSelectedIds={bulkSelectedIds}
+        setBulkSelectedIds={setBulkSelectedIds}
+        presets={presets}
+        isPending={bulkRegisterMutation.isPending}
+        onSubmit={handleBulkRegister}
+      />
 
-      <ResponsiveDialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>점검 완료 처리</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <form onSubmit={handleComplete} className="space-y-4">
-            <div>
-              <Label>점검일</Label>
-              <Input type="date" value={completeForm.inspectionDate} onChange={(e) => setCompleteForm({ ...completeForm, inspectionDate: e.target.value })} required />
-            </div>
-            <div>
-              <Label>점검 결과</Label>
-              <Select value={completeForm.result} onValueChange={(v) => setCompleteForm({ ...completeForm, result: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {resultOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {completeForm.result === "poor" && (
-                <p className="text-xs text-destructive mt-1">
-                  불량 판정 시 수선유지비 지출 기안이 자동 생성됩니다.
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>점검자</Label>
-              <Input value={completeForm.inspector} onChange={(e) => setCompleteForm({ ...completeForm, inspector: e.target.value })} placeholder="점검 담당자명" />
-            </div>
-            <div>
-              <Label>메모</Label>
-              <Textarea value={completeForm.memo} onChange={(e) => setCompleteForm({ ...completeForm, memo: e.target.value })} placeholder="점검 결과 상세 내용" />
-            </div>
-            <Button type="submit" className="w-full">완료 처리</Button>
-          </form>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <CompleteDialog
+        open={completeDialogOpen}
+        onOpenChange={setCompleteDialogOpen}
+        completeForm={completeForm}
+        setCompleteForm={setCompleteForm}
+        onSubmit={handleComplete}
+      />
 
-      <ResponsiveDialog open={historyDialogOpen} onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryId(null); }}>
-        <ResponsiveDialogContent className="max-w-lg">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>점검 이력</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          {logs && logs.length > 0 ? (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {logs.map((log) => (
-                <Card key={log.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{formatDate(log.inspectionDate)}</p>
-                        {log.inspector && <p className="text-xs text-muted-foreground">점검자: {log.inspector}</p>}
-                      </div>
-                      <Badge variant="outline" className={resultColor(log.result)}>
-                        {resultLabel(log.result)}
-                      </Badge>
-                    </div>
-                    {log.memo && <p className="text-sm text-muted-foreground mt-2">{log.memo}</p>}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">점검 이력이 없습니다</p>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <HistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryId(null); }}
+        logs={logs}
+      />
 
       {isLoading ? (
         <div className="space-y-3">
@@ -672,68 +326,15 @@ export default function Inspections() {
       ) : inspections && inspections.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {inspections.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-accent/10">
-                      <Shield className="w-5 h-5 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">{categoryLabel(item.category)}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={statusColor(item.status) as "default" | "secondary" | "destructive" | "outline"}>
-                          {statusLabel(item.status)}
-                        </Badge>
-                        {item.legalCycleMonths && (
-                          <span className="text-xs text-muted-foreground">
-                            {item.legalCycleMonths}개월 주기
-                          </span>
-                        )}
-                        {!item.legalCycleMonths && (
-                          <span className="text-xs text-muted-foreground">
-                            연 {item.frequencyPerYear}회
-                          </span>
-                        )}
-                      </div>
-                      {item.status === "scheduled" && (
-                        <Button
-                          variant="outline"
-                          className="mt-2 h-11"
-                          onClick={() => openNotice(item)}
-                        >
-                          <Printer className="w-3.5 h-3.5 mr-1" />
-                          안내문 출력
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{formatDate(item.nextDueDate)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {item.advanceAlertDays}일 전 알림
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-2 justify-end">
-                      {item.status !== "completed" && (
-                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openComplete(item.id)} title="완료 처리">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openHistory(item.id)} title="점검 이력">
-                        <History className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => openEdit(item)} title="수정">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => handleDelete(item.id)} title="삭제">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <InspectionCard
+              key={item.id}
+              item={item}
+              onComplete={openComplete}
+              onHistory={openHistory}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onNotice={openNotice}
+            />
           ))}
         </div>
       ) : (

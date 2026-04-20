@@ -23,7 +23,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -33,14 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@/components/ui/responsive-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import {
   Table,
   TableBody,
   TableCell,
@@ -49,21 +40,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Plus,
   Trash2,
   Edit,
   Search,
-  Upload,
-  Download,
   Layers,
   DoorOpen,
   Building2,
   Eye,
-  Users,
-  UserCheck,
-  Car,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
+import { GenerateDialog, type GenForm } from "@/components/units/generate-dialog";
+import { UnitFormDialog, type UnitFormState } from "@/components/units/unit-form-dialog";
+import { UnitDetailDialog } from "@/components/units/unit-detail-dialog";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
@@ -71,26 +60,15 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
   maintenance: { label: "정비중", variant: "destructive" },
 };
 
-const USAGE_OPTIONS = ["주거", "사무실", "상가", "기타"] as const;
-
-const emptyForm = {
+const emptyForm: UnitFormState = {
   unitNumber: "",
   floor: "",
   exclusiveArea: "",
   commonArea: "",
   usage: "주거",
   notes: "",
-  status: "vacant" as string,
+  status: "vacant",
 };
-
-interface CsvRow {
-  호실번호: string;
-  층: string;
-  전용면적?: string;
-  공용면적?: string;
-  용도?: string;
-  비고?: string;
-}
 
 export default function UnitsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -103,7 +81,7 @@ export default function UnitsPage() {
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
   const [csvParsing, setCsvParsing] = useState(false);
-  const [genForm, setGenForm] = useState({
+  const [genForm, setGenForm] = useState<GenForm>({
     startFloor: "1",
     endFloor: "10",
     unitsPerFloor: "10",
@@ -136,7 +114,7 @@ export default function UnitsPage() {
   const bulkMutation = useBulkCreateUnits();
   const generateMutation = useGenerateUnits();
 
-  const [form, setForm] = useState({ ...emptyForm });
+  const [form, setForm] = useState<UnitFormState>({ ...emptyForm });
 
   const floorGroups = useMemo(() => {
     if (!units) return [];
@@ -339,195 +317,35 @@ export default function UnitsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <ResponsiveDialog open={csvDialogOpen} onOpenChange={(o) => { setCsvDialogOpen(o); if (!o) { setCsvData([]); setCsvErrors([]); } }}>
-            <ResponsiveDialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Upload className="w-4 h-4 mr-1" />
-                <span className="hidden desktop:inline">CSV 업로드</span>
-              </Button>
-            </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle>CSV 일괄 등록</ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Button variant="link" size="sm" className="p-0 h-auto" onClick={downloadSampleCsv}>
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    샘플 CSV 다운로드
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  CSV 형식: 호실번호, 층, 전용면적, 공용면적, 용도, 비고
-                </p>
-                <Input type="file" accept=".csv" onChange={handleCsvFile} disabled={csvParsing} />
-                {csvParsing && <p className="text-xs text-muted-foreground">CSV 파싱 중...</p>}
-                {csvErrors.length > 0 && (
-                  <div className="bg-destructive/10 p-3 rounded text-sm space-y-1">
-                    {csvErrors.map((err, i) => (
-                      <p key={i} className="text-destructive">{err}</p>
-                    ))}
-                  </div>
-                )}
-                {csvData.length > 0 && (
-                  <>
-                    <p className="text-sm font-medium">{csvData.length}개 호실 미리보기</p>
-                    <div className="max-h-60 overflow-y-auto border rounded">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>호실번호</TableHead>
-                            <TableHead>층</TableHead>
-                            <TableHead>전용면적</TableHead>
-                            <TableHead>공용면적</TableHead>
-                            <TableHead>용도</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {csvData.slice(0, 20).map((row, i) => (
-                            <TableRow key={i}>
-                              <TableCell>{row["호실번호"]}</TableCell>
-                              <TableCell>{row["층"]}</TableCell>
-                              <TableCell>{row["전용면적"] || "-"}</TableCell>
-                              <TableCell>{row["공용면적"] || "-"}</TableCell>
-                              <TableCell>{row["용도"] || "-"}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      {csvData.length > 20 && (
-                        <p className="text-xs text-muted-foreground text-center py-2">
-                          ... 외 {csvData.length - 20}개
-                        </p>
-                      )}
-                    </div>
-                    <Button className="w-full" onClick={handleCsvImport} disabled={bulkMutation.isPending}>
-                      {bulkMutation.isPending ? "등록 중..." : `${csvData.length}개 호실 등록`}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
+          <CsvUploadDialog
+            open={csvDialogOpen}
+            onOpenChange={(o) => { setCsvDialogOpen(o); if (!o) { setCsvData([]); setCsvErrors([]); } }}
+            csvData={csvData}
+            csvErrors={csvErrors}
+            csvParsing={csvParsing}
+            isPending={bulkMutation.isPending}
+            onFileChange={handleCsvFile}
+            onImport={handleCsvImport}
+            onDownloadSample={downloadSampleCsv}
+          />
 
-          <ResponsiveDialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
-            <ResponsiveDialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Layers className="w-4 h-4 mr-1" />
-                <span className="hidden desktop:inline">자동 생성</span>
-              </Button>
-            </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent>
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle>호실 자동 생성</ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <form onSubmit={handleGenerate} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>시작 층</Label>
-                    <Input type="number" value={genForm.startFloor} onChange={(e) => setGenForm({ ...genForm, startFloor: e.target.value })} required />
-                  </div>
-                  <div>
-                    <Label>끝 층</Label>
-                    <Input type="number" value={genForm.endFloor} onChange={(e) => setGenForm({ ...genForm, endFloor: e.target.value })} required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>층당 호실 수</Label>
-                    <Input type="number" value={genForm.unitsPerFloor} onChange={(e) => setGenForm({ ...genForm, unitsPerFloor: e.target.value })} required />
-                  </div>
-                  <div>
-                    <Label>시작 호수</Label>
-                    <Input type="number" value={genForm.startUnit} onChange={(e) => setGenForm({ ...genForm, startUnit: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>접두어 (선택)</Label>
-                    <Input value={genForm.prefix} onChange={(e) => setGenForm({ ...genForm, prefix: e.target.value })} placeholder="예: A동" />
-                  </div>
-                  <div>
-                    <Label>용도 (선택)</Label>
-                    <Input value={genForm.usage} onChange={(e) => setGenForm({ ...genForm, usage: e.target.value })} placeholder="예: 사무실" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {genForm.startFloor && genForm.endFloor && genForm.unitsPerFloor
-                    ? `${(parseInt(genForm.endFloor) - parseInt(genForm.startFloor) + 1) * parseInt(genForm.unitsPerFloor)}개 호실이 생성됩니다`
-                    : ""}
-                </p>
-                <Button type="submit" className="w-full" disabled={generateMutation.isPending}>
-                  {generateMutation.isPending ? "생성 중..." : "호실 생성"}
-                </Button>
-              </form>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
+          <GenerateDialog
+            open={generateDialogOpen}
+            onOpenChange={setGenerateDialogOpen}
+            genForm={genForm}
+            setGenForm={setGenForm}
+            isPending={generateMutation.isPending}
+            onSubmit={handleGenerate}
+          />
 
-          <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-            <ResponsiveDialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-1" />
-                <span className="hidden desktop:inline">호실 추가</span>
-              </Button>
-            </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent>
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle>{editing ? "호실 수정" : "새 호실 등록"}</ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>호실번호 *</Label>
-                    <Input value={form.unitNumber} onChange={(e) => setForm({ ...form, unitNumber: e.target.value })} placeholder="예: 101" required />
-                  </div>
-                  <div>
-                    <Label>층 *</Label>
-                    <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="예: 1, B1, B2" required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>전용면적 (m²)</Label>
-                    <Input type="number" step="0.01" value={form.exclusiveArea} onChange={(e) => setForm({ ...form, exclusiveArea: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>공용면적 (m²)</Label>
-                    <Input type="number" step="0.01" value={form.commonArea} onChange={(e) => setForm({ ...form, commonArea: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>용도</Label>
-                    <Select value={form.usage} onValueChange={(v) => setForm({ ...form, usage: v })}>
-                      <SelectTrigger><SelectValue placeholder="용도 선택" /></SelectTrigger>
-                      <SelectContent>
-                        {USAGE_OPTIONS.map((opt) => (
-                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>상태</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="vacant">공실</SelectItem>
-                        <SelectItem value="occupied">입주</SelectItem>
-                        <SelectItem value="maintenance">정비중</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>비고</Label>
-                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-                </div>
-                <Button type="submit" className="w-full">{editing ? "수정" : "등록"}</Button>
-              </form>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
+          <UnitFormDialog
+            open={dialogOpen}
+            onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}
+            editing={!!editing}
+            form={form}
+            setForm={setForm}
+            onSubmit={handleSubmit}
+          />
         </div>
       </div>
 
@@ -712,105 +530,17 @@ export default function UnitsPage() {
         </Card>
       )}
 
-      <ResponsiveDialog open={!!detailUnitId} onOpenChange={(o) => { if (!o) setDetailUnitId(null); }}>
-        <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>호실 상세</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          {unitDetail && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">호실번호:</span> <span className="font-medium">{unitDetail.unitNumber}</span></div>
-                <div><span className="text-muted-foreground">층:</span> <span className="font-medium">{unitDetail.floor}층</span></div>
-                <div>
-                  <span className="text-muted-foreground">상태:</span>{" "}
-                  <Badge variant={STATUS_MAP[unitDetail.status]?.variant || "secondary"}>
-                    {STATUS_MAP[unitDetail.status]?.label || unitDetail.status}
-                  </Badge>
-                </div>
-                <div><span className="text-muted-foreground">용도:</span> {unitDetail.usage || "-"}</div>
-                <div><span className="text-muted-foreground">전용면적:</span> {unitDetail.exclusiveArea ? `${unitDetail.exclusiveArea}m²` : "-"}</div>
-                <div><span className="text-muted-foreground">공용면적:</span> {unitDetail.commonArea ? `${unitDetail.commonArea}m²` : "-"}</div>
-                {unitDetail.notes && (
-                  <div className="col-span-2"><span className="text-muted-foreground">비고:</span> {unitDetail.notes}</div>
-                )}
-              </div>
-
-              <div className="border-t pt-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">입주자</p>
-                </div>
-                {unitDetail.tenants && unitDetail.tenants.length > 0 ? (
-                  <div className="space-y-2">
-                    {unitDetail.tenants.map((t, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                        <span>{t.tenantName}</span>
-                        <span className="text-muted-foreground">{t.phone || "-"}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 입주자가 없습니다</p>
-                )}
-              </div>
-
-              <div className="border-t pt-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <UserCheck className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">소유자</p>
-                </div>
-                {unitDetail.owners && unitDetail.owners.length > 0 ? (
-                  <div className="space-y-2">
-                    {unitDetail.owners.map((o, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                        <span>{o.ownerName}</span>
-                        <span className="text-muted-foreground">{o.phone || "-"}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 소유자가 없습니다</p>
-                )}
-              </div>
-
-              <div className="border-t pt-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Car className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-medium">등록 차량</p>
-                </div>
-                {unitDetail.vehicles && unitDetail.vehicles.length > 0 ? (
-                  <div className="space-y-2">
-                    {unitDetail.vehicles.map((v, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded p-2">
-                        <span className="font-medium">{v.vehicleNumber}</span>
-                        <span className="text-muted-foreground">{v.vehicleType || ""} {v.ownerName ? `(${v.ownerName})` : ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">해당 호실에 등록된 차량이 없습니다</p>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setDetailUnitId(null); const u = units?.find(x => x.id === detailUnitId); if (u) openEdit(u); }}>
-                  <Edit className="w-4 h-4 mr-1" />
-                  수정
-                </Button>
-                <Button variant="destructive" className="flex-1" onClick={() => { if (detailUnitId) { handleDelete(detailUnitId); setDetailUnitId(null); } }}>
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  삭제
-                </Button>
-              </div>
-            </div>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+      <UnitDetailDialog
+        detailUnitId={detailUnitId}
+        unitDetail={unitDetail}
+        onClose={() => setDetailUnitId(null)}
+        onEdit={() => { setDetailUnitId(null); const u = units?.find(x => x.id === detailUnitId); if (u) openEdit(u); }}
+        onDelete={() => { if (detailUnitId) { handleDelete(detailUnitId); setDetailUnitId(null); } }}
+      />
       </TabsContent>
       {canManageOwners && (
         <TabsContent value="owners" className="mt-0">
-          <Suspense fallback={<Skeleton className="h-64" />}>
+          <Suspense fallback={<div className="space-y-3"><Skeleton className="h-12" /><Skeleton className="h-32" /></div>}>
             <Owners />
           </Suspense>
         </TabsContent>
