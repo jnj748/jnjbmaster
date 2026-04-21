@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
-const API_BASE = "/api";
+const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 const TIERS: Array<{ years: number; label: string; scope: string }> = [
   { years: 2, label: "2년", scope: "마감공사·도배·타일 등" },
