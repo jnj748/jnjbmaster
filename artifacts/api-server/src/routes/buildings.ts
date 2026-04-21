@@ -696,12 +696,18 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
         if (!lastDate) continue;
 
         const cycleMonths = getCyclemonthsForCategory(category, presetName);
-        // [Task #174] 건축물 정기점검 첫 점검: 준공+5년(연면적 < 10,000㎡) 또는 +10년(이상).
-        // 폴백(준공일=lastDate) 시에만 첫 회차에 적용한다.
+        // [Task #174] 건축물 정기점검 폴백: 준공 + 5년/10년이 첫 회차이며,
+        // 그 이후로는 정상 주기(36개월)로 굴려서 현재 시점 이후의 다음 회차를 산정한다.
         let nextDueDate: string;
         if (isProvisional && category === "building_safety") {
-          const firstYears = totalAreaNum >= 10000 ? 120 : 60;
-          nextDueDate = calculateNextDue(lastDate, firstYears);
+          const firstMonths = totalAreaNum >= 10000 ? 120 : 60;
+          let candidate = calculateNextDue(lastDate, firstMonths);
+          const now = new Date();
+          // 이미 지난 1차 회차라면 cycleMonths(36개월) 단위로 미래 시점까지 진행.
+          while (new Date(candidate) < now) {
+            candidate = calculateNextDue(candidate, cycleMonths);
+          }
+          nextDueDate = candidate;
         } else {
           nextDueDate = calculateNextDue(lastDate, cycleMonths);
         }

@@ -491,6 +491,15 @@ export default function ManagerWizardPage() {
           onChange={(patch) => setInsStep(step, patch)}
           onPrev={goPrev}
           onNext={async () => {
+            // 항목별 누락 방지: 날짜 입력 또는 '잘 모르겠어요' 중 하나는 반드시 선택해야 한다.
+            const v = getInsStep(step);
+            if (!v.unknown && !v.date) {
+              toast({
+                title: "마지막 점검일을 입력하거나 '잘 모르겠어요'를 선택해 주세요.",
+                variant: "destructive",
+              });
+              return;
+            }
             // 마지막 점검 단계에서 일정 일괄 생성. 실패 시 다음 단계로 진행하지 않는다.
             const remaining = sequence.slice(stepIdx + 1).find((k) => k.startsWith("ins-"));
             if (!remaining) {
