@@ -74,7 +74,7 @@ interface MonthlyReport {
 }
 
 const CATEGORY_LABEL: Record<Category, string> = {
-  facility: "시설", bill: "고지서", complaint: "민원",
+  facility: "시설", bill: "관리비", complaint: "민원",
 };
 const CATEGORY_ICON: Record<Category, typeof Wrench> = {
   facility: Wrench, bill: Receipt, complaint: MessageSquareWarning,
@@ -215,7 +215,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
       </Button>
       <div className="flex gap-2 overflow-x-auto">
         {([
-          ["all", "전체"], ["facility", "시설"], ["bill", "고지서"], ["complaint", "민원"],
+          ["all", "전체"], ["facility", "시설"], ["bill", "관리비"], ["complaint", "민원"],
         ] as const).map(([k, label]) => (
           <button
             key={k}
@@ -707,7 +707,7 @@ function WeeklyTab() {
             <h3 className="text-sm font-semibold mb-2">분류별 기록</h3>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
               <Stat label="시설" value={`${data.byCategory.facility}`} />
-              <Stat label="고지서" value={`${data.byCategory.bill}`} />
+              <Stat label="관리비" value={`${data.byCategory.bill}`} />
               <Stat label="민원" value={`${data.byCategory.complaint}`} />
             </div>
           </section>
@@ -743,7 +743,7 @@ function MonthlyTab() {
       `[${data.buildingName ?? "건물"}] ${data.month} 월간 업무 보고`,
       `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주`,
       "",
-      `시설 ${data.byCategory.facility} · 고지서 ${data.byCategory.bill} · 민원 ${data.byCategory.complaint}`,
+      `시설 ${data.byCategory.facility} · 관리비 ${data.byCategory.bill} · 민원 ${data.byCategory.complaint}`,
     ];
     const r = await shareDocument({ title: `월간 보고 ${data.month}`, text: lines.join("\n") });
     if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
@@ -816,7 +816,7 @@ function MonthlyTab() {
             <h3 className="text-sm font-semibold mb-2">분류별 합계</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
               <Stat label="시설" value={`${data.byCategory.facility}`} />
-              <Stat label="고지서" value={`${data.byCategory.bill}`} />
+              <Stat label="관리비" value={`${data.byCategory.bill}`} />
               <Stat label="민원" value={`${data.byCategory.complaint}`} />
             </div>
           </section>

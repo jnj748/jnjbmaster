@@ -18,7 +18,7 @@ interface CategoryOption {
 
 const CATEGORIES: CategoryOption[] = [
   { value: "facility", label: "시설", icon: Wrench, hint: "엘리베이터·누수·전기 등" },
-  { value: "bill", label: "고지서", icon: Receipt, hint: "검침·청구·납부 메모" },
+  { value: "bill", label: "관리비", icon: Receipt, hint: "검침·청구·납부 메모" },
   { value: "complaint", label: "민원", icon: MessageSquareWarning, hint: "주민 요청·소음·주차" },
 ];
 
