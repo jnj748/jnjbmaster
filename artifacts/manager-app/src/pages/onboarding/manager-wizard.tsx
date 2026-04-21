@@ -590,7 +590,7 @@ function Shell({
         <div className="px-4 pt-4 pb-3 border-b border-slate-100 sticky top-0 bg-white z-10">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] text-slate-400">
-              {hideProgress ? "관리의달인 시작하기" : `${stepIdx + 1} / ${total}`}
+              {hideProgress ? "관리의달인 시작하기" : ""}
             </span>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="닫기">
               <X className="w-4 h-4" />
@@ -679,7 +679,7 @@ function IntroStep({ onStart }: { onStart: () => void }) {
       >
         시작하기 <ChevronRight className="w-4 h-4" />
       </button>
-      <p className="text-[11px] text-slate-400 mt-2">약 3분이면 끝나요. 모르는 건 비워두셔도 됩니다.</p>
+      <p className="text-[11px] text-slate-400 mt-2">약 1분이면 끝나요. 모르는 건 비워두셔도 됩니다.</p>
     </div>
   );
 }
