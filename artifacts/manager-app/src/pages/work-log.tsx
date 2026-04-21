@@ -269,8 +269,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="outline" className="text-[10px]">{CATEGORY_LABEL[e.category]}</Badge>
-                        <span>{new Date(e.occurredAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</span>
-                        <span>· {e.authorName}</span>
+                        <span>{e.authorName}</span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap mt-1 break-words">{e.memo}</p>
                       {e.photoUrl ? (
@@ -454,16 +453,13 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
         </section>
 
         <section>
-          <h3 className="text-sm font-semibold mb-2">2. 시간대별 업무 기록 ({report.entries.length}건)</h3>
+          <h3 className="text-sm font-semibold mb-2">2. 금일 업무 기록 ({report.entries.length}건)</h3>
           {report.entries.length === 0 ? (
             <p className="text-xs text-muted-foreground">기록 없음</p>
           ) : (
             <ul className="space-y-1.5">
               {report.entries.map((e) => (
                 <li key={e.id} className="text-sm flex gap-2">
-                  <span className="text-xs text-muted-foreground w-12 shrink-0 mt-0.5">
-                    {new Date(e.occurredAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
                   <Badge variant="outline" className="text-[10px] h-5 shrink-0">{CATEGORY_LABEL[e.category]}</Badge>
                   <span className="flex-1">{e.memo}{e.photoUrl ? <ImageIcon className="inline w-3 h-3 ml-1 text-muted-foreground" /> : null}</span>
                 </li>
@@ -510,10 +506,9 @@ function buildDailyShareText(r: DailyReport): string {
     });
     lines.push("");
   }
-  lines.push(`■ 업무 기록 ${r.entries.length}건`);
+  lines.push(`■ 금일 업무 기록 ${r.entries.length}건`);
   r.entries.forEach((e) => {
-    const t = new Date(e.occurredAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
-    lines.push(`  ${t} [${CATEGORY_LABEL[e.category]}] ${e.memo}`);
+    lines.push(`  [${CATEGORY_LABEL[e.category]}] ${e.memo}`);
   });
   lines.push("");
   lines.push(`■ 법정업무: 완료 ${r.statutory.completed.length} / 미완료 ${r.statutory.postponed.length} / 기안 ${r.statutory.drafted.length}`);
