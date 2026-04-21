@@ -211,6 +211,11 @@ router.post("/buildings", async (req: Request, res: Response) => {
       res.status(400).json({ error: "건물명은 필수입니다." });
       return;
     }
+
+    // [Task #218] 첫 건물 등록 여부 판별: 매니저가 처음 건물을 등록하는 경우 시드 대상.
+    const requestingUser = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+    const isFirstBuildingForManager = !!requestingUser && requestingUser.role === "manager" && !requestingUser.buildingId;
+
     const [building] = await db
       .insert(buildingsTable)
       .values(buildBuildingInsertValues(data) as typeof buildingsTable.$inferInsert)
@@ -223,6 +228,75 @@ router.post("/buildings", async (req: Request, res: Response) => {
         buildingSigungu: data.sigungu || null,
       })
       .where(eq(usersTable.id, userId));
+
+    // [Task #218] 신규 매니저 첫 건물 등록 시 대시보드 검증 편의를 위해 "test" 점검 4건을 시드한다.
+    //  - 필수업무현황(legal) 2건 + 제안업무현황(self_regular/seasonal) 2건.
+    //  - name="test" 중복 검사로 재시드 방지.
+    if (isFirstBuildingForManager) {
+      try {
+        const existingTest = await db
+          .select({ id: inspectionsTable.id })
+          .from(inspectionsTable)
+          .where(and(eq(inspectionsTable.buildingId, building.id), eq(inspectionsTable.name, "test")))
+          .limit(1);
+        if (existingTest.length === 0) {
+          const today = new Date();
+          const plusDays = (n: number) => {
+            const d = new Date(today);
+            d.setDate(d.getDate() + n);
+            return d.toISOString().split("T")[0];
+          };
+          await db.insert(inspectionsTable).values([
+            {
+              buildingId: building.id,
+              name: "test",
+              category: "electrical",
+              inspectionType: "legal",
+              frequencyPerYear: 1,
+              legalCycleMonths: 12,
+              nextDueDate: plusDays(7),
+              status: "upcoming",
+              advanceAlertDays: 30,
+            },
+            {
+              buildingId: building.id,
+              name: "test",
+              category: "fire_safety",
+              inspectionType: "legal",
+              frequencyPerYear: 1,
+              legalCycleMonths: 12,
+              nextDueDate: plusDays(14),
+              status: "upcoming",
+              advanceAlertDays: 30,
+            },
+            {
+              buildingId: building.id,
+              name: "test",
+              category: "self_regular",
+              inspectionType: "self_regular",
+              frequencyPerYear: 12,
+              intervalDays: 30,
+              nextDueDate: plusDays(7),
+              status: "upcoming",
+              advanceAlertDays: 7,
+            },
+            {
+              buildingId: building.id,
+              name: "test",
+              category: "seasonal",
+              inspectionType: "seasonal",
+              frequencyPerYear: 4,
+              intervalDays: 90,
+              nextDueDate: plusDays(14),
+              status: "upcoming",
+              advanceAlertDays: 14,
+            },
+          ]);
+        }
+      } catch (seedErr) {
+        req.log.warn({ err: seedErr, buildingId: building.id }, "Failed to seed test inspections for first building");
+      }
+    }
 
     res.json({ building });
   } catch (error) {
