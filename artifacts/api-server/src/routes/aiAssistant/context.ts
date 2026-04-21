@@ -249,11 +249,40 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
     [] as Array<{ id: number; billingMonth: string; totalAmount: number; unitCount: number | null; lineItems: Record<string, number>; confirmed: boolean }>,
   );
   const roundK = (n: number) => Math.round(n / 1000) * 1000;
+  // OCR이 사용하는 영문 키를 사용자 친화적 한글 라벨로 매핑한다.
+  // 매핑에 없는 키는 "기타"로 합산하여 노출량을 최소화한다.
+  const ITEM_LABELS: Record<string, string> = {
+    general: "일반관리비",
+    cleaning: "청소비",
+    security: "경비비",
+    disinfection: "소독비",
+    elevator: "승강기유지비",
+    electricity: "공동전기료",
+    water: "공동수도료",
+    heating: "난방비",
+    gas: "가스료",
+    longTermRepairFund: "장기수선충당금",
+    insurance: "화재보험료",
+    other: "기타",
+  };
+  function toKoreanItems(raw: Record<string, number> | null | undefined): Record<string, number> {
+    const out: Record<string, number> = {};
+    let etc = 0;
+    for (const [k, v] of Object.entries(raw || {})) {
+      const amount = roundK(Number(v) || 0);
+      if (amount === 0) continue; // 0원 항목은 숨겨 노이즈 제거
+      const label = ITEM_LABELS[k];
+      if (label && label !== "기타") out[label] = amount;
+      else etc += amount;
+    }
+    if (etc > 0) out["기타"] = (out["기타"] ?? 0) + etc;
+    return out;
+  }
   const recentBills = billSummaries.map(b => ({
     month: b.billingMonth,
     totalK: roundK(b.totalAmount),
     perUnitK: b.unitCount && b.unitCount > 0 ? roundK(b.totalAmount / b.unitCount) : null,
-    items: Object.fromEntries(Object.entries(b.lineItems || {}).map(([k, v]) => [k, roundK(Number(v) || 0)])),
+    items: toKoreanItems(b.lineItems),
     confirmed: b.confirmed,
   }));
   // 가장 최근 청구월을 별도 필드로 노출 — 사용자가 "전월/이번달/최근" 같은 모호한 표현으로 물을 때
@@ -303,7 +332,7 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
       })),
     },
     monthlyBills: {
-      note: "관리비 추세는 다음 데이터를 참고하세요. 금액 단위는 원이며 천원 단위로 반올림되어 있습니다. latest는 가장 최근 청구월 1건이며, 사용자가 '전월/지난달/최근/이번달' 등 모호하게 물으면 latest의 month를 명시해 답하세요.",
+      note: "관리비 추세는 다음 데이터를 참고하세요. 금액 단위는 원이며 천원 단위로 반올림되어 있습니다. items의 키는 한글 항목명이며 사용자에게 그대로 노출 가능합니다. latest는 가장 최근 청구월 1건이며, 사용자가 '전월/지난달/최근/이번달' 등 모호하게 물으면 latest의 month를 명시해 답하세요.",
       latest: latestBill,
       recent: recentBills,
     },
