@@ -281,23 +281,52 @@ router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
   res.json(await composeDaily(ctx.buildingId, date, ctx.name ?? "관리자"));
 });
 
-router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
-  const weekStart = typeof req.query.weekStart === "string" ? req.query.weekStart : null;
-  if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) { res.status(400).json({ error: "bad weekStart" }); return; }
-  const ctx = await getCtx(req.user!.userId);
-  if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
+function mondayOfISO(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const day = dt.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  return addDaysISO(iso, diff);
+}
 
+type SectionKey = "security" | "cleaning" | "facility" | "complaint";
+const SECTION_LABELS: Record<SectionKey, string> = {
+  security: "보안", cleaning: "청소", facility: "시설", complaint: "민원",
+};
+
+function buildWeeklyTextSummary(
+  sectionTotals: Record<SectionKey, { issues: number; memos: string[] }>,
+  byCategory: { facility: number; bill: number; complaint: number },
+  topEntryMemos: string[],
+): string {
+  const sectionParts = (Object.keys(SECTION_LABELS) as SectionKey[]).map((k) => {
+    const tot = sectionTotals[k];
+    if (tot.memos.length === 0) return `${SECTION_LABELS[k]}: 특이 없음`;
+    const memo = tot.memos.slice(0, 2).map((s) => s.replace(/\s+/g, " ").trim()).join("; ");
+    return `${SECTION_LABELS[k]}: ${memo}`;
+  });
+  const totalCat = byCategory.facility + byCategory.bill + byCategory.complaint;
+  const catLine = `분류별 ${totalCat}건(시설 ${byCategory.facility}·관리비 ${byCategory.bill}·민원 ${byCategory.complaint})`;
+  let text = sectionParts.join(" / ") + " · " + catLine;
+  if (topEntryMemos.length > 0) {
+    const memos = topEntryMemos.slice(0, 2).map((s) => s.replace(/\s+/g, " ").trim()).join("; ");
+    text += ` · 주요 메모: ${memos}`;
+  }
+  return text;
+}
+
+async function aggregateWeek(buildingId: number, weekStart: string) {
   const dates: string[] = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const weekEnd = dates[6];
 
-  const [journals, entries, building] = await Promise.all([
+  const [journals, entries] = await Promise.all([
     db.select().from(dailyJournalsTable)
-      .where(and(eq(dailyJournalsTable.buildingId, ctx.buildingId),
+      .where(and(eq(dailyJournalsTable.buildingId, buildingId),
         gte(dailyJournalsTable.journalDate, weekStart), lte(dailyJournalsTable.journalDate, weekEnd))),
     db.select().from(workLogEntriesTable)
-      .where(and(eq(workLogEntriesTable.buildingId, ctx.buildingId),
-        gte(workLogEntriesTable.occurredDate, weekStart), lte(workLogEntriesTable.occurredDate, weekEnd))),
-    db.select().from(buildingsTable).where(eq(buildingsTable.id, ctx.buildingId)).then((r) => r[0] ?? null),
+      .where(and(eq(workLogEntriesTable.buildingId, buildingId),
+        gte(workLogEntriesTable.occurredDate, weekStart), lte(workLogEntriesTable.occurredDate, weekEnd)))
+      .orderBy(workLogEntriesTable.occurredAt),
   ]);
 
   const days = dates.map((d) => {
@@ -317,7 +346,7 @@ router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
     };
   });
 
-  const sectionTotals = {
+  const sectionTotals: Record<SectionKey, { issues: number; memos: string[] }> = {
     security: { issues: journals.filter((j) => j.securityStatus === "issue").length, memos: journals.map((j) => j.securityMemo).filter(Boolean) as string[] },
     cleaning: { issues: journals.filter((j) => j.cleaningStatus === "issue").length, memos: journals.map((j) => j.cleaningMemo).filter(Boolean) as string[] },
     facility: { issues: journals.filter((j) => j.facilityStatus === "issue").length, memos: journals.map((j) => j.facilityMemo).filter(Boolean) as string[] },
@@ -328,14 +357,32 @@ router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
     bill: entries.filter((e) => e.category === "bill").length,
     complaint: entries.filter((e) => e.category === "complaint").length,
   };
+  const issues = sectionTotals.security.issues + sectionTotals.cleaning.issues +
+    sectionTotals.facility.issues + sectionTotals.complaint.issues;
+  const topEntryMemos = entries.slice(0, 3).map((e) => e.memo);
 
-  res.json({
+  return {
     weekStart, weekEnd,
-    buildingName: building?.name ?? null,
     days, sectionTotals, byCategory,
     totalEntries: entries.length,
     totalJournals: journals.length,
-  });
+    issues,
+    textSummary: buildWeeklyTextSummary(sectionTotals, byCategory, topEntryMemos),
+  };
+}
+
+router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
+  const weekStart = typeof req.query.weekStart === "string" ? req.query.weekStart : null;
+  if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) { res.status(400).json({ error: "bad weekStart" }); return; }
+  const ctx = await getCtx(req.user!.userId);
+  if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
+
+  const [agg, building] = await Promise.all([
+    aggregateWeek(ctx.buildingId, weekStart),
+    db.select().from(buildingsTable).where(eq(buildingsTable.id, ctx.buildingId)).then((r) => r[0] ?? null),
+  ]);
+
+  res.json({ ...agg, buildingName: building?.name ?? null });
 });
 
 router.get("/work-log-reports/monthly", async (req, res): Promise<void> => {
@@ -350,54 +397,57 @@ router.get("/work-log-reports/monthly", async (req, res): Promise<void> => {
   const monthStart = toKstDateKey(first);
   const monthEnd = toKstDateKey(last);
 
-  const [journals, entries, building] = await Promise.all([
-    db.select().from(dailyJournalsTable)
-      .where(and(eq(dailyJournalsTable.buildingId, ctx.buildingId),
-        gte(dailyJournalsTable.journalDate, monthStart), lte(dailyJournalsTable.journalDate, monthEnd))),
-    db.select().from(workLogEntriesTable)
-      .where(and(eq(workLogEntriesTable.buildingId, ctx.buildingId),
-        gte(workLogEntriesTable.occurredDate, monthStart), lte(workLogEntriesTable.occurredDate, monthEnd))),
+  // Enumerate ISO weeks (Monday-start) overlapping the month.
+  const weekStarts: string[] = [];
+  let cur = mondayOfISO(monthStart);
+  while (cur <= monthEnd) {
+    weekStarts.push(cur);
+    cur = addDaysISO(cur, 7);
+  }
+
+  const [weeks, building] = await Promise.all([
+    Promise.all(weekStarts.map((ws) => aggregateWeek(ctx.buildingId!, ws))),
     db.select().from(buildingsTable).where(eq(buildingsTable.id, ctx.buildingId)).then((r) => r[0] ?? null),
   ]);
 
-  // Group by ISO week (Monday start) within the month.
-  const weeks: Record<string, { weekStart: string; entries: number; journals: number; issues: number; memos: string[] }> = {};
-  function mondayOf(iso: string): string {
-    const [y, m, d] = iso.split("-").map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    const day = dt.getUTCDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    return addDaysISO(iso, diff);
-  }
-  for (const e of entries) {
-    const w = mondayOf(e.occurredDate);
-    weeks[w] ??= { weekStart: w, entries: 0, journals: 0, issues: 0, memos: [] };
-    weeks[w].entries++;
-  }
-  for (const j of journals) {
-    const w = mondayOf(j.journalDate);
-    weeks[w] ??= { weekStart: w, entries: 0, journals: 0, issues: 0, memos: [] };
-    weeks[w].journals++;
-    const issues = (j.securityStatus === "issue" ? 1 : 0) + (j.cleaningStatus === "issue" ? 1 : 0) +
-      (j.facilityStatus === "issue" ? 1 : 0) + (j.complaintStatus === "issue" ? 1 : 0);
-    weeks[w].issues += issues;
-    [j.securityMemo, j.cleaningMemo, j.facilityMemo, j.complaintMemo].forEach((mm) => {
-      if (mm && weeks[w].memos.length < 3) weeks[w].memos.push(mm);
-    });
-  }
-  const weekList = Object.values(weeks).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+  const totals = weeks.reduce(
+    (acc, w) => {
+      acc.totalEntries += w.totalEntries;
+      acc.totalJournals += w.totalJournals;
+      acc.issues += w.issues;
+      acc.byCategory.facility += w.byCategory.facility;
+      acc.byCategory.bill += w.byCategory.bill;
+      acc.byCategory.complaint += w.byCategory.complaint;
+      (Object.keys(SECTION_LABELS) as SectionKey[]).forEach((k) => {
+        acc.sectionTotals[k].issues += w.sectionTotals[k].issues;
+        acc.sectionTotals[k].memos.push(...w.sectionTotals[k].memos);
+      });
+      return acc;
+    },
+    {
+      totalEntries: 0, totalJournals: 0, issues: 0,
+      byCategory: { facility: 0, bill: 0, complaint: 0 },
+      sectionTotals: {
+        security: { issues: 0, memos: [] as string[] },
+        cleaning: { issues: 0, memos: [] as string[] },
+        facility: { issues: 0, memos: [] as string[] },
+        complaint: { issues: 0, memos: [] as string[] },
+      } as Record<SectionKey, { issues: number; memos: string[] }>,
+    },
+  );
+
+  const monthTextSummary = buildWeeklyTextSummary(totals.sectionTotals, totals.byCategory, []);
 
   res.json({
     month, monthStart, monthEnd,
     buildingName: building?.name ?? null,
-    weeks: weekList,
-    totalEntries: entries.length,
-    totalJournals: journals.length,
-    byCategory: {
-      facility: entries.filter((e) => e.category === "facility").length,
-      bill: entries.filter((e) => e.category === "bill").length,
-      complaint: entries.filter((e) => e.category === "complaint").length,
-    },
+    weeks,
+    totalEntries: totals.totalEntries,
+    totalJournals: totals.totalJournals,
+    issues: totals.issues,
+    byCategory: totals.byCategory,
+    sectionTotals: totals.sectionTotals,
+    textSummary: monthTextSummary,
   });
 });
 

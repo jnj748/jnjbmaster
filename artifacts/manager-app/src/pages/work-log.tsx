@@ -62,15 +62,31 @@ interface WeeklyReport {
   byCategory: { facility: number; bill: number; complaint: number };
   totalEntries: number;
   totalJournals: number;
+  issues: number;
+  textSummary: string;
+}
+
+interface MonthlyWeekRollup {
+  weekStart: string;
+  weekEnd: string;
+  totalJournals: number;
+  totalEntries: number;
+  issues: number;
+  byCategory: { facility: number; bill: number; complaint: number };
+  sectionTotals: Record<"security" | "cleaning" | "facility" | "complaint", { issues: number; memos: string[] }>;
+  textSummary: string;
 }
 
 interface MonthlyReport {
   month: string; monthStart: string; monthEnd: string;
   buildingName: string | null;
-  weeks: { weekStart: string; entries: number; journals: number; issues: number; memos: string[] }[];
+  weeks: MonthlyWeekRollup[];
   totalEntries: number;
   totalJournals: number;
+  issues: number;
   byCategory: { facility: number; bill: number; complaint: number };
+  sectionTotals: Record<"security" | "cleaning" | "facility" | "complaint", { issues: number; memos: string[] }>;
+  textSummary: string;
 }
 
 const CATEGORY_LABEL: Record<Category, string> = {
@@ -648,7 +664,9 @@ function WeeklyTab() {
     if (!data) return;
     const lines = [
       `[${data.buildingName ?? "건물"}] 주간 업무 보고 (${data.weekStart} ~ ${data.weekEnd})`,
-      `일지 ${data.totalJournals}/7일 · 기록 ${data.totalEntries}건`,
+      `일지 ${data.totalJournals}/7일 · 기록 ${data.totalEntries}건 · 특이 ${data.issues}건`,
+      "",
+      data.textSummary,
       "",
       ...SECTIONS.map((s) => `■ ${s.label}: 특이 ${data.sectionTotals[s.key].issues}일`),
     ];
@@ -687,7 +705,14 @@ function WeeklyTab() {
           <section className="grid grid-cols-3 gap-2 text-center">
             <Stat label="작성된 일지" value={`${data.totalJournals}/7`} />
             <Stat label="업무 기록" value={`${data.totalEntries}건`} />
-            <Stat label="특이사항" value={`${Object.values(data.sectionTotals).reduce((a, s) => a + s.issues, 0)}건`} />
+            <Stat label="특이사항" value={`${data.issues}건`} />
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold mb-2">주간 요약</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" data-testid="weekly-text-summary">
+              {data.textSummary}
+            </p>
           </section>
 
           <section>
@@ -766,9 +791,11 @@ function MonthlyTab() {
     if (!data) return;
     const lines = [
       `[${data.buildingName ?? "건물"}] ${data.month} 월간 업무 보고`,
-      `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주`,
+      `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주 · 특이 ${data.issues}건`,
       "",
-      `시설 ${data.byCategory.facility} · 관리비 ${data.byCategory.bill} · 민원 ${data.byCategory.complaint}`,
+      data.textSummary,
+      "",
+      ...data.weeks.map((w) => `[${w.weekStart}] ${w.textSummary}`),
     ];
     const r = await shareDocument({ title: `월간 보고 ${data.month}`, text: lines.join("\n") });
     if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
@@ -808,10 +835,18 @@ function MonthlyTab() {
             <p className="text-xs text-muted-foreground">{data.buildingName ?? "건물"} · {data.month}</p>
           </header>
 
-          <section className="grid grid-cols-3 gap-2">
+          <section className="grid grid-cols-4 gap-2">
             <Stat label="작성된 일지" value={`${data.totalJournals}일`} />
             <Stat label="업무 기록" value={`${data.totalEntries}건`} />
             <Stat label="총 주차" value={`${data.weeks.length}주`} />
+            <Stat label="특이사항" value={`${data.issues}건`} />
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold mb-2">월간 요약</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" data-testid="monthly-text-summary">
+              {data.textSummary}
+            </p>
           </section>
 
           <section>
@@ -820,17 +855,15 @@ function MonthlyTab() {
               {data.weeks.length === 0 ? (
                 <p className="text-xs text-muted-foreground">기록 없음</p>
               ) : data.weeks.map((w) => (
-                <Card key={w.weekStart}>
-                  <CardContent className="p-3 text-sm">
+                <Card key={w.weekStart} data-testid={`monthly-week-${w.weekStart}`}>
+                  <CardContent className="p-3 text-sm space-y-1">
                     <div className="flex justify-between">
-                      <span className="font-medium">{w.weekStart} 주</span>
-                      <span className="text-xs text-muted-foreground">일지 {w.journals}일 · 기록 {w.entries}건 · 특이 {w.issues}건</span>
+                      <span className="font-medium">{w.weekStart} ~ {w.weekEnd}</span>
+                      <span className="text-xs text-muted-foreground">일지 {w.totalJournals}일 · 기록 {w.totalEntries}건 · 특이 {w.issues}건</span>
                     </div>
-                    {w.memos.length > 0 && (
-                      <ul className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                        {w.memos.map((m, i) => <li key={i}>· {m}</li>)}
-                      </ul>
-                    )}
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {w.textSummary}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
