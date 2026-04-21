@@ -256,6 +256,9 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
     items: Object.fromEntries(Object.entries(b.lineItems || {}).map(([k, v]) => [k, roundK(Number(v) || 0)])),
     confirmed: b.confirmed,
   }));
+  // 가장 최근 청구월을 별도 필드로 노출 — 사용자가 "전월/이번달/최근" 같은 모호한 표현으로 물을 때
+  // AI가 즉시 인용할 수 있도록 한다.
+  const latestBill = recentBills[0] ?? null;
 
   const ctx = {
     today: todayIso,
@@ -300,7 +303,8 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
       })),
     },
     monthlyBills: {
-      note: "관리비 추세는 다음 데이터를 참고하세요. 금액 단위는 원이며 천원 단위로 반올림되어 있습니다.",
+      note: "관리비 추세는 다음 데이터를 참고하세요. 금액 단위는 원이며 천원 단위로 반올림되어 있습니다. latest는 가장 최근 청구월 1건이며, 사용자가 '전월/지난달/최근/이번달' 등 모호하게 물으면 latest의 month를 명시해 답하세요.",
+      latest: latestBill,
       recent: recentBills,
     },
   };
@@ -323,6 +327,7 @@ export function buildSystemPrompt(ctx: BuildingContext): string {
 4. 자료를 인용할 때는 자료의 ID와 명칭을 그대로 적어주세요 (예: "민원 #123", "보증 항목: 승강기").
 5. 직접 시스템에 어떤 변경을 가하지 말고, 안내·요약·조회만 수행합니다.
 6. 관리비 추세·항목별 증감 질문은 monthlyBills.recent 데이터를 우선 근거로 답하세요. 금액은 원 단위(천원 반올림)입니다.
+7. 사용자가 "전월/지난달/이번달/최근" 등 특정 시점을 모호하게 묻고 그 정확한 월 자료가 없을 때는, "찾지 못했습니다"로 끝내지 말고 monthlyBills.latest의 month를 명시하면서 가장 최근 자료로 답하세요. 예: "최근 등록된 자료(2026-01) 기준 총 ○○원입니다."
 
 [오늘 날짜] ${ctx.todayIso}
 [건물명] ${ctx.buildingName}
