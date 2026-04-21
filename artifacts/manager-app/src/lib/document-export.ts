@@ -66,6 +66,28 @@ export function openMailtoWithDocument(opts: {
 }
 
 /**
+ * 주어진 엘리먼트를 편집 가능한 Word(.docx) Blob 으로 변환한다.
+ * 사진은 data: URL 로 인라인되어 다른 기기에서도 깨지지 않는다.
+ */
+export async function elementToDocxBlob(element: HTMLElement, title: string): Promise<Blob> {
+  const inner = await inlineImagesAsDataUrls(element);
+  const html =
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>` +
+    `<style>` +
+    `body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;font-size:11pt;}` +
+    `table{border-collapse:collapse;width:100%;}td,th{padding:6px 8px;border:1px solid #888;}` +
+    `img{max-width:100%;}` +
+    `h1,h2,h3{margin:8px 0;}` +
+    `</style></head><body>${inner}</body></html>`;
+  const mod = await import("html-docx-js-typescript");
+  const out = await mod.asBlob(html);
+  if (out instanceof Blob) return out;
+  return new Blob([out as unknown as ArrayBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+}
+
+/**
  * 주어진 엘리먼트를 PDF Blob 으로 만들어 반환한다.
  * A4 세로 기준으로 너비를 맞추고, 길이가 길면 페이지를 자동으로 분할한다.
  */

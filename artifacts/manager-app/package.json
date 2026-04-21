@@ -74,6 +74,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "html-docx-js-typescript": "^0.1.5",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "papaparse": "^5.5.3",

@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
-  elementToPdfBlob,
+  elementToDocxBlob,
   safeFilename,
   sharePdfFromElement,
 } from "@/lib/document-export";
@@ -223,9 +223,9 @@ export function CompletionNotice({
     try {
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
-        const blob = await elementToPdfBlob(documentRef.current);
+        const blob = await elementToDocxBlob(documentRef.current, title);
         const filename =
-          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".pdf";
+          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".docx";
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -236,7 +236,7 @@ export function CompletionNotice({
         URL.revokeObjectURL(url);
         toast({
           title: "문서 저장 완료",
-          description: "PDF 파일로 저장되었습니다. 어떤 기기에서도 열어볼 수 있습니다.",
+          description: "Word(.docx) 파일로 저장되었습니다. 워드/한글/구글문서에서 열어 수정할 수 있습니다.",
         });
       });
     } catch (e) {
