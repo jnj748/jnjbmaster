@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable } from "@workspace/db";
 import { runBillOcr } from "../lib/billOcr";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -422,6 +422,36 @@ router.post("/fees/record-payment", async (req: Request, res: Response): Promise
   res.json(updated);
 });
 
+// [Task #170] 누적 미납 현황 집계 — 모든 unit/모든 월 미납 합계.
+router.get("/fees/arrears-summary", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.json({ totalArrears: 0, unpaidCount: 0, overdueCount: 0, oldestUnpaidMonth: null }); return; }
+  const units = await db.select({ id: unitsTable.id }).from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+  const unitIds = units.map(u => u.id);
+  if (unitIds.length === 0) { res.json({ totalArrears: 0, unpaidCount: 0, overdueCount: 0, oldestUnpaidMonth: null }); return; }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const rows = await db.select({
+    billingMonth: monthlyPaymentsTable.billingMonth,
+    totalAmount: monthlyPaymentsTable.totalAmount,
+    paidAmount: monthlyPaymentsTable.paidAmount,
+    isPaid: monthlyPaymentsTable.isPaid,
+    dueDate: monthlyPaymentsTable.dueDate,
+  }).from(monthlyPaymentsTable).where(inArray(monthlyPaymentsTable.unitId, unitIds));
+  let totalArrears = 0;
+  let unpaidCount = 0;
+  let overdueCount = 0;
+  let oldestUnpaidMonth: string | null = null;
+  for (const r of rows) {
+    if (r.isPaid) continue;
+    const due = Math.max(0, (r.totalAmount ?? 0) - (r.paidAmount ?? 0));
+    totalArrears += due;
+    unpaidCount += 1;
+    if (r.dueDate && r.dueDate < todayIso) overdueCount += 1;
+    if (!oldestUnpaidMonth || r.billingMonth < oldestUnpaidMonth) oldestUnpaidMonth = r.billingMonth;
+  }
+  res.json({ totalArrears: Math.round(totalArrears), unpaidCount, overdueCount, oldestUnpaidMonth });
+});
+
 // ─── 관리비 고지서 OCR & 월별 요약 ─────────────────────────────────
 router.post("/fees/bill-ocr", async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
@@ -483,7 +513,33 @@ router.post("/fees/bill-ocr", async (req: Request, res: Response): Promise<void>
     res.json(saved);
   } catch (err) {
     req.log.error({ err }, "bill-ocr failed");
-    res.status(500).json({ error: err instanceof Error ? err.message : "OCR 처리 실패" });
+    // [Task #170] OCR 실패 시 placeholder 행을 만들어 UI에서 "다시 인식" 가능하게 한다.
+    // billingMonth 알 수 없으므로 임시 키로 저장 (충돌 방지 위해 unique 검사).
+    const fallbackMonth = `failed-${Date.now()}`;
+    try {
+      const [placeholder] = await db.insert(monthlyBillSummariesTable).values({
+        buildingId,
+        billingMonth: fallbackMonth,
+        totalAmount: 0,
+        unitCount: null,
+        dueDate: null,
+        lineItems: {},
+        fieldConfidence: {},
+        ocrRawText: err instanceof Error ? err.message : "OCR 실패",
+        sourceFileUrl: objectPath,
+        sourceFileName: fileName ?? null,
+        confirmed: false,
+        uploadedById: req.user?.userId ?? null,
+      }).returning();
+      res.status(202).json({
+        error: err instanceof Error ? err.message : "OCR 처리 실패",
+        recoverable: true,
+        summary: placeholder,
+      });
+    } catch (innerErr) {
+      req.log.error({ err: innerErr }, "bill-ocr placeholder save failed");
+      res.status(500).json({ error: err instanceof Error ? err.message : "OCR 처리 실패" });
+    }
   }
 });
 

@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, FileText, Upload, ArrowRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, FileText, Upload, ArrowRight, AlertTriangle } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend,
 } from "recharts";
@@ -29,14 +29,18 @@ export default function FeesSummaryPage() {
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
   const [bills, setBills] = useState<Bill[]>([]);
+  const [arrears, setArrears] = useState<{ totalArrears: number; unpaidCount: number; overdueCount: number; oldestUnpaidMonth: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${apiBase}/fees/bill-summaries`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then((data: Bill[]) => setBills(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`${apiBase}/fees/bill-summaries`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => []),
+      fetch(`${apiBase}/fees/arrears-summary`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => null),
+    ]).then(([billsData, arrearsData]) => {
+      setBills(Array.isArray(billsData) ? billsData.filter((b: Bill) => !b.billingMonth.startsWith("failed-")) : []);
+      setArrears(arrearsData ?? null);
+    }).finally(() => setLoading(false));
   }, [token, apiBase]);
 
   const sortedAsc = useMemo(() => [...bills].sort((a, b) => a.billingMonth.localeCompare(b.billingMonth)), [bills]);
@@ -101,10 +105,36 @@ export default function FeesSummaryPage() {
         <Link href="/erp/bills"><Button variant="outline" size="sm" className="gap-2"><Upload className="w-4 h-4" />고지서 추가</Button></Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {arrears && arrears.totalArrears > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-red-800">
+                누적 미납 ₩{arrears.totalArrears.toLocaleString()} ({arrears.unpaidCount}건)
+              </div>
+              <div className="text-xs text-red-700 mt-0.5">
+                연체 {arrears.overdueCount}건{arrears.oldestUnpaidMonth ? ` · 최장 미납 ${arrears.oldestUnpaidMonth}월부터` : ""}
+              </div>
+            </div>
+            <Link href="/erp/billing"><Button size="sm" variant="outline" className="gap-1">관리 <ArrowRight className="w-3 h-3" /></Button></Link>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground">최근 청구월</div>
           <div className="text-lg font-bold mt-1">{latest?.billingMonth ?? "-"}</div>
+        </CardContent></Card>
+        <Card className={arrears && arrears.totalArrears > 0 ? "border-red-200" : ""}><CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">누적 미납</div>
+          <div className={`text-lg font-bold mt-1 ${arrears && arrears.totalArrears > 0 ? "text-red-600" : ""}`}>
+            {arrears ? `₩${arrears.totalArrears.toLocaleString()}` : "-"}
+          </div>
+          {arrears && arrears.unpaidCount > 0 && (
+            <div className="text-xs text-muted-foreground mt-0.5">{arrears.unpaidCount}건 미납</div>
+          )}
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <div className="text-xs text-muted-foreground">최근 총액</div>

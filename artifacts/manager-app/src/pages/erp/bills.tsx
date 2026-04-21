@@ -85,9 +85,19 @@ export default function BillsPage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ objectPath: response.objectPath, fileName: pendingFileNameRef.current }),
         });
-        if (!res.ok) {
+        if (!res.ok && res.status !== 202) {
           const errBody = await res.json().catch(() => ({}));
           throw new Error(errBody.error || "OCR 실패");
+        }
+        if (res.status === 202) {
+          const body = await res.json().catch(() => ({}));
+          toast({
+            title: "OCR 인식 실패 — 다시 시도해 주세요",
+            description: (body && body.error) || "고지서 목록에서 ‘다시 인식’을 눌러 재시도할 수 있습니다.",
+            variant: "destructive",
+          });
+          await load();
+          return;
         }
         const saved = await res.json();
         toast({ title: "OCR 완료", description: `${saved.billingMonth} 청구서가 등록되었습니다. 값을 확인해 주세요.` });
@@ -159,25 +169,32 @@ export default function BillsPage() {
           </CardContent></Card>
         ) : (
           <div className="grid gap-3">
-            {bills.map((b) => (
-              <Card key={b.id} className="cursor-pointer hover:border-primary/50" onClick={() => setEditing(b)}>
-                <CardContent className="p-4 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="font-mono">{b.billingMonth}</Badge>
-                      {b.confirmed
-                        ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />확정</Badge>
-                        : <Badge variant="secondary"><AlertTriangle className="w-3 h-3 mr-1" />검토 필요</Badge>}
+            {bills.map((b) => {
+              const failed = b.billingMonth.startsWith("failed-");
+              return (
+                <Card key={b.id} className={`cursor-pointer hover:border-primary/50 ${failed ? "border-red-300 bg-red-50/50" : ""}`} onClick={() => setEditing(b)}>
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {failed
+                          ? <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" />OCR 실패 — 다시 인식 필요</Badge>
+                          : <Badge variant="outline" className="font-mono">{b.billingMonth}</Badge>}
+                        {!failed && (b.confirmed
+                          ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />확정</Badge>
+                          : <Badge variant="secondary"><AlertTriangle className="w-3 h-3 mr-1" />검토 필요</Badge>)}
+                      </div>
+                      <div className="mt-1 text-lg font-bold">{failed ? "—" : `₩${Math.round(b.totalAmount).toLocaleString()}`}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {failed
+                          ? "원본 파일이 보관되어 있습니다. 카드를 눌러 다시 인식하세요."
+                          : (Object.keys(b.lineItems || {}).slice(0, 4).map(k => LINE_ITEM_LABELS[k] || k).join(" · ") || "항목 없음")
+                            + (b.unitCount ? ` · ${b.unitCount}세대` : "")}
+                      </div>
                     </div>
-                    <div className="mt-1 text-lg font-bold">₩{Math.round(b.totalAmount).toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {Object.keys(b.lineItems || {}).slice(0, 4).map(k => LINE_ITEM_LABELS[k] || k).join(" · ") || "항목 없음"}
-                      {b.unitCount ? ` · ${b.unitCount}세대` : ""}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
