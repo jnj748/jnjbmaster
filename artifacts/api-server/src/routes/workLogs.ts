@@ -228,7 +228,8 @@ async function composeDaily(buildingId: number, date: string, ctxName: string) {
       .where(and(eq(workLogEntriesTable.buildingId, buildingId), eq(workLogEntriesTable.occurredDate, date)))
       .orderBy(workLogEntriesTable.occurredAt),
     db.select().from(inspectionsTable).where(eq(inspectionsTable.buildingId, buildingId)),
-    db.select().from(draftsTable).where(sql`to_char(${draftsTable.createdAt}, 'YYYY-MM-DD') = ${date}`),
+    // KST 기준 일자로 비교 (DB 세션 TZ 영향 제거).
+    db.select().from(draftsTable).where(sql`to_char(${draftsTable.createdAt} AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') = ${date}`),
   ]);
   const inspIds = inspections.map((i) => i.id);
   const inspIdSet = new Set(inspIds);
