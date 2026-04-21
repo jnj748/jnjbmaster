@@ -3547,6 +3547,149 @@ paths:
               schema:
                 $ref: "#/components/schemas/Notification"
 
+  /notifications/announcements/{id}/read:
+    post:
+      operationId: markAnnouncementRead
+      tags: [notifications]
+      summary: Mark a platform announcement as read for the current user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+
+  /platform/announcements:
+    get:
+      operationId: listPlatformAnnouncements
+      tags: [notifications]
+      summary: List all platform announcements (HQ admin)
+      responses:
+        "200":
+          description: Announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformAnnouncement"
+    post:
+      operationId: createPlatformAnnouncement
+      tags: [notifications]
+      summary: Create a platform announcement (HQ admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                body:
+                  type: string
+                audience:
+                  type: array
+                  items:
+                    type: string
+                    enum: [all, manager, accountant, facility_staff, partner, hq_executive]
+                startsAt:
+                  type: string
+                  format: date-time
+                endsAt:
+                  type: ["string", "null"]
+                  format: date-time
+                isActive:
+                  type: boolean
+              required:
+                - title
+                - body
+                - audience
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAnnouncement"
+
+  /platform/announcements/{id}:
+    patch:
+      operationId: updatePlatformAnnouncement
+      tags: [notifications]
+      summary: Update a platform announcement (HQ admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                body:
+                  type: string
+                audience:
+                  type: array
+                  items:
+                    type: string
+                    enum: [all, manager, accountant, facility_staff, partner, hq_executive]
+                startsAt:
+                  type: string
+                  format: date-time
+                endsAt:
+                  type: ["string", "null"]
+                  format: date-time
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAnnouncement"
+    delete:
+      operationId: deletePlatformAnnouncement
+      tags: [notifications]
+      summary: Delete a platform announcement (HQ admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+
   /document-checklists:
     get:
       operationId: listDocumentChecklists
@@ -7206,6 +7349,9 @@ components:
       properties:
         id:
           type: integer
+        kind:
+          type: string
+          enum: [system, announcement]
         recipientType:
           type: string
         notificationType:
@@ -7231,6 +7377,48 @@ components:
         - message
         - isRead
         - createdAt
+
+    PlatformAnnouncement:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        audience:
+          type: array
+          items:
+            type: string
+            enum: [all, manager, accountant, facility_staff, partner, hq_executive]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: ["string", "null"]
+          format: date-time
+        isActive:
+          type: boolean
+        createdBy:
+          type: ["integer", "null"]
+        createdByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - body
+        - audience
+        - startsAt
+        - isActive
+        - createdAt
+        - updatedAt
 
     DocumentChecklist:
       type: object

@@ -5,9 +5,11 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { NotificationKind } from "./notificationKind";
 
 export interface Notification {
   id: number;
+  kind?: NotificationKind;
   recipientType: string;
   notificationType: string;
   title: string;

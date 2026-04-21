@@ -7,11 +7,13 @@ import {
   useListNotifications,
   useGetUnreadNotificationCount,
   useMarkNotificationRead,
+  useMarkAnnouncementRead,
   useGetFacilityStatusSummary,
   getListNotificationsQueryKey,
   getGetUnreadNotificationCountQueryKey,
   type FacilityStatusBadge as FacilityBadge,
   type FacilityStatusSummary,
+  type Notification,
 } from "@workspace/api-client-react";
 import { FacilityStatusBadge } from "@/components/facility-status-badge";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,6 +33,15 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Megaphone } from "lucide-react";
 import { PlatformFooter } from "@/components/intermediary-disclaimer";
 import {
   ROLE_LABELS,
@@ -107,59 +118,124 @@ function SidebarContent({ navLinks, user, logout, base, isPartner }: {
   );
 }
 
+function isAnnouncement(n: Notification): boolean {
+  return n.kind === "announcement" || n.notificationType === "platform_announcement";
+}
+
 function NotifBell() {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [openDetail, setOpenDetail] = useState<Notification | null>(null);
   const { data: unreadCount } = useGetUnreadNotificationCount({ query: { staleTime: 30 * 1000, refetchInterval: 60 * 1000 } });
   const { data: notifications } = useListNotifications({ query: { enabled: notifOpen } });
   const markRead = useMarkNotificationRead();
+  const markAnnouncementRead = useMarkAnnouncementRead();
   const queryClient = useQueryClient();
 
-  const handleMarkRead = useCallback(async (id: number) => {
-    await markRead.mutateAsync({ id });
+  const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
-  }, [markRead, queryClient]);
+  }, [queryClient]);
+
+  const handleMarkRead = useCallback(async (n: Notification) => {
+    if (isAnnouncement(n)) {
+      await markAnnouncementRead.mutateAsync({ id: n.id });
+    } else {
+      await markRead.mutateAsync({ id: n.id });
+    }
+    invalidate();
+  }, [markRead, markAnnouncementRead, invalidate]);
+
+  const onItemClick = useCallback(async (n: Notification) => {
+    if (isAnnouncement(n)) {
+      setOpenDetail(n);
+      if (!n.isRead) {
+        await markAnnouncementRead.mutateAsync({ id: n.id });
+        invalidate();
+      }
+      setNotifOpen(false);
+      return;
+    }
+    if (!n.isRead) await handleMarkRead(n);
+  }, [handleMarkRead, markAnnouncementRead, invalidate]);
 
   return (
-    <Popover open={notifOpen} onOpenChange={setNotifOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
-          <Bell className="w-5 h-5" />
-          {(unreadCount?.count ?? 0) > 0 && (
-            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {unreadCount!.count}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="p-3 border-b">
-          <div className="font-medium text-sm">알림</div>
-        </div>
-        <ScrollArea className="max-h-80">
-          {notifications && notifications.length > 0 ? (
-            <div className="divide-y">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn("p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors min-h-[44px]", !n.isRead && "bg-primary/5")}
-                  onClick={() => !n.isRead && handleMarkRead(n.id)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm">{n.title}</p>
-                    {!n.isRead && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString("ko-KR")}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 text-center text-sm text-muted-foreground">알림이 없습니다</div>
-          )}
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={notifOpen} onOpenChange={setNotifOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
+            <Bell className="w-5 h-5" />
+            {(unreadCount?.count ?? 0) > 0 && (
+              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadCount!.count}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="end">
+          <div className="p-3 border-b">
+            <div className="font-medium text-sm">알림</div>
+          </div>
+          <ScrollArea className="max-h-80">
+            {notifications && notifications.length > 0 ? (
+              <div className="divide-y">
+                {notifications.map((n) => {
+                  const ann = isAnnouncement(n);
+                  return (
+                    <div
+                      key={`${ann ? "ann" : "sys"}-${n.id}`}
+                      className={cn(
+                        "p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors min-h-[44px]",
+                        !n.isRead && "bg-primary/5",
+                      )}
+                      onClick={() => onItemClick(n)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {ann && (
+                            <Badge
+                              variant="secondary"
+                              className="shrink-0 gap-1 bg-blue-100 text-blue-700 hover:bg-blue-100"
+                            >
+                              <Megaphone className="w-3 h-3" />
+                              공지
+                            </Badge>
+                          )}
+                          <p className="font-medium text-sm truncate">{n.title}</p>
+                        </div>
+                        {!n.isRead && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-line">{n.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString("ko-KR")}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-sm text-muted-foreground">알림이 없습니다</div>
+            )}
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      <Dialog open={openDetail !== null} onOpenChange={(open) => !open && setOpenDetail(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-blue-600" />
+              <span>{openDetail?.title}</span>
+            </DialogTitle>
+            {openDetail && (
+              <DialogDescription className="text-xs">
+                {new Date(openDetail.createdAt).toLocaleString("ko-KR")}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="text-sm whitespace-pre-line max-h-[60vh] overflow-y-auto">
+            {openDetail?.message}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

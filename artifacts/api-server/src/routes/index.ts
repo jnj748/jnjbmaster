@@ -48,6 +48,7 @@ import delinquencyRouter from "./delinquency";
 import warrantiesRouter from "./warranties";
 import platformConsentsRouter from "./platformConsents";
 import platformConsentDocumentsRouter from "./platformConsentDocuments";
+import platformAnnouncementsRouter from "./platformAnnouncements";
 import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
 import contractsRouter from "./contracts";
@@ -82,6 +83,7 @@ router.get("/complaints/analytics", requireRole("hq_executive", "platform_admin"
 router.use(vendorsRouter);
 router.use(commissionsRouter);
 router.use(notificationsRouter);
+router.use(platformAnnouncementsRouter);
 router.use(usersRouter);
 router.use(rfqsRouter);
 router.use(creditsRouter);

@@ -79,6 +79,7 @@ import type {
   CreateMaintenanceLogBody,
   CreateMeterReadingBody,
   CreateOwnerBody,
+  CreatePlatformAnnouncementBody,
   CreateQuoteBody,
   CreateRfqBody,
   CreateSafetyChecklistBody,
@@ -106,6 +107,7 @@ import type {
   DataDestructionLog,
   DeleteComplaint200,
   DeleteDocumentTemplate200,
+  DeletePlatformAnnouncement200,
   DeleteSignature200,
   DeleteVote200,
   DelinquencyAction,
@@ -184,6 +186,7 @@ import type {
   ListWorkReportsParams,
   MaintenanceLog,
   ManagementContractTemplate,
+  MarkAnnouncementRead200,
   MeterCsvUploadBody,
   MeterCsvUploadResponse,
   MeterReading,
@@ -191,6 +194,7 @@ import type {
   MonthlySummaryReportItem,
   Notification,
   Owner,
+  PlatformAnnouncement,
   PlatformSetting,
   PreviewCreditCostParams,
   ProcessApprovalStepBody,
@@ -232,6 +236,7 @@ import type {
   UpdateInspectionBody,
   UpdateMaintenanceLogBody,
   UpdateOwnerBody,
+  UpdatePlatformAnnouncementBody,
   UpdateQuoteBody,
   UpdateRfqBody,
   UpdateSafetyChecklistBody,
@@ -14475,6 +14480,434 @@ export const useMarkNotificationRead = <
   TContext
 > => {
   return useMutation(getMarkNotificationReadMutationOptions(options));
+};
+
+/**
+ * @summary Mark a platform announcement as read for the current user
+ */
+export const getMarkAnnouncementReadUrl = (id: number) => {
+  return `/api/notifications/announcements/${id}/read`;
+};
+
+export const markAnnouncementRead = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MarkAnnouncementRead200> => {
+  return customFetch<MarkAnnouncementRead200>(getMarkAnnouncementReadUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkAnnouncementReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAnnouncementRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAnnouncementRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markAnnouncementRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAnnouncementRead>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markAnnouncementRead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAnnouncementReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAnnouncementRead>>
+>;
+
+export type MarkAnnouncementReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark a platform announcement as read for the current user
+ */
+export const useMarkAnnouncementRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAnnouncementRead>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAnnouncementRead>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getMarkAnnouncementReadMutationOptions(options));
+};
+
+/**
+ * @summary List all platform announcements (HQ admin)
+ */
+export const getListPlatformAnnouncementsUrl = () => {
+  return `/api/platform/announcements`;
+};
+
+export const listPlatformAnnouncements = async (
+  options?: RequestInit,
+): Promise<PlatformAnnouncement[]> => {
+  return customFetch<PlatformAnnouncement[]>(
+    getListPlatformAnnouncementsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPlatformAnnouncementsQueryKey = () => {
+  return [`/api/platform/announcements`] as const;
+};
+
+export const getListPlatformAnnouncementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlatformAnnouncements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformAnnouncements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlatformAnnouncementsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlatformAnnouncements>>
+  > = ({ signal }) => listPlatformAnnouncements({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformAnnouncements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlatformAnnouncementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlatformAnnouncements>>
+>;
+export type ListPlatformAnnouncementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all platform announcements (HQ admin)
+ */
+
+export function useListPlatformAnnouncements<
+  TData = Awaited<ReturnType<typeof listPlatformAnnouncements>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformAnnouncements>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlatformAnnouncementsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a platform announcement (HQ admin)
+ */
+export const getCreatePlatformAnnouncementUrl = () => {
+  return `/api/platform/announcements`;
+};
+
+export const createPlatformAnnouncement = async (
+  createPlatformAnnouncementBody: CreatePlatformAnnouncementBody,
+  options?: RequestInit,
+): Promise<PlatformAnnouncement> => {
+  return customFetch<PlatformAnnouncement>(getCreatePlatformAnnouncementUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPlatformAnnouncementBody),
+  });
+};
+
+export const getCreatePlatformAnnouncementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlatformAnnouncement>>,
+    TError,
+    { data: BodyType<CreatePlatformAnnouncementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPlatformAnnouncement>>,
+  TError,
+  { data: BodyType<CreatePlatformAnnouncementBody> },
+  TContext
+> => {
+  const mutationKey = ["createPlatformAnnouncement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPlatformAnnouncement>>,
+    { data: BodyType<CreatePlatformAnnouncementBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPlatformAnnouncement(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePlatformAnnouncementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPlatformAnnouncement>>
+>;
+export type CreatePlatformAnnouncementMutationBody =
+  BodyType<CreatePlatformAnnouncementBody>;
+export type CreatePlatformAnnouncementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a platform announcement (HQ admin)
+ */
+export const useCreatePlatformAnnouncement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlatformAnnouncement>>,
+    TError,
+    { data: BodyType<CreatePlatformAnnouncementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPlatformAnnouncement>>,
+  TError,
+  { data: BodyType<CreatePlatformAnnouncementBody> },
+  TContext
+> => {
+  return useMutation(getCreatePlatformAnnouncementMutationOptions(options));
+};
+
+/**
+ * @summary Update a platform announcement (HQ admin)
+ */
+export const getUpdatePlatformAnnouncementUrl = (id: number) => {
+  return `/api/platform/announcements/${id}`;
+};
+
+export const updatePlatformAnnouncement = async (
+  id: number,
+  updatePlatformAnnouncementBody: UpdatePlatformAnnouncementBody,
+  options?: RequestInit,
+): Promise<PlatformAnnouncement> => {
+  return customFetch<PlatformAnnouncement>(
+    getUpdatePlatformAnnouncementUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updatePlatformAnnouncementBody),
+    },
+  );
+};
+
+export const getUpdatePlatformAnnouncementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformAnnouncement>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformAnnouncementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlatformAnnouncement>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformAnnouncementBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePlatformAnnouncement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlatformAnnouncement>>,
+    { id: number; data: BodyType<UpdatePlatformAnnouncementBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePlatformAnnouncement(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlatformAnnouncementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlatformAnnouncement>>
+>;
+export type UpdatePlatformAnnouncementMutationBody =
+  BodyType<UpdatePlatformAnnouncementBody>;
+export type UpdatePlatformAnnouncementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a platform announcement (HQ admin)
+ */
+export const useUpdatePlatformAnnouncement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformAnnouncement>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformAnnouncementBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlatformAnnouncement>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformAnnouncementBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePlatformAnnouncementMutationOptions(options));
+};
+
+/**
+ * @summary Delete a platform announcement (HQ admin)
+ */
+export const getDeletePlatformAnnouncementUrl = (id: number) => {
+  return `/api/platform/announcements/${id}`;
+};
+
+export const deletePlatformAnnouncement = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeletePlatformAnnouncement200> => {
+  return customFetch<DeletePlatformAnnouncement200>(
+    getDeletePlatformAnnouncementUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeletePlatformAnnouncementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlatformAnnouncement>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePlatformAnnouncement>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deletePlatformAnnouncement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePlatformAnnouncement>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePlatformAnnouncement(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePlatformAnnouncementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePlatformAnnouncement>>
+>;
+
+export type DeletePlatformAnnouncementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a platform announcement (HQ admin)
+ */
+export const useDeletePlatformAnnouncement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlatformAnnouncement>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePlatformAnnouncement>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeletePlatformAnnouncementMutationOptions(options));
 };
 
 /**

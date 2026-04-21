@@ -461,6 +461,12 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin"],
   },
   {
+    // [Task #186] 플랫폼 공지(이벤트/업데이트) 관리 — 알림 벨에 노출
+    path: "/platform-announcements", component: lazy(() => import("@/pages/platform-announcements")),
+    label: "공지 관리", icon: FileText, group: "settings",
+    access: ["platform_admin", "hq_executive"],
+  },
+  {
     path: "/settings", component: SettingsPage,
     label: "설정", icon: Settings, group: "settings",
     access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],

@@ -1955,8 +1955,17 @@ export interface DataDestructionLog {
   createdAt: string;
 }
 
+export type NotificationKind =
+  (typeof NotificationKind)[keyof typeof NotificationKind];
+
+export const NotificationKind = {
+  system: "system",
+  announcement: "announcement",
+} as const;
+
 export interface Notification {
   id: number;
+  kind?: NotificationKind;
   recipientType: string;
   notificationType: string;
   title: string;
@@ -1967,6 +1976,35 @@ export interface Notification {
   /** @nullable */
   relatedEntityId?: number | null;
   createdAt: string;
+}
+
+export type PlatformAnnouncementAudienceItem =
+  (typeof PlatformAnnouncementAudienceItem)[keyof typeof PlatformAnnouncementAudienceItem];
+
+export const PlatformAnnouncementAudienceItem = {
+  all: "all",
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  partner: "partner",
+  hq_executive: "hq_executive",
+} as const;
+
+export interface PlatformAnnouncement {
+  id: number;
+  title: string;
+  body: string;
+  audience: PlatformAnnouncementAudienceItem[];
+  startsAt: string;
+  /** @nullable */
+  endsAt?: string | null;
+  isActive: boolean;
+  /** @nullable */
+  createdBy?: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type DocumentChecklistEntityType =
@@ -4976,6 +5014,58 @@ export type SendDestructionAlerts200 = {
 
 export type GetUnreadNotificationCount200 = {
   count: number;
+};
+
+export type MarkAnnouncementRead200 = {
+  ok: boolean;
+};
+
+export type CreatePlatformAnnouncementBodyAudienceItem =
+  (typeof CreatePlatformAnnouncementBodyAudienceItem)[keyof typeof CreatePlatformAnnouncementBodyAudienceItem];
+
+export const CreatePlatformAnnouncementBodyAudienceItem = {
+  all: "all",
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  partner: "partner",
+  hq_executive: "hq_executive",
+} as const;
+
+export type CreatePlatformAnnouncementBody = {
+  title: string;
+  body: string;
+  audience: CreatePlatformAnnouncementBodyAudienceItem[];
+  startsAt?: string;
+  /** @nullable */
+  endsAt?: string | null;
+  isActive?: boolean;
+};
+
+export type UpdatePlatformAnnouncementBodyAudienceItem =
+  (typeof UpdatePlatformAnnouncementBodyAudienceItem)[keyof typeof UpdatePlatformAnnouncementBodyAudienceItem];
+
+export const UpdatePlatformAnnouncementBodyAudienceItem = {
+  all: "all",
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  partner: "partner",
+  hq_executive: "hq_executive",
+} as const;
+
+export type UpdatePlatformAnnouncementBody = {
+  title?: string;
+  body?: string;
+  audience?: UpdatePlatformAnnouncementBodyAudienceItem[];
+  startsAt?: string;
+  /** @nullable */
+  endsAt?: string | null;
+  isActive?: boolean;
+};
+
+export type DeletePlatformAnnouncement200 = {
+  ok: boolean;
 };
 
 export type ListDocumentChecklistsParams = {

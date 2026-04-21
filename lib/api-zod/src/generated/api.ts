@@ -4618,6 +4618,7 @@ export const ListDestructionLogsResponse = zod.array(
  */
 export const ListNotificationsResponseItem = zod.object({
   id: zod.number(),
+  kind: zod.enum(["system", "announcement"]).optional(),
   recipientType: zod.string(),
   notificationType: zod.string(),
   title: zod.string(),
@@ -4647,6 +4648,7 @@ export const MarkNotificationReadParams = zod.object({
 
 export const MarkNotificationReadResponse = zod.object({
   id: zod.number(),
+  kind: zod.enum(["system", "announcement"]).optional(),
   recipientType: zod.string(),
   notificationType: zod.string(),
   title: zod.string(),
@@ -4655,6 +4657,128 @@ export const MarkNotificationReadResponse = zod.object({
   relatedEntityType: zod.string().nullish(),
   relatedEntityId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Mark a platform announcement as read for the current user
+ */
+export const MarkAnnouncementReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkAnnouncementReadResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary List all platform announcements (HQ admin)
+ */
+export const ListPlatformAnnouncementsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  audience: zod.array(
+    zod.enum([
+      "all",
+      "manager",
+      "accountant",
+      "facility_staff",
+      "partner",
+      "hq_executive",
+    ]),
+  ),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  isActive: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPlatformAnnouncementsResponse = zod.array(
+  ListPlatformAnnouncementsResponseItem,
+);
+
+/**
+ * @summary Create a platform announcement (HQ admin)
+ */
+export const CreatePlatformAnnouncementBody = zod.object({
+  title: zod.string(),
+  body: zod.string(),
+  audience: zod.array(
+    zod.enum([
+      "all",
+      "manager",
+      "accountant",
+      "facility_staff",
+      "partner",
+      "hq_executive",
+    ]),
+  ),
+  startsAt: zod.coerce.date().optional(),
+  endsAt: zod.coerce.date().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a platform announcement (HQ admin)
+ */
+export const UpdatePlatformAnnouncementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePlatformAnnouncementBody = zod.object({
+  title: zod.string().optional(),
+  body: zod.string().optional(),
+  audience: zod
+    .array(
+      zod.enum([
+        "all",
+        "manager",
+        "accountant",
+        "facility_staff",
+        "partner",
+        "hq_executive",
+      ]),
+    )
+    .optional(),
+  startsAt: zod.coerce.date().optional(),
+  endsAt: zod.coerce.date().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdatePlatformAnnouncementResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  audience: zod.array(
+    zod.enum([
+      "all",
+      "manager",
+      "accountant",
+      "facility_staff",
+      "partner",
+      "hq_executive",
+    ]),
+  ),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  isActive: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a platform announcement (HQ admin)
+ */
+export const DeletePlatformAnnouncementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeletePlatformAnnouncementResponse = zod.object({
+  ok: zod.boolean(),
 });
 
 /**
