@@ -67,6 +67,7 @@ import {
   NotebookPen,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+import RecentDocumentsWidget from "@/components/dashboard-widgets/widgets/recent-documents-widget";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
@@ -689,6 +690,9 @@ export default function Dashboard() {
 
       {/* [Task #205] 오늘 업무일지 진입점 */}
       <TodayWorkLogEntry />
+
+      {/* 최근문서함 — 메모/일지/후속조치/기안/견적/공고/외부 통합 최근 문서 */}
+      <RecentDocumentsWidget buildingId={building?.id ?? null} />
 
       {/* [Task #184] 상단에 있던 4-카드 그리드를 제안업무현황 아래로 이동 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

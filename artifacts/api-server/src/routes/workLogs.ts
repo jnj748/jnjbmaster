@@ -173,6 +173,18 @@ const SaveJournalBody = z.object({
   complaintPhotoUrl: z.string().nullish(),
 });
 
+router.get("/daily-journals", async (req, res): Promise<void> => {
+  const ctx = await getCtx(req.user!.userId);
+  if (!ctx) { res.status(404).json({ error: "user not found" }); return; }
+  if (!ctx.buildingId) { res.json([]); return; }
+  const limit = Math.min(Number(req.query.limit) || 30, 100);
+  const rows = await db.select().from(dailyJournalsTable)
+    .where(eq(dailyJournalsTable.buildingId, ctx.buildingId))
+    .orderBy(desc(dailyJournalsTable.journalDate))
+    .limit(limit);
+  res.json(rows.map(serializeJournal));
+});
+
 router.get("/daily-journals/:date", async (req, res): Promise<void> => {
   const date = req.params.date;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "bad date" }); return; }

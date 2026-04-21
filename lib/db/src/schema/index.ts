@@ -29,6 +29,7 @@ export * from "./vehicleHistory";
 export * from "./taxDeadlineChecklists";
 export * from "./attendance";
 export * from "./alertActions";
+export * from "./externalDocuments";
 export * from "./buildings";
 export * from "./units";
 export * from "./tenantCardTokens";
