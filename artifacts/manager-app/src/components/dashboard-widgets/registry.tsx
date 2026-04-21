@@ -99,7 +99,6 @@ export type CatalogWidgetKey = keyof typeof WIDGETS;
 export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   manager: {
     widgets: [
-      "warranty-dday",
       "manager-main",
       "pending-approvals",
       "delinquency-summary",

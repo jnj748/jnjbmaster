@@ -4,6 +4,7 @@ import {
 } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import WarrantyDdayWidget from "@/components/dashboard-widgets/widgets/warranty-dday-widget";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -367,6 +368,9 @@ export default function FacilityDashboard() {
         </Card>
       )}
 
+      <div className="mt-2">
+        <WarrantyDdayWidget />
+      </div>
     </div>
   );
 }
