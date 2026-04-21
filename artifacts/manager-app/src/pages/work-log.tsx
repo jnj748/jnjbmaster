@@ -136,6 +136,7 @@ function useApi() {
 
 export default function WorkLogPage() {
   const [tab, setTab] = useState<"timeline" | "daily" | "weekly" | "monthly">("timeline");
+  const [autoOpenDailyWizard, setAutoOpenDailyWizard] = useState(false);
 
   return (
     <div className="space-y-4 pb-24">
@@ -155,9 +156,14 @@ export default function WorkLogPage() {
           <TabsTrigger value="monthly" data-testid="tab-monthly">월간</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline">
-          <TimelineTab onGoDaily={() => setTab("daily")} />
+          <TimelineTab onGoDaily={() => { setAutoOpenDailyWizard(true); setTab("daily"); }} />
         </TabsContent>
-        <TabsContent value="daily"><DailyTab /></TabsContent>
+        <TabsContent value="daily">
+          <DailyTab
+            autoOpenWizard={autoOpenDailyWizard}
+            onAutoOpenConsumed={() => setAutoOpenDailyWizard(false)}
+          />
+        </TabsContent>
         <TabsContent value="weekly"><WeeklyTab /></TabsContent>
         <TabsContent value="monthly"><MonthlyTab /></TabsContent>
       </Tabs>
@@ -310,15 +316,31 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
 }
 
 /* ───────────────────────── 일일 탭 (위저드 + 보고서) ───────────────────────── */
-function DailyTab() {
+function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWizard?: boolean; onAutoOpenConsumed?: () => void } = {}) {
   const [date, setDate] = useState(todayISO());
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [pendingAutoOpen, setPendingAutoOpen] = useState(false);
   const { call } = useApi();
+
+  useEffect(() => {
+    if (autoOpenWizard) {
+      setDate(todayISO());
+      setPendingAutoOpen(true);
+      onAutoOpenConsumed?.();
+    }
+  }, [autoOpenWizard, onAutoOpenConsumed]);
 
   const reportQ = useQuery({
     queryKey: ["work-log-report-daily", date],
     queryFn: () => call<DailyReport>(`/work-log-reports/daily?date=${date}`),
   });
+
+  useEffect(() => {
+    if (pendingAutoOpen && !reportQ.isLoading && !reportQ.isFetching) {
+      setWizardOpen(true);
+      setPendingAutoOpen(false);
+    }
+  }, [pendingAutoOpen, reportQ.isLoading, reportQ.isFetching]);
 
   return (
     <div className="space-y-3 pt-3">
