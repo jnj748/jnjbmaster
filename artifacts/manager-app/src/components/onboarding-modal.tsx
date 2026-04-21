@@ -5,6 +5,8 @@
 
 import { useState } from "react";
 import { useLocation } from "wouter";
+// [Task #174] 신규 관리소장은 위저드(`/onboarding/manager`)로 직행한다.
+// 위저드/역할선택 페이지에서는 이 모달을 강제로 숨겨 중복 노출을 방지한다.
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -19,19 +21,23 @@ import { useAuth } from "@/contexts/auth-context";
 export function OnboardingModal() {
   const { user } = useAuth();
   const { status, isLoading, isManager, setPreference } = useOnboarding();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [submitting, setSubmitting] = useState<"started" | "browsing" | null>(null);
 
   // 표시 안 함 조건:
   // - manager 외 역할 / 로딩 중 / 이미 선택 완료
   // - isLegacyExempt: 출시 이전 계정 또는 이미 Gate1 완료(기존 운영 manager 보호)
+  const onWizardRoute =
+    location.startsWith("/onboarding/manager") ||
+    location.startsWith("/onboarding/role-select");
   const open = !!(
     isManager &&
     !isLoading &&
     status &&
     !status.isLegacyExempt &&
     status.preference === null &&
-    user
+    user &&
+    !onWizardRoute
   );
 
   const handleStart = async () => {
@@ -71,7 +77,7 @@ export function OnboardingModal() {
           >
             <Building2 className="w-6 h-6 text-primary shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <div className="font-semibold text-sm">지금 바로 시작 (권장)</div>
+              <div className="font-semibold text-sm">지금 바로 시작</div>
               <p className="text-xs text-muted-foreground mt-1">
                 건물 정보 등록 → 법정업무 자동 생성. 약 5~10분 소요.
               </p>

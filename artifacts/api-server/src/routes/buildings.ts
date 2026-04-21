@@ -652,10 +652,27 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
     return;
   }
 
-  // [Task #132] 사용자가 최종 점검일을 모르는 경우, 건물 준공일을 fallback으로 사용한다.
+  // [Task #174] 권한 검증: 본인 건물이거나 본사/플랫폼 관리자만 호출 가능.
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "로그인이 필요합니다" });
+    return;
+  }
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user || (user.buildingId !== buildingId && !["platform_admin", "hq_executive"].includes(user.role))) {
+    res.status(403).json({ error: "해당 건물에 대한 권한이 없습니다" });
+    return;
+  }
+
+  // [Task #132/#174] 사용자가 최종 점검일을 모르는 경우, 건물 준공일을 fallback으로 사용한다.
+  // #174: 항목별 폴백 여부를 기록하여 임시 일정에 [임시] 워터마크를 표시할 수 있게 한다.
   let fallbackLastDate: string | null = null;
+  let totalAreaNum = 0;
   if (useFallbackCompletionDate) {
-    const [bld] = await db.select({ completionDate: buildingsTable.completionDate })
+    const [bld] = await db.select({
+      completionDate: buildingsTable.completionDate,
+      totalArea: buildingsTable.totalArea,
+    })
       .from(buildingsTable)
       .where(eq(buildingsTable.id, buildingId));
     if (bld?.completionDate) {
@@ -663,6 +680,7 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
         ? bld.completionDate
         : new Date(bld.completionDate as unknown as string | number | Date).toISOString().slice(0, 10);
     }
+    totalAreaNum = Number(bld?.totalArea ?? 0);
   }
 
   try {
@@ -673,11 +691,20 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
       const dateEntries = dates as Record<string, string>;
 
       for (const [presetName, lastDateInput] of Object.entries(dateEntries)) {
+        const isProvisional = !lastDateInput && !!fallbackLastDate;
         const lastDate = lastDateInput || fallbackLastDate;
         if (!lastDate) continue;
 
         const cycleMonths = getCyclemonthsForCategory(category, presetName);
-        const nextDueDate = calculateNextDue(lastDate, cycleMonths);
+        // [Task #174] 건축물 정기점검 첫 점검: 준공+5년(연면적 < 10,000㎡) 또는 +10년(이상).
+        // 폴백(준공일=lastDate) 시에만 첫 회차에 적용한다.
+        let nextDueDate: string;
+        if (isProvisional && category === "building_safety") {
+          const firstYears = totalAreaNum >= 10000 ? 120 : 60;
+          nextDueDate = calculateNextDue(lastDate, firstYears);
+        } else {
+          nextDueDate = calculateNextDue(lastDate, cycleMonths);
+        }
 
         const [inspection] = await db.insert(inspectionsTable).values({
           buildingId,
@@ -690,6 +717,7 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
           nextDueDate,
           status: new Date(nextDueDate) < new Date() ? "overdue" : "upcoming",
           advanceAlertDays: 30,
+          notes: isProvisional ? "[임시] 준공일 기준 자동 산정 — 실제 점검일이 확인되면 수정해 주세요." : null,
         }).returning();
 
         created.push(inspection);

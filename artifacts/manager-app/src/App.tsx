@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation as useLocationForGate } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { BuildingProvider } from "@/contexts/building-context";
-import { OnboardingProvider } from "@/contexts/onboarding-context";
+import { OnboardingProvider, useOnboarding } from "@/contexts/onboarding-context";
 import { OnboardingGate } from "@/components/onboarding-gate";
 import { OnboardingModal } from "@/components/onboarding-modal";
 import { BrowsingBanner } from "@/components/browsing-banner";
@@ -55,6 +55,26 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// [Task #174] 신규 관리소장은 OnboardingModal/`/onboarding` 진행 카드 대신
+// 새로운 모바일 위저드(`/onboarding/manager`)로 직행한다. 레거시 면제 계정은 영향 없음.
+function ManagerOnboardingRedirect() {
+  const { status, isLoading, isManager } = useOnboarding();
+  const [location, setLocation] = useLocationForGate();
+  const shouldRedirect =
+    isManager &&
+    !isLoading &&
+    !!status &&
+    !status.isLegacyExempt &&
+    status.preference === null &&
+    !location.startsWith("/onboarding/manager") &&
+    !location.startsWith("/onboarding/role-select");
+  // 부수효과는 useEffect에서만 수행 — 렌더 중 navigate 호출 금지.
+  useEffect(() => {
+    if (shouldRedirect) setLocation("/onboarding/manager");
+  }, [shouldRedirect, setLocation]);
+  return null;
+}
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -124,6 +144,7 @@ function AuthenticatedRoutes() {
   return (
     <BuildingProvider>
       <OnboardingProvider>
+        <ManagerOnboardingRedirect />
         <OnboardingGate>
           <Layout>
             <BrowsingBanner />
