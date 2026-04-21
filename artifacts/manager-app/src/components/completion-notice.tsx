@@ -17,8 +17,8 @@ import {
   downloadElementAsPng,
   inlineImagesAsDataUrls,
   safeFilename,
+  sharePdfFromElement,
 } from "@/lib/document-export";
-import { shareDocument } from "@/lib/official-document";
 import { cn } from "@/lib/utils";
 
 type DocKind = "notice" | "report" | "draft";
@@ -165,19 +165,33 @@ export function CompletionNotice({
   }
 
   async function handleShare() {
+    if (!documentRef.current) return;
     setSharing(true);
     try {
-      const result = await shareDocument({
-        title: `[${DOC_KIND_LABELS[docKind]}] ${title}`,
-        text: buildPlainText(),
+      await withReadyDocument(async () => {
+        if (!documentRef.current) return;
+        const filename = safeFilename(
+          `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`,
+        );
+        const result = await sharePdfFromElement(
+          documentRef.current,
+          filename,
+          `[${DOC_KIND_LABELS[docKind]}] ${title}`,
+        );
+        if (result === "shared") {
+          toast({
+            title: "PDF 공유가 시작되었습니다",
+            description: "카카오톡, 이메일 등 원하는 앱을 선택해주세요.",
+          });
+        } else if (result === "downloaded") {
+          toast({
+            title: "PDF가 저장되었습니다",
+            description: "기기에 저장된 PDF를 원하는 앱으로 직접 첨부해주세요.",
+          });
+        } else {
+          toast({ title: "PDF 공유에 실패했습니다", variant: "destructive" });
+        }
       });
-      if (result === "shared") {
-        toast({ title: "외부 공유가 시작되었습니다", description: "카카오톡, 이메일 등 원하는 앱을 선택해주세요." });
-      } else if (result === "copied") {
-        toast({ title: "내용이 클립보드에 복사되었습니다", description: "원하는 앱에 붙여넣어 공유해주세요." });
-      } else {
-        toast({ title: "공유에 실패했습니다", variant: "destructive" });
-      }
     } finally {
       setSharing(false);
     }

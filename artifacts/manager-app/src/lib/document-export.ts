@@ -65,6 +65,86 @@ export function openMailtoWithDocument(opts: {
   window.location.href = url;
 }
 
+/**
+ * 주어진 엘리먼트를 PDF Blob 으로 만들어 반환한다.
+ * A4 세로 기준으로 너비를 맞추고, 길이가 길면 페이지를 자동으로 분할한다.
+ */
+export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
+  const { toPng } = await import("html-to-image");
+  const { jsPDF } = await import("jspdf");
+  const dataUrl = await toPng(element, {
+    cacheBust: false,
+    backgroundColor: "#ffffff",
+    pixelRatio: 2,
+  });
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("이미지 로드 실패"));
+    img.src = dataUrl;
+  });
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "p" });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const imgW = pageW;
+  const imgH = (img.height * imgW) / img.width;
+  let heightLeft = imgH;
+  let position = 0;
+  pdf.addImage(dataUrl, "PNG", 0, position, imgW, imgH);
+  heightLeft -= pageH;
+  while (heightLeft > 0) {
+    position = heightLeft - imgH;
+    pdf.addPage();
+    pdf.addImage(dataUrl, "PNG", 0, position, imgW, imgH);
+    heightLeft -= pageH;
+  }
+  return pdf.output("blob");
+}
+
+/**
+ * 엘리먼트를 PDF 로 변환하여 Web Share API 로 공유한다.
+ * 파일 공유 미지원 환경에서는 다운로드로 폴백한다.
+ */
+export async function sharePdfFromElement(
+  element: HTMLElement,
+  filename: string,
+  shareTitle: string,
+): Promise<"shared" | "downloaded" | "failed"> {
+  try {
+    const blob = await elementToPdfBlob(element);
+    const safe = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+    const file = new File([blob], safe, { type: "application/pdf" });
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    const navWithShare = nav as unknown as {
+      canShare?: (data: { files?: File[] }) => boolean;
+      share?: (data: { files?: File[]; title?: string }) => Promise<void>;
+    } | null;
+    if (
+      navWithShare?.canShare &&
+      navWithShare.canShare({ files: [file] }) &&
+      typeof navWithShare.share === "function"
+    ) {
+      try {
+        await navWithShare.share({ files: [file], title: shareTitle });
+        return "shared";
+      } catch {
+        // 사용자 취소 또는 실패 → 다운로드 폴백
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = safe;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return "downloaded";
+  } catch {
+    return "failed";
+  }
+}
+
 export function safeFilename(s: string): string {
   return s
     .replace(/[\\/:*?"<>|]/g, "_")
