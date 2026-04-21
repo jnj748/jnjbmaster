@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CheckCircle2, Loader2, MapPin, Search } from "lucide-react";
+import type { RefObject } from "react";
 import type { BuildingData } from "./types";
 
 interface Props {
@@ -10,6 +12,9 @@ interface Props {
   registerPreview: Record<string, unknown> | null;
   areaInfo: { floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[];
   openKakaoPostcode: () => void;
+  postcodeOpen: boolean;
+  setPostcodeOpen: (v: boolean) => void;
+  postcodeContainerRef: RefObject<HTMLDivElement | null>;
   setActiveStep: (n: number) => void;
 }
 
@@ -20,6 +25,9 @@ export function StepAddress({
   registerPreview,
   areaInfo,
   openKakaoPostcode,
+  postcodeOpen,
+  setPostcodeOpen,
+  postcodeContainerRef,
   setActiveStep,
 }: Props) {
   return (
@@ -181,6 +189,15 @@ export function StepAddress({
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={postcodeOpen} onOpenChange={setPostcodeOpen}>
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)] p-0 overflow-hidden">
+          <DialogHeader className="px-4 pt-4">
+            <DialogTitle>주소 검색</DialogTitle>
+          </DialogHeader>
+          <div ref={postcodeContainerRef} className="w-full h-[70vh] min-h-[420px]" />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

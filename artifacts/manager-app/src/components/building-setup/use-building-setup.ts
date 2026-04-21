@@ -245,14 +245,50 @@ export function useBuildingSetup() {
     }
   }
 
+  // 임베드 모달 상태 — `.open()` 새 창 방식은 안드로이드에서 OS 앱 선택창("연결 프로그램")을
+  // 띄우므로 항상 인앱 다이얼로그로 임베드해 같은 페이지에서 검색하도록 한다.
+  const [postcodeOpen, setPostcodeOpen] = useState(false);
+  const postcodeContainerRef = useRef<HTMLDivElement | null>(null);
+  const postcodeInstanceRef = useRef<unknown>(null);
+
+  function buildPostcodeOptions() {
+    return {
+      oncomplete: (data: DaumPostcodeResult) => {
+        handlePostcodeComplete(data);
+        setPostcodeOpen(false);
+      },
+      width: "100%",
+      height: "100%",
+    };
+  }
+
   function openKakaoPostcode() {
     if (!window.daum?.Postcode) {
       toast({ title: "주소검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
       return;
     }
+    setPostcodeOpen(true);
+  }
 
-    new window.daum.Postcode({
-      oncomplete: (data: DaumPostcodeResult) => {
+  // 다이얼로그가 열리고 컨테이너가 렌더되면 해당 div 안에 임베드한다.
+  useEffect(() => {
+    if (!postcodeOpen) return;
+    if (!window.daum?.Postcode) return;
+    const el = postcodeContainerRef.current;
+    if (!el) return;
+    el.innerHTML = "";
+    try {
+      const inst = new window.daum.Postcode(buildPostcodeOptions());
+      postcodeInstanceRef.current = inst;
+      (inst as { embed: (e: HTMLElement) => void }).embed(el);
+    } catch (e) {
+      toast({ title: "주소검색을 열 수 없습니다", description: String(e), variant: "destructive" });
+      setPostcodeOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postcodeOpen, postcodeLoaded]);
+
+  function handlePostcodeComplete(data: DaumPostcodeResult) {
         setBuilding((prev) => ({
           ...prev,
           addressFull: data.roadAddress || data.address,
@@ -278,8 +314,6 @@ export function useBuildingSetup() {
         } else {
           toast({ title: "주소에서 건축물대장 조회코드를 추출할 수 없습니다. 건물 정보를 직접 입력해주세요." });
         }
-      },
-    }).open();
   }
 
   async function lookupBuildingRegister(sigunguCd: string, bjdongCd: string, bun: string, ji: string) {
@@ -560,6 +594,9 @@ export function useBuildingSetup() {
     removeTask,
     updateTaskDate,
     openKakaoPostcode,
+    postcodeOpen,
+    setPostcodeOpen,
+    postcodeContainerRef,
     calculateSafety,
     saveBuilding,
     scheduleInspections,

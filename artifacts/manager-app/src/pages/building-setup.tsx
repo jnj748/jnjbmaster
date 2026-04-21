@@ -84,6 +84,9 @@ export default function BuildingSetup() {
           registerPreview={setup.registerPreview}
           areaInfo={setup.areaInfo}
           openKakaoPostcode={setup.openKakaoPostcode}
+          postcodeOpen={setup.postcodeOpen}
+          setPostcodeOpen={setup.setPostcodeOpen}
+          postcodeContainerRef={setup.postcodeContainerRef}
           setActiveStep={setup.setActiveStep}
         />
       )}
