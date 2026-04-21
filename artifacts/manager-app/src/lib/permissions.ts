@@ -77,6 +77,7 @@ const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
 const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
 const ErpBills = lazy(() => import("@/pages/erp/bills"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
+const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 
 export type Role =
   | "manager"
@@ -287,16 +288,21 @@ export const ROUTES: RouteEntry[] = [
   //   → 분기/연간 빈도 낮은 항목(지출→세무→수수료) 순으로 노출.
   // [Task #124] 레거시 /accounting · /metering · /billing · /complaints · /erp/foundation
   //   라우트 및 컴포넌트는 ERP 통합 화면 안정 운영을 확인한 뒤 제거됨.
+  // [Task #170] 회계 그룹 허브. 시설 허브와 동일하게 사이드바에선 숨기고,
+  //   모바일 하단 네비 "회계" 탭 진입점으로 사용. 그룹 헤더 클릭 시도 진입.
+  {
+    path: "/erp/accounting-hub", component: AccountingHub,
+    label: "회계", icon: Calculator, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: [],
+    bottomNav: ["manager", "platform_admin", "accountant"],
+    bottomLabel: "회계",
+    bottomOrder: 30,
+  },
   {
     path: "/erp/accounting", component: ErpPhase2,
     label: "회계 엔진", icon: Calculator, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    bottomNav: ["manager", "platform_admin", "accountant"],
-    bottomLabel: "회계",
-    bottomOrder: 30,
-    // [Task #170] 모바일 회계 탭 클릭 시 회계 그룹 메뉴(관리비 요약/고지서 등)를
-    //   시트로 펼쳐 보여줌. 탭에서 바로 회계 엔진 단일 화면으로 이동하지 않도록 함.
-    bottomGroupSheet: "accounting",
   },
   {
     path: "/erp/metering", component: ErpPhase1,

@@ -30,11 +30,9 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PlatformFooter } from "@/components/intermediary-disclaimer";
 import {
   ROLE_LABELS,
-  GROUP_TITLES,
   getSidebarSections,
   getBottomNavItems,
   getEffectiveRole,
@@ -178,11 +176,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
   const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
-  const [groupSheet, setGroupSheet] = useState<string | null>(null);
-  const groupSheetSection = useMemo(
-    () => (groupSheet ? sections.find((s) => s.title === (GROUP_TITLES as Record<string, string>)[groupSheet]) : null),
-    [groupSheet, sections],
-  );
 
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
   // 시설 섹션이 노출되는 role에만 활성화하여 불필요한 호출을 막는다.
@@ -573,22 +566,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {bottomNavItems.map((item) => {
             const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-            // [Task #170] 그룹 시트로 펼치는 탭(예: 회계)은 Link 대신 버튼으로 렌더.
-            if (item.groupSheet) {
-              return (
-                <button
-                  key={`group-${item.groupSheet}`}
-                  onClick={() => setGroupSheet(item.groupSheet!)}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
-                    isActive ? "text-accent" : "text-muted-foreground"
-                  )}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{item.label}</span>
-                </button>
-              );
-            }
             return (
               <Link key={item.path} href={item.path}>
                 <button className={cn(
@@ -611,46 +588,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">더보기</span>
           </button>
         </nav>
-
-      {/* [Task #170] 모바일 회계 그룹 메뉴 시트. 시설 허브와 동일한 컬러 아이콘 카드 그리드. */}
-      <Sheet open={!!groupSheet} onOpenChange={(o) => !o && setGroupSheet(null)}>
-        <SheetContent
-          side="bottom"
-          className="rounded-t-2xl px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]"
-        >
-          <SheetHeader>
-            <SheetTitle className="text-left">{groupSheetSection?.title ?? "메뉴"}</SheetTitle>
-          </SheetHeader>
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            {groupSheetSection?.items.map((it, idx) => {
-              const Icon = it.icon;
-              const active = location.startsWith(it.path);
-              const colors = [
-                "bg-blue-500", "bg-emerald-500", "bg-orange-500",
-                "bg-violet-500", "bg-rose-500", "bg-amber-500",
-                "bg-cyan-500", "bg-fuchsia-500", "bg-lime-600",
-              ];
-              const color = colors[idx % colors.length];
-              return (
-                <Link key={it.path} href={it.path}>
-                  <button
-                    onClick={() => setGroupSheet(null)}
-                    className={cn(
-                      "w-full h-full rounded-xl border bg-card hover:bg-muted/50 transition-colors p-3 flex flex-col items-center text-center gap-2",
-                      active && "border-accent ring-1 ring-accent/40"
-                    )}
-                  >
-                    <span className={cn("w-10 h-10 rounded-full flex items-center justify-center", color)}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </span>
-                    <span className="text-xs font-medium leading-tight break-keep">{it.label}</span>
-                  </button>
-                </Link>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
     </>
   );
 }
