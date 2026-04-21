@@ -29,6 +29,7 @@ import {
   MessageSquare,
   Vote,
   Sparkles,
+  Clipboard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,6 +79,7 @@ const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
 const ErpBills = lazy(() => import("@/pages/erp/bills"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
+const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
 
 export type Role =
   | "manager"
@@ -324,6 +326,12 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/fees-summary", component: ErpFeesSummary,
     label: "관리비 요약", icon: BarChart3, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
+  },
+  // [Task #178] 건물 단위 관리비 응대 자료 (월별 5개 영역 한장 요약)
+  {
+    path: "/erp/building-records", component: BuildingRecords,
+    label: "관리비 응대 자료", icon: Clipboard, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
   },
   {
     path: "/erp/bills", component: ErpBills,

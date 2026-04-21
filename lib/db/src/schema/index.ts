@@ -53,3 +53,4 @@ export * from "./legalAppointees";
 export * from "./vendorCategories";
 export * from "./accountingInitialFiles";
 export * from "./facilityStaffSignupRequests";
+export * from "./buildingMonthlyRecords";
