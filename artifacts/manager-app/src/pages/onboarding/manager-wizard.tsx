@@ -963,7 +963,7 @@ function BillStep({
         {busy ? (
           <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-            <span className="text-xs text-slate-600">OCR 분석 중...</span>
+            <span className="text-xs text-slate-600">관리비 내역을 AI 분석 중이에요...</span>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
