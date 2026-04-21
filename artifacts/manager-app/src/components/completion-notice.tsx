@@ -119,7 +119,7 @@ export function CompletionNotice({
   const documentRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [docKind, setDocKind] = useState<DocKind>(initialDocKind);
-  const [editMode, setEditMode] = useState(true);
+  const [editMode, setEditMode] = useState(false);
   const [noticeNo] = useState(getNoticeNumber());
   const [postingPeriod, setPostingPeriod] = useState("상시게재");
   const cleanAlertTitle = stripDday(alertTitle);
@@ -171,7 +171,7 @@ export function CompletionNotice({
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
         const filename = safeFilename(
-          `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`,
+          `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
         );
         const result = await sharePdfFromElement(
           documentRef.current,
@@ -205,7 +205,9 @@ export function CompletionNotice({
         if (documentRef.current) {
           await downloadElementAsPng(
             documentRef.current,
-            safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`),
+            safeFilename(
+              `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
+            ),
           );
           toast({ title: "이미지 저장 완료", description: `${DOC_KIND_LABELS[docKind]}이(가) PNG로 저장되었습니다.` });
         }
@@ -225,7 +227,9 @@ export function CompletionNotice({
         if (!documentRef.current) return;
         const blob = await elementToDocxBlob(documentRef.current, title);
         const filename =
-          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".docx";
+          safeFilename(
+            `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
+          ) + ".docx";
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -253,7 +257,7 @@ export function CompletionNotice({
       open={open}
       onOpenChange={(o) => {
         onOpenChange(o);
-        if (o) setEditMode(true);
+        if (o) setEditMode(false);
       }}
     >
       <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
