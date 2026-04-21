@@ -27,9 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, useLocation } from "wouter";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
-} from "recharts";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -663,48 +660,6 @@ export default function Dashboard() {
           <p className="text-xs text-red-700 ml-6 mt-1">
             퇴거 후 개인정보 보유기간이 만료된 데이터가 있습니다. 개인정보보호법에 따라 즉시 파기 절차를 진행해 주세요.
           </p>
-        </div>
-      )}
-
-      {analytics && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                <Coins className="w-4 h-4 text-chart-4" />
-                미납 관리비 현황
-              </h3>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={analytics.unpaidByCategory}
-                      dataKey="amount"
-                      nameKey="category"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                    >
-                      {analytics.unpaidByCategory.map((_, index) => (
-                        <Cell key={index} fill={["#0ea5e9", "#10b981", "#f59e0b", "#94a3b8"][index % 4]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `${(value / 10000).toFixed(0)}만원`} />
-                    <Legend
-                      formatter={(value: string) => <span className="text-xs">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="text-center mt-1">
-                <p className="text-lg font-bold">{(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원</p>
-                <p className="text-xs text-muted-foreground">{analytics.unpaidSummary.unpaidCount}세대 미납</p>
-              </div>
-            </CardContent>
-          </Card>
-
         </div>
       )}
 
