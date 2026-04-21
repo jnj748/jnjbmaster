@@ -373,6 +373,9 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
         <Button variant="outline" size="sm" onClick={exportPng} data-testid="daily-export-png">
           <Download className="w-4 h-4 mr-1" /> PNG
         </Button>
+        <Button variant="outline" size="sm" onClick={() => window.print()} data-testid="daily-print">
+          인쇄/PDF
+        </Button>
         <Button variant="outline" size="sm" onClick={share} data-testid="daily-share">
           <Share2 className="w-4 h-4 mr-1" /> 공유
         </Button>
@@ -506,6 +509,17 @@ function DailyJournalWizard({
     onError: (e) => toast({ title: "저장 실패", description: String(e), variant: "destructive" }),
   });
 
+  // 단계 이동 시 자동 저장 (멱등 PUT). 실패해도 사용자 흐름은 막지 않는다.
+  async function autoSave() {
+    try {
+      await call<DailyJournal>(`/daily-journals/${date}`, { method: "PUT", body: JSON.stringify(form) });
+    } catch {
+      // best-effort
+    }
+  }
+  function goNext() { autoSave(); setStep(step + 1); }
+  function goPrev() { autoSave(); setStep(step - 1); }
+
   const section = SECTIONS[step];
   const statusKey = `${section.key}Status` as const;
   const memoKey = `${section.key}Memo` as const;
@@ -560,11 +574,11 @@ function DailyJournalWizard({
           />
 
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => step === 0 ? onClose() : setStep(step - 1)} data-testid="wizard-prev">
+            <Button variant="outline" onClick={() => step === 0 ? onClose() : goPrev()} data-testid="wizard-prev">
               {step === 0 ? "취소" : "이전"}
             </Button>
             {step < 3 ? (
-              <Button onClick={() => setStep(step + 1)} data-testid="wizard-next">다음</Button>
+              <Button onClick={goNext} data-testid="wizard-next">다음</Button>
             ) : (
               <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} data-testid="wizard-save">
                 {saveMut.isPending ? <Spinner className="w-4 h-4 mr-1" /> : null}

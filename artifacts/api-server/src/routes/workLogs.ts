@@ -205,28 +205,20 @@ router.put("/daily-journals/:date", async (req, res): Promise<void> => {
   res.json(serializeJournal(row));
 });
 
-router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
-  const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().split("T")[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "bad date" }); return; }
-  const ctx = await getCtx(req.user!.userId);
-  if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
-
+async function composeDaily(buildingId: number, date: string, ctxName: string) {
   const [building, journal, entries, inspections, drafts] = await Promise.all([
-    db.select().from(buildingsTable).where(eq(buildingsTable.id, ctx.buildingId)).then((r) => r[0] ?? null),
+    db.select().from(buildingsTable).where(eq(buildingsTable.id, buildingId)).then((r) => r[0] ?? null),
     db.select().from(dailyJournalsTable)
-      .where(and(eq(dailyJournalsTable.buildingId, ctx.buildingId), eq(dailyJournalsTable.journalDate, date)))
+      .where(and(eq(dailyJournalsTable.buildingId, buildingId), eq(dailyJournalsTable.journalDate, date)))
       .then((r) => r[0] ?? null),
     db.select().from(workLogEntriesTable)
-      .where(and(eq(workLogEntriesTable.buildingId, ctx.buildingId), eq(workLogEntriesTable.occurredDate, date)))
+      .where(and(eq(workLogEntriesTable.buildingId, buildingId), eq(workLogEntriesTable.occurredDate, date)))
       .orderBy(workLogEntriesTable.occurredAt),
-    db.select().from(inspectionsTable).where(eq(inspectionsTable.buildingId, ctx.buildingId)),
+    db.select().from(inspectionsTable).where(eq(inspectionsTable.buildingId, buildingId)),
     db.select().from(draftsTable).where(sql`to_char(${draftsTable.createdAt}, 'YYYY-MM-DD') = ${date}`),
   ]);
-
   const inspIds = inspections.map((i) => i.id);
   const inspIdSet = new Set(inspIds);
-  // 테넌트 격리: drafts 에 building_id 가 없으므로 본 건물 inspections 에 명시적으로
-  // 연결된 drafts 만 포함한다. inspectionId == null 은 소속 불명이라 제외.
   const draftsForBuilding = drafts.filter((d) => d.inspectionId != null && inspIdSet.has(d.inspectionId));
   const inspLogsForDay = inspIds.length === 0 ? [] : await db.select().from(inspectionLogsTable)
     .where(and(eq(inspectionLogsTable.inspectionDate, date), inArray(inspectionLogsTable.inspectionId, inspIds)));
@@ -234,24 +226,45 @@ router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
   const inspMap = new Map(inspections.map((i) => [i.id, i]));
   const completed = inspLogsForDay.map((l) => ({
     name: inspMap.get(l.inspectionId)?.name ?? `점검#${l.inspectionId}`,
-    result: l.result,
-    memo: l.memo,
+    result: l.result, memo: l.memo,
   }));
   const drafted = draftsForBuilding.map((d) => ({ id: d.id, title: d.title, draftType: d.draftType }));
-
-  // Postponed: 마감일이 date 인데 처리 로그가 없는 inspections.
   const postponed = inspections
     .filter((i) => i.nextDueDate === date && !inspLogsForDay.some((l) => l.inspectionId === i.id))
     .map((i) => ({ id: i.id, name: i.name, nextDueDate: i.nextDueDate }));
 
-  res.json({
+  const report = {
     date,
     buildingName: building?.name ?? null,
-    authorName: journal?.authorName ?? ctx.name ?? "관리자",
+    authorName: journal?.authorName ?? ctxName,
     journal: journal ? serializeJournal(journal) : null,
     entries: entries.map(serializeEntry),
     statutory: { completed, postponed, drafted },
-  });
+  };
+
+  // 보고서 스냅샷 영속화 — 동일 입력 → 동일 출력 (멱등).
+  if (journal) {
+    await db.update(dailyJournalsTable)
+      .set({ snapshot: report })
+      .where(eq(dailyJournalsTable.id, journal.id));
+  }
+  return report;
+}
+
+router.post("/daily-journals/:date/compose", async (req, res): Promise<void> => {
+  const date = req.params.date;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "bad date" }); return; }
+  const ctx = await getCtx(req.user!.userId);
+  if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
+  res.json(await composeDaily(ctx.buildingId, date, ctx.name ?? "관리자"));
+});
+
+router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
+  const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().split("T")[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "bad date" }); return; }
+  const ctx = await getCtx(req.user!.userId);
+  if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
+  res.json(await composeDaily(ctx.buildingId, date, ctx.name ?? "관리자"));
 });
 
 router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
