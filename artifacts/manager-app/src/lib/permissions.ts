@@ -299,20 +299,23 @@ export const ROUTES: RouteEntry[] = [
     bottomLabel: "회계",
     bottomOrder: 30,
   },
+  // [관리소장 모드 단순화] 회계 그룹은 관리소장에게 "관리비 요약"만 노출.
+  //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·행정(accountant)
+  //   및 플랫폼 관리자 전용으로 한정.
   {
     path: "/erp/accounting", component: ErpPhase2,
     label: "회계 엔진", icon: Calculator, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/erp/metering", component: ErpPhase1,
     label: "검침/에너지", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,
     label: "고지/수납", icon: Receipt, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
     bottomNav: ["accountant"],
     bottomLabelOverrides: { accountant: "부과" },
   },
@@ -325,28 +328,28 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/erp/bills", component: ErpBills,
     label: "관리비 고지서", icon: FileText, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,
     label: "민원/투표", icon: MessageSquare, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "hq_executive"],
+    access: ["platform_admin", "accountant", "hq_executive"],
     labelOverrides: { hq_executive: "에스컬레이션 민원" },
   },
   {
     path: "/spending", component: ExecutiveSpending,
     label: "지출 현황", icon: DollarSign, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/tax-schedules", component: TaxSchedules,
     label: "세무 일정", icon: Calculator, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/commissions", component: Commissions,
     label: "수수료", icon: Coins, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "partner"],
+    access: ["platform_admin", "accountant", "partner"],
   },
 
   // ── Reports / approvals group ───────────────────────────────────
