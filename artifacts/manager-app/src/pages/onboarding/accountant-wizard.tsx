@@ -158,13 +158,26 @@ export default function AccountantWizardPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ objectPath, fileName: file.name }),
       });
-      if (!ocrRes.ok) {
-        const e = await ocrRes.json().catch(() => ({}));
-        throw new Error(e.error || "OCR 실패");
+      const body = await ocrRes.json().catch(() => ({}));
+      if (ocrRes.status === 202) {
+        // OCR 실패하지만 원본은 보관됨. preview는 비우고 재시도 안내.
+        setBillPreview(null);
+        toast({
+          title: "OCR 인식 실패 — 다시 시도해 주세요",
+          description: (body && body.error) || "고지서 메뉴에서 ‘다시 인식’으로 재시도할 수 있습니다.",
+          variant: "destructive",
+        });
+        return;
       }
-      const saved = await ocrRes.json();
-      setBillPreview(saved);
-      toast({ title: "OCR 완료", description: `${saved.billingMonth} 청구서가 등록되었습니다.` });
+      if (!ocrRes.ok) {
+        throw new Error((body && body.error) || "OCR 실패");
+      }
+      // 정상 응답은 id/billingMonth가 있는 summary 행.
+      if (!body || typeof body.id !== "number" || typeof body.billingMonth !== "string") {
+        throw new Error("응답 형식이 올바르지 않습니다");
+      }
+      setBillPreview(body);
+      toast({ title: "OCR 완료", description: `${body.billingMonth} 청구서가 등록되었습니다.` });
     } catch (e) {
       toast({ title: "고지서 처리 실패", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
     } finally {
@@ -173,7 +186,7 @@ export default function AccountantWizardPage() {
   }
 
   async function confirmBillPreview() {
-    if (!billPreview) return;
+    if (!billPreview || typeof billPreview.id !== "number") return;
     try {
       await fetch(`${API_BASE}/fees/bill-summaries/${billPreview.id}`, {
         method: "PATCH",
