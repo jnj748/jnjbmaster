@@ -17,6 +17,9 @@ const BuildingInfoWidget = lazy(
 const DelinquencySummaryWidget = lazy(
   () => import("./widgets/delinquency-summary-widget"),
 );
+const WarrantyDdayWidget = lazy(
+  () => import("./widgets/warranty-dday-widget"),
+);
 
 // Role-specific main wrappers (legacy page bodies)
 const ManagerMainWidget = lazy(
@@ -46,6 +49,12 @@ export const WIDGETS = {
     component: DelinquencySummaryWidget,
     span: "half",
     label: "연체 세대 현황",
+  },
+  "warranty-dday": {
+    key: "warranty-dday",
+    component: WarrantyDdayWidget,
+    span: "full",
+    label: "하자담보책임 D-Day",
   },
   "manager-main": {
     key: "manager-main",
@@ -94,6 +103,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
       "pending-approvals",
       "delinquency-summary",
       "building-info",
+      "warranty-dday",
     ],
   },
   accountant: {

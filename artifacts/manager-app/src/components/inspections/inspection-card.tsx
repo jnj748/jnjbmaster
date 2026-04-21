@@ -55,7 +55,17 @@ export function InspectionCard({ item, onComplete, onHistory, onEdit, onDelete, 
                     연 {item.frequencyPerYear}회
                   </span>
                 )}
+                {item.notes?.startsWith("[임시]") && (
+                  <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                    참고용 · 법적 효력 없음
+                  </Badge>
+                )}
               </div>
+              {item.notes?.startsWith("[임시]") && (
+                <p className="text-xs text-amber-700 mt-1">
+                  준공일 기준으로 자동 산정된 임시 일정입니다. 실제 점검일이 확인되면 수정해 주세요.
+                </p>
+              )}
               {item.status === "scheduled" && (
                 <Button
                   variant="outline"
