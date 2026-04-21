@@ -422,6 +422,22 @@ router.post("/fees/record-payment", async (req: Request, res: Response): Promise
   res.json(updated);
 });
 
+// [Task #170] 알려진 line item 키만 남기고 비음수 정수로 정규화.
+const ALLOWED_LINE_ITEM_KEYS = new Set([
+  "general","cleaning","security","disinfection","elevator","electricity",
+  "water","heating","gas","longTermRepairFund","insurance","other",
+]);
+function sanitizeLineItems(input: unknown): Record<string, number> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (!ALLOWED_LINE_ITEM_KEYS.has(k)) continue;
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) out[k] = Math.round(n);
+  }
+  return out;
+}
+
 // [Task #170] 누적 미납 현황 집계 — 모든 unit/모든 월 미납 합계.
 router.get("/fees/arrears-summary", async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
@@ -490,7 +506,7 @@ router.post("/fees/bill-ocr", async (req: Request, res: Response): Promise<void>
       totalAmount: ocr.totalAmount ?? 0,
       unitCount: ocr.unitCount ?? null,
       dueDate: ocr.dueDate,
-      lineItems: ocr.lineItems,
+      lineItems: sanitizeLineItems(ocr.lineItems),
       fieldConfidence: ocr.fieldConfidence,
       ocrRawText: ocr.rawText,
       sourceFileUrl: objectPath,
@@ -576,19 +592,20 @@ router.patch("/fees/bill-summaries/:id", async (req: Request, res: Response): Pr
   if (typeof totalAmount === "number") allowed.totalAmount = totalAmount;
   if (typeof unitCount === "number" || unitCount === null) allowed.unitCount = unitCount;
   if (typeof dueDate === "string" || dueDate === null) allowed.dueDate = dueDate;
-  if (lineItems && typeof lineItems === "object" && !Array.isArray(lineItems)) {
-    // [Task #170] 알려진 항목 키만 + 음수 아닌 숫자만 허용.
-    const ALLOWED_KEYS = new Set([
-      "general","cleaning","security","disinfection","elevator","electricity",
-      "water","heating","gas","longTermRepairFund","insurance","other",
-    ]);
-    const sanitized: Record<string, number> = {};
-    for (const [k, v] of Object.entries(lineItems as Record<string, unknown>)) {
-      if (!ALLOWED_KEYS.has(k)) continue;
-      const n = Number(v);
-      if (Number.isFinite(n) && n >= 0) sanitized[k] = Math.round(n);
+  if (lineItems !== undefined) allowed.lineItems = sanitizeLineItems(lineItems);
+
+  // [Task #170] billingMonth 변경 시 unique 충돌 사전 검사 → 409 + 안내.
+  if (typeof allowed.billingMonth === "string" && allowed.billingMonth !== existing.billingMonth) {
+    const [conflict] = await db.select({ id: monthlyBillSummariesTable.id })
+      .from(monthlyBillSummariesTable)
+      .where(and(
+        eq(monthlyBillSummariesTable.buildingId, buildingId),
+        eq(monthlyBillSummariesTable.billingMonth, allowed.billingMonth as string),
+      ));
+    if (conflict && conflict.id !== id) {
+      res.status(409).json({ error: `${allowed.billingMonth}월 고지서가 이미 있습니다. 기존 항목을 먼저 삭제하거나 다른 월로 입력해 주세요.` });
+      return;
     }
-    allowed.lineItems = sanitized;
   }
   if (typeof confirmed === "boolean") allowed.confirmed = confirmed;
 
@@ -610,13 +627,32 @@ router.post("/fees/bill-summaries/:id/reocr", async (req: Request, res: Response
 
   try {
     const ocr = await runBillOcr({ objectPath: existing.sourceFileUrl, fileName: existing.sourceFileName });
+    let nextMonth = ocr.billingMonth || existing.billingMonth;
+    // [Task #170] re-OCR로 월이 바뀌면서 기존 행과 충돌 시: 기존 placeholder는 삭제하고
+    // 정상 행을 유지/대체. 충돌 대상이 정상 행이면 409로 안내.
+    if (nextMonth !== existing.billingMonth) {
+      const [conflict] = await db.select().from(monthlyBillSummariesTable)
+        .where(and(
+          eq(monthlyBillSummariesTable.buildingId, buildingId),
+          eq(monthlyBillSummariesTable.billingMonth, nextMonth),
+        ));
+      if (conflict && conflict.id !== id) {
+        if (existing.billingMonth.startsWith("failed-")) {
+          // 충돌하는 정상 행을 유지하고 placeholder를 삭제.
+          await db.delete(monthlyBillSummariesTable).where(eq(monthlyBillSummariesTable.id, id));
+          res.status(409).json({ error: `${nextMonth}월 고지서가 이미 있습니다.`, mergedInto: conflict.id });
+          return;
+        }
+        nextMonth = existing.billingMonth; // 정상 행끼리는 월 변경 안 함.
+      }
+    }
     const [updated] = await db.update(monthlyBillSummariesTable)
       .set({
-        billingMonth: ocr.billingMonth || existing.billingMonth,
+        billingMonth: nextMonth,
         totalAmount: ocr.totalAmount ?? existing.totalAmount,
         unitCount: ocr.unitCount ?? existing.unitCount,
         dueDate: ocr.dueDate ?? existing.dueDate,
-        lineItems: ocr.lineItems,
+        lineItems: sanitizeLineItems(ocr.lineItems),
         fieldConfidence: ocr.fieldConfidence,
         ocrRawText: ocr.rawText,
         confirmed: false,

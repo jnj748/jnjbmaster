@@ -97,7 +97,7 @@ export default function AccountantWizardPage() {
         title="건물 주소 확인"
         subtitle="회계 자료가 적용될 건물을 확인하거나 주소로 조회합니다."
         currentStep={1}
-        totalSteps={3}
+        totalSteps={TOTAL_STEPS}
         onNext={() => {
           if (hasBuilding) setStep(2);
           else setLocation("/onboarding?returnTo=/onboarding/accountant");
