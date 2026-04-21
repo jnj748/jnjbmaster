@@ -108,6 +108,14 @@ function mondayOf(iso: string): string {
   const diff = day === 0 ? -6 : 1 - day;
   return addDays(iso, diff);
 }
+function formatWeekLabel(mondayIso: string): string {
+  const [y, m, d] = mondayIso.split("-").map(Number);
+  const firstOfMonth = new Date(Date.UTC(y, m - 1, 1));
+  const firstDow = firstOfMonth.getUTCDay();
+  const firstMondayDay = 1 + ((8 - firstDow) % 7);
+  const weekNum = Math.floor((d - firstMondayDay) / 7) + 1;
+  return `${String(m).padStart(2, "0")}월 ${weekNum}주차`;
+}
 function thisMonth(): string {
   const today = todayISO();
   return today.slice(0, 7);
@@ -659,7 +667,7 @@ function WeeklyTab() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="weekly-prev"><ChevronLeft className="w-4 h-4" /></Button>
-          <span className="text-sm font-medium" data-testid="weekly-range">{weekStart} ~ {addDays(weekStart, 6)}</span>
+          <span className="text-sm font-medium" data-testid="weekly-range">{formatWeekLabel(weekStart)}</span>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="weekly-next"><ChevronRight className="w-4 h-4" /></Button>
         </div>
         <div className="flex gap-2">
@@ -678,7 +686,7 @@ function WeeklyTab() {
         <div ref={ref} className="bg-white p-4 rounded-lg border space-y-4">
           <header className="border-b pb-2">
             <h2 className="text-lg font-bold">주간 업무 보고서</h2>
-            <p className="text-xs text-muted-foreground">{data.buildingName ?? "건물"} · {data.weekStart} ~ {data.weekEnd}</p>
+            <p className="text-xs text-muted-foreground">{data.buildingName ?? "건물"} · {formatWeekLabel(data.weekStart)}</p>
           </header>
 
           <section className="grid grid-cols-3 gap-2 text-center">
