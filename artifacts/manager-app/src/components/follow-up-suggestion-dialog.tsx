@@ -1,7 +1,7 @@
 // [Task #197] 업무 완료 시 후속 조치(기안서/RFQ) 제안 팝업.
 // 5개 완료 흐름에서 공유하는 컴포넌트. 같은 출처에 대해 한 번 무시하면
 // 세션 동안 다시 띄우지 않는다.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { AlertCircle, FileText, ClipboardList, X } from "lucide-react";
 import {
@@ -19,6 +19,9 @@ import {
   type FollowUpSource,
   SOURCE_TYPE_LABEL,
 } from "@/lib/follow-up-detection";
+import { CompletionNotice } from "@/components/completion-notice";
+import { useBuilding } from "@/contexts/building-context";
+import { useAuth } from "@/contexts/auth-context";
 
 const dismissedSources = new Set<string>();
 
@@ -80,6 +83,9 @@ function buildPrefillQuery(
 
 export function FollowUpSuggestionDialog({ open, source, detection, onClose }: Props) {
   const [, navigate] = useLocation();
+  const { building } = useBuilding();
+  const { user } = useAuth();
+  const [draftOpen, setDraftOpen] = useState(false);
 
   // 동일 출처 재표시 방지: 닫힐 때만 등록되도록 onClose 에서 처리.
   useEffect(() => {
@@ -89,19 +95,22 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
     }
   }, [open, source, onClose]);
 
-  if (!source || !detection) return null;
+  if (!source || !detection) {
+    // CompletionNotice 가 열려 있는 동안에도 렌더가 유지되도록 별도 처리는 없다.
+    return null;
+  }
 
   function handleDismiss() {
     if (source) dismissFollowUpSource(source);
     onClose();
   }
 
+  // [변경] 후속 조치 "기안서 작성" — 전자결재 페이지가 아니라
+  // 필수업무 프로세스와 동일한 자동 기안서 양식(이미지 저장/공유/인쇄 포함)을 띄운다.
   function handleApproval() {
     if (!source) return;
     dismissFollowUpSource(source);
-    const qs = buildPrefillQuery(source, detection, "approval");
-    onClose();
-    navigate(`/approvals/create?${qs}`);
+    setDraftOpen(true);
   }
 
   function handleRfq() {
@@ -113,7 +122,22 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && handleDismiss()}>
+    <>
+    <CompletionNotice
+      open={draftOpen}
+      onOpenChange={(o) => {
+        setDraftOpen(o);
+        if (!o) onClose();
+      }}
+      initialDocKind="draft"
+      alertTitle={source.title}
+      alertMessage={detection.snippet}
+      completedDate={source.occurredAt}
+      notes={null}
+      buildingName={building?.name ?? "관리 건물"}
+      authorName={user?.name ?? null}
+    />
+    <Dialog open={open && !draftOpen} onOpenChange={(v) => !v && handleDismiss()}>
       <DialogContent className="max-w-md" data-testid="follow-up-suggestion-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -171,5 +195,6 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

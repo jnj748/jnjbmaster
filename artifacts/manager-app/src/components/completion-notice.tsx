@@ -96,6 +96,7 @@ interface CompletionNoticeProps {
   logoUrl?: string | null;
   sealUrl?: string | null;
   authorName?: string | null;
+  initialDocKind?: DocKind;
 }
 
 export function CompletionNotice({
@@ -112,11 +113,12 @@ export function CompletionNotice({
   logoUrl = null,
   sealUrl = null,
   authorName = null,
+  initialDocKind = "notice",
 }: CompletionNoticeProps) {
   const { toast } = useToast();
   const documentRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
-  const [docKind, setDocKind] = useState<DocKind>("notice");
+  const [docKind, setDocKind] = useState<DocKind>(initialDocKind);
   const [editMode, setEditMode] = useState(true);
   const [noticeNo] = useState(getNoticeNumber());
   const [postingPeriod, setPostingPeriod] = useState("상시게재");
