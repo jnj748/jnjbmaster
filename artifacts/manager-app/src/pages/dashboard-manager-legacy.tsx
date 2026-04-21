@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetDashboardSummary,
   useGetDashboardAlerts,
@@ -63,6 +64,7 @@ import {
   FileText,
   Building2,
   Trash2,
+  NotebookPen,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
@@ -317,6 +319,64 @@ function AlertSection({
         </Card>
       )}
     </div>
+  );
+}
+
+// [Task #205] 대시보드의 "제안업무현황" 바로 아래에서 오늘 업무일지 자동 작성 진입점.
+// 당일 일지 존재 여부에 따라 안내 문구/색을 달리해 시니어 사용자 인지를 돕는다.
+function TodayWorkLogEntry() {
+  const { token } = useAuth();
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+  const todayKst = (() => {
+    const ms = Date.now() + 9 * 60 * 60 * 1000;
+    return new Date(ms).toISOString().split("T")[0];
+  })();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-today-journal", todayKst],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/daily-journals/${todayKst}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return null;
+      if (res.status === 204) return null;
+      return (await res.json()) as null | { id: number };
+    },
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+    enabled: !!token,
+  });
+
+  const hasJournal = !!data;
+  const message = hasJournal
+    ? "금일 업무일지가 생성완료되었습니다"
+    : "금일 업무일지 생성 전입니다. 자동으로 생성해보세요";
+  const messageClass = hasJournal ? "text-emerald-600" : "text-red-600";
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <Link href="/work-log?tab=daily">
+          <button
+            type="button"
+            data-testid="dashboard-today-worklog"
+            className="w-full flex flex-col items-center gap-2 py-2 hover-elevate active-elevate-2 rounded-lg"
+          >
+            <span className="w-14 h-14 rounded-full bg-accent/15 flex items-center justify-center">
+              <NotebookPen className="w-7 h-7 text-accent" />
+            </span>
+            <span className="text-sm font-semibold">오늘 업무일지 자동 작성하기</span>
+            <span
+              className={`text-xs font-medium ${messageClass}`}
+              data-testid="dashboard-today-worklog-status"
+            >
+              {isLoading ? "확인 중..." : message}
+            </span>
+          </button>
+        </Link>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -626,6 +686,9 @@ export default function Dashboard() {
         emptyMessage="현재 제안할 업무가 없습니다"
         onAlertClick={handleAlertClick}
       />
+
+      {/* [Task #205] 오늘 업무일지 진입점 */}
+      <TodayWorkLogEntry />
 
       {/* [Task #184] 상단에 있던 4-카드 그리드를 제안업무현황 아래로 이동 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

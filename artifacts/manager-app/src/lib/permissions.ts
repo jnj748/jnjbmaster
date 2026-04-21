@@ -200,10 +200,10 @@ export const ROUTES: RouteEntry[] = [
   // [Task #182] 상시 업무기록(타임라인+FAB) + 일/주/월 보고서 자동생성
   {
     path: "/work-log", component: WorkLog,
-    label: "업무 기록", icon: NotebookPen, group: "dashboard",
+    label: "업무일지", icon: NotebookPen, group: "dashboard",
     access: ["manager", "platform_admin"],
     bottomNav: ["manager", "platform_admin"],
-    bottomLabel: "업무기록",
+    bottomLabel: "업무일지",
     bottomOrder: 25,
   },
   {

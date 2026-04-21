@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
+import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
 import { shareDocument, formatKoreanDate } from "@/lib/official-document";
 import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
-  CheckCircle2, AlertTriangle, Image as ImageIcon, Download, Share2, NotebookPen,
+  CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
 } from "lucide-react";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
@@ -160,18 +161,28 @@ function useApi() {
   return { call };
 }
 
+type WorkLogTab = "timeline" | "daily" | "weekly" | "monthly";
+
+function readInitialTab(): WorkLogTab {
+  if (typeof window === "undefined") return "timeline";
+  const sp = new URLSearchParams(window.location.search);
+  const t = sp.get("tab");
+  if (t === "daily" || t === "weekly" || t === "monthly" || t === "timeline") return t;
+  return "timeline";
+}
+
 export default function WorkLogPage() {
-  const [tab, setTab] = useState<"timeline" | "daily" | "weekly" | "monthly">("timeline");
+  const [tab, setTab] = useState<WorkLogTab>(readInitialTab);
   const [autoOpenDailyWizard, setAutoOpenDailyWizard] = useState(false);
 
   return (
     <div className="space-y-4 pb-24">
       <div className="flex items-center gap-2">
         <NotebookPen className="w-5 h-5 text-accent" />
-        <h1 className="text-xl font-bold">업무 기록</h1>
+        <h1 className="text-xl font-bold">업무일지</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        평소엔 가볍게 메모만, 보고할 땐 자동으로 일·주·월 보고서가 만들어집니다.
+        평소엔 가볍게 메모만, 보고할 땐 자동으로 일·주·월 일지가 만들어집니다.
       </p>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
@@ -402,40 +413,118 @@ function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWiza
   );
 }
 
+/**
+ * [Task #205] 일/주/월 일지 공통 액션 버튼.
+ * "이미지로 저장 / 공유 / 인쇄" 3개를 가로 풀폭 균등 배치한다.
+ * 세 탭에서 명칭·아이콘·동작이 동일해야 한다.
+ */
+function ReportActionRow({
+  onSaveImage, onShare, onPrint,
+  saving = false, sharing = false,
+  testidPrefix,
+}: {
+  onSaveImage: () => void;
+  onShare: () => void;
+  onPrint: () => void;
+  saving?: boolean;
+  sharing?: boolean;
+  testidPrefix: string;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 print:hidden" data-testid={`${testidPrefix}-actions`}>
+      <Button
+        variant="outline"
+        onClick={onSaveImage}
+        disabled={saving}
+        data-testid={`${testidPrefix}-save-image`}
+        className="w-full"
+      >
+        <ImageDown className="w-4 h-4 mr-1" />
+        {saving ? "저장 중..." : "이미지로 저장"}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={onShare}
+        disabled={sharing}
+        data-testid={`${testidPrefix}-share`}
+        className="w-full"
+      >
+        <Share2 className="w-4 h-4 mr-1" />
+        {sharing ? "공유 중..." : "공유"}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={onPrint}
+        data-testid={`${testidPrefix}-print`}
+        className="w-full"
+      >
+        <Printer className="w-4 h-4 mr-1" />
+        인쇄
+      </Button>
+    </div>
+  );
+}
+
+async function withReadyDoc<T>(
+  frameRef: React.RefObject<A4DocumentFrameHandle | null>,
+  fn: () => Promise<T> | T,
+): Promise<T> {
+  if (frameRef.current) return await frameRef.current.withFullScale(fn);
+  return await fn();
+}
+
 function DailyReportPreview({ report }: { report: DailyReport }) {
   const ref = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<A4DocumentFrameHandle>(null);
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   async function exportPng() {
     if (!ref.current) return;
+    setSaving(true);
     try {
-      await downloadElementAsPng(ref.current, safeFilename(`일일보고서_${report.date}`));
+      await withReadyDoc(frameRef, async () => {
+        if (!ref.current) return;
+        await downloadElementAsPng(ref.current, safeFilename(`일일일지_${report.date}`));
+      });
+      toast({ title: "이미지 저장 완료" });
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   }
   async function share() {
-    const text = buildDailyShareText(report);
-    const r = await shareDocument({ title: `일일 보고서 ${report.date}`, text });
-    if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-    else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    setSharing(true);
+    try {
+      const text = buildDailyShareText(report);
+      const r = await shareDocument({ title: `일일 일지 ${report.date}`, text });
+      if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
+      else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    } finally {
+      setSharing(false);
+    }
+  }
+  function print() {
+    void withReadyDoc(frameRef, () => {
+      window.print();
+    });
   }
 
   return (
     <>
-      <div className="flex gap-2 justify-end">
-        <Button variant="outline" size="sm" onClick={exportPng} data-testid="daily-export-png">
-          <Download className="w-4 h-4 mr-1" /> PNG
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => window.print()} data-testid="daily-print">
-          인쇄/PDF
-        </Button>
-        <Button variant="outline" size="sm" onClick={share} data-testid="daily-share">
-          <Share2 className="w-4 h-4 mr-1" /> 공유
-        </Button>
-      </div>
+      <ReportActionRow
+        testidPrefix="daily"
+        onSaveImage={exportPng}
+        onShare={share}
+        onPrint={print}
+        saving={saving}
+        sharing={sharing}
+      />
 
-      <div ref={ref} className="bg-white text-foreground p-4 rounded-lg border space-y-4">
+      <A4DocumentFrame ref={frameRef}>
+        <div ref={ref} className="a4-document text-foreground space-y-4">
         <header className="border-b pb-2">
           <h2 className="text-lg font-bold">일일 업무 보고서</h2>
           <p className="text-xs text-muted-foreground">
@@ -506,7 +595,8 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             </div>
           </div>
         </section>
-      </div>
+        </div>
+      </A4DocumentFrame>
     </>
   );
 }
@@ -678,6 +768,9 @@ function WeeklyTab() {
   const { call } = useApi();
   const { toast } = useToast();
   const ref = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<A4DocumentFrameHandle>(null);
+  const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
   const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
@@ -708,30 +801,47 @@ function WeeklyTab() {
 
   async function exportPng() {
     if (!ref.current || !data) return;
+    setSaving(true);
     try {
-      await downloadElementAsPng(ref.current, safeFilename(`주간보고서_${data.weekStart}_${data.weekEnd}`));
+      await withReadyDoc(frameRef, async () => {
+        if (!ref.current) return;
+        await downloadElementAsPng(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`));
+      });
+      toast({ title: "이미지 저장 완료" });
       maybeOfferFollowUp(data);
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   }
   async function share() {
     if (!data) return;
-    const lines = [
-      `[${data.buildingName ?? "건물"}] 주간 업무 보고 (${data.weekStart} ~ ${data.weekEnd})`,
-      `일지 ${data.totalJournals}/7일 · 기록 ${data.totalEntries}건 · 특이 ${data.issues}건`,
-      "",
-      data.textSummary,
-      "",
-      ...SECTIONS.map((s) => `■ ${s.label}: 특이 ${data.sectionTotals[s.key].issues}일`),
-    ];
-    const r = await shareDocument({ title: `주간 보고 ${data.weekStart}`, text: lines.join("\n") });
-    if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-    else if (r === "failed") {
-      toast({ title: "공유 실패", variant: "destructive" });
-      return;
+    setSharing(true);
+    try {
+      const lines = [
+        `[${data.buildingName ?? "건물"}] 주간 업무 보고 (${data.weekStart} ~ ${data.weekEnd})`,
+        `일지 ${data.totalJournals}/7일 · 기록 ${data.totalEntries}건 · 특이 ${data.issues}건`,
+        "",
+        data.textSummary,
+        "",
+        ...SECTIONS.map((s) => `■ ${s.label}: 특이 ${data.sectionTotals[s.key].issues}일`),
+      ];
+      const r = await shareDocument({ title: `주간 보고 ${data.weekStart}`, text: lines.join("\n") });
+      if (r === "copied") {
+        toast({ title: "본문이 클립보드에 복사되었습니다" });
+        maybeOfferFollowUp(data);
+      } else if (r === "failed") {
+        toast({ title: "공유 실패", variant: "destructive" });
+      } else {
+        maybeOfferFollowUp(data);
+      }
+    } finally {
+      setSharing(false);
     }
-    maybeOfferFollowUp(data);
+  }
+  function print() {
+    void withReadyDoc(frameRef, () => { window.print(); });
   }
 
   return (
@@ -748,86 +858,140 @@ function WeeklyTab() {
           <span className="text-sm font-medium" data-testid="weekly-range">{formatWeekLabel(weekStart)}</span>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))} data-testid="weekly-next"><ChevronRight className="w-4 h-4" /></Button>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportPng} data-testid="weekly-export-png">
-            <Download className="w-4 h-4 mr-1" /> PNG
-          </Button>
-          <Button variant="outline" size="sm" onClick={share} data-testid="weekly-share">
-            <Share2 className="w-4 h-4 mr-1" /> 공유
-          </Button>
-        </div>
       </div>
+
+      <ReportActionRow
+        testidPrefix="weekly"
+        onSaveImage={exportPng}
+        onShare={share}
+        onPrint={print}
+        saving={saving}
+        sharing={sharing}
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : data ? (
-        <div ref={ref} className="bg-white p-4 rounded-lg border space-y-4">
-          <header className="border-b pb-2">
-            <h2 className="text-lg font-bold">주간 업무 보고서</h2>
-            <p className="text-xs text-muted-foreground">{data.buildingName ?? "건물"} · {formatWeekLabel(data.weekStart)}</p>
-          </header>
-
-          <section className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="작성된 일지" value={`${data.totalJournals}/7`} />
-            <Stat label="업무 기록" value={`${data.totalEntries}건`} />
-            <Stat label="특이사항" value={`${data.issues}건`} />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">주간 요약</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" data-testid="weekly-text-summary">
-              {data.textSummary}
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">요일별 요약</h3>
-            <div className="grid grid-cols-7 gap-1">
-              {data.days.map((d) => (
-                <div key={d.date} className="border rounded p-1.5 text-center text-[11px]">
-                  <div className="font-medium">{d.date.slice(5)}</div>
-                  <div className={d.hasJournal ? "text-emerald-600" : "text-muted-foreground"}>
-                    {d.hasJournal ? "✓" : "—"}
-                  </div>
-                  <div className="text-muted-foreground">{d.entryCount}건</div>
-                  {d.issueCount > 0 && <div className="text-amber-600">⚠ {d.issueCount}</div>}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">영역별 특이사항</h3>
-            <div className="space-y-2">
-              {SECTIONS.map((s) => {
-                const tot = data.sectionTotals[s.key];
-                return (
-                  <div key={s.key} className="text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{s.label}</span>
-                      <span className="text-muted-foreground">{tot.issues}일</span>
-                    </div>
-                    {tot.memos.length > 0 && (
-                      <ul className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
-                        {tot.memos.slice(0, 3).map((m, i) => <li key={i}>· {m}</li>)}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">분류별 기록</h3>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <Stat label="시설" value={`${data.byCategory.facility}`} />
-              <Stat label="관리비" value={`${data.byCategory.bill}`} />
-              <Stat label="민원" value={`${data.byCategory.complaint}`} />
-            </div>
-          </section>
-        </div>
+        <A4DocumentFrame ref={frameRef}>
+          <div ref={ref} className="a4-document text-foreground" style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}>
+            <WeeklyA4ReportBody report={data} />
+          </div>
+        </A4DocumentFrame>
       ) : null}
+    </div>
+  );
+}
+
+/* [Task #205] 주간 일지 — A4 보고서 양식. 내용이 길면 여러 장으로 출력된다. */
+function WeeklyA4ReportBody({ report }: { report: WeeklyReport }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="text-2xl font-bold text-center border-b-2 border-black pb-3">주 간 업 무 보 고 서</h2>
+      <table className="w-full text-sm border-collapse mt-2">
+        <tbody>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">건물명</td>
+            <td className="border border-gray-400 p-2">{report.buildingName ?? "-"}</td>
+            <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">기간</td>
+            <td className="border border-gray-400 p-2">{formatKoreanDate(report.weekStart)} ~ {formatKoreanDate(report.weekEnd)}</td>
+          </tr>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">작성일</td>
+            <td className="border border-gray-400 p-2">{formatKoreanDate(todayISO())}</td>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">주차</td>
+            <td className="border border-gray-400 p-2">{formatWeekLabel(report.weekStart)}</td>
+          </tr>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">총괄</td>
+            <td className="border border-gray-400 p-2" colSpan={3}>
+              일지 {report.totalJournals}/7일 · 업무 기록 {report.totalEntries}건 · 특이사항 {report.issues}건
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 주간 요약</p>
+      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3" data-testid="weekly-text-summary">
+        {report.textSummary || "기록 없음"}
+      </div>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 요일별 일지 / 기록</p>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-28">일자</th>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-20">일지</th>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-20">기록</th>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-20">특이</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">주요 메모</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.days.map((d) => (
+            <tr key={d.date}>
+              <td className="border border-gray-400 p-2">{d.date}</td>
+              <td className="border border-gray-400 p-2 text-center">{d.hasJournal ? "✓" : "—"}</td>
+              <td className="border border-gray-400 p-2 text-center">{d.entryCount}</td>
+              <td className="border border-gray-400 p-2 text-center">{d.issueCount}</td>
+              <td className="border border-gray-400 p-2">
+                {d.topMemos.length === 0 ? "-" : (
+                  <ul className="space-y-0.5">{d.topMemos.map((m, i) => <li key={i}>· {m}</li>)}</ul>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">3. 영역별 특이사항</p>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-32">영역</th>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-20">특이일수</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">주요 메모</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SECTIONS.map((s) => {
+            const tot = report.sectionTotals[s.key];
+            return (
+              <tr key={s.key}>
+                <td className="border border-gray-400 p-2 font-semibold">{s.label}</td>
+                <td className="border border-gray-400 p-2 text-center">{tot.issues}일</td>
+                <td className="border border-gray-400 p-2">
+                  {tot.memos.length === 0 ? "-" : (
+                    <ul className="space-y-0.5">{tot.memos.slice(0, 5).map((m, i) => <li key={i}>· {m}</li>)}</ul>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">4. 분류별 기록 합계</p>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-gray-400 bg-gray-100 p-2">시설</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">관리비</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">민원</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.facility}건</td>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.bill}건</td>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.complaint}건</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="text-right pt-8 text-sm space-y-1">
+        <p>{formatKoreanDate(todayISO())}</p>
+        <p>작성자: {/* author 정보는 일지 단위라 주간 보고서엔 표기 생략 */} 관리자 (서명)</p>
+      </div>
     </div>
   );
 }
@@ -838,6 +1002,9 @@ function MonthlyTab() {
   const { call } = useApi();
   const { toast } = useToast();
   const ref = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<A4DocumentFrameHandle>(null);
+  const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-log-report-monthly", month],
@@ -846,25 +1013,40 @@ function MonthlyTab() {
 
   async function exportPng() {
     if (!ref.current || !data) return;
+    setSaving(true);
     try {
-      await downloadElementAsPng(ref.current, safeFilename(`월간보고서_${data.month}`));
+      await withReadyDoc(frameRef, async () => {
+        if (!ref.current) return;
+        await downloadElementAsPng(ref.current, safeFilename(`월간일지_${data.month}`));
+      });
+      toast({ title: "이미지 저장 완료" });
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   }
   async function share() {
     if (!data) return;
-    const lines = [
-      `[${data.buildingName ?? "건물"}] ${data.month} 월간 업무 보고`,
-      `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주 · 특이 ${data.issues}건`,
-      "",
-      data.textSummary,
-      "",
-      ...data.weeks.map((w) => `[${w.weekStart}] ${w.textSummary}`),
-    ];
-    const r = await shareDocument({ title: `월간 보고 ${data.month}`, text: lines.join("\n") });
-    if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-    else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    setSharing(true);
+    try {
+      const lines = [
+        `[${data.buildingName ?? "건물"}] ${data.month} 월간 업무 보고`,
+        `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주 · 특이 ${data.issues}건`,
+        "",
+        data.textSummary,
+        "",
+        ...data.weeks.map((w) => `[${w.weekStart}] ${w.textSummary}`),
+      ];
+      const r = await shareDocument({ title: `월간 보고 ${data.month}`, text: lines.join("\n") });
+      if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
+      else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    } finally {
+      setSharing(false);
+    }
+  }
+  function print() {
+    void withReadyDoc(frameRef, () => { window.print(); });
   }
 
   function shiftMonth(delta: number) {
@@ -881,81 +1063,140 @@ function MonthlyTab() {
           <span className="text-sm font-medium" data-testid="monthly-label">{month}</span>
           <Button variant="outline" size="sm" onClick={() => shiftMonth(1)} data-testid="monthly-next"><ChevronRight className="w-4 h-4" /></Button>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportPng} data-testid="monthly-export-png">
-            <Download className="w-4 h-4 mr-1" /> PNG
-          </Button>
-          <Button variant="outline" size="sm" onClick={share} data-testid="monthly-share">
-            <Share2 className="w-4 h-4 mr-1" /> 공유
-          </Button>
-        </div>
       </div>
+
+      <ReportActionRow
+        testidPrefix="monthly"
+        onSaveImage={exportPng}
+        onShare={share}
+        onPrint={print}
+        saving={saving}
+        sharing={sharing}
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : data ? (
-        <div ref={ref} className="bg-white p-4 rounded-lg border space-y-4">
-          <header className="border-b pb-2">
-            <h2 className="text-lg font-bold">월간 업무 보고서</h2>
-            <p className="text-xs text-muted-foreground">{data.buildingName ?? "건물"} · {data.month}</p>
-          </header>
-
-          <section className="grid grid-cols-4 gap-2">
-            <Stat label="작성된 일지" value={`${data.totalJournals}일`} />
-            <Stat label="업무 기록" value={`${data.totalEntries}건`} />
-            <Stat label="총 주차" value={`${data.weeks.length}주`} />
-            <Stat label="특이사항" value={`${data.issues}건`} />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">월간 요약</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" data-testid="monthly-text-summary">
-              {data.textSummary}
-            </p>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">주차별 요약</h3>
-            <div className="space-y-1.5">
-              {data.weeks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">기록 없음</p>
-              ) : data.weeks.map((w) => (
-                <Card key={w.weekStart} data-testid={`monthly-week-${w.weekStart}`}>
-                  <CardContent className="p-3 text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span className="font-medium">{w.weekStart} ~ {w.weekEnd}</span>
-                      <span className="text-xs text-muted-foreground">일지 {w.totalJournals}일 · 기록 {w.totalEntries}건 · 특이 {w.issues}건</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {w.textSummary}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-semibold mb-2">분류별 합계</h3>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <Stat label="시설" value={`${data.byCategory.facility}`} />
-              <Stat label="관리비" value={`${data.byCategory.bill}`} />
-              <Stat label="민원" value={`${data.byCategory.complaint}`} />
-            </div>
-          </section>
-        </div>
+        <A4DocumentFrame ref={frameRef}>
+          <div ref={ref} className="a4-document text-foreground" style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}>
+            <MonthlyA4ReportBody report={data} />
+          </div>
+        </A4DocumentFrame>
       ) : null}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/* [Task #205] 월간 일지 — A4 보고서 양식. 주차가 많을 경우 여러 장 출력 */
+function MonthlyA4ReportBody({ report }: { report: MonthlyReport }) {
   return (
-    <Card>
-      <CardContent className="py-3 text-center">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="text-lg font-bold">{value}</div>
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <h2 className="text-2xl font-bold text-center border-b-2 border-black pb-3">월 간 업 무 보 고 서</h2>
+      <table className="w-full text-sm border-collapse mt-2">
+        <tbody>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">건물명</td>
+            <td className="border border-gray-400 p-2">{report.buildingName ?? "-"}</td>
+            <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">대상월</td>
+            <td className="border border-gray-400 p-2">{report.month}</td>
+          </tr>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">기간</td>
+            <td className="border border-gray-400 p-2">{formatKoreanDate(report.monthStart)} ~ {formatKoreanDate(report.monthEnd)}</td>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">작성일</td>
+            <td className="border border-gray-400 p-2">{formatKoreanDate(todayISO())}</td>
+          </tr>
+          <tr>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">총괄</td>
+            <td className="border border-gray-400 p-2" colSpan={3}>
+              일지 {report.totalJournals}일 · 업무 기록 {report.totalEntries}건 · {report.weeks.length}주차 · 특이사항 {report.issues}건
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 월간 요약</p>
+      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3" data-testid="monthly-text-summary">
+        {report.textSummary || "기록 없음"}
+      </div>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 주차별 요약</p>
+      {report.weeks.length === 0 ? (
+        <p className="text-sm text-gray-600">기록 없음</p>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className="border border-gray-400 bg-gray-100 p-2 w-44">주차</th>
+              <th className="border border-gray-400 bg-gray-100 p-2 w-20">일지</th>
+              <th className="border border-gray-400 bg-gray-100 p-2 w-20">기록</th>
+              <th className="border border-gray-400 bg-gray-100 p-2 w-20">특이</th>
+              <th className="border border-gray-400 bg-gray-100 p-2">요약</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.weeks.map((w) => (
+              <tr key={w.weekStart} data-testid={`monthly-week-${w.weekStart}`}>
+                <td className="border border-gray-400 p-2">{w.weekStart}<br />~ {w.weekEnd}</td>
+                <td className="border border-gray-400 p-2 text-center">{w.totalJournals}일</td>
+                <td className="border border-gray-400 p-2 text-center">{w.totalEntries}건</td>
+                <td className="border border-gray-400 p-2 text-center">{w.issues}건</td>
+                <td className="border border-gray-400 p-2 whitespace-pre-line">{w.textSummary || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">3. 영역별 특이사항</p>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-32">영역</th>
+            <th className="border border-gray-400 bg-gray-100 p-2 w-20">특이일수</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">주요 메모</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SECTIONS.map((s) => {
+            const tot = report.sectionTotals[s.key];
+            return (
+              <tr key={s.key}>
+                <td className="border border-gray-400 p-2 font-semibold">{s.label}</td>
+                <td className="border border-gray-400 p-2 text-center">{tot.issues}일</td>
+                <td className="border border-gray-400 p-2">
+                  {tot.memos.length === 0 ? "-" : (
+                    <ul className="space-y-0.5">{tot.memos.slice(0, 5).map((m, i) => <li key={i}>· {m}</li>)}</ul>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">4. 분류별 기록 합계</p>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="border border-gray-400 bg-gray-100 p-2">시설</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">관리비</th>
+            <th className="border border-gray-400 bg-gray-100 p-2">민원</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.facility}건</td>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.bill}건</td>
+            <td className="border border-gray-400 p-2 text-center">{report.byCategory.complaint}건</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="text-right pt-8 text-sm space-y-1">
+        <p>{formatKoreanDate(todayISO())}</p>
+        <p>작성자: 관리자 (서명)</p>
+      </div>
+    </div>
   );
 }
