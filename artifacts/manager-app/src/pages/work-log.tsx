@@ -147,7 +147,9 @@ export default function WorkLogPage() {
           <TabsTrigger value="weekly" data-testid="tab-weekly">주간</TabsTrigger>
           <TabsTrigger value="monthly" data-testid="tab-monthly">월간</TabsTrigger>
         </TabsList>
-        <TabsContent value="timeline"><TimelineTab /></TabsContent>
+        <TabsContent value="timeline">
+          <TimelineTab onGoDaily={() => setTab("daily")} />
+        </TabsContent>
         <TabsContent value="daily"><DailyTab /></TabsContent>
         <TabsContent value="weekly"><WeeklyTab /></TabsContent>
         <TabsContent value="monthly"><MonthlyTab /></TabsContent>
@@ -157,11 +159,13 @@ export default function WorkLogPage() {
 }
 
 /* ───────────────────────── 타임라인 탭 ───────────────────────── */
-function TimelineTab() {
+function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const { call } = useApi();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState<"all" | Category>("all");
+  const [editing, setEditing] = useState<WorkLogEntry | null>(null);
+  const [editMemo, setEditMemo] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-logs", filter],
@@ -174,6 +178,15 @@ function TimelineTab() {
     mutationFn: (id: number) => call<null>(`/work-logs/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       toast({ title: "삭제되었습니다" });
+      qc.invalidateQueries({ queryKey: ["work-logs"] });
+    },
+  });
+  const editMut = useMutation({
+    mutationFn: ({ id, memo }: { id: number; memo: string }) =>
+      call<WorkLogEntry>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify({ memo }) }),
+    onSuccess: () => {
+      toast({ title: "수정되었습니다" });
+      setEditing(null);
       qc.invalidateQueries({ queryKey: ["work-logs"] });
     },
   });
@@ -190,6 +203,9 @@ function TimelineTab() {
 
   return (
     <div className="space-y-3 pt-3">
+      <Button onClick={onGoDaily} className="w-full" data-testid="timeline-goto-daily">
+        오늘 업무일지 만들기
+      </Button>
       <div className="flex gap-2 overflow-x-auto">
         {([
           ["all", "전체"], ["facility", "시설"], ["bill", "고지서"], ["complaint", "민원"],
@@ -240,13 +256,22 @@ function TimelineTab() {
                         <AuthImage src={e.photoUrl} alt="" className="mt-2 max-h-40 rounded-md border" />
                       ) : null}
                     </div>
-                    <button
-                      onClick={() => { if (confirm("삭제할까요?")) removeMut.mutate(e.id); }}
-                      className="text-xs text-muted-foreground hover:text-destructive shrink-0"
-                      data-testid={`delete-${e.id}`}
-                    >
-                      삭제
-                    </button>
+                    <div className="flex flex-col gap-1 shrink-0 text-xs">
+                      <button
+                        onClick={() => { setEditing(e); setEditMemo(e.memo); }}
+                        className="text-muted-foreground hover:text-foreground"
+                        data-testid={`edit-${e.id}`}
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => { if (confirm("삭제할까요?")) removeMut.mutate(e.id); }}
+                        className="text-muted-foreground hover:text-destructive"
+                        data-testid={`delete-${e.id}`}
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -254,6 +279,25 @@ function TimelineTab() {
           </div>
         ))
       )}
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>업무 기록 수정</DialogTitle></DialogHeader>
+          <Textarea
+            value={editMemo}
+            onChange={(e) => setEditMemo(e.target.value)}
+            rows={4}
+            data-testid="edit-memo-input"
+          />
+          <Button
+            onClick={() => editing && editMut.mutate({ id: editing.id, memo: editMemo.trim() })}
+            disabled={editMut.isPending || !editMemo.trim()}
+            data-testid="edit-save"
+          >
+            저장
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

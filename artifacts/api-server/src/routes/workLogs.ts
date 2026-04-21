@@ -225,8 +225,9 @@ router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
 
   const inspIds = inspections.map((i) => i.id);
   const inspIdSet = new Set(inspIds);
-  // drafts에 building_id 컬럼이 없어 inspectionId 로 본 건물 인스펙션만 남긴다 (테넌트 격리).
-  const draftsForBuilding = drafts.filter((d) => d.inspectionId == null || inspIdSet.has(d.inspectionId));
+  // 테넌트 격리: drafts 에 building_id 가 없으므로 본 건물 inspections 에 명시적으로
+  // 연결된 drafts 만 포함한다. inspectionId == null 은 소속 불명이라 제외.
+  const draftsForBuilding = drafts.filter((d) => d.inspectionId != null && inspIdSet.has(d.inspectionId));
   const inspLogsForDay = inspIds.length === 0 ? [] : await db.select().from(inspectionLogsTable)
     .where(and(eq(inspectionLogsTable.inspectionDate, date), inArray(inspectionLogsTable.inspectionId, inspIds)));
 
