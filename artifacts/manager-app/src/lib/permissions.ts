@@ -30,6 +30,7 @@ import {
   Vote,
   Sparkles,
   Clipboard,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -80,6 +81,7 @@ const ErpBills = lazy(() => import("@/pages/erp/bills"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
+const WorkLog = lazy(() => import("@/pages/work-log"));
 
 export type Role =
   | "manager"
@@ -194,6 +196,15 @@ export const ROUTES: RouteEntry[] = [
     bottomNav: ["manager", "platform_admin"],
     bottomLabel: "AI비서",
     bottomOrder: 20,
+  },
+  // [Task #182] 상시 업무기록(타임라인+FAB) + 일/주/월 보고서 자동생성
+  {
+    path: "/work-log", component: WorkLog,
+    label: "업무 기록", icon: NotebookPen, group: "dashboard",
+    access: ["manager", "platform_admin"],
+    bottomNav: ["manager", "platform_admin"],
+    bottomLabel: "업무기록",
+    bottomOrder: 25,
   },
   {
     path: "/building-info", component: BuildingInfo,

@@ -57,6 +57,7 @@ import vendorCategoriesRouter from "./vendorCategories";
 import accountingInitialFilesRouter from "./accountingInitialFiles";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
+import workLogsRouter from "./workLogs";
 
 const router: IRouter = Router();
 
@@ -128,6 +129,7 @@ buildingRouter.use(warrantiesRouter);
 buildingRouter.use(contractsRouter);
 buildingRouter.use(onboardingRouter);
 buildingRouter.use(buildingRecordsRouter);
+buildingRouter.use(workLogsRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);

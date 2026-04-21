@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
+import { QuickEntryFab } from "@/components/work-log/quick-entry-fab";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -560,6 +561,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {isPartner && <PlatformFooter />}
         </div>
       </div>
+
+      {(user.role === "manager" || user.role === "platform_admin") && (
+        <QuickEntryFab onCreated={() => queryClient.invalidateQueries({ queryKey: ["work-logs"] })} />
+      )}
 
       <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
