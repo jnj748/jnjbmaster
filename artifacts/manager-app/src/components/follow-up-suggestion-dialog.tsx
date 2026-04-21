@@ -121,7 +121,7 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
             후속 조치가 필요해 보여요
           </DialogTitle>
           <DialogDescription className="text-xs">
-            방금 작성한 내용에서 수리·교체 등 후속 조치가 필요한 단어가 발견되었어요.
+            해당 업무는 후속조치가 필요해보여요. 기안하시거나 견적을 받아보시겠어요?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
