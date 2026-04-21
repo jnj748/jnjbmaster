@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
-  inlineImagesAsDataUrls,
+  elementToPdfBlob,
   safeFilename,
   sharePdfFromElement,
 } from "@/lib/document-export";
@@ -223,32 +223,20 @@ export function CompletionNotice({
     try {
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
-        const inner = await inlineImagesAsDataUrls(documentRef.current);
-        const html =
-          `<html xmlns:o="urn:schemas-microsoft-com:office:office" ` +
-          `xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
-          `<head><meta charset="utf-8"><title>${title}</title>` +
-          `<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml>` +
-          `<style>` +
-          `body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;}` +
-          `table{border-collapse:collapse;}td,th{padding:6px 8px;}` +
-          `img{max-width:100%;}` +
-          `@page{size:A4;margin:1.5cm;}` +
-          `</style></head><body>${inner}</body></html>`;
-        const bom = "\uFEFF";
-        const blob = new Blob([bom + html], { type: "application/msword;charset=utf-8" });
+        const blob = await elementToPdfBlob(documentRef.current);
+        const filename =
+          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".pdf";
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download =
-          safeFilename(`${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${getTodayShort()}`) + ".doc";
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         toast({
           title: "문서 저장 완료",
-          description: "Word(.doc) 파일이 저장되었습니다. 워드/한글에서 열어 편집할 수 있습니다.",
+          description: "PDF 파일로 저장되었습니다. 어떤 기기에서도 열어볼 수 있습니다.",
         });
       });
     } catch (e) {
