@@ -6444,6 +6444,10 @@ components:
           format: date
         penaltyInfo:
           type: ["string", "null"]
+        inspectionType:
+          type: ["string", "null"]
+          enum: [legal, self_regular, biweekly, seasonal, administrative, null]
+          description: "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts."
         createdAt:
           type: string
           format: date-time

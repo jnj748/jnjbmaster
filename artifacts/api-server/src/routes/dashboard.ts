@@ -165,6 +165,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     actionStatus: string | null;
     dueDate: string | null;
     penaltyInfo: string | null;
+    inspectionType?: string | null;
     createdAt: string;
   }> = [];
 
@@ -225,6 +226,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       actionStatus: action?.actionType || null,
       dueDate: inspection.nextDueDate,
       penaltyInfo,
+      inspectionType: inspection.inspectionType ?? null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -261,6 +263,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       actionStatus: action?.actionType || null,
       dueDate: inspection.nextDueDate,
       penaltyInfo: penaltyInfoO,
+      inspectionType: inspection.inspectionType ?? null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -440,6 +443,7 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
       hasDraft: false,
       actionStatus: null,
       dueDate: warranty.expiryDate,
+      penaltyInfo: null,
       createdAt: new Date().toISOString(),
     });
   }

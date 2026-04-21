@@ -5,6 +5,7 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlertInspectionType } from "./alertInspectionType";
 import type { AlertSeverity } from "./alertSeverity";
 import type { AlertType } from "./alertType";
 
@@ -23,5 +24,10 @@ export interface Alert {
   dueDate?: Date | null;
   /** @nullable */
   penaltyInfo?: string | null;
+  /**
+   * For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.
+   * @nullable
+   */
+  inspectionType?: AlertInspectionType;
   createdAt: Date;
 }

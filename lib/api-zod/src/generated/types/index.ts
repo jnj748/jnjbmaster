@@ -21,6 +21,7 @@ export * from "./aiMatchingResponse";
 export * from "./alert";
 export * from "./alertAction";
 export * from "./alertActionActionType";
+export * from "./alertInspectionType";
 export * from "./alertSeverity";
 export * from "./alertType";
 export * from "./approval";

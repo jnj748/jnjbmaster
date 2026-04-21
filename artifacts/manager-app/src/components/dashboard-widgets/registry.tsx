@@ -97,10 +97,11 @@ export const WIDGETS = {
 export type CatalogWidgetKey = keyof typeof WIDGETS;
 
 export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
+  // [Task #184] pending-approvals 위젯은 매니저 대시보드에서 숨긴다.
+  // 결재 권한이 있는 다른 역할(accountant, platform_admin)에는 영향 없음.
   manager: {
     widgets: [
       "manager-main",
-      "pending-approvals",
       "delinquency-summary",
       "building-info",
     ],

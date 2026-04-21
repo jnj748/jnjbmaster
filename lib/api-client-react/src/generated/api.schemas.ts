@@ -1238,6 +1238,22 @@ export const AlertSeverity = {
   info: "info",
 } as const;
 
+/**
+ * For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.
+ * @nullable
+ */
+export type AlertInspectionType =
+  | (typeof AlertInspectionType)[keyof typeof AlertInspectionType]
+  | null;
+
+export const AlertInspectionType = {
+  legal: "legal",
+  self_regular: "self_regular",
+  biweekly: "biweekly",
+  seasonal: "seasonal",
+  administrative: "administrative",
+} as const;
+
 export interface Alert {
   id: number;
   type: AlertType;
@@ -1253,6 +1269,11 @@ export interface Alert {
   dueDate?: string | null;
   /** @nullable */
   penaltyInfo?: string | null;
+  /**
+   * For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.
+   * @nullable
+   */
+  inspectionType?: AlertInspectionType;
   createdAt: string;
 }
 

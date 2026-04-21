@@ -55,6 +55,7 @@ import {
   Car,
   HardHat,
   ClipboardCheck,
+  ListChecks,
   Wrench,
   Send,
   CheckCircle,
@@ -141,7 +142,182 @@ interface DashboardAlert {
   actionStatus?: string | null;
   dueDate?: string | null;
   penaltyInfo?: string | null;
+  inspectionType?: string | null;
   createdAt: string;
+}
+
+// [Task #184] Renders one alert section (필수업무현황/제안업무현황). The
+// pagination, swipe and click-to-action behavior is identical between
+// the two sections; only the source array and copy differ. Keep the
+// page size at 2 — task spec narrows the previous "3 per page" layout.
+function AlertSection({
+  title,
+  icon: Icon,
+  iconClassName,
+  alerts,
+  loading,
+  emptyMessage,
+  onAlertClick,
+}: {
+  title: string;
+  icon: React.ElementType;
+  iconClassName: string;
+  alerts: DashboardAlert[];
+  loading: boolean;
+  emptyMessage: string;
+  onAlertClick: (alert: DashboardAlert) => void;
+}) {
+  const PAGE_SIZE = 2;
+  const [page, setPage] = useState(0);
+  const pages = Array.from(
+    { length: Math.ceil(alerts.length / PAGE_SIZE) },
+    (_, i) => alerts.slice(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE),
+  );
+  const totalPages = pages.length;
+  // Reset to first page when alert count changes (e.g. after action).
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(0);
+  }, [page, totalPages]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <Icon className={`w-4 h-4 ${iconClassName}`} />
+            {title}
+            {alerts.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                총 {alerts.length}건
+              </span>
+            )}
+          </h2>
+        </div>
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2].map((i) => (
+            <Skeleton key={i} className="h-16 rounded-lg" />
+          ))}
+        </div>
+      ) : alerts.length > 0 ? (
+        <div
+          className="overflow-hidden relative"
+          onTouchStart={(e) => {
+            const el = e.currentTarget;
+            (el as any)._touchStartX = e.touches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            const el = e.currentTarget;
+            const startX = (el as any)._touchStartX;
+            if (startX == null) return;
+            const diff = startX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 50) {
+              if (diff > 0 && page < totalPages - 1) setPage(page + 1);
+              if (diff < 0 && page > 0) setPage(page - 1);
+            }
+          }}
+        >
+          <div
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${page * 100}%)` }}
+          >
+            {pages.map((pageAlerts, pi) => (
+              <div key={pi} className="w-full shrink-0 space-y-2 px-0.5">
+                {pageAlerts.map((alert) => {
+                  const dday = getDdayLabel(alert.dueDate ?? null);
+                  const trafficColor = dday.isOverdue
+                    ? "red"
+                    : dday.days !== null && dday.days <= 30
+                    ? "yellow"
+                    : "green";
+                  const isInteractive =
+                    (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
+                    alert.type === "data_destruction";
+                  return (
+                    <div
+                      key={alert.id}
+                      role={isInteractive ? "button" : undefined}
+                      tabIndex={isInteractive ? 0 : undefined}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors border-l-4 ${
+                        isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
+                      } ${
+                        trafficColor === "red"
+                          ? "border-l-red-500 bg-red-50/40"
+                          : trafficColor === "yellow"
+                          ? "border-l-yellow-400 bg-yellow-50/30"
+                          : "border-l-green-500 bg-green-50/20"
+                      }`}
+                      onClick={() => isInteractive && onAlertClick(alert)}
+                      onKeyDown={(e) => {
+                        if (!isInteractive) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAlertClick(alert);
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col items-center gap-0.5 shrink-0">
+                        <span className={`w-3 h-3 rounded-full ${
+                          trafficColor === "red" ? "bg-red-500 animate-pulse" :
+                          trafficColor === "yellow" ? "bg-yellow-400" :
+                          "bg-green-500"
+                        }`} />
+                        <span className={`text-[10px] font-bold whitespace-nowrap ${
+                          trafficColor === "red" ? "text-red-700" :
+                          trafficColor === "yellow" ? "text-yellow-700" :
+                          "text-green-700"
+                        }`}>
+                          {dday.label}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{alert.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                        {trafficColor === "red" && alert.penaltyInfo && (
+                          <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {alert.penaltyInfo}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {alert.hasDraft && (
+                          <Badge variant="outline" className="text-[10px] h-5">기안서</Badge>
+                        )}
+                        {alert.actionStatus === "postponed" && (
+                          <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {pages.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`페이지 ${i + 1}`}
+                  onClick={() => setPage(i)}
+                  style={{ width: 6, height: 6, minWidth: 0, minHeight: 0, padding: 0, border: 0 }}
+                  className={`rounded-full transition-colors ${
+                    i === page ? "bg-primary" : "bg-muted-foreground/30"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-6 text-center">
+            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 }
 
 // [Task #142] PendingApprovalsCard 는 components/dashboard-widgets/widgets/
@@ -161,8 +337,6 @@ export default function Dashboard() {
   const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   // [Task #142] 연체 요약은 delinquency-summary-widget 으로 추출되어
   // 카탈로그가 별도 위젯으로 렌더링한다.
-
-  const [alertPage, setAlertPage] = useState(0);
 
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
@@ -403,14 +577,57 @@ export default function Dashboard() {
   const vehicleCount = vehicles?.length ?? 0;
   const vehiclesPerUnit = totalUnits > 0 ? (vehicleCount / totalUnits).toFixed(1) : "-";
 
-  const alertPages = alerts ? Array.from({ length: Math.ceil(alerts.length / 3) }, (_, i) => alerts.slice(i * 3, i * 3 + 3)) : [];
-  const totalAlertPages = alertPages.length;
+  // [Task #184] 점검 알림을 inspectionType 기준으로 분리한다.
+  //  - 필수업무현황: legal 점검 + 비점검 알림(세무·기한초과·하자만료·자료파기 등)
+  //  - 제안업무현황: self_regular / biweekly / seasonal / administrative 점검
+  // 분류는 클라이언트에서 수행하며, 알림 발생 로직(주기/임계치)은 그대로다.
+  const PROPOSED_INSPECTION_TYPES = new Set([
+    "self_regular",
+    "biweekly",
+    "seasonal",
+    "administrative",
+  ]);
+  const alertList: DashboardAlert[] = (alerts ?? []) as DashboardAlert[];
+  const legalAlerts = alertList.filter((a) =>
+    a.type === "inspection_due"
+      ? a.inspectionType === "legal" || !a.inspectionType
+      : true,
+  );
+  const proposedAlerts = alertList.filter(
+    (a) =>
+      a.type === "inspection_due" &&
+      !!a.inspectionType &&
+      PROPOSED_INSPECTION_TYPES.has(a.inspectionType),
+  );
 
   return (
     <div className="space-y-6">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           건물 미등록 시 안내 링크는 building-info-widget 이 담당한다. */}
 
+      {/* [Task #184] 필수업무현황 — legal 점검 + 비점검 알림 */}
+      <AlertSection
+        title="필수업무현황"
+        icon={ClipboardCheck}
+        iconClassName="text-chart-3"
+        alerts={legalAlerts}
+        loading={alertsLoading}
+        emptyMessage="현재 처리할 필수업무가 없습니다"
+        onAlertClick={handleAlertClick}
+      />
+
+      {/* [Task #184] 제안업무현황 — 자체/격주/계절/행정 점검 */}
+      <AlertSection
+        title="제안업무현황"
+        icon={ListChecks}
+        iconClassName="text-chart-2"
+        alerts={proposedAlerts}
+        loading={alertsLoading}
+        emptyMessage="현재 제안할 업무가 없습니다"
+        onAlertClick={handleAlertClick}
+      />
+
+      {/* [Task #184] 상단에 있던 4-카드 그리드를 제안업무현황 아래로 이동 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="관리비회계업무"
@@ -444,144 +661,6 @@ export default function Dashboard() {
           subtitle="30일 이내"
           href="/inspections"
         />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-base font-bold flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-chart-3" />
-              필수업무현황
-              {alerts && alerts.length > 0 && (
-                <span className="text-xs font-normal text-muted-foreground ml-1">
-                  총 {alerts.length}건
-                </span>
-              )}
-            </h2>
-          </div>
-        </div>
-        {alertsLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
-            ))}
-          </div>
-        ) : alerts && alerts.length > 0 ? (
-          <div
-            className="overflow-hidden relative"
-            onTouchStart={(e) => {
-              const el = e.currentTarget;
-              (el as any)._touchStartX = e.touches[0].clientX;
-            }}
-            onTouchEnd={(e) => {
-              const el = e.currentTarget;
-              const startX = (el as any)._touchStartX;
-              if (startX == null) return;
-              const diff = startX - e.changedTouches[0].clientX;
-              if (Math.abs(diff) > 50) {
-                if (diff > 0 && alertPage < totalAlertPages - 1) setAlertPage(alertPage + 1);
-                if (diff < 0 && alertPage > 0) setAlertPage(alertPage - 1);
-              }
-            }}
-          >
-            <div
-              className="flex transition-transform duration-300 ease-in-out"
-              style={{ transform: `translateX(-${alertPage * 100}%)` }}
-            >
-              {alertPages.map((pageAlerts, pi) => (
-                <div key={pi} className="w-full shrink-0 space-y-2 px-0.5">
-                  {pageAlerts.map((alert) => {
-                    const dday = getDdayLabel(alert.dueDate ?? null);
-                    const trafficColor = dday.isOverdue
-                      ? "red"
-                      : dday.days !== null && dday.days <= 30
-                      ? "yellow"
-                      : "green";
-                    const isInteractive =
-                      (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
-                      alert.type === "data_destruction";
-                    return (
-                      <div
-                        key={alert.id}
-                        role={isInteractive ? "button" : undefined}
-                        tabIndex={isInteractive ? 0 : undefined}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors border-l-4 ${
-                          isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
-                        } ${
-                          trafficColor === "red"
-                            ? "border-l-red-500 bg-red-50/40"
-                            : trafficColor === "yellow"
-                            ? "border-l-yellow-400 bg-yellow-50/30"
-                            : "border-l-green-500 bg-green-50/20"
-                        }`}
-                        onClick={() => isInteractive && handleAlertClick(alert)}
-                        onKeyDown={(e) => {
-                          if (!isInteractive) return;
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleAlertClick(alert);
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col items-center gap-0.5 shrink-0">
-                          <span className={`w-3 h-3 rounded-full ${
-                            trafficColor === "red" ? "bg-red-500 animate-pulse" :
-                            trafficColor === "yellow" ? "bg-yellow-400" :
-                            "bg-green-500"
-                          }`} />
-                          <span className={`text-[10px] font-bold whitespace-nowrap ${
-                            trafficColor === "red" ? "text-red-700" :
-                            trafficColor === "yellow" ? "text-yellow-700" :
-                            "text-green-700"
-                          }`}>
-                            {dday.label}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{alert.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
-                          {trafficColor === "red" && alert.penaltyInfo && (
-                            <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {alert.penaltyInfo}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {alert.hasDraft && (
-                            <Badge variant="outline" className="text-[10px] h-5">기안서</Badge>
-                          )}
-                          {alert.actionStatus === "postponed" && (
-                            <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-            {totalAlertPages > 1 && (
-              <div className="flex items-center justify-center gap-1.5 mt-3">
-                {alertPages.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`페이지 ${i + 1}`}
-                    onClick={() => setAlertPage(i)}
-                    style={{ width: 6, height: 6, minWidth: 0, minHeight: 0, padding: 0, border: 0 }}
-                    className={`rounded-full transition-colors ${
-                      i === alertPage ? "bg-primary" : "bg-muted-foreground/30"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="py-6 text-center">
-              <p className="text-sm text-muted-foreground">현재 처리할 필수업무가 없습니다</p>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* [Task #142] <PendingApprovalsCard /> 는 카탈로그의 pending-approvals

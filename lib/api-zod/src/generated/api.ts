@@ -2022,6 +2022,19 @@ export const GetDashboardAlertsResponseItem = zod.object({
   actionStatus: zod.string().nullish(),
   dueDate: zod.coerce.date().nullish(),
   penaltyInfo: zod.string().nullish(),
+  inspectionType: zod
+    .union([
+      zod.literal("legal"),
+      zod.literal("self_regular"),
+      zod.literal("biweekly"),
+      zod.literal("seasonal"),
+      zod.literal("administrative"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const GetDashboardAlertsResponse = zod.array(
