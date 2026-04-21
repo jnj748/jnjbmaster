@@ -321,17 +321,6 @@ export function StepInfo({
             </div>
           </div>
 
-          <div className="border rounded-lg p-3 bg-muted/30">
-            <PhotoUploadField
-              label="건물 로고 (공고문·의뢰서 상단에 자동 인쇄)"
-              value={building.logoUrl}
-              onChange={(url) => setBuilding((prev) => ({ ...prev, logoUrl: url }))}
-            />
-            <p className="text-xs text-muted-foreground mt-1.5">
-              업로드한 로고는 점검 안내문, 처리완료 공지문, 업체 의뢰서 상단에 함께 인쇄됩니다.
-            </p>
-          </div>
-
           <div className="flex flex-wrap gap-6">
             <div className="flex items-center gap-2">
               <Switch

@@ -1,7 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building, Calendar, ChevronRight, MapPin } from "lucide-react";
+import { Building, Calendar, ChevronRight, Image as ImageIcon, MapPin } from "lucide-react";
 import { StepAddress } from "@/components/building-setup/step-address";
 import { StepInfo } from "@/components/building-setup/step-info";
+import { StepLogo } from "@/components/building-setup/step-logo";
 import { StepTasks } from "@/components/building-setup/step-tasks";
 import { WarrantySection } from "@/components/building-setup/warranty-section";
 import { useBuildingSetup } from "@/components/building-setup/use-building-setup";
@@ -44,6 +45,7 @@ export default function BuildingSetup() {
   const steps = [
     { label: "주소 검색", icon: MapPin },
     { label: "건물 정보 입력", icon: Building },
+    { label: "로고 등록", icon: ImageIcon },
     { label: "법정업무 선택", icon: Calendar },
   ];
 
@@ -102,6 +104,18 @@ export default function BuildingSetup() {
       )}
 
       {setup.activeStep === 2 && (
+        <StepLogo
+          building={setup.building}
+          setBuilding={setup.setBuilding}
+          saving={setup.saving}
+          existingId={setup.existingId}
+          saveBuilding={setup.saveBuilding}
+          setActiveStep={setup.setActiveStep}
+          nextStepIndex={3}
+        />
+      )}
+
+      {setup.activeStep === 3 && (
         <>
           <StepTasks
             searchRef={setup.searchRef}
