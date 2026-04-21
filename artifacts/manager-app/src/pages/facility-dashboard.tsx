@@ -135,7 +135,7 @@ export default function FacilityDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard
           title="오늘 점검 예정"
           value={dashboard?.todayChecklistCount ?? 0}
