@@ -17,6 +17,19 @@ import { requireRole } from "../middlewares/auth";
 const router: IRouter = Router();
 router.use(["/work-logs", "/daily-journals", "/work-log-reports"], requireRole("manager", "platform_admin"));
 
+/** KST(UTC+9) 기준 YYYY-MM-DD. */
+function toKstDateKey(d: Date): string {
+  const ms = d.getTime() + 9 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().split("T")[0];
+}
+/** YYYY-MM-DD 문자열 기준으로 일자 가감 (TZ 영향 없음). */
+function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().split("T")[0];
+}
+
 async function getCtx(userId: number) {
   const u = await db
     .select({ id: usersTable.id, name: usersTable.name, buildingId: usersTable.buildingId })
@@ -73,7 +86,7 @@ router.post("/work-logs", async (req, res): Promise<void> => {
   if (!ctx.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
 
   const occurredAt = parsed.data.occurredAt ? new Date(parsed.data.occurredAt) : new Date();
-  const occurredDate = occurredAt.toISOString().split("T")[0];
+  const occurredDate = toKstDateKey(occurredAt);
 
   const [row] = await db.insert(workLogEntriesTable).values({
     buildingId: ctx.buildingId,
@@ -260,7 +273,7 @@ router.post("/daily-journals/:date/compose", async (req, res): Promise<void> => 
 });
 
 router.get("/work-log-reports/daily", async (req, res): Promise<void> => {
-  const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().split("T")[0];
+  const date = typeof req.query.date === "string" ? req.query.date : toKstDateKey(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { res.status(400).json({ error: "bad date" }); return; }
   const ctx = await getCtx(req.user!.userId);
   if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
@@ -273,12 +286,7 @@ router.get("/work-log-reports/weekly", async (req, res): Promise<void> => {
   const ctx = await getCtx(req.user!.userId);
   if (!ctx?.buildingId) { res.status(400).json({ error: "no building scope" }); return; }
 
-  const start = new Date(weekStart);
-  const dates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i);
-    dates.push(d.toISOString().split("T")[0]);
-  }
+  const dates: string[] = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const weekEnd = dates[6];
 
   const [journals, entries, building] = await Promise.all([
@@ -338,8 +346,8 @@ router.get("/work-log-reports/monthly", async (req, res): Promise<void> => {
   const [y, m] = month.split("-").map(Number);
   const first = new Date(Date.UTC(y, m - 1, 1));
   const last = new Date(Date.UTC(y, m, 0));
-  const monthStart = first.toISOString().split("T")[0];
-  const monthEnd = last.toISOString().split("T")[0];
+  const monthStart = toKstDateKey(first);
+  const monthEnd = toKstDateKey(last);
 
   const [journals, entries, building] = await Promise.all([
     db.select().from(dailyJournalsTable)
@@ -353,20 +361,20 @@ router.get("/work-log-reports/monthly", async (req, res): Promise<void> => {
 
   // Group by ISO week (Monday start) within the month.
   const weeks: Record<string, { weekStart: string; entries: number; journals: number; issues: number; memos: string[] }> = {};
-  function mondayOf(date: Date): string {
-    const d = new Date(date);
-    const day = d.getUTCDay();
+  function mondayOf(iso: string): string {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    const day = dt.getUTCDay();
     const diff = day === 0 ? -6 : 1 - day;
-    d.setUTCDate(d.getUTCDate() + diff);
-    return d.toISOString().split("T")[0];
+    return addDaysISO(iso, diff);
   }
   for (const e of entries) {
-    const w = mondayOf(new Date(e.occurredDate));
+    const w = mondayOf(e.occurredDate);
     weeks[w] ??= { weekStart: w, entries: 0, journals: 0, issues: 0, memos: [] };
     weeks[w].entries++;
   }
   for (const j of journals) {
-    const w = mondayOf(new Date(j.journalDate));
+    const w = mondayOf(j.journalDate);
     weeks[w] ??= { weekStart: w, entries: 0, journals: 0, issues: 0, memos: [] };
     weeks[w].journals++;
     const issues = (j.securityStatus === "issue" ? 1 : 0) + (j.cleaningStatus === "issue" ? 1 : 0) +

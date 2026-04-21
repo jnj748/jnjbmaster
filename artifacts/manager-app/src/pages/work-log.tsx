@@ -87,23 +87,30 @@ const SECTIONS: { key: "security" | "cleaning" | "facility" | "complaint"; label
   { key: "complaint", label: "민원 / 소통" },
 ];
 
+/** KST(UTC+9) 기준 YYYY-MM-DD. */
+function toKstDateKey(d: Date): string {
+  const ms = d.getTime() + 9 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().split("T")[0];
+}
 function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  return toKstDateKey(new Date());
 }
-function addDays(d: string, n: number): string {
-  const x = new Date(d); x.setDate(x.getDate() + n);
-  return x.toISOString().split("T")[0];
+function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().split("T")[0];
 }
-function mondayOf(dateStr: string): string {
-  const d = new Date(dateStr);
-  const day = d.getDay();
+function mondayOf(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const day = dt.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().split("T")[0];
+  return addDays(iso, diff);
 }
 function thisMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const today = todayISO();
+  return today.slice(0, 7);
 }
 
 function useApi() {
