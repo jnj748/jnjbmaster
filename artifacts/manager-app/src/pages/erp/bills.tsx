@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle, Camera } from "lucide-react";
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -51,6 +51,7 @@ export default function BillsPage() {
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +142,8 @@ export default function BillsPage() {
           <CardDescription>JPG · PNG · HEIC · PDF, 최대 {MAX_FILE_SIZE_MB}MB</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* [Task #170] 모바일에서 촬영/갤러리 분리. capture="environment"는 카메라 직진입,
+              미설정 입력은 사진 갤러리·파일 매니저(PDF 포함) 선택 다이얼로그. */}
           <input
             ref={fileInputRef}
             type="file"
@@ -148,11 +151,33 @@ export default function BillsPage() {
             className="hidden"
             onChange={onFileChange}
           />
-          <Button onClick={pick} disabled={isUploading || ocrPending} className="gap-2">
-            {isUploading ? <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중 {progress}%</> :
-              ocrPending ? <><Loader2 className="w-4 h-4 animate-spin" /> OCR 분석 중...</> :
-              <><Upload className="w-4 h-4" /> 고지서 선택</>}
-          </Button>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={onFileChange}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isUploading || ocrPending}
+              className="gap-2"
+            >
+              <Camera className="w-4 h-4" /> 촬영
+            </Button>
+            <Button
+              onClick={pick}
+              disabled={isUploading || ocrPending}
+              variant="outline"
+              className="gap-2"
+            >
+              {isUploading ? <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중 {progress}%</> :
+                ocrPending ? <><Loader2 className="w-4 h-4 animate-spin" /> OCR 분석 중...</> :
+                <><Upload className="w-4 h-4" /> 갤러리 / 파일</>}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
