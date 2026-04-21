@@ -237,7 +237,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
         const existingTest = await db
           .select({ id: inspectionsTable.id })
           .from(inspectionsTable)
-          .where(and(eq(inspectionsTable.buildingId, building.id), eq(inspectionsTable.name, "test")))
+          .where(and(eq(inspectionsTable.buildingId, building.id), eq(inspectionsTable.name, "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요")))
           .limit(1);
         if (existingTest.length === 0) {
           const today = new Date();
@@ -249,7 +249,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
           await db.insert(inspectionsTable).values([
             {
               buildingId: building.id,
-              name: "test",
+              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
               category: "electrical",
               inspectionType: "legal",
               frequencyPerYear: 1,
@@ -260,7 +260,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
             },
             {
               buildingId: building.id,
-              name: "test",
+              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
               category: "fire_safety",
               inspectionType: "legal",
               frequencyPerYear: 1,
@@ -271,7 +271,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
             },
             {
               buildingId: building.id,
-              name: "test",
+              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
               category: "self_regular",
               inspectionType: "self_regular",
               frequencyPerYear: 12,
@@ -282,7 +282,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
             },
             {
               buildingId: building.id,
-              name: "test",
+              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
               category: "seasonal",
               inspectionType: "seasonal",
               frequencyPerYear: 4,
