@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
+import { PhotoUploadField } from "@/components/photo-upload-field";
 import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
 import { shareDocument, formatKoreanDate } from "@/lib/official-document";
 import {
@@ -38,10 +39,10 @@ interface DailyJournal {
   id: number;
   journalDate: string;
   authorName: string;
-  securityStatus: Status; securityMemo: string | null;
-  cleaningStatus: Status; cleaningMemo: string | null;
-  facilityStatus: Status; facilityMemo: string | null;
-  complaintStatus: Status; complaintMemo: string | null;
+  securityStatus: Status; securityMemo: string | null; securityPhotoUrl: string | null;
+  cleaningStatus: Status; cleaningMemo: string | null; cleaningPhotoUrl: string | null;
+  facilityStatus: Status; facilityMemo: string | null; facilityPhotoUrl: string | null;
+  complaintStatus: Status; complaintMemo: string | null; complaintPhotoUrl: string | null;
 }
 
 interface DailyReport {
@@ -636,12 +637,16 @@ function DailyJournalWizard({
   const [form, setForm] = useState({
     securityStatus: existing?.securityStatus ?? "ok" as Status,
     securityMemo: existing?.securityMemo ?? "",
+    securityPhotoUrl: existing?.securityPhotoUrl ?? null as string | null,
     cleaningStatus: existing?.cleaningStatus ?? "ok" as Status,
     cleaningMemo: existing?.cleaningMemo ?? "",
+    cleaningPhotoUrl: existing?.cleaningPhotoUrl ?? null as string | null,
     facilityStatus: existing?.facilityStatus ?? "ok" as Status,
     facilityMemo: existing?.facilityMemo ?? "",
+    facilityPhotoUrl: existing?.facilityPhotoUrl ?? null as string | null,
     complaintStatus: existing?.complaintStatus ?? "ok" as Status,
     complaintMemo: existing?.complaintMemo ?? "",
+    complaintPhotoUrl: existing?.complaintPhotoUrl ?? null as string | null,
   });
 
   const saveMut = useMutation({
@@ -685,6 +690,7 @@ function DailyJournalWizard({
   const section = SECTIONS[step];
   const statusKey = `${section.key}Status` as const;
   const memoKey = `${section.key}Memo` as const;
+  const photoKey = `${section.key}PhotoUrl` as const;
 
   return (
     <>
@@ -740,6 +746,13 @@ function DailyJournalWizard({
             placeholder={form[statusKey] === "issue" ? "어떤 일이 있었는지 알려주세요" : "메모 (선택)"}
             rows={3}
             data-testid={`wizard-${section.key}-memo`}
+          />
+
+          <PhotoUploadField
+            label="사진 (선택)"
+            value={form[photoKey] ?? null}
+            onChange={(url) => setForm((f) => ({ ...f, [photoKey]: url }))}
+            testId={`wizard-${section.key}-photo`}
           />
 
           <div className="flex justify-between">

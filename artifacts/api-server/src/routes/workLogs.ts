@@ -161,12 +161,16 @@ router.delete("/work-logs/:id", async (req, res): Promise<void> => {
 const SaveJournalBody = z.object({
   securityStatus: StatusEnum.optional(),
   securityMemo: z.string().nullish(),
+  securityPhotoUrl: z.string().nullish(),
   cleaningStatus: StatusEnum.optional(),
   cleaningMemo: z.string().nullish(),
+  cleaningPhotoUrl: z.string().nullish(),
   facilityStatus: StatusEnum.optional(),
   facilityMemo: z.string().nullish(),
+  facilityPhotoUrl: z.string().nullish(),
   complaintStatus: StatusEnum.optional(),
   complaintMemo: z.string().nullish(),
+  complaintPhotoUrl: z.string().nullish(),
 });
 
 router.get("/daily-journals/:date", async (req, res): Promise<void> => {
@@ -201,12 +205,28 @@ router.put("/daily-journals/:date", async (req, res): Promise<void> => {
     authorName: ctx.name ?? "관리자",
     securityStatus: parsed.data.securityStatus ?? existing?.securityStatus ?? "ok",
     securityMemo: parsed.data.securityMemo ?? existing?.securityMemo ?? null,
+    securityPhotoUrl:
+      parsed.data.securityPhotoUrl !== undefined
+        ? parsed.data.securityPhotoUrl
+        : existing?.securityPhotoUrl ?? null,
     cleaningStatus: parsed.data.cleaningStatus ?? existing?.cleaningStatus ?? "ok",
     cleaningMemo: parsed.data.cleaningMemo ?? existing?.cleaningMemo ?? null,
+    cleaningPhotoUrl:
+      parsed.data.cleaningPhotoUrl !== undefined
+        ? parsed.data.cleaningPhotoUrl
+        : existing?.cleaningPhotoUrl ?? null,
     facilityStatus: parsed.data.facilityStatus ?? existing?.facilityStatus ?? "ok",
     facilityMemo: parsed.data.facilityMemo ?? existing?.facilityMemo ?? null,
+    facilityPhotoUrl:
+      parsed.data.facilityPhotoUrl !== undefined
+        ? parsed.data.facilityPhotoUrl
+        : existing?.facilityPhotoUrl ?? null,
     complaintStatus: parsed.data.complaintStatus ?? existing?.complaintStatus ?? "ok",
     complaintMemo: parsed.data.complaintMemo ?? existing?.complaintMemo ?? null,
+    complaintPhotoUrl:
+      parsed.data.complaintPhotoUrl !== undefined
+        ? parsed.data.complaintPhotoUrl
+        : existing?.complaintPhotoUrl ?? null,
   };
 
   let row;
@@ -474,12 +494,16 @@ function serializeJournal(r: typeof dailyJournalsTable.$inferSelect) {
     authorName: r.authorName,
     securityStatus: r.securityStatus,
     securityMemo: r.securityMemo,
+    securityPhotoUrl: r.securityPhotoUrl,
     cleaningStatus: r.cleaningStatus,
     cleaningMemo: r.cleaningMemo,
+    cleaningPhotoUrl: r.cleaningPhotoUrl,
     facilityStatus: r.facilityStatus,
     facilityMemo: r.facilityMemo,
+    facilityPhotoUrl: r.facilityPhotoUrl,
     complaintStatus: r.complaintStatus,
     complaintMemo: r.complaintMemo,
+    complaintPhotoUrl: r.complaintPhotoUrl,
   };
 }
 
