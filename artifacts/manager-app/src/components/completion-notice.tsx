@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
+  inlineImagesAsDataUrls,
   safeFilename,
 } from "@/lib/document-export";
 import { shareDocument } from "@/lib/official-document";
@@ -206,7 +207,7 @@ export function CompletionNotice({
     try {
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
-        const inner = documentRef.current.outerHTML;
+        const inner = await inlineImagesAsDataUrls(documentRef.current);
         const html =
           `<html xmlns:o="urn:schemas-microsoft-com:office:office" ` +
           `xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
