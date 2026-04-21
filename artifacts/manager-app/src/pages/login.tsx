@@ -68,6 +68,8 @@ export default function Login() {
   const { login, register } = useAuth();
   const [, setLocation] = useLocation();
   const [isRegister, setIsRegister] = useState(false);
+  // [Task #178] 회원가입을 2단계로 분리: account(이름/이메일/비번/전화) → consent(약관 동의)
+  const [signupStep, setSignupStep] = useState<"account" | "consent">("account");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -113,7 +115,6 @@ export default function Login() {
   const passwordsMatch = !isRegister || (password.length > 0 && password === passwordConfirm);
   // [Task #137] 전화번호 필수.
   const phoneOk = !isRegister || phone.trim().length > 0;
-  const canSubmit = consentsOk && passwordsMatch && phoneOk;
 
   async function performSubmit(finalValue: Record<string, boolean>) {
     setLoading(true);
@@ -145,20 +146,19 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
+    // [Task #178] 회원가입 1단계(account): 계정 정보 검증 후 약관 단계로 이동.
+    if (isRegister && signupStep === "account") {
+      if (!name.trim()) { setError("이름을 입력해 주세요"); return; }
+      if (!email.trim()) { setError("이메일을 입력해 주세요"); return; }
+      if (password.length < 6) { setError("비밀번호는 6자 이상이어야 합니다"); return; }
+      if (!passwordsMatch) { setError("비밀번호와 비밀번호 확인이 일치하지 않습니다"); return; }
+      if (!phoneOk) { setError("전화번호를 입력해 주세요"); return; }
+      setSignupStep("consent");
+      return;
+    }
+
     if (isRegister && !consentsOk) {
       setError("필수 약관에 모두 동의해 주세요");
-      return;
-    }
-
-    // [Task #137] 전화번호 필수 검증.
-    if (isRegister && !phoneOk) {
-      setError("전화번호를 입력해 주세요");
-      return;
-    }
-
-    // [Task #137] 비밀번호 확인 일치 검증.
-    if (isRegister && !passwordsMatch) {
-      setError("비밀번호와 비밀번호 확인이 일치하지 않습니다");
       return;
     }
 
@@ -269,114 +269,118 @@ export default function Login() {
             </div>
           )}
 
+          {/* [Task #178] 회원가입 단계 표시 (1/2 → 2/2) */}
+          {isRegister && (
+            <div className="mb-3 flex items-center gap-2 text-[11px] text-slate-500">
+              <span className={signupStep === "account" ? "font-semibold text-slate-700" : ""}>1. 계정</span>
+              <span>›</span>
+              <span className={signupStep === "consent" ? "font-semibold text-slate-700" : ""}>2. 약관 동의</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="이름을 입력하세요"
-                />
-              </div>
-            )}
+            {/* 1단계: 계정 정보 (또는 로그인 모드) */}
+            {(!isRegister || signupStep === "account") && (
+              <>
+                {isRegister && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="이름을 입력하세요"
+                    />
+                  </div>
+                )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                placeholder="이메일을 입력하세요"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10"
-                  placeholder="비밀번호를 입력하세요"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {isRegister && (
-              <div>
-                {/* [Task #137] 비밀번호 확인 필드. */}
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  비밀번호 확인 <span className="text-red-600">*</span>
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
                   <input
-                    type={showPasswordConfirm ? "text" : "password"}
-                    value={passwordConfirm}
-                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                    minLength={6}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10"
-                    placeholder="비밀번호를 한번 더 입력하세요"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="이메일을 입력하세요"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
                 </div>
-                {passwordConfirm.length > 0 && password !== passwordConfirm && (
-                  <p className="mt-1 text-xs text-red-600">비밀번호가 일치하지 않습니다</p>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10"
+                      placeholder="비밀번호를 입력하세요"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {isRegister && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">비밀번호 확인</label>
+                    <div className="relative">
+                      <input
+                        type={showPasswordConfirm ? "text" : "password"}
+                        value={passwordConfirm}
+                        onChange={(e) => setPasswordConfirm(e.target.value)}
+                        required
+                        minLength={6}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10"
+                        placeholder="비밀번호를 한번 더 입력하세요"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordConfirm.length > 0 && password !== passwordConfirm && (
+                      <p className="mt-1 text-xs text-red-600">비밀번호가 일치하지 않습니다</p>
+                    )}
+                  </div>
                 )}
-              </div>
+
+                {isRegister && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="전화번호를 입력하세요"
+                    />
+                  </div>
+                )}
+              </>
             )}
 
-            {isRegister && (
-              <div>
-                {/* [Task #137] 전화번호 필수화. */}
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  전화번호 <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="전화번호를 입력하세요"
-                />
-                {/* [Task #137] 빈 값일 때 인라인 안내(즉시 검증). */}
-                {phone.trim().length === 0 && (
-                  <p className="mt-1 text-xs text-slate-500">전화번호는 필수 입력 항목입니다</p>
-                )}
-              </div>
-            )}
-
-            {isRegister && (
+            {/* 2단계: 약관 동의 */}
+            {isRegister && signupStep === "consent" && (
               <>
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
                   <Shield className="inline w-3 h-3 mr-1 -mt-0.5" />
                   (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
-                  <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다. 개별 용역계약의
-                  이행·의무·하자에 관한 책임은 관리단(건물)과 파트너사(용역사)에게 있습니다.
+                  <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
                 </div>
                 <ConsentSection
                   role={consentRole}
@@ -387,19 +391,37 @@ export default function Login() {
               </>
             )}
 
-            <button
-              type="submit"
-              disabled={loading || (isRegister && !canSubmit)}
-              className={`w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                isBuilding
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : isHq
-                  ? "bg-indigo-600 hover:bg-indigo-700"
-                  : "bg-emerald-600 hover:bg-emerald-700"
-              }`}
-            >
-              {loading ? "처리 중..." : isRegister ? "회원가입" : "로그인"}
-            </button>
+            {/* 액션 버튼: 단계별 라벨 분기 */}
+            <div className="flex gap-2">
+              {isRegister && signupStep === "consent" && (
+                <button
+                  type="button"
+                  onClick={() => { setError(""); setSignupStep("account"); }}
+                  className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50"
+                >
+                  이전
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={loading || (isRegister && signupStep === "consent" && !consentsOk)}
+                className={`flex-1 py-2.5 rounded-lg text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isBuilding
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : isHq
+                    ? "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {loading
+                  ? "처리 중..."
+                  : !isRegister
+                    ? "로그인"
+                    : signupStep === "account"
+                      ? "다음"
+                      : "회원가입 완료"}
+              </button>
+            </div>
           </form>
 
           {!isHq && (
@@ -407,6 +429,7 @@ export default function Login() {
               <button
                 onClick={() => {
                   setIsRegister(!isRegister);
+                  setSignupStep("account");
                   setError("");
                 }}
                 className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
