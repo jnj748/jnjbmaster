@@ -364,17 +364,21 @@ export default function ManagerWizardPage() {
       if (!inspectionDates[def.category]) inspectionDates[def.category] = {};
       inspectionDates[def.category][def.name] = d;
     }
-    try {
-      await fetch(`${API_BASE}/buildings/auto-schedule-inspections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          buildingId: building.id,
-          inspectionDates,
-          useFallbackCompletionDate: useFallback,
-        }),
-      });
-    } catch {/* non-blocking */}
+    const res = await fetch(`${API_BASE}/buildings/auto-schedule-inspections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        buildingId: building.id,
+        inspectionDates,
+        useFallbackCompletionDate: useFallback,
+      }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      toast({ title: j.error || "법정 점검 일정 생성에 실패했습니다. 다시 시도해 주세요.", variant: "destructive" });
+      return false;
+    }
+    return true;
   }
 
   // ── 로고 저장 (PhotoUploadField에서 logoUrl 갱신될 때 즉시 PUT) ──
@@ -487,12 +491,13 @@ export default function ManagerWizardPage() {
           onChange={(patch) => setInsStep(step, patch)}
           onPrev={goPrev}
           onNext={async () => {
-            // 마지막 점검 단계에서 일정 일괄 생성
+            // 마지막 점검 단계에서 일정 일괄 생성. 실패 시 다음 단계로 진행하지 않는다.
             const remaining = sequence.slice(stepIdx + 1).find((k) => k.startsWith("ins-"));
             if (!remaining) {
               setBusy(true);
-              await persistInspections();
+              const ok = await persistInspections();
               setBusy(false);
+              if (!ok) return;
             }
             goNext();
           }}

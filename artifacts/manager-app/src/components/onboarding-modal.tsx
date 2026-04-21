@@ -43,8 +43,14 @@ export function OnboardingModal() {
   const handleStart = async () => {
     setSubmitting("started");
     try {
-      await setPreference("started");
-      setLocation("/onboarding");
+      // [Task #174] 신규 매니저는 모바일 위저드로 진입.
+      // 레거시 진입 경로(`/onboarding`)는 더 이상 사용하지 않는다.
+      if (isManager) {
+        setLocation("/onboarding/manager");
+      } else {
+        await setPreference("started");
+        setLocation("/onboarding");
+      }
     } finally {
       setSubmitting(null);
     }
