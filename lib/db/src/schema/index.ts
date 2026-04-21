@@ -38,6 +38,7 @@ export * from "./complaints";
 export * from "./votes";
 export * from "./delinquencyActions";
 export * from "./monthlyPayments";
+export * from "./monthlyBillSummaries";
 export * from "./warranties";
 export * from "./platformConsents";
 export * from "./platformSettings";

@@ -75,6 +75,8 @@ const ErpPhase1 = lazy(() => import("@/pages/erp/phase-1-metering"));
 const ErpPhase2 = lazy(() => import("@/pages/erp/phase-2-accounting"));
 const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
 const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
+const ErpBills = lazy(() => import("@/pages/erp/bills"));
+const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 
 export type Role =
   | "manager"
@@ -300,6 +302,17 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     bottomNav: ["accountant"],
     bottomLabelOverrides: { accountant: "부과" },
+  },
+  // [Task #170] 관리비 OCR · 요약 (회계 그룹)
+  {
+    path: "/erp/fees-summary", component: ErpFeesSummary,
+    label: "관리비 요약", icon: BarChart3, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+  },
+  {
+    path: "/erp/bills", component: ErpBills,
+    label: "관리비 고지서", icon: FileText, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,

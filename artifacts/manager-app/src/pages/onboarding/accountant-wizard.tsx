@@ -1,8 +1,9 @@
 // [Task #132] 경리·행정 위저드. 주소 확인 → 부과면적 기준 선택 → 회계 초기 자료 업로드.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, FileText, CheckCircle2, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { WizardShell } from "@/components/wizard/wizard-shell";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -23,15 +24,30 @@ const AREA_BASIS_OPTIONS = [
   { value: "common", label: "공용면적만", desc: "공용 시설 부과 위주의 단지" },
 ];
 
+type Step = 1 | 2 | 3 | 4;
+const TOTAL_STEPS = 4;
+
+type BillSummaryPreview = {
+  id: number;
+  billingMonth: string;
+  totalAmount: number;
+  unitCount: number | null;
+  lineItems: Record<string, number>;
+};
+
 export default function AccountantWizardPage() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<Step>(1);
   const [building, setBuilding] = useState<{ id: number; name: string; addressFull: string | null; areaBasis: string | null } | null>(null);
   const [areaBasis, setAreaBasis] = useState<string>("standard");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [uploads, setUploads] = useState<Record<string, { name: string; uploading: boolean; saved: boolean }>>({});
+  const [billPreview, setBillPreview] = useState<BillSummaryPreview | null>(null);
+  const [billOcrLoading, setBillOcrLoading] = useState(false);
+  const billFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -109,13 +125,71 @@ export default function AccountantWizardPage() {
     );
   }
 
+  async function uploadBillForOcr(file: File) {
+    if (!building) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "파일이 너무 큽니다", description: "최대 10MB까지 업로드 가능합니다.", variant: "destructive" });
+      return;
+    }
+    setBillOcrLoading(true);
+    try {
+      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+      });
+      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
+      const { uploadURL, objectPath } = await signRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+      if (!putRes.ok) throw new Error("파일 업로드 실패");
+      await fetch(`${API_BASE}/storage/uploads/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ objectPath }),
+      });
+      // Also save as accounting initial file so original is preserved.
+      void fetch(`${API_BASE}/accounting-initial-files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ category: "monthly_bill", fileUrl: objectPath, originalName: file.name, buildingId: building.id }),
+      }).catch(() => {});
+      const ocrRes = await fetch(`${API_BASE}/fees/bill-ocr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ objectPath, fileName: file.name }),
+      });
+      if (!ocrRes.ok) {
+        const e = await ocrRes.json().catch(() => ({}));
+        throw new Error(e.error || "OCR 실패");
+      }
+      const saved = await ocrRes.json();
+      setBillPreview(saved);
+      toast({ title: "OCR 완료", description: `${saved.billingMonth} 청구서가 등록되었습니다.` });
+    } catch (e) {
+      toast({ title: "고지서 처리 실패", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
+    } finally {
+      setBillOcrLoading(false);
+    }
+  }
+
+  async function confirmBillPreview() {
+    if (!billPreview) return;
+    try {
+      await fetch(`${API_BASE}/fees/bill-summaries/${billPreview.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ confirmed: true }),
+      });
+    } catch { /* non-blocking */ }
+  }
+
   if (step === 2) {
     return (
       <WizardShell
         title="부과면적 기준 선택"
         subtitle="관리비 부과의 기준이 될 면적 산정 방식을 선택합니다."
         currentStep={2}
-        totalSteps={3}
+        totalSteps={TOTAL_STEPS}
         onPrev={() => setStep(1)}
         loading={loading}
         allowSkip
@@ -164,13 +238,72 @@ export default function AccountantWizardPage() {
     );
   }
 
+  if (step === 3) {
+    const totalAmount = billPreview ? Math.round(billPreview.totalAmount).toLocaleString() : "-";
+    return (
+      <WizardShell
+        title="최근 관리비 고지서 (선택)"
+        subtitle="가장 최근 한 달치 고지서 1장을 올리면 즉시 OCR로 항목·금액을 인식해 첫날부터 데이터가 채워집니다."
+        currentStep={3}
+        totalSteps={TOTAL_STEPS}
+        onPrev={() => setStep(2)}
+        allowSkip
+        onSkip={() => setStep(4)}
+        loading={billOcrLoading}
+        onNext={async () => {
+          if (billPreview) await confirmBillPreview();
+          setStep(4);
+        }}
+        nextLabel={billPreview ? "확정 후 다음" : "다음"}
+      >
+        <input
+          ref={billFileRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) uploadBillForOcr(f);
+          }}
+        />
+        <div className="space-y-3 text-sm">
+          <button
+            type="button"
+            onClick={() => billFileRef.current?.click()}
+            disabled={billOcrLoading}
+            className="w-full p-6 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
+          >
+            {billOcrLoading
+              ? <><Loader2 className="w-6 h-6 animate-spin text-slate-500" /><span className="text-xs text-slate-600">OCR 분석 중...</span></>
+              : <><Upload className="w-6 h-6 text-slate-500" /><span className="text-xs text-slate-700">사진 또는 PDF 선택 · 최대 10MB</span></>}
+          </button>
+          {billPreview && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-emerald-800">{billPreview.billingMonth} 인식 완료</span>
+              </div>
+              <div className="text-xs text-slate-700">총액 <span className="font-mono font-bold">₩{totalAmount}</span>{billPreview.unitCount ? ` · ${billPreview.unitCount}세대` : ""}</div>
+              {Object.keys(billPreview.lineItems || {}).length > 0 && (
+                <div className="text-[11px] text-slate-600">{Object.entries(billPreview.lineItems).slice(0, 5).map(([k, v]) => `${k} ₩${Math.round(v).toLocaleString()}`).join(" · ")}</div>
+              )}
+              <p className="text-[11px] text-emerald-700">"확정 후 다음"을 누르면 결과가 확정되며, 회계 메뉴 &gt; 관리비 고지서에서 언제든 수정할 수 있습니다.</p>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-500">건너뛰어도 나중에 회계 메뉴에서 추가할 수 있습니다.</p>
+        </div>
+      </WizardShell>
+    );
+  }
+
   return (
     <WizardShell
       title="회계 초기 자료 업로드"
       subtitle="필수 자료가 없다면 건너뛰고 나중에 등록할 수 있습니다."
-      currentStep={3}
-      totalSteps={3}
-      onPrev={() => setStep(2)}
+      currentStep={4}
+      totalSteps={TOTAL_STEPS}
+      onPrev={() => setStep(3)}
       onNext={() => setLocation("/")}
       nextLabel="완료하고 시작하기"
       allowSkip

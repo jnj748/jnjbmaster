@@ -7,6 +7,7 @@ import {
   complaintsTable,
   inspectionsTable,
   monthlyPaymentsTable,
+  monthlyBillSummariesTable,
   unitsTable,
   contractsTable,
   type AiChatCitation,
@@ -230,6 +231,32 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
   const renewalDue = contracts.filter(c => c.endDate && c.endDate >= todayIso && c.endDate <= ninetyAheadIso);
   renewalDue.forEach(c => citations.push({ type: "contract", id: c.id, label: `${c.title} (${c.vendorName}) 만료 ${c.endDate}` }));
 
+  // [Task #170] 최근 6개월 관리비 OCR 요약. 토큰 절약을 위해 천원 단위 반올림.
+  const billSummaries = await safeQuery("monthly_bill_summaries",
+    () => db
+      .select({
+        id: monthlyBillSummariesTable.id,
+        billingMonth: monthlyBillSummariesTable.billingMonth,
+        totalAmount: monthlyBillSummariesTable.totalAmount,
+        unitCount: monthlyBillSummariesTable.unitCount,
+        lineItems: monthlyBillSummariesTable.lineItems,
+        confirmed: monthlyBillSummariesTable.confirmed,
+      })
+      .from(monthlyBillSummariesTable)
+      .where(eq(monthlyBillSummariesTable.buildingId, buildingId))
+      .orderBy(desc(monthlyBillSummariesTable.billingMonth))
+      .limit(6),
+    [] as Array<{ id: number; billingMonth: string; totalAmount: number; unitCount: number | null; lineItems: Record<string, number>; confirmed: boolean }>,
+  );
+  const roundK = (n: number) => Math.round(n / 1000) * 1000;
+  const recentBills = billSummaries.map(b => ({
+    month: b.billingMonth,
+    totalK: roundK(b.totalAmount),
+    perUnitK: b.unitCount && b.unitCount > 0 ? roundK(b.totalAmount / b.unitCount) : null,
+    items: Object.fromEntries(Object.entries(b.lineItems || {}).map(([k, v]) => [k, roundK(Number(v) || 0)])),
+    confirmed: b.confirmed,
+  }));
+
   const ctx = {
     today: todayIso,
     building: building ? {
@@ -272,6 +299,10 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
         id: c.id, title: c.title, vendorName: c.vendorName, endDate: c.endDate, status: c.status,
       })),
     },
+    monthlyBills: {
+      note: "관리비 추세는 다음 데이터를 참고하세요. 금액 단위는 원이며 천원 단위로 반올림되어 있습니다.",
+      recent: recentBills,
+    },
   };
 
   return {
@@ -291,6 +322,7 @@ export function buildSystemPrompt(ctx: BuildingContext): string {
 3. 답변은 간결하게, 핵심 수치를 먼저 보여주고 필요시 목록을 사용하세요.
 4. 자료를 인용할 때는 자료의 ID와 명칭을 그대로 적어주세요 (예: "민원 #123", "보증 항목: 승강기").
 5. 직접 시스템에 어떤 변경을 가하지 말고, 안내·요약·조회만 수행합니다.
+6. 관리비 추세·항목별 증감 질문은 monthlyBills.recent 데이터를 우선 근거로 답하세요. 금액은 원 단위(천원 반올림)입니다.
 
 [오늘 날짜] ${ctx.todayIso}
 [건물명] ${ctx.buildingName}

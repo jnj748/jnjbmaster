@@ -1,6 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, gte, lte } from "drizzle-orm";
-import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable } from "@workspace/db";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable } from "@workspace/db";
+import { runBillOcr } from "../lib/billOcr";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 import {
   CalculateFeesBody,
   CalculateInterimSettlementBody,
@@ -417,6 +420,169 @@ router.post("/fees/record-payment", async (req: Request, res: Response): Promise
     .returning();
 
   res.json(updated);
+});
+
+// ─── 관리비 고지서 OCR & 월별 요약 ─────────────────────────────────
+router.post("/fees/bill-ocr", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const { objectPath, fileName } = req.body ?? {};
+  if (!objectPath || typeof objectPath !== "string") {
+    res.status(400).json({ error: "objectPath가 필요합니다" });
+    return;
+  }
+  // [Task #170] OCR 입력 객체 ACL 검증 (소유자/업로더만 처리 허용).
+  try {
+    const storage = new ObjectStorageService();
+    const objectFile = await storage.getObjectEntityFile(objectPath);
+    const allowed = await storage.canAccessObjectEntity({
+      userId: req.user?.userId ? String(req.user.userId) : undefined,
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!allowed) { res.status(403).json({ error: "해당 파일에 접근할 권한이 없습니다" }); return; }
+  } catch {
+    res.status(404).json({ error: "파일을 찾지 못했습니다" }); return;
+  }
+  try {
+    const ocr = await runBillOcr({ objectPath, fileName });
+    const billingMonth = ocr.billingMonth || new Date().toISOString().slice(0, 7);
+
+    const [existing] = await db.select().from(monthlyBillSummariesTable)
+      .where(and(
+        eq(monthlyBillSummariesTable.buildingId, buildingId),
+        eq(monthlyBillSummariesTable.billingMonth, billingMonth),
+      ));
+
+    const values = {
+      buildingId,
+      billingMonth,
+      totalAmount: ocr.totalAmount ?? 0,
+      unitCount: ocr.unitCount ?? null,
+      dueDate: ocr.dueDate,
+      lineItems: ocr.lineItems,
+      fieldConfidence: ocr.fieldConfidence,
+      ocrRawText: ocr.rawText,
+      sourceFileUrl: objectPath,
+      sourceFileName: fileName ?? null,
+      confirmed: false,
+      uploadedById: req.user?.userId ?? null,
+    };
+
+    let saved;
+    if (existing) {
+      [saved] = await db.update(monthlyBillSummariesTable)
+        .set(values)
+        .where(eq(monthlyBillSummariesTable.id, existing.id))
+        .returning();
+    } else {
+      [saved] = await db.insert(monthlyBillSummariesTable)
+        .values(values)
+        .returning();
+    }
+    res.json(saved);
+  } catch (err) {
+    req.log.error({ err }, "bill-ocr failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "OCR 처리 실패" });
+  }
+});
+
+router.get("/fees/bill-summaries", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.json([]); return; }
+  const rows = await db.select().from(monthlyBillSummariesTable)
+    .where(eq(monthlyBillSummariesTable.buildingId, buildingId))
+    .orderBy(desc(monthlyBillSummariesTable.billingMonth));
+  res.json(rows);
+});
+
+router.get("/fees/bill-summaries/:id", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const id = Number(req.params.id);
+  const [row] = await db.select().from(monthlyBillSummariesTable)
+    .where(and(eq(monthlyBillSummariesTable.id, id), eq(monthlyBillSummariesTable.buildingId, buildingId)));
+  if (!row) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+  res.json(row);
+});
+
+router.patch("/fees/bill-summaries/:id", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const id = Number(req.params.id);
+  const [existing] = await db.select().from(monthlyBillSummariesTable)
+    .where(and(eq(monthlyBillSummariesTable.id, id), eq(monthlyBillSummariesTable.buildingId, buildingId)));
+  if (!existing) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+
+  const allowed: Record<string, unknown> = {};
+  const { billingMonth, totalAmount, unitCount, dueDate, lineItems, confirmed } = req.body ?? {};
+  if (typeof billingMonth === "string") allowed.billingMonth = billingMonth;
+  if (typeof totalAmount === "number") allowed.totalAmount = totalAmount;
+  if (typeof unitCount === "number" || unitCount === null) allowed.unitCount = unitCount;
+  if (typeof dueDate === "string" || dueDate === null) allowed.dueDate = dueDate;
+  if (lineItems && typeof lineItems === "object" && !Array.isArray(lineItems)) {
+    // [Task #170] 알려진 항목 키만 + 음수 아닌 숫자만 허용.
+    const ALLOWED_KEYS = new Set([
+      "general","cleaning","security","disinfection","elevator","electricity",
+      "water","heating","gas","longTermRepairFund","insurance","other",
+    ]);
+    const sanitized: Record<string, number> = {};
+    for (const [k, v] of Object.entries(lineItems as Record<string, unknown>)) {
+      if (!ALLOWED_KEYS.has(k)) continue;
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 0) sanitized[k] = Math.round(n);
+    }
+    allowed.lineItems = sanitized;
+  }
+  if (typeof confirmed === "boolean") allowed.confirmed = confirmed;
+
+  const [updated] = await db.update(monthlyBillSummariesTable)
+    .set(allowed)
+    .where(eq(monthlyBillSummariesTable.id, id))
+    .returning();
+  res.json(updated);
+});
+
+router.post("/fees/bill-summaries/:id/reocr", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const id = Number(req.params.id);
+  const [existing] = await db.select().from(monthlyBillSummariesTable)
+    .where(and(eq(monthlyBillSummariesTable.id, id), eq(monthlyBillSummariesTable.buildingId, buildingId)));
+  if (!existing) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+  if (!existing.sourceFileUrl) { res.status(400).json({ error: "원본 파일이 없습니다" }); return; }
+
+  try {
+    const ocr = await runBillOcr({ objectPath: existing.sourceFileUrl, fileName: existing.sourceFileName });
+    const [updated] = await db.update(monthlyBillSummariesTable)
+      .set({
+        billingMonth: ocr.billingMonth || existing.billingMonth,
+        totalAmount: ocr.totalAmount ?? existing.totalAmount,
+        unitCount: ocr.unitCount ?? existing.unitCount,
+        dueDate: ocr.dueDate ?? existing.dueDate,
+        lineItems: ocr.lineItems,
+        fieldConfidence: ocr.fieldConfidence,
+        ocrRawText: ocr.rawText,
+        confirmed: false,
+      })
+      .where(eq(monthlyBillSummariesTable.id, id))
+      .returning();
+    res.json(updated);
+  } catch (err) {
+    req.log.error({ err }, "reocr failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "재인식 실패" });
+  }
+});
+
+router.delete("/fees/bill-summaries/:id", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const id = Number(req.params.id);
+  const [existing] = await db.select().from(monthlyBillSummariesTable)
+    .where(and(eq(monthlyBillSummariesTable.id, id), eq(monthlyBillSummariesTable.buildingId, buildingId)));
+  if (!existing) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+  await db.delete(monthlyBillSummariesTable).where(eq(monthlyBillSummariesTable.id, id));
+  res.json({ success: true });
 });
 
 export default router;
