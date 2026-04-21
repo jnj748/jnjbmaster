@@ -118,6 +118,10 @@ export interface RouteEntry {
   /** Per-role label for the mobile bottom nav (shorter). */
   bottomLabel?: string;
   bottomLabelOverrides?: Partial<Record<Role, string>>;
+  /** When set, the bottom-nav tab opens a sheet listing this group's items
+   *  instead of navigating to the entry's path. Used to expose grouped menus
+   *  on mobile. */
+  bottomGroupSheet?: Group;
 }
 
 /** Resolve the effective role for permission/menu derivation.
@@ -290,6 +294,9 @@ export const ROUTES: RouteEntry[] = [
     bottomNav: ["manager", "platform_admin", "accountant"],
     bottomLabel: "회계",
     bottomOrder: 30,
+    // [Task #170] 모바일 회계 탭 클릭 시 회계 그룹 메뉴(관리비 요약/고지서 등)를
+    //   시트로 펼쳐 보여줌. 탭에서 바로 회계 엔진 단일 화면으로 이동하지 않도록 함.
+    bottomGroupSheet: "accounting",
   },
   {
     path: "/erp/metering", component: ErpPhase1,
@@ -471,6 +478,9 @@ export interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
+  /** When set, tapping this nav item should open a sheet listing the group's
+   *  items rather than navigating to `path`. */
+  groupSheet?: Group;
 }
 
 export interface NavSection {
@@ -584,6 +594,7 @@ export function getBottomNavItems(role: Role): NavItem[] {
         path: entry.path,
         label: bottomLabelFor(entry, role),
         icon: entry.icon,
+        groupSheet: entry.bottomGroupSheet,
       },
     });
   }

@@ -30,9 +30,11 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PlatformFooter } from "@/components/intermediary-disclaimer";
 import {
   ROLE_LABELS,
+  GROUP_TITLES,
   getSidebarSections,
   getBottomNavItems,
   getEffectiveRole,
@@ -176,6 +178,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
   const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
+  const [groupSheet, setGroupSheet] = useState<string | null>(null);
+  const groupSheetSection = useMemo(
+    () => (groupSheet ? sections.find((s) => s.title === (GROUP_TITLES as Record<string, string>)[groupSheet]) : null),
+    [groupSheet, sections],
+  );
 
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
   // 시설 섹션이 노출되는 role에만 활성화하여 불필요한 호출을 막는다.
@@ -566,6 +573,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {bottomNavItems.map((item) => {
             const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+            // [Task #170] 그룹 시트로 펼치는 탭(예: 회계)은 Link 대신 버튼으로 렌더.
+            if (item.groupSheet) {
+              return (
+                <button
+                  key={`group-${item.groupSheet}`}
+                  onClick={() => setGroupSheet(item.groupSheet!)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
+                    isActive ? "text-accent" : "text-muted-foreground"
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              );
+            }
             return (
               <Link key={item.path} href={item.path}>
                 <button className={cn(
@@ -588,6 +611,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">더보기</span>
           </button>
         </nav>
+
+      {/* [Task #170] 모바일 회계 그룹 메뉴 시트. 회계 엔진 한 화면이 아니라
+          그룹 전체(관리비 요약/고지서/검침/고지·수납 등)를 보여줌. */}
+      <Sheet open={!!groupSheet} onOpenChange={(o) => !o && setGroupSheet(null)}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl px-0 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
+        >
+          <SheetHeader className="px-4">
+            <SheetTitle className="text-left">{groupSheetSection?.title ?? "메뉴"}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-2 grid grid-cols-1 divide-y">
+            {groupSheetSection?.items.map((it) => {
+              const Icon = it.icon;
+              const active = location.startsWith(it.path);
+              return (
+                <Link key={it.path} href={it.path}>
+                  <button
+                    onClick={() => setGroupSheet(null)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 text-left",
+                      active ? "text-accent bg-accent/5" : "text-foreground"
+                    )}
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    <span className="text-sm font-medium">{it.label}</span>
+                  </button>
+                </Link>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
