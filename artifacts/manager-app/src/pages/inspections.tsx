@@ -28,6 +28,8 @@ import { BulkRegisterDialog } from "@/components/inspections/bulk-register-dialo
 import { CompleteDialog, type CompleteFormState } from "@/components/inspections/complete-dialog";
 import { HistoryDialog } from "@/components/inspections/history-dialog";
 import { InspectionCard } from "@/components/inspections/inspection-card";
+import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
+import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 
 export default function Inspections() {
   const { building } = useBuilding();
@@ -79,6 +81,10 @@ export default function Inspections() {
     memo: "",
     inspector: "",
   });
+
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
+  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
 
   function resetForm() {
     setForm({ name: "", category: "elevator", frequencyPerYear: 1, legalCycleMonths: null, lastInspectionDate: "", nextDueDate: "", notes: "", legalBasis: CATEGORY_LEGAL_BASIS["elevator"], advanceAlertDays: 30, inspectionType: "legal", intervalDays: null, fixedDay: null, recommendedMonths: null });
@@ -212,6 +218,7 @@ export default function Inspections() {
   async function handleComplete(e: React.FormEvent) {
     e.preventDefault();
     if (!completingId) return;
+    const completedItem = inspections?.find((i) => i.id === completingId);
     await completeMutation.mutateAsync({
       id: completingId,
       data: {
@@ -230,6 +237,24 @@ export default function Inspections() {
         ? "불량 판정으로 수선유지비 기안이 자동 생성되었습니다."
         : `결과: ${resultLabel}`,
     });
+    // [Task #197] 점검 메모 또는 불량 판정 시 후속 조치 제안.
+    // 결과가 "poor"(불량) 이면 메모에 키워드가 없어도 후속 조치 키워드를 합성한다.
+    const memoText =
+      (completeForm.memo ?? "") +
+      (completeForm.result === "poor" ? "\n점검불량" : "");
+    const detection = detectFollowUp(memoText, { domainHint: "facility" });
+    if (detection) {
+      // 법정점검(필수)과 권장점검(제안)을 별도 출처로 구분해 추적/통계가 가능하도록 한다.
+      const isLegal = completedItem?.inspectionType === "legal";
+      setFollowUpSource({
+        type: isLegal ? "inspection_legal_complete" : "inspection_suggested_complete",
+        id: `${completingId}-${completeForm.inspectionDate}`,
+        title: `${completedItem?.name ?? "점검"} (${resultLabel}) — ${detection.snippet.slice(0, 30)}`,
+        occurredAt: completeForm.inspectionDate,
+      });
+      setFollowUpDetection(detection);
+      setFollowUpOpen(true);
+    }
   }
 
   async function handleDelete(id: number) {
@@ -317,6 +342,13 @@ export default function Inspections() {
         open={historyDialogOpen}
         onOpenChange={(o) => { setHistoryDialogOpen(o); if (!o) setHistoryId(null); }}
         logs={logs}
+      />
+
+      <FollowUpSuggestionDialog
+        open={followUpOpen}
+        source={followUpSource}
+        detection={followUpDetection}
+        onClose={() => setFollowUpOpen(false)}
       />
 
       {isLoading ? (

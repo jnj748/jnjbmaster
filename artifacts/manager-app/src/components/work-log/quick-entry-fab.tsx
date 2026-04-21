@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
+import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 
 type Category = "facility" | "bill" | "complaint";
 
@@ -34,6 +36,9 @@ export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
   const [memo, setMemo] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
+  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -61,7 +66,24 @@ export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
         body: JSON.stringify({ category, memo: memo.trim(), photoUrl }),
       });
       if (!res.ok) throw new Error(await res.text());
+      const created: { id?: number } = await res.json().catch(() => ({}));
       ok = true;
+      // [Task #197] 후속 조치 키워드가 감지되면 제안 팝업을 띄운다.
+      const detection = detectFollowUp(memo.trim(), {
+        domainHint:
+          category === "facility" ? "facility" : category === "complaint" ? "complaint" : undefined,
+      });
+      if (detection) {
+        const today = new Date().toISOString().slice(0, 10);
+        setFollowUpSource({
+          type: "work_log_memo",
+          id: created.id ?? `tmp-${Date.now()}`,
+          title: memo.trim().slice(0, 80),
+          occurredAt: today,
+        });
+        setFollowUpDetection(detection);
+        setFollowUpOpen(true);
+      }
     } catch (err) {
       console.error("[QuickEntryFab] submit failed", err);
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });
@@ -142,6 +164,13 @@ export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <FollowUpSuggestionDialog
+        open={followUpOpen}
+        source={followUpSource}
+        detection={followUpDetection}
+        onClose={() => setFollowUpOpen(false)}
+      />
     </>
   );
 }

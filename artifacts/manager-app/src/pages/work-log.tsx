@@ -17,6 +17,8 @@ import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
   CheckCircle2, AlertTriangle, Image as ImageIcon, Download, Share2, NotebookPen,
 } from "lucide-react";
+import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
+import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 
 type Category = "facility" | "bill" | "complaint";
 type Status = "ok" | "issue";
@@ -538,6 +540,9 @@ function DailyJournalWizard({
   const { call } = useApi();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
+  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
   const [form, setForm] = useState({
     securityStatus: existing?.securityStatus ?? "ok" as Status,
     securityMemo: existing?.securityMemo ?? "",
@@ -553,7 +558,26 @@ function DailyJournalWizard({
     mutationFn: () => call<DailyJournal>(`/daily-journals/${date}`, {
       method: "PUT", body: JSON.stringify(form),
     }),
-    onSuccess: () => { toast({ title: "일일 일지가 저장되었습니다" }); onSaved(); },
+    onSuccess: (saved) => {
+      toast({ title: "일일 일지가 저장되었습니다" });
+      // [Task #197] 4개 영역 메모를 합쳐 후속 조치 키워드를 감지한다.
+      const combined = SECTIONS
+        .map((s) => `${s.label}: ${form[`${s.key}Memo` as const] ?? ""}`)
+        .join("\n");
+      const detection = detectFollowUp(combined);
+      if (detection) {
+        setFollowUpSource({
+          type: "daily_journal",
+          id: saved?.id ?? date,
+          title: `${date} 일일업무일지 — ${detection.snippet.slice(0, 40)}`,
+          occurredAt: date,
+        });
+        setFollowUpDetection(detection);
+        setFollowUpOpen(true);
+      } else {
+        onSaved();
+      }
+    },
     onError: (e) => toast({ title: "저장 실패", description: String(e), variant: "destructive" }),
   });
 
@@ -573,6 +597,13 @@ function DailyJournalWizard({
   const memoKey = `${section.key}Memo` as const;
 
   return (
+    <>
+    <FollowUpSuggestionDialog
+      open={followUpOpen}
+      source={followUpSource}
+      detection={followUpDetection}
+      onClose={() => { setFollowUpOpen(false); onSaved(); }}
+    />
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -637,6 +668,7 @@ function DailyJournalWizard({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
@@ -646,16 +678,39 @@ function WeeklyTab() {
   const { call } = useApi();
   const { toast } = useToast();
   const ref = useRef<HTMLDivElement>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
+  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-log-report-weekly", weekStart],
     queryFn: () => call<WeeklyReport>(`/work-log-reports/weekly?weekStart=${weekStart}`),
   });
 
+  // [Task #197] 주간 보고서를 "생성/공유" 하는 시점에 후속 조치 키워드를 감지한다.
+  // (단순 페이지 진입/탭 이동에는 띄우지 않는다.)
+  function maybeOfferFollowUp(report: WeeklyReport) {
+    const memos = [
+      ...Object.values(report.sectionTotals).flatMap((s) => s.memos),
+      ...report.days.flatMap((d) => d.topMemos),
+    ].join("\n");
+    const detection = detectFollowUp(memos);
+    if (!detection) return;
+    setFollowUpSource({
+      type: "weekly_journal",
+      id: report.weekStart,
+      title: `${report.weekStart}~${report.weekEnd} 주간보고 — ${detection.snippet.slice(0, 30)}`,
+      occurredAt: report.weekStart,
+    });
+    setFollowUpDetection(detection);
+    setFollowUpOpen(true);
+  }
+
   async function exportPng() {
     if (!ref.current || !data) return;
     try {
       await downloadElementAsPng(ref.current, safeFilename(`주간보고서_${data.weekStart}_${data.weekEnd}`));
+      maybeOfferFollowUp(data);
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
     }
@@ -672,11 +727,21 @@ function WeeklyTab() {
     ];
     const r = await shareDocument({ title: `주간 보고 ${data.weekStart}`, text: lines.join("\n") });
     if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-    else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    else if (r === "failed") {
+      toast({ title: "공유 실패", variant: "destructive" });
+      return;
+    }
+    maybeOfferFollowUp(data);
   }
 
   return (
     <div className="space-y-3 pt-3">
+      <FollowUpSuggestionDialog
+        open={followUpOpen}
+        source={followUpSource}
+        detection={followUpDetection}
+        onClose={() => setFollowUpOpen(false)}
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="weekly-prev"><ChevronLeft className="w-4 h-4" /></Button>

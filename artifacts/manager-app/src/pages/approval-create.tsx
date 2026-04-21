@@ -97,10 +97,30 @@ export default function ApprovalCreate() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const draftId = urlParams.get("draftId");
+  // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 본문/제목/분류를 미리 채운다.
+  const isPrefill = urlParams.get("prefill") === "1";
+  const prefillTitle = urlParams.get("title") ?? "";
+  const prefillBody = urlParams.get("body") ?? "";
+  const prefillCategory = urlParams.get("category") ?? "";
+  const prefillSourceType = urlParams.get("sourceType") ?? "";
+  const prefillSourceId = urlParams.get("sourceId") ?? "";
+  const prefillSourceDate = urlParams.get("sourceDate") ?? "";
+  const prefillKeywords = urlParams.get("keywords") ?? "";
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("other");
+  const [title, setTitle] = useState(isPrefill ? prefillTitle : "");
+  const [description, setDescription] = useState(
+    isPrefill
+      ? prefillBody +
+          (prefillSourceType
+            ? `\n\n──────────\n[자동 제안] 출처: ${prefillSourceType} #${prefillSourceId} (${prefillSourceDate})` +
+              (prefillKeywords ? `\n감지 키워드: ${prefillKeywords}` : "")
+            : "")
+      : "",
+  );
+  const validApprovalCategories = ["maintenance", "inspection", "facility", "equipment", "other"];
+  const [category, setCategory] = useState(
+    isPrefill && validApprovalCategories.includes(prefillCategory) ? prefillCategory : "other",
+  );
   const [estimatedAmount, setEstimatedAmount] = useState("");
   const [vendorName, setVendorName] = useState("");
   const [vendorQuoteDetails, setVendorQuoteDetails] = useState("");

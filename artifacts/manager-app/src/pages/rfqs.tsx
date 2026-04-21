@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListRfqs,
   useCreateRfq,
@@ -110,6 +110,37 @@ export default function Rfqs() {
     sido: building?.sido || "",
     sigungu: building?.sigungu || "",
   });
+
+  // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 작성 다이얼로그를 자동으로 연다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("prefill") !== "1") return;
+    const validCategories = categoryOptions.map((c) => c.value);
+    const incomingCategory = params.get("category") ?? "";
+    const sourceType = params.get("sourceType") ?? "";
+    const sourceId = params.get("sourceId") ?? "";
+    const sourceDate = params.get("sourceDate") ?? "";
+    const keywords = params.get("keywords") ?? "";
+    const body = params.get("body") ?? "";
+    const footer = sourceType
+      ? `\n\n──────────\n[자동 제안] 출처: ${sourceType} #${sourceId} (${sourceDate})` +
+        (keywords ? `\n감지 키워드: ${keywords}` : "")
+      : "";
+    setForm((prev) => ({
+      ...prev,
+      title: params.get("title") ?? prev.title,
+      description: body + footer,
+      category: validCategories.includes(incomingCategory) ? incomingCategory : prev.category,
+    }));
+    setDialogOpen(true);
+    // 한 번만 적용되도록 쿼리 정리.
+    const url = new URL(window.location.href);
+    ["prefill", "title", "body", "category", "keywords", "sourceType", "sourceId", "sourceDate"].forEach(
+      (k) => url.searchParams.delete(k),
+    );
+    window.history.replaceState({}, "", url.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function resetForm() {
     setForm({
