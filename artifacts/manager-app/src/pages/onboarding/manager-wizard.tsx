@@ -961,9 +961,13 @@ function BillStep({
 
       <div className="mt-4">
         {busy ? (
-          <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center gap-2">
+          <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center gap-2 text-center">
             <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-            <span className="text-xs text-slate-600">관리비 내역을 AI 분석 중이에요...</span>
+            <span className="text-sm text-slate-700 font-medium">관리비 내역을 AI 분석 중이에요</span>
+            <span className="text-[11px] text-slate-500 leading-relaxed">
+              관리비 고지서를 AI로 분석하는 데 1~2분 정도 걸려요.<br />
+              휴대폰을 끄지 말고 잠시만 기다려 주세요.
+            </span>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
