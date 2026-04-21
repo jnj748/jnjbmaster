@@ -612,31 +612,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </nav>
 
-      {/* [Task #170] 모바일 회계 그룹 메뉴 시트. 회계 엔진 한 화면이 아니라
-          그룹 전체(관리비 요약/고지서/검침/고지·수납 등)를 보여줌. */}
+      {/* [Task #170] 모바일 회계 그룹 메뉴 시트. 시설 허브와 동일한 컬러 아이콘 카드 그리드. */}
       <Sheet open={!!groupSheet} onOpenChange={(o) => !o && setGroupSheet(null)}>
         <SheetContent
           side="bottom"
-          className="rounded-t-2xl px-0 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
+          className="rounded-t-2xl px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]"
         >
-          <SheetHeader className="px-4">
+          <SheetHeader>
             <SheetTitle className="text-left">{groupSheetSection?.title ?? "메뉴"}</SheetTitle>
           </SheetHeader>
-          <div className="mt-2 grid grid-cols-1 divide-y">
-            {groupSheetSection?.items.map((it) => {
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {groupSheetSection?.items.map((it, idx) => {
               const Icon = it.icon;
               const active = location.startsWith(it.path);
+              const colors = [
+                "bg-blue-500", "bg-emerald-500", "bg-orange-500",
+                "bg-violet-500", "bg-rose-500", "bg-amber-500",
+                "bg-cyan-500", "bg-fuchsia-500", "bg-lime-600",
+              ];
+              const color = colors[idx % colors.length];
               return (
                 <Link key={it.path} href={it.path}>
                   <button
                     onClick={() => setGroupSheet(null)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 text-left",
-                      active ? "text-accent bg-accent/5" : "text-foreground"
+                      "w-full h-full rounded-xl border bg-card hover:bg-muted/50 transition-colors p-3 flex flex-col items-center text-center gap-2",
+                      active && "border-accent ring-1 ring-accent/40"
                     )}
                   >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span className="text-sm font-medium">{it.label}</span>
+                    <span className={cn("w-10 h-10 rounded-full flex items-center justify-center", color)}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </span>
+                    <span className="text-xs font-medium leading-tight break-keep">{it.label}</span>
                   </button>
                 </Link>
               );
