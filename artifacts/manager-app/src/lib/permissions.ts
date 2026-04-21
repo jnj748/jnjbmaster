@@ -328,7 +328,10 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/erp/bills", component: ErpBills,
     label: "관리비 고지서", icon: FileText, group: "accounting",
-    access: ["platform_admin", "accountant"],
+    // manager는 라우트 접근만 유지(관리비 요약의 "고지서 업로드하러 가기" 버튼 진입용),
+    //   사이드바/회계 허브 카드에서는 숨김.
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["platform_admin", "accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,
