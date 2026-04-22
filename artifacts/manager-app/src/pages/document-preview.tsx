@@ -329,22 +329,22 @@ function DraftDocument({ input, authorFallback }: { input: OfficialDocumentInput
 
       <SectionTitle>1. 기안 사유</SectionTitle>
       <p className="text-sm leading-7">
-        아래와 같이 {input.sourceLabel} 결과를 기안하오니, 검토 후 결재하여 주시기 바랍니다.
+        아래와 같이 {input.sourceLabel}을(를) 시행하고자 하오니, 검토 후 결재하여 주시기 바랍니다.
       </p>
 
-      <SectionTitle>2. 주요 내용 요약</SectionTitle>
+      <SectionTitle>2. 추진(예정) 내용</SectionTitle>
       <SummaryGrid items={input.summary} />
 
       {input.items?.length ? (
         <>
-          <SectionTitle>3. 세부 항목</SectionTitle>
+          <SectionTitle>3. 세부 추진 항목</SectionTitle>
           <ItemsList items={input.items} />
         </>
       ) : null}
 
       {input.notes ? (
         <>
-          <SectionTitle>4. 특이사항</SectionTitle>
+          <SectionTitle>4. 특이·협조 사항</SectionTitle>
           <NotesBlock notes={input.notes} />
         </>
       ) : null}
@@ -447,19 +447,23 @@ function ReportDocument({ input, authorFallback }: { input: OfficialDocumentInpu
         </tbody>
       </table>
 
-      <SectionTitle>1. 요약</SectionTitle>
+      <p className="text-sm leading-7 pt-2">
+        아래와 같이 {input.sourceLabel} 결과를 보고드립니다.
+      </p>
+
+      <SectionTitle>1. 업무 개요</SectionTitle>
       <SummaryGrid items={input.summary} />
 
       {input.items?.length ? (
         <>
-          <SectionTitle>2. 점검·작업 항목</SectionTitle>
+          <SectionTitle>2. 수행(완료) 내역</SectionTitle>
           <ItemsList items={input.items} />
         </>
       ) : null}
 
       {input.notes ? (
         <>
-          <SectionTitle>3. 특이사항 / 조치 의견</SectionTitle>
+          <SectionTitle>3. 조치 결과 및 의견</SectionTitle>
           <NotesBlock notes={input.notes} />
         </>
       ) : null}
