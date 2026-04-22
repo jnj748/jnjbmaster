@@ -104,10 +104,13 @@ export function PhotoUploadField({ label, value, onChange, testId }: PhotoUpload
           <button
             type="button"
             onClick={handleRemove}
-            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+            aria-label="삭제"
+            className="absolute -top-1.5 -right-1.5 w-7 h-7 flex items-center justify-center bg-transparent p-0"
             data-testid={testId ? `${testId}-remove` : undefined}
           >
-            <X className="w-3.5 h-3.5" />
+            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-destructive text-destructive-foreground shadow-sm">
+              <X className="w-2.5 h-2.5" strokeWidth={3} />
+            </span>
           </button>
         </div>
       ) : (
