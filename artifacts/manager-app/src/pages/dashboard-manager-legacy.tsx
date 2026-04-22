@@ -48,13 +48,11 @@ import {
   AlertTriangle,
   Clock,
   Shield,
-  Calculator,
   Coins,
   TrendingUp,
   Activity,
   Users,
   Car,
-  HardHat,
   ClipboardCheck,
   ListChecks,
   Wrench,
@@ -66,6 +64,7 @@ import {
   Trash2,
   NotebookPen,
   FolderOpen,
+  BarChart3,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CompletionNotice } from "@/components/completion-notice";
@@ -356,27 +355,180 @@ function TodayWorkLogEntry() {
     : "금일 업무일지 생성 전입니다. 자동으로 생성해보세요";
   const messageClass = hasJournal ? "text-emerald-600" : "text-red-600";
 
+  // [Task #246] 컴팩트 가로 레이아웃: 왼쪽 아이콘 + 오른쪽 2줄 텍스트.
+  // 화면 점유율을 줄이기 위해 아이콘/폰트 크기를 절반 수준으로 축소했다.
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <Link href="/work-log?tab=daily">
           <button
             type="button"
             data-testid="dashboard-today-worklog"
-            className="w-full flex flex-col items-center gap-2 py-2 hover-elevate active-elevate-2 rounded-lg"
+            className="w-full flex items-center gap-3 py-1 px-1 hover-elevate active-elevate-2 rounded-lg text-left"
           >
-            <span className="w-14 h-14 rounded-full bg-accent/15 flex items-center justify-center">
-              <NotebookPen className="w-7 h-7 text-accent" />
+            <span className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+              <NotebookPen className="w-4 h-4 text-accent" />
             </span>
-            <span className="text-sm font-semibold">오늘 업무일지 자동 작성하기</span>
-            <span
-              className={`text-xs font-medium ${messageClass}`}
-              data-testid="dashboard-today-worklog-status"
-            >
-              {isLoading ? "확인 중..." : message}
+            <span className="flex flex-col min-w-0 flex-1">
+              <span className="text-xs font-semibold">오늘 업무일지 자동 작성하기</span>
+              <span
+                className={`text-[11px] font-medium ${messageClass}`}
+                data-testid="dashboard-today-worklog-status"
+              >
+                {isLoading ? "확인 중..." : message}
+              </span>
             </span>
           </button>
         </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+// [Task #246] 관리소장 대시보드 전용 "관리비 요약" 2×2 위젯.
+// 기존 4-카드(관리비회계업무·시설업무·기한지난업무·예정점검) 그리드를 대체한다.
+// 데이터 출처:
+//   - /fees/bill-summaries → 최신 청구월의 totalAmount (당월 부과액)
+//   - /fees/arrears-summary → 누적 미수금 / 미납 건수
+//   - useGetDashboardAnalytics → 미납률
+// 데이터가 없을 때는 "—" 로 비어있는 상태를 표시한다.
+function FeesSummaryWidget({
+  unpaidRate,
+}: {
+  unpaidRate: number | null;
+}) {
+  const { token } = useAuth();
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+
+  const { data: latestBill, isLoading: billLoading } = useQuery({
+    queryKey: ["dashboard-fees-summary-latest-bill"],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/fees/bill-summaries`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return null;
+      const rows = (await res.json()) as Array<{ billingMonth: string; totalAmount: number }>;
+      const valid = (Array.isArray(rows) ? rows : []).filter(
+        (b) => !b.billingMonth.startsWith("failed-"),
+      );
+      // /fees/bill-summaries 는 billingMonth desc 로 내려옴 — 첫 항목이 최신.
+      return valid[0] ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!token,
+  });
+
+  const { data: arrears, isLoading: arrearsLoading } = useQuery({
+    queryKey: ["dashboard-fees-summary-arrears"],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/fees/arrears-summary`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as {
+        totalArrears: number;
+        unpaidCount: number;
+        overdueCount: number;
+        oldestUnpaidMonth: string | null;
+      } | null;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!token,
+  });
+
+  const isLoading = billLoading || arrearsLoading;
+
+  const billingMonthLabel = latestBill?.billingMonth
+    ? `${latestBill.billingMonth.slice(5)}월 청구`
+    : "최근 청구 자료 없음";
+
+  const billAmount = latestBill?.totalAmount
+    ? `₩${Math.round(latestBill.totalAmount).toLocaleString()}`
+    : "—";
+
+  const arrearsAmount = arrears && arrears.totalArrears > 0
+    ? `₩${arrears.totalArrears.toLocaleString()}`
+    : arrears
+    ? "₩0"
+    : "—";
+
+  const unpaidCountLabel = arrears
+    ? `${arrears.unpaidCount}건 미납`
+    : "데이터 없음";
+
+  const collectionRate = unpaidRate !== null ? `${100 - unpaidRate}%` : "—";
+
+  return (
+    <Card data-testid="dashboard-fees-summary-widget">
+      <CardContent className="p-4">
+        <Link href="/erp/fees-summary">
+          <button
+            type="button"
+            data-testid="dashboard-fees-summary-header"
+            className="w-full flex items-center justify-between mb-3 hover-elevate active-elevate-2 rounded-md px-1 py-1 text-left"
+          >
+            <span className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-accent" />
+              <span className="text-sm font-semibold">관리비 요약</span>
+            </span>
+            <span className="text-xs text-muted-foreground">자세히 →</span>
+          </button>
+        </Link>
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/erp/fees-summary">
+            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+              <p className="text-[11px] text-muted-foreground">당월 부과액</p>
+              <p className="text-sm font-bold mt-1 truncate">
+                {isLoading ? "..." : billAmount}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                {billingMonthLabel}
+              </p>
+            </div>
+          </Link>
+          <Link href="/erp/fees-summary">
+            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+              <p className="text-[11px] text-muted-foreground">수납률</p>
+              <p className="text-sm font-bold mt-1">{collectionRate}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                전체 세대 기준
+              </p>
+            </div>
+          </Link>
+          <Link href="/erp/fees-summary">
+            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+              <p className="text-[11px] text-muted-foreground">누적 미수금</p>
+              <p
+                className={`text-sm font-bold mt-1 truncate ${
+                  arrears && arrears.totalArrears > 0 ? "text-red-600" : ""
+                }`}
+              >
+                {isLoading ? "..." : arrearsAmount}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                {unpaidCountLabel}
+              </p>
+            </div>
+          </Link>
+          <Link href="/erp/fees-summary">
+            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+              <p className="text-[11px] text-muted-foreground">연체 건수</p>
+              <p
+                className={`text-sm font-bold mt-1 ${
+                  arrears && arrears.overdueCount > 0 ? "text-red-600" : ""
+                }`}
+              >
+                {arrears ? `${arrears.overdueCount}건` : "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                {arrears && arrears.oldestUnpaidMonth
+                  ? `최장 ${arrears.oldestUnpaidMonth}부터`
+                  : "기한 초과 없음"}
+              </p>
+            </div>
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -722,40 +874,12 @@ export default function Dashboard() {
         </button>
       </Link>
 
-      {/* [Task #184] 상단에 있던 4-카드 그리드를 제안업무현황 아래로 이동 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard
-          title="관리비회계업무"
-          value={summary?.pendingTaskCount ?? 0}
-          icon={Calculator}
-          color="bg-accent"
-          subtitle={`세무 ${summary?.pendingTaxCount ?? 0}건 대기`}
-          href="/erp/accounting"
-        />
-        <StatCard
-          title="시설업무"
-          value={summary?.upcomingInspectionCount ?? 0}
-          icon={HardHat}
-          color="bg-chart-2"
-          subtitle="점검/보수 대기"
-          href="/facility"
-        />
-        <StatCard
-          title="기한지난업무"
-          value={summary?.overdueTaskCount ?? 0}
-          icon={AlertTriangle}
-          color="bg-destructive"
-          subtitle="즉시 처리 필요"
-          href="/tasks"
-        />
-        <StatCard
-          title="예정점검"
-          value={summary?.upcomingInspectionCount ?? 0}
-          icon={Shield}
-          color="bg-chart-4"
-          subtitle="30일 이내"
-          href="/inspections"
-        />
+      {/* [Task #246] 최근 문서함과 아래 위젯 사이 시각적 분리를 위해 추가 여백을 둔다.
+          기존 관리비회계업무/시설업무/기한지난업무/예정점검 4-카드 그리드는 다른 화면
+          (시설/업무관리/회계 허브)으로 진입 가능하므로 중복 제거하고, 그 자리에
+          관리소장이 매일 확인할 "관리비 요약" 4지표(2×2)를 노출한다. */}
+      <div className="pt-2">
+        <FeesSummaryWidget unpaidRate={analytics?.unpaidSummary.unpaidRate ?? null} />
       </div>
 
       {/* [Task #142] <PendingApprovalsCard /> 는 카탈로그의 pending-approvals

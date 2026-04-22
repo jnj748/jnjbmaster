@@ -309,7 +309,8 @@ export const ROUTES: RouteEntry[] = [
     label: "회계", icon: Calculator, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: [],
-    bottomNav: ["manager", "platform_admin", "accountant"],
+    // [Task #246] manager 역할은 회계 탭을 하단 네비에서 제외 (사이드바·더보기에서는 유지).
+    bottomNav: ["platform_admin", "accountant"],
     bottomLabel: "회계",
     bottomOrder: 30,
   },
@@ -654,6 +655,16 @@ export function getBottomNavItems(role: Role): NavItem[] {
       { path: "/rfqs", label: "견적", icon: PARTNER_RFQ_ICON },
       { path: "/vendors", label: "업체", icon: PARTNER_VENDORS_ICON },
       { path: "/commissions", label: "수수료", icon: Coins },
+    ];
+  }
+  // [Task #246] 관리소장 모드 하단 네비는 사용 빈도 높은 4개(시설/업무일지/홈/AI비서)만 노출하고
+  // 홈을 가운데에 배치한다. 회계 탭은 제외되며 사이드바·더보기에서만 진입한다.
+  if (role === "manager") {
+    return [
+      { path: "/facility", label: "시설", icon: HardHat },
+      { path: "/work-log", label: "업무일지", icon: NotebookPen },
+      { ...rootItem("manager"), label: roleHomeShort("manager") },
+      { path: "/ai-assistant", label: "AI비서", icon: Sparkles },
     ];
   }
   const items: NavItem[] = [{ ...rootItem(role), label: roleHomeShort(role) }];
