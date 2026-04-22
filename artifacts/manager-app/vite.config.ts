@@ -57,6 +57,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    target: "es2020",
+    cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+    reportCompressedSize: false,
+    minify: "esbuild",
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -78,9 +84,23 @@ export default defineConfig({
           if (id.includes("api-client-react") || id.includes("api-client/")) {
             return "api-client";
           }
+          if (id.includes("node_modules/@tanstack/react-query")) {
+            return "react-query";
+          }
+          if (id.includes("node_modules/wouter")) {
+            return "router";
+          }
+          if (id.includes("node_modules/html2canvas") || id.includes("node_modules/jspdf") || id.includes("node_modules/dompurify")) {
+            return "doc-export";
+          }
         },
       },
     },
+  },
+  esbuild: {
+    // 프로덕션 빌드에서 console/debugger 제거 → 번들 가벼워지고 런타임 노이즈 감소.
+    drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],
+    legalComments: "none",
   },
   server: {
     port,

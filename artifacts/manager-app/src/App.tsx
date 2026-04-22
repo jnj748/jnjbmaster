@@ -8,8 +8,13 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { BuildingProvider } from "@/contexts/building-context";
 import { OnboardingProvider, useOnboarding } from "@/contexts/onboarding-context";
 import { OnboardingGate } from "@/components/onboarding-gate";
-import { OnboardingModal } from "@/components/onboarding-modal";
-import { BrowsingBanner } from "@/components/browsing-banner";
+// [성능] 진입 직후 화면에 보이지 않는 컴포넌트는 lazy 로 분리해 초기 번들에서 제외.
+const OnboardingModal = lazy(() =>
+  import("@/components/onboarding-modal").then((m) => ({ default: m.OnboardingModal })),
+);
+const BrowsingBanner = lazy(() =>
+  import("@/components/browsing-banner").then((m) => ({ default: m.BrowsingBanner })),
+);
 import {
   getRoutesForRole,
   getEffectiveRole,
@@ -148,7 +153,9 @@ function AuthenticatedRoutes() {
         <ManagerOnboardingRedirect />
         <OnboardingGate>
           <Layout>
-            <BrowsingBanner />
+            <Suspense fallback={null}>
+              <BrowsingBanner />
+            </Suspense>
             <Suspense fallback={<PageLoader />}>
               <Switch>
                 {LayoutCheck && (
@@ -185,7 +192,9 @@ function AuthenticatedRoutes() {
               </Switch>
             </Suspense>
           </Layout>
-          <OnboardingModal />
+          <Suspense fallback={null}>
+            <OnboardingModal />
+          </Suspense>
         </OnboardingGate>
       </OnboardingProvider>
     </BuildingProvider>
