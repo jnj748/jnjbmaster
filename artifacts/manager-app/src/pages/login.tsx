@@ -244,7 +244,8 @@ export default function Login() {
             </div>
           )}
 
-          {!isHq && providers.length > 0 && (
+          {/* 소셜 로그인은 당분간 숨김 (네이버/카카오/구글) */}
+          {false && !isHq && providers.length > 0 && (
             <div className="mb-5 space-y-2">
               {providers.map((p) => {
                 const startUrl = `${API_BASE}/auth/oauth/${p.provider}/init?portalType=${portalType}`;
