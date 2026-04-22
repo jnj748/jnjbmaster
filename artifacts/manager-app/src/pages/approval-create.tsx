@@ -32,6 +32,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
+import { FollowUpScheduleTaskDialog } from "@/components/follow-up-schedule-task-dialog";
+import {
+  Dialog as ConfirmDialog,
+  DialogContent as ConfirmDialogContent,
+  DialogDescription as ConfirmDialogDescription,
+  DialogFooter as ConfirmDialogFooter,
+  DialogHeader as ConfirmDialogHeader,
+  DialogTitle as ConfirmDialogTitle,
+} from "@/components/ui/dialog";
+import type { FollowUpSource } from "@/lib/follow-up-detection";
 import {
   FileText,
   Plus,
@@ -135,6 +145,20 @@ export default function ApprovalCreate() {
   const [newRecipientType, setNewRecipientType] = useState<"recipient" | "cc">("recipient");
 
   const [userList, setUserList] = useState<UserRecord[]>([]);
+
+  // [Task #220] 후속조치에서 진입한 기안서일 경우, 저장 성공 후
+  // "이 업무를 잊지 않도록 필수업무로 보내주겠습니까?"를 띄운다.
+  const [followUpConfirmOpen, setFollowUpConfirmOpen] = useState(false);
+  const [followUpScheduleOpen, setFollowUpScheduleOpen] = useState(false);
+  const followUpSource: FollowUpSource | null =
+    isPrefill && prefillSourceType && prefillSourceId && prefillSourceDate
+      ? {
+          type: prefillSourceType as FollowUpSource["type"],
+          id: prefillSourceId,
+          title: prefillTitle || "후속 조치",
+          occurredAt: prefillSourceDate,
+        }
+      : null;
 
   const { data: templates } = useListDocumentTemplates();
   const { data: selectedTemplate } = useGetDocumentTemplate(
@@ -311,6 +335,11 @@ export default function ApprovalCreate() {
       queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetApprovalStatsQueryKey() });
       toast({ title: "결재 요청이 제출되었습니다" });
+      // [Task #220] 후속조치 prefill 진입이면 필수업무 등록 권유.
+      if (followUpSource) {
+        setFollowUpConfirmOpen(true);
+        return;
+      }
       setLocation("/approvals");
     } catch {
       toast({ title: "결재 요청 제출에 실패했습니다", variant: "destructive" });
@@ -337,6 +366,11 @@ export default function ApprovalCreate() {
         return;
       }
       toast({ title: "임시 저장되었습니다" });
+      // [Task #220] 임시저장도 후속조치에서 진입했다면 필수업무 등록 권유.
+      if (followUpSource) {
+        setFollowUpConfirmOpen(true);
+        return;
+      }
       setLocation("/approvals");
     } catch {
       toast({ title: "임시 저장에 실패했습니다", variant: "destructive" });
@@ -664,6 +698,62 @@ export default function ApprovalCreate() {
           </ResponsiveDialogFooter>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
+
+      {/* [Task #220] 후속조치 prefill로 진입한 기안서 저장 후 행동유도 */}
+      <ConfirmDialog
+        open={followUpConfirmOpen}
+        onOpenChange={(o) => {
+          setFollowUpConfirmOpen(o);
+          if (!o) setLocation("/approvals");
+        }}
+      >
+        <ConfirmDialogContent className="max-w-md" data-testid="approval-followup-confirm-dialog">
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>이 업무, 잊지 않으시겠어요?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              방금 작성한 기안서 처리를 잊지 않도록 대시보드 필수업무현황에 1회성으로 등록해 둘 수 있습니다.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="ghost"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setFollowUpConfirmOpen(false);
+                setLocation("/approvals");
+              }}
+              data-testid="approval-followup-skip"
+            >
+              다음에
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setFollowUpConfirmOpen(false);
+                setFollowUpScheduleOpen(true);
+              }}
+              data-testid="approval-followup-accept"
+            >
+              필수업무로 등록
+            </Button>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
+
+      <FollowUpScheduleTaskDialog
+        open={followUpScheduleOpen}
+        onOpenChange={(o) => {
+          setFollowUpScheduleOpen(o);
+          if (!o) setLocation("/approvals");
+        }}
+        source={followUpSource}
+        detection={null}
+        extraNote="기안서 작성 후 등록된 1회성 필수업무"
+        onCreated={() => {
+          setFollowUpScheduleOpen(false);
+          setLocation("/approvals");
+        }}
+      />
     </div>
   );
 }

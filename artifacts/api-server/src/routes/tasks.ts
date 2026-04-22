@@ -48,6 +48,23 @@ router.post("/tasks", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #220] 후속조치 출처 마커가 description 에 들어 있을 때, 동일 출처로
+  // 미완료 상태의 1회성 업무가 이미 있으면 그 업무를 그대로 반환한다(중복 방지).
+  const desc = parsed.data.description ?? null;
+  const markerMatch = desc?.match(/__followup_source:type=([^&\s]+)&id=([^&\s]+)&date=([0-9-]+)/);
+  if (markerMatch) {
+    const marker = markerMatch[0];
+    const existing = await db
+      .select()
+      .from(tasksTable)
+      .where(sql`${tasksTable.description} LIKE ${"%" + marker + "%"}`);
+    const pending = existing.find((t) => t.status !== "completed");
+    if (pending) {
+      res.status(200).json(GetTaskResponse.parse(pending));
+      return;
+    }
+  }
+
   const [task] = await db.insert(tasksTable).values(parsed.data).returning();
   res.status(201).json(GetTaskResponse.parse(task));
 });

@@ -6425,7 +6425,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [inspection_due, tax_due, task_overdue, vendor_recommendation, data_destruction]
+          enum: [inspection_due, tax_due, task_overdue, task_followup, warranty_expiry, vendor_recommendation, data_destruction]
         title:
           type: string
         message:

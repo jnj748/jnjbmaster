@@ -125,12 +125,13 @@ function getDdayLabel(dueDate: string | null): { label: string; days: number | n
 
 type AlertActionTab = "complete" | "postpone" | "rfq";
 
-const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue", "warranty_expiry"] as const;
+const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue", "task_followup", "warranty_expiry"] as const;
 
 const ALERT_FALLBACK_ROUTES: Record<string, string> = {
   inspection_due: "/inspections",
   tax_due: "/tax-schedules",
   task_overdue: "/tasks",
+  task_followup: "/tasks",
   warranty_expiry: "/settings?tab=building",
 };
 
@@ -452,6 +453,7 @@ export default function Dashboard() {
       case "inspection_due": return "inspection";
       case "tax_due": return "tax";
       case "task_overdue": return "task";
+      case "task_followup": return "task";
       case "warranty_expiry": return "warranty";
       default: return "task";
     }

@@ -3,7 +3,7 @@
 // 세션 동안 다시 띄우지 않는다.
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { AlertCircle, FileText, ClipboardList, X } from "lucide-react";
+import { AlertCircle, FileText, ClipboardList, X, ClipboardCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,7 @@ import {
   type FollowUpSource,
   SOURCE_TYPE_LABEL,
 } from "@/lib/follow-up-detection";
-import { CompletionNotice } from "@/components/completion-notice";
-import { useBuilding } from "@/contexts/building-context";
-import { useAuth } from "@/contexts/auth-context";
+import { FollowUpScheduleTaskDialog } from "@/components/follow-up-schedule-task-dialog";
 
 const dismissedSources = new Set<string>();
 
@@ -83,9 +81,7 @@ function buildPrefillQuery(
 
 export function FollowUpSuggestionDialog({ open, source, detection, onClose }: Props) {
   const [, navigate] = useLocation();
-  const { building } = useBuilding();
-  const { user } = useAuth();
-  const [draftOpen, setDraftOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   // 동일 출처 재표시 방지: 닫힐 때만 등록되도록 onClose 에서 처리.
   useEffect(() => {
@@ -105,12 +101,14 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
     onClose();
   }
 
-  // [변경] 후속 조치 "기안서 작성" — 전자결재 페이지가 아니라
-  // 필수업무 프로세스와 동일한 자동 기안서 양식(이미지 저장/공유/인쇄 포함)을 띄운다.
+  // [Task #220] 후속 조치 "기안서 작성" — 결재 작성 페이지로 prefill 진입.
+  // 저장 후 approvals/create 가 "필수업무로 등록" 확인을 띄워준다.
   function handleApproval() {
     if (!source) return;
     dismissFollowUpSource(source);
-    setDraftOpen(true);
+    const qs = buildPrefillQuery(source, detection, "approval");
+    onClose();
+    navigate(`/approvals/create?${qs}`);
   }
 
   function handleRfq() {
@@ -121,23 +119,28 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
     navigate(`/rfqs?${qs}`);
   }
 
+  // [Task #220] 후속조치 다이얼로그에서 "필수업무로 보내두기" — 처리기간 선택
+  // 다이얼로그를 띄우고, 등록 성공 시 dismiss 후 닫는다.
+  function handleSendToTasks() {
+    if (!source) return;
+    setScheduleOpen(true);
+  }
+
   return (
     <>
-    <CompletionNotice
-      open={draftOpen}
+    <FollowUpScheduleTaskDialog
+      open={scheduleOpen}
       onOpenChange={(o) => {
-        setDraftOpen(o);
-        if (!o) onClose();
+        setScheduleOpen(o);
       }}
-      initialDocKind="draft"
-      alertTitle={source.title}
-      alertMessage={detection.snippet}
-      completedDate={source.occurredAt}
-      notes={null}
-      buildingName={building?.name ?? "관리 건물"}
-      authorName={user?.name ?? null}
+      source={source}
+      detection={detection}
+      onCreated={() => {
+        if (source) dismissFollowUpSource(source);
+        onClose();
+      }}
     />
-    <Dialog open={open && !draftOpen} onOpenChange={(v) => !v && handleDismiss()}>
+    <Dialog open={open && !scheduleOpen} onOpenChange={(v) => !v && handleDismiss()}>
       <DialogContent className="max-w-md" data-testid="follow-up-suggestion-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -182,6 +185,15 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
           >
             <ClipboardList className="w-4 h-4 mr-1" />
             파트너사 견적 받기
+          </Button>
+          <Button
+            onClick={handleSendToTasks}
+            variant="outline"
+            className="w-full"
+            data-testid="follow-up-send-to-tasks"
+          >
+            <ClipboardCheck className="w-4 h-4 mr-1" />
+            필수업무로 보내두기
           </Button>
           <Button
             onClick={handleDismiss}

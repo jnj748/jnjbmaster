@@ -1226,6 +1226,8 @@ export const AlertType = {
   inspection_due: "inspection_due",
   tax_due: "tax_due",
   task_overdue: "task_overdue",
+  task_followup: "task_followup",
+  warranty_expiry: "warranty_expiry",
   vendor_recommendation: "vendor_recommendation",
   data_destruction: "data_destruction",
 } as const;

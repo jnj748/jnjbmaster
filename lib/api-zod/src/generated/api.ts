@@ -2011,6 +2011,8 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "inspection_due",
     "tax_due",
     "task_overdue",
+    "task_followup",
+    "warranty_expiry",
     "vendor_recommendation",
     "data_destruction",
   ]),

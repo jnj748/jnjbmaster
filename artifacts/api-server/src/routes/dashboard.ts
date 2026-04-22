@@ -319,31 +319,44 @@ router.get("/dashboard/alerts", async (_req, res): Promise<void> => {
     .from(tasksTable)
     .where(eq(tasksTable.status, "pending"));
 
+  // [Task #220] 후속조치에서 1회성 필수업무로 등록된 업무는 description 에
+  // `__followup_source:` 마커가 들어 있다. 마감 초과가 아니더라도 필수업무현황에
+  // 노출되도록 한다(동일 출처 중복 생성 방지는 작성 시점에서 검증).
+  const FOLLOWUP_MARKER = "__followup_source:";
+
   for (const task of overdueTasks) {
-    if (task.dueDate && task.dueDate < today) {
-      const taskAction = actionMap.get(`task_overdue:${task.id}`);
-      if (taskAction) {
-        if (taskAction.actionType === "completed") continue;
-        if (taskAction.actionType === "postponed" && taskAction.postponeDays) {
-          const actionDate = new Date(taskAction.createdAt);
-          const suppressUntil = new Date(actionDate.getTime() + taskAction.postponeDays * 24 * 60 * 60 * 1000);
-          if (new Date(today) < suppressUntil) continue;
-        }
+    const isFollowUp = !!task.description && task.description.includes(FOLLOWUP_MARKER);
+    const isOverdue = task.dueDate && task.dueDate < today;
+    if (!isOverdue && !isFollowUp) continue;
+
+    const alertType = isFollowUp ? "task_followup" : "task_overdue";
+    const taskAction =
+      actionMap.get(`${alertType}:${task.id}`) ?? actionMap.get(`task_overdue:${task.id}`);
+    if (taskAction) {
+      if (taskAction.actionType === "completed") continue;
+      if (taskAction.actionType === "postponed" && taskAction.postponeDays) {
+        const actionDate = new Date(taskAction.createdAt);
+        const suppressUntil = new Date(actionDate.getTime() + taskAction.postponeDays * 24 * 60 * 60 * 1000);
+        if (new Date(today) < suppressUntil) continue;
       }
-      alerts.push({
-        id: alertId++,
-        type: "task_overdue",
-        title: `${task.title} 기한 초과`,
-        message: `${task.dueDate}이 마감이었던 업무가 아직 완료되지 않았습니다.`,
-        severity: "critical",
-        relatedId: task.id,
-        hasDraft: false,
-        actionStatus: taskAction?.actionType || null,
-        dueDate: task.dueDate,
-        penaltyInfo: null,
-        createdAt: new Date().toISOString(),
-      });
     }
+    alerts.push({
+      id: alertId++,
+      type: alertType,
+      title: isFollowUp
+        ? task.title
+        : `${task.title} 기한 초과`,
+      message: isFollowUp
+        ? (task.description?.split("\n")[0] ?? "후속조치로 등록된 1회성 필수업무입니다.")
+        : `${task.dueDate}이 마감이었던 업무가 아직 완료되지 않았습니다.`,
+      severity: isOverdue ? "critical" : task.priority === "high" ? "critical" : "warning",
+      relatedId: task.id,
+      hasDraft: false,
+      actionStatus: taskAction?.actionType || null,
+      dueDate: task.dueDate,
+      penaltyInfo: null,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   const upcomingDestructionTenants = await db
