@@ -1360,9 +1360,10 @@ function ActivityTab() {
   });
 
   const journalsQ = useQuery({
+    // [Task #250] 90일 필터에서 누락이 발생하지 않도록 서버 cap(100)까지 가져온다.
     queryKey: ["activity-journals"],
     queryFn: () => call<Array<{ id: number; journalDate: string; authorName: string }>>(
-      `/daily-journals?limit=60`,
+      `/daily-journals?limit=100`,
     ),
   });
 
@@ -1403,7 +1404,8 @@ function ActivityTab() {
         title: `${j.journalDate} 일일 업무 보고서`,
         subtitle: j.authorName ? `작성자: ${j.authorName}` : undefined,
         timestamp: `${j.journalDate}T00:00:00.000Z`,
-        href: "/work-log?tab=daily",
+        // [Task #250] item-level deep link: 해당 일자 일지로 바로 이동.
+        href: `/work-log?tab=daily&date=${j.journalDate}`,
       });
     }
     out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
@@ -1497,8 +1499,16 @@ function ActivityTab() {
                   if (r.href?.startsWith("/work-log")) {
                     e.preventDefault();
                     const url = new URL(r.href, window.location.origin);
-                    window.history.pushState({}, "", url.pathname + url.search);
+                    // [Task #250] hash 도 함께 보존해 메모 anchor(#entry-id) 가 유지되도록 한다.
+                    window.history.pushState({}, "", url.pathname + url.search + url.hash);
                     window.dispatchEvent(new PopStateEvent("popstate"));
+                    if (url.hash) {
+                      // 다음 tick 에 anchor 로 스크롤 시도(요소 존재 시).
+                      setTimeout(() => {
+                        const el = document.getElementById(url.hash.slice(1));
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }, 50);
+                    }
                   }
                 }}
                 className="block"
