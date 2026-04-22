@@ -600,21 +600,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {bottomNavItems.map((item) => {
             const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
-            // [Task #256] 카테고리 색을 항상 아이콘에 입혀, 한 줄에 여러 탭이 보일 때
-            // 색만으로도 어떤 영역인지 구분되도록 한다. 활성 탭은 라벨 강조 + 동일 색.
-            const catToken = item.group ? GROUP_TO_CATEGORY[item.group] : "system";
-            const iconColor = CATEGORY_ICON_CLASS[catToken];
+            // 하단 네비게이션은 무색(중립) 처리 — 활성 탭만 foreground 로 강조.
             return (
               <Link key={item.path} href={item.path}>
                 <button className={cn(
                   "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
-                  isActive ? "font-semibold" : ""
+                  isActive ? "font-semibold text-foreground" : "text-muted-foreground"
                 )}>
-                  <item.icon className={cn("w-5 h-5", iconColor)} />
-                  <span className={cn(
-                    "text-[10px] font-medium",
-                    isActive ? iconColor : "text-muted-foreground",
-                  )}>
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">
                     {item.label}
                   </span>
                 </button>
