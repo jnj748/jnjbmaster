@@ -199,16 +199,37 @@ export default function AiAssistantPage() {
   };
 
   return (
-    <div
-      className="flex flex-col p-4"
-      style={{
-        // 모바일: 상단 헤더(64px) + 하단 네비(60px + safe-area) 제외하고 채팅창 입력창이 항상 보이도록 고정.
-        // 데스크탑(lg+): 하단 네비가 숨겨지므로 헤더만 차감.
-        height:
-          "calc(100dvh - 4rem - 60px - env(safe-area-inset-bottom, 0px))",
-      }}
-    >
-      <main className="flex-1 flex flex-col border rounded-md bg-background min-w-0 max-w-3xl w-full mx-auto">
+    <>
+      {/*
+        [Task #235] 부모 layout-content-area 의 padding (p-3 / sm:p-6, padding-bottom: 60px+safe)
+        과 채팅창 자체의 높이 계산이 중복으로 차감돼 입력창이 하단 네비 아래로 밀리는 문제를 해결.
+        - 음수 마진으로 부모 패딩을 정확히 상쇄해 컨텐츠 영역 전체를 채팅 페이지가 차지하게 한다.
+        - 100dvh 기반으로 헤더/하단 네비 실제 높이만 차감해 가상 키보드가 열려도 입력창이 항상 보이게 한다.
+        - 데스크탑(≥900px) 에서는 하단 네비가 숨겨지고 좌측 사이드바만 존재하므로 헤더만 차감한다.
+      */}
+      <style>{`
+        .ai-assistant-fill {
+          /* mobile: parent has p-3 (12px) + padding-bottom: 60px + safe-area */
+          margin: -12px -12px calc(-12px - 60px - env(safe-area-inset-bottom, 0px)) -12px;
+          /* mobile header(약 60px) + bottom nav(60px) + safe-area */
+          height: calc(100dvh - 60px - 60px - env(safe-area-inset-bottom, 0px));
+        }
+        @media (min-width: 640px) and (max-width: 899px) {
+          .ai-assistant-fill {
+            /* tablet (sm+): parent has p-6 (24px), bottom nav still visible */
+            margin: -24px -24px calc(-24px - 60px - env(safe-area-inset-bottom, 0px)) -24px;
+          }
+        }
+        @media (min-width: 900px) {
+          .ai-assistant-fill {
+            /* desktop: parent p-6 (24px), no bottom nav, no safe-area concern */
+            margin: -24px;
+            height: calc(100dvh - 65px);
+          }
+        }
+      `}</style>
+      <div className="ai-assistant-fill flex flex-col p-3 sm:p-4 min-h-0">
+        <main className="flex-1 min-h-0 flex flex-col border rounded-md bg-background min-w-0 max-w-3xl w-full mx-auto">
         <header className="flex items-center gap-2 border-b px-4 py-3">
           <Sparkles className="h-5 w-5 text-primary" />
           <h1 className="font-semibold">AI 관리비서</h1>
@@ -275,8 +296,9 @@ export default function AiAssistantPage() {
             {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
-      </main>
-    </div>
+        </main>
+      </div>
+    </>
   );
 }
 
