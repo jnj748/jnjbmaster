@@ -65,23 +65,23 @@ export default function RoleSelectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">환영합니다, {user?.name ?? "회원"}님</h1>
-          <p className="mt-2 text-sm sm:text-base text-slate-500">
-            어떤 역할로 시작하시겠어요? 선택한 역할에 맞는 초기 설정 마법사가 시작됩니다.
+    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:py-8 flex flex-col">
+      <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col">
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">건물과는 어떤 관계이신가요?</h1>
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
+            역할을 선택하면 AI비서가 설정을 도와드립니다.
           </p>
           {alreadySelected && (
-            <p className="mt-2 text-xs text-slate-400">이미 역할이 확정된 계정입니다. 위저드만 다시 진행할 수 있습니다.</p>
+            <p className="mt-1 text-[11px] text-slate-400">이미 역할이 확정된 계정입니다. 위저드만 다시 진행할 수 있습니다.</p>
           )}
         </div>
 
         {err && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 flex-1 content-start">
           {ROLES.map((r) => {
             const Icon = r.icon;
             const highlight = directRole?.role === r.role;
@@ -91,18 +91,18 @@ export default function RoleSelectPage() {
                 key={r.role}
                 disabled={!!submitting}
                 onClick={() => chooseRole(r)}
-                className={`text-left rounded-xl border bg-white p-5 transition-shadow shadow-sm hover:shadow disabled:opacity-60 ${
+                className={`text-left rounded-xl border bg-white p-3 sm:p-5 transition-shadow shadow-sm hover:shadow disabled:opacity-60 ${
                   highlight ? "ring-2 ring-blue-400" : ""
                 }`}
                 data-testid={`role-${r.role}`}
               >
-                <div className={`inline-flex w-10 h-10 rounded-lg items-center justify-center border ${COLOR[r.color]}`}>
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
+                <div className={`inline-flex w-9 h-9 sm:w-10 sm:h-10 rounded-lg items-center justify-center border ${COLOR[r.color]}`}>
+                  {isSubmitting ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Icon className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </div>
-                <div className="mt-3 text-base font-semibold text-slate-900">{r.label}</div>
-                <p className="mt-1 text-xs text-slate-500">{r.desc}</p>
+                <div className="mt-2 sm:mt-3 text-sm sm:text-base font-semibold text-slate-900">{r.label}</div>
+                <p className="mt-1 text-[11px] sm:text-xs text-slate-500 leading-snug">{r.desc}</p>
                 {highlight && (
-                  <div className="mt-2 text-[11px] text-blue-700">현재 계정의 역할입니다</div>
+                  <div className="mt-1.5 text-[11px] text-blue-700">현재 계정의 역할입니다</div>
                 )}
               </button>
             );
