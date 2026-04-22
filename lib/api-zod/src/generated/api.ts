@@ -5005,6 +5005,91 @@ export const DeletePlatformAnnouncementResponse = zod.object({
 });
 
 /**
+ * @summary List platform-managed knowledge documents (HQ admin)
+ */
+export const ListPlatformKnowledgeDocsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.string(),
+  summary: zod.string().nullish(),
+  bodyText: zod.string(),
+  fileUrl: zod.string().nullish(),
+  fileName: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  version: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPlatformKnowledgeDocsResponse = zod.array(
+  ListPlatformKnowledgeDocsResponseItem,
+);
+
+/**
+ * @summary Create a platform knowledge document (HQ admin)
+ */
+export const CreatePlatformKnowledgeDocBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  summary: zod.string().nullish(),
+  bodyText: zod.string().optional(),
+  fileUrl: zod.string().nullish(),
+  fileName: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  version: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a platform knowledge document (HQ admin)
+ */
+export const UpdatePlatformKnowledgeDocParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePlatformKnowledgeDocBody = zod.object({
+  title: zod.string().optional(),
+  category: zod.string().optional(),
+  summary: zod.string().nullish(),
+  bodyText: zod.string().optional(),
+  fileUrl: zod.string().nullish(),
+  fileName: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  version: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdatePlatformKnowledgeDocResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.string(),
+  summary: zod.string().nullish(),
+  bodyText: zod.string(),
+  fileUrl: zod.string().nullish(),
+  fileName: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  version: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a platform knowledge document (HQ admin)
+ */
+export const DeletePlatformKnowledgeDocParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeletePlatformKnowledgeDocResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary List document checklists for an entity
  */
 export const ListDocumentChecklistsQueryParams = zod.object({

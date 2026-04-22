@@ -80,6 +80,7 @@ import type {
   CreateMeterReadingBody,
   CreateOwnerBody,
   CreatePlatformAnnouncementBody,
+  CreatePlatformKnowledgeDocBody,
   CreateQuoteBody,
   CreateRfqBody,
   CreateSafetyChecklistBody,
@@ -109,6 +110,7 @@ import type {
   DeleteCreditCategoryPricing200,
   DeleteDocumentTemplate200,
   DeletePlatformAnnouncement200,
+  DeletePlatformKnowledgeDoc200,
   DeleteSignature200,
   DeleteVote200,
   DelinquencyAction,
@@ -196,6 +198,7 @@ import type {
   Notification,
   Owner,
   PlatformAnnouncement,
+  PlatformKnowledgeDoc,
   PlatformSetting,
   PreviewCreditCostParams,
   ProcessApprovalStepBody,
@@ -239,6 +242,7 @@ import type {
   UpdateMaintenanceLogBody,
   UpdateOwnerBody,
   UpdatePlatformAnnouncementBody,
+  UpdatePlatformKnowledgeDocBody,
   UpdateQuoteBody,
   UpdateRfqBody,
   UpdateSafetyChecklistBody,
@@ -14985,6 +14989,350 @@ export const useDeletePlatformAnnouncement = <
   TContext
 > => {
   return useMutation(getDeletePlatformAnnouncementMutationOptions(options));
+};
+
+/**
+ * @summary List platform-managed knowledge documents (HQ admin)
+ */
+export const getListPlatformKnowledgeDocsUrl = () => {
+  return `/api/platform/knowledge-docs`;
+};
+
+export const listPlatformKnowledgeDocs = async (
+  options?: RequestInit,
+): Promise<PlatformKnowledgeDoc[]> => {
+  return customFetch<PlatformKnowledgeDoc[]>(
+    getListPlatformKnowledgeDocsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPlatformKnowledgeDocsQueryKey = () => {
+  return [`/api/platform/knowledge-docs`] as const;
+};
+
+export const getListPlatformKnowledgeDocsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPlatformKnowledgeDocsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>
+  > = ({ signal }) => listPlatformKnowledgeDocs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPlatformKnowledgeDocsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>
+>;
+export type ListPlatformKnowledgeDocsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List platform-managed knowledge documents (HQ admin)
+ */
+
+export function useListPlatformKnowledgeDocs<
+  TData = Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPlatformKnowledgeDocs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPlatformKnowledgeDocsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a platform knowledge document (HQ admin)
+ */
+export const getCreatePlatformKnowledgeDocUrl = () => {
+  return `/api/platform/knowledge-docs`;
+};
+
+export const createPlatformKnowledgeDoc = async (
+  createPlatformKnowledgeDocBody: CreatePlatformKnowledgeDocBody,
+  options?: RequestInit,
+): Promise<PlatformKnowledgeDoc> => {
+  return customFetch<PlatformKnowledgeDoc>(getCreatePlatformKnowledgeDocUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPlatformKnowledgeDocBody),
+  });
+};
+
+export const getCreatePlatformKnowledgeDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>,
+    TError,
+    { data: BodyType<CreatePlatformKnowledgeDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>,
+  TError,
+  { data: BodyType<CreatePlatformKnowledgeDocBody> },
+  TContext
+> => {
+  const mutationKey = ["createPlatformKnowledgeDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>,
+    { data: BodyType<CreatePlatformKnowledgeDocBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPlatformKnowledgeDoc(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePlatformKnowledgeDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>
+>;
+export type CreatePlatformKnowledgeDocMutationBody =
+  BodyType<CreatePlatformKnowledgeDocBody>;
+export type CreatePlatformKnowledgeDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a platform knowledge document (HQ admin)
+ */
+export const useCreatePlatformKnowledgeDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>,
+    TError,
+    { data: BodyType<CreatePlatformKnowledgeDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPlatformKnowledgeDoc>>,
+  TError,
+  { data: BodyType<CreatePlatformKnowledgeDocBody> },
+  TContext
+> => {
+  return useMutation(getCreatePlatformKnowledgeDocMutationOptions(options));
+};
+
+/**
+ * @summary Update a platform knowledge document (HQ admin)
+ */
+export const getUpdatePlatformKnowledgeDocUrl = (id: number) => {
+  return `/api/platform/knowledge-docs/${id}`;
+};
+
+export const updatePlatformKnowledgeDoc = async (
+  id: number,
+  updatePlatformKnowledgeDocBody: UpdatePlatformKnowledgeDocBody,
+  options?: RequestInit,
+): Promise<PlatformKnowledgeDoc> => {
+  return customFetch<PlatformKnowledgeDoc>(
+    getUpdatePlatformKnowledgeDocUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updatePlatformKnowledgeDocBody),
+    },
+  );
+};
+
+export const getUpdatePlatformKnowledgeDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformKnowledgeDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformKnowledgeDocBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePlatformKnowledgeDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>,
+    { id: number; data: BodyType<UpdatePlatformKnowledgeDocBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePlatformKnowledgeDoc(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlatformKnowledgeDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>
+>;
+export type UpdatePlatformKnowledgeDocMutationBody =
+  BodyType<UpdatePlatformKnowledgeDocBody>;
+export type UpdatePlatformKnowledgeDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a platform knowledge document (HQ admin)
+ */
+export const useUpdatePlatformKnowledgeDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformKnowledgeDocBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlatformKnowledgeDoc>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformKnowledgeDocBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePlatformKnowledgeDocMutationOptions(options));
+};
+
+/**
+ * @summary Delete a platform knowledge document (HQ admin)
+ */
+export const getDeletePlatformKnowledgeDocUrl = (id: number) => {
+  return `/api/platform/knowledge-docs/${id}`;
+};
+
+export const deletePlatformKnowledgeDoc = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeletePlatformKnowledgeDoc200> => {
+  return customFetch<DeletePlatformKnowledgeDoc200>(
+    getDeletePlatformKnowledgeDocUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeletePlatformKnowledgeDocMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deletePlatformKnowledgeDoc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePlatformKnowledgeDoc(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePlatformKnowledgeDocMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>
+>;
+
+export type DeletePlatformKnowledgeDocMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a platform knowledge document (HQ admin)
+ */
+export const useDeletePlatformKnowledgeDoc = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePlatformKnowledgeDoc>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeletePlatformKnowledgeDocMutationOptions(options));
 };
 
 /**

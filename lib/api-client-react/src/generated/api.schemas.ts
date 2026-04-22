@@ -2120,6 +2120,30 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface PlatformKnowledgeDoc {
+  id: number;
+  title: string;
+  category: string;
+  /** @nullable */
+  summary?: string | null;
+  bodyText: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  fileName?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  /** @nullable */
+  version?: string | null;
+  isActive: boolean;
+  /** @nullable */
+  createdBy?: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type PlatformAnnouncementAudienceItem =
   (typeof PlatformAnnouncementAudienceItem)[keyof typeof PlatformAnnouncementAudienceItem];
 
@@ -5219,6 +5243,44 @@ export type UpdatePlatformAnnouncementBody = {
 };
 
 export type DeletePlatformAnnouncement200 = {
+  ok: boolean;
+};
+
+export type CreatePlatformKnowledgeDocBody = {
+  title: string;
+  category?: string;
+  /** @nullable */
+  summary?: string | null;
+  bodyText?: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  fileName?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  /** @nullable */
+  version?: string | null;
+  isActive?: boolean;
+};
+
+export type UpdatePlatformKnowledgeDocBody = {
+  title?: string;
+  category?: string;
+  /** @nullable */
+  summary?: string | null;
+  bodyText?: string;
+  /** @nullable */
+  fileUrl?: string | null;
+  /** @nullable */
+  fileName?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  /** @nullable */
+  version?: string | null;
+  isActive?: boolean;
+};
+
+export type DeletePlatformKnowledgeDoc200 = {
   ok: boolean;
 };
 

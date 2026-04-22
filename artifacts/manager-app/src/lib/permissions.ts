@@ -484,6 +484,14 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin", "hq_executive"],
   },
   {
+    // 플랫폼관리자 전용 — 모든 관리소장 AI 비서가 공통 참조하는
+    // 법령·개정안·운영 가이드 자료실.
+    path: "/platform-knowledge-docs",
+    component: lazy(() => import("@/pages/platform-knowledge-docs")),
+    label: "AI 공통 자료", icon: FileText, group: "settings",
+    access: ["platform_admin", "hq_executive"],
+  },
+  {
     // [Task #221] 플랫폼관리자 전용 — 필수/제안업무 템플릿 일괄 관리.
     path: "/settings/task-templates",
     component: lazy(() => import("@/pages/task-templates")),

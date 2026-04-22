@@ -10,6 +10,7 @@ import {
   monthlyBillSummariesTable,
   unitsTable,
   contractsTable,
+  platformKnowledgeDocsTable,
   type AiChatCitation,
 } from "@workspace/db";
 import { logger } from "../../lib/logger";
@@ -289,6 +290,61 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
   // AI가 즉시 인용할 수 있도록 한다.
   const latestBill = recentBills[0] ?? null;
 
+  // [공통자료] 플랫폼 관리자가 업로드한 법령·개정안·운영 가이드 등.
+  // 모든 건물 공통이며 활성(isActive=true) 자료만 포함한다.
+  // 토큰 절약을 위해 본문은 항목당 1500자, 전체 합 8000자로 잘라 사용.
+  // 토큰 예산을 넘는 자료는 머리만 자르고 "(이하 생략)" 표기.
+  const PLATFORM_DOC_PER_ITEM = 1500;
+  const PLATFORM_DOC_TOTAL = 8000;
+  const TRUNCATE_SUFFIX = " (이하 생략)";
+  const platformDocsRaw = await safeQuery("platform_knowledge_docs",
+    () => db
+      .select({
+        id: platformKnowledgeDocsTable.id,
+        title: platformKnowledgeDocsTable.title,
+        category: platformKnowledgeDocsTable.category,
+        summary: platformKnowledgeDocsTable.summary,
+        bodyText: platformKnowledgeDocsTable.bodyText,
+        effectiveDate: platformKnowledgeDocsTable.effectiveDate,
+        version: platformKnowledgeDocsTable.version,
+      })
+      .from(platformKnowledgeDocsTable)
+      .where(eq(platformKnowledgeDocsTable.isActive, true))
+      .orderBy(desc(platformKnowledgeDocsTable.updatedAt))
+      .limit(40),
+    [] as Array<{ id: number; title: string; category: string; summary: string | null; bodyText: string; effectiveDate: string | null; version: string | null }>,
+  );
+  let usedChars = 0;
+  const platformDocs = platformDocsRaw
+    .map((d) => {
+      const body = (d.bodyText ?? "").trim();
+      if (!body) return null;
+      const remaining = Math.max(0, PLATFORM_DOC_TOTAL - usedChars);
+      if (remaining <= 0) return null;
+      // 본문이 cap을 넘으면 자르고 "(이하 생략)" 표기를 붙이되,
+      // 표기 길이를 cap 안에 미리 빼서 per-item 1500자, 누적 8000자를 절대 넘지 않도록 한다.
+      const cap = Math.min(PLATFORM_DOC_PER_ITEM, remaining);
+      let truncated: string;
+      if (body.length > cap) {
+        const head = Math.max(0, cap - TRUNCATE_SUFFIX.length);
+        truncated = body.slice(0, head) + TRUNCATE_SUFFIX;
+        if (truncated.length > cap) truncated = truncated.slice(0, cap);
+      } else {
+        truncated = body;
+      }
+      usedChars += truncated.length;
+      return {
+        id: d.id,
+        title: d.title,
+        category: d.category,
+        summary: d.summary ?? undefined,
+        effectiveDate: d.effectiveDate ?? undefined,
+        version: d.version ?? undefined,
+        body: truncated,
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
+
   const ctx = {
     today: todayIso,
     building: building ? {
@@ -336,6 +392,12 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
       latest: latestBill,
       recent: recentBills,
     },
+    // 모든 건물 공통으로 적용되는 법령·개정안·운영 가이드 등.
+    // 본문(body)을 직접 인용해도 되며, 자료가 없으면 일반 상식으로 답하세요.
+    platformKnowledge: {
+      note: "플랫폼 관리자가 등록한 공통 자료입니다. 법령·개정안·내부 가이드 등이 포함되며, 현재 건물에 한정되지 않는 전사 공통 정보입니다. 자료를 인용할 때는 한국어 제목과 시행일(있을 경우)을 함께 표기하세요.",
+      docs: platformDocs,
+    },
   };
 
   return {
@@ -358,6 +420,7 @@ export function buildSystemPrompt(ctx: BuildingContext): string {
 6. 직접 시스템에 어떤 변경을 가하지 말고, 안내·요약·조회만 수행합니다.
 7. 관리비 추세·항목별 증감 질문은 최근 월별 관리비 자료를 우선 근거로 답하세요. 금액은 원 단위(천원 반올림)입니다.
 8. 사용자가 "전월/지난달/이번달/최근" 등 특정 시점을 모호하게 묻고 그 정확한 월 자료가 없을 때는, "찾지 못했습니다"로 끝내지 말고 가장 최근에 등록된 월(YYYY-MM)을 한국어로 명시하면서 그 자료로 답하세요. 예: "최근 등록된 자료(2026-01) 기준 총 ○○원입니다."
+9. 법령·개정안·운영 가이드 등 일반 정책 질문은 "공통 자료(platformKnowledge.docs)" 의 본문을 우선 근거로 답하세요. 인용 시 자료 제목과 (있을 경우) 시행일·버전을 한국어로 명시합니다. 공통 자료에 없는 부분만 일반 상식으로 보조 안내할 수 있으며, 추측한 수치·조항을 만들지 마세요.
 
 [오늘 날짜] ${ctx.todayIso}
 [건물명] ${ctx.buildingName}

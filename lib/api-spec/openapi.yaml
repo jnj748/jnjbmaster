@@ -3703,6 +3703,125 @@ paths:
                 required:
                   - ok
 
+  /platform/knowledge-docs:
+    get:
+      operationId: listPlatformKnowledgeDocs
+      tags: [notifications]
+      summary: List platform-managed knowledge documents (HQ admin)
+      responses:
+        "200":
+          description: Knowledge documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformKnowledgeDoc"
+    post:
+      operationId: createPlatformKnowledgeDoc
+      tags: [notifications]
+      summary: Create a platform knowledge document (HQ admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                summary:
+                  type: ["string", "null"]
+                bodyText:
+                  type: string
+                fileUrl:
+                  type: ["string", "null"]
+                fileName:
+                  type: ["string", "null"]
+                effectiveDate:
+                  type: ["string", "null"]
+                version:
+                  type: ["string", "null"]
+                isActive:
+                  type: boolean
+              required:
+                - title
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformKnowledgeDoc"
+
+  /platform/knowledge-docs/{id}:
+    patch:
+      operationId: updatePlatformKnowledgeDoc
+      tags: [notifications]
+      summary: Update a platform knowledge document (HQ admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                summary:
+                  type: ["string", "null"]
+                bodyText:
+                  type: string
+                fileUrl:
+                  type: ["string", "null"]
+                fileName:
+                  type: ["string", "null"]
+                effectiveDate:
+                  type: ["string", "null"]
+                version:
+                  type: ["string", "null"]
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformKnowledgeDoc"
+    delete:
+      operationId: deletePlatformKnowledgeDoc
+      tags: [notifications]
+      summary: Delete a platform knowledge document (HQ admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+
   /document-checklists:
     get:
       operationId: listDocumentChecklists
@@ -7500,6 +7619,48 @@ components:
         - message
         - isRead
         - createdAt
+
+    PlatformKnowledgeDoc:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        summary:
+          type: ["string", "null"]
+        bodyText:
+          type: string
+        fileUrl:
+          type: ["string", "null"]
+        fileName:
+          type: ["string", "null"]
+        effectiveDate:
+          type: ["string", "null"]
+        version:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdBy:
+          type: ["integer", "null"]
+        createdByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - bodyText
+        - isActive
+        - createdAt
+        - updatedAt
 
     PlatformAnnouncement:
       type: object
