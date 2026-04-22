@@ -1336,12 +1336,6 @@ function ActivityTab() {
   const { call } = useApi();
   const [filter, setFilter] = useState<"all" | ActivityKind>("all");
   const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(30);
-  const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE);
-
-  // 필터/기간 변경 시 페이지 초기화.
-  useEffect(() => {
-    setVisibleCount(ACTIVITY_PAGE_SIZE);
-  }, [filter, rangeDays]);
 
   const startDate = useMemo(() => addDays(todayISO(), -rangeDays + 1), [rangeDays]);
 
@@ -1460,10 +1454,7 @@ function ActivityTab() {
         </Card>
       ) : (
         <div className="space-y-2" data-testid="activity-list">
-          <p className="text-[11px] text-muted-foreground">
-            총 {rows.length}건 중 {Math.min(visibleCount, rows.length)}건 표시
-          </p>
-          {rows.slice(0, visibleCount).map((r) => {
+          {rows.map((r) => {
             const meta = ACTIVITY_META[r.kind];
             const inner = (
               <Card data-testid={`activity-${r.id}`}>
@@ -1493,10 +1484,8 @@ function ActivityTab() {
                 key={r.id}
                 href={r.href}
                 onClick={(e) => {
-                  // 같은 페이지(/work-log) 내부 탭 이동은 풀 네비 대신 history pushState 로
-                  // 처리해 부드럽게 전환한다. 상위 페이지의 popstate 핸들러가 ?tab= 을
-                  // 읽어 탭 상태를 동기화한다.
-                  if (r.href?.startsWith("/work-log")) {
+                  // 같은 페이지(/work-log) 내부 탭 이동은 부드럽게.
+                  if (r.href === "/work-log?tab=daily") {
                     e.preventDefault();
                     const url = new URL(r.href, window.location.origin);
                     // [Task #250] hash 도 함께 보존해 메모 anchor(#entry-id) 가 유지되도록 한다.
@@ -1519,17 +1508,6 @@ function ActivityTab() {
               <div key={r.id}>{inner}</div>
             );
           })}
-          {visibleCount < rows.length && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setVisibleCount((c) => c + ACTIVITY_PAGE_SIZE)}
-              data-testid="activity-load-more"
-            >
-              더 보기 ({rows.length - visibleCount}건 남음)
-            </Button>
-          )}
         </div>
       )}
     </div>

@@ -298,6 +298,52 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
           {items.map((it) => (
             <DocumentRow key={it.id} item={it} />
           ))}
+          {items.map((it) => {
+            const meta = KIND_META[it.kind];
+            const Icon = meta.icon;
+            const inner = (
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate active-elevate-2 transition-colors">
+                <span
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}
+                >
+                  <Icon className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-semibold text-muted-foreground">
+                      {meta.label}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
+                      저장됨
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      · {formatDate(it.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium truncate">{it.title}</p>
+                  {it.subtitle && (
+                    <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
+                  )}
+                </div>
+                {it.thumbnailUrl && (
+                  <AuthImage
+                    src={it.thumbnailUrl}
+                    alt=""
+                    className="w-10 h-10 rounded object-cover shrink-0"
+                  />
+                )}
+              </div>
+            );
+            return it.href ? (
+              <Link key={it.id} href={it.href} data-testid={`recent-doc-${it.id}`}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={it.id} data-testid={`recent-doc-${it.id}`}>
+                {inner}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resultOptions } from "@/lib/page-constants/inspections";
+import { VoiceInputButton } from "@/components/voice-input-dialog";
 
 export interface CompleteFormState {
   inspectionDate: string;
@@ -65,7 +66,22 @@ export function CompleteDialog({ open, onOpenChange, completeForm, setCompleteFo
             <Input value={completeForm.inspector} onChange={(e) => setCompleteForm({ ...completeForm, inspector: e.target.value })} placeholder="점검 담당자명" />
           </div>
           <div>
-            <Label>메모</Label>
+            <div className="flex items-center justify-between">
+              <Label>메모</Label>
+              <VoiceInputButton
+                title="메모 음성 입력"
+                ariaLabel="메모 음성 입력"
+                testId="inspection-memo-voice"
+                onInsert={(text) =>
+                  setCompleteForm({
+                    ...completeForm,
+                    memo: completeForm.memo
+                      ? `${completeForm.memo}${completeForm.memo.endsWith("\n") ? "" : "\n"}${text}`
+                      : text,
+                  })
+                }
+              />
+            </div>
             <Textarea value={completeForm.memo} onChange={(e) => setCompleteForm({ ...completeForm, memo: e.target.value })} placeholder="점검 결과 상세 내용" />
           </div>
           <Button type="submit" className="w-full">완료 처리</Button>

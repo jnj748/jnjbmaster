@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
+import { VoiceInputButton } from "@/components/voice-input-dialog";
 
 type Category = "facility" | "bill" | "complaint";
 
@@ -147,13 +148,26 @@ export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
               {CATEGORIES.find((c) => c.value === category)?.hint}
             </div>
 
-            <Textarea
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="무슨 일이 있었나요? (예: 3층 복도등 1개 점등 불량 → 교체 완료)"
-              rows={4}
-              data-testid="fab-memo-input"
-            />
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">메모</span>
+                <VoiceInputButton
+                  title="메모 음성 입력"
+                  ariaLabel="메모 음성 입력"
+                  testId="fab-memo-voice"
+                  onInsert={(text) =>
+                    setMemo((prev) => (prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text))
+                  }
+                />
+              </div>
+              <Textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="무슨 일이 있었나요? (예: 3층 복도등 1개 점등 불량 → 교체 완료)"
+                rows={4}
+                data-testid="fab-memo-input"
+              />
+            </div>
 
             <PhotoUploadField label="사진 (선택)" value={photoUrl} onChange={setPhotoUrl} />
 

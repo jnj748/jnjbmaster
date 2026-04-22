@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Check, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { VoiceInputButton } from "@/components/voice-input-dialog";
 
 const categoryOptions = [
   { value: "daily_check", label: "일일 점검" },
@@ -177,7 +178,22 @@ export default function Tasks() {
                 />
               </div>
               <div>
-                <Label>설명</Label>
+                <div className="flex items-center justify-between">
+                  <Label>설명</Label>
+                  <VoiceInputButton
+                    title="설명 음성 입력"
+                    ariaLabel="설명 음성 입력"
+                    testId="task-description-voice"
+                    onInsert={(text) =>
+                      setForm({
+                        ...form,
+                        description: form.description
+                          ? `${form.description}${form.description.endsWith("\n") ? "" : "\n"}${text}`
+                          : text,
+                      })
+                    }
+                  />
+                </div>
                 <Textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
