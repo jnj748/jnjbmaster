@@ -195,7 +195,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 py-10 bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="w-full max-w-md px-6">
         <button
           onClick={() => setLocation("/login")}
@@ -450,12 +450,12 @@ export default function Login() {
           )}
         </div>
 
-        {DevQuickLogin && (
-          <Suspense fallback={null}>
-            <DevQuickLogin />
-          </Suspense>
-        )}
       </div>
+      {DevQuickLogin && (
+        <Suspense fallback={null}>
+          <DevQuickLogin />
+        </Suspense>
+      )}
       <OptionalConsentRePromptDialog
         open={rePromptOpen}
         onConfirm={handleRePromptConfirm}
