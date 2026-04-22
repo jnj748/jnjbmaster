@@ -28,6 +28,11 @@ export interface Quote {
   contractFilePath?: string | null;
   /** @nullable */
   contractUploadedAt?: Date | null;
+  requiredDocsComplete?: boolean;
+  /** @nullable */
+  firstViewedAt?: Date | null;
+  /** @nullable */
+  noViewRefundedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

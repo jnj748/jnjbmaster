@@ -92,12 +92,24 @@ router.get("/credits/preview", partnerOrHq, async (req, res): Promise<void> => {
     totalArea = b?.totalArea ? Number(b.totalArea) : null;
     fireGrade = b?.fireGrade ?? null;
   }
+  // [Task #226] 단가는 RFQ→건물의 시도/시군구 순으로 결정 (POST /quotes 와 동일).
+  // 건물이 없는 RFQ 도 RFQ 자체의 시도/시군구를 사용해 미리보기와 실제 차감이
+  // 일치하도록 한다.
+  let regionSido: string | null = rfq.sido ?? null;
+  let regionSigungu: string | null = rfq.sigungu ?? null;
+  if ((!regionSido || !regionSigungu) && rfq.buildingId) {
+    const [b] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, rfq.buildingId));
+    regionSido = regionSido ?? (b?.sido ?? null);
+    regionSigungu = regionSigungu ?? (b?.sigungu ?? null);
+  }
   const cost = await computeCreditCost({
     category: rfq.category,
     estimatedAmount: rfq.estimatedAmount,
     buildingTotalArea: totalArea,
     buildingFireGrade: fireGrade,
     isPremiumOverride: rfq.isPremium,
+    sido: regionSido,
+    sigungu: regionSigungu,
   });
   const premiumThreshold = await getPremiumAmountThreshold();
   const defaultSlotLimit = await getPremiumSlotLimit();
@@ -176,6 +188,9 @@ const UpsertPricingBody = z.object({
   tier: z.number().int().min(1).max(3),
   creditCost: z.number().int().min(1),
   description: z.string().optional().nullable(),
+  // [Task #226] sido/sigungu 가 함께 지정되면 지역별 단가, 둘 다 null 이면 기본 단가.
+  sido: z.string().min(1).optional().nullable(),
+  sigungu: z.string().min(1).optional().nullable(),
 });
 
 router.put("/credits/category-pricing", hqOnly, async (req, res): Promise<void> => {
@@ -184,18 +199,60 @@ router.put("/credits/category-pricing", hqOnly, async (req, res): Promise<void> 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const existing = await db.select().from(creditCategoryPricingTable).where(eq(creditCategoryPricingTable.category, parsed.data.category));
+  const sido = parsed.data.sido ?? null;
+  const sigungu = parsed.data.sigungu ?? null;
+  // sigungu만 있고 sido 없으면 거부 (단가 fallback 의미가 모호해짐).
+  if (!sido && sigungu) {
+    res.status(400).json({ error: "시군구 단가는 시도와 함께 지정해야 합니다" });
+    return;
+  }
+  const matchRegion = and(
+    eq(creditCategoryPricingTable.category, parsed.data.category),
+    sido ? eq(creditCategoryPricingTable.sido, sido) : sql`${creditCategoryPricingTable.sido} IS NULL`,
+    sigungu ? eq(creditCategoryPricingTable.sigungu, sigungu) : sql`${creditCategoryPricingTable.sigungu} IS NULL`,
+  );
+  // [Task #226] 누가 마지막으로 저장했는지 기록한다.
+  const actorId = req.user?.userId ?? null;
+  let actorName: string | null = null;
+  if (actorId) {
+    const [u] = await db.select().from(usersTable).where(eq(usersTable.id, actorId));
+    actorName = u?.name ?? req.user?.email ?? null;
+  }
+  const existing = await db.select().from(creditCategoryPricingTable).where(matchRegion);
   if (existing.length > 0) {
     const [updated] = await db
       .update(creditCategoryPricingTable)
-      .set({ tier: parsed.data.tier, creditCost: parsed.data.creditCost, description: parsed.data.description ?? null })
-      .where(eq(creditCategoryPricingTable.category, parsed.data.category))
+      .set({ tier: parsed.data.tier, creditCost: parsed.data.creditCost, description: parsed.data.description ?? null, updatedBy: actorName })
+      .where(matchRegion)
       .returning();
     res.json(updated);
     return;
   }
-  const [created] = await db.insert(creditCategoryPricingTable).values(parsed.data).returning();
+  const [created] = await db.insert(creditCategoryPricingTable).values({
+    category: parsed.data.category,
+    tier: parsed.data.tier,
+    creditCost: parsed.data.creditCost,
+    description: parsed.data.description ?? null,
+    sido,
+    sigungu,
+    updatedBy: actorName,
+  }).returning();
   res.status(201).json(created);
+});
+
+// [Task #226] 지역 단가 행 삭제. id 기반.
+router.delete("/credits/category-pricing/:id", hqOnly, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 id" });
+    return;
+  }
+  const [removed] = await db.delete(creditCategoryPricingTable).where(eq(creditCategoryPricingTable.id, id)).returning();
+  if (!removed) {
+    res.status(404).json({ error: "단가 행을 찾을 수 없습니다" });
+    return;
+  }
+  res.json({ ok: true, removed });
 });
 
 export default router;

@@ -1,8 +1,14 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, or } from "drizzle-orm";
-import { db, rfqsTable, vendorsTable, usersTable, quotesTable } from "@workspace/db";
+import { eq, and, desc, or, inArray, sum, count } from "drizzle-orm";
+import { db, rfqsTable, vendorsTable, usersTable, quotesTable, buildingsTable, creditLedgerTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { refundRfqConsumption } from "../lib/credits";
+import {
+  refundRfqConsumption,
+  computeCreditCost,
+  getNoViewRefundDays,
+  getNoViewRefundRatio,
+  isCreditsEnabled,
+} from "../lib/credits";
 import { buildRfqAutoTitle, RFQ_SERVICE_TYPES } from "@workspace/shared/rfq-service-types";
 import {
   ListRfqsQueryParams,
@@ -22,6 +28,57 @@ import {
 
 const router: IRouter = Router();
 const managerOnly = requireRole("manager", "platform_admin");
+
+// [Task #226] 파트너 시점에서 RFQ 카드에 즉시 표시할 예상 차감 / 환불 정책 메타를 부착한다.
+// 카드 1장당 별도 요청을 못 하기 때문에 서버에서 batch 로 채워 보낸다.
+async function enrichWithExpectedCredits<T extends { id: number; category: string; sido: string | null; sigungu: string | null; buildingId: number | null; estimatedAmount: number | null; }>(
+  rows: T[],
+): Promise<Array<T & { expectedCreditCost: number | null; expectedCreditScope: "sigungu" | "sido" | "default" | null; noViewRefundDays: number | null; noViewRefundRatio: number | null; }>> {
+  if (rows.length === 0) return [];
+  const enabled = await isCreditsEnabled().catch(() => false);
+  const days = enabled ? await getNoViewRefundDays().catch(() => null) : null;
+  const ratio = enabled ? await getNoViewRefundRatio().catch(() => null) : null;
+
+  const buildingIds = Array.from(new Set(rows.map((r) => r.buildingId).filter((x): x is number => typeof x === "number")));
+  const buildings = buildingIds.length > 0
+    ? await db.select().from(buildingsTable).where(inArray(buildingsTable.id, buildingIds))
+    : [];
+  const buildingById = new Map(buildings.map((b) => [b.id, b]));
+
+  const out: Array<T & { expectedCreditCost: number | null; expectedCreditScope: "sigungu" | "sido" | "default" | null; noViewRefundDays: number | null; noViewRefundRatio: number | null; }> = [];
+  for (const r of rows) {
+    if (!enabled) {
+      out.push({ ...r, expectedCreditCost: null, expectedCreditScope: null, noViewRefundDays: days, noViewRefundRatio: ratio });
+      continue;
+    }
+    const b = r.buildingId != null ? buildingById.get(r.buildingId) : undefined;
+    const sido = r.sido ?? b?.sido ?? null;
+    const sigungu = r.sigungu ?? b?.sigungu ?? null;
+    try {
+      const cost = await computeCreditCost({
+        category: r.category,
+        estimatedAmount: r.estimatedAmount ?? null,
+        buildingTotalArea: b?.totalArea ? Number(b.totalArea) : null,
+        buildingFireGrade: b?.fireGrade ?? null,
+        sido,
+        sigungu,
+      });
+      // OpenAPI 의 expectedCreditScope enum 은 sigungu|sido|default|null 만 허용한다.
+      // 단가 행이 없는 "fallback" 케이스는 클라이언트에 null 로 노출한다.
+      const scope = cost.pricingScope === "fallback" ? null : cost.pricingScope ?? null;
+      out.push({
+        ...r,
+        expectedCreditCost: cost.totalCost,
+        expectedCreditScope: scope,
+        noViewRefundDays: days,
+        noViewRefundRatio: ratio,
+      });
+    } catch {
+      out.push({ ...r, expectedCreditCost: null, expectedCreditScope: null, noViewRefundDays: days, noViewRefundRatio: ratio });
+    }
+  }
+  return out;
+}
 
 function toIsoDate(d: Date | string | null | undefined): string | null {
   if (d == null) return null;
@@ -62,7 +119,8 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       if (!r.vendorIds) return false;
       return r.vendorIds.split(",").includes(vendorId);
     });
-    res.json(ListRfqsResponse.parse(filtered));
+    const enriched = await enrichWithExpectedCredits(filtered);
+    res.json(ListRfqsResponse.parse(enriched));
     return;
   }
 
@@ -98,11 +156,71 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       }
       return false;
     });
-    res.json(ListRfqsResponse.parse(filtered));
+    const enriched = await enrichWithExpectedCredits(filtered);
+    res.json(ListRfqsResponse.parse(enriched));
     return;
   }
 
   res.json(ListRfqsResponse.parse(rfqs));
+});
+
+// [Task #226] HQ 어드민 대시보드용 매칭/제출/환불 통계.
+// 운영팀이 단가 행을 조정할 때 매칭 인원·제출 건수·누적 차감/환불을 한눈에 볼 수 있어야 한다.
+router.get("/rfqs/admin/stats", requireRole("platform_admin", "hq_executive"), async (_req, res): Promise<void> => {
+  const rfqs = await db.select().from(rfqsTable).orderBy(desc(rfqsTable.createdAt));
+  if (rfqs.length === 0) {
+    res.json({ totals: { matched: 0, quoted: 0, debited: 0, refunded: 0 }, rows: [] });
+    return;
+  }
+  const rfqIds = rfqs.map((r) => r.id);
+
+  const quoteRows = await db
+    .select({ rfqId: quotesTable.rfqId, id: quotesTable.id })
+    .from(quotesTable)
+    .where(inArray(quotesTable.rfqId, rfqIds));
+  const quoteCountByRfq = new Map<number, number>();
+  for (const q of quoteRows) quoteCountByRfq.set(q.rfqId, (quoteCountByRfq.get(q.rfqId) ?? 0) + 1);
+
+  const ledgerRows = await db
+    .select()
+    .from(creditLedgerTable)
+    .where(inArray(creditLedgerTable.rfqId, rfqIds));
+  const debitedByRfq = new Map<number, number>();
+  const refundedByRfq = new Map<number, number>();
+  for (const l of ledgerRows) {
+    if (l.rfqId == null) continue;
+    if (l.kind === "consumption") debitedByRfq.set(l.rfqId, (debitedByRfq.get(l.rfqId) ?? 0) + Math.abs(l.amount));
+    if (l.kind === "refund") refundedByRfq.set(l.rfqId, (refundedByRfq.get(l.rfqId) ?? 0) + Math.abs(l.amount));
+  }
+
+  const rows = rfqs.map((r) => {
+    const matched = r.vendorIds ? r.vendorIds.split(",").filter(Boolean).length : 0;
+    return {
+      id: r.id,
+      title: r.title,
+      category: r.category,
+      sido: r.sido,
+      sigungu: r.sigungu,
+      status: r.status,
+      createdAt: r.createdAt,
+      matchedPartnerCount: matched,
+      quoteCount: quoteCountByRfq.get(r.id) ?? 0,
+      creditsDebited: debitedByRfq.get(r.id) ?? 0,
+      creditsRefunded: refundedByRfq.get(r.id) ?? 0,
+    };
+  });
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      matched: acc.matched + r.matchedPartnerCount,
+      quoted: acc.quoted + r.quoteCount,
+      debited: acc.debited + r.creditsDebited,
+      refunded: acc.refunded + r.creditsRefunded,
+    }),
+    { matched: 0, quoted: 0, debited: 0, refunded: 0 },
+  );
+
+  res.json({ totals, rows });
 });
 
 router.get("/rfqs/:id/matched-vendors", managerOnly, async (req, res): Promise<void> => {
@@ -184,6 +302,12 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
         return;
       }
     }
+  }
+
+  if (req.user?.role === "partner") {
+    const [enriched] = await enrichWithExpectedCredits([rfq]);
+    res.json(GetRfqResponse.parse(enriched ?? rfq));
+    return;
   }
 
   res.json(GetRfqResponse.parse(rfq));

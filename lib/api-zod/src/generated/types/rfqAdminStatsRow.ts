@@ -6,18 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreditCategoryPricing {
+export interface RfqAdminStatsRow {
   id: number;
+  title: string;
   category: string;
   /** @nullable */
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
-  tier: number;
-  creditCost: number;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  updatedBy?: string | null;
-  updatedAt?: Date;
+  status: string;
+  createdAt: Date;
+  matchedPartnerCount: number;
+  quoteCount: number;
+  creditsDebited: number;
+  creditsRefunded: number;
 }

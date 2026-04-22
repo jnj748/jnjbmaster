@@ -2,8 +2,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Send } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import type { Quote } from "@workspace/api-client-react";
 
-export function VendorQuoteList({ quotes }: { quotes: any[] }) {
+export function VendorQuoteList({ quotes }: { quotes: Quote[] }) {
   const statusLabel = (s: string) => {
     switch (s) {
       case "submitted": return "제출";
@@ -32,7 +33,7 @@ export function VendorQuoteList({ quotes }: { quotes: any[] }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {quotes.map((q: any) => (
+                    {quotes.map((q) => (
                       <tr key={q.id} className="border-b last:border-0 hover:bg-muted/30">
                         <td className="p-3">#{q.rfqId}</td>
                         <td className="p-3 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
@@ -43,6 +44,9 @@ export function VendorQuoteList({ quotes }: { quotes: any[] }) {
                           <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
                             {statusLabel(q.status)}
                           </Badge>
+                          {q.noViewRefundedAt && (
+                            <Badge variant="outline" className="ml-1 border-amber-300 text-amber-700">미열람 환불</Badge>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -52,14 +56,19 @@ export function VendorQuoteList({ quotes }: { quotes: any[] }) {
             </CardContent>
           </Card>
           <div className="desktop:hidden space-y-3">
-            {quotes.map((q: any) => (
+            {quotes.map((q) => (
               <Card key={q.id}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium text-sm">RFQ #{q.rfqId}</p>
-                    <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
-                      {statusLabel(q.status)}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
+                        {statusLabel(q.status)}
+                      </Badge>
+                      {q.noViewRefundedAt && (
+                        <Badge variant="outline" className="border-amber-300 text-amber-700">미열람 환불</Badge>
+                      )}
+                    </div>
                   </div>
                   <p className="text-base font-semibold">{q.totalAmount.toLocaleString()}원</p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">

@@ -17,6 +17,9 @@ export const quotesTable = pgTable("quotes", {
   contractFilePath: text("contract_file_path"),
   contractUploadedAt: timestamp("contract_uploaded_at", { withTimezone: true }),
   requiredDocsComplete: boolean("required_docs_complete").notNull().default(false),
+  // [Task #226] 관리소장이 견적을 처음 열람한 시각. 미열람 환불 잡 판정용.
+  firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
+  noViewRefundedAt: timestamp("no_view_refunded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({

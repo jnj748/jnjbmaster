@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useGetCreditWallet,
   usePreviewCreditCost,
+  useListPlatformSettings,
   getListQuotesQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,6 +53,10 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
     quoteDialogRfq ? { rfqId: quoteDialogRfq.id } : { rfqId: 0 },
     { query: { enabled: !!quoteDialogRfq } },
   );
+  // [Task #226] 미열람 환불 정책을 다이얼로그에서 명시.
+  const { data: platformSettings } = useListPlatformSettings();
+  const refundDays = Number(platformSettings?.find((s: any) => s.key === "no_view_refund_days")?.value ?? 7);
+  const refundRatioPct = Math.round(Number(platformSettings?.find((s: any) => s.key === "no_view_refund_ratio")?.value ?? 0.6) * 100);
   const creditsEnabled = wallet?.creditsEnabled ?? false;
   const insufficient = !!(creditsEnabled && costPreview && wallet && wallet.balance < costPreview.totalCost);
 
@@ -120,10 +125,19 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                         </Badge>
                       )}
                     </div>
-                    <div className="flex gap-4 text-sm text-muted-foreground mt-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground mt-2">
                       <span>건물: {rfq.buildingName}</span>
                       <span>마감: {formatDate(rfq.deadline)}</span>
                       {rfq.desiredDate && <span>희망일: {formatDate(rfq.desiredDate)}</span>}
+                      {/* [Task #226] 카드에서 바로 예상 차감 크레딧 + 미열람 환불 정책을 확인할 수 있게 한다. */}
+                      {typeof rfq.expectedCreditCost === "number" && (
+                        <span className="text-teal-700 font-medium">예상 차감 {rfq.expectedCreditCost}C</span>
+                      )}
+                      {typeof rfq.noViewRefundDays === "number" && typeof rfq.noViewRefundRatio === "number" && (
+                        <span className="text-amber-700">
+                          {rfq.noViewRefundDays}일 미열람 시 {Math.round(rfq.noViewRefundRatio * 100)}% 자동 환불
+                        </span>
+                      )}
                     </div>
                     {rfq.description && (
                       <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{rfq.description}</p>
@@ -213,6 +227,9 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                       크레딧이 부족합니다. 본사에 충전 요청 후 제출해주세요.
                     </div>
                   )}
+                  <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                    안내 · 관리소장이 {refundDays}일 동안 견적을 열람하지 않으면 차감 크레딧의 {refundRatioPct}%가 자동 환불됩니다.
+                  </div>
                 </div>
               )}
               <form onSubmit={handleSubmitQuote} className="space-y-4">

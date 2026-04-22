@@ -8,6 +8,10 @@
 
 export interface UpsertCreditCategoryPricingBody {
   category: string;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
   tier: number;
   creditCost: number;
   /** @nullable */

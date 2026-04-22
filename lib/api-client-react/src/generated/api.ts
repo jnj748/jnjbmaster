@@ -106,6 +106,7 @@ import type {
   DashboardSummary,
   DataDestructionLog,
   DeleteComplaint200,
+  DeleteCreditCategoryPricing200,
   DeleteDocumentTemplate200,
   DeletePlatformAnnouncement200,
   DeleteSignature200,
@@ -207,6 +208,7 @@ import type {
   RenameAiSessionBody,
   ReviewReportBody,
   Rfq,
+  RfqAdminStatsResponse,
   RunVehicleInspection200,
   SafetyChecklist,
   SafetyChecklistDetail,
@@ -4098,6 +4100,81 @@ export const useCreateRfq = <
 > => {
   return useMutation(getCreateRfqMutationOptions(options));
 };
+
+/**
+ * @summary [Task #226] HQ admin: per-RFQ matched / submitted / refunded stats
+ */
+export const getGetRfqAdminStatsUrl = () => {
+  return `/api/rfqs/admin/stats`;
+};
+
+export const getRfqAdminStats = async (
+  options?: RequestInit,
+): Promise<RfqAdminStatsResponse> => {
+  return customFetch<RfqAdminStatsResponse>(getGetRfqAdminStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRfqAdminStatsQueryKey = () => {
+  return [`/api/rfqs/admin/stats`] as const;
+};
+
+export const getGetRfqAdminStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRfqAdminStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqAdminStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRfqAdminStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRfqAdminStats>>
+  > = ({ signal }) => getRfqAdminStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqAdminStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRfqAdminStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRfqAdminStats>>
+>;
+export type GetRfqAdminStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #226] HQ admin: per-RFQ matched / submitted / refunded stats
+ */
+
+export function useGetRfqAdminStats<
+  TData = Awaited<ReturnType<typeof getRfqAdminStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqAdminStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRfqAdminStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a single RFQ
@@ -20337,6 +20414,93 @@ export const useUpsertCreditCategoryPricing = <
   TContext
 > => {
   return useMutation(getUpsertCreditCategoryPricingMutationOptions(options));
+};
+
+/**
+ * @summary Delete a regional pricing row
+ */
+export const getDeleteCreditCategoryPricingUrl = (id: number) => {
+  return `/api/credits/category-pricing/${id}`;
+};
+
+export const deleteCreditCategoryPricing = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteCreditCategoryPricing200> => {
+  return customFetch<DeleteCreditCategoryPricing200>(
+    getDeleteCreditCategoryPricingUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteCreditCategoryPricingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCreditCategoryPricing>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCreditCategoryPricing>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCreditCategoryPricing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCreditCategoryPricing>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCreditCategoryPricing(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCreditCategoryPricingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCreditCategoryPricing>>
+>;
+
+export type DeleteCreditCategoryPricingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a regional pricing row
+ */
+export const useDeleteCreditCategoryPricing = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCreditCategoryPricing>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCreditCategoryPricing>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCreditCategoryPricingMutationOptions(options));
 };
 
 /**

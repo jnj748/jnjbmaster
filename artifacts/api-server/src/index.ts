@@ -10,6 +10,7 @@ import { seedPlatformAdmins } from "./seed-platform-admin";
 import { seedPartnerBm } from "./seed-partner-bm";
 import { seedVendorCategories } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
+import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -159,6 +160,13 @@ app.listen(port, async (err) => {
     logger.info("Consent documents seeded");
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed consent documents");
+  }
+
+  try {
+    await ensureRfqMatchSchema();
+    logger.info("RFQ match / regional pricing schema ensured");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to ensure RFQ match schema");
   }
 
   startScheduler();

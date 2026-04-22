@@ -1276,6 +1276,31 @@ export const ListRfqsResponseItem = zod.object({
   widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  expectedCreditCost: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).",
+    ),
+  expectedCreditScope: zod
+    .union([
+      zod.literal("sigungu"),
+      zod.literal("sido"),
+      zod.literal("default"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "[Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순).",
+    ),
+  noViewRefundDays: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷)."),
+  noViewRefundRatio: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
 });
 export const ListRfqsResponse = zod.array(ListRfqsResponseItem);
 
@@ -1320,6 +1345,33 @@ export const CreateRfqBody = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
+});
+
+/**
+ * @summary [Task #226] HQ admin: per-RFQ matched / submitted / refunded stats
+ */
+export const GetRfqAdminStatsResponse = zod.object({
+  totals: zod.object({
+    matched: zod.number(),
+    quoted: zod.number(),
+    debited: zod.number(),
+    refunded: zod.number(),
+  }),
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      category: zod.string(),
+      sido: zod.string().nullish(),
+      sigungu: zod.string().nullish(),
+      status: zod.string(),
+      createdAt: zod.coerce.date(),
+      matchedPartnerCount: zod.number(),
+      quoteCount: zod.number(),
+      creditsDebited: zod.number(),
+      creditsRefunded: zod.number(),
+    }),
+  ),
 });
 
 /**
@@ -1371,6 +1423,31 @@ export const GetRfqResponse = zod.object({
   widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  expectedCreditCost: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).",
+    ),
+  expectedCreditScope: zod
+    .union([
+      zod.literal("sigungu"),
+      zod.literal("sido"),
+      zod.literal("default"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "[Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순).",
+    ),
+  noViewRefundDays: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷)."),
+  noViewRefundRatio: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
 });
 
 /**
@@ -1463,6 +1540,31 @@ export const UpdateRfqResponse = zod.object({
   widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  expectedCreditCost: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).",
+    ),
+  expectedCreditScope: zod
+    .union([
+      zod.literal("sigungu"),
+      zod.literal("sido"),
+      zod.literal("default"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "[Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순).",
+    ),
+  noViewRefundDays: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷)."),
+  noViewRefundRatio: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
 });
 
 /**
@@ -1521,6 +1623,31 @@ export const ExpandRfqScopeResponse = zod.object({
   widePhotoUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  expectedCreditCost: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).",
+    ),
+  expectedCreditScope: zod
+    .union([
+      zod.literal("sigungu"),
+      zod.literal("sido"),
+      zod.literal("default"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "[Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순).",
+    ),
+  noViewRefundDays: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷)."),
+  noViewRefundRatio: zod
+    .number()
+    .nullish()
+    .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
 });
 
 /**
@@ -1676,6 +1803,8 @@ export const ListQuotesQueryParams = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]).optional(),
 });
 
+export const listQuotesResponseRequiredDocsCompleteDefault = false;
+
 export const ListQuotesResponseItem = zod.object({
   id: zod.number(),
   rfqId: zod.number(),
@@ -1690,6 +1819,11 @@ export const ListQuotesResponseItem = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
   contractUploadedAt: zod.coerce.date().nullish(),
+  requiredDocsComplete: zod
+    .boolean()
+    .default(listQuotesResponseRequiredDocsCompleteDefault),
+  firstViewedAt: zod.coerce.date().nullish(),
+  noViewRefundedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1722,6 +1856,8 @@ export const GetQuoteParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const getQuoteResponseRequiredDocsCompleteDefault = false;
+
 export const GetQuoteResponse = zod.object({
   id: zod.number(),
   rfqId: zod.number(),
@@ -1736,6 +1872,11 @@ export const GetQuoteResponse = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
   contractUploadedAt: zod.coerce.date().nullish(),
+  requiredDocsComplete: zod
+    .boolean()
+    .default(getQuoteResponseRequiredDocsCompleteDefault),
+  firstViewedAt: zod.coerce.date().nullish(),
+  noViewRefundedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1754,6 +1895,8 @@ export const UpdateQuoteBody = zod.object({
   contractUploadedAt: zod.coerce.date().nullish(),
 });
 
+export const updateQuoteResponseRequiredDocsCompleteDefault = false;
+
 export const UpdateQuoteResponse = zod.object({
   id: zod.number(),
   rfqId: zod.number(),
@@ -1768,6 +1911,11 @@ export const UpdateQuoteResponse = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
   contractUploadedAt: zod.coerce.date().nullish(),
+  requiredDocsComplete: zod
+    .boolean()
+    .default(updateQuoteResponseRequiredDocsCompleteDefault),
+  firstViewedAt: zod.coerce.date().nullish(),
+  noViewRefundedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2075,8 +2223,6 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "warranty_expiry",
     "vendor_recommendation",
     "data_destruction",
-    "task_template_mandatory",
-    "task_template_suggested",
   ]),
   title: zod.string(),
   message: zod.string(),
@@ -6598,9 +6744,12 @@ export const ListAdminCreditWalletsResponse = zod.array(
 export const ListCreditCategoryPricingResponseItem = zod.object({
   id: zod.number(),
   category: zod.string(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
+  updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
 export const ListCreditCategoryPricingResponse = zod.array(
@@ -6612,6 +6761,8 @@ export const ListCreditCategoryPricingResponse = zod.array(
  */
 export const UpsertCreditCategoryPricingBody = zod.object({
   category: zod.string(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
@@ -6620,10 +6771,24 @@ export const UpsertCreditCategoryPricingBody = zod.object({
 export const UpsertCreditCategoryPricingResponse = zod.object({
   id: zod.number(),
   category: zod.string(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
+  updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
+});
+
+/**
+ * @summary Delete a regional pricing row
+ */
+export const DeleteCreditCategoryPricingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCreditCategoryPricingResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**
@@ -6634,6 +6799,7 @@ export const ListPlatformSettingsResponseItem = zod.object({
   key: zod.string(),
   value: zod.string(),
   description: zod.string().nullish(),
+  updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
 export const ListPlatformSettingsResponse = zod.array(
@@ -6654,6 +6820,7 @@ export const UpsertPlatformSettingResponse = zod.object({
   key: zod.string(),
   value: zod.string(),
   description: zod.string().nullish(),
+  updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
 

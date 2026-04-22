@@ -60,6 +60,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
+import { RfqMatchStatsCard } from "@/pages/settings";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -304,6 +305,8 @@ export default function Rfqs() {
 
   return (
     <div className="space-y-6">
+      {/* [Task #226] HQ 어드민(본사 관리자/임원)에게는 RFQ 목록 위에 매칭/견적/크레딧 통계를 노출한다. */}
+      <RfqMatchStatsCard />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">견적 요청 (RFQ)</h1>

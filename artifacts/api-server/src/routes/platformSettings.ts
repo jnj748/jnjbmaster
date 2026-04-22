@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { db, platformSettingsTable } from "@workspace/db";
+import { db, platformSettingsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -24,11 +24,18 @@ router.put("/platform-settings", requireRole("platform_admin"), async (req, res)
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // [Task #226] 정책 변경 이력 표시(누가 마지막으로 저장했는지) 기록.
+  const actorId = req.user?.userId ?? null;
+  let actorName: string | null = null;
+  if (actorId) {
+    const [u] = await db.select().from(usersTable).where(eq(usersTable.id, actorId));
+    actorName = u?.name ?? req.user?.email ?? null;
+  }
   const existing = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, parsed.data.key));
   if (existing.length > 0) {
     const [updated] = await db
       .update(platformSettingsTable)
-      .set({ value: parsed.data.value, description: parsed.data.description ?? existing[0].description })
+      .set({ value: parsed.data.value, description: parsed.data.description ?? existing[0].description, updatedBy: actorName })
       .where(eq(platformSettingsTable.key, parsed.data.key))
       .returning();
     res.json(updated);
@@ -36,7 +43,7 @@ router.put("/platform-settings", requireRole("platform_admin"), async (req, res)
   }
   const [created] = await db
     .insert(platformSettingsTable)
-    .values({ key: parsed.data.key, value: parsed.data.value, description: parsed.data.description ?? null })
+    .values({ key: parsed.data.key, value: parsed.data.value, description: parsed.data.description ?? null, updatedBy: actorName })
     .returning();
   res.status(201).json(created);
 });

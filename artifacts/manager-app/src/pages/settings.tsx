@@ -27,6 +27,7 @@ import {
   useUpsertCreditCategoryPricing,
   useListCommissionRates,
   useUpsertCommissionRate,
+  useGetRfqAdminStats,
   getListPlatformSettingsQueryKey,
   getListCreditCategoryPricingQueryKey,
   getListCommissionRatesQueryKey,
@@ -156,30 +157,60 @@ function PlatformSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>크레딧 카테고리 단가</CardTitle>
-          <CardDescription>RFQ 카테고리별 입찰 크레딧 차감 비용을 조정합니다</CardDescription>
+          <CardTitle>미열람 환불 정책</CardTitle>
+          <CardDescription>관리소장이 견적을 일정 기간 열람하지 않으면 일부 크레딧을 자동 환불합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RefundPolicyEditor />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>크레딧 카테고리 단가 · 지역별</CardTitle>
+          <CardDescription>
+            카테고리·시도·시군구 조합으로 단가를 설정합니다. 입찰 시 시군구 → 시도 → 기본 순으로 적용됩니다.
+          </CardDescription>
         </CardHeader>
         <CardContent>
          <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
-            <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">Tier</th><th className="text-left p-2">단가(C)</th><th></th></tr></thead>
+          <table className="w-full text-sm min-w-[640px]">
+            <thead><tr className="border-b"><th className="text-left p-2">카테고리</th><th className="text-left p-2">시도</th><th className="text-left p-2">시군구</th><th className="text-left p-2">Tier</th><th className="text-left p-2">단가(C)</th><th></th></tr></thead>
             <tbody>
               {pricing?.map((p) => (
                 <PricingRow
-                  key={p.category}
+                  key={p.id}
                   row={p}
                   onSave={async (data) => {
                     await upsertPrice.mutateAsync({ data });
                     qc.invalidateQueries({ queryKey: getListCreditCategoryPricingQueryKey() });
                     toast({ title: "단가가 저장되었습니다" });
                   }}
+                  onDelete={async () => {
+                    if (!confirm("이 단가 행을 삭제하시겠습니까?")) return;
+                    await fetch(`${apiBase}/credits/category-pricing/${p.id}`, {
+                      method: "DELETE",
+                      credentials: "include",
+                    });
+                    qc.invalidateQueries({ queryKey: getListCreditCategoryPricingQueryKey() });
+                    toast({ title: "단가 행이 삭제되었습니다" });
+                  }}
                 />
               ))}
+              <NewPricingRow
+                onSave={async (data) => {
+                  await upsertPrice.mutateAsync({ data });
+                  qc.invalidateQueries({ queryKey: getListCreditCategoryPricingQueryKey() });
+                  toast({ title: "지역 단가가 추가되었습니다" });
+                }}
+              />
             </tbody>
           </table>
          </div>
         </CardContent>
       </Card>
+
+      <RfqMatchStatsCard />
 
       <Card>
         <CardHeader>
@@ -211,20 +242,232 @@ function PlatformSettings() {
   );
 }
 
-function PricingRow({ row, onSave }: { row: CreditCategoryPricing; onSave: (d: UpsertCreditCategoryPricingBody) => Promise<void> }) {
+// [Task #226] HQ 어드민용 매칭/제출/환불 통계.
+// 단가/환불 정책을 조정한 결과가 실제 매칭 모수와 누적 차감/환불에 어떻게 반영되는지 확인할 수 있어야 한다.
+export function RfqMatchStatsCard() {
+  const { user } = useAuth();
+  const isHqAdmin = user?.role === "platform_admin" || user?.role === "hq_executive";
+  const { data, isLoading } = useGetRfqAdminStats({ query: { enabled: isHqAdmin } });
+  if (!isHqAdmin) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>RFQ 매칭 · 크레딧 통계 (HQ)</CardTitle>
+        <CardDescription>
+          공고별 매칭 파트너 수 · 견적 제출 수 · 누적 차감/환불 크레딧입니다. 단가 행을 변경한 결과가 매칭 모수에 어떻게 반영되는지 확인하세요.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">불러오는 중...</div>
+        ) : !data || data.rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground">아직 집계할 RFQ가 없습니다.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">매칭 파트너 합계</div><div className="text-lg font-semibold">{data.totals.matched}</div></div>
+              <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">제출된 견적</div><div className="text-lg font-semibold">{data.totals.quoted}</div></div>
+              <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">누적 차감 크레딧</div><div className="text-lg font-semibold">{data.totals.debited.toLocaleString()}C</div></div>
+              <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">누적 환불 크레딧</div><div className="text-lg font-semibold">{data.totals.refunded.toLocaleString()}C</div></div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[760px]">
+                <thead><tr className="border-b">
+                  <th className="text-left p-2">RFQ</th>
+                  <th className="text-left p-2">카테고리</th>
+                  <th className="text-left p-2">지역</th>
+                  <th className="text-right p-2">매칭</th>
+                  <th className="text-right p-2">견적</th>
+                  <th className="text-right p-2">차감(C)</th>
+                  <th className="text-right p-2">환불(C)</th>
+                </tr></thead>
+                <tbody>
+                  {data.rows.slice(0, 50).map((r) => (
+                    <tr key={r.id} className="border-b">
+                      <td className="p-2"><span className="text-xs text-muted-foreground">#{r.id}</span> {r.title}</td>
+                      <td className="p-2">{r.category}</td>
+                      <td className="p-2 text-xs text-muted-foreground">{[r.sido, r.sigungu].filter(Boolean).join(" ") || "—"}</td>
+                      <td className="p-2 text-right">{r.matchedPartnerCount}</td>
+                      <td className="p-2 text-right">{r.quoteCount}</td>
+                      <td className="p-2 text-right">{r.creditsDebited.toLocaleString()}</td>
+                      <td className="p-2 text-right">{r.creditsRefunded.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PricingRow({ row, onSave, onDelete }: { row: CreditCategoryPricing; onSave: (d: UpsertCreditCategoryPricingBody) => Promise<void>; onDelete?: () => Promise<void> }) {
   const [tier, setTier] = useState(String(row.tier));
   const [cost, setCost] = useState(String(row.creditCost));
+  const isRegional = !!(row.sido || row.sigungu);
+  // [Task #226] PRICING_DEFAULTS — Tier 1 / 1C 가 코드 기본값. (lib/db schema default 와 일치)
+  const PRICING_DEFAULT_TIER = "1";
+  const PRICING_DEFAULT_COST = "1";
   return (
     <tr className="border-b">
       <td className="p-2 font-medium">{row.category}</td>
+      <td className="p-2 text-xs text-muted-foreground">{row.sido ?? "(기본)"}</td>
+      <td className="p-2 text-xs text-muted-foreground">{row.sigungu ?? "(전체)"}</td>
+      <td className="p-2"><Input value={tier} onChange={(e) => setTier(e.target.value)} className="h-8 w-16" /></td>
+      <td className="p-2"><Input value={cost} onChange={(e) => setCost(e.target.value)} className="h-8 w-20" /></td>
+      <td className="p-2 text-right space-x-2 whitespace-nowrap">
+        {row.updatedAt && (
+          <span className="text-[10px] text-muted-foreground mr-1">
+            최근 변경 {new Date(row.updatedAt).toLocaleDateString("ko-KR")}
+            {row.updatedBy ? ` · ${row.updatedBy}` : ""}
+          </span>
+        )}
+        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, sido: row.sido ?? null, sigungu: row.sigungu ?? null, tier: Number(tier), creditCost: Number(cost), description: row.description })}>
+          저장
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={async () => {
+            if (!confirm(`Tier ${PRICING_DEFAULT_TIER} / ${PRICING_DEFAULT_COST}C 로 되돌릴까요?`)) return;
+            setTier(PRICING_DEFAULT_TIER);
+            setCost(PRICING_DEFAULT_COST);
+            await onSave({ category: row.category, sido: row.sido ?? null, sigungu: row.sigungu ?? null, tier: Number(PRICING_DEFAULT_TIER), creditCost: Number(PRICING_DEFAULT_COST), description: row.description });
+          }}
+        >
+          기본값 복원
+        </Button>
+        {isRegional && onDelete && (
+          <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => onDelete()}>삭제</Button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function NewPricingRow({ onSave }: { onSave: (d: UpsertCreditCategoryPricingBody) => Promise<void> }) {
+  const [category, setCategory] = useState("");
+  const [sido, setSido] = useState("");
+  const [sigungu, setSigungu] = useState("");
+  const [tier, setTier] = useState("1");
+  const [cost, setCost] = useState("1");
+  return (
+    <tr className="border-b bg-muted/30">
+      <td className="p-2"><Input placeholder="elevator/cleaning…" value={category} onChange={(e) => setCategory(e.target.value)} className="h-8 w-32" /></td>
+      <td className="p-2"><Input placeholder="서울특별시" value={sido} onChange={(e) => setSido(e.target.value)} className="h-8 w-28" /></td>
+      <td className="p-2"><Input placeholder="강남구" value={sigungu} onChange={(e) => setSigungu(e.target.value)} className="h-8 w-28" /></td>
       <td className="p-2"><Input value={tier} onChange={(e) => setTier(e.target.value)} className="h-8 w-16" /></td>
       <td className="p-2"><Input value={cost} onChange={(e) => setCost(e.target.value)} className="h-8 w-20" /></td>
       <td className="p-2 text-right">
-        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, tier: Number(tier), creditCost: Number(cost), description: row.description })}>
-          저장
+        <Button
+          size="sm"
+          onClick={async () => {
+            if (!category.trim()) return;
+            await onSave({
+              category: category.trim(),
+              sido: sido.trim() || null,
+              sigungu: sigungu.trim() || null,
+              tier: Number(tier),
+              creditCost: Number(cost),
+              description: null,
+            });
+            setCategory(""); setSido(""); setSigungu(""); setTier("1"); setCost("1");
+          }}
+        >
+          + 추가
         </Button>
       </td>
     </tr>
+  );
+}
+
+// [Task #226] 운영팀이 안전하게 되돌릴 수 있도록 정책 기본값을 코드 한 곳에 모아둔다.
+const REFUND_POLICY_DEFAULTS = { days: "7", ratio: "0.6" } as const;
+
+function RefundPolicyEditor() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: settings } = useListPlatformSettings();
+  const upsert = useUpsertPlatformSetting();
+  const daysSetting = settings?.find((s) => s.key === "no_view_refund_days");
+  const ratioSetting = settings?.find((s) => s.key === "no_view_refund_ratio");
+  const initialDays = daysSetting?.value ?? REFUND_POLICY_DEFAULTS.days;
+  const initialRatio = ratioSetting?.value ?? REFUND_POLICY_DEFAULTS.ratio;
+  const [days, setDays] = useState<string>(initialDays);
+  const [ratio, setRatio] = useState<string>(initialRatio);
+  // [Task #226] 정책 값이 늦게 도착해도 입력에 반영되도록 동기화.
+  useEffect(() => {
+    if (settings) {
+      setDays(settings.find((s) => s.key === "no_view_refund_days")?.value ?? REFUND_POLICY_DEFAULTS.days);
+      setRatio(settings.find((s) => s.key === "no_view_refund_ratio")?.value ?? REFUND_POLICY_DEFAULTS.ratio);
+    }
+  }, [settings]);
+  const lastUpdated = [daysSetting?.updatedAt, ratioSetting?.updatedAt]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div>
+          <Label className="text-xs">미열람 기준 일수</Label>
+          <Input value={days} onChange={(e) => setDays(e.target.value)} className="h-9" />
+          <p className="text-[11px] text-muted-foreground mt-1">기본값 {REFUND_POLICY_DEFAULTS.days}일</p>
+        </div>
+        <div>
+          <Label className="text-xs">환불 비율 (0~1)</Label>
+          <Input value={ratio} onChange={(e) => setRatio(e.target.value)} className="h-9" />
+          <p className="text-[11px] text-muted-foreground mt-1">기본값 {REFUND_POLICY_DEFAULTS.ratio} (=60%)</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="h-9"
+            onClick={async () => {
+              const d = Number(days);
+              const r = Number(ratio);
+              if (!(d >= 1 && d <= 60)) { toast({ title: "일수는 1~60 사이여야 합니다", variant: "destructive" }); return; }
+              if (!(r > 0 && r <= 1)) { toast({ title: "비율은 0 초과 1 이하여야 합니다", variant: "destructive" }); return; }
+              await upsert.mutateAsync({ data: { key: "no_view_refund_days", value: String(d), description: "관리소장 미열람 환불 기준 일수" } });
+              await upsert.mutateAsync({ data: { key: "no_view_refund_ratio", value: String(r), description: "관리소장 미열람 환불 비율 (0~1)" } });
+              qc.invalidateQueries({ queryKey: getListPlatformSettingsQueryKey() });
+              toast({ title: "환불 정책이 저장되었습니다" });
+            }}
+          >
+            저장
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9"
+            onClick={async () => {
+              if (!confirm(`기본값(${REFUND_POLICY_DEFAULTS.days}일 / ${Math.round(Number(REFUND_POLICY_DEFAULTS.ratio) * 100)}%)으로 되돌릴까요?`)) return;
+              await upsert.mutateAsync({ data: { key: "no_view_refund_days", value: REFUND_POLICY_DEFAULTS.days, description: "관리소장 미열람 환불 기준 일수" } });
+              await upsert.mutateAsync({ data: { key: "no_view_refund_ratio", value: REFUND_POLICY_DEFAULTS.ratio, description: "관리소장 미열람 환불 비율 (0~1)" } });
+              qc.invalidateQueries({ queryKey: getListPlatformSettingsQueryKey() });
+              setDays(REFUND_POLICY_DEFAULTS.days);
+              setRatio(REFUND_POLICY_DEFAULTS.ratio);
+              toast({ title: "기본값으로 되돌렸습니다" });
+            }}
+          >
+            기본값 복원
+          </Button>
+        </div>
+      </div>
+      {lastUpdated && (
+        <p className="text-[11px] text-muted-foreground">
+          최근 변경: {new Date(lastUpdated).toLocaleString("ko-KR")}
+          {(() => {
+            const lastBy = (daysSetting?.updatedAt ?? "") >= (ratioSetting?.updatedAt ?? "")
+              ? daysSetting?.updatedBy
+              : ratioSetting?.updatedBy;
+            return lastBy ? ` · ${lastBy}` : "";
+          })()}
+        </p>
+      )}
+    </div>
   );
 }
 

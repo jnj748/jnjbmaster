@@ -952,6 +952,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/Rfq"
 
+  /rfqs/admin/stats:
+    get:
+      operationId: getRfqAdminStats
+      tags: [vendors]
+      summary: "[Task #226] HQ admin: per-RFQ matched / submitted / refunded stats"
+      responses:
+        "200":
+          description: Per-RFQ matching and credit usage stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqAdminStatsResponse"
+
   /rfqs/{id}:
     get:
       operationId: getRfq
@@ -4940,6 +4953,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreditCategoryPricing"
 
+  /credits/category-pricing/{id}:
+    delete:
+      operationId: deleteCreditCategoryPricing
+      tags: [commissions]
+      summary: Delete a regional pricing row
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
   /platform-settings:
     get:
       operationId: listPlatformSettings
@@ -5879,6 +5914,19 @@ components:
         updatedAt:
           type: string
           format: date-time
+        expectedCreditCost:
+          type: ["integer", "null"]
+          description: "[Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다)."
+        expectedCreditScope:
+          type: ["string", "null"]
+          enum: [sigungu, sido, default, null]
+          description: "[Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순)."
+        noViewRefundDays:
+          type: ["integer", "null"]
+          description: "[Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷)."
+        noViewRefundRatio:
+          type: ["number", "null"]
+          description: "[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."
       required:
         - id
         - title
@@ -5888,6 +5936,60 @@ components:
         - status
         - createdAt
         - updatedAt
+
+    RfqAdminStatsRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        matchedPartnerCount:
+          type: integer
+        quoteCount:
+          type: integer
+        creditsDebited:
+          type: integer
+        creditsRefunded:
+          type: integer
+      required:
+        - id
+        - title
+        - category
+        - status
+        - createdAt
+        - matchedPartnerCount
+        - quoteCount
+        - creditsDebited
+        - creditsRefunded
+
+    RfqAdminStatsResponse:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            matched: { type: integer }
+            quoted: { type: integer }
+            debited: { type: integer }
+            refunded: { type: integer }
+          required: [matched, quoted, debited, refunded]
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RfqAdminStatsRow"
+      required: [totals, rows]
 
     CreateRfqBody:
       type: object
@@ -5990,6 +6092,15 @@ components:
         contractFilePath:
           type: ["string", "null"]
         contractUploadedAt:
+          type: ["string", "null"]
+          format: date-time
+        requiredDocsComplete:
+          type: boolean
+          default: false
+        firstViewedAt:
+          type: ["string", "null"]
+          format: date-time
+        noViewRefundedAt:
           type: ["string", "null"]
           format: date-time
         createdAt:
@@ -10681,11 +10792,17 @@ components:
           type: integer
         category:
           type: string
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
         tier:
           type: integer
         creditCost:
           type: integer
         description:
+          type: ["string", "null"]
+        updatedBy:
           type: ["string", "null"]
         updatedAt:
           type: string
@@ -10701,6 +10818,10 @@ components:
       properties:
         category:
           type: string
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
         tier:
           type: integer
         creditCost:
@@ -10722,6 +10843,8 @@ components:
         value:
           type: string
         description:
+          type: ["string", "null"]
+        updatedBy:
           type: ["string", "null"]
         updatedAt:
           type: string

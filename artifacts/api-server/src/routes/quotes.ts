@@ -101,6 +101,17 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
     }
   }
 
+  // [Task #226] 관리소장이 견적을 처음 열람한 시각을 기록한다 (미열람 환불 잡 판정용).
+  if (req.user?.role === "manager" && !quote.firstViewedAt) {
+    try {
+      const now = new Date();
+      await db.update(quotesTable).set({ firstViewedAt: now }).where(eq(quotesTable.id, quote.id));
+      quote.firstViewedAt = now;
+    } catch {
+      // best-effort: 기록 실패해도 응답은 정상.
+    }
+  }
+
   res.json(GetQuoteResponse.parse(quote));
 });
 
@@ -181,6 +192,14 @@ router.post("/quotes", async (req, res): Promise<void> => {
     fireGrade = b?.fireGrade ?? null;
   }
 
+  // [Task #226] 단가는 RFQ→건물의 시도/시군구 기준으로 결정한다.
+  let regionSido: string | null = rfq.sido ?? null;
+  let regionSigungu: string | null = rfq.sigungu ?? null;
+  if ((!regionSido || !regionSigungu) && rfq.buildingId) {
+    const [b] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, rfq.buildingId));
+    regionSido = regionSido ?? (b?.sido ?? null);
+    regionSigungu = regionSigungu ?? (b?.sigungu ?? null);
+  }
   const cost = creditsOn
     ? await computeCreditCost({
         category: rfq.category,
@@ -188,6 +207,8 @@ router.post("/quotes", async (req, res): Promise<void> => {
         buildingTotalArea: totalArea,
         buildingFireGrade: fireGrade,
         isPremiumOverride: rfq.isPremium,
+        sido: regionSido,
+        sigungu: regionSigungu,
       })
     : null;
 
@@ -234,7 +255,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
             source: "consumption",
             rfqId: rfq.id,
             quoteId: inserted.id,
-            notes: `견적 제출 차감 | ${cost.reason.join(", ")}`,
+            notes: `견적 제출 차감 | pricingId=${cost.pricingId ?? "none"} scope=${cost.pricingScope ?? "fallback"} | ${cost.reason.join(", ")}`,
             actorId: req.user?.userId ?? null,
             actorName: req.user?.email ?? null,
           },

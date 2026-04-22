@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RfqCategory } from "./rfqCategory";
+import type { RfqExpectedCreditScope } from "./rfqExpectedCreditScope";
 import type { RfqServiceType } from "./rfqServiceType";
 import type { RfqStatus } from "./rfqStatus";
 
@@ -36,4 +37,24 @@ export interface Rfq {
   widePhotoUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * [Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).
+   * @nullable
+   */
+  expectedCreditCost?: number | null;
+  /**
+   * [Task #226] 단가 결정에 사용된 매칭 범위 (시군구 → 시도 → 기본 순).
+   * @nullable
+   */
+  expectedCreditScope?: RfqExpectedCreditScope;
+  /**
+   * [Task #226] 미열람 환불 기준 일수 (운영 정책 스냅샷).
+   * @nullable
+   */
+  noViewRefundDays?: number | null;
+  /**
+   * [Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷).
+   * @nullable
+   */
+  noViewRefundRatio?: number | null;
 }

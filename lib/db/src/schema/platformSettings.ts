@@ -7,6 +7,8 @@ export const platformSettingsTable = pgTable("platform_settings", {
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
   description: text("description"),
+  // [Task #226] 변경 이력 표시용 — 마지막 저장한 어드민의 표시 이름.
+  updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
