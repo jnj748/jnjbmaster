@@ -693,9 +693,9 @@ function IntroStep({ onStart }: { onStart: () => void }) {
       </p>
 
       <div className="grid grid-cols-1 gap-3 w-full mt-6">
-        <FeatureCard icon={<FileText className="w-5 h-5 text-blue-600" />} title="관리비 보고서 자동화" desc="고지서 한 장이면 표·차트가 알아서 채워져요." />
-        <FeatureCard icon={<Megaphone className="w-5 h-5 text-emerald-600" />} title="공고문 즉시 생성" desc="단수·정전·점검 안내문을 1분 안에 완성." />
-        <FeatureCard icon={<ScrollText className="w-5 h-5 text-purple-600" />} title="기안서·결재 한 곳에서" desc="법정점검 일정도 자동으로 관리돼요." />
+        <FeatureCard icon={<FileText className="w-5 h-5 text-blue-600" />} title="관리문서 자동생성" desc="공고문, 보고서, 기안서 등 모든 서류가 자동으로 생성되요" />
+        <FeatureCard icon={<Megaphone className="w-5 h-5 text-emerald-600" />} title="보고서 자동생성" desc="일일, 주간, 월간 보고서가 자동으로 생성되요" />
+        <FeatureCard icon={<ScrollText className="w-5 h-5 text-purple-600" />} title="법정점검검사 알림" desc="필수 법정점검과 검사를 주기에 맞춰 자동으로 알려줘요" />
       </div>
 
       <button
