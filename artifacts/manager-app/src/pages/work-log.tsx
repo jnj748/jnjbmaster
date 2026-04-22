@@ -375,7 +375,14 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
 
 /* ───────────────────────── 일일 탭 (위저드 + 보고서) ───────────────────────── */
 function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWizard?: boolean; onAutoOpenConsumed?: () => void } = {}) {
-  const [date, setDate] = useState(todayISO());
+  // [Task #250] 처리 내역에서 일지 행을 클릭하면 ?date=YYYY-MM-DD 가 함께 전달되어
+  //            해당 일자가 기본 선택되도록 한다.
+  const [date, setDate] = useState(() => {
+    if (typeof window === "undefined") return todayISO();
+    const sp = new URLSearchParams(window.location.search);
+    const d = sp.get("date");
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : todayISO();
+  });
   const [wizardOpen, setWizardOpen] = useState(false);
   const [pendingAutoOpen, setPendingAutoOpen] = useState(false);
   const { call } = useApi();
@@ -1370,7 +1377,8 @@ function ActivityTab() {
         title: m.memo,
         subtitle: `${CATEGORY_LABEL[m.category]} · ${m.authorName}`,
         timestamp: m.occurredAt,
-        href: "/work-log",
+        // [Task #250] item-level deep link: 타임라인 탭으로 이동하며 해당 메모 id 를 fragment 로 전달.
+        href: `/work-log?tab=timeline#entry-${m.id}`,
       });
     }
     for (const a of followUpsQ.data ?? []) {
