@@ -557,6 +557,9 @@ export interface NavItem {
   /** When set, tapping this nav item should open a sheet listing the group's
    *  items rather than navigating to `path`. */
   groupSheet?: Group;
+  /** [Task #256] 카테고리 색 매핑(category-colors.ts)을 위한 라우트 그룹.
+   *  하단 네비/사이드바 아이콘에 카테고리 색을 입히는 데 사용한다. */
+  group?: Group;
 }
 
 export interface NavSection {
@@ -633,6 +636,8 @@ export function getSidebarSections(role: Role): NavSection[] {
         path: entry.path,
         label: labelFor(entry, role),
         icon: entry.icon,
+        // [Task #256] 사이드바 아이콘에 카테고리 색을 입히기 위해 그룹을 함께 전달.
+        group: entry.group,
       });
     }
     if (items.length > 0) {
@@ -663,13 +668,13 @@ export function getBottomNavItems(role: Role): NavItem[] {
   // 홈을 가운데에 배치한다. 회계 탭은 제외되며 사이드바·더보기에서만 진입한다.
   if (role === "manager") {
     return [
-      { path: "/facility", label: "시설", icon: HardHat },
-      { path: "/work-log", label: "업무일지", icon: NotebookPen },
-      { ...rootItem("manager"), label: roleHomeShort("manager") },
-      { path: "/ai-assistant", label: "AI비서", icon: Sparkles },
+      { path: "/facility", label: "시설", icon: HardHat, group: "facility" },
+      { path: "/work-log", label: "업무일지", icon: NotebookPen, group: "reports" },
+      { ...rootItem("manager"), label: roleHomeShort("manager"), group: "dashboard" },
+      { path: "/ai-assistant", label: "AI비서", icon: Sparkles, group: "dashboard" },
     ];
   }
-  const items: NavItem[] = [{ ...rootItem(role), label: roleHomeShort(role) }];
+  const items: NavItem[] = [{ ...rootItem(role), label: roleHomeShort(role), group: "dashboard" }];
   const tail: { entry: RouteEntry; item: NavItem }[] = [];
   for (const entry of ROUTES) {
     const inBottom = entry.bottomNav ?? [];
@@ -681,6 +686,7 @@ export function getBottomNavItems(role: Role): NavItem[] {
         label: bottomLabelFor(entry, role),
         icon: entry.icon,
         groupSheet: entry.bottomGroupSheet,
+        group: entry.group,
       },
     });
   }

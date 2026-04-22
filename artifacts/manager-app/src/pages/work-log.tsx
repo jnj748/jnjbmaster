@@ -18,9 +18,16 @@ import { shareDocument, formatKoreanDate } from "@/lib/official-document";
 import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
   CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
+  FileEdit, Send,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog, isFollowUpDismissed } from "@/components/follow-up-suggestion-dialog";
+import {
+  CATEGORY_ICON_CLASS,
+  CATEGORY_BG_CLASS,
+  WORK_LOG_CATEGORY_TOKEN,
+} from "@/lib/category-colors";
 
 type Category = "facility" | "bill" | "complaint";
 type Status = "ok" | "issue";
@@ -206,17 +213,21 @@ export default function WorkLogPage() {
       </p>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        {/* [Task #256] 탭 라벨/순서 정비.
+            data-testid 와 value 는 라우팅·딥링크 호환을 위해 기존 키(timeline·daily·
+            weekly·monthly·activity)를 그대로 유지하되, 사용자에게 보이는 라벨만 바꾼다.
+            순서: 금일기록(=timeline) → 일보 → 주보(자동) → 월보(자동) → 모든기록(=activity).
+        */}
         <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="timeline" data-testid="tab-timeline">타임라인</TabsTrigger>
-          <TabsTrigger value="activity" data-testid="tab-activity">처리 내역</TabsTrigger>
-          <TabsTrigger value="daily" data-testid="tab-daily">일일</TabsTrigger>
-          <TabsTrigger value="weekly" data-testid="tab-weekly">주간</TabsTrigger>
-          <TabsTrigger value="monthly" data-testid="tab-monthly">월간</TabsTrigger>
+          <TabsTrigger value="timeline" data-testid="tab-timeline">금일기록</TabsTrigger>
+          <TabsTrigger value="daily" data-testid="tab-daily">일보</TabsTrigger>
+          <TabsTrigger value="weekly" data-testid="tab-weekly">주보(자동)</TabsTrigger>
+          <TabsTrigger value="monthly" data-testid="tab-monthly">월보(자동)</TabsTrigger>
+          <TabsTrigger value="activity" data-testid="tab-activity">모든기록</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline">
           <TimelineTab onGoDaily={() => { setAutoOpenDailyWizard(true); setTab("daily"); }} />
         </TabsContent>
-        <TabsContent value="activity"><ActivityTab /></TabsContent>
         <TabsContent value="daily">
           <DailyTab
             autoOpenWizard={autoOpenDailyWizard}
@@ -225,6 +236,7 @@ export default function WorkLogPage() {
         </TabsContent>
         <TabsContent value="weekly"><WeeklyTab /></TabsContent>
         <TabsContent value="monthly"><MonthlyTab /></TabsContent>
+        <TabsContent value="activity"><ActivityTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -235,6 +247,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const { call } = useApi();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<WorkLogEntry | null>(null);
   const [editMemo, setEditMemo] = useState("");
@@ -311,11 +324,46 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
             </div>
             {items.map((e) => {
               const Icon = CATEGORY_ICON[e.category];
+              // [Task #256] 카테고리별 5색 팔레트 토큰 — 시설=teal, 관리비=orange,
+              // 민원=violet. 한 화면에 섞여 있을 때 색만 봐도 카테고리가 구분된다.
+              const catToken = WORK_LOG_CATEGORY_TOKEN[e.category];
+              const iconColor = CATEGORY_ICON_CLASS[catToken];
+              const iconBg = CATEGORY_BG_CLASS[catToken];
+              // [Task #256] 금일기록 카드에서 바로 결재 상신/견적 요청 흐름으로 진입.
+              // /approvals/create, /rfqs 가 이미 사용하고 있는 prefill 계약
+              // (prefill=1, title, body, category, sourceType, sourceId, sourceDate)
+              // 을 그대로 따라 한 번의 클릭으로 폼이 자동으로 채워지도록 한다.
+              // 업무일지 카테고리(facility|bill|complaint)는 결재/견적의 카테고리
+              // 집합과 다르므로 각 화면에서 유효한 값으로 명시적으로 변환한다.
+              // (변환 누락 시 두 화면 모두 fallback("other") 으로 떨어져 분류 컨텍스트가
+              //  사라지므로 의도적으로 매핑한다.)
+              const sourceDate = e.occurredDate || (e.occurredAt ?? new Date().toISOString()).slice(0, 10);
+              const baseCtx = {
+                prefill: "1",
+                title: e.memo.split("\n")[0].slice(0, 60),
+                body: e.memo,
+                sourceType: "work-log",
+                sourceId: String(e.id),
+                sourceDate,
+              } as const;
+              // approval-create.tsx 의 validApprovalCategories: maintenance/inspection/facility/equipment/other
+              const approvalCategory =
+                e.category === "facility" ? "facility" :
+                e.category === "bill"     ? "other"    :
+                /* complaint */              "other";
+              // rfqs.tsx 의 categoryOptions: facility 분야는 building_maintenance 가 가장 일반적.
+              // bill/complaint 는 견적 대상 분야로 매핑하기 어려워 other 로 둔다.
+              const rfqCategory =
+                e.category === "facility" ? "building_maintenance" :
+                e.category === "bill"     ? "other"                :
+                /* complaint */              "other";
+              const approvalParams = new URLSearchParams({ ...baseCtx, category: approvalCategory }).toString();
+              const rfqParams = new URLSearchParams({ ...baseCtx, category: rfqCategory }).toString();
               return (
                 <Card key={e.id} id={`entry-${e.id}`} data-testid={`entry-${e.id}`}>
                   <CardContent className="p-3 flex gap-3">
-                    <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-accent" />
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+                      <Icon className={`w-4 h-4 ${iconColor}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -327,17 +375,39 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
                         <AuthImage src={e.photoUrl} alt="" className="mt-2 max-h-40 rounded-md border" />
                       ) : null}
                     </div>
-                    <div className="flex flex-col gap-1 shrink-0 text-xs">
+                    {/* [Task #256] 액션 영역: 수정/삭제 + 기안하기/견적받기.
+                        시각 부담을 줄이려고 작은 라인 아이콘 + 짧은 라벨로 구성한다. */}
+                    <div className="flex flex-col gap-1 shrink-0 text-[11px] items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => setLocation(`/approvals/create?${approvalParams}`)}
+                        title="이 기록으로 결재 상신"
+                        className={`inline-flex items-center gap-1 ${CATEGORY_ICON_CLASS.residents} hover:opacity-80`}
+                        data-testid={`draft-${e.id}`}
+                      >
+                        <FileEdit className="w-3.5 h-3.5" />
+                        <span>기안</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLocation(`/rfqs?${rfqParams}`)}
+                        title="이 기록으로 견적 요청"
+                        className={`inline-flex items-center gap-1 ${CATEGORY_ICON_CLASS.accounting} hover:opacity-80`}
+                        data-testid={`rfq-${e.id}`}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>견적</span>
+                      </button>
                       <button
                         onClick={() => { setEditing(e); setEditMemo(e.memo); }}
-                        className="text-muted-foreground hover:text-foreground"
+                        className="text-muted-foreground hover:text-foreground text-left"
                         data-testid={`edit-${e.id}`}
                       >
                         수정
                       </button>
                       <button
                         onClick={() => { if (confirm("삭제할까요?")) removeMut.mutate(e.id); }}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="text-muted-foreground hover:text-destructive text-left"
                         data-testid={`delete-${e.id}`}
                       >
                         삭제

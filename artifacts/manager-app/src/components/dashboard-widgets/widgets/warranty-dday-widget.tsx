@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+// [Task #256] 5색 카테고리 토큰 단일 출처 — 하자담보책임은 facility 색.
+import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
@@ -46,7 +48,7 @@ export default function WarrantyDdayWidget() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldAlert className="w-4 h-4 text-primary" /> 하자담보책임 D-Day
+            <ShieldAlert className={`w-4 h-4 ${CATEGORY_ICON_CLASS.facility}`} /> 하자담보책임 D-Day
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
@@ -63,7 +65,7 @@ export default function WarrantyDdayWidget() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldAlert className="w-4 h-4 text-primary" /> 하자담보책임 D-Day
+          <ShieldAlert className={`w-4 h-4 ${CATEGORY_ICON_CLASS.facility}`} /> 하자담보책임 D-Day
         </CardTitle>
       </CardHeader>
       <CardContent>

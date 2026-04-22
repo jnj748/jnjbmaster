@@ -67,6 +67,8 @@ import {
   BarChart3,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+// [Task #256] 5색 카테고리 팔레트 단일 출처 — 화면별 하드코딩 색 클래스 대신 사용
+import { CATEGORY_ICON_CLASS, CATEGORY_BG_CLASS } from "@/lib/category-colors";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
@@ -366,8 +368,9 @@ function TodayWorkLogEntry() {
             data-testid="dashboard-today-worklog"
             className="w-full flex items-center gap-3 py-1 px-1 hover-elevate active-elevate-2 rounded-lg text-left"
           >
-            <span className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
-              <NotebookPen className="w-4 h-4 text-accent" />
+            {/* [Task #256] reports 카테고리 — category-colors.ts 단일 토큰 참조 */}
+            <span className={`w-8 h-8 rounded-full ${CATEGORY_BG_CLASS.reports} flex items-center justify-center shrink-0`}>
+              <NotebookPen className={`w-4 h-4 ${CATEGORY_ICON_CLASS.reports}`} />
             </span>
             <span className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-semibold">오늘 업무일지 자동 작성하기</span>
@@ -469,7 +472,8 @@ function FeesSummaryWidget({
             className="w-full flex items-center justify-between mb-3 hover-elevate active-elevate-2 rounded-md px-1 py-1 text-left"
           >
             <span className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-accent" />
+              {/* [Task #256] 회계 카테고리 색 — category-colors.ts 단일 토큰 참조 */}
+              <BarChart3 className={`w-4 h-4 ${CATEGORY_ICON_CLASS.accounting}`} />
               <span className="text-sm font-semibold">관리비 요약</span>
             </span>
             <span className="text-xs text-muted-foreground">자세히 →</span>
@@ -872,7 +876,8 @@ export default function Dashboard() {
             className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
           >
             <span className="flex items-center gap-3 min-w-0">
-              <FolderOpen className="w-5 h-5 text-accent shrink-0" />
+              {/* [Task #256] system 카테고리 — 처리 내역(reports)과 색으로 구분 */}
+              <FolderOpen className={`w-5 h-5 ${CATEGORY_ICON_CLASS.system} shrink-0`} />
               <span className="flex flex-col min-w-0">
                 <span className="font-medium text-sm leading-tight">최근 문서함</span>
                 <span className="text-[11px] sm:text-xs text-muted-foreground leading-snug truncate">
@@ -891,7 +896,8 @@ export default function Dashboard() {
             className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
           >
             <span className="flex items-center gap-3 min-w-0">
-              <ListChecks className="w-5 h-5 text-accent shrink-0" />
+              {/* [Task #256] reports 카테고리 — 업무일지 화면과 동일 토큰 */}
+              <ListChecks className={`w-5 h-5 ${CATEGORY_ICON_CLASS.reports} shrink-0`} />
               <span className="flex flex-col min-w-0">
                 <span className="font-medium text-sm leading-tight">처리 내역</span>
                 <span className="text-[11px] sm:text-xs text-muted-foreground leading-snug truncate">

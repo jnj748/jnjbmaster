@@ -52,6 +52,7 @@ import {
   type NavSection,
   type Role,
 } from "@/lib/permissions";
+import { CATEGORY_ICON_CLASS, GROUP_TO_CATEGORY } from "@/lib/category-colors";
 
 // All sidebar / bottom-nav definitions live in `@/lib/permissions` and are
 // derived from the role × screen permission matrix (single source of truth).
@@ -515,6 +516,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {section.items.map((item) => {
                     const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
                     const badge = badgeForPath(item.path);
+                    // [Task #256] 드로어 항목 아이콘에도 카테고리 색을 적용 — 같은
+                    // 카테고리는 어느 화면(드로어/하단 네비/카드)에서도 동일 색.
+                    const drawerCatToken = item.group ? GROUP_TO_CATEGORY[item.group] : "system";
+                    const drawerIconColor = CATEGORY_ICON_CLASS[drawerCatToken];
                     return (
                       <Link key={item.path} href={item.path}>
                         <button
@@ -528,7 +533,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           )}
                         >
                           <span className="relative inline-flex">
-                            <item.icon className="w-5 h-5 shrink-0" />
+                            <item.icon className={cn("w-5 h-5 shrink-0", !isActive && drawerIconColor)} />
                             <FacilityStatusBadge badge={badge} size="md" />
                           </span>
                           <span className="text-sm font-medium truncate">
@@ -595,14 +600,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {bottomNavItems.map((item) => {
             const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+            // [Task #256] 카테고리 색을 항상 아이콘에 입혀, 한 줄에 여러 탭이 보일 때
+            // 색만으로도 어떤 영역인지 구분되도록 한다. 활성 탭은 라벨 강조 + 동일 색.
+            const catToken = item.group ? GROUP_TO_CATEGORY[item.group] : "system";
+            const iconColor = CATEGORY_ICON_CLASS[catToken];
             return (
               <Link key={item.path} href={item.path}>
                 <button className={cn(
                   "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
-                  isActive ? "text-accent" : "text-muted-foreground"
+                  isActive ? "font-semibold" : ""
                 )}>
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{item.label}</span>
+                  <item.icon className={cn("w-5 h-5", iconColor)} />
+                  <span className={cn(
+                    "text-[10px] font-medium",
+                    isActive ? iconColor : "text-muted-foreground",
+                  )}>
+                    {item.label}
+                  </span>
                 </button>
               </Link>
             );

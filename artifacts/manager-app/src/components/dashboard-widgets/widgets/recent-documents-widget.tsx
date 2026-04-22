@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { shareDocument } from "@/lib/official-document";
+// [Task #256] 5색 카테고리 토큰 단일 출처 — 최근 문서함 헤더는 system 색.
+import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
 
 // [Task #250] 최근문서함은 "문서 산출물" 전용으로 정비.
 //   - 포함: 기안(draft), 견적(quote), 공고(notice), 외부 업로드(external),
@@ -261,7 +263,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
       <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="text-base font-bold flex items-center gap-2">
-            <FolderOpen className="w-4 h-4 text-chart-1" />
+            <FolderOpen className={`w-4 h-4 ${CATEGORY_ICON_CLASS.system}`} />
             최근문서함
           </h2>
           <p className="text-[11px] text-muted-foreground mt-1">

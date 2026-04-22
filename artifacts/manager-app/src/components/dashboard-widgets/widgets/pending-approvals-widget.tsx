@@ -5,6 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { ClipboardCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+// [Task #256] 5색 카테고리 토큰 단일 출처 — 결재(보고/문서 그룹)는 reports 색.
+import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
 
 // Narrowed view-model for the fields this widget renders.
 interface PendingApprovalRow {
@@ -28,7 +30,7 @@ export default function PendingApprovalsWidget() {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="text-base font-bold flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4 text-chart-1" />
+            <ClipboardCheck className={`w-4 h-4 ${CATEGORY_ICON_CLASS.reports}`} />
             결재
             {items.length > 0 && (
               <span className="text-xs font-normal text-muted-foreground ml-1">
