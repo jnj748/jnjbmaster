@@ -127,7 +127,8 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         id: `draft-${dd.id}`, kind: "draft",
         title: dd.title || "기안서",
         createdAt: dd.createdAt ?? new Date(0).toISOString(),
-        href: "/drafts",
+        // [Task #250] 항목별 deep link: 목록 페이지에서 ?id= 를 받아 해당 카드를 강조/스크롤할 수 있도록 한다.
+        href: `/drafts?id=${dd.id}#draft-${dd.id}`,
       });
     }
     for (const q of quotes ?? []) {
@@ -137,7 +138,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         title: qq.title || qq.vendorName || "견적",
         subtitle: qq.vendorName,
         createdAt: qq.createdAt ?? new Date(0).toISOString(),
-        href: "/quotes",
+        href: `/quotes?id=${qq.id}#quote-${qq.id}`,
       });
     }
     for (const n of notices ?? []) {
@@ -146,7 +147,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         id: `notice-${nn.id}`, kind: "notice",
         title: nn.title,
         createdAt: nn.createdAt ?? new Date(0).toISOString(),
-        href: "/announcements",
+        href: `/announcements?id=${nn.id}#notice-${nn.id}`,
       });
     }
     for (const j of journals ?? []) {
