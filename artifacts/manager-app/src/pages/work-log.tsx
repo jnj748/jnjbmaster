@@ -539,77 +539,127 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
       />
 
       <A4DocumentFrame ref={frameRef}>
-        <div ref={ref} className="a4-document text-foreground space-y-4">
-        <header className="border-b pb-2">
-          <h2 className="text-lg font-bold">일일 업무 보고서</h2>
-          <p className="text-xs text-muted-foreground">
-            {report.buildingName ?? "건물"} · {formatKoreanDate(report.date)} · 작성 {report.authorName}
-          </p>
-        </header>
+        <div ref={ref} className="a4-document text-foreground space-y-3">
+          <h2 className="text-2xl font-bold text-center border-b-2 border-black pb-3">일 일 업 무 보 고 서</h2>
 
-        <section>
-          <h3 className="text-sm font-semibold mb-2">1. 일일 일지</h3>
+          <table className="w-full text-sm border-collapse mt-2">
+            <tbody>
+              <tr>
+                <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">건물명</td>
+                <td className="border border-gray-400 p-2">{report.buildingName ?? "-"}</td>
+                <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">일자</td>
+                <td className="border border-gray-400 p-2">{formatKoreanDate(report.date)}</td>
+              </tr>
+              <tr>
+                <td className="border border-gray-400 bg-gray-100 font-semibold p-2">작성자</td>
+                <td className="border border-gray-400 p-2">{report.authorName ?? "-"}</td>
+                <td className="border border-gray-400 bg-gray-100 font-semibold p-2">작성일</td>
+                <td className="border border-gray-400 p-2">{formatKoreanDate(todayISO())}</td>
+              </tr>
+              <tr>
+                <td className="border border-gray-400 bg-gray-100 font-semibold p-2">총괄</td>
+                <td className="border border-gray-400 p-2" colSpan={3}>
+                  업무 기록 {report.entries.length}건 · 법정업무 완료 {report.statutory.completed.length} / 미완료 {report.statutory.postponed.length} / 기안 {report.statutory.drafted.length}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 일일 일지</p>
           {report.journal ? (
-            <div className="space-y-1.5">
-              {SECTIONS.map((s) => {
-                const status = report.journal![`${s.key}Status` as const] as Status;
-                const memo = report.journal![`${s.key}Memo` as const] as string | null;
-                return (
-                  <div key={s.key} className="flex items-start gap-2 text-sm">
-                    {status === "ok" ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium">{s.label} <span className="text-xs text-muted-foreground">{status === "ok" ? "이상 없음" : "특이사항"}</span></div>
-                      {memo ? <div className="text-xs text-muted-foreground whitespace-pre-wrap">{memo}</div> : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-28">영역</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-24">상태</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2">메모</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SECTIONS.map((s) => {
+                  const status = report.journal![`${s.key}Status` as const] as Status;
+                  const memo = report.journal![`${s.key}Memo` as const] as string | null;
+                  return (
+                    <tr key={s.key}>
+                      <td className="border border-gray-400 p-2 font-semibold">{s.label}</td>
+                      <td className="border border-gray-400 p-2 text-center">
+                        {status === "ok" ? "이상 없음" : "특이사항"}
+                      </td>
+                      <td className="border border-gray-400 p-2 whitespace-pre-line">{memo || "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
-            <p className="text-xs text-muted-foreground">아직 작성되지 않았습니다.</p>
+            <p className="text-xs text-muted-foreground border border-gray-300 rounded p-3">아직 작성되지 않았습니다.</p>
           )}
-        </section>
 
-        <section>
-          <h3 className="text-sm font-semibold mb-2">2. 금일 업무 기록 ({report.entries.length}건)</h3>
+          <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 금일 업무 기록 ({report.entries.length}건)</p>
           {report.entries.length === 0 ? (
-            <p className="text-xs text-muted-foreground">기록 없음</p>
+            <p className="text-sm border border-gray-300 rounded p-3 text-muted-foreground">기록 없음</p>
           ) : (
-            <ul className="space-y-1.5">
-              {report.entries.map((e) => (
-                <li key={e.id} className="text-sm flex gap-2">
-                  <Badge variant="outline" className="text-[10px] h-5 shrink-0">{CATEGORY_LABEL[e.category]}</Badge>
-                  <span className="flex-1">{e.memo}{e.photoUrl ? <ImageIcon className="inline w-3 h-3 ml-1 text-muted-foreground" /> : null}</span>
-                </li>
-              ))}
-            </ul>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-24">분류</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2">메모</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-16">사진</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.entries.map((e) => (
+                  <tr key={e.id}>
+                    <td className="border border-gray-400 p-2">{CATEGORY_LABEL[e.category]}</td>
+                    <td className="border border-gray-400 p-2 whitespace-pre-line">{e.memo}</td>
+                    <td className="border border-gray-400 p-2 text-center">
+                      {e.photoUrl ? <ImageIcon className="inline w-3 h-3 text-muted-foreground" /> : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-        </section>
 
-        <section>
-          <h3 className="text-sm font-semibold mb-2">3. 법정/정기 업무</h3>
-          <div className="grid sm:grid-cols-3 gap-2 text-xs">
-            <div className="border rounded p-2">
-              <div className="font-medium text-emerald-700 mb-1">완료 ({report.statutory.completed.length})</div>
-              {report.statutory.completed.length === 0 ? <span className="text-muted-foreground">없음</span> :
-                <ul className="space-y-0.5">{report.statutory.completed.map((c, i) => <li key={i}>· {c.name}</li>)}</ul>}
-            </div>
-            <div className="border rounded p-2">
-              <div className="font-medium text-amber-700 mb-1">미완료 ({report.statutory.postponed.length})</div>
-              {report.statutory.postponed.length === 0 ? <span className="text-muted-foreground">없음</span> :
-                <ul className="space-y-0.5">{report.statutory.postponed.map((p) => <li key={p.id}>· {p.name}</li>)}</ul>}
-            </div>
-            <div className="border rounded p-2">
-              <div className="font-medium text-blue-700 mb-1">기안 ({report.statutory.drafted.length})</div>
-              {report.statutory.drafted.length === 0 ? <span className="text-muted-foreground">없음</span> :
-                <ul className="space-y-0.5">{report.statutory.drafted.map((d) => <li key={d.id}>· {d.title}</li>)}</ul>}
-            </div>
-          </div>
-        </section>
+          <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">3. 법정/정기 업무</p>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-gray-400 bg-gray-100 p-2 w-24">구분</th>
+                <th className="border border-gray-400 bg-gray-100 p-2 w-16">건수</th>
+                <th className="border border-gray-400 bg-gray-100 p-2">내역</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-gray-400 p-2 font-semibold">완료</td>
+                <td className="border border-gray-400 p-2 text-center">{report.statutory.completed.length}</td>
+                <td className="border border-gray-400 p-2">
+                  {report.statutory.completed.length === 0
+                    ? "-"
+                    : report.statutory.completed.map((c) => c.name).join(", ")}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-gray-400 p-2 font-semibold">미완료</td>
+                <td className="border border-gray-400 p-2 text-center">{report.statutory.postponed.length}</td>
+                <td className="border border-gray-400 p-2">
+                  {report.statutory.postponed.length === 0
+                    ? "-"
+                    : report.statutory.postponed.map((p) => p.name).join(", ")}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-gray-400 p-2 font-semibold">기안</td>
+                <td className="border border-gray-400 p-2 text-center">{report.statutory.drafted.length}</td>
+                <td className="border border-gray-400 p-2">
+                  {report.statutory.drafted.length === 0
+                    ? "-"
+                    : report.statutory.drafted.map((d) => d.title).join(", ")}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </A4DocumentFrame>
     </>

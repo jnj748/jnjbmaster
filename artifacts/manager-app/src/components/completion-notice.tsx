@@ -631,11 +631,6 @@ function ReportBody(props: {
       )}
 
       <PhotosBlock closeUpPhotoUrl={closeUpPhotoUrl} widePhotoUrl={widePhotoUrl} />
-
-      <div className="text-right pt-8 text-sm space-y-1">
-        <p>{getTodayFormatted()}</p>
-        <p>보고자: {authorName ?? ""} (서명)</p>
-      </div>
     </div>
   );
 }
@@ -710,11 +705,6 @@ function DraftBody(props: {
       )}
 
       <PhotosBlock closeUpPhotoUrl={closeUpPhotoUrl} widePhotoUrl={widePhotoUrl} />
-
-      <div className="text-center pt-8 space-y-1 text-sm">
-        <p>{getTodayFormatted()}</p>
-        <p className="font-semibold">기안자: {authorName ?? ""}</p>
-      </div>
     </div>
   );
 }
