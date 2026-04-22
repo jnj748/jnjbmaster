@@ -201,7 +201,7 @@ export const ROUTES: RouteEntry[] = [
   // [Task #182] 상시 업무기록(타임라인+FAB) + 일/주/월 보고서 자동생성
   {
     path: "/work-log", component: WorkLog,
-    label: "업무일지", icon: NotebookPen, group: "dashboard",
+    label: "업무일지", icon: NotebookPen, group: "reports",
     access: ["manager", "platform_admin"],
     bottomNav: ["manager", "platform_admin"],
     bottomLabel: "업무일지",
@@ -412,6 +412,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/reports", component: Reports,
     label: "일간/주간 보고", icon: FileText, group: "reports",
     access: ["manager", "platform_admin", "hq_executive"],
+    // [관리소장 메뉴 숨김] 일간/주간 보고는 관리소장 사이드바에서 숨김. 라우트는 유지.
+    sideMenu: ["platform_admin", "hq_executive"],
     bottomNav: ["hq_executive"],
     bottomLabel: "보고서",
     labelOverrides: { hq_executive: "월간보고서" },
