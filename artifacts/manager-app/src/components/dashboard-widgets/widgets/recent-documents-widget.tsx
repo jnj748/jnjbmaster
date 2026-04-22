@@ -163,7 +163,8 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         title: e.title,
         createdAt: e.createdAt,
         thumbnailUrl: (e.mimeType ?? "").startsWith("image/") ? e.fileUrl : null,
-        href: undefined,
+        // [Task #250] 외부 업로드도 fileUrl 로 즉시 미리보기/인쇄가 가능하도록 href 노출.
+        href: e.fileUrl,
       });
     }
 
@@ -454,14 +455,35 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
 //   - "다시 보기": href 로 내부/외부 미리보기 이동.
 //   - "다시 공유": Web Share API → 클립보드 폴백.
 //   - "다시 인쇄": 미리보기 페이지로 이동 후 사용자가 인쇄(브라우저 인쇄 다이얼로그 트리거 가능 시).
-function DocumentRow({ item }: { item: RecentDoc }) {
+// [Task #250] 행 단위 공유/인쇄 시각은 서버 저장 모델이 없으므로 localStorage 로 best-effort 추적.
+//   - key: `recent-doc-action:<id>` → { sharedAt?: ISO, printedAt?: ISO }
+function readActionState(id: string): { sharedAt?: string; printedAt?: string } {
+  try {
+    const raw = window.localStorage.getItem(`recent-doc-action:${id}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function writeActionState(id: string, patch: { sharedAt?: string; printedAt?: string }) {
+  try {
+    const cur = readActionState(id);
+    window.localStorage.setItem(
+      `recent-doc-action:${id}`,
+      JSON.stringify({ ...cur, ...patch }),
+    );
+  } catch { /* noop */ }
+}
+
+function DocumentRow({ item }: { item: DocItem }) {
   const meta = KIND_META[item.kind];
   const Icon = meta.icon;
   const [, navigate] = useLocation();
+  const [actionState, setActionState] = useState(() => readActionState(item.id));
 
   const openPreview = () => {
     if (!item.href) return;
-    if (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf") || item.href.startsWith("/api/")) {
+    if (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf") || item.href.startsWith("/api/") || item.href.startsWith("/objects/")) {
       window.open(item.href, "_blank", "noopener,noreferrer");
     } else {
       navigate(item.href);
@@ -471,7 +493,12 @@ function DocumentRow({ item }: { item: RecentDoc }) {
   const reshare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const summary = [item.subtitle, formatDate(item.createdAt)].filter(Boolean).join(" · ");
-    await shareDocument({ title: `${meta.label} · ${item.title}`, text: summary });
+    const result = await shareDocument({ title: `${meta.label} · ${item.title}`, text: summary });
+    if (result === "shared" || result === "copied") {
+      const now = new Date().toISOString();
+      writeActionState(item.id, { sharedAt: now });
+      setActionState((s) => ({ ...s, sharedAt: now }));
+    }
   };
 
   const reprint = (e: React.MouseEvent) => {
@@ -485,6 +512,9 @@ function DocumentRow({ item }: { item: RecentDoc }) {
     } else {
       try { window.print(); } catch { /* noop */ }
     }
+    const now = new Date().toISOString();
+    writeActionState(item.id, { printedAt: now });
+    setActionState((s) => ({ ...s, printedAt: now }));
   };
 
   return (
@@ -504,9 +534,18 @@ function DocumentRow({ item }: { item: RecentDoc }) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-semibold text-muted-foreground">{meta.label}</span>
           <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
-            저장됨
+            저장됨 · {formatDate(item.createdAt)}
           </Badge>
-          <span className="text-[10px] text-muted-foreground">· {formatDate(item.createdAt)}</span>
+          {actionState.sharedAt && (
+            <Badge variant="outline" className="text-[10px] h-4 px-1 border-blue-300 text-blue-700">
+              공유됨 · {formatDate(actionState.sharedAt)}
+            </Badge>
+          )}
+          {actionState.printedAt && (
+            <Badge variant="outline" className="text-[10px] h-4 px-1 border-amber-300 text-amber-700">
+              인쇄됨 · {formatDate(actionState.printedAt)}
+            </Badge>
+          )}
         </div>
         <p className="text-sm font-medium truncate">{item.title}</p>
         {item.subtitle && (
