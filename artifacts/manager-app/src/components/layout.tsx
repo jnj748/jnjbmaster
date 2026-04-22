@@ -48,7 +48,6 @@ import {
   getSidebarSections,
   getBottomNavItems,
   getEffectiveRole,
-  type NavItem,
   type NavSection,
   type Role,
 } from "@/lib/permissions";
@@ -63,14 +62,6 @@ function kstDateKey(at?: Date): string {
   const base = at ? at.getTime() : Date.now();
   const d = new Date(base + KST_OFFSET_MS);
   return d.toISOString().split("T")[0];
-}
-
-function getPageTitle(location: string, navItems: NavItem[]): string {
-  if (location === "/") return "대시보드";
-  const item = navItems.find((n) =>
-    n.path !== "/" && location.startsWith(n.path)
-  );
-  return item?.label || "관리의달인";
 }
 
 function isSubPage(location: string): boolean {
@@ -251,7 +242,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const effectiveRole = getEffectiveRole(user);
   const isPartner = effectiveRole === "partner";
   const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
-  const navItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
 
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
@@ -331,7 +321,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   const bottomNavItems = bottomItems;
-  const pageTitle = getPageTitle(location, navItems);
   const showBack = isSubPage(location);
 
   const navLinks = useMemo(() => sections.map((section, si) => {
@@ -580,7 +569,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ) : (
                 <div className="w-2" />
               )}
-              <span className="text-sm font-semibold truncate">{pageTitle}</span>
+              <Link href="/" className="flex items-center shrink-0">
+                <img src={`${base}logo.png`} alt="관리의달인" className="h-7 w-auto" />
+              </Link>
             </div>
             <NotifBell />
           </div>
