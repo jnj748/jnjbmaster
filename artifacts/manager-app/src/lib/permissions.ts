@@ -378,7 +378,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/drafts", component: Drafts,
     label: "기안서", icon: ClipboardList, group: "reports",
-    access: ["manager", "platform_admin", "accountant"],
+    // [관리소장 메뉴 숨김] 기안서 기능은 문서생성으로 대체되어 manager 접근 제거
+    access: ["platform_admin", "accountant"],
   },
   {
     path: "/approvals", component: Approvals,
