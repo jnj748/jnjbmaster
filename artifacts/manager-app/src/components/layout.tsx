@@ -257,7 +257,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
   // 시설 섹션이 노출되는 role에만 활성화하여 불필요한 호출을 막는다.
   const hasFacilitySection = useMemo(
-    () => sections.some((s) => s.title === "시설 및 안전관리"),
+    () => sections.some((s) => s.title === "시설관리"),
     [sections],
   );
   const { data: facilityStatus, dataUpdatedAt: facilityStatusUpdatedAt } =
@@ -338,35 +338,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // 시설 및 안전관리 그룹은 4-아이콘 그리드로 렌더 (시니어 친화적 인지 속도 향상).
     // 그룹 헤더는 role이 /facility 접근 권한이 있을 때만 클릭 가능 (headerHref 사용).
     const isFacilityGrid =
-      section.title === "시설 및 안전관리" && section.items.length > 0;
+      section.title === "시설관리" && section.items.length > 0;
 
     if (isFacilityGrid) {
-      const progressPill = showTodayProgress ? (
-        <span
-          aria-label={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
-          title={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
-          className={cn(
-            "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
-            isFullyDone
-              ? "bg-emerald-500/15 text-emerald-300"
-              : "bg-sidebar-accent/40 text-sidebar-foreground/80",
-          )}
-        >
-          {isFullyDone && <Check className="w-3 h-3" aria-hidden="true" />}
-          <span>{todayProgress!.completedCount}/{todayProgress!.totalCount}</span>
-        </span>
-      ) : null;
+      // [요청] 사이드바 그룹 헤더의 N/4 진행률 텍스트 제거.
       const header = (
         <div
           className={cn(
-            "px-3 pt-4 pb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider font-semibold transition-colors",
+            "px-3 pt-4 pb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider font-semibold transition-colors",
             section.headerHref
               ? "text-sidebar-foreground/40 cursor-pointer hover:text-sidebar-foreground/70"
               : "text-sidebar-foreground/40",
           )}
         >
           <span className="truncate">{section.title}</span>
-          {progressPill}
         </div>
       );
       // [종배치] 시설 그룹도 다른 그룹과 동일한 세로 리스트로 렌더하되,
@@ -498,8 +483,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1 overflow-y-auto px-3 py-4">
             {sections.map((section, si) => {
-              const isFacility = section.title === "시설 및 안전관리" && section.items.length > 0;
-              const drawerProgressPill = isFacility && showTodayProgress ? (
+              const isFacility = section.title === "시설관리" && section.items.length > 0;
+              // [요청] 모바일 드로어 그룹 헤더의 N/4 진행률 텍스트 제거.
+              const drawerProgressPill = isFacility && false ? (
                 <span
                   aria-label={`오늘 4대 핵심 과업 ${todayProgress!.completedCount}/${todayProgress!.totalCount} 완료`}
                   className={cn(

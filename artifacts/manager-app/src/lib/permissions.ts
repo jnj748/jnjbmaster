@@ -151,7 +151,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const GROUP_TITLES: Record<Group, string> = {
   dashboard: "대시보드",
   residents: "호실 및 입주민 관리",
-  facility: "시설 및 안전관리",
+  facility: "시설관리",
   accounting: "회계 및 관리비",
   reports: "보고 및 전자결재",
   marketplace: "파트너 마켓플레이스",
