@@ -46,6 +46,70 @@ function checkRateLimit(userId: number): boolean {
   return true;
 }
 
+/**
+ * Strip parenthetical citations that look like raw English data keys
+ * (e.g. "(building.totalUnits)", "(recentMaintenance)", "(monthlyBills.latest)").
+ *
+ * Rule: a parenthetical is removed if its inner text contains a lowercase
+ * ASCII letter and contains NO Hangul character. This removes camelCase /
+ * snake_case / dot-notation identifiers while preserving:
+ *   - Korean parentheticals: "(승강기)", "(예: ...)"
+ *   - Number/date parentheticals: "(2026-01)", "(123)"
+ *   - All-uppercase acronyms: "(LED)", "(A/S)", "(CCTV)", "(B2B)"
+ */
+function stripEnglishKeyParens(text: string): string {
+  return text.replace(/[ \t]?[（(]([^（()）]*)[)）]/g, (match, inner: string) => {
+    const hasLowerAscii = /[a-z]/.test(inner);
+    const hasHangul = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(inner);
+    if (hasLowerAscii && !hasHangul) return "";
+    return match;
+  });
+}
+
+/**
+ * Streaming-safe wrapper for stripEnglishKeyParens: buffers any text after
+ * an unclosed '(' until the matching ')' arrives, so the strip pattern
+ * can be applied across chunk boundaries.
+ */
+class ParenSanitizer {
+  private buffer = "";
+  push(chunk: string): string {
+    this.buffer += chunk;
+    let depth = 0;
+    let safeEnd = this.buffer.length;
+    for (let i = 0; i < this.buffer.length; i++) {
+      const ch = this.buffer[i];
+      if (ch === "(" || ch === "（") {
+        if (depth === 0) {
+          // Keep any single space/tab right before the open paren in the
+          // buffer so that, once the parenthetical is later stripped, the
+          // preceding space is also consumed by the regex (avoiding double
+          // spaces in the output).
+          let s = i;
+          if (s > 0 && (this.buffer[s - 1] === " " || this.buffer[s - 1] === "\t")) {
+            s -= 1;
+          }
+          safeEnd = s;
+        }
+        depth++;
+      } else if (ch === ")" || ch === "）") {
+        if (depth > 0) depth--;
+        if (depth === 0) safeEnd = i + 1;
+      }
+    }
+    const safe = this.buffer.slice(0, safeEnd);
+    this.buffer = this.buffer.slice(safeEnd);
+    return stripEnglishKeyParens(safe);
+  }
+  flush(): string {
+    const out = stripEnglishKeyParens(this.buffer);
+    this.buffer = "";
+    return out;
+  }
+}
+
+export const __test = { stripEnglishKeyParens, ParenSanitizer };
+
 async function getUserBuildingId(userId: number): Promise<number | null> {
   const u = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   return u?.buildingId ?? null;
@@ -179,6 +243,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   }));
 
   let fullResponse = "";
+  const sanitizer = new ParenSanitizer();
   let aborted = false;
   let inputTokens: number | null = null;
   let outputTokens: number | null = null;
@@ -197,8 +262,11 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
       if (aborted) break;
       const text = chunk.text;
       if (text) {
-        fullResponse += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        const cleaned = sanitizer.push(text);
+        if (cleaned) {
+          fullResponse += cleaned;
+          res.write(`data: ${JSON.stringify({ content: cleaned })}\n\n`);
+        }
       }
       const usage = chunk.usageMetadata;
       if (usage) {
@@ -211,6 +279,13 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
     res.end();
     return;
+  }
+
+  // Flush any text still buffered inside the paren sanitizer
+  const tail = sanitizer.flush();
+  if (tail) {
+    fullResponse += tail;
+    res.write(`data: ${JSON.stringify({ content: tail })}\n\n`);
   }
 
   // Determine citations: only include those whose label/id appears in response text

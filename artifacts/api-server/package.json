@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/__tests__/oauth-lib.test.ts src/__tests__/oauth-routes.test.ts"
+    "test": "tsx --test src/__tests__/oauth-lib.test.ts src/__tests__/oauth-routes.test.ts src/__tests__/aiAssistant-sanitize.test.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
