@@ -16,6 +16,7 @@ import {
   type Notification,
 } from "@workspace/api-client-react";
 import { FacilityStatusBadge } from "@/components/facility-status-badge";
+import { BrandLogo } from "@/components/brand-logo";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -79,7 +80,7 @@ function SidebarContent({ navLinks, user, logout, base, isPartner }: {
   return (
     <>
       <div className="p-4 border-b border-sidebar-border shrink-0">
-        <Link href="/"><img src={`${base}logo.png`} alt="관리의달인" className="h-10 w-auto" /></Link>
+        <Link href="/"><BrandLogo height={36} /></Link>
       </div>
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
       <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">
@@ -459,7 +460,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <Link href="/" onClick={() => setDrawerOpen(false)}>
-              <img src={`${base}logo.png`} alt="관리의달인" className="h-9 w-auto" />
+              <BrandLogo height={32} />
             </Link>
             <button
               onClick={() => setDrawerOpen(false)}
@@ -570,7 +571,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="w-2" />
               )}
               <Link href="/" className="flex items-center shrink-0">
-                <img src={`${base}logo.png`} alt="관리의달인" className="h-7 w-auto" />
+                <BrandLogo height={28} />
               </Link>
             </div>
             <NotifBell />
