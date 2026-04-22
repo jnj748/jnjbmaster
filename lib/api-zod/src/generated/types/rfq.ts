@@ -6,12 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RfqCategory } from "./rfqCategory";
+import type { RfqServiceType } from "./rfqServiceType";
 import type { RfqStatus } from "./rfqStatus";
 
 export interface Rfq {
   id: number;
   title: string;
   category: RfqCategory;
+  /** @nullable */
+  serviceType?: RfqServiceType;
   /** @nullable */
   description?: string | null;
   buildingName: string;

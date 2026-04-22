@@ -803,6 +803,21 @@ export const RfqCategory = {
   other: "other",
 } as const;
 
+/**
+ * @nullable
+ */
+export type RfqServiceType =
+  | (typeof RfqServiceType)[keyof typeof RfqServiceType]
+  | null;
+
+export const RfqServiceType = {
+  breakdown: "breakdown",
+  defect: "defect",
+  replacement: "replacement",
+  inspection: "inspection",
+  other: "other",
+} as const;
+
 export type RfqStatus = (typeof RfqStatus)[keyof typeof RfqStatus];
 
 export const RfqStatus = {
@@ -815,6 +830,8 @@ export interface Rfq {
   id: number;
   title: string;
   category: RfqCategory;
+  /** @nullable */
+  serviceType?: RfqServiceType;
   /** @nullable */
   description?: string | null;
   buildingName: string;
@@ -858,9 +875,27 @@ export const CreateRfqBodyCategory = {
   other: "other",
 } as const;
 
+/**
+ * @nullable
+ */
+export type CreateRfqBodyServiceType =
+  | (typeof CreateRfqBodyServiceType)[keyof typeof CreateRfqBodyServiceType]
+  | null;
+
+export const CreateRfqBodyServiceType = {
+  breakdown: "breakdown",
+  defect: "defect",
+  replacement: "replacement",
+  inspection: "inspection",
+  other: "other",
+} as const;
+
 export interface CreateRfqBody {
-  title: string;
+  /** @nullable */
+  title?: string | null;
   category: CreateRfqBodyCategory;
+  /** @nullable */
+  serviceType?: CreateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
   buildingName: string;
@@ -901,6 +936,21 @@ export const UpdateRfqBodyCategory = {
   other: "other",
 } as const;
 
+/**
+ * @nullable
+ */
+export type UpdateRfqBodyServiceType =
+  | (typeof UpdateRfqBodyServiceType)[keyof typeof UpdateRfqBodyServiceType]
+  | null;
+
+export const UpdateRfqBodyServiceType = {
+  breakdown: "breakdown",
+  defect: "defect",
+  replacement: "replacement",
+  inspection: "inspection",
+  other: "other",
+} as const;
+
 export type UpdateRfqBodyStatus =
   (typeof UpdateRfqBodyStatus)[keyof typeof UpdateRfqBodyStatus];
 
@@ -913,6 +963,8 @@ export const UpdateRfqBodyStatus = {
 export interface UpdateRfqBody {
   title?: string;
   category?: UpdateRfqBodyCategory;
+  /** @nullable */
+  serviceType?: UpdateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
   buildingName?: string;

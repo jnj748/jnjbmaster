@@ -21,6 +21,7 @@ import { formatDate } from "@/lib/utils";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { AuthImage } from "@/components/auth-image";
+import { rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
 
 const categoryLabel = (c: string) => {
   const map: Record<string, string> = {
@@ -110,6 +111,9 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                         {rfq.status === "open" ? "접수중" : rfq.status === "closed" ? "마감" : "취소"}
                       </Badge>
                       <Badge variant="outline">{categoryLabel(rfq.category)}</Badge>
+                      {rfq.serviceType && (
+                        <Badge variant="outline">{rfqServiceTypeLabel(rfq.serviceType)}</Badge>
+                      )}
                       {(rfq.isPremium || (rfq.estimatedAmount && rfq.estimatedAmount >= 5_000_000)) && (
                         <Badge className="bg-amber-500 hover:bg-amber-600">
                           프리미엄 · 선착순 {rfq.premiumSlotLimit ?? 5}팀
@@ -147,6 +151,7 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                     <Button size="sm" variant="outline" onClick={() => setRfqDocRfq({
                       title: rfq.title,
                       category: rfq.category,
+                      serviceType: rfq.serviceType,
                       description: rfq.description,
                       buildingName: rfq.buildingName,
                       desiredDate: rfq.desiredDate,

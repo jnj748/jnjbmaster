@@ -3,6 +3,7 @@ import { eq, and, desc, or } from "drizzle-orm";
 import { db, rfqsTable, vendorsTable, usersTable, quotesTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { refundRfqConsumption } from "../lib/credits";
+import { buildRfqAutoTitle, RFQ_SERVICE_TYPES } from "@workspace/shared/rfq-service-types";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -195,10 +196,35 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #222] 시설분야·용역종류·근경/원경 사진은 서버에서도 필수로 검증한다.
+  const incoming = parsed.data;
+  if (!incoming.category) {
+    res.status(400).json({ error: "시설분야는 필수입니다" });
+    return;
+  }
+  const serviceType = incoming.serviceType ?? null;
+  if (!serviceType || !RFQ_SERVICE_TYPES.includes(serviceType)) {
+    res.status(400).json({ error: "용역종류는 필수입니다" });
+    return;
+  }
+  if (!incoming.closeUpPhotoUrl || !incoming.widePhotoUrl) {
+    res.status(400).json({ error: "근경/원경 사진은 필수입니다" });
+    return;
+  }
+
+  // 제목이 비어 오면 시설분야+용역종류로 보강.
+  const rawTitle = incoming.title;
+  const title =
+    typeof rawTitle === "string" && rawTitle.trim().length > 0
+      ? rawTitle.trim()
+      : buildRfqAutoTitle(incoming.category, serviceType);
+
   const data = {
-    ...parsed.data,
-    deadline: toIsoDate(parsed.data.deadline)!,
-    desiredDate: toIsoDate(parsed.data.desiredDate),
+    ...incoming,
+    serviceType,
+    title,
+    deadline: toIsoDate(incoming.deadline)!,
+    desiredDate: toIsoDate(incoming.desiredDate),
   };
 
   if (data.sido && data.sigungu && !data.geoScope) {

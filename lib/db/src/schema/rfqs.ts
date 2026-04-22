@@ -6,6 +6,7 @@ export const rfqsTable = pgTable("rfqs", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   category: text("category").notNull(),
+  serviceType: text("service_type"),
   description: text("description"),
   buildingName: text("building_name").notNull(),
   buildingId: integer("building_id"),

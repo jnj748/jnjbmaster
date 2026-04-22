@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Printer, Download, Mail } from "lucide-react";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
+import { rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import {
   downloadElementAsPng,
@@ -55,6 +56,7 @@ function getDocumentNumber(): string {
 export interface RfqDocumentData {
   title: string;
   category: string;
+  serviceType?: string | null;
   description?: string | null;
   buildingName: string;
   desiredDate?: string | null;
@@ -139,6 +141,7 @@ export function RfqRequestDocument({
       `문서번호: ${docNumber}\n시행일자: ${getTodayFormatted()}\n수신: ${recipient}\n제목: ${title}\n\n` +
       `■ 의뢰 건명: ${rfq.title}\n` +
       `■ 카테고리: ${CATEGORY_LABELS[rfq.category] || rfq.category}\n` +
+      (rfq.serviceType ? `■ 용역종류: ${rfqServiceTypeLabel(rfq.serviceType)}\n` : "") +
       `■ 건물명: ${rfq.buildingName}\n` +
       ((rfq.sido || rfq.sigungu) ? `■ 소재지: ${[rfq.sido, rfq.sigungu].filter(Boolean).join(" ")}\n` : "") +
       `■ 의뢰일: ${formatNoticeDate(rfq.createdAt)}\n` +
@@ -231,6 +234,12 @@ export function RfqRequestDocument({
               <span className="font-semibold w-28 shrink-0">■ 카테고리</span>
               <span>{CATEGORY_LABELS[rfq.category] || rfq.category}</span>
             </div>
+            {rfq.serviceType && (
+              <div className="flex">
+                <span className="font-semibold w-28 shrink-0">■ 용역종류</span>
+                <span>{rfqServiceTypeLabel(rfq.serviceType)}</span>
+              </div>
+            )}
             <div className="flex">
               <span className="font-semibold w-28 shrink-0">■ 건물명</span>
               <span>{rfq.buildingName}</span>

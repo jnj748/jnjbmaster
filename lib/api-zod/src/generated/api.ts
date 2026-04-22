@@ -1253,6 +1253,16 @@ export const ListRfqsResponseItem = zod.object({
     "mechanical",
     "other",
   ]),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),
@@ -1273,7 +1283,7 @@ export const ListRfqsResponse = zod.array(ListRfqsResponseItem);
  * @summary Create an RFQ
  */
 export const CreateRfqBody = zod.object({
-  title: zod.string(),
+  title: zod.string().nullish(),
   category: zod.enum([
     "elevator",
     "water_tank",
@@ -1290,6 +1300,16 @@ export const CreateRfqBody = zod.object({
     "mechanical",
     "other",
   ]),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),
@@ -1328,6 +1348,16 @@ export const GetRfqResponse = zod.object({
     "mechanical",
     "other",
   ]),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),
@@ -1370,6 +1400,16 @@ export const UpdateRfqBody = zod.object({
       "other",
     ])
     .optional(),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string().optional(),
   desiredDate: zod.coerce.date().nullish(),
@@ -1400,6 +1440,16 @@ export const UpdateRfqResponse = zod.object({
     "mechanical",
     "other",
   ]),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),
@@ -1448,6 +1498,16 @@ export const ExpandRfqScopeResponse = zod.object({
     "mechanical",
     "other",
   ]),
+  serviceType: zod
+    .union([
+      zod.literal("breakdown"),
+      zod.literal("defect"),
+      zod.literal("replacement"),
+      zod.literal("inspection"),
+      zod.literal("other"),
+      zod.literal(null),
+    ])
+    .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),

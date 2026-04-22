@@ -6,11 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UpdateRfqBodyCategory } from "./updateRfqBodyCategory";
+import type { UpdateRfqBodyServiceType } from "./updateRfqBodyServiceType";
 import type { UpdateRfqBodyStatus } from "./updateRfqBodyStatus";
 
 export interface UpdateRfqBody {
   title?: string;
   category?: UpdateRfqBodyCategory;
+  /** @nullable */
+  serviceType?: UpdateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
   buildingName?: string;

@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateRfqBodyCategory } from "./createRfqBodyCategory";
+import type { CreateRfqBodyServiceType } from "./createRfqBodyServiceType";
 
 export interface CreateRfqBody {
-  title: string;
+  /** @nullable */
+  title?: string | null;
   category: CreateRfqBodyCategory;
+  /** @nullable */
+  serviceType?: CreateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
   buildingName: string;

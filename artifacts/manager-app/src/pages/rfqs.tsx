@@ -43,10 +43,17 @@ import {
   MapPin,
   Expand,
   Printer,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import {
+  RFQ_SERVICE_TYPE_LABELS,
+  rfqServiceTypeLabel,
+  buildRfqAutoTitle,
+  type RfqServiceType,
+} from "@workspace/shared/rfq-service-types";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { useAuth } from "@/contexts/auth-context";
@@ -99,17 +106,27 @@ export default function Rfqs() {
   const updateQuoteMutation = useUpdateQuote();
   const expandScopeMutation = useExpandRfqScope();
 
+  function getDefaultDeadline(): string {
+    // 오늘 + 1일을 YYYY-MM-DD 로 반환.
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   const [form, setForm] = useState({
     title: "",
-    category: "elevator",
+    titleManuallyEdited: false,
+    category: "" as string,
+    serviceType: "" as RfqServiceType | "",
     description: "",
-    buildingName: building?.name || "",
     desiredDate: "",
-    deadline: "",
+    deadline: getDefaultDeadline(),
     vendorIds: [] as string[],
-    sido: building?.sido || "",
-    sigungu: building?.sigungu || "",
   });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 작성 다이얼로그를 자동으로 연다.
   useEffect(() => {
@@ -129,9 +146,11 @@ export default function Rfqs() {
     setForm((prev) => ({
       ...prev,
       title: params.get("title") ?? prev.title,
+      titleManuallyEdited: !!params.get("title"),
       description: body + footer,
       category: validCategories.includes(incomingCategory) ? incomingCategory : prev.category,
     }));
+    if (body || footer) setAdvancedOpen(true);
     setDialogOpen(true);
     // 한 번만 적용되도록 쿼리 정리.
     const url = new URL(window.location.href);
@@ -145,34 +164,71 @@ export default function Rfqs() {
   function resetForm() {
     setForm({
       title: "",
-      category: "elevator",
+      titleManuallyEdited: false,
+      category: "",
+      serviceType: "",
       description: "",
-      buildingName: building?.name || "",
       desiredDate: "",
-      deadline: "",
+      deadline: getDefaultDeadline(),
       vendorIds: [],
-      sido: building?.sido || "",
-      sigungu: building?.sigungu || "",
     });
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);
+    setAdvancedOpen(false);
   }
+
+  // 건물 컨텍스트의 주소가 매칭에 사용된다 (사용자에게는 노출하지 않음).
+  const buildingName = building?.name || "";
+  const buildingSido = building?.sido || "";
+  const buildingSigungu = building?.sigungu || "";
+  const buildingReady = !!buildingName && (!!buildingSido || !!buildingSigungu);
+
+  // 자동 생성된 제목 (사용자가 직접 수정하지 않은 경우에만 사용).
+  const autoTitle = buildRfqAutoTitle(form.category, form.serviceType || null);
+  const effectiveTitle = form.titleManuallyEdited && form.title.trim().length > 0
+    ? form.title
+    : autoTitle;
+
+  const photosReady = !!closeUpPhotoUrl && !!widePhotoUrl;
+  const canSubmit = !!form.category && !!form.serviceType && photosReady && buildingReady;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!buildingReady) {
+      toast({
+        title: "건물 정보가 필요합니다",
+        description: "현재 선택된 건물의 주소가 비어 있어 견적을 요청할 수 없습니다. 건물 정보를 먼저 등록해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!form.category) {
+      toast({ title: "시설분야를 선택하세요", variant: "destructive" });
+      return;
+    }
+    if (!form.serviceType) {
+      toast({ title: "용역종류를 선택하세요", variant: "destructive" });
+      return;
+    }
+    if (!photosReady) {
+      toast({ title: "근경/원경 사진은 필수입니다", variant: "destructive" });
+      return;
+    }
+
     const data: any = {
-      title: form.title,
+      title: effectiveTitle,
       category: form.category,
+      serviceType: form.serviceType,
       description: form.description || null,
-      buildingName: form.buildingName,
+      buildingName,
       desiredDate: form.desiredDate || null,
       deadline: form.deadline,
       vendorIds: form.vendorIds.length > 0 ? form.vendorIds.join(",") : null,
-      sido: form.sido || null,
-      sigungu: form.sigungu || null,
-      geoScope: form.sigungu ? "sigungu" : form.sido ? "sido" : null,
-      closeUpPhotoUrl: closeUpPhotoUrl || null,
-      widePhotoUrl: widePhotoUrl || null,
+      sido: buildingSido || null,
+      sigungu: buildingSigungu || null,
+      geoScope: buildingSigungu ? "sigungu" : buildingSido ? "sido" : null,
+      closeUpPhotoUrl,
+      widePhotoUrl,
     };
 
     await createMutation.mutateAsync({ data });
@@ -245,7 +301,6 @@ export default function Rfqs() {
   };
 
   const platformVendors = vendors?.filter((v) => v.type === "platform") || [];
-  const sigunguOptions = form.sido ? getSigunguList(form.sido) : [];
 
   return (
     <div className="space-y-6">
@@ -268,145 +323,160 @@ export default function Rfqs() {
               <ResponsiveDialogTitle>새 견적 요청</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!buildingReady && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  현재 선택된 건물 정보가 비어 있어 견적 요청을 생성할 수 없습니다. 건물 정보(이름·주소)를 먼저 등록해주세요.
+                </div>
+              )}
+
               <div>
-                <Label>제목</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="예: 저수조 청소 견적 요청"
-                  required
-                />
+                <Label>
+                  시설분야 <span className="text-destructive">*</span>
+                </Label>
+                <Select value={form.category || undefined} onValueChange={(v) => setForm({ ...form, category: v })}>
+                  <SelectTrigger data-testid="rfq-category-trigger"><SelectValue placeholder="시설분야 선택" /></SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>분류</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>건물명</Label>
-                  <Input
-                    value={form.buildingName}
-                    onChange={(e) => setForm({ ...form, buildingName: e.target.value })}
-                    required
-                  />
-                </div>
+
+              <div>
+                <Label>
+                  용역종류 <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.serviceType || undefined}
+                  onValueChange={(v) => setForm({ ...form, serviceType: v as RfqServiceType })}
+                >
+                  <SelectTrigger data-testid="rfq-service-type-trigger"><SelectValue placeholder="용역종류 선택" /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(RFQ_SERVICE_TYPE_LABELS) as [RfqServiceType, string][]).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="border-t pt-4">
-                <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />
-                  지역 기반 업체 매칭
+                <p className="text-sm font-medium mb-3">
+                  현장 사진 <span className="text-destructive">*</span>
                 </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>시/도</Label>
-                    <Select value={form.sido || undefined} onValueChange={(v) => setForm({ ...form, sido: v, sigungu: "" })}>
-                      <SelectTrigger><SelectValue placeholder="시/도 선택" /></SelectTrigger>
-                      <SelectContent>
-                        {sidoList.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>시/군/구</Label>
-                    <Select
-                      value={form.sigungu || undefined}
-                      onValueChange={(v) => setForm({ ...form, sigungu: v })}
-                      disabled={!form.sido}
-                    >
-                      <SelectTrigger><SelectValue placeholder="시/군/구 선택" /></SelectTrigger>
-                      <SelectContent>
-                        {sigunguOptions.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  지역을 선택하면 해당 지역 업체에 자동 매칭됩니다
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>희망일</Label>
-                  <Input
-                    type="date"
-                    value={form.desiredDate}
-                    onChange={(e) => setForm({ ...form, desiredDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>마감일</Label>
-                  <Input
-                    type="date"
-                    value={form.deadline}
-                    onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>상세 설명</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="작업 내용, 특이사항 등을 기재해주세요"
-                />
-              </div>
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-muted-foreground mb-3">현장 사진 (선택)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <PhotoUploadField
-                    label="근경 사진"
+                    label="근경 사진 *"
                     value={closeUpPhotoUrl}
                     onChange={setCloseUpPhotoUrl}
+                    testId="rfq-photo-close-up"
                   />
                   <PhotoUploadField
-                    label="원경 사진"
+                    label="원경 사진 *"
                     value={widePhotoUrl}
                     onChange={setWidePhotoUrl}
+                    testId="rfq-photo-wide"
                   />
                 </div>
+                {!photosReady && (
+                  <p className="text-xs text-destructive mt-2">근경/원경 사진은 필수입니다.</p>
+                )}
               </div>
-              <div>
-                <Label>추가 발송 업체 (복수 선택 가능)</Label>
-                <div className="mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
-                  {platformVendors.length > 0 ? platformVendors.map((v) => (
-                    <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={form.vendorIds.includes(v.id.toString())}
-                        onChange={(e) => {
-                          const vid = v.id.toString();
-                          setForm({
-                            ...form,
-                            vendorIds: e.target.checked
-                              ? [...form.vendorIds, vid]
-                              : form.vendorIds.filter((id) => id !== vid),
-                          });
-                        }}
-                        className="w-4 h-4"
-                      />
-                      {v.name} - {categoryLabel(v.category)}
-                      {v.sido && <span className="text-xs text-muted-foreground ml-1">({v.sido})</span>}
-                    </label>
-                  )) : (
-                    <p className="text-xs text-muted-foreground p-2">등록된 플랫폼 업체가 없습니다</p>
-                  )}
+
+              {buildingReady && (
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>{buildingName}</span>
+                  </div>
+                  <div>제목(자동): {effectiveTitle}</div>
+                  <div>마감(기본): 오늘 + 1일</div>
                 </div>
+              )}
+
+              <div className="border-t pt-3">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen((v) => !v)}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  data-testid="rfq-advanced-toggle"
+                >
+                  {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  추가 옵션 (제목 수정·상세 설명·희망일·마감일·발송 업체 추가)
+                </button>
+
+                {advancedOpen && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <Label>제목 (자동 생성됨)</Label>
+                      <Input
+                        value={form.titleManuallyEdited ? form.title : autoTitle}
+                        onChange={(e) =>
+                          setForm({ ...form, title: e.target.value, titleManuallyEdited: true })
+                        }
+                        placeholder={autoTitle}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>희망일</Label>
+                        <Input
+                          type="date"
+                          value={form.desiredDate}
+                          onChange={(e) => setForm({ ...form, desiredDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>마감일</Label>
+                        <Input
+                          type="date"
+                          value={form.deadline}
+                          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>상세 설명</Label>
+                      <Textarea
+                        value={form.description}
+                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        placeholder="작업 내용, 특이사항 등을 기재해주세요"
+                      />
+                    </div>
+                    <div>
+                      <Label>추가 발송 업체 (복수 선택 가능)</Label>
+                      <div className="mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                        {platformVendors.length > 0 ? platformVendors.map((v) => (
+                          <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
+                            <input
+                              type="checkbox"
+                              checked={form.vendorIds.includes(v.id.toString())}
+                              onChange={(e) => {
+                                const vid = v.id.toString();
+                                setForm({
+                                  ...form,
+                                  vendorIds: e.target.checked
+                                    ? [...form.vendorIds, vid]
+                                    : form.vendorIds.filter((id) => id !== vid),
+                                });
+                              }}
+                              className="w-4 h-4"
+                            />
+                            {v.name} - {categoryLabel(v.category)}
+                            {v.sido && <span className="text-xs text-muted-foreground ml-1">({v.sido})</span>}
+                          </label>
+                        )) : (
+                          <p className="text-xs text-muted-foreground p-2">등록된 플랫폼 업체가 없습니다</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <Button type="submit" className="w-full">견적 요청 생성</Button>
+
+              <Button type="submit" className="w-full" disabled={!canSubmit} data-testid="rfq-submit">
+                견적 요청 생성
+              </Button>
             </form>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
@@ -451,6 +521,7 @@ export default function Rfqs() {
                     <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
                       <span>건물: {rfq.buildingName}</span>
                       <span>분류: {categoryLabel(rfq.category)}</span>
+                      {rfq.serviceType && <span>용역: {rfqServiceTypeLabel(rfq.serviceType)}</span>}
                       <span>마감: {formatDate(rfq.deadline)}</span>
                       {rfq.desiredDate && <span>희망일: {formatDate(rfq.desiredDate)}</span>}
                     </div>
@@ -480,6 +551,7 @@ export default function Rfqs() {
                     <Button variant="outline" size="sm" onClick={() => setRfqDocRfq({
                       title: rfq.title,
                       category: rfq.category,
+                      serviceType: rfq.serviceType,
                       description: rfq.description,
                       buildingName: rfq.buildingName,
                       desiredDate: rfq.desiredDate,

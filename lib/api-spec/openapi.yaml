@@ -5845,6 +5845,9 @@ components:
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+        serviceType:
+          type: ["string", "null"]
+          enum: [breakdown, defect, replacement, inspection, other, null]
         description:
           type: ["string", "null"]
         buildingName:
@@ -5890,10 +5893,13 @@ components:
       type: object
       properties:
         title:
-          type: string
+          type: ["string", "null"]
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+        serviceType:
+          type: ["string", "null"]
+          enum: [breakdown, defect, replacement, inspection, other, null]
         description:
           type: ["string", "null"]
         buildingName:
@@ -5917,7 +5923,6 @@ components:
         widePhotoUrl:
           type: ["string", "null"]
       required:
-        - title
         - category
         - buildingName
         - deadline
@@ -5930,6 +5935,9 @@ components:
         category:
           type: string
           enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+        serviceType:
+          type: ["string", "null"]
+          enum: [breakdown, defect, replacement, inspection, other, null]
         description:
           type: ["string", "null"]
         buildingName:
