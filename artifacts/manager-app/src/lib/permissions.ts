@@ -10,6 +10,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Users,
+  User,
   UserCheck,
   Car,
   Package,
@@ -339,10 +340,13 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
   },
   // [Task #178] 건물 단위 관리비 응대 자료 (월별 5개 영역 한장 요약)
+  // [메뉴 통합] 관리소장 사이드바에서는 "관리비 요약"으로 일원화 — 응대 자료는
+  //   관리비 요약 페이지 내부 진입 버튼으로 접근. URL/직접 접근은 유지.
   {
     path: "/erp/building-records", component: BuildingRecords,
     label: "관리비 응대 자료", icon: Clipboard, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["platform_admin", "accountant", "hq_executive"],
   },
   {
     path: "/erp/bills", component: ErpBills,
@@ -385,6 +389,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/approvals", component: Approvals,
     label: "결재함", icon: ClipboardCheck, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
+    // [관리소장 메뉴 숨김] 결재함은 회계/플랫폼 관리자 사이드바에만 노출.
+    sideMenu: ["platform_admin", "accountant"],
     bottomNav: ["accountant"],
     bottomLabel: "결재",
   },
@@ -398,6 +404,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/report-system", component: ReportSystemPage,
     label: "보고 체계", icon: BarChart3, group: "reports",
     access: ["manager", "platform_admin"],
+    // [관리소장 메뉴 숨김] 보고 체계는 플랫폼 관리자 사이드바에만 노출.
+    sideMenu: ["platform_admin"],
   },
   {
     path: "/reports", component: Reports,
@@ -440,7 +448,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/users", component: Users_,
     label: "사용자 관리", icon: Users, group: "settings",
-    access: ["manager", "platform_admin", "hq_executive"],
+    // [관리소장 메뉴 숨김] 사용자 관리는 플랫폼 관리자/본사 권한 전용.
+    access: ["platform_admin", "hq_executive"],
     bottomNav: ["platform_admin"],
     bottomLabelOverrides: { platform_admin: "사용자" },
   },
@@ -449,6 +458,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
     label: "시설기사 승인", icon: UserCheck, group: "settings",
     access: ["manager", "platform_admin", "hq_executive"],
+    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼 관리자/본사만 노출.
+    sideMenu: ["platform_admin", "hq_executive"],
   },
   {
     path: "/document-templates", component: DocumentTemplates,
@@ -471,6 +482,21 @@ export const ROUTES: RouteEntry[] = [
     path: "/settings", component: SettingsPage,
     label: "설정", icon: Settings, group: "settings",
     access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],
+    // [메뉴 분리] /settings 루트는 사이드바에서 숨기고, 하위 메뉴 두 개로 분리한다.
+    //   - /settings/profile  → 내정보 수정
+    //   - /settings/building → 건물정보 수정 (manager / platform_admin)
+    sideMenu: [],
+  },
+  {
+    path: "/settings/profile", component: SettingsPage,
+    label: "내정보 수정", icon: User, group: "settings",
+    access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],
+    sideMenu: ["manager", "platform_admin"],
+  },
+  {
+    path: "/settings/building", component: SettingsPage,
+    label: "건물정보 수정", icon: Building, group: "settings",
+    access: ["manager", "platform_admin"],
     sideMenu: ["manager", "platform_admin"],
   },
 ];

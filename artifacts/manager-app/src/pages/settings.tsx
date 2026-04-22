@@ -50,6 +50,10 @@ export default function SettingsPage() {
   // [Task #141] /building-setup 라우트 폐지 후 진입점은 /settings?tab=building.
   const initialTab = (() => {
     if (typeof window === "undefined") return "profile" as const;
+    // [메뉴 분리] /settings/profile · /settings/building 경로로도 탭을 결정.
+    const path = window.location.pathname;
+    if (path.endsWith("/settings/building") && canEditBuilding) return "building" as const;
+    if (path.endsWith("/settings/profile")) return "profile" as const;
     const t = new URLSearchParams(window.location.search).get("tab");
     if (t === "building" && canEditBuilding) return "building" as const;
     if (t === "platform" && canEditPlatform) return "platform" as const;

@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, FileText, Upload, ArrowRight, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, FileText, Upload, ArrowRight, AlertTriangle, Clipboard } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend,
 } from "recharts";
@@ -102,7 +102,15 @@ export default function FeesSummaryPage() {
           <h1 className="text-2xl font-bold mb-1">관리비 요약</h1>
           <p className="text-sm text-muted-foreground">최근 {sortedAsc.length}개월 데이터 기준</p>
         </div>
-        <Link href="/erp/bills"><Button variant="outline" size="sm" className="gap-2"><Upload className="w-4 h-4" />고지서 추가</Button></Link>
+        <div className="flex items-center gap-2">
+          {/* [메뉴 통합] 관리비 응대 자료를 관리비 요약 안에서 바로 진입 */}
+          <Link href="/erp/building-records">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="btn-building-records">
+              <Clipboard className="w-4 h-4" />응대 자료
+            </Button>
+          </Link>
+          <Link href="/erp/bills"><Button variant="outline" size="sm" className="gap-2"><Upload className="w-4 h-4" />고지서 추가</Button></Link>
+        </div>
       </div>
 
       {arrears && arrears.totalArrears > 0 && (
