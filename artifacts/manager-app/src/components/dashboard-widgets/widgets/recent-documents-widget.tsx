@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useListDrafts,
   useListQuotes,
-  useListAlertActions,
   useListPlatformAnnouncements,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
@@ -15,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { AuthImage } from "@/components/auth-image";
 import {
   Sheet,
@@ -26,9 +26,7 @@ import {
 import {
   FolderOpen,
   Plus,
-  StickyNote,
   NotebookPen,
-  CheckCircle2,
   FileEdit,
   Receipt,
   Megaphone,
@@ -40,7 +38,12 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-type DocKind = "memo" | "journal" | "follow_up" | "draft" | "quote" | "notice" | "external";
+// [Task #250] 최근문서함은 "문서 산출물" 전용으로 정비.
+//   - 포함: 기안(draft), 견적(quote), 공고(notice), 외부 업로드(external),
+//     일지 스냅샷(journal — /work-log 의 일일 일지가 보고서로 굳어진 것).
+//   - 제외: 메모(work_log_entries 단건), 후속조치(alert_actions).
+//     이 둘은 /work-log 의 "처리 내역" 탭에서 시간순으로 본다.
+type DocKind = "journal" | "draft" | "quote" | "notice" | "external";
 
 interface DocItem {
   id: string;
@@ -53,13 +56,11 @@ interface DocItem {
 }
 
 const KIND_META: Record<DocKind, { label: string; icon: typeof FolderOpen; color: string }> = {
-  memo:      { label: "메모",     icon: StickyNote,    color: "text-amber-600 bg-amber-50" },
-  journal:   { label: "일지",     icon: NotebookPen,   color: "text-emerald-600 bg-emerald-50" },
-  follow_up: { label: "후속조치", icon: CheckCircle2,  color: "text-blue-600 bg-blue-50" },
-  draft:     { label: "기안",     icon: FileEdit,      color: "text-violet-600 bg-violet-50" },
-  quote:     { label: "견적",     icon: Receipt,       color: "text-orange-600 bg-orange-50" },
-  notice:    { label: "공고",     icon: Megaphone,     color: "text-rose-600 bg-rose-50" },
-  external:  { label: "외부",     icon: ImageIcon,     color: "text-slate-600 bg-slate-100" },
+  journal:   { label: "일지 보고서", icon: NotebookPen,   color: "text-emerald-600 bg-emerald-50" },
+  draft:     { label: "기안",         icon: FileEdit,      color: "text-violet-600 bg-violet-50" },
+  quote:     { label: "견적",         icon: Receipt,       color: "text-orange-600 bg-orange-50" },
+  notice:    { label: "공고",         icon: Megaphone,     color: "text-rose-600 bg-rose-50" },
+  external:  { label: "외부 업로드",  icon: ImageIcon,     color: "text-slate-600 bg-slate-100" },
 };
 
 const MAX_FILE_SIZE_MB = 20;
@@ -79,28 +80,12 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
 
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  // 1) drafts/quotes/alert-actions/notices via generated hooks
+  // 1) drafts/quotes/notices via generated hooks
   const { data: drafts, isLoading: l1 } = useListDrafts();
   const { data: quotes, isLoading: l2 } = useListQuotes();
-  const { data: alertActions, isLoading: l3 } = useListAlertActions();
   const { data: notices, isLoading: l4 } = useListPlatformAnnouncements();
 
-  // 2) work-logs (메모) via direct fetch
-  const { data: workLogs, isLoading: l5 } = useQuery({
-    queryKey: ["recent-doc-worklogs"],
-    queryFn: async () => {
-      const r = await fetch(`${apiBase}/work-logs`, { headers: authHeaders });
-      if (!r.ok) return [];
-      return (await r.json()) as Array<{
-        id: number; memo: string; category?: string; photoUrl?: string | null;
-        occurredAt: string; occurredDate?: string;
-      }>;
-    },
-    enabled: !!token,
-    staleTime: 60 * 1000,
-  });
-
-  // 3) daily journals via direct fetch
+  // 2) daily journals (보고서 스냅샷) via direct fetch
   const { data: journals, isLoading: l6 } = useQuery({
     queryKey: ["recent-doc-journals"],
     queryFn: async () => {
@@ -112,7 +97,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
     staleTime: 60 * 1000,
   });
 
-  // 4) external documents — 서버가 인증 컨텍스트에서 건물을 결정하므로 별도 파라미터 불필요
+  // 3) external documents — 서버가 인증 컨텍스트에서 건물을 결정
   const externalKey = ["recent-doc-external", buildingId ?? null];
   const { data: externals, isLoading: l7 } = useQuery({
     queryKey: externalKey,
@@ -127,7 +112,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
     staleTime: 60 * 1000,
   });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7;
+  const isLoading = l1 || l2 || l4 || l6 || l7;
 
   const items = useMemo<DocItem[]>(() => {
     const out: DocItem[] = [];
@@ -151,21 +136,6 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         href: "/quotes",
       });
     }
-    for (const a of alertActions ?? []) {
-      const aa = a as {
-        id: number; alertTitle?: string; notes?: string | null;
-        createdAt?: string; closeUpPhotoUrl?: string | null;
-      };
-      if (!aa.notes && !aa.alertTitle) continue;
-      out.push({
-        id: `action-${aa.id}`, kind: "follow_up",
-        title: aa.alertTitle || "후속조치",
-        subtitle: aa.notes ?? undefined,
-        createdAt: aa.createdAt ?? new Date(0).toISOString(),
-        href: "/tasks",
-        thumbnailUrl: aa.closeUpPhotoUrl ?? null,
-      });
-    }
     for (const n of notices ?? []) {
       const nn = n as { id: number; title: string; createdAt?: string };
       out.push({
@@ -175,20 +145,10 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         href: "/announcements",
       });
     }
-    for (const w of workLogs ?? []) {
-      out.push({
-        id: `worklog-${w.id}`, kind: "memo",
-        title: w.memo?.slice(0, 60) || "업무 메모",
-        subtitle: w.category,
-        createdAt: w.occurredAt,
-        href: "/work-log",
-        thumbnailUrl: w.photoUrl ?? null,
-      });
-    }
     for (const j of journals ?? []) {
       out.push({
         id: `journal-${j.id}`, kind: "journal",
-        title: `${j.journalDate} 업무일지`,
+        title: `${j.journalDate} 일일 업무 보고서`,
         createdAt: `${j.journalDate}T00:00:00.000Z`,
         href: "/work-log?tab=daily",
       });
@@ -205,7 +165,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
 
     out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
     return out.slice(0, 8);
-  }, [drafts, quotes, alertActions, notices, workLogs, journals, externals]);
+  }, [drafts, quotes, notices, journals, externals]);
 
   // ---------- Upload sheet ----------
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -299,7 +259,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
             최근문서함
           </h2>
           <p className="text-[11px] text-muted-foreground mt-1">
-            예전 작성문서를 찾아보세요
+            저장된 문서를 다시 보고, 다시 공유·인쇄할 수 있습니다
           </p>
         </div>
         <Button
@@ -324,7 +284,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">아직 작성된 문서가 없습니다</p>
+            <p className="text-sm text-muted-foreground">저장된 문서가 없습니다</p>
           </CardContent>
         </Card>
       ) : (
@@ -340,10 +300,13 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
                   <Icon className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-semibold text-muted-foreground">
                       {meta.label}
                     </span>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
+                      저장됨
+                    </Badge>
                     <span className="text-[10px] text-muted-foreground">
                       · {formatDate(it.createdAt)}
                     </span>

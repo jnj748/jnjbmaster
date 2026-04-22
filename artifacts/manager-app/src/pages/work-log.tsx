@@ -162,19 +162,38 @@ function useApi() {
   return { call };
 }
 
-type WorkLogTab = "timeline" | "daily" | "weekly" | "monthly";
+type WorkLogTab = "timeline" | "daily" | "weekly" | "monthly" | "activity";
 
 function readInitialTab(): WorkLogTab {
   if (typeof window === "undefined") return "timeline";
   const sp = new URLSearchParams(window.location.search);
   const t = sp.get("tab");
-  if (t === "daily" || t === "weekly" || t === "monthly" || t === "timeline") return t;
+  if (
+    t === "daily" || t === "weekly" || t === "monthly" ||
+    t === "timeline" || t === "activity"
+  ) return t;
   return "timeline";
 }
 
 export default function WorkLogPage() {
   const [tab, setTab] = useState<WorkLogTab>(readInitialTab);
   const [autoOpenDailyWizard, setAutoOpenDailyWizard] = useState(false);
+
+  // [Task #250] URL 의 ?tab= 변경(processing 내역에서 일지로 점프 등)에 반응해 탭을 재동기화한다.
+  useEffect(() => {
+    const sync = () => setTab(readInitialTab());
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  // 탭 전환 시 URL 도 함께 업데이트해 새로고침/북마크 시 동일 탭으로 복귀.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("tab") !== tab) {
+      url.searchParams.set("tab", tab);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [tab]);
 
   return (
     <div className="space-y-4 pb-24">
@@ -187,8 +206,9 @@ export default function WorkLogPage() {
       </p>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="timeline" data-testid="tab-timeline">타임라인</TabsTrigger>
+          <TabsTrigger value="activity" data-testid="tab-activity">처리 내역</TabsTrigger>
           <TabsTrigger value="daily" data-testid="tab-daily">일일</TabsTrigger>
           <TabsTrigger value="weekly" data-testid="tab-weekly">주간</TabsTrigger>
           <TabsTrigger value="monthly" data-testid="tab-monthly">월간</TabsTrigger>
@@ -196,6 +216,7 @@ export default function WorkLogPage() {
         <TabsContent value="timeline">
           <TimelineTab onGoDaily={() => { setAutoOpenDailyWizard(true); setTab("daily"); }} />
         </TabsContent>
+        <TabsContent value="activity"><ActivityTab /></TabsContent>
         <TabsContent value="daily">
           <DailyTab
             autoOpenWizard={autoOpenDailyWizard}
@@ -1267,6 +1288,210 @@ function MonthlyA4ReportBody({ report }: { report: MonthlyReport }) {
         <p>{formatKoreanDate(todayISO())}</p>
         <p>작성자: 관리자 (서명)</p>
       </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── 처리 내역 탭 (Task #250) ─────────────────────────
+ * 메모(work_log_entries 단건), 후속조치(alert_actions 처리완료/연기),
+ * 일일 일지(daily_journals 보고서) 를 한 화면에서 시간순(최신순)으로 본다.
+ * 본 탭은 읽기 전용 통합 뷰이며, 원본 화면(메모: 타임라인 탭, 후속조치: 업무관리,
+ * 일지: 일일 탭) 으로 즉시 이동할 수 있다.
+ */
+type ActivityKind = "memo" | "follow_up" | "journal";
+
+interface ActivityRow {
+  id: string;
+  kind: ActivityKind;
+  title: string;
+  subtitle?: string;
+  timestamp: string;
+  href?: string;
+  badge?: string;
+}
+
+const ACTIVITY_FILTERS: { key: "all" | ActivityKind; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "memo", label: "메모" },
+  { key: "follow_up", label: "처리완료" },
+  { key: "journal", label: "일지" },
+];
+
+const ACTIVITY_META: Record<ActivityKind, { label: string; className: string }> = {
+  memo:      { label: "메모",     className: "border-amber-300 text-amber-700" },
+  follow_up: { label: "처리완료", className: "border-blue-300 text-blue-700" },
+  journal:   { label: "일지",     className: "border-emerald-300 text-emerald-700" },
+};
+
+function ActivityTab() {
+  const { call } = useApi();
+  const [filter, setFilter] = useState<"all" | ActivityKind>("all");
+  const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(30);
+
+  const startDate = useMemo(() => addDays(todayISO(), -rangeDays + 1), [rangeDays]);
+
+  const memosQ = useQuery({
+    queryKey: ["activity-memos", startDate],
+    queryFn: () => call<WorkLogEntry[]>(`/work-logs?startDate=${startDate}`),
+  });
+
+  const followUpsQ = useQuery({
+    queryKey: ["activity-followups"],
+    queryFn: () => call<Array<{
+      id: number; alertType: string; relatedEntityType: string;
+      actionType: string; notes: string | null; postponeReason: string | null;
+      completedDate: string | null; createdAt: string;
+    }>>(`/alert-actions`),
+  });
+
+  const journalsQ = useQuery({
+    queryKey: ["activity-journals"],
+    queryFn: () => call<Array<{ id: number; journalDate: string; authorName: string }>>(
+      `/daily-journals?limit=60`,
+    ),
+  });
+
+  const isLoading = memosQ.isLoading || followUpsQ.isLoading || journalsQ.isLoading;
+
+  const rows = useMemo<ActivityRow[]>(() => {
+    const out: ActivityRow[] = [];
+    for (const m of memosQ.data ?? []) {
+      out.push({
+        id: `memo-${m.id}`,
+        kind: "memo",
+        title: m.memo,
+        subtitle: `${CATEGORY_LABEL[m.category]} · ${m.authorName}`,
+        timestamp: m.occurredAt,
+        href: "/work-log",
+      });
+    }
+    for (const a of followUpsQ.data ?? []) {
+      const sinceMs = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+      if (new Date(a.createdAt).getTime() < sinceMs) continue;
+      const action = a.actionType === "postponed" ? "연기" : "처리완료";
+      out.push({
+        id: `action-${a.id}`,
+        kind: "follow_up",
+        title: a.notes ?? a.postponeReason ?? `${a.alertType} ${action}`,
+        subtitle: `${a.alertType} · ${action}`,
+        timestamp: a.createdAt,
+        href: "/tasks",
+        badge: action,
+      });
+    }
+    for (const j of journalsQ.data ?? []) {
+      if (j.journalDate < startDate) continue;
+      out.push({
+        id: `journal-${j.id}`,
+        kind: "journal",
+        title: `${j.journalDate} 일일 업무 보고서`,
+        subtitle: j.authorName ? `작성자: ${j.authorName}` : undefined,
+        timestamp: `${j.journalDate}T00:00:00.000Z`,
+        href: "/work-log?tab=daily",
+      });
+    }
+    out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
+    return filter === "all" ? out : out.filter((r) => r.kind === filter);
+  }, [memosQ.data, followUpsQ.data, journalsQ.data, filter, rangeDays, startDate]);
+
+  return (
+    <div className="space-y-3 pt-3">
+      <p className="text-xs text-muted-foreground">
+        메모·처리완료(후속조치)·일지를 한 곳에서 시간순으로 확인합니다.
+      </p>
+      <div className="flex gap-2 overflow-x-auto">
+        {ACTIVITY_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            data-testid={`activity-filter-${f.key}`}
+            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
+              filter === f.key
+                ? "bg-accent text-accent-foreground border-accent"
+                : "bg-background"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className="ml-auto flex gap-1">
+          {([7, 30, 90] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setRangeDays(d)}
+              data-testid={`activity-range-${d}`}
+              className={`px-2 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+                rangeDays === d
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "bg-background"
+              }`}
+            >
+              최근 {d}일
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Spinner /></div>
+      ) : rows.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            선택한 기간에 처리 내역이 없습니다.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2" data-testid="activity-list">
+          {rows.map((r) => {
+            const meta = ACTIVITY_META[r.kind];
+            const inner = (
+              <Card data-testid={`activity-${r.id}`}>
+                <CardContent className="p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline" className={`text-[10px] ${meta.className}`}>
+                      {meta.label}
+                    </Badge>
+                    {r.badge && (
+                      <Badge variant="outline" className="text-[10px]">{r.badge}</Badge>
+                    )}
+                    <span className="ml-auto">
+                      {formatKoreanDate(r.timestamp.slice(0, 10))}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap break-words line-clamp-3">
+                    {r.title}
+                  </p>
+                  {r.subtitle && (
+                    <p className="text-xs text-muted-foreground truncate">{r.subtitle}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+            return r.href ? (
+              <a
+                key={r.id}
+                href={r.href}
+                onClick={(e) => {
+                  // 같은 페이지(/work-log) 내부 탭 이동은 풀 네비 대신 history pushState 로
+                  // 처리해 부드럽게 전환한다. 상위 페이지의 popstate 핸들러가 ?tab= 을
+                  // 읽어 탭 상태를 동기화한다.
+                  if (r.href?.startsWith("/work-log")) {
+                    e.preventDefault();
+                    const url = new URL(r.href, window.location.origin);
+                    window.history.pushState({}, "", url.pathname + url.search);
+                    window.dispatchEvent(new PopStateEvent("popstate"));
+                  }
+                }}
+                className="block"
+              >
+                {inner}
+              </a>
+            ) : (
+              <div key={r.id}>{inner}</div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

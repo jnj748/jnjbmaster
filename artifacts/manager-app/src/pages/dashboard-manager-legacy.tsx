@@ -859,7 +859,7 @@ export default function Dashboard() {
       {/* [Task #205] 오늘 업무일지 진입점 */}
       <TodayWorkLogEntry />
 
-      {/* 최근문서함 — 대시보드에서는 진입 아이콘만 노출, 본 화면은 /recent-documents */}
+      {/* [Task #250] 문서 산출물(저장/공유/인쇄 가능) 진입 — 본 화면은 /recent-documents */}
       <Link href="/recent-documents">
         <button
           type="button"
@@ -868,7 +868,32 @@ export default function Dashboard() {
         >
           <span className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-accent" />
-            <span className="font-medium text-sm">최근 문서함</span>
+            <span className="flex flex-col">
+              <span className="font-medium text-sm">최근 문서함</span>
+              <span className="text-[11px] text-muted-foreground">
+                기안·견적·공고·일지 보고서·외부 업로드
+              </span>
+            </span>
+          </span>
+          <span className="text-xs text-muted-foreground">열기 →</span>
+        </button>
+      </Link>
+
+      {/* [Task #250] 메모·처리완료·일지 통합 시간순 — /work-log "처리 내역" 탭 */}
+      <Link href="/work-log?tab=activity">
+        <button
+          type="button"
+          data-testid="btn-activity-log"
+          className="w-full flex items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50 transition"
+        >
+          <span className="flex items-center gap-2">
+            <ListChecks className="w-5 h-5 text-accent" />
+            <span className="flex flex-col">
+              <span className="font-medium text-sm">처리 내역</span>
+              <span className="text-[11px] text-muted-foreground">
+                메모·처리완료·일지를 시간순으로
+              </span>
+            </span>
           </span>
           <span className="text-xs text-muted-foreground">열기 →</span>
         </button>
