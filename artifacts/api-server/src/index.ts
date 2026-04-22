@@ -5,6 +5,7 @@ import { db, usersTable, unitsTable, tenantsTable, ownersTable } from "@workspac
 import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
 import { seedTestUsers } from "./seed-test-users";
+import { seedPlatformAdmins } from "./seed-platform-admin";
 import { seedPartnerBm } from "./seed-partner-bm";
 import { seedVendorCategories } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
@@ -122,6 +123,12 @@ app.listen(port, async (err) => {
     await seedTestUsers();
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed test users");
+  }
+
+  try {
+    await seedPlatformAdmins();
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed platform admins");
   }
 
   try {
