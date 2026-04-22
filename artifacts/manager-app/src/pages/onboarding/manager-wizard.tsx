@@ -141,6 +141,9 @@ export default function ManagerWizardPage() {
   // 점검일 입력 상태: stepKey -> { date | "", unknown }
   const [insState, setInsState] = useState<Record<string, { date: string; unknown: boolean }>>({});
 
+  // [Task #227] 관리소장 중복 가입 차단 안내. 주소 검색 직후 사전 점검 결과 또는 서버 409 응답을 화면에 노출한다.
+  const [dupMessage, setDupMessage] = useState<string | null>(null);
+
   // 관리비 OCR 상태
   const [billOcr, setBillOcr] = useState<null | { id: number; billingMonth: string; totalAmount: number; lineItems: Record<string, number> }>(null);
   const [billBusy, setBillBusy] = useState(false);
@@ -218,6 +221,8 @@ export default function ManagerWizardPage() {
       toast({ title: "주소 검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해 주세요." });
       return;
     }
+    // [Task #227] 새 주소를 다시 검색할 때 직전 차단 안내를 초기화한다.
+    setDupMessage(null);
     new window.daum.Postcode({
       oncomplete: async (d) => {
         const next: Partial<BuildingState> = {
@@ -230,6 +235,22 @@ export default function ManagerWizardPage() {
           name: d.buildingName || "",
         };
         setBuilding((p) => ({ ...p, ...next }));
+
+        // [Task #227] 주소 선택 직후 관리소장 중복 가입 사전 점검. 중복이면 안내만 띄우고
+        // 위저드는 다음 단계로 진행하지 않는다(주소 다시 검색 가능).
+        try {
+          const params = new URLSearchParams({ addressJibun: next.addressJibun || "" });
+          const r = await fetch(`${API_BASE}/buildings/check-manager?${params}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j?.exists) {
+            setDupMessage(j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416");
+            setStep("address");
+            return;
+          }
+        } catch {/* 사전 점검 실패는 무시하고 서버단 검증으로 폴백 */}
+
         setStep("loading");
         await runRegisterLookupAndSave(d, next);
       },
@@ -325,8 +346,12 @@ export default function ManagerWizardPage() {
       });
       const saveJson = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok || !saveJson.building?.id) {
-        // 저장 실패 시 info 단계로 진행하지 않는다(이후 점검/완료 단계는 building.id에 의존).
-        toast({ title: saveJson.error || "건물 정보 저장에 실패했습니다. 다시 시도해 주세요.", variant: "destructive" });
+        // [Task #227] 서버 우회 차단(409 매니저 중복) 응답을 동일한 한국어 안내로 화면에 띄운다.
+        if (saveRes.status === 409 && typeof saveJson.error === "string") {
+          setDupMessage(saveJson.error);
+        } else {
+          toast({ title: saveJson.error || "건물 정보 저장에 실패했습니다. 다시 시도해 주세요.", variant: "destructive" });
+        }
         setBuilding((prev) => ({ ...prev, ...merged, id: prev.id }));
         setStep("address");
         return;
@@ -469,6 +494,7 @@ export default function ManagerWizardPage() {
           building={building}
           onSearch={openPostcode}
           onPrev={goPrev}
+          dupMessage={dupMessage}
         />
       )}
 
@@ -703,11 +729,13 @@ function AddressStep({
   building,
   onSearch,
   onPrev,
+  dupMessage,
 }: {
   ready: boolean;
   building: BuildingState;
   onSearch: () => void;
   onPrev: () => void;
+  dupMessage?: string | null;
 }) {
   const has = !!building.addressFull;
   return (
@@ -725,6 +753,17 @@ function AddressStep({
               {building.addressJibun && <div className="text-slate-500 mt-0.5">(지번) {building.addressJibun}</div>}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* [Task #227] 관리소장 중복 가입 차단 안내 */}
+      {dupMessage && (
+        <div
+          role="alert"
+          data-testid="manager-duplicate-notice"
+          className="mt-4 p-3 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-800 leading-relaxed"
+        >
+          {dupMessage}
         </div>
       )}
 

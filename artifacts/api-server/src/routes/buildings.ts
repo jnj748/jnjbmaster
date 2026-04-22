@@ -201,6 +201,83 @@ function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string
   return v;
 }
 
+// [Task #227] 한 건물에 관리소장은 1명만 가입할 수 있다. 위저드/우회 모두를 막기 위해
+// 동일한 지번 주소(또는 동일 building.id)에 이미 다른 관리소장이 묶여 있는지 검사한다.
+const MANAGER_DUPLICATE_MESSAGE =
+  "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416";
+
+function normalizeJibun(s: string | null | undefined): string {
+  return String(s ?? "").trim().replace(/\s+/g, " ");
+}
+
+async function findExistingManagerForAddress(opts: {
+  addressJibun?: string | null;
+  buildingId?: number | null;
+  excludeUserId: number;
+}): Promise<boolean> {
+  const jibun = normalizeJibun(opts.addressJibun);
+  // 1) 동일 building.id에 이미 다른 관리소장 사용자가 있는지
+  if (opts.buildingId) {
+    const rows = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.buildingId, opts.buildingId),
+        eq(usersTable.role, "manager"),
+        eq(usersTable.approvalStatus, "active"),
+      ));
+    if (rows.some(r => r.id !== opts.excludeUserId)) return true;
+  }
+  // 2) 동일 지번 주소를 가진 다른 building 행이 있는 경우, 그쪽에 묶인 매니저가 있는지
+  if (jibun) {
+    const buildings = await db
+      .select({ id: buildingsTable.id })
+      .from(buildingsTable)
+      .where(eq(buildingsTable.addressJibun, jibun));
+    const otherBuildingIds = buildings
+      .map(b => b.id)
+      .filter(bid => !opts.buildingId || bid !== opts.buildingId);
+    if (otherBuildingIds.length > 0) {
+      const rows = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(and(
+          eq(usersTable.role, "manager"),
+          eq(usersTable.approvalStatus, "active"),
+        ));
+      const buildingIdSet = new Set(otherBuildingIds);
+      if (rows.some(r => r.id !== opts.excludeUserId && r.buildingId != null && buildingIdSet.has(r.buildingId))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// [Task #227] 위저드가 주소 선택 직후 빠르게 차단 안내를 띄울 수 있도록 사전 점검 엔드포인트.
+router.get("/buildings/check-manager", async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const addressJibun = typeof req.query.addressJibun === "string" ? req.query.addressJibun : "";
+  const buildingIdRaw = typeof req.query.buildingId === "string" ? req.query.buildingId : "";
+  const buildingId = buildingIdRaw ? parseInt(buildingIdRaw) : null;
+  if (!addressJibun && !buildingId) {
+    res.status(400).json({ error: "addressJibun 또는 buildingId가 필요합니다." });
+    return;
+  }
+  try {
+    const exists = await findExistingManagerForAddress({
+      addressJibun,
+      buildingId: buildingId && Number.isFinite(buildingId) ? buildingId : null,
+      excludeUserId: userId,
+    });
+    res.json({ exists, message: exists ? MANAGER_DUPLICATE_MESSAGE : null });
+  } catch (e) {
+    req.log.error({ err: e }, "Failed to check manager duplicate");
+    res.status(500).json({ error: "중복 검사에 실패했습니다." });
+  }
+});
+
 router.post("/buildings", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -210,6 +287,20 @@ router.post("/buildings", async (req: Request, res: Response) => {
     if (!data.name) {
       res.status(400).json({ error: "건물명은 필수입니다." });
       return;
+    }
+
+    // [Task #227] 관리소장 중복 가입 차단: 동일 지번 주소에 이미 다른 관리소장이 있다면 거절.
+    const requester = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+    if (requester?.role === "manager") {
+      const dup = await findExistingManagerForAddress({
+        addressJibun: typeof data.addressJibun === "string" ? data.addressJibun : null,
+        buildingId: null,
+        excludeUserId: userId,
+      });
+      if (dup) {
+        res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+        return;
+      }
     }
 
     // [Task #218] 첫 건물 등록 여부 판별: 매니저가 처음 건물을 등록하는 경우 시드 대상.
@@ -327,6 +418,20 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
         return;
       }
     }
+    // [Task #227] 주소가 바뀌는 PUT 우회 시도 차단: 새 주소에 다른 매니저가 있으면 거절.
+    if (user.role === "manager") {
+      const nextJibun = typeof data.addressJibun === "string" ? data.addressJibun : (existing?.addressJibun ?? null);
+      const dup = await findExistingManagerForAddress({
+        addressJibun: nextJibun,
+        buildingId: id,
+        excludeUserId: userId,
+      });
+      if (dup) {
+        res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+        return;
+      }
+    }
+
     const updateData = buildBuildingUpdateValues(data);
 
     const [building] = await db.update(buildingsTable).set(updateData).where(eq(buildingsTable.id, id)).returning();
@@ -963,6 +1068,19 @@ router.post("/buildings/:id/lock-address", async (req: Request, res: Response) =
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
   if (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role)) {
     res.status(403).json({ error: "이 건물을 잠글 권한이 없습니다" }); return;
+  }
+  // [Task #227] 주소 잠금 시점에서도 최종 안전장치로 매니저 중복을 검사한다.
+  if (user.role === "manager") {
+    const existing = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
+    const dup = await findExistingManagerForAddress({
+      addressJibun: existing?.addressJibun ?? null,
+      buildingId: id,
+      excludeUserId: userId,
+    });
+    if (dup) {
+      res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+      return;
+    }
   }
   try {
     const [b] = await db.update(buildingsTable).set({ addressLocked: true }).where(eq(buildingsTable.id, id)).returning();
