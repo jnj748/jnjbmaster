@@ -1323,10 +1323,18 @@ const ACTIVITY_META: Record<ActivityKind, { label: string; className: string }> 
   journal:   { label: "일지",     className: "border-emerald-300 text-emerald-700" },
 };
 
+const ACTIVITY_PAGE_SIZE = 20;
+
 function ActivityTab() {
   const { call } = useApi();
   const [filter, setFilter] = useState<"all" | ActivityKind>("all");
   const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(30);
+  const [visibleCount, setVisibleCount] = useState(ACTIVITY_PAGE_SIZE);
+
+  // 필터/기간 변경 시 페이지 초기화.
+  useEffect(() => {
+    setVisibleCount(ACTIVITY_PAGE_SIZE);
+  }, [filter, rangeDays]);
 
   const startDate = useMemo(() => addDays(todayISO(), -rangeDays + 1), [rangeDays]);
 
@@ -1442,7 +1450,10 @@ function ActivityTab() {
         </Card>
       ) : (
         <div className="space-y-2" data-testid="activity-list">
-          {rows.map((r) => {
+          <p className="text-[11px] text-muted-foreground">
+            총 {rows.length}건 중 {Math.min(visibleCount, rows.length)}건 표시
+          </p>
+          {rows.slice(0, visibleCount).map((r) => {
             const meta = ACTIVITY_META[r.kind];
             const inner = (
               <Card data-testid={`activity-${r.id}`}>
@@ -1490,6 +1501,17 @@ function ActivityTab() {
               <div key={r.id}>{inner}</div>
             );
           })}
+          {visibleCount < rows.length && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setVisibleCount((c) => c + ACTIVITY_PAGE_SIZE)}
+              data-testid="activity-load-more"
+            >
+              더 보기 ({rows.length - visibleCount}건 남음)
+            </Button>
+          )}
         </div>
       )}
     </div>

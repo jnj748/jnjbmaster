@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useListDrafts,
@@ -35,8 +35,12 @@ import {
   ImagePlus,
   Loader2,
   X,
+  Eye,
+  Share2,
+  Printer,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { shareDocument } from "@/lib/official-document";
 
 // [Task #250] 최근문서함은 "문서 산출물" 전용으로 정비.
 //   - 포함: 기안(draft), 견적(quote), 공고(notice), 외부 업로드(external),
@@ -289,52 +293,9 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         </Card>
       ) : (
         <div className="space-y-2">
-          {items.map((it) => {
-            const meta = KIND_META[it.kind];
-            const Icon = meta.icon;
-            const inner = (
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate active-elevate-2 transition-colors">
-                <span
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}
-                >
-                  <Icon className="w-4 h-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold text-muted-foreground">
-                      {meta.label}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
-                      저장됨
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      · {formatDate(it.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium truncate">{it.title}</p>
-                  {it.subtitle && (
-                    <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
-                  )}
-                </div>
-                {it.thumbnailUrl && (
-                  <AuthImage
-                    src={it.thumbnailUrl}
-                    alt=""
-                    className="w-10 h-10 rounded object-cover shrink-0"
-                  />
-                )}
-              </div>
-            );
-            return it.href ? (
-              <Link key={it.id} href={it.href} data-testid={`recent-doc-${it.id}`}>
-                {inner}
-              </Link>
-            ) : (
-              <div key={it.id} data-testid={`recent-doc-${it.id}`}>
-                {inner}
-              </div>
-            );
-          })}
+          {items.map((it) => (
+            <DocumentRow key={it.id} item={it} />
+          ))}
         </div>
       )}
 
@@ -484,6 +445,109 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
           </div>
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+// [Task #250] 문서 행: 좌측 라벨/제목 영역 + 우측 즉시 액션 (다시 보기/공유/인쇄).
+//   - 별도 데이터 모델이 없으므로 모든 산출물은 기본 "저장됨" 상태.
+//   - "다시 보기": href 로 내부/외부 미리보기 이동.
+//   - "다시 공유": Web Share API → 클립보드 폴백.
+//   - "다시 인쇄": 미리보기 페이지로 이동 후 사용자가 인쇄(브라우저 인쇄 다이얼로그 트리거 가능 시).
+function DocumentRow({ item }: { item: RecentDoc }) {
+  const meta = KIND_META[item.kind];
+  const Icon = meta.icon;
+  const [, navigate] = useLocation();
+
+  const openPreview = () => {
+    if (!item.href) return;
+    if (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf") || item.href.startsWith("/api/")) {
+      window.open(item.href, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(item.href);
+    }
+  };
+
+  const reshare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const summary = [item.subtitle, formatDate(item.createdAt)].filter(Boolean).join(" · ");
+    await shareDocument({ title: `${meta.label} · ${item.title}`, text: summary });
+  };
+
+  const reprint = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.href && (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf"))) {
+      const w = window.open(item.href, "_blank", "noopener,noreferrer");
+      try { w?.focus(); w?.print?.(); } catch { /* noop */ }
+    } else if (item.href) {
+      navigate(item.href);
+      setTimeout(() => { try { window.print(); } catch { /* noop */ } }, 300);
+    } else {
+      try { window.print(); } catch { /* noop */ }
+    }
+  };
+
+  return (
+    <div
+      className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate transition-colors"
+      data-testid={`recent-doc-${item.id}`}
+    >
+      <span className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}>
+        <Icon className="w-4 h-4" />
+      </span>
+      <button
+        type="button"
+        onClick={openPreview}
+        className="min-w-0 flex-1 text-left"
+        data-testid={`recent-doc-open-${item.id}`}
+      >
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-semibold text-muted-foreground">{meta.label}</span>
+          <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
+            저장됨
+          </Badge>
+          <span className="text-[10px] text-muted-foreground">· {formatDate(item.createdAt)}</span>
+        </div>
+        <p className="text-sm font-medium truncate">{item.title}</p>
+        {item.subtitle && (
+          <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
+        )}
+      </button>
+      {item.thumbnailUrl && (
+        <AuthImage src={item.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+      )}
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={openPreview}
+          aria-label="다시 보기"
+          data-testid={`recent-doc-view-${item.id}`}
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={reshare}
+          aria-label="다시 공유"
+          data-testid={`recent-doc-share-${item.id}`}
+        >
+          <Share2 className="w-4 h-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={reprint}
+          aria-label="다시 인쇄"
+          data-testid={`recent-doc-print-${item.id}`}
+        >
+          <Printer className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
