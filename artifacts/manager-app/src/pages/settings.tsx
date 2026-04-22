@@ -19,6 +19,7 @@ import {
   Coins,
   Link2,
   Unlink,
+  LogOut,
 } from "lucide-react";
 import {
   useListPlatformSettings,
@@ -640,7 +641,7 @@ function SocialAccountsCard() {
 }
 
 function ProfileSettings() {
-  const { token, user, setUser } = useAuth();
+  const { token, user, setUser, logout } = useAuth();
   const { building } = useBuilding();
   const { toast } = useToast();
 
@@ -862,6 +863,23 @@ function ProfileSettings() {
           <Button onClick={handleChangePassword} disabled={changingPassword} variant="outline">
             {changingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
             비밀번호 변경
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 설정 화면 최하단 로그아웃 */}
+      <Card>
+        <CardContent className="pt-6">
+          <Button
+            onClick={() => {
+              if (confirm("로그아웃 하시겠습니까?")) logout();
+            }}
+            variant="outline"
+            className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            로그아웃
           </Button>
         </CardContent>
       </Card>

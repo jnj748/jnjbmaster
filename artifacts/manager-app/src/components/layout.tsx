@@ -554,35 +554,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             })}
           </div>
 
-          <div
-            className="border-t px-4 py-3 bg-background"
-            style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
-          >
-            {user && (
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{user.name}</div>
-                  <div className="text-xs text-muted-foreground">{ROLE_LABELS[user.role as Role] || user.role}</div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {!isPartner && (
-                    <Link href="/settings" onClick={() => setDrawerOpen(false)}>
-                      <button className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center" title="설정">
-                        <Settings className="w-5 h-5" />
-                      </button>
-                    </Link>
-                  )}
-                  <button
-                    onClick={logout}
-                    className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    title="로그아웃"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* 모바일 드로어 하단의 사용자/설정/로그아웃 바는 제거됨.
+              설정 진입은 메뉴 항목, 로그아웃은 설정 화면 최하단으로 이동. */}
         </div>
       )}
 
