@@ -369,39 +369,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {progressPill}
         </div>
       );
+      // [종배치] 시설 그룹도 다른 그룹과 동일한 세로 리스트로 렌더하되,
+      // 그룹 헤더의 진행률 배지와 항목별 신호등 배지는 유지한다.
       return (
         <div key={si}>
           {section.headerHref ? <Link href={section.headerHref}>{header}</Link> : header}
-          <div className="grid grid-cols-4 gap-1 px-2 pb-1">
-            {section.items.map((item) => {
-              const isActive =
-                item.path === "/" ? location === "/" : location.startsWith(item.path);
-              const badge = badgeForPath(item.path);
-              return (
-                <Link key={item.path} href={item.path}>
-                  <div
-                    className={cn(
-                      "relative flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[10px] font-medium transition-colors cursor-pointer min-h-[56px] text-center",
-                      isActive
-                        ? "bg-sidebar-accent text-white"
-                        : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
-                    )}
-                    title={badge?.ariaLabel ?? item.label}
-                  >
-                    <span className="relative inline-flex">
-                      <item.icon className="w-5 h-5 shrink-0" />
-                      <FacilityStatusBadge badge={badge} size="sm" />
-                    </span>
-                    <span
-                      className="block w-full leading-tight overflow-hidden text-ellipsis whitespace-nowrap break-keep"
-                    >
-                      {item.label}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          {section.items.map((item) => {
+            const isActive =
+              item.path === "/" ? location === "/" : location.startsWith(item.path);
+            const badge = badgeForPath(item.path);
+            return (
+              <Link key={item.path} href={item.path}>
+                <div
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                    isActive
+                      ? "bg-sidebar-accent text-white"
+                      : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+                  )}
+                  title={badge?.ariaLabel ?? item.label}
+                >
+                  <span className="relative inline-flex">
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <FacilityStatusBadge badge={badge} size="sm" />
+                  </span>
+                  <span className="truncate">{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       );
     }
@@ -538,7 +534,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     headerInner
                   )
                 )}
-                <div className="grid grid-cols-4 gap-2">
+                {/* [종배치] 모바일 드로어도 세로 리스트로 통일 */}
+                <div className="flex flex-col gap-1">
                   {section.items.map((item) => {
                     const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
                     const badge = badgeForPath(item.path);
@@ -548,17 +545,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           onClick={() => setDrawerOpen(false)}
                           aria-label={badge?.ariaLabel ?? item.label}
                           className={cn(
-                            "w-full min-w-0 flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border transition-colors overflow-hidden",
+                            "w-full min-w-0 flex items-center gap-2.5 py-3 px-3 rounded-lg border transition-colors text-left",
                             isActive
                               ? "bg-accent/10 border-accent text-accent"
                               : "bg-card border-border hover:bg-muted text-foreground"
                           )}
                         >
                           <span className="relative inline-flex">
-                            <item.icon className="w-6 h-6 shrink-0" />
+                            <item.icon className="w-5 h-5 shrink-0" />
                             <FacilityStatusBadge badge={badge} size="md" />
                           </span>
-                          <span className="block w-full text-[10px] font-medium text-center whitespace-nowrap overflow-hidden text-ellipsis px-0.5">
+                          <span className="text-sm font-medium truncate">
                             {item.label}
                           </span>
                         </button>
