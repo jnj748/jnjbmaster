@@ -390,6 +390,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { building } = useBuilding();
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
+  // [Task #221] 본사 관리 업무 템플릿 알림은 서버 측에서 /api/dashboard/alerts
+  // 에 포함되어 내려오므로 별도 fetch 가 필요하지 않다. (single source of truth)
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const { data: analytics } = useGetDashboardAnalytics({ query: { staleTime: 5 * 60 * 1000 } });
   const [showDestructionDialog, setShowDestructionDialog] = useState(false);
@@ -651,17 +653,29 @@ export default function Dashboard() {
     "administrative",
   ]);
   const alertList: DashboardAlert[] = (alerts ?? []) as DashboardAlert[];
-  const legalAlerts = alertList.filter((a) =>
-    a.type === "inspection_due"
-      ? a.inspectionType === "legal" || !a.inspectionType
-      : true,
-  );
-  const proposedAlerts = alertList.filter(
-    (a) =>
-      a.type === "inspection_due" &&
-      !!a.inspectionType &&
-      PROPOSED_INSPECTION_TYPES.has(a.inspectionType),
-  );
+  // [Task #221] 본사 관리 업무 템플릿 알림은 type=task_template_mandatory/
+  // task_template_suggested 로 동일 응답에 포함된다. 필수업무는 법정 점검과
+  // task_template_mandatory 를, 제안업무는 자체점검 계열과 task_template_suggested
+  // 를 같은 섹션에 노출한다.
+  // 필수업무현황 = 법정 점검(inspection_due+legal) + 기존 비점검 알림(세무/
+  // 보증/데이터파기 등) + task_template_mandatory. (제안업무로 분류된
+  // task_template_suggested 와 자체점검 계열만 제외해 회귀를 방지한다.)
+  const legalAlerts = alertList.filter((a) => {
+    if (a.type === "task_template_suggested") return false;
+    if (a.type === "inspection_due") {
+      return a.inspectionType === "legal" || !a.inspectionType;
+    }
+    return true;
+  });
+  const proposedAlerts = alertList.filter((a) => {
+    if (a.type === "task_template_suggested") return true;
+    if (a.type === "inspection_due") {
+      return (
+        !!a.inspectionType && PROPOSED_INSPECTION_TYPES.has(a.inspectionType)
+      );
+    }
+    return false;
+  });
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedDocumentTemplates } from "./routes/seedTemplates";
+import { seedTaskTemplates } from "./seed-task-templates";
 import { db, usersTable, unitsTable, tenantsTable, ownersTable } from "@workspace/db";
 import { sql, eq, and, isNull, isNotNull } from "drizzle-orm";
 import { startScheduler, stopScheduler } from "./scheduler";
@@ -110,6 +111,13 @@ app.listen(port, async (err) => {
     logger.info("Document templates seeded");
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed document templates");
+  }
+
+  try {
+    await seedTaskTemplates();
+    logger.info("Task templates seeded");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed task templates");
   }
 
   try {

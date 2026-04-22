@@ -481,6 +481,13 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin", "hq_executive"],
   },
   {
+    // [Task #221] 플랫폼관리자 전용 — 필수/제안업무 템플릿 일괄 관리.
+    path: "/settings/task-templates",
+    component: lazy(() => import("@/pages/task-templates")),
+    label: "업무 템플릿 관리", icon: ClipboardList, group: "settings",
+    access: ["platform_admin"],
+  },
+  {
     path: "/settings", component: SettingsPage,
     label: "설정", icon: Settings, group: "settings",
     access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],

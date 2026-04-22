@@ -60,6 +60,7 @@ import accountingInitialFilesRouter from "./accountingInitialFiles";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
 import workLogsRouter from "./workLogs";
+import taskTemplatesRouter from "./taskTemplates";
 
 const router: IRouter = Router();
 
@@ -89,6 +90,7 @@ router.use(usersRouter);
 router.use(rfqsRouter);
 router.use(creditsRouter);
 router.use(platformSettingsRouter);
+router.use(taskTemplatesRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");

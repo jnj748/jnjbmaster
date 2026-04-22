@@ -25,7 +25,7 @@ import {
   Car,
   UserCheck,
 } from "lucide-react";
-import { useListMonthlySummaryReports, useListBuildings } from "@workspace/api-client-react";
+import { useListMonthlySummaryReports, useListBuildings, useGetDashboardAlerts } from "@workspace/api-client-react";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "초안", variant: "outline" },
@@ -91,6 +91,19 @@ export default function HqDashboard() {
   const { token } = useAuth();
 
   const { data: buildings = [] } = useListBuildings();
+
+  // [Task #221] 본사 관리 업무 템플릿에서 산출된 알림을 본사 화면에서도 동일하게 노출.
+  const { data: dashboardAlerts = [] } = useGetDashboardAlerts();
+  const templateAlerts = (dashboardAlerts as Array<{
+    id: number;
+    type: string;
+    title: string;
+    message: string;
+    severity: string;
+    dueDate: string | null;
+  }>).filter(
+    (a) => a.type === "task_template_mandatory" || a.type === "task_template_suggested",
+  );
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -189,6 +202,44 @@ export default function HqDashboard() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* [Task #221] 본사 관리 업무 템플릿에서 산출된 알림 (필수+제안) */}
+      {templateAlerts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-destructive" />
+              본사 관리 업무 알림 ({templateAlerts.length}건)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {templateAlerts.slice(0, 8).map((a) => (
+              <div
+                key={a.id}
+                className="flex items-start gap-2 text-sm border rounded p-2"
+                data-testid={`hq-template-alert-${a.id}`}
+              >
+                <Badge
+                  variant={
+                    a.type === "task_template_mandatory" ? "destructive" : "secondary"
+                  }
+                >
+                  {a.type === "task_template_mandatory" ? "필수" : "제안"}
+                </Badge>
+                <div className="flex-1">
+                  <div className="font-medium">{a.title}</div>
+                  <div className="text-muted-foreground text-xs">{a.message}</div>
+                </div>
+                {a.dueDate && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {a.dueDate}
+                  </span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>

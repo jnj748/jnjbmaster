@@ -1,0 +1,656 @@
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
+import { Plus, Pencil, Trash2, History, AlertCircle } from "lucide-react";
+
+interface TaskTemplate {
+  id: number;
+  title: string;
+  description: string | null;
+  category: "mandatory" | "suggested";
+  classification: "legal" | "internal";
+  iconName: string | null;
+  color: string | null;
+  frequencyType: "one_time" | "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+  intervalValue: number | null;
+  fixedMonth: number | null;
+  fixedDay: number | null;
+  startDate: string | null;
+  scopeType: "all" | "building_ids" | "user_ids";
+  scopeValues: string[];
+  priority: number;
+  advanceAlertDays: number;
+  isActive: boolean;
+  metadata: Record<string, unknown>;
+  createdBy: number | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AuditLog {
+  id: number;
+  templateId: number | null;
+  templateTitle: string | null;
+  action: "create" | "update" | "delete" | "toggle";
+  changes: Record<string, unknown>;
+  changedBy: number | null;
+  changedByName: string | null;
+  createdAt: string;
+}
+
+const CATEGORY_LABEL: Record<TaskTemplate["category"], string> = {
+  mandatory: "필수업무",
+  suggested: "제안업무",
+};
+const CLASSIFICATION_LABEL: Record<TaskTemplate["classification"], string> = {
+  legal: "법정",
+  internal: "내부",
+};
+const FREQUENCY_LABEL: Record<TaskTemplate["frequencyType"], string> = {
+  one_time: "1회성",
+  daily: "매일",
+  weekly: "매주",
+  monthly: "매월",
+  quarterly: "분기",
+  semiannual: "반기",
+  annual: "연간",
+};
+const SCOPE_LABEL: Record<TaskTemplate["scopeType"], string> = {
+  all: "전체 건물",
+  building_ids: "특정 건물(ID 목록)",
+  user_ids: "특정 사용자(ID 목록)",
+};
+const ACTION_LABEL: Record<AuditLog["action"], string> = {
+  create: "생성",
+  update: "수정",
+  delete: "삭제",
+  toggle: "활성 토글",
+};
+
+const BASE = import.meta.env.BASE_URL ?? "/";
+const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
+
+function emptyDraft(): Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName"> {
+  return {
+    title: "",
+    description: "",
+    category: "mandatory",
+    classification: "internal",
+    iconName: null,
+    color: null,
+    frequencyType: "annual",
+    intervalValue: null,
+    fixedMonth: null,
+    fixedDay: null,
+    startDate: null,
+    scopeType: "all",
+    scopeValues: [],
+    priority: 50,
+    advanceAlertDays: 7,
+    isActive: true,
+    metadata: {},
+  };
+}
+
+export default function TaskTemplatesPage() {
+  const { token, user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const isAdmin = user?.role === "platform_admin";
+
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState<"all" | "mandatory" | "suggested">("all");
+  const [editing, setEditing] = useState<TaskTemplate | null>(null);
+  const [draft, setDraft] = useState<ReturnType<typeof emptyDraft> | null>(null);
+  const [showAuditFor, setShowAuditFor] = useState<TaskTemplate | null>(null);
+
+  const headers = useMemo(
+    () => ({
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    }),
+    [token],
+  );
+
+  const { data: templates = [], isLoading } = useQuery<TaskTemplate[]>({
+    queryKey: ["task-templates"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/platform/task-templates`, { headers });
+      if (!res.ok) throw new Error("템플릿 목록을 불러올 수 없습니다");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const { data: auditLogs = [] } = useQuery<AuditLog[]>({
+    queryKey: ["task-template-audit", showAuditFor?.id ?? "all"],
+    queryFn: async () => {
+      const url = showAuditFor
+        ? `${API_BASE}/platform/task-templates/${showAuditFor.id}/audit-logs`
+        : `${API_BASE}/platform/task-templates/audit-logs`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error("이력을 불러올 수 없습니다");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (body: ReturnType<typeof emptyDraft>) => {
+      const res = await fetch(`${API_BASE}/platform/task-templates`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "생성 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
+      toast({ title: "템플릿이 생성되었습니다" });
+      setDraft(null);
+      setEditing(null);
+    },
+    onError: (e: Error) => toast({ title: "생성 실패", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, body }: { id: number; body: Partial<TaskTemplate> }) => {
+      const res = await fetch(`${API_BASE}/platform/task-templates/${id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "수정 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
+      toast({ title: "템플릿이 수정되었습니다" });
+      setDraft(null);
+      setEditing(null);
+    },
+    onError: (e: Error) => toast({ title: "수정 실패", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`${API_BASE}/platform/task-templates/${id}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "삭제 실패");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
+      toast({ title: "템플릿이 삭제되었습니다" });
+    },
+    onError: (e: Error) => toast({ title: "삭제 실패", description: e.message, variant: "destructive" }),
+  });
+
+  function startCreate() {
+    setEditing(null);
+    setDraft(emptyDraft());
+  }
+
+  function startEdit(t: TaskTemplate) {
+    setEditing(t);
+    setDraft({
+      title: t.title,
+      description: t.description ?? "",
+      category: t.category,
+      classification: t.classification,
+      iconName: t.iconName,
+      color: t.color,
+      frequencyType: t.frequencyType,
+      intervalValue: t.intervalValue,
+      fixedMonth: t.fixedMonth,
+      fixedDay: t.fixedDay,
+      startDate: t.startDate,
+      scopeType: t.scopeType,
+      scopeValues: t.scopeValues,
+      priority: t.priority,
+      advanceAlertDays: t.advanceAlertDays,
+      isActive: t.isActive,
+      metadata: t.metadata,
+    });
+  }
+
+  function handleSave() {
+    if (!draft) return;
+    if (!draft.title.trim()) {
+      toast({ title: "제목을 입력해주세요", variant: "destructive" });
+      return;
+    }
+    const body = { ...draft, description: draft.description || null };
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, body });
+    } else {
+      createMutation.mutate(body);
+    }
+  }
+
+  function handleToggleActive(t: TaskTemplate) {
+    updateMutation.mutate({ id: t.id, body: { isActive: !t.isActive } });
+  }
+
+  function handleDelete(t: TaskTemplate) {
+    if (!confirm(`"${t.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+    deleteMutation.mutate(t.id);
+  }
+
+  const filtered = useMemo(() => {
+    return templates.filter((t) => {
+      if (filterCategory !== "all" && t.category !== filterCategory) return false;
+      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [templates, search, filterCategory]);
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
+          이 화면은 플랫폼 관리자 전용입니다.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">업무 템플릿 관리</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            관리소장 대시보드의 필수업무·제안업무 항목을 본사가 일괄 관리합니다.
+          </p>
+        </div>
+        <Button onClick={startCreate} data-testid="btn-create-template">
+          <Plus className="w-4 h-4 mr-1" />새 템플릿
+        </Button>
+      </div>
+
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">템플릿 목록</TabsTrigger>
+          <TabsTrigger value="audit">변경 이력</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="space-y-3 mt-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="제목으로 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="max-w-sm"
+            />
+            <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 분류</SelectItem>
+                <SelectItem value="mandatory">필수업무</SelectItem>
+                <SelectItem value="suggested">제안업무</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">불러오는 중...</p>
+          ) : filtered.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                등록된 템플릿이 없습니다.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((t) => (
+                <Card key={t.id} data-testid={`template-row-${t.id}`}>
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={t.category === "mandatory" ? "default" : "secondary"}>
+                          {CATEGORY_LABEL[t.category]}
+                        </Badge>
+                        <Badge variant="outline">{CLASSIFICATION_LABEL[t.classification]}</Badge>
+                        <Badge variant="outline">{FREQUENCY_LABEL[t.frequencyType]}</Badge>
+                        <Badge variant="outline">{SCOPE_LABEL[t.scopeType]}</Badge>
+                        <span className="text-xs text-muted-foreground">우선순위 {t.priority}</span>
+                        <span className="text-xs text-muted-foreground">사전알림 D-{t.advanceAlertDays}</span>
+                        {!t.isActive && <Badge variant="destructive">비활성</Badge>}
+                      </div>
+                      <h3 className="text-sm font-semibold mt-1">{t.title}</h3>
+                      {t.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Switch
+                        checked={t.isActive}
+                        onCheckedChange={() => handleToggleActive(t)}
+                        aria-label="활성화"
+                      />
+                      <Button size="sm" variant="ghost" onClick={() => setShowAuditFor(t)}>
+                        <History className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(t)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(t)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">최근 변경 이력 (최대 200건)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {auditLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">기록된 변경 이력이 없습니다.</p>
+              ) : (
+                auditLogs.map((log) => (
+                  <div key={log.id} className="border rounded p-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{ACTION_LABEL[log.action]}</Badge>
+                      <span className="font-medium">{log.templateTitle ?? `#${log.templateId}`}</span>
+                      <span className="text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleString("ko-KR")}
+                      </span>
+                      <span className="text-muted-foreground">· {log.changedByName ?? "시스템"}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? "템플릿 수정" : "새 업무 템플릿"}</DialogTitle>
+            <DialogDescription>
+              관리소장·본부관리자 대시보드에 표시될 업무 항목을 정의합니다.
+            </DialogDescription>
+          </DialogHeader>
+          {draft && (
+            <div className="space-y-3">
+              <div>
+                <Label>제목</Label>
+                <Input
+                  value={draft.title}
+                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  data-testid="input-template-title"
+                />
+              </div>
+              <div>
+                <Label>설명</Label>
+                <Textarea
+                  value={draft.description ?? ""}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>분류</Label>
+                  <Select
+                    value={draft.category}
+                    onValueChange={(v) => setDraft({ ...draft, category: v as TaskTemplate["category"] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mandatory">필수업무</SelectItem>
+                      <SelectItem value="suggested">제안업무</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>구분</Label>
+                  <Select
+                    value={draft.classification}
+                    onValueChange={(v) => setDraft({ ...draft, classification: v as TaskTemplate["classification"] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="legal">법정</SelectItem>
+                      <SelectItem value="internal">내부</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>주기</Label>
+                  <Select
+                    value={draft.frequencyType}
+                    onValueChange={(v) => setDraft({ ...draft, frequencyType: v as TaskTemplate["frequencyType"] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(FREQUENCY_LABEL).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>주기 간격(반복 횟수, 선택)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="예: 매2주 → 2"
+                    value={draft.intervalValue ?? ""}
+                    onChange={(e) => setDraft({ ...draft, intervalValue: e.target.value ? Number(e.target.value) : null })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>지정 월(선택)</Label>
+                  <Input
+                    type="number" min={1} max={12}
+                    value={draft.fixedMonth ?? ""}
+                    onChange={(e) => setDraft({ ...draft, fixedMonth: e.target.value ? Number(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <Label>지정 일(선택)</Label>
+                  <Input
+                    type="number" min={1} max={31}
+                    value={draft.fixedDay ?? ""}
+                    onChange={(e) => setDraft({ ...draft, fixedDay: e.target.value ? Number(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <Label>시작일(선택)</Label>
+                  <Input
+                    type="date"
+                    value={draft.startDate ?? ""}
+                    onChange={(e) => setDraft({ ...draft, startDate: e.target.value || null })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>적용 범위</Label>
+                  <Select
+                    value={draft.scopeType}
+                    onValueChange={(v) => setDraft({ ...draft, scopeType: v as TaskTemplate["scopeType"] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(SCOPE_LABEL).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>적용 대상(쉼표 구분, 선택)</Label>
+                  <Input
+                    placeholder="예: residential,office"
+                    value={draft.scopeValues.join(",")}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        scopeValues: e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    disabled={draft.scopeType === "all"}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>우선순위 (0-100)</Label>
+                  <Input
+                    type="number" min={0} max={100}
+                    value={draft.priority}
+                    onChange={(e) => setDraft({ ...draft, priority: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <Label>사전 알림 (D-)</Label>
+                  <Input
+                    type="number" min={0} max={365}
+                    value={draft.advanceAlertDays}
+                    onChange={(e) => setDraft({ ...draft, advanceAlertDays: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <Switch
+                    checked={draft.isActive}
+                    onCheckedChange={(c) => setDraft({ ...draft, isActive: c })}
+                  />
+                  <Label>활성</Label>
+                </div>
+              </div>
+              {/* [Task #221] 대시보드 알림에 노출될 아이콘/색상 (선택). */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>아이콘 이름 (선택)</Label>
+                  <Input
+                    placeholder="예: shield, calendar, alert-triangle"
+                    value={draft.iconName ?? ""}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        iconName: e.target.value.trim() === "" ? null : e.target.value,
+                      })
+                    }
+                    data-testid="input-template-icon"
+                  />
+                </div>
+                <div>
+                  <Label>색상 (선택)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="color"
+                      className="h-9 w-14 p-1"
+                      value={draft.color ?? "#3b82f6"}
+                      onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+                    />
+                    <Input
+                      placeholder="#3b82f6"
+                      value={draft.color ?? ""}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          color: e.target.value.trim() === "" ? null : e.target.value,
+                        })
+                      }
+                      data-testid="input-template-color"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDraft(null)}>취소</Button>
+            <Button onClick={handleSave} data-testid="btn-save-template">저장</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!showAuditFor} onOpenChange={(o) => !o && setShowAuditFor(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>변경 이력: {showAuditFor?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {auditLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">기록이 없습니다.</p>
+            ) : (
+              auditLogs.map((log) => (
+                <div key={log.id} className="border rounded p-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{ACTION_LABEL[log.action]}</Badge>
+                    <span className="text-muted-foreground">
+                      {new Date(log.createdAt).toLocaleString("ko-KR")}
+                    </span>
+                    <span className="text-muted-foreground">· {log.changedByName ?? "시스템"}</span>
+                  </div>
+                  <pre className="text-[10px] mt-1 overflow-x-auto bg-muted/30 p-1 rounded">
+                    {JSON.stringify(log.changes, null, 2)}
+                  </pre>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

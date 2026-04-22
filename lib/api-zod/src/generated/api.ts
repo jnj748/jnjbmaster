@@ -2075,6 +2075,8 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "warranty_expiry",
     "vendor_recommendation",
     "data_destruction",
+    "task_template_mandatory",
+    "task_template_suggested",
   ]),
   title: zod.string(),
   message: zod.string(),

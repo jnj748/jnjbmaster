@@ -57,3 +57,4 @@ export * from "./accountingInitialFiles";
 export * from "./facilityStaffSignupRequests";
 export * from "./buildingMonthlyRecords";
 export * from "./workLogs";
+export * from "./taskTemplates";
