@@ -218,10 +218,10 @@ export default function Login() {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-slate-900">
-                {isRegister ? "회원가입" : "로그인"}
+                {isRegister ? "회원가입" : "관리의달인"}
               </h1>
               <p className="text-sm text-slate-500">
-                {isBuilding ? "현장 관리" : isHq ? "본사 총괄" : "파트너사"} 포털
+                건물관리 AI자동화 솔루션
               </p>
             </div>
           </div>
