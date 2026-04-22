@@ -65,6 +65,9 @@ export default function PlatformKnowledgeDocsPage() {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [filter, setFilter] = useState("");
+  // 서버 PII 감지 → 사용자가 "확인했습니다" 동의 후 confirmPii=true 로 재전송.
+  const [piiWarning, setPiiWarning] = useState<string[] | null>(null);
+  const [piiConfirmed, setPiiConfirmed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
@@ -87,12 +90,16 @@ export default function PlatformKnowledgeDocsPage() {
   function startNew() {
     setError("");
     setInfo("");
+    setPiiWarning(null);
+    setPiiConfirmed(false);
     setDraft(emptyDraft());
   }
 
   function startEdit(d: PlatformKnowledgeDoc) {
     setError("");
     setInfo("");
+    setPiiWarning(null);
+    setPiiConfirmed(false);
     setDraft({
       id: d.id,
       title: d.title,
@@ -171,6 +178,8 @@ export default function PlatformKnowledgeDocsPage() {
       effectiveDate: draft.effectiveDate || null,
       version: draft.version || null,
       isActive: draft.isActive,
+      // 사용자가 PII 경고를 보고 명시적으로 "확인" 토글을 켰을 때만 우회.
+      confirmPii: piiConfirmed,
     };
     try {
       if (draft.id === null) {
@@ -181,8 +190,19 @@ export default function PlatformKnowledgeDocsPage() {
         setInfo("자료가 수정되었습니다");
       }
       setDraft(null);
+      setPiiWarning(null);
+      setPiiConfirmed(false);
       refresh();
     } catch (e) {
+      // 서버에서 PII 패턴을 감지했을 경우 사용자에게 명시적 확인을 요구한다.
+      const anyErr = e as { response?: { data?: { piiTypes?: string[]; requiresConfirmation?: boolean; error?: string } }; message?: string };
+      const data = anyErr?.response?.data;
+      if (data?.requiresConfirmation && Array.isArray(data.piiTypes)) {
+        setPiiWarning(data.piiTypes);
+        setPiiConfirmed(false);
+        setError(data.error ?? "본문에 개인정보로 보이는 패턴이 포함되어 있습니다");
+        return;
+      }
       setError(e instanceof Error ? e.message : "저장 중 오류가 발생했습니다");
     }
   }
@@ -200,9 +220,11 @@ export default function PlatformKnowledgeDocsPage() {
 
   function downloadHref(objectPath: string) {
     if (!objectPath) return "#";
-    // storage 라우트는 `${API_BASE}/storage${objectPath}` 패턴으로 서빙된다.
-    const path = objectPath.startsWith("/") ? objectPath : `/${objectPath}`;
-    return `${API_BASE}/storage${path}`;
+    // 공통 자료 첨부는 private ACL 이므로 인증 필요 라우트(/storage/objects/...)로
+    // 서빙되며, 다운로드 링크는 토큰을 쿼리스트링으로 전달한다.
+    const trimmed = objectPath.replace(/^\/objects\//, "");
+    const t = encodeURIComponent(token ?? "");
+    return `${API_BASE}/storage/objects/${trimmed}?token=${t}`;
   }
 
   return (
@@ -370,6 +392,25 @@ export default function PlatformKnowledgeDocsPage() {
               />
               활성 (체크 해제 시 AI 비서 컨텍스트에서 제외됩니다)
             </label>
+
+            {piiWarning && piiWarning.length > 0 && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm space-y-2">
+                <div className="font-medium">
+                  ⚠ 본문에서 다음 패턴이 감지되었습니다: {piiWarning.join(", ")}
+                </div>
+                <p className="text-xs">
+                  공통 자료는 모든 관리소장의 AI 비서가 참고하므로 개인정보·금융정보가 포함되지 않도록 점검해 주세요.
+                  의도적으로 포함하셔야 한다면 아래 항목에 동의 후 다시 저장해 주세요.
+                </p>
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={piiConfirmed}
+                    onCheckedChange={(c) => setPiiConfirmed(c === true)}
+                  />
+                  <span className="text-xs">개인정보 포함 가능성을 확인했으며, 그대로 등록합니다</span>
+                </label>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2 border-t">
               <Button onClick={save} disabled={create.isPending || update.isPending}>
