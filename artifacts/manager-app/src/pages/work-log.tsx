@@ -20,7 +20,7 @@ import {
   CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
 } from "lucide-react";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
-import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
+import { FollowUpSuggestionDialog, isFollowUpDismissed } from "@/components/follow-up-suggestion-dialog";
 
 type Category = "facility" | "bill" | "complaint";
 type Status = "ok" | "issue";
@@ -710,13 +710,17 @@ function DailyJournalWizard({
         .map((s) => `${s.label}: ${form[`${s.key}Memo` as const] ?? ""}`)
         .join("\n");
       const detection = detectFollowUp(combined);
-      if (detection) {
-        setFollowUpSource({
-          type: "daily_journal",
-          id: saved?.id ?? date,
-          title: `${date} 일일업무일지 — ${detection.snippet.slice(0, 40)}`,
-          occurredAt: date,
-        });
+      const nextSource: FollowUpSource | null = detection
+        ? {
+            type: "daily_journal",
+            id: saved?.id ?? date,
+            title: `${date} 일일업무일지 — ${detection.snippet.slice(0, 40)}`,
+            occurredAt: date,
+          }
+        : null;
+      // [후속조치 반복 방지] 이미 "다음에 하기"로 한 번 닫은 출처면 다시 띄우지 않는다.
+      if (detection && nextSource && !isFollowUpDismissed(nextSource)) {
+        setFollowUpSource(nextSource);
         setFollowUpDetection(detection);
         setFollowUpOpen(true);
       } else {
@@ -852,12 +856,15 @@ function WeeklyTab() {
     ].join("\n");
     const detection = detectFollowUp(memos);
     if (!detection) return;
-    setFollowUpSource({
+    const nextSource: FollowUpSource = {
       type: "weekly_journal",
       id: report.weekStart,
       title: `${report.weekStart}~${report.weekEnd} 주간보고 — ${detection.snippet.slice(0, 30)}`,
       occurredAt: report.weekStart,
-    });
+    };
+    // [후속조치 반복 방지] 같은 주의 보고서는 한 번 "다음에 하기"하면 더 묻지 않는다.
+    if (isFollowUpDismissed(nextSource)) return;
+    setFollowUpSource(nextSource);
     setFollowUpDetection(detection);
     setFollowUpOpen(true);
   }
