@@ -29,6 +29,7 @@ const FacilityWizardPage = lazy(() => import("@/pages/onboarding/facility-wizard
 const PartnerWizardPage = lazy(() => import("@/pages/onboarding/partner-wizard"));
 const FacilityPendingPage = lazy(() => import("@/pages/onboarding/facility-pending"));
 const DocumentPreviewPage = lazy(() => import("@/pages/document-preview"));
+const RecentDocumentsPage = lazy(() => import("@/pages/recent-documents"));
 // 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
 const LayoutCheck = import.meta.env.DEV
   ? lazy(() => import("@/pages/layout-check"))
@@ -173,6 +174,7 @@ function AuthenticatedRoutes() {
                 <Route path="/onboarding/partner" component={PartnerWizardPage} />
                 <Route path="/facility-approvals" component={lazy(() => import("@/pages/facility-approvals"))} />
                 <Route path="/documents/preview" component={DocumentPreviewPage} />
+                <Route path="/recent-documents" component={RecentDocumentsPage} />
                 <Route path="/" component={DashboardComponent} />
                 {routes.map((r) => (
                   <Route key={r.path} path={r.path} component={r.component} />

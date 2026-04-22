@@ -13,11 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { PhotoUploadField } from "@/components/photo-upload-field";
-import { elementToPdfBlob, safeFilename } from "@/lib/document-export";
+import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
 import { shareDocument, formatKoreanDate } from "@/lib/official-document";
 import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
-  CheckCircle2, AlertTriangle, Image as ImageIcon, FileText, Share2, Printer, NotebookPen,
+  CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
 } from "lucide-react";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
@@ -440,8 +440,8 @@ function ReportActionRow({
         data-testid={`${testidPrefix}-save-image`}
         className="w-full"
       >
-        <FileText className="w-4 h-4 mr-1" />
-        {saving ? "저장 중..." : "PDF로 저장"}
+        <ImageDown className="w-4 h-4 mr-1" />
+        {saving ? "저장 중..." : "이미지로 저장"}
       </Button>
       <Button
         variant="outline"
@@ -474,20 +474,6 @@ async function withReadyDoc<T>(
   return await fn();
 }
 
-/** 일/주/월 일지 공통 PDF 다운로드 헬퍼. */
-async function downloadElementAsPdf(element: HTMLElement, baseFilename: string): Promise<void> {
-  const blob = await elementToPdfBlob(element);
-  const filename = baseFilename.endsWith(".pdf") ? baseFilename : `${baseFilename}.pdf`;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 function DailyReportPreview({ report }: { report: DailyReport }) {
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
@@ -501,9 +487,9 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPdf(ref.current, safeFilename(`일일일지_${report.date}`));
+        await downloadElementAsPng(ref.current, safeFilename(`일일일지_${report.date}`));
       });
-      toast({ title: "PDF 저장 완료" });
+      toast({ title: "이미지 저장 완료" });
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -882,9 +868,9 @@ function WeeklyTab() {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPdf(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`));
+        await downloadElementAsPng(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`));
       });
-      toast({ title: "PDF 저장 완료" });
+      toast({ title: "이미지 저장 완료" });
       maybeOfferFollowUp(data);
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
@@ -1094,9 +1080,9 @@ function MonthlyTab() {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPdf(ref.current, safeFilename(`월간일지_${data.month}`));
+        await downloadElementAsPng(ref.current, safeFilename(`월간일지_${data.month}`));
       });
-      toast({ title: "PDF 저장 완료" });
+      toast({ title: "이미지 저장 완료" });
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
     } finally {

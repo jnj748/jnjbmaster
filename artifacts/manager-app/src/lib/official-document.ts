@@ -71,7 +71,8 @@ export async function shareDocument(opts: {
   url?: string;
 }): Promise<"shared" | "copied" | "failed"> {
   const nav = typeof navigator !== "undefined" ? navigator : null;
-  const url = opts.url ?? (typeof window !== "undefined" ? window.location.href : undefined);
+  // 받는 사람이 외부에서 링크에 접근할 수 없으므로, 호출자가 명시적으로 url 을 전달한 경우에만 포함한다.
+  const url = opts.url;
   if (nav && typeof (nav as Navigator & { share?: (data: ShareData) => Promise<void> }).share === "function") {
     try {
       await (nav as Navigator & { share: (data: ShareData) => Promise<void> }).share({

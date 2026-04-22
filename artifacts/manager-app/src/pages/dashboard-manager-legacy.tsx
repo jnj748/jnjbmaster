@@ -65,9 +65,9 @@ import {
   Building2,
   Trash2,
   NotebookPen,
+  FolderOpen,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
-import RecentDocumentsWidget from "@/components/dashboard-widgets/widgets/recent-documents-widget";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
@@ -691,8 +691,20 @@ export default function Dashboard() {
       {/* [Task #205] 오늘 업무일지 진입점 */}
       <TodayWorkLogEntry />
 
-      {/* 최근문서함 — 메모/일지/후속조치/기안/견적/공고/외부 통합 최근 문서 */}
-      <RecentDocumentsWidget buildingId={building?.id ?? null} />
+      {/* 최근문서함 — 대시보드에서는 진입 아이콘만 노출, 본 화면은 /recent-documents */}
+      <Link href="/recent-documents">
+        <button
+          type="button"
+          data-testid="btn-recent-documents"
+          className="w-full flex items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3 text-left hover:bg-muted/50 transition"
+        >
+          <span className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-accent" />
+            <span className="font-medium text-sm">최근 문서함</span>
+          </span>
+          <span className="text-xs text-muted-foreground">열기 →</span>
+        </button>
+      </Link>
 
       {/* [Task #184] 상단에 있던 4-카드 그리드를 제안업무현황 아래로 이동 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
