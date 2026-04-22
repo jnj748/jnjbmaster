@@ -312,7 +312,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
             {items.map((e) => {
               const Icon = CATEGORY_ICON[e.category];
               return (
-                <Card key={e.id} data-testid={`entry-${e.id}`}>
+                <Card key={e.id} id={`entry-${e.id}`} data-testid={`entry-${e.id}`}>
                   <CardContent className="p-3 flex gap-3">
                     <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
                       <Icon className="w-4 h-4 text-accent" />
