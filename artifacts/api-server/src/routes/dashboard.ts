@@ -839,7 +839,6 @@ const SEASONAL_MAINTENANCE_DATA = [
   { month: 2, title: "봄맞이 외벽 균열 사전 조사", category: "defect_diagnosis", description: "동절기 이후 외벽 균열, 타일 탈락 여부 사전 점검", priority: "normal", rfqCategory: "defect_diagnosis" },
   { month: 3, title: "옥상 방수층 상태 점검", category: "waterproofing", description: "우기 대비 옥상 방수층 균열·파손 점검, 드레인 청소", priority: "high", rfqCategory: "waterproofing" },
   { month: 4, title: "봄맞이 환경정비·라인마킹", category: "maintenance_repair", description: "주차장 라인마킹, 화단 정비, 외부 도장 보수, 놀이터 안전 점검", priority: "high", rfqCategory: "maintenance_repair" },
-  { month: 4, title: "외벽 도장 보수공사", category: "maintenance_repair", description: "동절기 손상된 외벽 도장 보수, 타일 교체", priority: "normal", rfqCategory: "maintenance_repair" },
   { month: 5, title: "우기 전 방수 사전점검", category: "waterproofing", description: "옥상·외벽·지하층 방수 상태 사전 점검 및 보수 계획 수립", priority: "high", rfqCategory: "waterproofing" },
   { month: 6, title: "우기 대비 방수 긴급점검", category: "waterproofing", description: "장마 대비 옥상·지하주차장 방수 상태 긴급 점검, 배수구 정비", priority: "high", rfqCategory: "waterproofing" },
   { month: 6, title: "우기 대비 지하 침수 방지", category: "waterproofing", description: "지하주차장 누수 점검, 배수펌프 작동 확인, 방수 보수", priority: "high", rfqCategory: "waterproofing" },
@@ -853,8 +852,23 @@ const SEASONAL_MAINTENANCE_DATA = [
   { month: 12, title: "연말 시설물 종합 점검", category: "building_maintenance", description: "연간 시설물 종합 점검, 차년도 영선 계획 수립", priority: "normal", rfqCategory: "building_maintenance" },
 ];
 
+const SEASONAL_MAINTENANCE_REMOVED = [
+  { month: 4, title: "외벽 도장 보수공사" },
+];
+
 router.get("/dashboard/seasonal-suggestions", async (req, res): Promise<void> => {
   const monthParam = req.query.month ? parseInt(req.query.month as string) : new Date().getMonth() + 1;
+
+  for (const removed of SEASONAL_MAINTENANCE_REMOVED) {
+    if (removed.month === monthParam) {
+      await db.delete(seasonalMaintenancePresetsTable).where(
+        and(
+          eq(seasonalMaintenancePresetsTable.month, removed.month),
+          eq(seasonalMaintenancePresetsTable.title, removed.title),
+        ),
+      );
+    }
+  }
 
   let presets = await db.select().from(seasonalMaintenancePresetsTable)
     .where(eq(seasonalMaintenancePresetsTable.month, monthParam));
