@@ -426,6 +426,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/work-reports", component: WorkReportsPage,
     label: "작업 검수", icon: ClipboardCheck, group: "marketplace",
     access: ["manager", "platform_admin"],
+    // [관리소장 메뉴 숨김] 작업 검수는 플랫폼 관리자 사이드바에만 노출.
+    sideMenu: ["platform_admin"],
   },
   {
     path: "/vendors", component: Vendors,
