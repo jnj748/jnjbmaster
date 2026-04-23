@@ -16,7 +16,11 @@ export const taskTemplateFrequencyTypes = [
   "one_time",
   "daily",
   "weekly",
+  // [Task #302] 격주(2주 1회). weekdays 에 단일 요일, startDate 에 기준일을 저장.
+  "biweekly",
   "monthly",
+  // [Task #302] 매월 N째 X요일. nthWeek(1~5, -1=마지막) + nthWeekday(0~6) 사용.
+  "monthly_nth_weekday",
   "quarterly",
   "semiannual",
   "annual",
@@ -89,6 +93,11 @@ export const taskTemplatesTable = pgTable("task_templates", {
   weekdays: jsonb("weekdays").$type<number[]>(),
   dayOfMonth: integer("day_of_month"),
   yearInterval: integer("year_interval"),
+  // [Task #302] monthly_nth_weekday 보조 입력값.
+  //   nthWeek: 1~5 (첫째~다섯째), -1 = 마지막 주
+  //   nthWeekday: 0(일)~6(토)
+  nthWeek: integer("nth_week"),
+  nthWeekday: integer("nth_weekday"),
   scopeType: text("scope_type").notNull().default("all"),
   scopeValues: jsonb("scope_values").$type<string[]>().notNull().default([]),
   // [#297] 표제부 주용도 기준 적용 건물(다중). 빈 배열 = 전체.

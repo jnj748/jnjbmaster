@@ -46,6 +46,11 @@ const CreateBody = z.object({
   weekdays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
   dayOfMonth: z.number().int().min(1).max(31).nullable().optional(),
   yearInterval: z.number().int().min(1).max(50).nullable().optional(),
+  // [Task #302] monthly_nth_weekday 보조 입력값.
+  //   nthWeek: 1~5 (첫째~다섯째), -1 = 마지막 주
+  //   nthWeekday: 0(일)~6(토)
+  nthWeek: z.union([z.literal(-1), z.number().int().min(1).max(5)]).nullable().optional(),
+  nthWeekday: z.number().int().min(0).max(6).nullable().optional(),
   scopeType: scopeEnum.optional(),
   scopeValues: z.array(z.string()).optional(),
   // [#297] 표제부 주용도 기준 적용 건물(다중 선택). 빈 배열 = 전체.
@@ -140,6 +145,8 @@ router.post(
         weekdays: d.weekdays ?? null,
         dayOfMonth: d.dayOfMonth ?? null,
         yearInterval: d.yearInterval ?? null,
+        nthWeek: d.nthWeek ?? null,
+        nthWeekday: d.nthWeekday ?? null,
         scopeType: d.scopeType ?? "all",
         scopeValues: d.scopeValues ?? [],
         buildingUsageScopes: d.buildingUsageScopes ?? [],

@@ -32,7 +32,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Plus, Pencil, Trash2, AlertCircle, Check, X } from "lucide-react";
 
-type Frequency = "one_time" | "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+type Frequency =
+  | "one_time"
+  | "daily"
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "monthly_nth_weekday"
+  | "quarterly"
+  | "semiannual"
+  | "annual";
 type Category = "mandatory" | "suggested";
 type TaskType = "facility" | "fee" | "accounting" | "security" | "cleaning" | "etc";
 type BuildingUsage =
@@ -64,6 +73,8 @@ interface TaskTemplate {
   weekdays: number[] | null;
   dayOfMonth: number | null;
   yearInterval: number | null;
+  nthWeek: number | null;
+  nthWeekday: number | null;
   scopeType: "all" | "building_ids" | "user_ids";
   scopeValues: string[];
   buildingUsageScopes: BuildingUsage[];
@@ -96,11 +107,27 @@ const FREQUENCY_LABEL: Record<Frequency, string> = {
   one_time: "1회성",
   daily: "매일",
   weekly: "매주",
+  biweekly: "격주(2주마다)",
   monthly: "매월",
+  monthly_nth_weekday: "매월 N째 요일",
   quarterly: "분기",
   semiannual: "반기",
   annual: "연간",
 };
+
+// [Task #302] N째 주 라벨. -1 = 마지막 주.
+const NTH_WEEK_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "첫째" },
+  { value: 2, label: "둘째" },
+  { value: 3, label: "셋째" },
+  { value: 4, label: "넷째" },
+  { value: 5, label: "다섯째" },
+  { value: -1, label: "마지막" },
+];
+
+function nthWeekLabel(n: number): string {
+  return NTH_WEEK_OPTIONS.find((o) => o.value === n)?.label ?? `${n}째`;
+}
 
 const BUILDING_USAGES: BuildingUsage[] = [
   "공동주택",
@@ -155,6 +182,8 @@ function emptyDraft(defaultRole?: string): DraftType {
     weekdays: null,
     dayOfMonth: null,
     yearInterval: 1,
+    nthWeek: null,
+    nthWeekday: null,
     scopeType: "all",
     scopeValues: [],
     buildingUsageScopes: [],
@@ -176,9 +205,27 @@ function formatFrequency(t: TaskTemplate): string {
       const labels = wds.map((d) => WEEKDAY_LABELS[d] ?? "?").join(",");
       return `매주(${labels})`;
     }
+    case "biweekly": {
+      const wd = t.weekdays && t.weekdays.length > 0 ? t.weekdays[0] : null;
+      const wdLabel = wd != null ? `(${WEEKDAY_LABELS[wd]})` : "";
+      let anchor = "";
+      if (t.startDate) {
+        const d = new Date(t.startDate);
+        if (!Number.isNaN(d.getTime())) {
+          anchor = ` · 기준 ${d.getMonth() + 1}/${d.getDate()}`;
+        }
+      }
+      return `격주${wdLabel}${anchor}`;
+    }
     case "monthly": {
       const day = t.dayOfMonth ?? t.fixedDay;
       return day ? `매월 ${day}일` : "매월";
+    }
+    case "monthly_nth_weekday": {
+      if (t.nthWeek != null && t.nthWeekday != null) {
+        return `매월 ${nthWeekLabel(t.nthWeek)} ${WEEKDAY_LABELS[t.nthWeekday]}요일`;
+      }
+      return "매월 N째 요일";
     }
     case "annual": {
       const yr = t.yearInterval ?? 1;
@@ -314,6 +361,8 @@ export default function TaskTemplatesPage() {
       weekdays: t.weekdays,
       dayOfMonth: t.dayOfMonth ?? t.fixedDay ?? null,
       yearInterval: t.yearInterval ?? (t.frequencyType === "annual" ? 1 : null),
+      nthWeek: t.nthWeek ?? null,
+      nthWeekday: t.nthWeekday ?? null,
       scopeType: t.scopeType,
       scopeValues: t.scopeValues,
       buildingUsageScopes: t.buildingUsageScopes ?? [],
@@ -343,6 +392,24 @@ export default function TaskTemplatesPage() {
     if (draft.frequencyType === "annual" && (!draft.yearInterval || draft.yearInterval < 1)) {
       toast({ title: "몇 년마다 반복할지 입력해 주세요", variant: "destructive" });
       return;
+    }
+    // [Task #302] biweekly: 단일 요일 + 기준일 필수
+    if (draft.frequencyType === "biweekly") {
+      if (!draft.weekdays || draft.weekdays.length === 0) {
+        toast({ title: "격주 반복 요일을 선택해 주세요", variant: "destructive" });
+        return;
+      }
+      if (!draft.startDate) {
+        toast({ title: "격주 기준일을 입력해 주세요", variant: "destructive" });
+        return;
+      }
+    }
+    // [Task #302] monthly_nth_weekday: nthWeek + nthWeekday 필수
+    if (draft.frequencyType === "monthly_nth_weekday") {
+      if (draft.nthWeek == null || draft.nthWeekday == null) {
+        toast({ title: "N째 주와 요일을 선택해 주세요", variant: "destructive" });
+        return;
+      }
     }
     const body: DraftType = { ...draft, description: draft.description || null };
     if (editing) {
@@ -376,14 +443,54 @@ export default function TaskTemplatesPage() {
 
   function handleFrequencyChange(next: Frequency) {
     if (!draft) return;
+    let nextWeekdays: number[] | null = null;
+    let nextStartDate = draft.startDate;
+    if (next === "weekly") {
+      nextWeekdays = draft.weekdays ?? [];
+    } else if (next === "biweekly") {
+      // [Task #302] biweekly 는 startDate 가 캐노니컬 anchor.
+      //   기본 startDate = 오늘, weekdays = [today.getDay()] 로 항상 동기.
+      const start = draft.startDate ?? new Date().toISOString().slice(0, 10);
+      nextStartDate = start;
+      const startDay = new Date(start).getDay();
+      nextWeekdays = [startDay];
+    }
     setDraft({
       ...draft,
       frequencyType: next,
-      // 반복주기를 바꾸면 보조 입력값을 안전한 디폴트로 리셋.
-      weekdays: next === "weekly" ? draft.weekdays ?? [] : null,
+      weekdays: nextWeekdays,
       dayOfMonth: next === "monthly" ? draft.dayOfMonth ?? 1 : null,
       yearInterval: next === "annual" ? draft.yearInterval ?? 1 : null,
+      nthWeek: next === "monthly_nth_weekday" ? draft.nthWeek ?? 1 : null,
+      nthWeekday: next === "monthly_nth_weekday" ? draft.nthWeekday ?? 1 : null,
+      startDate: nextStartDate,
     });
+  }
+
+  // [Task #302] biweekly 의 weekday<>startDate 동기화 헬퍼.
+  //   - weekday 토글: startDate 를 그 요일에 가장 가까운 미래 일자로 스냅.
+  //   - startDate 변경: weekdays 를 [startDate.getDay()] 로 보정.
+  function setBiweeklyWeekday(idx: number) {
+    if (!draft) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cand = new Date(today);
+    cand.setDate(cand.getDate() + ((idx - cand.getDay() + 7) % 7));
+    const iso = cand.toISOString().slice(0, 10);
+    setDraft({ ...draft, weekdays: [idx], startDate: iso });
+  }
+  function setBiweeklyStartDate(iso: string) {
+    if (!draft) return;
+    if (!iso) {
+      setDraft({ ...draft, startDate: null });
+      return;
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      setDraft({ ...draft, startDate: iso });
+      return;
+    }
+    setDraft({ ...draft, startDate: iso, weekdays: [d.getDay()] });
   }
 
   const filtered = useMemo(() => {
@@ -584,6 +691,41 @@ export default function TaskTemplatesPage() {
                               </div>
                             </div>
                           )}
+                          {draft.frequencyType === "biweekly" && (
+                            <>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">요일</span>
+                                <div className="flex gap-1 h-8 items-center">
+                                  {WEEKDAY_LABELS.map((label, idx) => {
+                                    const checked = (draft.weekdays?.[0] ?? -1) === idx;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={idx}
+                                        onClick={() => setBiweeklyWeekday(idx)}
+                                        className={`text-[11px] w-6 h-6 rounded border ${
+                                          checked
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "bg-white border-slate-300"
+                                        }`}
+                                      >
+                                        {label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">기준일</span>
+                                <Input
+                                  type="date"
+                                  className="h-8 w-36 text-xs"
+                                  value={draft.startDate ?? ""}
+                                  onChange={(e) => setBiweeklyStartDate(e.target.value)}
+                                />
+                              </div>
+                            </>
+                          )}
                           {draft.frequencyType === "monthly" && (
                             <div className="flex flex-col">
                               <span className="text-[10px] text-muted-foreground">며칠</span>
@@ -599,6 +741,46 @@ export default function TaskTemplatesPage() {
                                 }
                               />
                             </div>
+                          )}
+                          {draft.frequencyType === "monthly_nth_weekday" && (
+                            <>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">N째</span>
+                                <Select
+                                  value={String(draft.nthWeek ?? 1)}
+                                  onValueChange={(v) => setDraft({ ...draft, nthWeek: Number(v) })}
+                                >
+                                  <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {NTH_WEEK_OPTIONS.map((o) => (
+                                      <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">요일</span>
+                                <div className="flex gap-1 h-8 items-center">
+                                  {WEEKDAY_LABELS.map((label, idx) => {
+                                    const checked = (draft.nthWeekday ?? -1) === idx;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={idx}
+                                        onClick={() => setDraft({ ...draft, nthWeekday: idx })}
+                                        className={`text-[11px] w-6 h-6 rounded border ${
+                                          checked
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "bg-white border-slate-300"
+                                        }`}
+                                      >
+                                        {label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </>
                           )}
                           {draft.frequencyType === "annual" && (
                             <div className="flex flex-col">
@@ -904,6 +1086,38 @@ export default function TaskTemplatesPage() {
                   </div>
                 )}
 
+                {draft.frequencyType === "biweekly" && (
+                  <div>
+                    <Label>요일 / 기준일</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5" data-testid="frequency-biweekly">
+                      {WEEKDAY_LABELS.map((label, idx) => {
+                        const checked = (draft.weekdays?.[0] ?? -1) === idx;
+                        return (
+                          <button
+                            type="button"
+                            key={idx}
+                            onClick={() => setBiweeklyWeekday(idx)}
+                            className={`text-xs px-2.5 py-1 rounded border ${
+                              checked
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-white border-slate-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Input
+                      type="date"
+                      className="mt-2"
+                      value={draft.startDate ?? ""}
+                      onChange={(e) => setBiweeklyStartDate(e.target.value)}
+                      data-testid="input-biweekly-start"
+                    />
+                  </div>
+                )}
+
                 {draft.frequencyType === "monthly" && (
                   <div>
                     <Label>며칠</Label>
@@ -921,6 +1135,44 @@ export default function TaskTemplatesPage() {
                       data-testid="input-day-of-month"
                       placeholder="1~31"
                     />
+                  </div>
+                )}
+
+                {draft.frequencyType === "monthly_nth_weekday" && (
+                  <div>
+                    <Label>N째 주 / 요일</Label>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Select
+                        value={String(draft.nthWeek ?? 1)}
+                        onValueChange={(v) => setDraft({ ...draft, nthWeek: Number(v) })}
+                      >
+                        <SelectTrigger className="w-28" data-testid="select-nth-week"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {NTH_WEEK_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex flex-wrap gap-1.5" data-testid="frequency-nth-weekday">
+                        {WEEKDAY_LABELS.map((label, idx) => {
+                          const checked = (draft.nthWeekday ?? -1) === idx;
+                          return (
+                            <button
+                              type="button"
+                              key={idx}
+                              onClick={() => setDraft({ ...draft, nthWeekday: idx })}
+                              className={`text-xs px-2.5 py-1 rounded border ${
+                                checked
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-white border-slate-300"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
 

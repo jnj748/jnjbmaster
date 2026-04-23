@@ -24,6 +24,8 @@ function tpl(overrides: Partial<TaskTemplate>): TaskTemplate {
     weekdays: null,
     dayOfMonth: null,
     yearInterval: null,
+    nthWeek: null,
+    nthWeekday: null,
     scopeType: "all",
     scopeValues: [],
     buildingUsageScopes: [],
@@ -62,6 +64,81 @@ describe("computeNextDueDate", () => {
     const d = computeNextDueDate(t, new Date(2026, 3, 22));
     assert.equal(d?.getDay(), 5);
     assert.equal(d?.getDate(), 24);
+  });
+
+  // [Task #302]
+  it("biweekly with weekday=1 (Mon) and startDate jumps in 14-day steps", () => {
+    // 2026-04-06 (월) anchor; today=2026-04-23 (목) → next due = 2026-05-04 (월).
+    const t = tpl({
+      frequencyType: "biweekly",
+      weekdays: [1],
+      startDate: "2026-04-06",
+    });
+    const d = computeNextDueDate(t, new Date(2026, 3, 23));
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 4);
+    assert.equal(d?.getDate(), 4);
+    assert.equal(d?.getDay(), 1);
+  });
+
+  // [Task #302]
+  it("monthly_nth_weekday: 1st Monday of month rolls to next month after passing", () => {
+    // 2026-04 의 첫째 월요일은 4/6. today=4/23 이므로 다음달(2026-05) 첫째 월요일=5/4.
+    const t = tpl({
+      frequencyType: "monthly_nth_weekday",
+      nthWeek: 1,
+      nthWeekday: 1,
+    });
+    const d = computeNextDueDate(t, new Date(2026, 3, 23));
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 4);
+    assert.equal(d?.getDate(), 4);
+  });
+
+  // [Task #302]
+  it("monthly_nth_weekday: skips months without 5th occurrence of weekday", () => {
+    // 2026-02 (28일) 의 5번째 일요일은 없음. 2026-03 의 5번째 일요일=3/29.
+    const t = tpl({
+      frequencyType: "monthly_nth_weekday",
+      nthWeek: 5,
+      nthWeekday: 0,
+    });
+    const d = computeNextDueDate(t, new Date(2026, 1, 1));
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 2);
+    assert.equal(d?.getDate(), 29);
+    assert.equal(d?.getDay(), 0);
+  });
+
+  // [Task #302] biweekly 는 startDate 가 캐노니컬 anchor: weekdays 와 어긋나도
+  //   계산은 startDate 에서 14일 단위로만 진행한다.
+  it("biweekly anchors to startDate exactly (weekdays metadata is ignored for math)", () => {
+    // startDate=2026-04-08 (수). today=2026-04-23 → 2026-04-22 anchor+14 → 2026-04-22? 실제: 4/8+14=4/22, 4/22<4/23 → +14 = 5/6.
+    const t = tpl({
+      frequencyType: "biweekly",
+      weekdays: [1], // 월(불일치) — 무시되어야 함
+      startDate: "2026-04-08",
+    });
+    const d = computeNextDueDate(t, new Date(2026, 3, 23));
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 4);
+    assert.equal(d?.getDate(), 6);
+    assert.equal(d?.getDay(), 3);
+  });
+
+  // [Task #302]
+  it("monthly_nth_weekday: last Friday of current month works correctly", () => {
+    // 2026-04 의 마지막 금요일은 4/24. today=4/20 → 4/24.
+    const t = tpl({
+      frequencyType: "monthly_nth_weekday",
+      nthWeek: -1,
+      nthWeekday: 5,
+    });
+    const d = computeNextDueDate(t, new Date(2026, 3, 20));
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 3);
+    assert.equal(d?.getDate(), 24);
+    assert.equal(d?.getDay(), 5);
   });
 
   it("annual with yearInterval=2 walks forward by 24 months", () => {
