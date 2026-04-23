@@ -156,6 +156,30 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
   thirtyDaysFromNow.setDate(new Date().getDate() + 30);
   const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
 
+  // [Bugfix] 매니저/회계/시설기사는 본인 건물 데이터만 보여야 한다.
+  //   기존에는 inspections/tasks/tax/tenants/owners/warranties 모두
+  //   buildingId 필터 없이 전체를 끌어와 다른 건물의 (테스트업무) 항목까지
+  //   필수/제안업무현황에 노출되었다(과다 생성처럼 보이는 원인).
+  //   platform_admin / hq_executive 는 전체 가시성을 유지한다.
+  const reqUserId = req.user?.userId ?? null;
+  const reqRole = req.user?.role ?? null;
+  const isGlobalRole = reqRole === "platform_admin" || reqRole === "hq_executive";
+  let scopedBuildingId: number | null = null;
+  if (reqUserId && reqRole && !isGlobalRole) {
+    const [u] = await db
+      .select({ buildingId: usersTable.buildingId })
+      .from(usersTable)
+      .where(eq(usersTable.id, reqUserId));
+    scopedBuildingId = u?.buildingId ?? null;
+  }
+  const restrictByBuilding = !isGlobalRole && scopedBuildingId !== null;
+  // [Security] 비-관리자(매니저/회계/시설기사 등)인데 소속 buildingId 가
+  //   미할당이면 다른 건물 데이터가 새는 것을 방지하기 위해 빈 응답을 반환한다.
+  if (!isGlobalRole && scopedBuildingId === null) {
+    res.json([]);
+    return;
+  }
+
   const alerts: Array<{
     id: number;
     type: string;
@@ -192,7 +216,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     .where(
       and(
         lte(inspectionsTable.nextDueDate, futureStr),
-        gte(inspectionsTable.nextDueDate, today)
+        gte(inspectionsTable.nextDueDate, today),
+        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
       )
     );
 
@@ -236,7 +261,12 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
   const overdueInspections = await db
     .select()
     .from(inspectionsTable)
-    .where(lt(inspectionsTable.nextDueDate, today));
+    .where(
+      and(
+        lt(inspectionsTable.nextDueDate, today),
+        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
+      )
+    );
 
   for (const inspection of overdueInspections) {
     const action = actionMap.get(`inspection_due:${inspection.id}`);
@@ -433,7 +463,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     .where(
       and(
         lte(buildingWarrantiesTable.expiryDate, sixtyStr2),
-        gte(buildingWarrantiesTable.expiryDate, today)
+        gte(buildingWarrantiesTable.expiryDate, today),
+        ...(restrictByBuilding ? [eq(buildingWarrantiesTable.buildingId, scopedBuildingId!)] : []),
       )
     );
 
