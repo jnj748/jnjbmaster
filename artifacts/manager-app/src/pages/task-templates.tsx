@@ -69,7 +69,7 @@ interface AuditLog {
 }
 
 const CATEGORY_LABEL: Record<TaskTemplate["category"], string> = {
-  mandatory: "필수업무",
+  mandatory: "법정업무",
   suggested: "제안업무",
 };
 const CLASSIFICATION_LABEL: Record<TaskTemplate["classification"], string> = {
@@ -96,6 +96,29 @@ const ACTION_LABEL: Record<AuditLog["action"], string> = {
   delete: "삭제",
   toggle: "활성 토글",
 };
+
+// [Task #287] 변경 이력의 raw JSON에 노출되는 카테고리/분류 코드 값을
+//   사용자 친화적인 한글 라벨로 치환해 표시한다(원본 데이터는 보존).
+function humanizeAuditChanges(changes: Record<string, unknown>): Record<string, unknown> {
+  const replaceCodes = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(replaceCodes);
+    if (value && typeof value === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        if (k === "category" && (v === "mandatory" || v === "suggested")) {
+          out[k] = CATEGORY_LABEL[v as TaskTemplate["category"]];
+        } else if (k === "classification" && (v === "legal" || v === "internal")) {
+          out[k] = CLASSIFICATION_LABEL[v as TaskTemplate["classification"]];
+        } else {
+          out[k] = replaceCodes(v);
+        }
+      }
+      return out;
+    }
+    return value;
+  };
+  return replaceCodes(changes) as Record<string, unknown>;
+}
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -143,7 +166,8 @@ export default function TaskTemplatesPage() {
   const isAdmin = user?.role === "platform_admin";
 
   const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState<"all" | "mandatory" | "suggested">("all");
+  // [Task #287] 법정업무/제안업무를 두 섹션 탭으로 분리. "전체 보기" 옵션도 함께 제공.
+  const [filterCategory, setFilterCategory] = useState<"all" | "mandatory" | "suggested">("mandatory");
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [draft, setDraft] = useState<ReturnType<typeof emptyDraft> | null>(null);
   const [showAuditFor, setShowAuditFor] = useState<TaskTemplate | null>(null);
@@ -246,7 +270,11 @@ export default function TaskTemplatesPage() {
 
   function startCreate() {
     setEditing(null);
-    setDraft(emptyDraft(_roleFromUrl || undefined));
+    const base = emptyDraft(_roleFromUrl || undefined);
+    // [Task #287] 현재 활성화된 섹션(법정/제안)이 기본 카테고리로 채워지도록.
+    //   "전체 보기" 상태에서 진입하면 법정업무를 기본값으로 둔다.
+    base.category = filterCategory === "suggested" ? "suggested" : "mandatory";
+    setDraft(base);
   }
 
   function startEdit(t: TaskTemplate) {
@@ -341,7 +369,7 @@ export default function TaskTemplatesPage() {
             })()}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            관리소장 대시보드의 필수업무·제안업무 항목을 본사가 일괄 관리합니다.
+            관리소장 대시보드의 법정업무·제안업무 항목을 본사가 일괄 관리합니다.
           </p>
           {(() => {
             // [Task #283] 업무 템플릿은 '전역 공통 리소스'로 명세 확정.
@@ -377,6 +405,22 @@ export default function TaskTemplatesPage() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-3 mt-4">
+          {/* [Task #287] 법정업무/제안업무 두 섹션 + 전체 보기 탭. 검색·정렬 상태는 공유. */}
+          <Tabs
+            value={filterCategory}
+            onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}
+          >
+            <TabsList>
+              <TabsTrigger value="mandatory" data-testid="tab-category-mandatory">
+                {CATEGORY_LABEL.mandatory}
+              </TabsTrigger>
+              <TabsTrigger value="suggested" data-testid="tab-category-suggested">
+                {CATEGORY_LABEL.suggested}
+              </TabsTrigger>
+              <TabsTrigger value="all" data-testid="tab-category-all">전체 보기</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="flex gap-2">
             <Input
               placeholder="제목으로 검색"
@@ -384,16 +428,6 @@ export default function TaskTemplatesPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
-            <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체 분류</SelectItem>
-                <SelectItem value="mandatory">필수업무</SelectItem>
-                <SelectItem value="suggested">제안업무</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {isLoading ? (
@@ -405,16 +439,23 @@ export default function TaskTemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {filtered.map((t) => (
+            (() => {
+              // [Task #287] 단일 카테고리 탭에서는 평면 목록, "전체 보기"에서는
+              //   법정업무/제안업무 두 그룹 헤더로 분리해 표시한다.
+              const renderRow = (t: TaskTemplate) => (
                 <Card key={t.id} data-testid={`template-row-${t.id}`}>
                   <CardContent className="p-4 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={t.category === "mandatory" ? "default" : "secondary"}>
+                        <Badge
+                          variant={t.category === "mandatory" ? "default" : "secondary"}
+                          data-testid={`badge-category-${t.id}`}
+                        >
                           {CATEGORY_LABEL[t.category]}
                         </Badge>
-                        <Badge variant="outline">{CLASSIFICATION_LABEL[t.classification]}</Badge>
+                        <Badge variant="outline" title="법정 의무 여부에 따른 분류">
+                          분류: {CLASSIFICATION_LABEL[t.classification]}
+                        </Badge>
                         <Badge variant="outline">{FREQUENCY_LABEL[t.frequencyType]}</Badge>
                         <Badge variant="outline">{SCOPE_LABEL[t.scopeType]}</Badge>
                         <span className="text-xs text-muted-foreground">우선순위 {t.priority}</span>
@@ -444,8 +485,40 @@ export default function TaskTemplatesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+              );
+
+              if (filterCategory !== "all") {
+                return <div className="space-y-2">{filtered.map(renderRow)}</div>;
+              }
+
+              const groups: { key: TaskTemplate["category"]; items: TaskTemplate[] }[] = [
+                { key: "mandatory", items: filtered.filter((t) => t.category === "mandatory") },
+                { key: "suggested", items: filtered.filter((t) => t.category === "suggested") },
+              ];
+              return (
+                <div className="space-y-6">
+                  {groups.map((g) => (
+                    <section key={g.key} data-testid={`group-${g.key}`}>
+                      <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                        <Badge variant={g.key === "mandatory" ? "default" : "secondary"}>
+                          {CATEGORY_LABEL[g.key]}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {g.items.length}건
+                        </span>
+                      </h2>
+                      {g.items.length === 0 ? (
+                        <p className="text-xs text-muted-foreground pl-1">
+                          해당 카테고리의 템플릿이 없습니다.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">{g.items.map(renderRow)}</div>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              );
+            })()
           )}
         </TabsContent>
 
@@ -502,30 +575,32 @@ export default function TaskTemplatesPage() {
                   rows={2}
                 />
               </div>
+              {/* [Task #287] 카테고리(법정업무/제안업무)와 분류(법정/내부)는 별개 개념.
+                  라벨 문구로 의미를 명확히 구분한다. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>분류</Label>
+                  <Label>카테고리 (법정업무 / 제안업무)</Label>
                   <Select
                     value={draft.category}
                     onValueChange={(v) => setDraft({ ...draft, category: v as TaskTemplate["category"] })}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-category"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mandatory">필수업무</SelectItem>
-                      <SelectItem value="suggested">제안업무</SelectItem>
+                      <SelectItem value="mandatory">{CATEGORY_LABEL.mandatory}</SelectItem>
+                      <SelectItem value="suggested">{CATEGORY_LABEL.suggested}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>구분</Label>
+                  <Label>분류 (법정 / 내부)</Label>
                   <Select
                     value={draft.classification}
                     onValueChange={(v) => setDraft({ ...draft, classification: v as TaskTemplate["classification"] })}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="legal">법정</SelectItem>
-                      <SelectItem value="internal">내부</SelectItem>
+                      <SelectItem value="legal">{CLASSIFICATION_LABEL.legal}</SelectItem>
+                      <SelectItem value="internal">{CLASSIFICATION_LABEL.internal}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -738,7 +813,7 @@ export default function TaskTemplatesPage() {
                     <span className="text-muted-foreground">· {log.changedByName ?? "시스템"}</span>
                   </div>
                   <pre className="text-[10px] mt-1 overflow-x-auto bg-muted/30 p-1 rounded">
-                    {JSON.stringify(log.changes, null, 2)}
+                    {JSON.stringify(humanizeAuditChanges(log.changes), null, 2)}
                   </pre>
                 </div>
               ))
