@@ -19,6 +19,10 @@ export async function seedTaskTemplates(): Promise<void> {
   type SeedRow = typeof taskTemplatesTable.$inferInsert;
 
   const FACILITY: string[] = ["manager", "facility_staff"];
+  // [Task #304] 하자담보 만료 anchored 알림은 본부장(hq_executive)도 관할
+  //   빌딩의 만료 시점을 직접 모니터링하고 처리완료/연기 액션을 수행해야 하므로
+  //   targetRoles 에 hq_executive 를 포함시킨다.
+  const FACILITY_WITH_HQ: string[] = ["manager", "facility_staff", "hq_executive"];
   // [Task #303] 세무·회계 항목은 회계 담당자에게만 노출 (spec: target=accountant).
   const ACCOUNTING: string[] = ["accountant"];
   const MANAGER_ONLY: string[] = ["manager"];
@@ -242,28 +246,28 @@ export async function seedTaskTemplates(): Promise<void> {
       description: "사용승인일 + 2년 마감공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 2,
-      targetRoles: FACILITY, priority: 90, advanceAlertDays: 90,
+      targetRoles: FACILITY_WITH_HQ, priority: 90, advanceAlertDays: 90,
     },
     {
       title: "하자담보 만료 점검 — 설비(3년)",
       description: "사용승인일 + 3년 설비공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 3,
-      targetRoles: FACILITY, priority: 92, advanceAlertDays: 120,
+      targetRoles: FACILITY_WITH_HQ, priority: 92, advanceAlertDays: 120,
     },
     {
       title: "하자담보 만료 점검 — 방수(5년)",
       description: "사용승인일 + 5년 방수공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 5,
-      targetRoles: FACILITY, priority: 93, advanceAlertDays: 150,
+      targetRoles: FACILITY_WITH_HQ, priority: 93, advanceAlertDays: 150,
     },
     {
       title: "하자담보 만료 점검 — 구조체(10년)",
       description: "사용승인일 + 10년 구조체 하자담보 책임 만료. 만료 전 점검·청구 검토.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 10,
-      targetRoles: FACILITY, priority: 95, advanceAlertDays: 180,
+      targetRoles: FACILITY_WITH_HQ, priority: 95, advanceAlertDays: 180,
     },
   ];
 

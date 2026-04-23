@@ -10,11 +10,13 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+// [Task #304] GET 과 POST 는 권한이 다르므로 router.use 로 일괄 적용하지 않고
+//   각 라우트에 개별 가드를 둔다. router.use 미들웨어가 먼저 실행되면 POST 의
+//   확장된 권한이 무력화되기 때문이다.
 // GET 은 기존과 동일하게 관리자급(manager / platform_admin)만 조회 가능.
 // 비관리자 역할이 추가될 경우 row-level scoping(userId / buildingId)이 필요하므로
 // 현재 단계에서는 GET 권한을 확장하지 않는다.
-router.use("/alert-actions", requireRole("manager", "platform_admin"));
-router.get("/alert-actions", async (req, res): Promise<void> => {
+router.get("/alert-actions", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const params = ListAlertActionsQueryParams.safeParse(req.query);
   const conditions = [];
 
