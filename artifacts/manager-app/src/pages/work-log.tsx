@@ -218,12 +218,16 @@ export default function WorkLogPage() {
             weekly·monthly·activity)를 그대로 유지하되, 사용자에게 보이는 라벨만 바꾼다.
             순서: 금일기록(=timeline) → 일보 → 주보(자동) → 월보(자동) → 모든기록(=activity).
         */}
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="timeline" data-testid="tab-timeline">금일기록</TabsTrigger>
-          <TabsTrigger value="daily" data-testid="tab-daily">일보</TabsTrigger>
-          <TabsTrigger value="weekly" data-testid="tab-weekly">주보(자동)</TabsTrigger>
-          <TabsTrigger value="monthly" data-testid="tab-monthly">월보(자동)</TabsTrigger>
-          <TabsTrigger value="activity" data-testid="tab-activity">모든기록</TabsTrigger>
+        {/* [Hotfix] 좁은 모바일 폭에서도 5개 탭이 동일한 가로 폭/높이로
+            보이도록 h-auto + 균일한 padding/text-size 를 강제한다.
+            기존 h-9 고정 + 활성 탭의 shadow 결합이 "선택된 탭만 커 보이는"
+            착시를 유발했음. */}
+        <TabsList className="grid grid-cols-5 w-full h-auto p-1 gap-1">
+          <TabsTrigger value="timeline" data-testid="tab-timeline" className="text-[11px] px-1 py-1.5 h-8">금일기록</TabsTrigger>
+          <TabsTrigger value="daily" data-testid="tab-daily" className="text-[11px] px-1 py-1.5 h-8">일보</TabsTrigger>
+          <TabsTrigger value="weekly" data-testid="tab-weekly" className="text-[11px] px-1 py-1.5 h-8">주보(자동)</TabsTrigger>
+          <TabsTrigger value="monthly" data-testid="tab-monthly" className="text-[11px] px-1 py-1.5 h-8">월보(자동)</TabsTrigger>
+          <TabsTrigger value="activity" data-testid="tab-activity" className="text-[11px] px-1 py-1.5 h-8">모든기록</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline">
           <TimelineTab onGoDaily={() => { setAutoOpenDailyWizard(true); setTab("daily"); }} />
@@ -1387,13 +1391,6 @@ interface ActivityRow {
   badge?: string;
 }
 
-const ACTIVITY_FILTERS: { key: "all" | ActivityKind; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "memo", label: "메모" },
-  { key: "follow_up", label: "처리완료" },
-  { key: "journal", label: "일지" },
-];
-
 const ACTIVITY_META: Record<ActivityKind, { label: string; className: string }> = {
   memo:      { label: "메모",     className: "border-amber-300 text-amber-700" },
   follow_up: { label: "처리완료", className: "border-blue-300 text-blue-700" },
@@ -1404,10 +1401,22 @@ const ACTIVITY_PAGE_SIZE = 20;
 
 function ActivityTab() {
   const { call } = useApi();
-  const [filter, setFilter] = useState<"all" | ActivityKind>("all");
-  const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(30);
+  // [Hotfix] 사용자 요청: 분류 필터(전체/메모/처리완료/일지) 제거.
+  // 모든 종류를 한 화면에 시간순으로 보여주고 기간 필터만 노출한다.
+  // rangeDays = 7 / 30 / 90 + "custom" (기간검색 — startDate/endDate 직접 지정).
+  type RangeMode = 7 | 30 | 90 | "custom";
+  const [rangeMode, setRangeMode] = useState<RangeMode>(30);
+  const [customStart, setCustomStart] = useState<string>(addDays(todayISO(), -29));
+  const [customEnd, setCustomEnd] = useState<string>(todayISO());
 
-  const startDate = useMemo(() => addDays(todayISO(), -rangeDays + 1), [rangeDays]);
+  const startDate = useMemo(
+    () => (rangeMode === "custom" ? customStart : addDays(todayISO(), -rangeMode + 1)),
+    [rangeMode, customStart],
+  );
+  const endDate = useMemo(
+    () => (rangeMode === "custom" ? customEnd : todayISO()),
+    [rangeMode, customEnd],
+  );
 
   const memosQ = useQuery({
     queryKey: ["activity-memos", startDate],
@@ -1435,7 +1444,13 @@ function ActivityTab() {
 
   const rows = useMemo<ActivityRow[]>(() => {
     const out: ActivityRow[] = [];
+    // 시간 범위 = [startDate 00:00, endDate 24:00) — KST 기준 inclusive.
+    const startMs = new Date(`${startDate}T00:00:00+09:00`).getTime();
+    const endMs = new Date(`${endDate}T00:00:00+09:00`).getTime() + 24 * 60 * 60 * 1000;
+
     for (const m of memosQ.data ?? []) {
+      const t = new Date(m.occurredAt).getTime();
+      if (t < startMs || t >= endMs) continue;
       out.push({
         id: `memo-${m.id}`,
         kind: "memo",
@@ -1447,8 +1462,8 @@ function ActivityTab() {
       });
     }
     for (const a of followUpsQ.data ?? []) {
-      const sinceMs = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
-      if (new Date(a.createdAt).getTime() < sinceMs) continue;
+      const t = new Date(a.createdAt).getTime();
+      if (t < startMs || t >= endMs) continue;
       const action = a.actionType === "postponed" ? "연기" : "처리완료";
       out.push({
         id: `action-${a.id}`,
@@ -1461,7 +1476,7 @@ function ActivityTab() {
       });
     }
     for (const j of journalsQ.data ?? []) {
-      if (j.journalDate < startDate) continue;
+      if (j.journalDate < startDate || j.journalDate > endDate) continue;
       out.push({
         id: `journal-${j.id}`,
         kind: "journal",
@@ -1473,46 +1488,65 @@ function ActivityTab() {
       });
     }
     out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
-    return filter === "all" ? out : out.filter((r) => r.kind === filter);
-  }, [memosQ.data, followUpsQ.data, journalsQ.data, filter, rangeDays, startDate]);
+    return out;
+  }, [memosQ.data, followUpsQ.data, journalsQ.data, startDate, endDate]);
 
   return (
     <div className="space-y-3 pt-3">
       <p className="text-xs text-muted-foreground">
         메모·처리완료(후속조치)·일지를 한 곳에서 시간순으로 확인합니다.
       </p>
-      <div className="flex gap-2 overflow-x-auto">
-        {ACTIVITY_FILTERS.map((f) => (
+      {/* [Hotfix] 분류 필터 제거 — 모든 종류를 시간순으로 한 번에 보여주고
+          기간만 선택할 수 있다. 빠른 선택(최근 7/30/90일) + 기간검색(직접 지정). */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        {([7, 30, 90] as const).map((d) => (
           <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            data-testid={`activity-filter-${f.key}`}
-            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
-              filter === f.key
+            key={d}
+            onClick={() => setRangeMode(d)}
+            data-testid={`activity-range-${d}`}
+            className={`px-3 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+              rangeMode === d
                 ? "bg-accent text-accent-foreground border-accent"
                 : "bg-background"
             }`}
           >
-            {f.label}
+            최근 {d}일
           </button>
         ))}
-        <div className="ml-auto flex gap-1">
-          {([7, 30, 90] as const).map((d) => (
-            <button
-              key={d}
-              onClick={() => setRangeDays(d)}
-              data-testid={`activity-range-${d}`}
-              className={`px-2 py-1 rounded-full text-[11px] whitespace-nowrap border ${
-                rangeDays === d
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "bg-background"
-              }`}
-            >
-              최근 {d}일
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setRangeMode("custom")}
+          data-testid="activity-range-custom"
+          className={`px-3 py-1 rounded-full text-[11px] whitespace-nowrap border ${
+            rangeMode === "custom"
+              ? "bg-accent text-accent-foreground border-accent"
+              : "bg-background"
+          }`}
+        >
+          기간검색
+        </button>
       </div>
+      {rangeMode === "custom" && (
+        <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="activity-range-custom-inputs">
+          <Input
+            type="date"
+            value={customStart}
+            max={customEnd}
+            onChange={(e) => setCustomStart(e.target.value)}
+            className="w-40 h-8 text-xs"
+            data-testid="activity-range-custom-start"
+          />
+          <span className="text-muted-foreground">~</span>
+          <Input
+            type="date"
+            value={customEnd}
+            min={customStart}
+            max={todayISO()}
+            onChange={(e) => setCustomEnd(e.target.value)}
+            className="w-40 h-8 text-xs"
+            data-testid="activity-range-custom-end"
+          />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
