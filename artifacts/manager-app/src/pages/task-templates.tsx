@@ -355,7 +355,7 @@ export default function TaskTemplatesPage() {
               const r = new URLSearchParams(window.location.search).get("role") ?? "";
               const map: Record<string, string> = {
                 manager: "관리소장",
-                accountant: "경리·행정",
+                accountant: "경리·회계",
                 facility_staff: "시설기사",
                 hq_executive: "본사총괄",
               };
@@ -379,7 +379,7 @@ export default function TaskTemplatesPage() {
             const r = new URLSearchParams(window.location.search).get("role") ?? "";
             const map: Record<string, string> = {
               manager: "관리소장",
-              accountant: "경리·행정",
+              accountant: "경리·회계",
               facility_staff: "시설기사",
               hq_executive: "본사총괄",
             };

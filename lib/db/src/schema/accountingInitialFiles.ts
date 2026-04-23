@@ -1,4 +1,4 @@
-// [Task #132] 경리/행정 위저드에서 업로드한 회계 초기 자료 메타데이터.
+// [Task #132] 경리/회계 위저드에서 업로드한 회계 초기 자료 메타데이터.
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 
 export const accountingInitialFileCategories = [

@@ -16,7 +16,7 @@ const ROLES: Array<{
   next: string;
 }> = [
   { role: "manager", label: "관리소장", desc: "건물 등록·법정점검 일정 자동화", icon: Building2, color: "blue", next: "/onboarding/manager" },
-  { role: "accountant", label: "경리·행정", desc: "회계/관리비 초기자료 등록", icon: Calculator, color: "emerald", next: "/onboarding/accountant" },
+  { role: "accountant", label: "경리·회계", desc: "회계/관리비 초기자료 등록", icon: Calculator, color: "emerald", next: "/onboarding/accountant" },
   { role: "facility_staff", label: "시설기사", desc: "기본 정보 등록 후 승인 대기", icon: Wrench, color: "amber", next: "/onboarding/facility-staff" },
   { role: "partner", label: "파트너사", desc: "사업자등록증·취급분야 등록", icon: Store, color: "violet", next: "/onboarding/partner" },
 ];

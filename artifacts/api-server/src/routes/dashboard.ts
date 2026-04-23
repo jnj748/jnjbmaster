@@ -513,7 +513,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
   const templateAlerts = await resolveActiveTemplateAlerts(
     new Date().toISOString(),
     alertId + 1000,
-    { userId, buildingId: userBuildingId },
+    { userId, buildingId: userBuildingId, userRole: req.user?.role ?? null },
   );
   for (const a of templateAlerts) {
     alerts.push({

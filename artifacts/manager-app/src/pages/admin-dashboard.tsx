@@ -62,7 +62,7 @@ const ROLE_CARDS: {
   },
   {
     role: "accountant",
-    label: "경리·행정",
+    label: "경리·회계",
     subtitle: "관리비·결재",
     href: "/platform/accountants",
     icon: Calculator,

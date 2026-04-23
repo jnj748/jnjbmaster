@@ -28,7 +28,7 @@ type Audience =
 const AUDIENCE_LABEL: Record<Audience, string> = {
   all: "전체",
   manager: "관리소장",
-  accountant: "경리·행정",
+  accountant: "경리·회계",
   facility_staff: "시설기사",
   partner: "파트너사",
   hq_executive: "본사 임원",

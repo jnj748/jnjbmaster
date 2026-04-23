@@ -1,4 +1,4 @@
-// [Task #132] 경리·행정 위저드. 주소 확인 → 부과면적 기준 선택 → 회계 초기 자료 업로드.
+// [Task #132] 경리·회계 위저드. 주소 확인 → 부과면적 기준 선택 → 회계 초기 자료 업로드.
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Loader2, Upload, FileText, CheckCircle2, Sparkles, Camera } from "lucide-react";

@@ -149,7 +149,7 @@ export function getEffectiveRole(user: { role?: string | null; portalType?: stri
 
 export const ROLE_LABELS: Record<Role, string> = {
   manager: "관리소장",
-  accountant: "경리/행정",
+  accountant: "경리/회계",
   facility_staff: "시설기사",
   hq_executive: "총괄책임자",
   platform_admin: "플랫폼 관리자",
@@ -345,7 +345,7 @@ export const ROUTES: RouteEntry[] = [
     bottomOrder: 30,
   },
   // [관리소장 모드 단순화] 회계 그룹은 관리소장에게 "관리비 요약"만 노출.
-  //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·행정(accountant)
+  //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·회계(accountant)
   //   및 플랫폼 관리자 전용으로 한정.
   // [플랫폼관리자 메뉴 구조조정] 회계 운영 항목은 플랫폼관리자 사이드바에서 숨김.
   {
@@ -508,7 +508,7 @@ export const ROUTES: RouteEntry[] = [
     label: "관리소장 현황", icon: Building2, group: "dashboard",
     access: ["platform_admin"], hidden: true },
   { path: "/platform/accountants", component: PlatformRoleAccountants,
-    label: "경리·행정 현황", icon: Calculator, group: "dashboard",
+    label: "경리·회계 현황", icon: Calculator, group: "dashboard",
     access: ["platform_admin"], hidden: true },
   { path: "/platform/facility-staff", component: PlatformRoleFacility,
     label: "시설기사 현황", icon: HardHat, group: "dashboard",
@@ -749,7 +749,7 @@ function platformAdminSidebar(): NavSection[] {
       items: roleNavItems("manager", "/platform/managers", Building2),
     },
     {
-      title: "경리·행정",
+      title: "경리·회계",
       items: roleNavItems("accountant", "/platform/accountants", Calculator),
     },
     {

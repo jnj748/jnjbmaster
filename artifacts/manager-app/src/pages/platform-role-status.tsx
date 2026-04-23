@@ -37,8 +37,8 @@ const ROLE_META: Record<
     accent: "bg-blue-100 text-blue-700",
   },
   accountant: {
-    label: "경리·행정",
-    description: "관리비 부과·수납·전자결재를 맡는 경리·행정 담당자 현황",
+    label: "경리·회계",
+    description: "관리비 부과·수납·전자결재를 맡는 경리·회계 담당자 현황",
     accent: "bg-amber-100 text-amber-700",
   },
   facility_staff: {

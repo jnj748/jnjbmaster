@@ -268,7 +268,7 @@ export default function PlatformKnowledgeDocsPage() {
   //   - 향후 역할별 자료가 필요해지면 targetRoles 컬럼을 추가하고 필터링한다.
   const ROLE_BADGE: Record<string, string> = {
     manager: "관리소장",
-    accountant: "경리·행정",
+    accountant: "경리·회계",
     facility_staff: "시설기사",
     hq_executive: "본사총괄",
     partner: "파트너사",

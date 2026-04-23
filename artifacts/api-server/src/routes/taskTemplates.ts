@@ -244,8 +244,14 @@ router.get(
 
 function templateAppliesTo(
   t: TaskTemplate,
-  ctx: { userId?: number | null; buildingId?: number | null },
+  ctx: { userId?: number | null; buildingId?: number | null; userRole?: string | null },
 ): boolean {
+  // [Task #283+] targetRoles 가 지정된 템플릿은 해당 역할에게만 노출.
+  // null/빈 배열은 전체 공통(기존 동작 유지).
+  const tr = (t as { targetRoles?: string[] | null }).targetRoles;
+  if (tr && tr.length > 0) {
+    if (!ctx.userRole || !tr.includes(ctx.userRole)) return false;
+  }
   switch (t.scopeType) {
     case "all":
       return true;
@@ -288,6 +294,7 @@ export interface ResolvedTemplateAlert {
 export interface TemplateAlertContext {
   userId?: number | null;
   buildingId?: number | null;
+  userRole?: string | null;
 }
 
 // [Task #221] 활성 템플릿을 사용자 컨텍스트(소속 건물/사용자 ID)로 필터링한 뒤
@@ -426,6 +433,7 @@ router.get(
     const list = await resolveActiveTemplateAlerts(today, 100000, {
       userId,
       buildingId,
+      userRole: req.user?.role ?? null,
     });
     res.json(list);
   },

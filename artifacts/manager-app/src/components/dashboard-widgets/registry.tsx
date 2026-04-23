@@ -75,7 +75,7 @@ export const WIDGETS = {
     key: "accountant-main",
     component: AccountantMainWidget,
     span: "full",
-    label: "경리·행정 든든 대시보드",
+    label: "경리·회계 든든 대시보드",
   },
   "facility-main": {
     key: "facility-main",

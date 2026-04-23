@@ -1,12 +1,19 @@
+import { eq, isNull } from "drizzle-orm";
 import { db, taskTemplatesTable } from "@workspace/db";
 
 // [Task #221] 본사가 일괄 관리하는 업무 템플릿의 초기 시드. 기존 점검/세무/보증/
 // 데이터파기 알림과 별도로, 분기 보고·소방 자체점검 보고 등 본사가 한곳에서
 // 관리해야 하는 대표적인 항목들을 등록한다. 기존 항목은 그대로 유지된다.
 // 제목(title)을 키로 멱등 처리해 새 시드가 추가되어도 누락 없이 반영된다.
+//
+// [추가] 사용자 유형(targetRoles)별 노출 분리:
+//   - 시설(점검/안전/소방/에너지): manager + facility_staff
+//   - 회계(부가세/관리비/세무): manager + accountant
+//   - 일반 관리(보고서/개인정보 파기/하자): manager 만
 export async function seedTaskTemplates(): Promise<void> {
-  const existing = await db.select().from(taskTemplatesTable);
-  const existingTitles = new Set(existing.map((t) => t.title));
+  const FACILITY: string[] = ["manager", "facility_staff"];
+  const ACCOUNTING: string[] = ["manager", "accountant"];
+  const MANAGER_ONLY: string[] = ["manager"];
 
   const seed: Array<typeof taskTemplatesTable.$inferInsert> = [
     {
@@ -18,6 +25,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 5,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: MANAGER_ONLY,
       priority: 80,
       advanceAlertDays: 7,
       isActive: true,
@@ -33,6 +41,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 30,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: FACILITY,
       priority: 90,
       advanceAlertDays: 30,
       isActive: true,
@@ -47,6 +56,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 25,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: FACILITY,
       priority: 40,
       advanceAlertDays: 5,
       isActive: true,
@@ -61,6 +71,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 10,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: FACILITY,
       priority: 30,
       advanceAlertDays: 3,
       isActive: true,
@@ -78,6 +89,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 10,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: FACILITY,
       priority: 85,
       advanceAlertDays: 14,
       isActive: true,
@@ -92,6 +104,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 25,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: ACCOUNTING,
       priority: 80,
       advanceAlertDays: 14,
       isActive: true,
@@ -106,6 +119,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 5,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: MANAGER_ONLY,
       priority: 70,
       advanceAlertDays: 14,
       isActive: true,
@@ -120,6 +134,7 @@ export async function seedTaskTemplates(): Promise<void> {
       fixedDay: 1,
       scopeType: "all",
       scopeValues: [],
+      targetRoles: MANAGER_ONLY,
       priority: 75,
       advanceAlertDays: 7,
       isActive: true,
@@ -127,7 +142,30 @@ export async function seedTaskTemplates(): Promise<void> {
     },
   ];
 
-  const toInsert = seed.filter((s) => !existingTitles.has(s.title));
-  if (toInsert.length === 0) return;
-  await db.insert(taskTemplatesTable).values(toInsert);
+  const existing = await db.select().from(taskTemplatesTable);
+  const existingByTitle = new Map(existing.map((t) => [t.title, t]));
+
+  const toInsert = seed.filter((s) => !existingByTitle.has(s.title));
+  if (toInsert.length > 0) {
+    await db.insert(taskTemplatesTable).values(toInsert);
+  }
+
+  // 기존 시드 행에 targetRoles 가 비어 있으면 새 분류 값으로 채워 넣는다.
+  for (const s of seed) {
+    const row = existingByTitle.get(s.title);
+    if (!row) continue;
+    const current = (row as { targetRoles?: string[] | null }).targetRoles;
+    if (!current || current.length === 0) {
+      await db
+        .update(taskTemplatesTable)
+        .set({ targetRoles: s.targetRoles ?? null })
+        .where(eq(taskTemplatesTable.id, row.id));
+    }
+  }
+
+  // 시드에 없는 임의 템플릿 중 targetRoles 가 NULL 인 항목은 안전하게 manager 로 기본 설정.
+  await db
+    .update(taskTemplatesTable)
+    .set({ targetRoles: MANAGER_ONLY })
+    .where(isNull(taskTemplatesTable.targetRoles));
 }
