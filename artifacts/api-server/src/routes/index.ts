@@ -54,6 +54,7 @@ import platformCampaignsRouter from "./platformCampaigns";
 import platformKnowledgeDocsRouter from "./platformKnowledgeDocs";
 import creditsRouter from "./credits";
 import platformSettingsRouter from "./platformSettings";
+import roleMenuOverridesRouter from "./roleMenuOverrides";
 import contractsRouter from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
 import onboardingRouter from "./onboarding";
@@ -94,6 +95,7 @@ router.use(usersRouter);
 router.use(rfqsRouter);
 router.use(creditsRouter);
 router.use(platformSettingsRouter);
+router.use(roleMenuOverridesRouter);
 router.use(taskTemplatesRouter);
 // [Task #284] vendorCategoriesRouter는 partner 위저드에서 접근해야 하므로
 // 파트너 역할을 차단하는 buildingRouter(buildingOnly) 보다 먼저 마운트한다.

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useMenuOverrides } from "@/hooks/use-menu-overrides";
 import ReactMarkdown from "react-markdown";
 import { Link, useLocation } from "wouter";
 import { QuickEntryDialog } from "@/components/work-log/quick-entry-fab";
@@ -382,13 +383,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리는 사이드바·하단 네비에서 모두 숨김.
   const disabledCategories = user?.disabledCategories ?? [];
   const disabledKey = disabledCategories.join(",");
+  // [플랫폼관리자 메뉴 정비] 역할×메뉴 활성화 그리드 결과를 1분 캐시로 가져와
+  //   사이드바·하단 네비 필터에 동일하게 적용.
+  const menuOverrides = useMenuOverrides(!!user);
+  const overridesKey = useMemo(
+    () => menuOverrides.map((o) => `${o.role}:${o.blockId}:${o.enabled ? 1 : 0}`).join("|"),
+    [menuOverrides],
+  );
   const sections = useMemo(
-    () => getSidebarSections(effectiveRole, disabledCategories),
-    [effectiveRole, disabledKey],
+    () => getSidebarSections(effectiveRole, disabledCategories, menuOverrides),
+    [effectiveRole, disabledKey, overridesKey],
   );
   const bottomItems = useMemo(
-    () => getBottomNavItems(effectiveRole, disabledCategories),
-    [effectiveRole, disabledKey],
+    () => getBottomNavItems(effectiveRole, disabledCategories, menuOverrides),
+    [effectiveRole, disabledKey, overridesKey],
   );
 
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.

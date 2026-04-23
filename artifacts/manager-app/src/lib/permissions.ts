@@ -592,6 +592,16 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin"],
     sideMenu: ["manager", "platform_admin"],
   },
+  // [플랫폼관리자 메뉴 정비] 역할×메뉴 활성/비활성 그리드. 플랫폼관리자 전용.
+  //   사이드바 노출은 platformAdminSidebar() 가 직접 추가하므로 여기서는 hidden.
+  {
+    path: "/settings/menu-overrides",
+    component: lazy(() => import("@/pages/menu-overrides")),
+    label: "유저유형별 메뉴 활성화", icon: Settings, group: "settings",
+    access: ["platform_admin"],
+    sideMenu: [],
+    hidden: true,
+  },
 ];
 
 // ── Role-specific root ("/") dashboard mapping ───────────────────
@@ -757,6 +767,7 @@ function platformAdminSidebar(): NavSection[] {
     {
       title: "설정",
       items: [
+        { path: "/settings/menu-overrides", label: "유저유형별 메뉴 활성화", icon: Settings },
         { path: "/attendance", label: "출퇴근 관리", icon: Clock },
         { path: "/settings/profile", label: "내정보 수정", icon: User },
         { path: "/settings/building", label: "건물정보 수정", icon: Building },
@@ -765,19 +776,47 @@ function platformAdminSidebar(): NavSection[] {
   ];
 }
 
+// ── Role × menu block overrides ───────────────────────────────────
+// [플랫폼관리자 메뉴 정비] 플랫폼관리자가 "유저유형별 메뉴 활성화" 그리드에서
+//   특정 역할의 메뉴를 끄면, 사이드바·하단 네비·라우트 가드에서 모두 숨겨야 한다.
+//   서버는 enabled=false 행만 저장한다(부재 = 활성 기본값). 여기서는 path 를
+//   blockId 로 사용하며, ROUTES 의 path 와 1:1 매핑한다.
+export type MenuOverride = { role: string; blockId: string; enabled: boolean };
+
+export function isMenuBlockEnabled(
+  role: Role,
+  blockId: string,
+  overrides?: readonly MenuOverride[] | null,
+): boolean {
+  if (!overrides || overrides.length === 0) return true;
+  // 플랫폼관리자는 본인 사이드바 토글 대상이 아니므로 항상 활성.
+  if (role === "platform_admin") return true;
+  for (const o of overrides) {
+    if (o.role === role && o.blockId === blockId && o.enabled === false) return false;
+  }
+  return true;
+}
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
-export function getSidebarSections(role: Role, disabledCategories?: readonly string[] | null): NavSection[] {
+export function getSidebarSections(
+  role: Role,
+  disabledCategories?: readonly string[] | null,
+  overrides?: readonly MenuOverride[] | null,
+): NavSection[] {
   if (role === "platform_admin") return platformAdminSidebar();
   if (role === "partner") {
     // Partner sidebar is intentionally flat.
+    const partnerItems: NavItem[] = [
+      rootItem("partner"),
+      { path: "/rfqs", label: PARTNER_RFQ_LABEL, icon: PARTNER_RFQ_ICON },
+      { path: "/vendors", label: PARTNER_VENDORS_LABEL, icon: PARTNER_VENDORS_ICON },
+      { path: "/commissions", label: "수수료", icon: Coins },
+    ];
     return [
       {
-        items: [
-          rootItem("partner"),
-          { path: "/rfqs", label: PARTNER_RFQ_LABEL, icon: PARTNER_RFQ_ICON },
-          { path: "/vendors", label: PARTNER_VENDORS_LABEL, icon: PARTNER_VENDORS_ICON },
-          { path: "/commissions", label: "수수료", icon: Coins },
-        ],
+        items: partnerItems.filter(
+          (it) => it.path === "/" || isMenuBlockEnabled("partner", it.path, overrides),
+        ),
       },
     ];
   }
@@ -797,6 +836,8 @@ export function getSidebarSections(role: Role, disabledCategories?: readonly str
       if (entry.hidden) continue;
       const visibleTo = entry.sideMenu ?? entry.access;
       if (!visibleTo.includes(role)) continue;
+      // [플랫폼관리자 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
+      if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
       items.push({
         path: entry.path,
         label: labelFor(entry, role),
@@ -820,7 +861,11 @@ export function getSidebarSections(role: Role, disabledCategories?: readonly str
 }
 
 /** Returns the mobile bottom nav items for a role (excluding the "더보기" toggle). */
-export function getBottomNavItems(role: Role, disabledCategories?: readonly string[] | null): NavItem[] {
+export function getBottomNavItems(
+  role: Role,
+  disabledCategories?: readonly string[] | null,
+  overrides?: readonly MenuOverride[] | null,
+): NavItem[] {
   // [Task #267] 플랫폼관리자 하단 네비도 사이드바와 동일 원칙으로 정리.
   //   홈(현황 카드) / 사용자 / 설정. 시설/회계/AI비서/업무일지 같은 실무 탭은 노출하지 않는다.
   if (role === "platform_admin") {
@@ -858,6 +903,8 @@ export function getBottomNavItems(role: Role, disabledCategories?: readonly stri
     if (!inBottom.includes(role)) continue;
     // [카테고리 메뉴 제어] 끈 카테고리에 속하는 하단 탭은 숨김.
     if (!isCategoryEnabled(entry.group, disabledCategories)) continue;
+    // [플랫폼관리자 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 하단 탭에서도 숨김.
+    if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
     tail.push({
       entry,
       item: {
