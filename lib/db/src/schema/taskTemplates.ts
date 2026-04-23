@@ -6,6 +6,9 @@ import { usersTable } from "./users";
 export const taskTemplateCategories = ["mandatory", "suggested"] as const;
 export type TaskTemplateCategory = (typeof taskTemplateCategories)[number];
 
+// [Task #221, deprecated by #297] 분류(법정/내부)는 UI 에서 제거되고 새 모델에서는
+// 카테고리(mandatory=법정업무 / suggested=제안업무)로 의미가 통합된다.
+// 컬럼은 backward-compat 을 위해 남겨두지만 신규 입력에는 사용되지 않는다.
 export const taskTemplateClassifications = ["legal", "internal"] as const;
 export type TaskTemplateClassification = (typeof taskTemplateClassifications)[number];
 
@@ -19,6 +22,33 @@ export const taskTemplateFrequencyTypes = [
   "annual",
 ] as const;
 export type TaskTemplateFrequencyType = (typeof taskTemplateFrequencyTypes)[number];
+
+// [Task #297] 업무유형 — 관리소장 운영 분류. 신규 입력의 필수값.
+export const taskTemplateTaskTypes = [
+  "facility",       // 시설
+  "fee",            // 관리비
+  "accounting",     // 회계
+  "security",       // 경비
+  "cleaning",       // 미화
+  "etc",            // 기타
+] as const;
+export type TaskTemplateTaskType = (typeof taskTemplateTaskTypes)[number];
+
+// [Task #297] 적용 건물 — 표제부 주용도 코드(텍스트). UI 에서 다중 선택.
+// 빈 배열은 "전체 건물(주용도 무관)" 로 해석한다.
+export const taskTemplateBuildingUsageScopes = [
+  "공동주택",
+  "업무시설",
+  "근린생활시설",
+  "판매시설",
+  "교육연구시설",
+  "의료시설",
+  "숙박시설",
+  "문화및집회시설",
+  "복합건축물",
+  "기타",
+] as const;
+export type TaskTemplateBuildingUsageScope = (typeof taskTemplateBuildingUsageScopes)[number];
 
 // [Task #221] 적용 대상(scope) 종류.
 // - all: 모든 건물·사용자에게 노출 (기본)
@@ -38,16 +68,31 @@ export const taskTemplatesTable = pgTable("task_templates", {
   title: text("title").notNull(),
   description: text("description"),
   category: text("category").notNull(),
+  // [#297] deprecated — 보존만 함.
   classification: text("classification").notNull().default("internal"),
+  // [#297] 업무유형(시설/관리비/회계/경비/미화/기타). NULL 인 레거시 행은
+  //   화면에서 "기타"로 표시된다.
+  taskType: text("task_type"),
   iconName: text("icon_name"),
   color: text("color"),
   frequencyType: text("frequency_type").notNull().default("one_time"),
   intervalValue: integer("interval_value"),
+  // [#297, deprecated] fixedMonth/fixedDay/startDate 는 신규 다이얼로그에서 입력하지
+  //   않는다. 기존 데이터는 그대로 보존되며 cycle 계산 폴백으로만 사용된다.
   fixedMonth: integer("fixed_month"),
   fixedDay: integer("fixed_day"),
   startDate: text("start_date"),
+  // [#297] 신규 반복주기 보조 입력값.
+  //   - weekly: weekdays = 0(일)~6(토) 의 다중 선택
+  //   - monthly: dayOfMonth = 1~31
+  //   - annual: yearInterval = N (N년마다)
+  weekdays: jsonb("weekdays").$type<number[]>(),
+  dayOfMonth: integer("day_of_month"),
+  yearInterval: integer("year_interval"),
   scopeType: text("scope_type").notNull().default("all"),
   scopeValues: jsonb("scope_values").$type<string[]>().notNull().default([]),
+  // [#297] 표제부 주용도 기준 적용 건물(다중). 빈 배열 = 전체.
+  buildingUsageScopes: jsonb("building_usage_scopes").$type<string[]>().notNull().default([]),
   // [Task #283] 역할별 적용 대상. NULL/빈 배열은 "전체 공통",
   //   값이 있으면 ?role= 컨텍스트와 일치하는 역할에서만 노출/필터된다.
   targetRoles: text("target_roles").array(),

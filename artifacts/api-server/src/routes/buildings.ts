@@ -2,6 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable, legalAppointeesTable, accountingInitialFilesTable } from "@workspace/db";
 import { eq, and, lte, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
+import { computeNextDueDateFromBaseline } from "../lib/taskTemplateCycle";
+import type { TaskTemplate } from "@workspace/db";
 import {
   LEGAL_PRESETS,
   ELECTRICAL_RESIDENT_KW,
@@ -923,24 +925,31 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
     return;
   }
 
-  // [Task #132/#174] 사용자가 최종 점검일을 모르는 경우, 건물 준공일을 fallback으로 사용한다.
-  // #174: 항목별 폴백 여부를 기록하여 임시 일정에 [임시] 워터마크를 표시할 수 있게 한다.
-  let fallbackLastDate: string | null = null;
+  // [Task #132/#174/#297] 사용자가 최종 점검일을 모르는 경우 표제부 사용승인일
+  //   (approvalDate) 을 baseline 으로 다음 실행일을 자동 산정한다.
+  //   approvalDate 가 비어 있을 때만 기존 completionDate 폴백을 사용한다.
+  //   #174: 항목별 폴백 여부를 기록해 임시 일정에 [임시] 워터마크 표시.
+  let fallbackBaseline: Date | null = null;
   let totalAreaNum = 0;
   if (useFallbackCompletionDate) {
     const [bld] = await db.select({
+      approvalDate: buildingsTable.approvalDate,
       completionDate: buildingsTable.completionDate,
       totalArea: buildingsTable.totalArea,
     })
       .from(buildingsTable)
       .where(eq(buildingsTable.id, buildingId));
-    if (bld?.completionDate) {
-      fallbackLastDate = typeof bld.completionDate === "string"
-        ? bld.completionDate
-        : new Date(bld.completionDate as unknown as string | number | Date).toISOString().slice(0, 10);
+    const raw = bld?.approvalDate ?? bld?.completionDate;
+    if (raw) {
+      fallbackBaseline = typeof raw === "string"
+        ? new Date(raw)
+        : new Date(raw as unknown as string | number | Date);
     }
     totalAreaNum = Number(bld?.totalArea ?? 0);
   }
+  const fallbackLastDate: string | null = fallbackBaseline
+    ? fallbackBaseline.toISOString().slice(0, 10)
+    : null;
 
   try {
     const created: Array<Record<string, unknown>> = [];
@@ -950,7 +959,7 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
       const dateEntries = dates as Record<string, string>;
 
       for (const [presetName, lastDateInput] of Object.entries(dateEntries)) {
-        const isProvisional = !lastDateInput && !!fallbackLastDate;
+        const isProvisional = !lastDateInput && !!fallbackBaseline;
         const lastDate = lastDateInput || fallbackLastDate;
         if (!lastDate) continue;
 
@@ -967,6 +976,22 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
             candidate = calculateNextDue(candidate, cycleMonths);
           }
           nextDueDate = candidate;
+        } else if (isProvisional && fallbackBaseline) {
+          // [Task #297] 폴백 분기: 표제부 사용승인일을 baseline 으로
+          //   computeNextDueDateFromBaseline 으로 다음 실행일을 계산한다.
+          //   주기는 cycleMonths 를 monthly 의 intervalValue 로 모델링.
+          const synth = {
+            frequencyType: "monthly",
+            intervalValue: cycleMonths,
+            fixedMonth: null,
+            fixedDay: null,
+            startDate: null,
+            weekdays: null,
+            dayOfMonth: null,
+            yearInterval: null,
+          } as unknown as TaskTemplate;
+          const due = computeNextDueDateFromBaseline(synth, fallbackBaseline, new Date());
+          nextDueDate = (due ?? new Date()).toISOString().slice(0, 10);
         } else {
           nextDueDate = calculateNextDue(lastDate, cycleMonths);
         }

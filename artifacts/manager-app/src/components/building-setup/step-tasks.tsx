@@ -51,6 +51,9 @@ interface Props {
   scheduleInspections: () => void;
   schedulingInspections: boolean;
   existingId: number | null;
+  // [Task #297] 사용승인일 기반 자동 산정 토글.
+  useApprovalDateFallback: boolean;
+  setUseApprovalDateFallback: (v: boolean) => void;
 }
 
 export function StepTasks({
@@ -76,6 +79,8 @@ export function StepTasks({
   scheduleInspections,
   schedulingInspections,
   existingId,
+  useApprovalDateFallback,
+  setUseApprovalDateFallback,
 }: Props) {
   return (
     <>
@@ -294,18 +299,45 @@ export function StepTasks({
           </CardContent>
         </Card>
       ) : (
-        <Button
-          onClick={scheduleInspections}
-          disabled={schedulingInspections || !existingId || selectedTasks.length === 0}
-          className="w-full"
-          size="lg"
-        >
-          {schedulingInspections ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />점검 일정 생성 중...</>
-          ) : (
-            <><Calendar className="w-4 h-4 mr-2" />법정점검 일정 자동 생성</>
+        <div className="space-y-2">
+          {/* [Task #297] 다음 주기 시작일을 모를 때 사용승인일 기반으로 자동 산정. */}
+          {selectedTasks.length > 0 && (
+            <label
+              className="flex items-start gap-2 p-3 border rounded-lg bg-blue-50/40 cursor-pointer text-sm"
+              data-testid="toggle-approval-date-fallback"
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={useApprovalDateFallback}
+                onChange={(e) => setUseApprovalDateFallback(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">다음 주기 시작일을 잘 모르겠음</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  최근 실시일을 비워둔 항목은 표제부의 사용승인일을 기준으로 다음 실행일을 자동 계산합니다.
+                </span>
+              </span>
+            </label>
           )}
-        </Button>
+          <Button
+            onClick={scheduleInspections}
+            disabled={
+              schedulingInspections ||
+              !existingId ||
+              selectedTasks.length === 0 ||
+              (!useApprovalDateFallback && selectedTasks.every((t) => !t.lastDate))
+            }
+            className="w-full"
+            size="lg"
+          >
+            {schedulingInspections ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />점검 일정 생성 중...</>
+            ) : (
+              <><Calendar className="w-4 h-4 mr-2" />법정점검 일정 자동 생성</>
+            )}
+          </Button>
+        </div>
       )}
 
       {!existingId && (

@@ -4,12 +4,15 @@ import { z } from "zod/v4";
 import {
   db,
   alertActionsTable,
+  buildingsTable,
   taskTemplatesTable,
   taskTemplateAuditLogsTable,
   taskTemplateCategories,
   taskTemplateClassifications,
   taskTemplateFrequencyTypes,
   taskTemplateScopeTypes,
+  taskTemplateTaskTypes,
+  taskTemplateBuildingUsageScopes,
   usersTable,
   type TaskTemplate,
 } from "@workspace/db";
@@ -22,12 +25,16 @@ const categoryEnum = z.enum(taskTemplateCategories);
 const classificationEnum = z.enum(taskTemplateClassifications);
 const frequencyEnum = z.enum(taskTemplateFrequencyTypes);
 const scopeEnum = z.enum(taskTemplateScopeTypes);
+const taskTypeEnum = z.enum(taskTemplateTaskTypes);
+const buildingUsageEnum = z.enum(taskTemplateBuildingUsageScopes);
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
   category: categoryEnum,
   classification: classificationEnum.optional(),
+  // [#297] 신규 입력. 신규 다이얼로그에서 필수, 기존 행은 NULL 허용.
+  taskType: taskTypeEnum.nullable().optional(),
   iconName: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   frequencyType: frequencyEnum,
@@ -35,8 +42,14 @@ const CreateBody = z.object({
   fixedMonth: z.number().int().min(1).max(12).nullable().optional(),
   fixedDay: z.number().int().min(1).max(31).nullable().optional(),
   startDate: z.string().nullable().optional(),
+  // [#297] 새 보조 입력값.
+  weekdays: z.array(z.number().int().min(0).max(6)).nullable().optional(),
+  dayOfMonth: z.number().int().min(1).max(31).nullable().optional(),
+  yearInterval: z.number().int().min(1).max(50).nullable().optional(),
   scopeType: scopeEnum.optional(),
   scopeValues: z.array(z.string()).optional(),
+  // [#297] 표제부 주용도 기준 적용 건물(다중 선택). 빈 배열 = 전체.
+  buildingUsageScopes: z.array(buildingUsageEnum).optional(),
   priority: z.number().int().min(0).max(100).optional(),
   advanceAlertDays: z.number().int().min(0).max(365).optional(),
   isActive: z.boolean().optional(),
@@ -114,7 +127,9 @@ router.post(
         title: d.title,
         description: d.description ?? null,
         category: d.category,
+        // [#297] classification 은 신규 입력에서 제거됐다. 미입력 시 안전하게 internal.
         classification: d.classification ?? "internal",
+        taskType: d.taskType ?? null,
         iconName: d.iconName ?? null,
         color: d.color ?? null,
         frequencyType: d.frequencyType,
@@ -122,10 +137,16 @@ router.post(
         fixedMonth: d.fixedMonth ?? null,
         fixedDay: d.fixedDay ?? null,
         startDate: d.startDate ?? null,
+        weekdays: d.weekdays ?? null,
+        dayOfMonth: d.dayOfMonth ?? null,
+        yearInterval: d.yearInterval ?? null,
         scopeType: d.scopeType ?? "all",
         scopeValues: d.scopeValues ?? [],
+        buildingUsageScopes: d.buildingUsageScopes ?? [],
         priority: d.priority ?? 50,
-        advanceAlertDays: d.advanceAlertDays ?? 7,
+        // [#297] 사전 알림 디폴트는 카테고리에 따라 자동 세팅.
+        //   클라이언트에서 별도로 보내지 않더라도 서버에서 안전하게 기본값을 적용.
+        advanceAlertDays: d.advanceAlertDays ?? (d.category === "mandatory" ? 30 : 7),
         isActive: d.isActive ?? true,
         metadata: d.metadata ?? {},
         targetRoles: d.targetRoles ?? null,
@@ -166,6 +187,7 @@ router.patch(
       const v = d[k];
       if (v !== undefined) {
         if (k === "scopeValues" && v == null) patch[k] = [];
+        else if (k === "buildingUsageScopes" && v == null) patch[k] = [];
         else patch[k] = v;
       }
     }
@@ -208,6 +230,8 @@ router.delete(
   },
 );
 
+// [#297] 변경 이력 UI 는 화면에서 제거되었다. 감사용 API 자체는 보존(타 시스템/감사
+// 추적용)하지만 신규 화면에서는 사용되지 않는다.
 router.get(
   "/platform/task-templates/:id/audit-logs",
   requireRole("platform_admin"),
@@ -244,13 +268,20 @@ router.get(
 
 function templateAppliesTo(
   t: TaskTemplate,
-  ctx: { userId?: number | null; buildingId?: number | null; userRole?: string | null },
+  ctx: { userId?: number | null; buildingId?: number | null; userRole?: string | null; buildingUsage?: string | null },
 ): boolean {
   // [Task #283+] targetRoles 가 지정된 템플릿은 해당 역할에게만 노출.
   // null/빈 배열은 전체 공통(기존 동작 유지).
   const tr = (t as { targetRoles?: string[] | null }).targetRoles;
   if (tr && tr.length > 0) {
     if (!ctx.userRole || !tr.includes(ctx.userRole)) return false;
+  }
+  // [#297] buildingUsageScopes 가 지정되어 있으면 사용자 건물의 주용도가 일치해야 노출.
+  const usageScopes = (t as { buildingUsageScopes?: string[] | null }).buildingUsageScopes;
+  if (usageScopes && usageScopes.length > 0) {
+    if (!ctx.buildingUsage) return false;
+    const matches = usageScopes.some((s) => ctx.buildingUsage!.includes(s));
+    if (!matches) return false;
   }
   switch (t.scopeType) {
     case "all":
@@ -295,6 +326,7 @@ export interface TemplateAlertContext {
   userId?: number | null;
   buildingId?: number | null;
   userRole?: string | null;
+  buildingUsage?: string | null;
 }
 
 // [Task #221] 활성 템플릿을 사용자 컨텍스트(소속 건물/사용자 ID)로 필터링한 뒤
@@ -423,6 +455,7 @@ router.get(
     const today = new Date().toISOString();
     const userId = req.user?.userId ?? null;
     let buildingId: number | null = null;
+    let buildingUsage: string | null = null;
     if (userId) {
       const [u] = await db
         .select({ buildingId: usersTable.buildingId })
@@ -430,10 +463,19 @@ router.get(
         .where(eq(usersTable.id, userId));
       buildingId = u?.buildingId ?? null;
     }
+    if (buildingId) {
+      // [#297] 적용 건물 필터링을 위해 표제부 주용도를 함께 조회.
+      const [b] = await db
+        .select({ buildingUsage: buildingsTable.buildingUsage })
+        .from(buildingsTable)
+        .where(eq(buildingsTable.id, buildingId));
+      buildingUsage = b?.buildingUsage ?? null;
+    }
     const list = await resolveActiveTemplateAlerts(today, 100000, {
       userId,
       buildingId,
       userRole: req.user?.role ?? null,
+      buildingUsage,
     });
     res.json(list);
   },

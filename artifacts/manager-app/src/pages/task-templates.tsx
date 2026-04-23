@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,53 +30,69 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Plus, Pencil, Trash2, History, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertCircle } from "lucide-react";
+
+type Frequency = "one_time" | "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+type Category = "mandatory" | "suggested";
+type TaskType = "facility" | "fee" | "accounting" | "security" | "cleaning" | "etc";
+type BuildingUsage =
+  | "공동주택"
+  | "업무시설"
+  | "근린생활시설"
+  | "판매시설"
+  | "교육연구시설"
+  | "의료시설"
+  | "숙박시설"
+  | "문화및집회시설"
+  | "복합건축물"
+  | "기타";
 
 interface TaskTemplate {
   id: number;
   title: string;
   description: string | null;
-  category: "mandatory" | "suggested";
+  category: Category;
   classification: "legal" | "internal";
+  taskType: TaskType | null;
   iconName: string | null;
   color: string | null;
-  frequencyType: "one_time" | "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+  frequencyType: Frequency;
   intervalValue: number | null;
   fixedMonth: number | null;
   fixedDay: number | null;
   startDate: string | null;
+  weekdays: number[] | null;
+  dayOfMonth: number | null;
+  yearInterval: number | null;
   scopeType: "all" | "building_ids" | "user_ids";
   scopeValues: string[];
+  buildingUsageScopes: BuildingUsage[];
   priority: number;
   advanceAlertDays: number;
   isActive: boolean;
   metadata: Record<string, unknown>;
   createdBy: number | null;
   createdByName: string | null;
+  targetRoles?: string[] | null;
   createdAt: string;
   updatedAt: string;
 }
 
-interface AuditLog {
-  id: number;
-  templateId: number | null;
-  templateTitle: string | null;
-  action: "create" | "update" | "delete" | "toggle";
-  changes: Record<string, unknown>;
-  changedBy: number | null;
-  changedByName: string | null;
-  createdAt: string;
-}
-
-const CATEGORY_LABEL: Record<TaskTemplate["category"], string> = {
+const CATEGORY_LABEL: Record<Category, string> = {
   mandatory: "법정업무",
   suggested: "제안업무",
 };
-const CLASSIFICATION_LABEL: Record<TaskTemplate["classification"], string> = {
-  legal: "법정",
-  internal: "내부",
+
+const TASK_TYPE_LABEL: Record<TaskType, string> = {
+  facility: "시설",
+  fee: "관리비",
+  accounting: "회계",
+  security: "경비",
+  cleaning: "미화",
+  etc: "기타",
 };
-const FREQUENCY_LABEL: Record<TaskTemplate["frequencyType"], string> = {
+
+const FREQUENCY_LABEL: Record<Frequency, string> = {
   one_time: "1회성",
   daily: "매일",
   weekly: "매주",
@@ -85,40 +101,21 @@ const FREQUENCY_LABEL: Record<TaskTemplate["frequencyType"], string> = {
   semiannual: "반기",
   annual: "연간",
 };
-const SCOPE_LABEL: Record<TaskTemplate["scopeType"], string> = {
-  all: "전체 건물",
-  building_ids: "특정 건물(ID 목록)",
-  user_ids: "특정 사용자(ID 목록)",
-};
-const ACTION_LABEL: Record<AuditLog["action"], string> = {
-  create: "생성",
-  update: "수정",
-  delete: "삭제",
-  toggle: "활성 토글",
-};
 
-// [Task #287] 변경 이력의 raw JSON에 노출되는 카테고리/분류 코드 값을
-//   사용자 친화적인 한글 라벨로 치환해 표시한다(원본 데이터는 보존).
-function humanizeAuditChanges(changes: Record<string, unknown>): Record<string, unknown> {
-  const replaceCodes = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(replaceCodes);
-    if (value && typeof value === "object") {
-      const out: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-        if (k === "category" && (v === "mandatory" || v === "suggested")) {
-          out[k] = CATEGORY_LABEL[v as TaskTemplate["category"]];
-        } else if (k === "classification" && (v === "legal" || v === "internal")) {
-          out[k] = CLASSIFICATION_LABEL[v as TaskTemplate["classification"]];
-        } else {
-          out[k] = replaceCodes(v);
-        }
-      }
-      return out;
-    }
-    return value;
-  };
-  return replaceCodes(changes) as Record<string, unknown>;
-}
+const BUILDING_USAGES: BuildingUsage[] = [
+  "공동주택",
+  "업무시설",
+  "근린생활시설",
+  "판매시설",
+  "교육연구시설",
+  "의료시설",
+  "숙박시설",
+  "문화및집회시설",
+  "복합건축물",
+  "기타",
+];
+
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -132,16 +129,22 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "hq_executive", label: "본사총괄" },
 ];
 
-type DraftType = Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName"> & {
+type DraftType = Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName" | "targetRoles"> & {
   targetRoles: string[];
 };
 
+function defaultAlertDaysFor(category: Category): number {
+  return category === "mandatory" ? 30 : 7;
+}
+
 function emptyDraft(defaultRole?: string): DraftType {
+  const category: Category = "mandatory";
   return {
     title: "",
     description: "",
-    category: "mandatory",
+    category,
     classification: "internal",
+    taskType: "facility",
     iconName: null,
     color: null,
     frequencyType: "annual",
@@ -149,14 +152,45 @@ function emptyDraft(defaultRole?: string): DraftType {
     fixedMonth: null,
     fixedDay: null,
     startDate: null,
+    weekdays: null,
+    dayOfMonth: null,
+    yearInterval: 1,
     scopeType: "all",
     scopeValues: [],
+    buildingUsageScopes: [],
     priority: 50,
-    advanceAlertDays: 7,
+    advanceAlertDays: defaultAlertDaysFor(category),
     isActive: true,
     metadata: {},
     targetRoles: defaultRole ? [defaultRole] : [],
   };
+}
+
+// [Task #297] 반복주기 텍스트를 사람이 읽기 좋은 형태로 표시.
+//   예: "매주(월,수)", "매월 15일", "매년", "2년마다"
+function formatFrequency(t: TaskTemplate): string {
+  switch (t.frequencyType) {
+    case "weekly": {
+      const wds = t.weekdays && t.weekdays.length > 0 ? t.weekdays : null;
+      if (!wds) return "매주";
+      const labels = wds.map((d) => WEEKDAY_LABELS[d] ?? "?").join(",");
+      return `매주(${labels})`;
+    }
+    case "monthly": {
+      const day = t.dayOfMonth ?? t.fixedDay;
+      return day ? `매월 ${day}일` : "매월";
+    }
+    case "annual": {
+      const yr = t.yearInterval ?? 1;
+      if (yr === 1) {
+        if (t.fixedMonth && t.fixedDay) return `매년 ${t.fixedMonth}월 ${t.fixedDay}일`;
+        return "매년";
+      }
+      return `${yr}년마다`;
+    }
+    default:
+      return FREQUENCY_LABEL[t.frequencyType];
+  }
 }
 
 export default function TaskTemplatesPage() {
@@ -166,11 +200,10 @@ export default function TaskTemplatesPage() {
   const isAdmin = user?.role === "platform_admin";
 
   const [search, setSearch] = useState("");
-  // [Task #287] 법정업무/제안업무를 두 섹션 탭으로 분리. "전체 보기" 옵션도 함께 제공.
-  const [filterCategory, setFilterCategory] = useState<"all" | "mandatory" | "suggested">("mandatory");
+  // [Task #297] 탭 순서: 전체 보기 → 법정업무 → 제안업무. 기본값은 "전체 보기".
+  const [filterCategory, setFilterCategory] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
-  const [draft, setDraft] = useState<ReturnType<typeof emptyDraft> | null>(null);
-  const [showAuditFor, setShowAuditFor] = useState<TaskTemplate | null>(null);
+  const [draft, setDraft] = useState<DraftType | null>(null);
 
   const headers = useMemo(
     () => ({
@@ -198,21 +231,8 @@ export default function TaskTemplatesPage() {
     enabled: isAdmin,
   });
 
-  const { data: auditLogs = [] } = useQuery<AuditLog[]>({
-    queryKey: ["task-template-audit", showAuditFor?.id ?? "all"],
-    queryFn: async () => {
-      const url = showAuditFor
-        ? `${API_BASE}/platform/task-templates/${showAuditFor.id}/audit-logs`
-        : `${API_BASE}/platform/task-templates/audit-logs`;
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error("이력을 불러올 수 없습니다");
-      return res.json();
-    },
-    enabled: isAdmin,
-  });
-
   const createMutation = useMutation({
-    mutationFn: async (body: ReturnType<typeof emptyDraft>) => {
+    mutationFn: async (body: DraftType) => {
       const res = await fetch(`${API_BASE}/platform/task-templates`, {
         method: "POST",
         headers,
@@ -223,7 +243,6 @@ export default function TaskTemplatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
       toast({ title: "템플릿이 생성되었습니다" });
       setDraft(null);
       setEditing(null);
@@ -243,7 +262,6 @@ export default function TaskTemplatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
       toast({ title: "템플릿이 수정되었습니다" });
       setDraft(null);
       setEditing(null);
@@ -262,7 +280,6 @@ export default function TaskTemplatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["task-templates"] });
-      queryClient.invalidateQueries({ queryKey: ["task-template-audit"] });
       toast({ title: "템플릿이 삭제되었습니다" });
     },
     onError: (e: Error) => toast({ title: "삭제 실패", description: e.message, variant: "destructive" }),
@@ -271,9 +288,11 @@ export default function TaskTemplatesPage() {
   function startCreate() {
     setEditing(null);
     const base = emptyDraft(_roleFromUrl || undefined);
-    // [Task #287] 현재 활성화된 섹션(법정/제안)이 기본 카테고리로 채워지도록.
-    //   "전체 보기" 상태에서 진입하면 법정업무를 기본값으로 둔다.
-    base.category = filterCategory === "suggested" ? "suggested" : "mandatory";
+    // 현재 활성화된 섹션(법정/제안)이 기본 카테고리로 채워지도록.
+    if (filterCategory === "suggested") {
+      base.category = "suggested";
+      base.advanceAlertDays = defaultAlertDaysFor("suggested");
+    }
     setDraft(base);
   }
 
@@ -284,6 +303,7 @@ export default function TaskTemplatesPage() {
       description: t.description ?? "",
       category: t.category,
       classification: t.classification,
+      taskType: t.taskType ?? "etc",
       iconName: t.iconName,
       color: t.color,
       frequencyType: t.frequencyType,
@@ -291,13 +311,17 @@ export default function TaskTemplatesPage() {
       fixedMonth: t.fixedMonth,
       fixedDay: t.fixedDay,
       startDate: t.startDate,
+      weekdays: t.weekdays,
+      dayOfMonth: t.dayOfMonth ?? t.fixedDay ?? null,
+      yearInterval: t.yearInterval ?? (t.frequencyType === "annual" ? 1 : null),
       scopeType: t.scopeType,
       scopeValues: t.scopeValues,
+      buildingUsageScopes: t.buildingUsageScopes ?? [],
       priority: t.priority,
       advanceAlertDays: t.advanceAlertDays,
       isActive: t.isActive,
       metadata: t.metadata,
-      targetRoles: ((t as unknown as { targetRoles?: string[] | null }).targetRoles) ?? [],
+      targetRoles: t.targetRoles ?? [],
     });
   }
 
@@ -307,7 +331,20 @@ export default function TaskTemplatesPage() {
       toast({ title: "제목을 입력해주세요", variant: "destructive" });
       return;
     }
-    const body = { ...draft, description: draft.description || null };
+    // [#297] 반복주기 보조 입력값 검증
+    if (draft.frequencyType === "weekly" && (!draft.weekdays || draft.weekdays.length === 0)) {
+      toast({ title: "반복할 요일을 1개 이상 선택해 주세요", variant: "destructive" });
+      return;
+    }
+    if (draft.frequencyType === "monthly" && !draft.dayOfMonth) {
+      toast({ title: "매월 며칠에 반복할지 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    if (draft.frequencyType === "annual" && (!draft.yearInterval || draft.yearInterval < 1)) {
+      toast({ title: "몇 년마다 반복할지 입력해 주세요", variant: "destructive" });
+      return;
+    }
+    const body: DraftType = { ...draft, description: draft.description || null };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body });
     } else {
@@ -322,6 +359,31 @@ export default function TaskTemplatesPage() {
   function handleDelete(t: TaskTemplate) {
     if (!confirm(`"${t.title}" 템플릿을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
     deleteMutation.mutate(t.id);
+  }
+
+  // [#297] 카테고리 변경 시 사전알림 디폴트를 자동 세팅. 사용자가 직접 바꾼 값이
+  //   (이전 디폴트와 다르게) 들어 있을 때는 덮어쓰지 않는다.
+  function handleCategoryChange(next: Category) {
+    if (!draft) return;
+    const prevDefault = defaultAlertDaysFor(draft.category);
+    const userOverridden = draft.advanceAlertDays !== prevDefault;
+    setDraft({
+      ...draft,
+      category: next,
+      advanceAlertDays: userOverridden ? draft.advanceAlertDays : defaultAlertDaysFor(next),
+    });
+  }
+
+  function handleFrequencyChange(next: Frequency) {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      frequencyType: next,
+      // 반복주기를 바꾸면 보조 입력값을 안전한 디폴트로 리셋.
+      weekdays: next === "weekly" ? draft.weekdays ?? [] : null,
+      dayOfMonth: next === "monthly" ? draft.dayOfMonth ?? 1 : null,
+      yearInterval: next === "annual" ? draft.yearInterval ?? 1 : null,
+    });
   }
 
   const filtered = useMemo(() => {
@@ -350,7 +412,6 @@ export default function TaskTemplatesPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold">업무 템플릿 관리</h1>
             {(() => {
-              // [Task #283] 사이드바에서 ?role= 으로 진입한 컨텍스트를 헤더에 표시.
               if (typeof window === "undefined") return null;
               const r = new URLSearchParams(window.location.search).get("role") ?? "";
               const map: Record<string, string> = {
@@ -371,56 +432,28 @@ export default function TaskTemplatesPage() {
           <p className="text-xs text-muted-foreground mt-1">
             관리소장 대시보드의 법정업무·제안업무 항목을 본사가 일괄 관리합니다.
           </p>
-          {(() => {
-            // [Task #283] 업무 템플릿은 '전역 공통 리소스'로 명세 확정.
-            //   사이드바 ?role= 컨텍스트에서 들어오더라도 등록·수정한 템플릿은
-            //   해당 역할이 아니라 시스템 전체에 동일하게 반영된다.
-            if (typeof window === "undefined") return null;
-            const r = new URLSearchParams(window.location.search).get("role") ?? "";
-            const map: Record<string, string> = {
-              manager: "관리소장",
-              accountant: "경리·회계",
-              facility_staff: "시설기사",
-              hq_executive: "본사총괄",
-            };
-            const label = map[r];
-            if (!label) return null;
-            return (
-              <div className="mt-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
-                업무 템플릿은 모든 역할이 공유하는 <b>전역 공통 리소스</b>입니다.
-                <b> {label}</b> 메뉴로 진입했지만, 등록·수정한 템플릿은 시스템 전체에 동일하게 적용됩니다.
-              </div>
-            );
-          })()}
         </div>
         <Button onClick={startCreate} data-testid="btn-create-template">
           <Plus className="w-4 h-4 mr-1" />새 템플릿
         </Button>
       </div>
 
-      <Tabs defaultValue="list">
+      {/* [Task #297] 상단 탭: 전체 보기 → 법정업무 → 제안업무. 변경 이력 탭은 제거. */}
+      <Tabs
+        value={filterCategory}
+        onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}
+      >
         <TabsList>
-          <TabsTrigger value="list">템플릿 목록</TabsTrigger>
-          <TabsTrigger value="audit">변경 이력</TabsTrigger>
+          <TabsTrigger value="all" data-testid="tab-category-all">전체 보기</TabsTrigger>
+          <TabsTrigger value="mandatory" data-testid="tab-category-mandatory">
+            {CATEGORY_LABEL.mandatory}
+          </TabsTrigger>
+          <TabsTrigger value="suggested" data-testid="tab-category-suggested">
+            {CATEGORY_LABEL.suggested}
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="space-y-3 mt-4">
-          {/* [Task #287] 법정업무/제안업무 두 섹션 + 전체 보기 탭. 검색·정렬 상태는 공유. */}
-          <Tabs
-            value={filterCategory}
-            onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}
-          >
-            <TabsList>
-              <TabsTrigger value="mandatory" data-testid="tab-category-mandatory">
-                {CATEGORY_LABEL.mandatory}
-              </TabsTrigger>
-              <TabsTrigger value="suggested" data-testid="tab-category-suggested">
-                {CATEGORY_LABEL.suggested}
-              </TabsTrigger>
-              <TabsTrigger value="all" data-testid="tab-category-all">전체 보기</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
+        <TabsContent value={filterCategory} className="space-y-3 mt-4">
           <div className="flex gap-2">
             <Input
               placeholder="제목으로 검색"
@@ -440,8 +473,6 @@ export default function TaskTemplatesPage() {
             </Card>
           ) : (
             (() => {
-              // [Task #287] 단일 카테고리 탭에서는 평면 목록, "전체 보기"에서는
-              //   법정업무/제안업무 두 그룹 헤더로 분리해 표시한다.
               const renderRow = (t: TaskTemplate) => (
                 <Card key={t.id} data-testid={`template-row-${t.id}`}>
                   <CardContent className="p-4 flex items-start gap-3">
@@ -453,11 +484,18 @@ export default function TaskTemplatesPage() {
                         >
                           {CATEGORY_LABEL[t.category]}
                         </Badge>
-                        <Badge variant="outline" title="법정 의무 여부에 따른 분류">
-                          분류: {CLASSIFICATION_LABEL[t.classification]}
+                        {/* [#297] 분류(법정/내부) 배지 제거. 대신 업무유형 배지 노출. */}
+                        <Badge variant="outline" data-testid={`badge-task-type-${t.id}`}>
+                          {TASK_TYPE_LABEL[(t.taskType as TaskType) ?? "etc"]}
                         </Badge>
-                        <Badge variant="outline">{FREQUENCY_LABEL[t.frequencyType]}</Badge>
-                        <Badge variant="outline">{SCOPE_LABEL[t.scopeType]}</Badge>
+                        <Badge variant="outline" data-testid={`badge-frequency-${t.id}`}>
+                          {formatFrequency(t)}
+                        </Badge>
+                        {t.buildingUsageScopes && t.buildingUsageScopes.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            적용 건물: {t.buildingUsageScopes.join(", ")}
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">우선순위 {t.priority}</span>
                         <span className="text-xs text-muted-foreground">사전알림 D-{t.advanceAlertDays}</span>
                         {!t.isActive && <Badge variant="destructive">비활성</Badge>}
@@ -473,9 +511,6 @@ export default function TaskTemplatesPage() {
                         onCheckedChange={() => handleToggleActive(t)}
                         aria-label="활성화"
                       />
-                      <Button size="sm" variant="ghost" onClick={() => setShowAuditFor(t)}>
-                        <History className="w-4 h-4" />
-                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => startEdit(t)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -491,7 +526,7 @@ export default function TaskTemplatesPage() {
                 return <div className="space-y-2">{filtered.map(renderRow)}</div>;
               }
 
-              const groups: { key: TaskTemplate["category"]; items: TaskTemplate[] }[] = [
+              const groups: { key: Category; items: TaskTemplate[] }[] = [
                 { key: "mandatory", items: filtered.filter((t) => t.category === "mandatory") },
                 { key: "suggested", items: filtered.filter((t) => t.category === "suggested") },
               ];
@@ -521,32 +556,6 @@ export default function TaskTemplatesPage() {
             })()
           )}
         </TabsContent>
-
-        <TabsContent value="audit" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">최근 변경 이력 (최대 200건)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {auditLogs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">기록된 변경 이력이 없습니다.</p>
-              ) : (
-                auditLogs.map((log) => (
-                  <div key={log.id} className="border rounded p-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{ACTION_LABEL[log.action]}</Badge>
-                      <span className="font-medium">{log.templateTitle ?? `#${log.templateId}`}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleString("ko-KR")}
-                      </span>
-                      <span className="text-muted-foreground">· {log.changedByName ?? "시스템"}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
@@ -575,14 +584,14 @@ export default function TaskTemplatesPage() {
                   rows={2}
                 />
               </div>
-              {/* [Task #287] 카테고리(법정업무/제안업무)와 분류(법정/내부)는 별개 개념.
-                  라벨 문구로 의미를 명확히 구분한다. */}
+
+              {/* [#297] 카테고리 + 업무유형 (분류는 제거됨). */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>카테고리 (법정업무 / 제안업무)</Label>
+                  <Label>카테고리</Label>
                   <Select
                     value={draft.category}
-                    onValueChange={(v) => setDraft({ ...draft, category: v as TaskTemplate["category"] })}
+                    onValueChange={(v) => handleCategoryChange(v as Category)}
                   >
                     <SelectTrigger data-testid="select-category"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -592,104 +601,142 @@ export default function TaskTemplatesPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>분류 (법정 / 내부)</Label>
+                  <Label>업무유형</Label>
                   <Select
-                    value={draft.classification}
-                    onValueChange={(v) => setDraft({ ...draft, classification: v as TaskTemplate["classification"] })}
+                    value={draft.taskType ?? "etc"}
+                    onValueChange={(v) => setDraft({ ...draft, taskType: v as TaskType })}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-task-type"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="legal">{CLASSIFICATION_LABEL.legal}</SelectItem>
-                      <SelectItem value="internal">{CLASSIFICATION_LABEL.internal}</SelectItem>
+                      {(Object.keys(TASK_TYPE_LABEL) as TaskType[]).map((k) => (
+                        <SelectItem key={k} value={k}>{TASK_TYPE_LABEL[k]}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* [#297] 반복주기 + 동적 보조 입력. 지정월/지정일/시작일은 모두 제거. */}
+              <div className="grid grid-cols-2 gap-3 items-start">
                 <div>
-                  <Label>주기</Label>
+                  <Label>반복주기</Label>
                   <Select
                     value={draft.frequencyType}
-                    onValueChange={(v) => setDraft({ ...draft, frequencyType: v as TaskTemplate["frequencyType"] })}
+                    onValueChange={(v) => handleFrequencyChange(v as Frequency)}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-frequency"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.entries(FREQUENCY_LABEL).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      {(Object.keys(FREQUENCY_LABEL) as Frequency[]).map((k) => (
+                        <SelectItem key={k} value={k}>{FREQUENCY_LABEL[k]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>주기 간격(반복 횟수, 선택)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="예: 매2주 → 2"
-                    value={draft.intervalValue ?? ""}
-                    onChange={(e) => setDraft({ ...draft, intervalValue: e.target.value ? Number(e.target.value) : null })}
-                  />
+
+                {draft.frequencyType === "weekly" && (
+                  <div>
+                    <Label>요일 선택</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5" data-testid="frequency-weekdays">
+                      {WEEKDAY_LABELS.map((label, idx) => {
+                        const checked = (draft.weekdays ?? []).includes(idx);
+                        return (
+                          <button
+                            type="button"
+                            key={idx}
+                            onClick={() => {
+                              const cur = draft.weekdays ?? [];
+                              const next = checked
+                                ? cur.filter((d) => d !== idx)
+                                : [...cur, idx].sort((a, b) => a - b);
+                              setDraft({ ...draft, weekdays: next });
+                            }}
+                            className={`text-xs px-2.5 py-1 rounded border ${
+                              checked
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-white border-slate-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {draft.frequencyType === "monthly" && (
+                  <div>
+                    <Label>며칠</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={draft.dayOfMonth ?? ""}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          dayOfMonth: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
+                      data-testid="input-day-of-month"
+                      placeholder="1~31"
+                    />
+                  </div>
+                )}
+
+                {draft.frequencyType === "annual" && (
+                  <div>
+                    <Label>몇 년마다</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={draft.yearInterval ?? ""}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          yearInterval: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
+                      data-testid="input-year-interval"
+                      placeholder="예: 1, 2, 3"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* [#297] 적용 건물(주용도 다중 선택). 빈 선택 = 전체 건물. */}
+              <div>
+                <Label>적용 건물</Label>
+                <p className="text-[11px] text-muted-foreground mb-1.5">
+                  표제부 주용도 기준. 선택하지 않으면 전체 건물에 적용됩니다.
+                </p>
+                <div className="flex flex-wrap gap-1.5" data-testid="building-usage-scopes">
+                  {BUILDING_USAGES.map((u) => {
+                    const checked = draft.buildingUsageScopes.includes(u);
+                    return (
+                      <button
+                        type="button"
+                        key={u}
+                        onClick={() => {
+                          const next = checked
+                            ? draft.buildingUsageScopes.filter((x) => x !== u)
+                            : [...draft.buildingUsageScopes, u];
+                          setDraft({ ...draft, buildingUsageScopes: next });
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded border ${
+                          checked
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-white border-slate-300"
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label>지정 월(선택)</Label>
-                  <Input
-                    type="number" min={1} max={12}
-                    value={draft.fixedMonth ?? ""}
-                    onChange={(e) => setDraft({ ...draft, fixedMonth: e.target.value ? Number(e.target.value) : null })}
-                  />
-                </div>
-                <div>
-                  <Label>지정 일(선택)</Label>
-                  <Input
-                    type="number" min={1} max={31}
-                    value={draft.fixedDay ?? ""}
-                    onChange={(e) => setDraft({ ...draft, fixedDay: e.target.value ? Number(e.target.value) : null })}
-                  />
-                </div>
-                <div>
-                  <Label>시작일(선택)</Label>
-                  <Input
-                    type="date"
-                    value={draft.startDate ?? ""}
-                    onChange={(e) => setDraft({ ...draft, startDate: e.target.value || null })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>적용 범위</Label>
-                  <Select
-                    value={draft.scopeType}
-                    onValueChange={(v) => setDraft({ ...draft, scopeType: v as TaskTemplate["scopeType"] })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(SCOPE_LABEL).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>적용 대상(쉼표 구분, 선택)</Label>
-                  <Input
-                    placeholder="예: residential,office"
-                    value={draft.scopeValues.join(",")}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        scopeValues: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    disabled={draft.scopeType === "all"}
-                  />
-                </div>
-              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>우선순위 (0-100)</Label>
@@ -700,11 +747,17 @@ export default function TaskTemplatesPage() {
                   />
                 </div>
                 <div>
-                  <Label>사전 알림 (D-)</Label>
+                  <Label>
+                    사전 알림 (D-)
+                    <span className="text-[10px] text-muted-foreground ml-1">
+                      (디폴트 {defaultAlertDaysFor(draft.category)}일)
+                    </span>
+                  </Label>
                   <Input
                     type="number" min={0} max={365}
                     value={draft.advanceAlertDays}
                     onChange={(e) => setDraft({ ...draft, advanceAlertDays: Number(e.target.value) })}
+                    data-testid="input-advance-alert-days"
                   />
                 </div>
                 <div className="flex items-end gap-2">
@@ -716,7 +769,7 @@ export default function TaskTemplatesPage() {
                 </div>
               </div>
 
-              {/* [Task #283] 노출 대상 역할 (미선택 = 전체 공통). ?role=… 진입 시 기본 선택. */}
+              {/* [Task #283] 노출 대상 역할 (미선택 = 전체 공통). */}
               <div>
                 <Label>노출 대상 역할 (선택 안 하면 전체 공통)</Label>
                 <div className="flex flex-wrap gap-2 mt-1.5">
@@ -746,6 +799,7 @@ export default function TaskTemplatesPage() {
                   })}
                 </div>
               </div>
+
               {/* [Task #221] 대시보드 알림에 노출될 아이콘/색상 (선택). */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -791,34 +845,6 @@ export default function TaskTemplatesPage() {
             <Button variant="ghost" onClick={() => setDraft(null)}>취소</Button>
             <Button onClick={handleSave} data-testid="btn-save-template">저장</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!showAuditFor} onOpenChange={(o) => !o && setShowAuditFor(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>변경 이력: {showAuditFor?.title}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {auditLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">기록이 없습니다.</p>
-            ) : (
-              auditLogs.map((log) => (
-                <div key={log.id} className="border rounded p-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{ACTION_LABEL[log.action]}</Badge>
-                    <span className="text-muted-foreground">
-                      {new Date(log.createdAt).toLocaleString("ko-KR")}
-                    </span>
-                    <span className="text-muted-foreground">· {log.changedByName ?? "시스템"}</span>
-                  </div>
-                  <pre className="text-[10px] mt-1 overflow-x-auto bg-muted/30 p-1 rounded">
-                    {JSON.stringify(humanizeAuditChanges(log.changes), null, 2)}
-                  </pre>
-                </div>
-              ))
-            )}
-          </div>
         </DialogContent>
       </Dialog>
     </div>

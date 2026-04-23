@@ -75,6 +75,10 @@ export function useBuildingSetup() {
   const [inspectionDates, setInspectionDates] = useState<InspectionDates>({});
   const [schedulingInspections, setSchedulingInspections] = useState(false);
   const [inspectionsScheduled, setInspectionsScheduled] = useState(false);
+  // [Task #297] "다음 주기 시작일을 잘 모르겠음" 토글. 켜면 표제부 사용승인일을
+  //   기준으로 다음 실행일을 자동 산정해 저장한다(서버의 useFallbackCompletionDate
+  //   동일 의미; 빈 lastDate 항목에 대해 fallback 적용).
+  const [useApprovalDateFallback, setUseApprovalDateFallback] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
   const [registerPreview, setRegisterPreview] = useState<Record<string, unknown> | null>(null);
@@ -516,15 +520,20 @@ export function useBuildingSetup() {
     }
 
     const tasksWithDates = selectedTasks.filter((t) => t.lastDate);
-    if (tasksWithDates.length === 0) {
+    // [Task #297] 사용승인일 기반 자동 산정을 켰다면 lastDate 가 비어 있어도
+    //   서버가 fallback 으로 다음 실행일을 계산해 준다.
+    if (tasksWithDates.length === 0 && !useApprovalDateFallback) {
       toast({ title: "최소 1개 이상의 최근 실시일을 입력해주세요", variant: "destructive" });
       return;
     }
 
+    // [Task #297] fallback 이 켜져 있으면 lastDate 가 비어 있는 항목도 payload 에
+    //   포함해 서버가 사용승인일을 기준으로 자동 산정하도록 한다.
+    const tasksToSend = useApprovalDateFallback ? selectedTasks : tasksWithDates;
     const datesByCategory: InspectionDates = {};
-    for (const t of tasksWithDates) {
+    for (const t of tasksToSend) {
       if (!datesByCategory[t.category]) datesByCategory[t.category] = {};
-      datesByCategory[t.category][t.name] = t.lastDate;
+      datesByCategory[t.category][t.name] = t.lastDate ?? "";
     }
 
     setSchedulingInspections(true);
@@ -538,6 +547,8 @@ export function useBuildingSetup() {
         body: JSON.stringify({
           buildingId: existingId,
           inspectionDates: datesByCategory,
+          // [Task #297] 사용승인일 기반 fallback 사용 여부.
+          useFallbackCompletionDate: useApprovalDateFallback,
         }),
       });
 
@@ -571,6 +582,8 @@ export function useBuildingSetup() {
     calculatingSafety,
     schedulingInspections,
     inspectionsScheduled,
+    useApprovalDateFallback,
+    setUseApprovalDateFallback,
     activeStep,
     setActiveStep,
     registerPreview,

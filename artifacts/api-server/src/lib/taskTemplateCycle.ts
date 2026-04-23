@@ -22,10 +22,31 @@ function dateOnly(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+function tplWeekdays(t: TaskTemplate): number[] | null {
+  const w = (t as { weekdays?: number[] | null }).weekdays;
+  if (Array.isArray(w) && w.length > 0) return w;
+  return null;
+}
+
+function tplDayOfMonth(t: TaskTemplate): number | null {
+  const v = (t as { dayOfMonth?: number | null }).dayOfMonth;
+  if (typeof v === "number" && v >= 1 && v <= 31) return v;
+  return t.fixedDay ?? null;
+}
+
+function tplYearInterval(t: TaskTemplate): number {
+  const v = (t as { yearInterval?: number | null }).yearInterval;
+  if (typeof v === "number" && v >= 1) return v;
+  return 1;
+}
+
 /**
  * Compute the next occurrence date for a template, on/after `today`.
  * Returns null if the template is one_time and has already passed without a startDate
  * (i.e. nothing left to schedule).
+ *
+ * [Task #297] 신규 입력 필드(weekdays/dayOfMonth/yearInterval) 가 있으면 우선 사용하고,
+ * 없으면 기존 fixedMonth/fixedDay/startDate 폴백으로 동작한다.
  */
 export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
   const today0 = startOfDay(today);
@@ -46,6 +67,15 @@ export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
       return today0;
     }
     case "weekly": {
+      // [#297] weekdays 가 있으면 가장 가까운 요일을 다음 due 로 사용.
+      const wds = tplWeekdays(t);
+      if (wds) {
+        for (let i = 0; i < 14; i++) {
+          const cand = addDays(today0, i);
+          if (wds.includes(cand.getDay())) return cand;
+        }
+        return today0;
+      }
       const interval = (t.intervalValue ?? 1) * 7;
       const anchor = t.startDate ? startOfDay(new Date(t.startDate)) : today0;
       if (anchor >= today0) return anchor;
@@ -64,7 +94,7 @@ export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
           ? 3
           : t.frequencyType === "semiannual"
           ? 6
-          : 12;
+          : 12 * tplYearInterval(t);
 
       // If fixedMonth/fixedDay specified, anchor on that month/day this year (or future).
       if (t.fixedMonth && t.fixedDay) {
@@ -76,12 +106,11 @@ export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
 
       // Deterministic anchor:
       // - explicit startDate → use it
-      // - else for monthly (1-month cycle): anchor to fixedDay of current month
-      //   (anchor month does not drift across the cycle)
-      // - else for quarterly/semiannual/annual: anchor to (fixedDay) of January
+      // - else for monthly (1-month cycle): anchor to dayOfMonth(or 1) of current month
+      // - else for quarterly/semiannual/annual: anchor to (dayOfMonth/1) of January
       //   of the current year. This is canonical and prevents the next due date
       //   from regressing if `today` advances within a cycle window.
-      const day = t.fixedDay ?? 1;
+      const day = tplDayOfMonth(t) ?? 1;
       let anchor: Date;
       if (t.startDate) {
         anchor = startOfDay(new Date(t.startDate));
@@ -92,6 +121,70 @@ export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
       }
       if (anchor >= today0) return anchor;
       let cursor = new Date(anchor);
+      while (cursor < today0) cursor = addMonths(cursor, monthsBetween);
+      return cursor;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * [Task #297] 표제부 사용승인일을 기준으로 "지금까지 정상 수행해 왔다"고 가정해
+ *  다음 실행 예정일을 산출한다. 온보딩 마법사에서 "다음 주기 시작일을 잘 모르겠음"
+ *  분기에 사용된다.
+ *
+ *  알고리즘:
+ *   - baseline(=approvalDate) 부터 cycle(=주기 길이) 단위로 반복해 today 직후의
+ *     첫 occurrence 를 반환한다.
+ *   - 주기를 해석할 수 없으면(one_time, 입력 부족) null.
+ */
+export function computeNextDueDateFromBaseline(
+  t: TaskTemplate,
+  baseline: Date,
+  today: Date,
+): Date | null {
+  const today0 = startOfDay(today);
+  const base0 = startOfDay(baseline);
+
+  switch (t.frequencyType) {
+    case "one_time":
+      return null;
+    case "daily":
+      return today0;
+    case "weekly": {
+      const wds = tplWeekdays(t);
+      if (wds) {
+        for (let i = 0; i < 14; i++) {
+          const cand = addDays(today0, i);
+          if (wds.includes(cand.getDay())) return cand;
+        }
+        return today0;
+      }
+      const interval = (t.intervalValue ?? 1) * 7;
+      let cursor = new Date(base0);
+      if (cursor >= today0) return cursor;
+      const diffDays = Math.ceil((today0.getTime() - cursor.getTime()) / (1000 * 60 * 60 * 24));
+      const cycles = Math.ceil(diffDays / interval);
+      return addDays(cursor, cycles * interval);
+    }
+    case "monthly":
+    case "quarterly":
+    case "semiannual":
+    case "annual": {
+      const monthsBetween =
+        t.frequencyType === "monthly"
+          ? t.intervalValue ?? 1
+          : t.frequencyType === "quarterly"
+          ? 3
+          : t.frequencyType === "semiannual"
+          ? 6
+          : 12 * tplYearInterval(t);
+
+      // baseline 의 일자를 우선 사용하되, dayOfMonth 가 명시되어 있으면 그 일자로 보정.
+      const day = tplDayOfMonth(t) ?? base0.getDate();
+      let cursor = new Date(base0.getFullYear(), base0.getMonth(), day);
+      if (cursor < base0) cursor = addMonths(cursor, monthsBetween);
       while (cursor < today0) cursor = addMonths(cursor, monthsBetween);
       return cursor;
     }

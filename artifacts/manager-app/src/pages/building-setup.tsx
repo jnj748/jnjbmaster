@@ -142,6 +142,8 @@ export default function BuildingSetup() {
             scheduleInspections={setup.scheduleInspections}
             schedulingInspections={setup.schedulingInspections}
             existingId={setup.existingId}
+            useApprovalDateFallback={setup.useApprovalDateFallback}
+            setUseApprovalDateFallback={setup.setUseApprovalDateFallback}
           />
           {setup.existingId && setup.building.approvalDate && (
             <WarrantySection
