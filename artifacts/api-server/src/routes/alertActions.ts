@@ -10,14 +10,10 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-// [Task #304] hq_executive(본부장)도 anchored 하자담보 등 템플릿 알림에 대해
-//   처리완료/연기 액션을 직접 수행할 수 있어야 한다(spec: "본부장이 수동 처리할 수
-//   있는 액션이 있음"). facility_staff/accountant 역시 자신 화면의 알림을 처리할
-//   수 있어야 자신의 후속 노출이 정상적으로 억제된다.
-router.use(
-  "/alert-actions",
-  requireRole("manager", "platform_admin", "hq_executive", "facility_staff", "accountant"),
-);
+// GET 은 기존과 동일하게 관리자급(manager / platform_admin)만 조회 가능.
+// 비관리자 역할이 추가될 경우 row-level scoping(userId / buildingId)이 필요하므로
+// 현재 단계에서는 GET 권한을 확장하지 않는다.
+router.use("/alert-actions", requireRole("manager", "platform_admin"));
 router.get("/alert-actions", async (req, res): Promise<void> => {
   const params = ListAlertActionsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -38,7 +34,17 @@ router.get("/alert-actions", async (req, res): Promise<void> => {
   res.json(ListAlertActionsResponse.parse(actions));
 });
 
-router.post("/alert-actions", async (req, res): Promise<void> => {
+// [Task #304] POST 만 hq_executive / facility_staff / accountant 에게 추가 허용.
+//   본부장은 anchored 하자담보 만료 등 템플릿 알림을 직접 처리완료/연기 가능해야
+//   하고(spec), 시설/회계 담당도 자신의 알림을 처리하지 못하면 후속 노출이
+//   계속 반복되기 때문이다. GET 은 위에서 막혀 있으므로 cross-tenant 노출이 없다.
+router.post("/alert-actions", requireRole(
+  "manager",
+  "platform_admin",
+  "hq_executive",
+  "facility_staff",
+  "accountant",
+), async (req, res): Promise<void> => {
   const parsed = CreateAlertActionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
