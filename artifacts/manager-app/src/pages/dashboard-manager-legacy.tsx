@@ -148,6 +148,8 @@ interface DashboardAlert {
   dueDate?: string | null;
   penaltyInfo?: string | null;
   inspectionType?: string | null;
+  cycleMonths?: number | null;
+  intervalDays?: number | null;
   createdAt: string;
 }
 
@@ -591,7 +593,8 @@ export default function Dashboard() {
   function openAlertAction(alert: DashboardAlert) {
     setSelectedAlert(alert);
     setActionTab("complete");
-    setCompleteDate(new Date().toISOString().split("T")[0]);
+    const todayStr = new Date().toISOString().split("T")[0];
+    setCompleteDate(todayStr);
     setPostponeDays("7");
     setPostponeReason("");
     setActionNotes("");
@@ -599,7 +602,19 @@ export default function Dashboard() {
     const twoWeeks = new Date();
     twoWeeks.setDate(twoWeeks.getDate() + 14);
     setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
-    setNextCycleDate("");
+    let prefilledNextCycle = "";
+    if (alert.type === "inspection_due") {
+      const base = new Date(todayStr);
+      if (alert.cycleMonths) {
+        base.setMonth(base.getMonth() + alert.cycleMonths);
+      } else if (alert.intervalDays) {
+        base.setDate(base.getDate() + alert.intervalDays);
+      } else {
+        base.setMonth(base.getMonth() + 6);
+      }
+      prefilledNextCycle = base.toISOString().split("T")[0];
+    }
+    setNextCycleDate(prefilledNextCycle);
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);
     setRfqCloseUpPhotoUrl(null);
@@ -1123,14 +1138,14 @@ export default function Dashboard() {
                   </div>
                   {selectedAlert.type === "inspection_due" && (
                     <div>
-                      <Label>다음 점검 예정일 (선택 — 미입력 시 법정 주기 자동 계산)</Label>
+                      <Label>다음 점검 예정일</Label>
                       <Input
                         type="date"
                         value={nextCycleDate}
                         onChange={(e) => setNextCycleDate(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        비워두면 해당 점검의 법정 주기에 따라 서버에서 자동 계산됩니다.
+                      <p className="text-xs mt-1">
+                        다음 주기가 자동입력 되었습니다. <span className="text-blue-600 font-medium">입력</span>
                       </p>
                     </div>
                   )}

@@ -254,6 +254,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       dueDate: inspection.nextDueDate,
       penaltyInfo,
       inspectionType: inspection.inspectionType ?? null,
+      cycleMonths: inspection.legalCycleMonths ?? null,
+      intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
     });
   }
@@ -296,6 +298,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       dueDate: inspection.nextDueDate,
       penaltyInfo: penaltyInfoO,
       inspectionType: inspection.inspectionType ?? null,
+      cycleMonths: inspection.legalCycleMonths ?? null,
+      intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
     });
   }
