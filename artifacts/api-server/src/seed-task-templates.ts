@@ -310,18 +310,21 @@ export async function seedTaskTemplates(): Promise<void> {
   const existing = await db.select().from(taskTemplatesTable);
   const obsolete = existing.filter((r) => LEGACY_SEED_TITLES.includes(r.title));
   if (obsolete.length > 0) {
-    await db.insert(taskTemplateAuditLogsTable).values(
-      obsolete.map((o) => ({
-        templateId: o.id,
-        templateTitle: o.title,
-        action: "delete" as const,
-        changes: { reason: "[Task #303] 운영 표준 시드 재구성으로 검증용 행 정리" },
-        changedByName: "system",
-      })),
-    );
-    await db
-      .delete(taskTemplatesTable)
-      .where(inArray(taskTemplatesTable.id, obsolete.map((o) => o.id)));
+    // [Task #303] audit log + delete 를 단일 트랜잭션으로 묶어 부분 적용 방지.
+    await db.transaction(async (tx) => {
+      await tx.insert(taskTemplateAuditLogsTable).values(
+        obsolete.map((o) => ({
+          templateId: o.id,
+          templateTitle: o.title,
+          action: "delete" as const,
+          changes: { reason: "[Task #303] 운영 표준 시드 재구성으로 검증용 행 정리" },
+          changedByName: "system",
+        })),
+      );
+      await tx
+        .delete(taskTemplatesTable)
+        .where(inArray(taskTemplatesTable.id, obsolete.map((o) => o.id)));
+    });
   }
 
   // ── 2) 신규 행 INSERT (title 기준 멱등) ──────────────────────────────────
