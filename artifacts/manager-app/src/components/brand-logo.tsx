@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 
 // 브랜드 로고: "관리의달인" + 빌딩 아이콘.
-// 기존 logo.png 는 "관리의" 가 흰색이라 밝은 배경에서 보이지 않는 문제가 있어,
-// 항상 가독성 있는 SVG 컴포넌트로 대체.
-//   - "관리의" 는 진한 슬레이트, "달인" 은 브랜드 틸 컬러로 강조.
-//   - 빌딩 아이콘은 브랜드 틸. 모두 currentColor 와 무관하게 자기 색을 가짐.
+//   - "관리의" 는 currentColor 를 따라가도록 해 배경에 맞춰 자동 대비.
+//     · 밝은 배경 → 부모에서 text-slate-900(검정) 상속
+//     · 어두운 배경 → 부모에서 text-white(흰색) 상속
+//   - "달인" 은 항상 브랜드 틸 컬러로 강조.
+//   - 빌딩 아이콘도 항상 브랜드 틸.
 //   - height 픽셀만 받고 가로는 자동(viewBox 비율 유지).
 export interface BrandLogoProps {
   height?: number; // px
@@ -14,7 +15,6 @@ export interface BrandLogoProps {
 }
 
 const BRAND_TEAL = "#14b8a6"; // teal-500
-const BRAND_TEXT = "#0f172a"; // slate-900
 
 export function BrandLogo({
   height = 32,
@@ -65,7 +65,7 @@ export function BrandLogo({
         fontWeight={800}
         letterSpacing="-0.5"
       >
-        <tspan fill={BRAND_TEXT}>관리의</tspan>
+        <tspan fill="currentColor">관리의</tspan>
         <tspan fill={BRAND_TEAL} dx="6">달인</tspan>
       </text>
     </svg>
