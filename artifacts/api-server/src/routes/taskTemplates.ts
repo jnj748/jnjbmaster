@@ -63,6 +63,47 @@ const CreateBody = z.object({
   targetRoles: z.array(z.string()).nullable().optional(),
 });
 
+// [Task #302] frequencyType 별 필수 보조값 검증 (defense-in-depth).
+//   UI 가 이미 보장하지만 API 에서도 일관성 강제.
+function refineFrequencyFields<T extends z.ZodTypeAny>(schema: T): z.ZodEffects<T> {
+  return schema.superRefine((val, ctx) => {
+    const v = val as Partial<z.infer<typeof CreateBody>>;
+    if (v.frequencyType === "biweekly") {
+      if (!v.startDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["startDate"],
+          message: "biweekly: startDate 가 필요합니다",
+        });
+      }
+      if (!v.weekdays || v.weekdays.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["weekdays"],
+          message: "biweekly: 요일을 1개 선택해야 합니다",
+        });
+      }
+    }
+    if (v.frequencyType === "monthly_nth_weekday") {
+      if (v.nthWeek == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["nthWeek"],
+          message: "monthly_nth_weekday: nthWeek 가 필요합니다",
+        });
+      }
+      if (v.nthWeekday == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["nthWeekday"],
+          message: "monthly_nth_weekday: nthWeekday 가 필요합니다",
+        });
+      }
+    }
+  });
+}
+
+const CreateBodyChecked = refineFrequencyFields(CreateBody);
 const UpdateBody = CreateBody.partial();
 
 async function recordAudit(
@@ -116,7 +157,7 @@ router.post(
   "/platform/task-templates",
   requireRole("platform_admin"),
   async (req, res): Promise<void> => {
-    const parsed = CreateBody.safeParse(req.body);
+    const parsed = CreateBodyChecked.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
