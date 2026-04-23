@@ -41,7 +41,10 @@ type Frequency =
   | "monthly_nth_weekday"
   | "quarterly"
   | "semiannual"
-  | "annual";
+  | "annual"
+  // [Task #304] 사용승인일 + N년 (하자담보 등)
+  | "anchored";
+type AnchorType = "building_approval_date";
 type Category = "mandatory" | "suggested";
 type TaskType = "facility" | "fee" | "accounting" | "security" | "cleaning" | "etc";
 type BuildingUsage =
@@ -75,6 +78,9 @@ interface TaskTemplate {
   yearInterval: number | null;
   nthWeek: number | null;
   nthWeekday: number | null;
+  // [Task #304]
+  anchorType: AnchorType | null;
+  anchorOffsetYears: number | null;
   scopeType: "all" | "building_ids" | "user_ids";
   scopeValues: string[];
   buildingUsageScopes: BuildingUsage[];
@@ -113,6 +119,12 @@ const FREQUENCY_LABEL: Record<Frequency, string> = {
   quarterly: "분기",
   semiannual: "반기",
   annual: "연간",
+  // [Task #304] 사용승인일 + N년 (하자담보 만료 등)
+  anchored: "사용승인일 + N년",
+};
+
+const ANCHOR_TYPE_LABEL: Record<AnchorType, string> = {
+  building_approval_date: "사용승인일",
 };
 
 // [Task #302] N째 주 라벨. -1 = 마지막 주.
@@ -184,6 +196,8 @@ function emptyDraft(defaultRole?: string): DraftType {
     yearInterval: 1,
     nthWeek: null,
     nthWeekday: null,
+    anchorType: null,
+    anchorOffsetYears: null,
     scopeType: "all",
     scopeValues: [],
     buildingUsageScopes: [],
@@ -234,6 +248,12 @@ function formatFrequency(t: TaskTemplate): string {
         return "매년";
       }
       return `${yr}년마다`;
+    }
+    case "anchored": {
+      // [Task #304] "사용승인일 + N년"
+      const anchor = t.anchorType ? ANCHOR_TYPE_LABEL[t.anchorType] : "기준일";
+      const yr = t.anchorOffsetYears ?? 0;
+      return `${anchor} + ${yr}년`;
     }
     default:
       return FREQUENCY_LABEL[t.frequencyType];
@@ -363,6 +383,8 @@ export default function TaskTemplatesPage() {
       yearInterval: t.yearInterval ?? (t.frequencyType === "annual" ? 1 : null),
       nthWeek: t.nthWeek ?? null,
       nthWeekday: t.nthWeekday ?? null,
+      anchorType: t.anchorType ?? null,
+      anchorOffsetYears: t.anchorOffsetYears ?? null,
       scopeType: t.scopeType,
       scopeValues: t.scopeValues,
       buildingUsageScopes: t.buildingUsageScopes ?? [],
@@ -401,6 +423,17 @@ export default function TaskTemplatesPage() {
       }
       if (!draft.startDate) {
         toast({ title: "격주 기준일을 입력해 주세요", variant: "destructive" });
+        return;
+      }
+    }
+    // [Task #304] anchored: anchorType + anchorOffsetYears 필수
+    if (draft.frequencyType === "anchored") {
+      if (!draft.anchorType) {
+        toast({ title: "기준일 종류를 선택해 주세요", variant: "destructive" });
+        return;
+      }
+      if (draft.anchorOffsetYears == null || draft.anchorOffsetYears < 0) {
+        toast({ title: "기준일로부터 몇 년 후인지 입력해 주세요", variant: "destructive" });
         return;
       }
     }
@@ -463,6 +496,9 @@ export default function TaskTemplatesPage() {
       yearInterval: next === "annual" ? draft.yearInterval ?? 1 : null,
       nthWeek: next === "monthly_nth_weekday" ? draft.nthWeek ?? 1 : null,
       nthWeekday: next === "monthly_nth_weekday" ? draft.nthWeekday ?? 1 : null,
+      // [Task #304] anchored 로 전환 시 기본값(사용승인일 + 2년).
+      anchorType: next === "anchored" ? draft.anchorType ?? "building_approval_date" : null,
+      anchorOffsetYears: next === "anchored" ? draft.anchorOffsetYears ?? 2 : null,
       startDate: nextStartDate,
     });
   }
@@ -779,6 +815,41 @@ export default function TaskTemplatesPage() {
                                     );
                                   })}
                                 </div>
+                              </div>
+                            </>
+                          )}
+                          {draft.frequencyType === "anchored" && (
+                            <>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">기준일</span>
+                                <Select
+                                  value={draft.anchorType ?? "building_approval_date"}
+                                  onValueChange={(v) =>
+                                    setDraft({ ...draft, anchorType: v as AnchorType })
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {(Object.keys(ANCHOR_TYPE_LABEL) as AnchorType[]).map((k) => (
+                                      <SelectItem key={k} value={k}>{ANCHOR_TYPE_LABEL[k]}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-muted-foreground">+ N년 후</span>
+                                <Input
+                                  type="number" min={0} max={50}
+                                  className="h-8 w-16 text-xs"
+                                  value={draft.anchorOffsetYears ?? ""}
+                                  onChange={(e) =>
+                                    setDraft({
+                                      ...draft,
+                                      anchorOffsetYears: e.target.value ? Number(e.target.value) : null,
+                                    })
+                                  }
+                                  data-testid="input-anchor-offset-years"
+                                />
                               </div>
                             </>
                           )}
@@ -1172,6 +1243,47 @@ export default function TaskTemplatesPage() {
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {draft.frequencyType === "anchored" && (
+                  <div>
+                    <Label>기준일 + N년</Label>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">
+                      예: 사용승인일 + 2년 (마감 하자담보 만료)
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={draft.anchorType ?? "building_approval_date"}
+                        onValueChange={(v) =>
+                          setDraft({ ...draft, anchorType: v as AnchorType })
+                        }
+                      >
+                        <SelectTrigger className="w-40" data-testid="select-anchor-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(ANCHOR_TYPE_LABEL) as AnchorType[]).map((k) => (
+                            <SelectItem key={k} value={k}>{ANCHOR_TYPE_LABEL[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm">+</span>
+                      <Input
+                        type="number" min={0} max={50}
+                        className="w-20"
+                        value={draft.anchorOffsetYears ?? ""}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            anchorOffsetYears: e.target.value ? Number(e.target.value) : null,
+                          })
+                        }
+                        data-testid="input-anchor-offset-years-create"
+                        placeholder="N"
+                      />
+                      <span className="text-sm">년</span>
                     </div>
                   </div>
                 )}

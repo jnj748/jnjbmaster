@@ -24,8 +24,16 @@ export const taskTemplateFrequencyTypes = [
   "quarterly",
   "semiannual",
   "annual",
+  // [Task #304] 사용승인일 + N년 으로 만료 시점이 결정되는 1회성 점검(예: 하자담보).
+  // 빌딩별로 anchorDate 가 있어야 의미가 있으며 ResolveActiveTemplateAlerts 에서
+  // building 컨텍스트로 계산한다.
+  "anchored",
 ] as const;
 export type TaskTemplateFrequencyType = (typeof taskTemplateFrequencyTypes)[number];
+
+// [Task #304] anchored frequency 의 기준일 종류. 현재는 빌딩 사용승인일만 지원.
+export const taskTemplateAnchorTypes = ["building_approval_date"] as const;
+export type TaskTemplateAnchorType = (typeof taskTemplateAnchorTypes)[number];
 
 // [Task #297] 업무유형 — 관리소장 운영 분류. 신규 입력의 필수값.
 export const taskTemplateTaskTypes = [
@@ -98,6 +106,11 @@ export const taskTemplatesTable = pgTable("task_templates", {
   //   nthWeekday: 0(일)~6(토)
   nthWeek: integer("nth_week"),
   nthWeekday: integer("nth_weekday"),
+  // [Task #304] anchored frequency 보조 입력값.
+  //   anchorType: 기준일 종류(현재 building_approval_date)
+  //   anchorOffsetYears: 기준일 + N년 시점이 만료/점검 예정일
+  anchorType: text("anchor_type"),
+  anchorOffsetYears: integer("anchor_offset_years"),
   scopeType: text("scope_type").notNull().default("all"),
   scopeValues: jsonb("scope_values").$type<string[]>().notNull().default([]),
   // [#297] 표제부 주용도 기준 적용 건물(다중). 빈 배열 = 전체.

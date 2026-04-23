@@ -95,6 +95,46 @@ describe("computeNextDueDate", () => {
     assert.equal(d?.getDate(), 4);
   });
 
+  // [Task #304] anchored frequency
+  it("anchored: returns approval date + N years", () => {
+    const t = tpl({
+      frequencyType: "anchored",
+      anchorType: "building_approval_date",
+      anchorOffsetYears: 2,
+    } as Partial<TaskTemplate>);
+    const today = new Date(2026, 3, 23);
+    const d = computeNextDueDate(t, today, { anchorDate: new Date(2024, 5, 15) });
+    assert.equal(d?.getFullYear(), 2026);
+    assert.equal(d?.getMonth(), 5);
+    assert.equal(d?.getDate(), 15);
+  });
+
+  // [Task #304] anchored frequency without anchorDate → null (skip)
+  it("anchored: returns null when anchorDate context is missing", () => {
+    const t = tpl({
+      frequencyType: "anchored",
+      anchorType: "building_approval_date",
+      anchorOffsetYears: 5,
+    } as Partial<TaskTemplate>);
+    const today = new Date(2026, 3, 23);
+    const d = computeNextDueDate(t, today, { anchorDate: null });
+    assert.equal(d, null);
+  });
+
+  // [Task #304] anchored returns past due date for over-anchor templates
+  it("anchored: returns past date when offset already elapsed (overdue)", () => {
+    const t = tpl({
+      frequencyType: "anchored",
+      anchorType: "building_approval_date",
+      anchorOffsetYears: 2,
+    } as Partial<TaskTemplate>);
+    const today = new Date(2026, 3, 23);
+    const d = computeNextDueDate(t, today, { anchorDate: new Date(2020, 0, 10) });
+    assert.equal(d?.getFullYear(), 2022);
+    assert.equal(d?.getMonth(), 0);
+    assert.equal(d?.getDate(), 10);
+  });
+
   // [Task #302]
   it("monthly_nth_weekday: skips months without 5th occurrence of weekday", () => {
     // 2026-02 (28일) 의 5번째 일요일은 없음. 2026-03 의 5번째 일요일=3/29.

@@ -10,7 +10,14 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use("/alert-actions", requireRole("manager", "platform_admin"));
+// [Task #304] hq_executive(본부장)도 anchored 하자담보 등 템플릿 알림에 대해
+//   처리완료/연기 액션을 직접 수행할 수 있어야 한다(spec: "본부장이 수동 처리할 수
+//   있는 액션이 있음"). facility_staff/accountant 역시 자신 화면의 알림을 처리할
+//   수 있어야 자신의 후속 노출이 정상적으로 억제된다.
+router.use(
+  "/alert-actions",
+  requireRole("manager", "platform_admin", "hq_executive", "facility_staff", "accountant"),
+);
 router.get("/alert-actions", async (req, res): Promise<void> => {
   const params = ListAlertActionsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -156,7 +163,10 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
   const [action] = await db
     .insert(alertActionsTable)
     .values({
-      userId: req.user?.id ?? null,
+      // [Task #304] auth payload 키는 `userId` 임 (`id` 아님). 잘못된 키로
+      //   null 이 저장되면 resolveActiveTemplateAlerts 의 사용자별 액션 매칭이
+      //   실패해 처리완료/연기 후에도 알림이 다시 노출된다.
+      userId: req.user?.userId ?? null,
       alertType: data.alertType,
       relatedEntityType: data.relatedEntityType,
       relatedEntityId: data.relatedEntityId,

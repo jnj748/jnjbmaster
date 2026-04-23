@@ -76,10 +76,27 @@ function tplNthWeekday(t: TaskTemplate): number | null {
  * [Task #297] 신규 입력 필드(weekdays/dayOfMonth/yearInterval) 가 있으면 우선 사용하고,
  * 없으면 기존 fixedMonth/fixedDay/startDate 폴백으로 동작한다.
  */
-export function computeNextDueDate(t: TaskTemplate, today: Date): Date | null {
+export interface ComputeDueContext {
+  // [Task #304] anchored frequency 계산에 필요한 빌딩 사용승인일.
+  //   anchored 템플릿이지만 anchorDate 가 없으면 null 을 반환한다(빌딩 미입력으로 스킵).
+  anchorDate?: Date | null;
+}
+
+export function computeNextDueDate(
+  t: TaskTemplate,
+  today: Date,
+  ctx: ComputeDueContext = {},
+): Date | null {
   const today0 = startOfDay(today);
 
   switch (t.frequencyType) {
+    case "anchored": {
+      // [Task #304] 사용승인일 + N년. 빌딩 컨텍스트가 없거나 N년이 비어있으면 스킵.
+      const offset = (t as { anchorOffsetYears?: number | null }).anchorOffsetYears;
+      if (!ctx.anchorDate || typeof offset !== "number" || offset < 0) return null;
+      const anchor = startOfDay(ctx.anchorDate);
+      return new Date(anchor.getFullYear() + offset, anchor.getMonth(), anchor.getDate());
+    }
     case "one_time": {
       if (!t.startDate) return null;
       const due = startOfDay(new Date(t.startDate));

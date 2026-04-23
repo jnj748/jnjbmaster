@@ -10,6 +10,7 @@ import {
   taskTemplateCategories,
   taskTemplateClassifications,
   taskTemplateFrequencyTypes,
+  taskTemplateAnchorTypes,
   taskTemplateScopeTypes,
   taskTemplateTaskTypes,
   taskTemplateBuildingUsageScopes,
@@ -24,6 +25,7 @@ const router: IRouter = Router();
 const categoryEnum = z.enum(taskTemplateCategories);
 const classificationEnum = z.enum(taskTemplateClassifications);
 const frequencyEnum = z.enum(taskTemplateFrequencyTypes);
+const anchorTypeEnum = z.enum(taskTemplateAnchorTypes);
 const scopeEnum = z.enum(taskTemplateScopeTypes);
 const taskTypeEnum = z.enum(taskTemplateTaskTypes);
 const buildingUsageEnum = z.enum(taskTemplateBuildingUsageScopes);
@@ -51,6 +53,9 @@ const CreateBody = z.object({
   //   nthWeekday: 0(일)~6(토)
   nthWeek: z.union([z.literal(-1), z.number().int().min(1).max(5)]).nullable().optional(),
   nthWeekday: z.number().int().min(0).max(6).nullable().optional(),
+  // [Task #304] anchored frequency 보조 입력값.
+  anchorType: anchorTypeEnum.nullable().optional(),
+  anchorOffsetYears: z.number().int().min(0).max(50).nullable().optional(),
   scopeType: scopeEnum.optional(),
   scopeValues: z.array(z.string()).optional(),
   // [#297] 표제부 주용도 기준 적용 건물(다중 선택). 빈 배열 = 전체.
@@ -81,6 +86,22 @@ function refineFrequencyFields<T extends z.ZodTypeAny>(schema: T): z.ZodEffects<
           code: z.ZodIssueCode.custom,
           path: ["weekdays"],
           message: "biweekly: 요일을 1개 선택해야 합니다",
+        });
+      }
+    }
+    if (v.frequencyType === "anchored") {
+      if (!v.anchorType) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["anchorType"],
+          message: "anchored: anchorType 가 필요합니다",
+        });
+      }
+      if (v.anchorOffsetYears == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["anchorOffsetYears"],
+          message: "anchored: anchorOffsetYears(N년) 가 필요합니다",
         });
       }
     }
@@ -188,6 +209,9 @@ router.post(
         yearInterval: d.yearInterval ?? null,
         nthWeek: d.nthWeek ?? null,
         nthWeekday: d.nthWeekday ?? null,
+        // [Task #304]
+        anchorType: d.anchorType ?? null,
+        anchorOffsetYears: d.anchorOffsetYears ?? null,
         scopeType: d.scopeType ?? "all",
         scopeValues: d.scopeValues ?? [],
         buildingUsageScopes: d.buildingUsageScopes ?? [],
@@ -375,6 +399,9 @@ export interface TemplateAlertContext {
   buildingId?: number | null;
   userRole?: string | null;
   buildingUsage?: string | null;
+  // [Task #304] anchored frequency 계산용. 빌딩 사용승인일(approval_date).
+  //   주입되지 않은 경우 resolveActiveTemplateAlerts 가 buildingId 로 자동 조회한다.
+  buildingApprovalDate?: Date | null;
 }
 
 // [Task #221] 활성 템플릿을 사용자 컨텍스트(소속 건물/사용자 ID)로 필터링한 뒤
@@ -392,6 +419,23 @@ export async function resolveActiveTemplateAlerts(
     .select()
     .from(taskTemplatesTable)
     .where(eq(taskTemplatesTable.isActive, true));
+
+  // [Task #304] anchored 템플릿이 1건이라도 있고 빌딩 컨텍스트가 있으면
+  //   사용승인일을 1회 조회해 캐싱한다. ctx 에 명시적으로 주입되어 있으면 그것을 사용.
+  let anchorDate: Date | null = ctx.buildingApprovalDate ?? null;
+  const hasAnchored = templates.some((t) => t.frequencyType === "anchored");
+  if (hasAnchored && anchorDate == null && ctx.buildingId) {
+    const [b] = await db
+      .select({ approvalDate: buildingsTable.approvalDate })
+      .from(buildingsTable)
+      .where(eq(buildingsTable.id, ctx.buildingId));
+    anchorDate = b?.approvalDate ? new Date(b.approvalDate) : null;
+    if (!anchorDate) {
+      console.warn(
+        `[task-templates] 빌딩 ${ctx.buildingId} 에 사용승인일이 없어 하자담보 등 anchored 템플릿을 스킵합니다`,
+      );
+    }
+  }
 
   // [Task #221+] 사용자가 처리완료/연기한 템플릿 알림은 동일 사이클 동안
   // 다시 노출하지 않는다. 키는 (alertType, templateId). 다른 사용자의
@@ -422,7 +466,12 @@ export async function resolveActiveTemplateAlerts(
 
   for (const t of templates) {
     if (!templateAppliesTo(t, ctx)) continue;
-    const due = computeNextDueDate(t, today);
+    // [Task #304] anchored 템플릿은 빌딩 사용승인일을 컨텍스트로 전달.
+    const due = computeNextDueDate(
+      t,
+      today,
+      t.frequencyType === "anchored" ? { anchorDate } : undefined,
+    );
     if (!due) continue;
     const alertWindowStart = new Date(due);
     alertWindowStart.setDate(alertWindowStart.getDate() - t.advanceAlertDays);

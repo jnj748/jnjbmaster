@@ -5,12 +5,12 @@ import {
   taskTemplateAuditLogsTable,
 } from "@workspace/db";
 
-// [Task #303] 운영 표준 업무 템플릿 48건 재시드.
+// [Task #303 → #304] 운영 표준 업무 템플릿 52건 재시드.
 //   - 법정업무 18 (facility, FACILITY)
 //   - 제안 주/월간 5 (etc/facility, MANAGER 위주)
 //   - 계절 19 (suggested annual yr=1 + fixedMonth, FACILITY)
 //   - 세무·회계 6 (ACCOUNTING / fee)
-//   하자담보 4건 (Task #304) 은 별도 anchored 로직과 함께 추후 추가.
+//   - [Task #304] 하자담보 4 (anchored — 사용승인일 + 2/3/5/10년)
 //
 //   기존 검증용 시드 8건은 본 시드 진입 시점에 한 번 정리(감사 로그 기록 + 삭제).
 //   재실행 안전: 같은 title 의 행이 있으면 INSERT 를 건너뛰고, 핵심 필드는 멱등하게
@@ -232,6 +232,41 @@ export async function seedTaskTemplates(): Promise<void> {
     advanceAlertDays: 14,
   }));
 
+  // ── 하자담보 4 (Task #304 anchored — 사용승인일 + N년) ──────────────────
+  //   1회성 점검: 빌딩의 사용승인일 + N년 시점에 만료. ResolveActiveTemplateAlerts
+  //   가 빌딩별 anchorDate 를 주입해 due 를 산출하며, approvalDate 가 비어있는
+  //   빌딩은 안전하게 스킵된다.
+  const warrantyAnchored: SeedRow[] = [
+    {
+      title: "하자담보 만료 점검 — 마감(2년)",
+      description: "사용승인일 + 2년 마감공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
+      category: "mandatory", classification: "legal", taskType: "facility",
+      frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 2,
+      targetRoles: FACILITY, priority: 90, advanceAlertDays: 90,
+    },
+    {
+      title: "하자담보 만료 점검 — 설비(3년)",
+      description: "사용승인일 + 3년 설비공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
+      category: "mandatory", classification: "legal", taskType: "facility",
+      frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 3,
+      targetRoles: FACILITY, priority: 92, advanceAlertDays: 120,
+    },
+    {
+      title: "하자담보 만료 점검 — 방수(5년)",
+      description: "사용승인일 + 5년 방수공사 하자담보 책임 만료. 만료 전 점검·청구 검토.",
+      category: "mandatory", classification: "legal", taskType: "facility",
+      frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 5,
+      targetRoles: FACILITY, priority: 93, advanceAlertDays: 150,
+    },
+    {
+      title: "하자담보 만료 점검 — 구조체(10년)",
+      description: "사용승인일 + 10년 구조체 하자담보 책임 만료. 만료 전 점검·청구 검토.",
+      category: "mandatory", classification: "legal", taskType: "facility",
+      frequencyType: "anchored", anchorType: "building_approval_date", anchorOffsetYears: 10,
+      targetRoles: FACILITY, priority: 95, advanceAlertDays: 180,
+    },
+  ];
+
   // ── 세무·회계 6 ──────────────────────────────────────────────────────────
   const taxAccounting: SeedRow[] = [
     {
@@ -279,7 +314,7 @@ export async function seedTaskTemplates(): Promise<void> {
   ];
 
   // 모든 시드를 합치고 공통 필드 채움.
-  const seed: SeedRow[] = [...legal, ...suggestedWeeklyMonthly, ...seasonal, ...taxAccounting].map(
+  const seed: SeedRow[] = [...legal, ...suggestedWeeklyMonthly, ...seasonal, ...warrantyAnchored, ...taxAccounting].map(
     (s) => ({
       scopeType: "all",
       scopeValues: [],
@@ -358,6 +393,9 @@ export async function seedTaskTemplates(): Promise<void> {
         yearInterval: s.yearInterval ?? null,
         nthWeek: s.nthWeek ?? null,
         nthWeekday: s.nthWeekday ?? null,
+        // [Task #304]
+        anchorType: s.anchorType ?? null,
+        anchorOffsetYears: s.anchorOffsetYears ?? null,
         targetRoles: s.targetRoles,
         priority: s.priority,
         advanceAlertDays: s.advanceAlertDays,
@@ -372,15 +410,17 @@ export async function seedTaskTemplates(): Promise<void> {
   const cntSuggested = seedRows.filter((r) => r.category === "suggested").length;
   const cntBiweekly = seedRows.filter((r) => r.frequencyType === "biweekly").length;
   const cntNthWd = seedRows.filter((r) => r.frequencyType === "monthly_nth_weekday").length;
+  const cntAnchored = seedRows.filter((r) => r.frequencyType === "anchored").length;
   console.log(
-    `[seed-task-templates] 표준 시드 ${seedRows.length}/48건 (mandatory ${cntMandatory}/24, suggested ${cntSuggested}/24, biweekly ${cntBiweekly}/1, monthly_nth_weekday ${cntNthWd}/1) · 전체 보유 ${all.length}건`,
+    `[seed-task-templates] 표준 시드 ${seedRows.length}/52건 (mandatory ${cntMandatory}/28, suggested ${cntSuggested}/24, biweekly ${cntBiweekly}/1, monthly_nth_weekday ${cntNthWd}/1, anchored ${cntAnchored}/4) · 전체 보유 ${all.length}건`,
   );
   if (
-    seedRows.length !== 48 ||
-    cntMandatory !== 24 ||
+    seedRows.length !== 52 ||
+    cntMandatory !== 28 ||
     cntSuggested !== 24 ||
     cntBiweekly !== 1 ||
-    cntNthWd !== 1
+    cntNthWd !== 1 ||
+    cntAnchored !== 4
   ) {
     console.warn("[seed-task-templates] 표준 시드 카운트가 기대와 다릅니다 (회귀 가능)");
   }
