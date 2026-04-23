@@ -238,7 +238,9 @@ function AlertSection({
                     : "green";
                   const isInteractive =
                     (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
-                    alert.type === "data_destruction";
+                    alert.type === "data_destruction" ||
+                    alert.type === "task_template_mandatory" ||
+                    alert.type === "task_template_suggested";
                   return (
                     <div
                       key={alert.id}
@@ -641,6 +643,11 @@ export default function Dashboard() {
       }
       const isOwner = alert.title.includes("소유자");
       navigate(isOwner ? `/units?tab=owners&openOwner=${alert.relatedId}` : `/tenants?openTenant=${alert.relatedId}`);
+      return;
+    }
+
+    if (alert.type === "task_template_mandatory" || alert.type === "task_template_suggested") {
+      navigate(alert.relatedId ? `/tasks?template=${alert.relatedId}` : "/tasks");
       return;
     }
 
