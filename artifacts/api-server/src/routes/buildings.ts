@@ -444,7 +444,29 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
 
   try {
     const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-    if (!user || (user.buildingId !== id && user.role !== "platform_admin")) {
+    // [Task #278] 위저드 첫 PUT 저장(이미 building 행은 있지만 사용자 행에는 link가
+    // 안 된 케이스)에서 사용자 ↔ 건물 연결을 보강한다. 매니저이고 자신의 buildingId
+    // 가 비어 있다면, 동일 주소에 다른 매니저가 없는지 확인한 뒤 본인을 해당 건물로
+    // 연결해 준다. 이로써 이어지는 멱등 seed-test-inspections 호출이 정상 동작한다.
+    let claimManagerForBuilding = false;
+    if (
+      user &&
+      user.role === "manager" &&
+      !user.buildingId
+    ) {
+      const targetBuilding = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
+      if (targetBuilding) {
+        const dupClaim = await findExistingManagerForAddress({
+          addressJibun: targetBuilding.addressJibun ?? null,
+          buildingId: id,
+          excludeUserId: userId,
+        });
+        if (!dupClaim) {
+          claimManagerForBuilding = true;
+        }
+      }
+    }
+    if (!user || (user.buildingId !== id && user.role !== "platform_admin" && !claimManagerForBuilding)) {
       res.status(403).json({ error: "이 건물을 수정할 권한이 없습니다" });
       return;
     }
@@ -482,6 +504,24 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
         await db.update(usersTable)
           .set({ buildingSido: building.sido, buildingSigungu: building.sigungu })
           .where(eq(usersTable.id, userId));
+      }
+    }
+
+    // [Task #278] 매니저가 buildingId 미연결 상태로 PUT을 통해 본인 건물을 저장하면
+    // 사용자 행에 buildingId/지역 정보를 함께 채워 둔다. 이후 동일 요청 흐름의
+    // POST /buildings/seed-test-inspections 호출이 noop 으로 빠지지 않고 정상적으로
+    // (테스트업무) 4건을 보장한다.
+    if (claimManagerForBuilding) {
+      try {
+        await db.update(usersTable)
+          .set({
+            buildingId: id,
+            buildingSido: building.sido ?? null,
+            buildingSigungu: building.sigungu ?? null,
+          })
+          .where(eq(usersTable.id, userId));
+      } catch (linkErr) {
+        req.log.warn({ err: linkErr, userId, buildingId: id }, "Failed to link manager to building during PUT claim");
       }
     }
 

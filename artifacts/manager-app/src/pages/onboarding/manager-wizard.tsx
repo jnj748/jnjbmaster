@@ -27,6 +27,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getGetDashboardAlertsQueryKey,
+  getGetDashboardSummaryQueryKey,
+} from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -131,6 +136,35 @@ export default function ManagerWizardPage() {
   const { toast } = useToast();
   const { setPreference } = useOnboarding();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  // [Task #278] 위저드의 건물 저장 직후 (POST/PUT/finalize/X 닫기 무관) 항상
+  // 호출되는 멱등 시드 + 대시보드 캐시 무효화 헬퍼. 비차단으로 처리하고,
+  // 시드 응답의 seeded/skipped 값을 디버깅 로그로 남겨 회귀 추적을 돕는다.
+  async function seedTestInspectionsAndInvalidate(origin: string) {
+    if (!token) return;
+    try {
+      const r = await fetch(`${API_BASE}/buildings/seed-test-inspections`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await r.json().catch(() => ({}));
+      // eslint-disable-next-line no-console
+      console.debug("[manager-wizard] seed-test-inspections", origin, {
+        status: r.status,
+        seeded: j?.seeded,
+        skipped: j?.skipped,
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.debug("[manager-wizard] seed-test-inspections failed", origin, e);
+    } finally {
+      // 시드 성공/실패와 무관하게 대시보드 알림·요약 쿼리를 무효화해
+      // 사용자가 대시보드로 이동하자마자 (테스트업무) 4건이 즉시 보이게 한다.
+      void queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    }
+  }
 
   const [step, setStep] = useState<StepKey>("intro");
   const [building, setBuilding] = useState<BuildingState>(EMPTY);
@@ -358,6 +392,10 @@ export default function ManagerWizardPage() {
       }
       merged.id = saveJson.building.id;
       setBuilding(merged);
+      // [Task #278] 건물 정보 저장 성공 직후 (POST/PUT 무관) 멱등 시드 보장.
+      // finalize/closeWizard 의 다중 안전망은 그대로 두고, 저장→다음 단계 사이의
+      // 빈 구간에서도 (테스트업무) 4건이 누락 없이 노출되도록 한다.
+      void seedTestInspectionsAndInvalidate(method === "POST" ? "post-save" : "put-save");
       setStep("info");
     } catch (e) {
       toast({ title: e instanceof Error ? e.message : "조회 중 오류가 발생했습니다.", variant: "destructive" });
@@ -469,12 +507,10 @@ export default function ManagerWizardPage() {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});
-        // [Task #268] 정상 완료 경로에서도 (테스트업무) 4건 누락이 없는지 한 번 더
-        // 멱등 보장. 첫 POST /buildings 에서 이미 시드돼 있으면 추가 insert 없음.
-        await fetch(`${API_BASE}/buildings/seed-test-inspections`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+        // [Task #268/#278] 정상 완료 경로에서도 (테스트업무) 4건 누락이 없는지 한 번 더
+        // 멱등 보장 + 대시보드 캐시 무효화. 첫 POST /buildings 에서 이미 시드돼 있으면
+        // 추가 insert 없음. 새로고침 없이도 즉시 두 섹션이 채워진다.
+        await seedTestInspectionsAndInvalidate("finalize");
       }
       setLocation("/");
     } finally {
@@ -488,12 +524,9 @@ export default function ManagerWizardPage() {
   // 저장 전이라면 그냥 대시보드로 가고, 다음 위저드 진입 후 첫 건물 저장 시점에 시드된다.
   async function closeWizard() {
     if (building.id) {
-      try {
-        await fetch(`${API_BASE}/buildings/seed-test-inspections`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {/* 비차단: 다음 진입 시점에 다시 보장됨 */}
+      // [Task #278] X 닫기 경로에서도 시드 + 대시보드 캐시 무효화를 한 번 더
+      // 보장한다. 비차단이지만 대시보드 진입 직후 두 섹션이 즉시 채워지도록 한다.
+      await seedTestInspectionsAndInvalidate("closeWizard");
     }
     setLocation("/");
   }
