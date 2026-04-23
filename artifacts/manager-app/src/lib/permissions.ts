@@ -160,7 +160,11 @@ export const GROUP_TITLES: Record<Group, string> = {
 
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   manager: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
-  platform_admin: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
+  // [플랫폼관리자 메뉴 구조조정] 플랫폼관리자는 개별 건물 실무를 직접 수행하지
+  //   않으므로 dashboard/residents/facility/accounting 그룹의 사이드바 노출을
+  //   전부 제거하고, "보고/마켓플레이스/설정" 3 그룹만 사용한다. 통합 대시보드
+  //   ("/")는 ROOT_DASHBOARDS 로 항상 진입 가능하므로 영향 없음.
+  platform_admin: ["marketplace", "reports", "settings"],
   accountant: ["dashboard", "accounting", "reports", "residents"],
   facility_staff: ["dashboard", "facility"],
   hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
@@ -180,21 +184,26 @@ const FULL_OPS: Role[] = ["manager", "platform_admin"];
  */
 export const ROUTES: RouteEntry[] = [
   // ── Dashboard group (besides "/") ────────────────────────────────
+  // [플랫폼관리자 메뉴 구조조정] 일정·업무관리·AI비서·업무일지는 현장 운영 도구로,
+  //   플랫폼관리자 사이드바에서는 숨긴다 (라우트 접근은 지원/디버깅용으로 유지).
   {
     path: "/calendar", component: CalendarPage,
     label: "일정", icon: CalendarDays, group: "dashboard",
     access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager", "accountant"],
   },
   {
     path: "/tasks", component: Tasks,
     label: "업무 관리", icon: CheckSquare, group: "dashboard",
     access: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
   },
   {
     path: "/ai-assistant", component: AiAssistant,
     label: "AI 관리비서", icon: Sparkles, group: "dashboard",
     access: ["manager", "platform_admin"],
-    bottomNav: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
+    bottomNav: ["manager"],
     bottomLabel: "AI비서",
     bottomOrder: 20,
   },
@@ -203,7 +212,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/work-log", component: WorkLog,
     label: "업무일지", icon: NotebookPen, group: "reports",
     access: ["manager", "platform_admin"],
-    bottomNav: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
+    bottomNav: ["manager"],
     bottomLabel: "업무일지",
     bottomOrder: 25,
   },
@@ -217,10 +227,13 @@ export const ROUTES: RouteEntry[] = [
   },
 
   // ── Residents group ─────────────────────────────────────────────
+  // [플랫폼관리자 메뉴 구조조정] 호실/입주민/차량은 건물별 운영 데이터로,
+  //   플랫폼관리자 사이드바에서는 숨긴다.
   {
     path: "/units", component: Units,
     label: "호실 관리", icon: Building, group: "residents",
     access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager", "accountant"],
     bottomNav: ["accountant"],
     bottomLabelOverrides: { accountant: "호실" },
   },
@@ -228,12 +241,13 @@ export const ROUTES: RouteEntry[] = [
     path: "/tenants", component: Tenants,
     label: "입주민 관리", icon: Users, group: "residents",
     access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager", "accountant"],
   },
   {
     path: "/vehicles", component: Vehicles,
     label: "차량 관리", icon: Car, group: "residents",
     access: ["manager", "platform_admin", "facility_staff"],
-    sideMenu: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
   },
   {
     path: "/voting", component: VotingPage,
@@ -251,14 +265,17 @@ export const ROUTES: RouteEntry[] = [
     // 시설 그룹 자체가 4-아이콘 허브 역할을 하므로 사이드바에서 숨김.
     // 그룹 헤더 클릭 시 /facility 로 이동 (layout.tsx 의 facilityGroupHref).
     sideMenu: [],
-    bottomNav: ["manager", "platform_admin", "facility_staff"],
+    // [플랫폼관리자 메뉴 구조조정] 모바일 하단 "시설" 탭에서도 platform_admin 제거 — 사이드바 정책과 일관.
+    bottomNav: ["manager", "facility_staff"],
     bottomLabel: "시설",
     bottomOrder: 10,
   },
+  // [플랫폼관리자 메뉴 구조조정] 시설 운영 항목 4종은 플랫폼관리자 사이드바에서 숨김.
   {
     path: "/inspections", component: Inspections,
     label: "법정 점검", icon: Shield, group: "facility",
     access: ["manager", "platform_admin", "facility_staff", "hq_executive"],
+    sideMenu: ["manager", "facility_staff", "hq_executive"],
     bottomNav: ["facility_staff", "hq_executive"],
     bottomLabel: "점검",
     labelOverrides: { hq_executive: "점검보고서" },
@@ -267,16 +284,19 @@ export const ROUTES: RouteEntry[] = [
     path: "/safety-checklists", component: SafetyChecklists,
     label: "안전점검표", icon: ClipboardCheck, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
+    sideMenu: ["manager", "facility_staff"],
   },
   {
     path: "/maintenance-logs", component: MaintenanceLogs,
     label: "시설 업무일지", icon: Wrench, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
+    sideMenu: ["manager", "facility_staff"],
   },
   {
     path: "/safety-training", component: SafetyTraining,
     label: "안전교육", icon: GraduationCap, group: "facility",
     access: ["manager", "platform_admin", "facility_staff", "hq_executive"],
+    sideMenu: ["manager", "facility_staff", "hq_executive"],
     labelOverrides: { hq_executive: "안전교육 현황" },
   },
   {
@@ -310,27 +330,32 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: [],
     // [Task #246] manager 역할은 회계 탭을 하단 네비에서 제외 (사이드바·더보기에서는 유지).
-    bottomNav: ["platform_admin", "accountant"],
+    // [플랫폼관리자 메뉴 구조조정] 모바일 하단 "회계" 탭에서도 platform_admin 제거.
+    bottomNav: ["accountant"],
     bottomLabel: "회계",
     bottomOrder: 30,
   },
   // [관리소장 모드 단순화] 회계 그룹은 관리소장에게 "관리비 요약"만 노출.
   //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·행정(accountant)
   //   및 플랫폼 관리자 전용으로 한정.
+  // [플랫폼관리자 메뉴 구조조정] 회계 운영 항목은 플랫폼관리자 사이드바에서 숨김.
   {
     path: "/erp/accounting", component: ErpPhase2,
     label: "회계 엔진", icon: Calculator, group: "accounting",
     access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/metering", component: ErpPhase1,
     label: "검침/에너지", icon: Droplets, group: "accounting",
     access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,
     label: "고지/수납", icon: Receipt, group: "accounting",
     access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
     bottomNav: ["accountant"],
     bottomLabelOverrides: { accountant: "부과" },
   },
@@ -339,6 +364,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/fees-summary", component: ErpFeesSummary,
     label: "관리비 요약", icon: BarChart3, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
   },
   // [Task #178] 건물 단위 관리비 응대 자료 (월별 5개 영역 한장 요약)
   // [메뉴 통합] 관리소장 사이드바에서는 "관리비 요약"으로 일원화 — 응대 자료는
@@ -347,7 +373,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/building-records", component: BuildingRecords,
     label: "관리비 응대 자료", icon: Clipboard, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
-    sideMenu: ["platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["accountant", "hq_executive"],
   },
   {
     path: "/erp/bills", component: ErpBills,
@@ -355,28 +381,32 @@ export const ROUTES: RouteEntry[] = [
     // manager는 라우트 접근만 유지(관리비 요약의 "고지서 업로드하러 가기" 버튼 진입용),
     //   사이드바/회계 허브 카드에서는 숨김.
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,
     label: "민원/투표", icon: MessageSquare, group: "accounting",
     access: ["platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["accountant", "hq_executive"],
     labelOverrides: { hq_executive: "에스컬레이션 민원" },
   },
   {
     path: "/spending", component: ExecutiveSpending,
     label: "지출 현황", icon: DollarSign, group: "accounting",
     access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/tax-schedules", component: TaxSchedules,
     label: "세무 일정", icon: Calculator, group: "accounting",
     access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/commissions", component: Commissions,
     label: "수수료", icon: Coins, group: "accounting",
     access: ["platform_admin", "accountant", "partner"],
+    sideMenu: ["accountant", "partner"],
   },
 
   // ── Reports / approvals group ───────────────────────────────────
@@ -385,13 +415,15 @@ export const ROUTES: RouteEntry[] = [
     label: "기안서", icon: ClipboardList, group: "reports",
     // [관리소장 메뉴 숨김] 기안서 기능은 문서생성으로 대체되어 manager 접근 제거
     access: ["platform_admin", "accountant"],
+    // [플랫폼관리자 메뉴 구조조정] 기안서 작성은 경리 실무 — 플랫폼관리자 사이드바에서 숨김.
+    sideMenu: ["accountant"],
   },
   {
     path: "/approvals", component: Approvals,
     label: "결재함", icon: ClipboardCheck, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
-    // [관리소장 메뉴 숨김] 결재함은 회계/플랫폼 관리자 사이드바에만 노출.
-    sideMenu: ["platform_admin", "accountant"],
+    // [관리소장 메뉴 숨김] 결재함은 회계 사이드바에만 노출 (플랫폼관리자 제외).
+    sideMenu: ["accountant"],
     bottomNav: ["accountant"],
     bottomLabel: "결재",
   },
@@ -412,18 +444,21 @@ export const ROUTES: RouteEntry[] = [
     path: "/reports", component: Reports,
     label: "일간/주간 보고", icon: FileText, group: "reports",
     access: ["manager", "platform_admin", "hq_executive"],
-    // [관리소장 메뉴 숨김] 일간/주간 보고는 관리소장 사이드바에서 숨김. 라우트는 유지.
-    sideMenu: ["platform_admin", "hq_executive"],
+    // [관리소장 메뉴 숨김] 일간/주간 보고는 본사 총괄 사이드바에만 노출.
+    // [플랫폼관리자 메뉴 구조조정] 플랫폼관리자 사이드바에서도 숨김.
+    sideMenu: ["hq_executive"],
     bottomNav: ["hq_executive"],
     bottomLabel: "보고서",
     labelOverrides: { hq_executive: "월간보고서" },
   },
 
   // ── Partner marketplace group ───────────────────────────────────
+  // [플랫폼관리자 메뉴 구조조정] 견적 요청은 관리소장 실무 — 플랫폼관리자 사이드바에서 숨김.
   {
     path: "/rfqs", component: Rfqs,
     label: "견적 요청", icon: Send, group: "marketplace",
     access: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
   },
   {
     path: "/work-reports", component: WorkReportsPage,
