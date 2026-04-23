@@ -5563,7 +5563,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, paid, failed, cancelled]
+            enum: [pending, processing, paid, failed, cancelled]
         - name: limit
           in: query
           schema:
@@ -11684,7 +11684,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, paid, failed, cancelled]
+          enum: [pending, processing, paid, failed, cancelled]
         tossOrderId:
           type: string
         tossPaymentKey:

@@ -618,26 +618,48 @@ router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [order] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
-  if (!order || order.vendorId !== vendorId) {
+  // [동시성 — 결제 손실 방지]
+  //   토스 confirm 호출 *전에* pending → processing 으로 단일 점유(claim)한다.
+  //   동시에 들어온 두 번째 confirm 은 0건 영향 → 이 요청은 토스 호출조차 하지 않고
+  //   기존 주문 상태(paid/processing/failed)를 그대로 반환한다.
+  //   이렇게 하면 “이긴 요청이 토스 성공 → 진 요청이 fail UPDATE 로 덮어써서 ledger 누락”
+  //   같은 시나리오를 원천 차단한다 (진 요청은 status='pending' 가 아니므로 0건).
+  const [precheck] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+  if (!precheck || precheck.vendorId !== vendorId) {
     res.status(404).json({ error: "주문을 찾을 수 없습니다" });
     return;
   }
-  // 멱등성: 이미 paid 처리된 주문은 그대로 반환.
-  if (order.status === "paid") {
-    res.json({ order, alreadyPaid: true });
+  if (precheck.status === "paid") {
+    res.json({ order: precheck, alreadyPaid: true });
     return;
   }
-  if (order.status !== "pending") {
-    res.status(409).json({ error: `결제가 ${order.status} 상태입니다` });
-    return;
-  }
-  if (order.amountKrw !== parsed.data.amount) {
+  if (precheck.amountKrw !== parsed.data.amount) {
     res.status(400).json({ error: "결제 금액이 주문 금액과 일치하지 않습니다" });
     return;
   }
+  const [claimedOrder] = await db
+    .update(creditTopupOrdersTable)
+    .set({ status: "processing", tossPaymentKey: parsed.data.paymentKey })
+    .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")))
+    .returning();
+  if (!claimedOrder) {
+    // 이미 다른 요청이 점유했거나 종료(paid/failed/cancelled) 상태.
+    const [latest] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+    if (latest?.status === "paid") {
+      res.json({ order: latest, alreadyPaid: true });
+      return;
+    }
+    if (latest?.status === "processing") {
+      res.status(409).json({ error: "동일 주문이 처리 중입니다. 잠시 후 다시 시도하세요." });
+      return;
+    }
+    res.status(409).json({ error: `결제가 ${latest?.status ?? "unknown"} 상태입니다` });
+    return;
+  }
+  const order = claimedOrder;
 
-  // 토스 confirm 호출.
+  // 토스 confirm 호출. 이 시점부터는 이 요청만이 paid/failed 결말을 낼 수 있다
+  // (다른 요청은 status='pending' 매칭 실패로 들어오지 못함).
   const auth = "Basic " + Buffer.from(`${tossSecretKey()}:`).toString("base64");
   const tossRes = await fetch(TOSS_CONFIRM_URL, {
     method: "POST",
@@ -654,11 +676,11 @@ router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void>
   const tossJson: any = await tossRes.json().catch(() => ({}));
   if (!tossRes.ok) {
     const reason = tossJson?.message ?? `HTTP ${tossRes.status}`;
-    // [동시성] 다른 동시 요청이 이미 paid 처리한 경우는 절대 덮어쓰지 않는다.
+    // 점유한 본 요청만 processing → failed 로 마무리.
     await db
       .update(creditTopupOrdersTable)
-      .set({ status: "failed", failReason: String(reason).slice(0, 500), tossPaymentKey: parsed.data.paymentKey })
-      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")));
+      .set({ status: "failed", failReason: String(reason).slice(0, 500) })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")));
     res.status(400).json({ error: "토스 결제 확정 실패", reason });
     return;
   }
@@ -666,8 +688,8 @@ router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void>
   if (Number(tossJson.totalAmount) !== order.amountKrw) {
     await db
       .update(creditTopupOrdersTable)
-      .set({ status: "failed", failReason: "금액 불일치", tossPaymentKey: parsed.data.paymentKey })
-      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")));
+      .set({ status: "failed", failReason: "금액 불일치" })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")));
     res.status(400).json({ error: "토스 응답 금액이 주문과 다릅니다" });
     return;
   }
@@ -679,20 +701,18 @@ router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void>
   const actorName = actor?.name ?? req.user?.email ?? null;
 
   const result = await db.transaction(async (tx) => {
-    // [동시성/멱등성] 단일 atomic UPDATE 로 pending → paid 전환을 시도한다.
-    //   동일 주문에 대한 두 번째 동시 confirm 은 0건 영향 → alreadyPaid 분기로 들어간다.
-    //   ledger 작성도 이 UPDATE 가 성공한 트랜잭션에서만 수행 → 중복 충전 방지.
+    // processing → paid 전환. 본 요청만 점유 중이므로 항상 성공해야 정상.
     const [claimed] = await tx
       .update(creditTopupOrdersTable)
       .set({
         status: "paid",
-        tossPaymentKey: parsed.data.paymentKey,
         tossMethod: typeof tossJson?.method === "string" ? tossJson.method : null,
         paidAt: new Date(),
       })
-      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")))
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")))
       .returning();
     if (!claimed) {
+      // 운영자가 강제로 상태를 바꿨거나 동시 confirm 의 잔여 가능성. 안전한 쪽으로 idempotent 응답.
       const [existing] = await tx.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
       return { order: existing ?? order, alreadyPaid: true as const };
     }

@@ -11,6 +11,7 @@ export type ListAdminCreditTopupOrdersStatus =
 
 export const ListAdminCreditTopupOrdersStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   cancelled: "cancelled",

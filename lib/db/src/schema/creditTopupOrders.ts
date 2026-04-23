@@ -4,7 +4,10 @@ import { z } from "zod/v4";
 
 // [Task #319] 파트너 크레딧 충전 결제 주문.
 //   pending → paid (토스 confirm 성공) | failed | cancelled. tossOrderId 는 멱등 보장용 UNIQUE.
-export const creditTopupOrderStatuses = ["pending", "paid", "failed", "cancelled"] as const;
+// "processing" 는 pending 으로부터 단일 confirm 요청이 토스 API 호출 직전에
+// 점유(claim)했음을 표시한다. 동시 confirm 요청 중 단 1건만 processing 으로
+// 전환되며, 그 요청만 paid/failed 로 결말낸다 → 결제 손실 방지.
+export const creditTopupOrderStatuses = ["pending", "processing", "paid", "failed", "cancelled"] as const;
 export type CreditTopupOrderStatus = (typeof creditTopupOrderStatuses)[number];
 
 export const creditTopupOrdersTable = pgTable(

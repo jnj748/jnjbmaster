@@ -551,13 +551,14 @@ function TopupOrdersAdmin() {
                 <th className="text-right px-3 py-2">금액</th>
                 <th className="text-center px-3 py-2">상태</th>
                 <th className="text-left px-3 py-2">결제수단/사유</th>
+                <th className="text-left px-3 py-2">PG 결제키</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">불러오는 중…</td></tr>
+                <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">불러오는 중…</td></tr>
               ) : orders.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">결제 내역이 없습니다</td></tr>
+                <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">결제 내역이 없습니다</td></tr>
               ) : orders.map((o) => (
                 <tr key={o.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 whitespace-nowrap">
@@ -573,11 +574,15 @@ function TopupOrdersAdmin() {
                   <td className="px-3 py-2 text-center">
                     {o.status === "paid" ? <Badge className="bg-emerald-500">결제완료</Badge>
                       : o.status === "pending" ? <Badge variant="outline">결제중</Badge>
+                      : o.status === "processing" ? <Badge variant="outline">처리중</Badge>
                       : o.status === "failed" ? <Badge variant="destructive">실패</Badge>
                       : <Badge variant="outline">취소</Badge>}
                   </td>
                   <td className="px-3 py-2 text-slate-500">
                     {o.tossMethod ?? o.failReason ?? "-"}
+                  </td>
+                  <td className="px-3 py-2 text-slate-400 font-mono text-[10px] break-all max-w-[200px]" data-testid={`text-payment-key-${o.id}`}>
+                    {o.tossPaymentKey ?? "-"}
                   </td>
                 </tr>
               ))}

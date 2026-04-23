@@ -7259,7 +7259,7 @@ export const ListMyCreditTopupOrdersResponseItem = zod.object({
   credits: zod.number(),
   bonusPoints: zod.number(),
   amountKrw: zod.number(),
-  status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+  status: zod.enum(["pending", "processing", "paid", "failed", "cancelled"]),
   tossOrderId: zod.string(),
   tossPaymentKey: zod.string().nullish(),
   tossMethod: zod.string().nullish(),
@@ -7303,7 +7303,7 @@ export const ConfirmCreditTopupOrderResponse = zod.object({
     credits: zod.number(),
     bonusPoints: zod.number(),
     amountKrw: zod.number(),
-    status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+    status: zod.enum(["pending", "processing", "paid", "failed", "cancelled"]),
     tossOrderId: zod.string(),
     tossPaymentKey: zod.string().nullish(),
     tossMethod: zod.string().nullish(),
@@ -7340,7 +7340,13 @@ export const FailCreditTopupOrderResponse = zod.object({
       credits: zod.number(),
       bonusPoints: zod.number(),
       amountKrw: zod.number(),
-      status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+      status: zod.enum([
+        "pending",
+        "processing",
+        "paid",
+        "failed",
+        "cancelled",
+      ]),
       tossOrderId: zod.string(),
       tossPaymentKey: zod.string().nullish(),
       tossMethod: zod.string().nullish(),
@@ -7431,7 +7437,9 @@ export const DeleteCreditTopupPackageResponse = zod.object({
  * @summary [Task #319] platform_admin: all topup orders (with vendor name)
  */
 export const ListAdminCreditTopupOrdersQueryParams = zod.object({
-  status: zod.enum(["pending", "paid", "failed", "cancelled"]).optional(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "cancelled"])
+    .optional(),
   limit: zod.coerce.number().optional(),
 });
 
@@ -7445,7 +7453,7 @@ export const ListAdminCreditTopupOrdersResponseItem = zod
     credits: zod.number(),
     bonusPoints: zod.number(),
     amountKrw: zod.number(),
-    status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+    status: zod.enum(["pending", "processing", "paid", "failed", "cancelled"]),
     tossOrderId: zod.string(),
     tossPaymentKey: zod.string().nullish(),
     tossMethod: zod.string().nullish(),

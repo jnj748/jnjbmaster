@@ -11,6 +11,7 @@ export type CreditTopupOrderStatus =
 
 export const CreditTopupOrderStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   cancelled: "cancelled",
