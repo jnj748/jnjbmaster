@@ -1,4 +1,4 @@
-import { eq, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   db,
   taskTemplatesTable,
@@ -289,6 +289,8 @@ export async function seedTaskTemplates(): Promise<void> {
     }),
   );
 
+  const seedTitles = new Set(seed.map((s) => s.title));
+
   // ── 1) 명시적 allowlist 의 레거시 검증용 행만 1회 정리 ────────────────────
   //   [Task #303] 사용자가 UI 에서 직접 만든 임의 템플릿이 실수로 함께 삭제되는
   //   사고를 막기 위해, 정리 대상은 "기존 시드 8건의 제목" 으로 한정한다.
@@ -378,8 +380,4 @@ export async function seedTaskTemplates(): Promise<void> {
   ) {
     console.warn("[seed-task-templates] 표준 시드 카운트가 기대와 다릅니다 (회귀 가능)");
   }
-
-  // notInArray / sql import 호환 유지.
-  void notInArray;
-  void sql;
 }
