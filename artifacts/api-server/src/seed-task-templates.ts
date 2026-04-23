@@ -19,7 +19,8 @@ export async function seedTaskTemplates(): Promise<void> {
   type SeedRow = typeof taskTemplatesTable.$inferInsert;
 
   const FACILITY: string[] = ["manager", "facility_staff"];
-  const ACCOUNTING: string[] = ["manager", "accountant"];
+  // [Task #303] 세무·회계 항목은 회계 담당자에게만 노출 (spec: target=accountant).
+  const ACCOUNTING: string[] = ["accountant"];
   const MANAGER_ONLY: string[] = ["manager"];
 
   // ── 법정업무 18 ─────────────────────────────────────────────────────────
