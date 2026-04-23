@@ -17,9 +17,29 @@ function generateTempPassword(): string {
 const validRoles = ["manager", "partner", "platform_admin", "hq_executive", "accountant", "facility_staff"];
 const validPortals = ["building", "partner", "hq"];
 
+// [카테고리 메뉴 제어] 플랫폼 관리자가 사용자별로 끌 수 있는 카테고리.
+//   "dashboard" 는 홈 진입 보장을 위해 항상 활성 — 입력에서 제거.
+const validCategories = ["residents", "facility", "accounting", "reports", "marketplace", "settings"] as const;
+function sanitizeDisabledCategories(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return [];
+  if (!Array.isArray(value)) return [];
+  const allow = new Set<string>(validCategories);
+  return Array.from(new Set(value.filter((v): v is string => typeof v === "string" && allow.has(v))));
+}
+function parseDisabledCategories(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), async (_req, res): Promise<void> => {
   try {
-    const users = await db
+    const rows = await db
       .select({
         id: usersTable.id,
         email: usersTable.email,
@@ -28,11 +48,12 @@ router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), a
         phone: usersTable.phone,
         portalType: usersTable.portalType,
         createdAt: usersTable.createdAt,
+        disabledCategories: usersTable.disabledCategories,
       })
       .from(usersTable)
       .orderBy(usersTable.createdAt);
 
-    res.json(users);
+    res.json(rows.map((u) => ({ ...u, disabledCategories: parseDisabledCategories(u.disabledCategories) })));
   } catch {
     res.status(500).json({ error: "사용자 목록을 불러올 수 없습니다" });
   }
@@ -40,7 +61,7 @@ router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), a
 
 router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), async (req, res): Promise<void> => {
   try {
-    const { email, password, name, role, phone, portalType } = req.body;
+    const { email, password, name, role, phone, portalType, disabledCategories } = req.body;
 
     if (!email || !name || !role || !portalType) {
       res.status(400).json({ error: "필수 항목을 모두 입력해주세요" });
@@ -85,6 +106,9 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
 
     const finalPassword = password || generateTempPassword();
     const passwordHash = await bcrypt.hash(finalPassword, 10);
+    // [카테고리 메뉴 제어] disabledCategories 는 플랫폼 관리자만 설정 가능. 그 외 역할은 무시.
+    const disabledForInsert =
+      actorRole === "platform_admin" ? sanitizeDisabledCategories(disabledCategories) : undefined;
     const [user] = await db.insert(usersTable).values({
       email,
       passwordHash,
@@ -94,6 +118,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       portalType,
       // [Task #132] 관리자/HQ가 직접 만든 계정은 역할 선택 화면을 거치지 않는다.
       roleSelected: true,
+      ...(disabledForInsert !== undefined ? { disabledCategories: JSON.stringify(disabledForInsert) } : {}),
     }).returning();
 
     res.status(201).json({
@@ -104,6 +129,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       phone: user.phone,
       portalType: user.portalType,
       createdAt: user.createdAt,
+      disabledCategories: parseDisabledCategories(user.disabledCategories),
       ...((!password) && { tempPassword: finalPassword }),
     });
   } catch {
@@ -119,9 +145,18 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       return;
     }
 
-    const { name, role, phone, portalType } = req.body;
+    const { name, role, phone, portalType, disabledCategories } = req.body;
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
+    // [카테고리 메뉴 제어] 플랫폼 관리자만 disabledCategories 수정 가능.
+    if (disabledCategories !== undefined) {
+      if (req.user?.role !== "platform_admin") {
+        res.status(403).json({ error: "카테고리 메뉴 설정은 플랫폼 관리자만 변경할 수 있습니다" });
+        return;
+      }
+      const sanitized = sanitizeDisabledCategories(disabledCategories) ?? [];
+      updateData.disabledCategories = JSON.stringify(sanitized);
+    }
     if (role !== undefined) {
       if (!validRoles.includes(role)) {
         res.status(400).json({ error: "유효하지 않은 역할입니다" });
@@ -192,6 +227,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       phone: user.phone,
       portalType: user.portalType,
       createdAt: user.createdAt,
+      disabledCategories: parseDisabledCategories(user.disabledCategories),
     });
   } catch {
     res.status(500).json({ error: "사용자 수정에 실패했습니다" });

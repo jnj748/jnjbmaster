@@ -401,9 +401,22 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       approvalStatus: user.approvalStatus,
       roleSelected: user.roleSelected,
       hasPassword: !!user.passwordHash,
+      // [카테고리 메뉴 제어] 프론트엔드(layout.tsx)가 사이드바·하단 네비를 가릴 때 사용.
+      disabledCategories: parseDisabledCategories(user.disabledCategories),
     },
   });
 });
+
+// [카테고리 메뉴 제어] DB에는 JSON 문자열로 보관. 파싱 실패 시 빈 배열.
+function parseDisabledCategories(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 router.put("/auth/me", authMiddleware, async (req, res): Promise<void> => {
   const userId = req.user!.userId;

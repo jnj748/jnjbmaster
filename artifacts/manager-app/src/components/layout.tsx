@@ -262,8 +262,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [effectiveRole]);
 
   const isPartner = effectiveRole === "partner";
-  const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
-  const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
+  // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리는 사이드바·하단 네비에서 모두 숨김.
+  const disabledCategories = user?.disabledCategories ?? [];
+  const disabledKey = disabledCategories.join(",");
+  const sections = useMemo(
+    () => getSidebarSections(effectiveRole, disabledCategories),
+    [effectiveRole, disabledKey],
+  );
+  const bottomItems = useMemo(
+    () => getBottomNavItems(effectiveRole, disabledCategories),
+    [effectiveRole, disabledKey],
+  );
 
   // 시설 그룹 신호등 배지: 1분 폴링 + 창 포커스 갱신.
   // 시설 섹션이 노출되는 role에만 활성화하여 불필요한 호출을 막는다.

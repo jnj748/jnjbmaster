@@ -15,6 +15,8 @@ export interface AuthUser {
   // [Task #132] 가입 직후 역할 선택 완료 여부.
   roleSelected?: boolean;
   hasPassword?: boolean;
+  // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리 목록. permissions.ts 의 Group 값.
+  disabledCategories?: string[];
 }
 
 interface AuthContextType {

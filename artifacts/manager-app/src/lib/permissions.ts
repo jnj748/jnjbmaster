@@ -650,8 +650,16 @@ export function getRoutesForRole(role: Role): { path: string; component: AnyComp
   }));
 }
 
+// [카테고리 메뉴 제어] 플랫폼 관리자가 사용자별로 끈 카테고리.
+//   "dashboard" 는 항상 활성으로 강제(홈 진입 보장)하고, 그 외 그룹만 필터.
+function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): boolean {
+  if (group === "dashboard") return true;
+  if (!disabled || disabled.length === 0) return true;
+  return !disabled.includes(group);
+}
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
-export function getSidebarSections(role: Role): NavSection[] {
+export function getSidebarSections(role: Role, disabledCategories?: readonly string[] | null): NavSection[] {
   if (role === "partner") {
     // Partner sidebar is intentionally flat.
     return [
@@ -670,6 +678,8 @@ export function getSidebarSections(role: Role): NavSection[] {
   const sections: NavSection[] = [];
 
   for (const group of groups) {
+    // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리는 사이드바에서 숨김.
+    if (!isCategoryEnabled(group, disabledCategories)) continue;
     const items: NavItem[] = [];
     if (group === "dashboard") {
       items.push(rootItem(role));
@@ -702,7 +712,7 @@ export function getSidebarSections(role: Role): NavSection[] {
 }
 
 /** Returns the mobile bottom nav items for a role (excluding the "더보기" toggle). */
-export function getBottomNavItems(role: Role): NavItem[] {
+export function getBottomNavItems(role: Role, disabledCategories?: readonly string[] | null): NavItem[] {
   if (role === "partner") {
     return [
       rootItem("partner"),
@@ -715,18 +725,22 @@ export function getBottomNavItems(role: Role): NavItem[] {
   //   "더보기"는 layout.tsx 가 항상 마지막에 추가하므로 여기서는 4칸만 반환.
   //   "/__quick_entry" 는 라우트가 아닌 sentinel 경로 — layout.tsx 에서 일일메모 다이얼로그를 연다.
   if (role === "manager") {
-    return [
+    const managerItems: NavItem[] = [
       { ...rootItem("manager"), label: "홈", group: "dashboard" },
       { path: "/work-log", label: "일지", icon: NotebookPen, group: "reports" },
       { path: "/__quick_entry", label: "일일메모", icon: Plus, group: "dashboard" },
       { path: "/ai-assistant", label: "AI비서", icon: Sparkles, group: "dashboard" },
     ];
+    // [카테고리 메뉴 제어] 끈 카테고리에 속한 하단 탭 제거(dashboard 는 항상 통과).
+    return managerItems.filter((it) => isCategoryEnabled((it.group ?? "dashboard") as Group, disabledCategories));
   }
   const items: NavItem[] = [{ ...rootItem(role), label: roleHomeShort(role), group: "dashboard" }];
   const tail: { entry: RouteEntry; item: NavItem }[] = [];
   for (const entry of ROUTES) {
     const inBottom = entry.bottomNav ?? [];
     if (!inBottom.includes(role)) continue;
+    // [카테고리 메뉴 제어] 끈 카테고리에 속하는 하단 탭은 숨김.
+    if (!isCategoryEnabled(entry.group, disabledCategories)) continue;
     tail.push({
       entry,
       item: {

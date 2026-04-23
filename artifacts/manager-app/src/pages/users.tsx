@@ -10,7 +10,20 @@ interface UserRecord {
   phone: string | null;
   portalType: string;
   createdAt: string;
+  // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리.
+  disabledCategories?: string[];
 }
+
+// [카테고리 메뉴 제어] 플랫폼 관리자가 켜고 끌 수 있는 카테고리 목록.
+//   "dashboard" 는 홈 진입 보장을 위해 제외.
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "facility", label: "시설관리" },
+  { value: "accounting", label: "회계·관리비" },
+  { value: "reports", label: "보고·전자결재" },
+  { value: "residents", label: "입주민·호실 관리" },
+  { value: "marketplace", label: "파트너 마켓" },
+  { value: "settings", label: "설정" },
+];
 
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
@@ -28,7 +41,8 @@ const portalLabels: Record<string, string> = {
 };
 
 export default function Users() {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
+  const isPlatformAdmin = currentUser?.role === "platform_admin";
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -208,6 +222,7 @@ export default function Users() {
           user={editUser}
           token={token!}
           apiBase={API_BASE}
+          isPlatformAdmin={isPlatformAdmin}
           onClose={() => {
             setShowModal(false);
             setEditUser(null);
@@ -227,12 +242,14 @@ function UserModal({
   user,
   token,
   apiBase,
+  isPlatformAdmin,
   onClose,
   onSaved,
 }: {
   user: UserRecord | null;
   token: string;
   apiBase: string;
+  isPlatformAdmin: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -243,8 +260,16 @@ function UserModal({
   const [role, setRole] = useState(user?.role || "manager");
   const [phone, setPhone] = useState(user?.phone || "");
   const [portalType, setPortalType] = useState(user?.portalType || "building");
+  // [카테고리 메뉴 제어] 끈 카테고리 = disabled. 체크박스에서는 "활성" 으로 보여주기 위해 반전 사용.
+  const [disabledCategories, setDisabledCategories] = useState<string[]>(user?.disabledCategories ?? []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const toggleCategory = (value: string) => {
+    setDisabledCategories((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
+  };
 
   const [tempPasswordResult, setTempPasswordResult] = useState("");
 
@@ -273,7 +298,14 @@ function UserModal({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ name, role, phone: phone || null, portalType }),
+          body: JSON.stringify({
+            name,
+            role,
+            phone: phone || null,
+            portalType,
+            // [카테고리 메뉴 제어] 플랫폼 관리자만 보냄. 그 외 역할은 백엔드가 무시.
+            ...(isPlatformAdmin ? { disabledCategories } : {}),
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -286,7 +318,16 @@ function UserModal({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ email, password: password || undefined, name, role, phone: phone || null, portalType }),
+          body: JSON.stringify({
+            email,
+            password: password || undefined,
+            name,
+            role,
+            phone: phone || null,
+            portalType,
+            // [카테고리 메뉴 제어] 신규 생성 시에도 플랫폼 관리자가 끈 카테고리를 함께 저장.
+            ...(isPlatformAdmin ? { disabledCategories } : {}),
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -421,6 +462,35 @@ function UserModal({
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
+
+          {isPlatformAdmin && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2">
+                <p className="text-sm font-medium text-slate-700">사용 가능한 메뉴 카테고리</p>
+                <p className="text-xs text-slate-500 mt-0.5">체크 해제하면 해당 카테고리 메뉴가 이 사용자에게 숨겨집니다.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {CATEGORY_OPTIONS.map((opt) => {
+                  const enabled = !disabledCategories.includes(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded bg-white border border-slate-200 cursor-pointer hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={() => toggleCategory(opt.value)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        data-testid={`category-toggle-${opt.value}`}
+                      />
+                      <span className="text-sm text-slate-700">{opt.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button

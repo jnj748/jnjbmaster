@@ -26,6 +26,11 @@ export const usersTable = pgTable("users", {
   approvalStatus: varchar("approval_status", { length: 16, enum: userApprovalStatuses }).notNull().default("active"),
   // [Task #132] 통합 가입 흐름: 가입 시 역할 미정으로 들어와도 역할 선택 화면에서 확정.
   roleSelected: boolean("role_selected").notNull().default(true),
+  // [카테고리 메뉴 제어] 플랫폼 관리자가 사용자별로 끌 수 있는 메뉴 카테고리 목록.
+  //   permissions.ts 의 Group 값(residents/facility/accounting/reports/marketplace/settings)을
+  //   JSON 배열 문자열로 저장. NULL 또는 빈 배열이면 모든 카테고리가 활성.
+  //   "dashboard" 는 끌 수 없음(홈 진입 보장).
+  disabledCategories: text("disabled_categories"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
