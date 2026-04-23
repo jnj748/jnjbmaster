@@ -470,6 +470,8 @@ export const ROUTES: RouteEntry[] = [
     path: "/document-templates", component: DocumentTemplates,
     label: "서식 관리", icon: FileText, group: "settings",
     access: ["manager", "platform_admin"],
+    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼 관리자만 노출. 접근 권한 자체는 유지.
+    sideMenu: ["platform_admin"],
   },
   {
     // [Task #133] 약관 문서 편집 (역할 × 동의 항목 × 버전)
