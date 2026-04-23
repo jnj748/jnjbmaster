@@ -14,13 +14,17 @@ import { AuthImage } from "@/components/auth-image";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
-import { shareDocument, formatKoreanDate } from "@/lib/official-document";
+import {
+  shareDocument,
+  formatKoreanDate,
+  type OfficialDocumentInput,
+} from "@/lib/official-document";
+import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
 import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
   CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
-  FileEdit, Send,
+  FileText,
 } from "lucide-react";
-import { useLocation } from "wouter";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog, isFollowUpDismissed } from "@/components/follow-up-suggestion-dialog";
 import {
@@ -251,10 +255,11 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const { call } = useApi();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<WorkLogEntry | null>(null);
   const [editMemo, setEditMemo] = useState("");
+  // [Task #318] 카드별 "문서로만들기" 다이얼로그 — 선택된 entry 만 보관.
+  const [docEntry, setDocEntry] = useState<WorkLogEntry | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-logs", filter],
@@ -333,36 +338,6 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
               const catToken = WORK_LOG_CATEGORY_TOKEN[e.category];
               const iconColor = CATEGORY_ICON_CLASS[catToken];
               const iconBg = CATEGORY_BG_CLASS[catToken];
-              // [Task #256] 금일기록 카드에서 바로 결재 상신/견적 요청 흐름으로 진입.
-              // /approvals/create, /rfqs 가 이미 사용하고 있는 prefill 계약
-              // (prefill=1, title, body, category, sourceType, sourceId, sourceDate)
-              // 을 그대로 따라 한 번의 클릭으로 폼이 자동으로 채워지도록 한다.
-              // 업무일지 카테고리(facility|bill|complaint)는 결재/견적의 카테고리
-              // 집합과 다르므로 각 화면에서 유효한 값으로 명시적으로 변환한다.
-              // (변환 누락 시 두 화면 모두 fallback("other") 으로 떨어져 분류 컨텍스트가
-              //  사라지므로 의도적으로 매핑한다.)
-              const sourceDate = e.occurredDate || (e.occurredAt ?? new Date().toISOString()).slice(0, 10);
-              const baseCtx = {
-                prefill: "1",
-                title: e.memo.split("\n")[0].slice(0, 60),
-                body: e.memo,
-                sourceType: "work-log",
-                sourceId: String(e.id),
-                sourceDate,
-              } as const;
-              // approval-create.tsx 의 validApprovalCategories: maintenance/inspection/facility/equipment/other
-              const approvalCategory =
-                e.category === "facility" ? "facility" :
-                e.category === "bill"     ? "other"    :
-                /* complaint */              "other";
-              // rfqs.tsx 의 categoryOptions: facility 분야는 building_maintenance 가 가장 일반적.
-              // bill/complaint 는 견적 대상 분야로 매핑하기 어려워 other 로 둔다.
-              const rfqCategory =
-                e.category === "facility" ? "building_maintenance" :
-                e.category === "bill"     ? "other"                :
-                /* complaint */              "other";
-              const approvalParams = new URLSearchParams({ ...baseCtx, category: approvalCategory }).toString();
-              const rfqParams = new URLSearchParams({ ...baseCtx, category: rfqCategory }).toString();
               return (
                 <Card key={e.id} id={`entry-${e.id}`} data-testid={`entry-${e.id}`}>
                   <CardContent className="p-3 flex gap-3">
@@ -379,45 +354,36 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
                         <AuthImage src={e.photoUrl} alt="" className="mt-2 max-h-40 rounded-md border" />
                       ) : null}
                     </div>
-                    {/* [Task #256] 액션 영역: 수정/삭제 + 기안하기/견적받기.
-                        시각 부담을 줄이려고 작은 라인 아이콘 + 짧은 라벨로 구성한다.
-                        [Hotfix] 4개 버튼을 1열 세로로 쌓으면 카드 높이가 과하게 길어져
-                        2×2 그리드로 변경 — 기안/견적이 1행, 수정/삭제가 2행. */}
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 shrink-0 text-[11px] items-start">
+                    {/* [Task #318] 액션 영역: 기안/견적 두 진입을 단일 "문서로만들기"
+                        로 통합. 클릭 시 필수업무 처리완료에서 사용하는 동일한 공식
+                        문서 프로세스(공고문/보고서/기안서)로 이어진다. 수정/삭제는 유지. */}
+                    <div className="flex flex-col gap-1 shrink-0 text-[11px] items-start">
                       <button
                         type="button"
-                        onClick={() => setLocation(`/approvals/create?${approvalParams}`)}
-                        title="이 기록으로 결재 상신"
+                        onClick={() => setDocEntry(e)}
+                        title="이 기록으로 공고문·보고서·기안서 만들기"
                         className={`inline-flex items-center gap-1 ${CATEGORY_ICON_CLASS.residents} hover:opacity-80`}
-                        data-testid={`draft-${e.id}`}
+                        data-testid={`make-doc-${e.id}`}
                       >
-                        <FileEdit className="w-3.5 h-3.5" />
-                        <span>기안</span>
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>문서로만들기</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setLocation(`/rfqs?${rfqParams}`)}
-                        title="이 기록으로 견적 요청"
-                        className={`inline-flex items-center gap-1 ${CATEGORY_ICON_CLASS.accounting} hover:opacity-80`}
-                        data-testid={`rfq-${e.id}`}
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>견적</span>
-                      </button>
-                      <button
-                        onClick={() => { setEditing(e); setEditMemo(e.memo); }}
-                        className="text-muted-foreground hover:text-foreground text-left"
-                        data-testid={`edit-${e.id}`}
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={() => { if (confirm("삭제할까요?")) removeMut.mutate(e.id); }}
-                        className="text-muted-foreground hover:text-destructive text-left"
-                        data-testid={`delete-${e.id}`}
-                      >
-                        삭제
-                      </button>
+                      <div className="flex gap-2 pt-0.5">
+                        <button
+                          onClick={() => { setEditing(e); setEditMemo(e.memo); }}
+                          className="text-muted-foreground hover:text-foreground text-left"
+                          data-testid={`edit-${e.id}`}
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => { if (confirm("삭제할까요?")) removeMut.mutate(e.id); }}
+                          className="text-muted-foreground hover:text-destructive text-left"
+                          data-testid={`delete-${e.id}`}
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -445,8 +411,40 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* [Task #318] 문서로만들기 — 필수업무 처리완료에서 쓰는 OfficialDocumentTriggers
+          를 그대로 재사용해 공고문/보고서/기안서 중 하나를 선택하면
+          /documents/preview 로 이동한다. 별도 프로세스를 만들지 않고 일원화. */}
+      <Dialog open={!!docEntry} onOpenChange={(v) => !v && setDocEntry(null)}>
+        <DialogContent className="max-w-md" data-testid="make-doc-dialog">
+          <DialogHeader>
+            <DialogTitle>문서로 만들기</DialogTitle>
+          </DialogHeader>
+          {docEntry ? (
+            <OfficialDocumentTriggers
+              buildInput={(): OfficialDocumentInput => buildOfficialDocInputFromEntry(docEntry)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+// [Task #318] 업무일지 entry → OfficialDocumentInput 어댑터.
+// 공식 문서 프로세스(공고문/보고서/기안서) 본문에 들어갈 메타데이터를 구성한다.
+function buildOfficialDocInputFromEntry(e: WorkLogEntry): OfficialDocumentInput {
+  const date = e.occurredDate || (e.occurredAt ?? new Date().toISOString()).slice(0, 10);
+  const title = e.memo.split("\n")[0].slice(0, 60) || "업무일지 기록";
+  return {
+    source: "work-log",
+    sourceLabel: `업무일지 — ${CATEGORY_LABEL[e.category]}`,
+    title,
+    date,
+    authorName: e.authorName,
+    notes: e.memo,
+    photos: e.photoUrl ? [e.photoUrl] : undefined,
+  };
 }
 
 /* ───────────────────────── 일일 탭 (위저드 + 보고서) ───────────────────────── */
