@@ -697,48 +697,14 @@ function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): b
   return !disabled.includes(group);
 }
 
-// [Task #267] 플랫폼관리자 전용 사이드바 — 3 그룹(현황 대시보드 / 데이터 관리 / 설정)만 노출.
+// [Task #267] 플랫폼관리자 전용 사이드바.
 //   ROUTES.access 는 그대로 두어 직접 URL 접근은 보존하되, 사이드바에서 실무 메뉴(시설/회계/입주민/
-//   보고/AI 비서 등)를 일괄 숨긴다.
-// [Task #283] 플랫폼관리자 사이드바를 사용자 역할별 7 그룹으로 재구성한다.
-//   각 역할 그룹은 동일 메뉴 패턴을 갖되, 약관·공지·AI 자료·업무 템플릿·캠페인은
-//   기존 페이지에 ?role= 쿼리 파라미터로 진입한다 (페이지가 해당 역할 데이터로 필터링).
-function roleNavItems(
-  role: TargetRole,
-  statusPath: string,
-  statusIcon: LucideIcon,
-  options: { showTaskTemplates?: boolean; extra?: NavItem[] } = {},
-): NavItem[] {
-  // [Task #283] 메뉴 순서: 현황 → (역할별 운영 항목: 시설기사 승인 / 협력업체·크레딧)
-  //   → 약관 → 공지 → AI 공통 자료 → 업무 템플릿 → 캠페인 알림.
-  //   운영 항목을 콘텐츠 항목보다 앞에 두어 평소 사용 동선을 단축한다.
-  const items: NavItem[] = [
-    { path: statusPath, label: "현황", icon: statusIcon },
-  ];
-  if (options.extra) {
-    for (const e of options.extra) items.push(e);
-  }
-  items.push(
-    { path: "/platform-consents", label: "약관", icon: FileText, query: { role } },
-    { path: "/platform-announcements", label: "공지", icon: Megaphone, query: { role } },
-    { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: BookOpen, query: { role } },
-  );
-  if (options.showTaskTemplates !== false) {
-    items.push({
-      path: "/settings/task-templates",
-      label: "업무 템플릿",
-      icon: ClipboardList,
-      query: { role },
-    });
-  }
-  items.push({
-    path: "/platform/campaigns",
-    label: "캠페인 알림",
-    icon: Send,
-    query: { role },
-  });
-  return items;
-}
+//   보고/AI 비서 등)는 일괄 숨긴다.
+// [Task #283] 역할별 7 그룹 시안으로 확장 → 그러나 5개 역할 × 5개 콘텐츠 메뉴 = 25개 항목 중복 발생.
+// [플랫폼관리자 메뉴 정비] 약관·공지/캠페인·AI 자료·업무 템플릿은 이미 각 페이지 내부에
+//   "역할별 탭"이 있으므로 사이드바에서는 단일 진입점만 노출한다. 역할 그룹에는 "현황"과
+//   그 역할 고유의 운영 메뉴(시설기사 승인 / 협력업체·크레딧)만 남기고, 콘텐츠 메뉴는
+//   "콘텐츠 관리" 그룹 한 곳으로 모은다.
 
 type TargetRole = "manager" | "accountant" | "facility_staff" | "hq_executive" | "partner";
 
@@ -746,32 +712,39 @@ function platformAdminSidebar(): NavSection[] {
   return [
     {
       title: "관리소장",
-      items: roleNavItems("manager", "/platform/managers", Building2),
+      items: [{ path: "/platform/managers", label: "현황", icon: Building2 }],
     },
     {
       title: "경리·회계",
-      items: roleNavItems("accountant", "/platform/accountants", Calculator),
+      items: [{ path: "/platform/accountants", label: "현황", icon: Calculator }],
     },
     {
       title: "시설기사",
-      items: roleNavItems("facility_staff", "/platform/facility-staff", HardHat, {
-        extra: [{ path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck }],
-      }),
+      items: [
+        { path: "/platform/facility-staff", label: "현황", icon: HardHat },
+        { path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck },
+      ],
     },
     {
       title: "본사총괄",
-      items: roleNavItems("hq_executive", "/platform/hq-executives", Shield),
+      items: [{ path: "/platform/hq-executives", label: "현황", icon: Shield }],
     },
     {
       title: "파트너사",
-      // 파트너사는 업무 템플릿 개념이 없으므로 해당 메뉴는 생략한다.
-      items: roleNavItems("partner", "/platform/partners", Package, {
-        showTaskTemplates: false,
-        extra: [
-          { path: "/vendors", label: "협력업체", icon: Building2 },
-          { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
-        ],
-      }),
+      items: [
+        { path: "/platform/partners", label: "현황", icon: Package },
+        { path: "/vendors", label: "협력업체", icon: Building2 },
+        { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
+      ],
+    },
+    {
+      title: "콘텐츠 관리",
+      items: [
+        { path: "/platform-consents", label: "약관 관리", icon: FileText },
+        { path: "/platform-announcements", label: "본사 알림(공지·캠페인)", icon: Megaphone },
+        { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: BookOpen },
+        { path: "/settings/task-templates", label: "업무 템플릿", icon: ClipboardList },
+      ],
     },
     {
       title: "공통·시스템",
