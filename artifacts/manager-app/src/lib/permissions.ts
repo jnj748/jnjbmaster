@@ -533,6 +533,11 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-credits")),
     label: "파트너 크레딧", icon: Coins, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책 통합 관리.
+  { path: "/platform/quote-credit-policies",
+    component: lazy(() => import("@/pages/platform-quote-credit-policies")),
+    label: "견적 유형별 크레딧 설정", icon: Coins, group: "settings",
+    access: ["platform_admin"], hidden: true },
   // [Task #283] 역할별 캠페인 알림 관리 — 단일 페이지가 ?role= 쿼리로 5개 역할 범위를 전환.
   { path: "/platform/campaigns",
     component: lazy(() => import("@/pages/platform-campaigns")),
@@ -764,6 +769,8 @@ function platformAdminSidebar(): NavSection[] {
         { path: "/platform/partners", label: "현황", icon: Package },
         { path: "/vendors", label: "협력업체", icon: Building2 },
         { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
+        // [Task #298] 카테고리 × 프리미엄 단위 크레딧/환불 정책 통합 관리.
+        { path: "/platform/quote-credit-policies", label: "견적 유형별 크레딧 설정", icon: Coins },
       ],
     },
     {

@@ -5312,6 +5312,44 @@ paths:
                   ok:
                     type: boolean
 
+  /credits/quote-type-policies:
+    get:
+      operationId: listQuoteTypePolicies
+      tags: [commissions]
+      summary: "[Task #298] platform_admin only: list common defaults + per-category policy overrides"
+      responses:
+        "200":
+          description: Quote type policies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteTypePolicies"
+
+  /credits/quote-type-policies/category:
+    put:
+      operationId: upsertQuoteTypePolicyCategory
+      tags: [commissions]
+      summary: "[Task #298] platform_admin only: upsert one category's default-row policy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertQuoteTypePolicyCategoryBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCategoryPricing"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditCategoryPricing"
+
   /platform-settings:
     get:
       operationId: listPlatformSettings
@@ -11370,6 +11408,12 @@ components:
           type: integer
         description:
           type: ["string", "null"]
+        noViewRefundDays:
+          type: ["integer", "null"]
+        noViewRefundRatioPercent:
+          type: ["integer", "null"]
+        premiumSurchargePercent:
+          type: ["integer", "null"]
         updatedBy:
           type: ["string", "null"]
         updatedAt:
@@ -11396,9 +11440,64 @@ components:
           type: integer
         description:
           type: ["string", "null"]
+        noViewRefundDays:
+          type: ["integer", "null"]
+        noViewRefundRatioPercent:
+          type: ["integer", "null"]
+        premiumSurchargePercent:
+          type: ["integer", "null"]
       required:
         - category
         - tier
+        - creditCost
+
+    QuoteTypePolicyCommonEntry:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+        updatedBy:
+          type: ["string", "null"]
+      required:
+        - key
+
+    QuoteTypePolicies:
+      type: object
+      properties:
+        common:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteTypePolicyCommonEntry"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditCategoryPricing"
+      required:
+        - common
+        - categories
+
+    UpsertQuoteTypePolicyCategoryBody:
+      type: object
+      properties:
+        category:
+          type: string
+        creditCost:
+          type: integer
+        noViewRefundDays:
+          type: ["integer", "null"]
+        noViewRefundRatioPercent:
+          type: ["integer", "null"]
+        premiumSurchargePercent:
+          type: ["integer", "null"]
+      required:
+        - category
         - creditCost
 
     PlatformSetting:

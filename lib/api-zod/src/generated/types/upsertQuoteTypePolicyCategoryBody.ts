@@ -6,24 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreditCategoryPricing {
-  id: number;
+export interface UpsertQuoteTypePolicyCategoryBody {
   category: string;
-  /** @nullable */
-  sido?: string | null;
-  /** @nullable */
-  sigungu?: string | null;
-  tier: number;
   creditCost: number;
-  /** @nullable */
-  description?: string | null;
   /** @nullable */
   noViewRefundDays?: number | null;
   /** @nullable */
   noViewRefundRatioPercent?: number | null;
   /** @nullable */
   premiumSurchargePercent?: number | null;
-  /** @nullable */
-  updatedBy?: string | null;
-  updatedAt?: Date;
 }

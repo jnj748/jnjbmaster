@@ -140,6 +140,14 @@ app.listen(port, async (err) => {
     logger.warn({ err: e }, "Failed to seed platform admins");
   }
 
+  // [Task #298] credit_category_pricing 에 추가된 정책 컬럼이 시드보다 먼저 ALTER 되어야 한다.
+  try {
+    await ensureRfqMatchSchema();
+    logger.info("RFQ match / regional pricing schema ensured");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to ensure RFQ match schema");
+  }
+
   try {
     await seedPartnerBm();
     logger.info("Partner BM defaults seeded");
@@ -160,13 +168,6 @@ app.listen(port, async (err) => {
     logger.info("Consent documents seeded");
   } catch (e) {
     logger.warn({ err: e }, "Failed to seed consent documents");
-  }
-
-  try {
-    await ensureRfqMatchSchema();
-    logger.info("RFQ match / regional pricing schema ensured");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to ensure RFQ match schema");
   }
 
   startScheduler();

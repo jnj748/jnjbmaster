@@ -10,6 +10,14 @@ export const creditCategoryPricingTable = pgTable("credit_category_pricing", {
   tier: integer("tier").notNull().default(1),
   creditCost: integer("credit_cost").notNull().default(1),
   description: text("description"),
+  // [Task #298] 카테고리 단위 미열람 환불 정책 오버라이드. NULL 이면 공통값 사용.
+  //   noViewRefundDays: 미열람 환불 인정 기간(일).
+  //   noViewRefundRatioPercent: 미열람 환불 비율(0~100, % 단위).
+  //   premiumSurchargePercent: 프리미엄 할증율(0~, % 단위). 50 → 일반 단가 × 1.5.
+  // 지역별 단가 행에서는 의미 없으므로 기본 단가 행(sido/sigungu = NULL) 에서만 사용한다.
+  noViewRefundDays: integer("no_view_refund_days"),
+  noViewRefundRatioPercent: integer("no_view_refund_ratio_percent"),
+  premiumSurchargePercent: integer("premium_surcharge_percent"),
   // [Task #226] 변경 이력 표시용 — 마지막 저장한 어드민의 표시 이름.
   updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

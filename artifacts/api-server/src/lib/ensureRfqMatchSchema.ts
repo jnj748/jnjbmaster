@@ -55,6 +55,20 @@ export async function ensureRfqMatchSchema(): Promise<void> {
     ALTER TABLE credit_category_pricing
       ADD COLUMN IF NOT EXISTS updated_by text
   `);
+  // [Task #298] 카테고리 단위 미열람 환불 정책/프리미엄 할증율 오버라이드 컬럼.
+  // NULL = 공통값 사용. 기본 단가 행(sido/sigungu IS NULL)에서만 의미있음.
+  await db.execute(sql`
+    ALTER TABLE credit_category_pricing
+      ADD COLUMN IF NOT EXISTS no_view_refund_days integer
+  `);
+  await db.execute(sql`
+    ALTER TABLE credit_category_pricing
+      ADD COLUMN IF NOT EXISTS no_view_refund_ratio_percent integer
+  `);
+  await db.execute(sql`
+    ALTER TABLE credit_category_pricing
+      ADD COLUMN IF NOT EXISTS premium_surcharge_percent integer
+  `);
   const psExists = (await db.execute<{ exists: boolean }>(sql`
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables

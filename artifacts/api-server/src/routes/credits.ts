@@ -11,6 +11,7 @@ import {
   buildingsTable,
   usersTable,
   quotesTable,
+  platformSettingsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
@@ -25,6 +26,8 @@ import {
 const router: IRouter = Router();
 const hqOnly = requireRole("platform_admin", "hq_executive");
 const partnerOrHq = requireRole("partner", "platform_admin", "hq_executive");
+// [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책은 플랫폼 관리자 전용.
+const platformAdminOnly = requireRole("platform_admin");
 
 async function resolveVendorIdForUser(req: any): Promise<number | null> {
   if (req.user?.role === "partner") {
@@ -191,6 +194,10 @@ const UpsertPricingBody = z.object({
   // [Task #226] sido/sigungu 가 함께 지정되면 지역별 단가, 둘 다 null 이면 기본 단가.
   sido: z.string().min(1).optional().nullable(),
   sigungu: z.string().min(1).optional().nullable(),
+  // [Task #298] 카테고리 단위 정책 오버라이드. null = 공통값 사용. 기본 단가 행에서만 의미가 있다.
+  noViewRefundDays: z.number().int().min(1).max(60).optional().nullable(),
+  noViewRefundRatioPercent: z.number().int().min(0).max(100).optional().nullable(),
+  premiumSurchargePercent: z.number().int().min(0).max(500).optional().nullable(),
 });
 
 router.put("/credits/category-pricing", hqOnly, async (req, res): Promise<void> => {
@@ -218,11 +225,20 @@ router.put("/credits/category-pricing", hqOnly, async (req, res): Promise<void> 
     const [u] = await db.select().from(usersTable).where(eq(usersTable.id, actorId));
     actorName = u?.name ?? req.user?.email ?? null;
   }
+  // [Task #298] 카테고리 단위 정책 오버라이드 — 기본 단가 행(둘 다 NULL)에서만 의미가 있다.
+  const isDefaultRow = !sido && !sigungu;
+  const policyFields = isDefaultRow
+    ? {
+        noViewRefundDays: parsed.data.noViewRefundDays ?? null,
+        noViewRefundRatioPercent: parsed.data.noViewRefundRatioPercent ?? null,
+        premiumSurchargePercent: parsed.data.premiumSurchargePercent ?? null,
+      }
+    : {};
   const existing = await db.select().from(creditCategoryPricingTable).where(matchRegion);
   if (existing.length > 0) {
     const [updated] = await db
       .update(creditCategoryPricingTable)
-      .set({ tier: parsed.data.tier, creditCost: parsed.data.creditCost, description: parsed.data.description ?? null, updatedBy: actorName })
+      .set({ tier: parsed.data.tier, creditCost: parsed.data.creditCost, description: parsed.data.description ?? null, updatedBy: actorName, ...policyFields })
       .where(matchRegion)
       .returning();
     res.json(updated);
@@ -236,6 +252,7 @@ router.put("/credits/category-pricing", hqOnly, async (req, res): Promise<void> 
     sido,
     sigungu,
     updatedBy: actorName,
+    ...policyFields,
   }).returning();
   res.status(201).json(created);
 });
@@ -253,6 +270,98 @@ router.delete("/credits/category-pricing/:id", hqOnly, async (req, res): Promise
     return;
   }
   res.json({ ok: true, removed });
+});
+
+// [Task #298] 견적 유형별 크레딧 정책 통합 관리 — 플랫폼 관리자 전용 엔드포인트.
+//   GET: 공통 기본값(platform_settings) + 카테고리 기본 행(default-region) 정책을 한 번에 반환.
+//   PUT: 한 카테고리의 기본 단가 행에 대한 정책 오버라이드 upsert.
+const POLICY_KEYS = [
+  "no_view_refund_days",
+  "no_view_refund_ratio",
+  "premium_surcharge_ratio",
+  "premium_slot_limit",
+  "premium_amount_threshold",
+] as const;
+
+router.get("/credits/quote-type-policies", platformAdminOnly, async (_req, res): Promise<void> => {
+  const settings = await db.select().from(platformSettingsTable);
+  const settingsMap = new Map(settings.map((s) => [s.key, s]));
+  const common = POLICY_KEYS.map((key) => {
+    const s = settingsMap.get(key);
+    return {
+      key,
+      value: s?.value ?? null,
+      description: s?.description ?? null,
+      updatedAt: s?.updatedAt ? new Date(s.updatedAt as unknown as string).toISOString() : null,
+      updatedBy: s?.updatedBy ?? null,
+    };
+  });
+  // 기본 단가 행만 (sido/sigungu 모두 NULL).
+  const rows = await db
+    .select()
+    .from(creditCategoryPricingTable)
+    .where(and(
+      sql`${creditCategoryPricingTable.sido} IS NULL`,
+      sql`${creditCategoryPricingTable.sigungu} IS NULL`,
+    ))
+    .orderBy(creditCategoryPricingTable.category);
+  res.json({ common, categories: rows });
+});
+
+const UpsertQuoteTypePolicyBody = z.object({
+  category: z.string().min(1),
+  creditCost: z.number().int().min(1),
+  noViewRefundDays: z.number().int().min(1).max(60).nullable().optional(),
+  noViewRefundRatioPercent: z.number().int().min(0).max(100).nullable().optional(),
+  premiumSurchargePercent: z.number().int().min(0).max(500).nullable().optional(),
+});
+
+router.put("/credits/quote-type-policies/category", platformAdminOnly, async (req, res): Promise<void> => {
+  const parsed = UpsertQuoteTypePolicyBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "잘못된 요청", details: parsed.error.flatten() });
+    return;
+  }
+  const actorId = req.user?.userId ? Number(req.user.userId) : null;
+  let actorName: string | null = req.user?.email ?? null;
+  if (actorId) {
+    const [u] = await db.select().from(usersTable).where(eq(usersTable.id, actorId));
+    actorName = u?.name ?? req.user?.email ?? null;
+  }
+  const matchDefault = and(
+    eq(creditCategoryPricingTable.category, parsed.data.category),
+    sql`${creditCategoryPricingTable.sido} IS NULL`,
+    sql`${creditCategoryPricingTable.sigungu} IS NULL`,
+  );
+  const existing = await db.select().from(creditCategoryPricingTable).where(matchDefault);
+  const setValues = {
+    creditCost: parsed.data.creditCost,
+    noViewRefundDays: parsed.data.noViewRefundDays ?? null,
+    noViewRefundRatioPercent: parsed.data.noViewRefundRatioPercent ?? null,
+    premiumSurchargePercent: parsed.data.premiumSurchargePercent ?? null,
+    updatedBy: actorName,
+  };
+  if (existing.length > 0) {
+    const [updated] = await db
+      .update(creditCategoryPricingTable)
+      .set(setValues)
+      .where(matchDefault)
+      .returning();
+    res.json(updated);
+    return;
+  }
+  // 기본 단가 행이 아직 없으면 새로 만든다 (tier 기본 1).
+  const [created] = await db
+    .insert(creditCategoryPricingTable)
+    .values({
+      category: parsed.data.category,
+      tier: 1,
+      sido: null,
+      sigungu: null,
+      ...setValues,
+    })
+    .returning();
+  res.status(201).json(created);
 });
 
 export default router;

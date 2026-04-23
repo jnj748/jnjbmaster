@@ -4689,6 +4689,12 @@ export interface CreditCategoryPricing {
   /** @nullable */
   description?: string | null;
   /** @nullable */
+  noViewRefundDays?: number | null;
+  /** @nullable */
+  noViewRefundRatioPercent?: number | null;
+  /** @nullable */
+  premiumSurchargePercent?: number | null;
+  /** @nullable */
   updatedBy?: string | null;
   updatedAt?: string;
 }
@@ -4703,6 +4709,40 @@ export interface UpsertCreditCategoryPricingBody {
   creditCost: number;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  noViewRefundDays?: number | null;
+  /** @nullable */
+  noViewRefundRatioPercent?: number | null;
+  /** @nullable */
+  premiumSurchargePercent?: number | null;
+}
+
+export interface QuoteTypePolicyCommonEntry {
+  key: string;
+  /** @nullable */
+  value?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  updatedBy?: string | null;
+}
+
+export interface QuoteTypePolicies {
+  common: QuoteTypePolicyCommonEntry[];
+  categories: CreditCategoryPricing[];
+}
+
+export interface UpsertQuoteTypePolicyCategoryBody {
+  category: string;
+  creditCost: number;
+  /** @nullable */
+  noViewRefundDays?: number | null;
+  /** @nullable */
+  noViewRefundRatioPercent?: number | null;
+  /** @nullable */
+  premiumSurchargePercent?: number | null;
 }
 
 export interface PlatformSetting {

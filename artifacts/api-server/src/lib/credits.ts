@@ -8,6 +8,7 @@ import {
   creditCategoryPricingTable,
   platformSettingsTable,
   quotesTable,
+  rfqsTable,
   type CreditLedger,
   type VendorCreditWallet,
 } from "@workspace/db";
@@ -21,6 +22,8 @@ export const REBATE_RATIO_DEFAULT = 0.1;
 // [Task #226] 관리소장이 7일간 견적을 열람하지 않으면 차감의 60%를 환불한다.
 export const NO_VIEW_REFUND_DAYS_DEFAULT = 7;
 export const NO_VIEW_REFUND_RATIO_DEFAULT = 0.6;
+// [Task #298] 프리미엄 할증율 기본값 — 카테고리 기본 단가 × (1 + 0.5) = 1.5배.
+export const PREMIUM_SURCHARGE_RATIO_DEFAULT = 0.5;
 
 // Back-compat exports (readers should prefer the async getters below)
 export const PREMIUM_AMOUNT_THRESHOLD = PREMIUM_AMOUNT_THRESHOLD_DEFAULT;
@@ -62,6 +65,33 @@ export async function getNoViewRefundDays(): Promise<number> {
 }
 export async function getNoViewRefundRatio(): Promise<number> {
   return getNumberSetting("no_view_refund_ratio", NO_VIEW_REFUND_RATIO_DEFAULT);
+}
+// [Task #298] 공통 프리미엄 할증율(0~). 저장 단위는 ratio(0.5 = +50%) — 카테고리 단가 × (1 + ratio).
+export async function getPremiumSurchargeRatio(): Promise<number> {
+  return getNumberSetting("premium_surcharge_ratio", PREMIUM_SURCHARGE_RATIO_DEFAULT);
+}
+
+// [Task #298] 카테고리 기본 단가 행(sido/sigungu IS NULL)을 읽어 정책 오버라이드를 가져온다.
+//   환불 일수/비율, 프리미엄 할증율은 카테고리 단위로만 오버라이드 가능 — 지역별 행은 단가만 갖는다.
+export async function getCategoryPolicyOverride(category: string): Promise<{
+  noViewRefundDays: number | null;
+  noViewRefundRatio: number | null;
+  premiumSurchargeRatio: number | null;
+} | null> {
+  const [row] = await db
+    .select()
+    .from(creditCategoryPricingTable)
+    .where(and(
+      eq(creditCategoryPricingTable.category, category),
+      isNull(creditCategoryPricingTable.sido),
+      isNull(creditCategoryPricingTable.sigungu),
+    ));
+  if (!row) return null;
+  return {
+    noViewRefundDays: row.noViewRefundDays ?? null,
+    noViewRefundRatio: row.noViewRefundRatioPercent != null ? row.noViewRefundRatioPercent / 100 : null,
+    premiumSurchargeRatio: row.premiumSurchargePercent != null ? row.premiumSurchargePercent / 100 : null,
+  };
 }
 
 export async function setSetting(key: string, value: string, description?: string | null): Promise<void> {
@@ -165,16 +195,42 @@ export async function computeCreditCost(input: CalcCreditCostInput): Promise<Cre
   reason.push(`카테고리(${input.category}) · ${scopeLabel} 기준 Tier ${tier} = ${baseCost} 크레딧`);
 
   const premiumThreshold = await getPremiumAmountThreshold();
-  const premiumCost = await getPremiumCreditCost();
   const isPremium = Boolean(input.isPremiumOverride) || (input.estimatedAmount != null && input.estimatedAmount >= premiumThreshold);
   if (isPremium) {
-    reason.push(`Premium 공고 = ${premiumCost} 크레딧 고정`);
+    // [Task #298] 프리미엄 비용 = 카테고리 "기본(default)" 단가 × (1 + 할증율).
+    //   요구사항 상 프리미엄은 지역별 단가의 영향을 받지 않고 카테고리 기본 단가를 기준으로 계산한다.
+    //   카테고리 오버라이드(premiumSurchargePercent)가 있으면 우선, 없으면 공통 premium_surcharge_ratio.
+    //   카테고리 기본 단가 행 자체가 없는 경우만 기존 고정 premium_credit_cost 로 fallback.
+    const override = await getCategoryPolicyOverride(input.category);
+    const surchargeRatio = override?.premiumSurchargeRatio ?? (await getPremiumSurchargeRatio());
+    const defaultLookup = await lookupCategoryPricing(input.category, null, null);
+    const defaultRow = defaultLookup.row;
+    let totalCost: number;
+    if (defaultRow) {
+      const defaultBase = defaultRow.creditCost;
+      totalCost = Math.ceil(defaultBase * (1 + surchargeRatio));
+      reason.push(`Premium 공고 = 카테고리 기본 단가(${defaultBase}C) × (1 + ${Math.round(surchargeRatio * 100)}%) = ${totalCost} 크레딧`);
+      return {
+        baseCost: defaultBase,
+        tier: defaultRow.tier,
+        largeBuildingMultiplier: 1,
+        isPremium: true,
+        totalCost,
+        reason,
+        pricingId: defaultRow.id,
+        pricingScope: "default",
+      };
+    }
+    // 카테고리 기본 단가 행이 없으면 fallback (호환성 유지).
+    const premiumCost = await getPremiumCreditCost();
+    totalCost = premiumCost;
+    reason.push(`Premium 공고 = ${premiumCost} 크레딧 고정 (카테고리 단가 미설정 fallback)`);
     return {
       baseCost,
       tier,
       largeBuildingMultiplier: 1,
       isPremium: true,
-      totalCost: premiumCost,
+      totalCost,
       reason,
       pricingId: pricing?.id ?? null,
       pricingScope: lookup.scope,
@@ -283,9 +339,34 @@ export async function refundUnviewedQuotes(now: Date = new Date()): Promise<{ re
   `)) as unknown as { rows: Array<{ exists: boolean }> };
   if (!rows?.[0]?.exists) return { refundedCount: 0, refundedAmount: 0 };
 
-  const days = await getNoViewRefundDays();
-  const ratio = await getNoViewRefundRatio();
-  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const commonDays = await getNoViewRefundDays();
+  const commonRatio = await getNoViewRefundRatio();
+  // [Task #298] 카테고리 오버라이드까지 고려해 가장 긴 정책 기간을 cutoff 로 사용한다.
+  //   (실제 일수는 quote별로 다시 계산)
+  const overrideRows = await db
+    .select({
+      category: creditCategoryPricingTable.category,
+      days: creditCategoryPricingTable.noViewRefundDays,
+      ratioPercent: creditCategoryPricingTable.noViewRefundRatioPercent,
+    })
+    .from(creditCategoryPricingTable)
+    .where(and(
+      isNull(creditCategoryPricingTable.sido),
+      isNull(creditCategoryPricingTable.sigungu),
+    ));
+  const overrideMap = new Map<string, { days: number | null; ratio: number | null }>();
+  // [Task #298] 후보를 좁히는 prefilter 는 "가장 짧은 정책 기간" 으로 한다.
+  //   가장 긴 기간을 쓰면, 짧은 정책에 해당하는 quote 가 가장 긴 기간이 지날 때까지
+  //   환불에서 누락되어 정책이 깨진다. 실제 일수/비율 적용은 quote 별로 다시 계산.
+  let minDays = commonDays;
+  for (const row of overrideRows) {
+    overrideMap.set(row.category, {
+      days: row.days,
+      ratio: row.ratioPercent != null ? row.ratioPercent / 100 : null,
+    });
+    if (row.days != null && row.days < minDays) minDays = row.days;
+  }
+  const cutoff = new Date(now.getTime() - minDays * 24 * 60 * 60 * 1000);
 
   // [Task #226] 정책: "7일 이내 1회라도 열람"되면 환불 제외.
   // → firstViewedAt 가 null 인 견적뿐 아니라, 정책 기간이 지난 뒤에 처음 열람된
@@ -302,6 +383,20 @@ export async function refundUnviewedQuotes(now: Date = new Date()): Promise<{ re
 
   for (const q of candidates) {
     if (!q.createdAt || q.createdAt > cutoff) continue;
+    // [Task #298] quote 의 RFQ 카테고리에 오버라이드가 있으면 해당 일수/비율 사용, 없으면 공통값.
+    let days = commonDays;
+    let ratio = commonRatio;
+    if (q.rfqId) {
+      const [rfq] = await db.select({ category: rfqsTable.category }).from(rfqsTable).where(eq(rfqsTable.id, q.rfqId));
+      if (rfq?.category) {
+        const ov = overrideMap.get(rfq.category);
+        if (ov?.days != null) days = ov.days;
+        if (ov?.ratio != null) ratio = ov.ratio;
+      }
+    }
+    // 카테고리별 정책 기간이 아직 지나지 않은 quote 는 본 라운드에서 제외.
+    const quoteCutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    if (q.createdAt > quoteCutoff) continue;
     // 정책 기간 내에 한 번이라도 열람했다면 환불 제외.
     const policyWindowEnd = new Date(q.createdAt.getTime() + days * 24 * 60 * 60 * 1000);
     if (q.firstViewedAt && q.firstViewedAt <= policyWindowEnd) continue;

@@ -213,6 +213,7 @@ import type {
   ProcessDestructions200,
   PublicTenantCardData,
   Quote,
+  QuoteTypePolicies,
   RecordCampaignCtaClick200,
   RecordCampaignImpression200,
   RecordPaymentBody,
@@ -276,6 +277,7 @@ import type {
   UpsertDocumentChecklistBody,
   UpsertManagementContractTemplateBody,
   UpsertPlatformSettingBody,
+  UpsertQuoteTypePolicyCategoryBody,
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
@@ -21699,6 +21701,171 @@ export const useDeleteCreditCategoryPricing = <
   TContext
 > => {
   return useMutation(getDeleteCreditCategoryPricingMutationOptions(options));
+};
+
+/**
+ * @summary [Task #298] platform_admin only: list common defaults + per-category policy overrides
+ */
+export const getListQuoteTypePoliciesUrl = () => {
+  return `/api/credits/quote-type-policies`;
+};
+
+export const listQuoteTypePolicies = async (
+  options?: RequestInit,
+): Promise<QuoteTypePolicies> => {
+  return customFetch<QuoteTypePolicies>(getListQuoteTypePoliciesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListQuoteTypePoliciesQueryKey = () => {
+  return [`/api/credits/quote-type-policies`] as const;
+};
+
+export const getListQuoteTypePoliciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listQuoteTypePolicies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listQuoteTypePolicies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListQuoteTypePoliciesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listQuoteTypePolicies>>
+  > = ({ signal }) => listQuoteTypePolicies({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listQuoteTypePolicies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListQuoteTypePoliciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listQuoteTypePolicies>>
+>;
+export type ListQuoteTypePoliciesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #298] platform_admin only: list common defaults + per-category policy overrides
+ */
+
+export function useListQuoteTypePolicies<
+  TData = Awaited<ReturnType<typeof listQuoteTypePolicies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listQuoteTypePolicies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListQuoteTypePoliciesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #298] platform_admin only: upsert one category's default-row policy
+ */
+export const getUpsertQuoteTypePolicyCategoryUrl = () => {
+  return `/api/credits/quote-type-policies/category`;
+};
+
+export const upsertQuoteTypePolicyCategory = async (
+  upsertQuoteTypePolicyCategoryBody: UpsertQuoteTypePolicyCategoryBody,
+  options?: RequestInit,
+): Promise<CreditCategoryPricing> => {
+  return customFetch<CreditCategoryPricing>(
+    getUpsertQuoteTypePolicyCategoryUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertQuoteTypePolicyCategoryBody),
+    },
+  );
+};
+
+export const getUpsertQuoteTypePolicyCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>,
+    TError,
+    { data: BodyType<UpsertQuoteTypePolicyCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>,
+  TError,
+  { data: BodyType<UpsertQuoteTypePolicyCategoryBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertQuoteTypePolicyCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>,
+    { data: BodyType<UpsertQuoteTypePolicyCategoryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertQuoteTypePolicyCategory(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertQuoteTypePolicyCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>
+>;
+export type UpsertQuoteTypePolicyCategoryMutationBody =
+  BodyType<UpsertQuoteTypePolicyCategoryBody>;
+export type UpsertQuoteTypePolicyCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #298] platform_admin only: upsert one category's default-row policy
+ */
+export const useUpsertQuoteTypePolicyCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>,
+    TError,
+    { data: BodyType<UpsertQuoteTypePolicyCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertQuoteTypePolicyCategory>>,
+  TError,
+  { data: BodyType<UpsertQuoteTypePolicyCategoryBody> },
+  TContext
+> => {
+  return useMutation(getUpsertQuoteTypePolicyCategoryMutationOptions(options));
 };
 
 /**

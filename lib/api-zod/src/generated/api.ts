@@ -7106,6 +7106,9 @@ export const ListCreditCategoryPricingResponseItem = zod.object({
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
+  noViewRefundDays: zod.number().nullish(),
+  noViewRefundRatioPercent: zod.number().nullish(),
+  premiumSurchargePercent: zod.number().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -7123,6 +7126,9 @@ export const UpsertCreditCategoryPricingBody = zod.object({
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
+  noViewRefundDays: zod.number().nullish(),
+  noViewRefundRatioPercent: zod.number().nullish(),
+  premiumSurchargePercent: zod.number().nullish(),
 });
 
 export const UpsertCreditCategoryPricingResponse = zod.object({
@@ -7133,6 +7139,9 @@ export const UpsertCreditCategoryPricingResponse = zod.object({
   tier: zod.number(),
   creditCost: zod.number(),
   description: zod.string().nullish(),
+  noViewRefundDays: zod.number().nullish(),
+  noViewRefundRatioPercent: zod.number().nullish(),
+  premiumSurchargePercent: zod.number().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -7146,6 +7155,63 @@ export const DeleteCreditCategoryPricingParams = zod.object({
 
 export const DeleteCreditCategoryPricingResponse = zod.object({
   ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #298] platform_admin only: list common defaults + per-category policy overrides
+ */
+export const ListQuoteTypePoliciesResponse = zod.object({
+  common: zod.array(
+    zod.object({
+      key: zod.string(),
+      value: zod.string().nullish(),
+      description: zod.string().nullish(),
+      updatedAt: zod.coerce.date().nullish(),
+      updatedBy: zod.string().nullish(),
+    }),
+  ),
+  categories: zod.array(
+    zod.object({
+      id: zod.number(),
+      category: zod.string(),
+      sido: zod.string().nullish(),
+      sigungu: zod.string().nullish(),
+      tier: zod.number(),
+      creditCost: zod.number(),
+      description: zod.string().nullish(),
+      noViewRefundDays: zod.number().nullish(),
+      noViewRefundRatioPercent: zod.number().nullish(),
+      premiumSurchargePercent: zod.number().nullish(),
+      updatedBy: zod.string().nullish(),
+      updatedAt: zod.coerce.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #298] platform_admin only: upsert one category's default-row policy
+ */
+export const UpsertQuoteTypePolicyCategoryBody = zod.object({
+  category: zod.string(),
+  creditCost: zod.number(),
+  noViewRefundDays: zod.number().nullish(),
+  noViewRefundRatioPercent: zod.number().nullish(),
+  premiumSurchargePercent: zod.number().nullish(),
+});
+
+export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
+  id: zod.number(),
+  category: zod.string(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  tier: zod.number(),
+  creditCost: zod.number(),
+  description: zod.string().nullish(),
+  noViewRefundDays: zod.number().nullish(),
+  noViewRefundRatioPercent: zod.number().nullish(),
+  premiumSurchargePercent: zod.number().nullish(),
+  updatedBy: zod.string().nullish(),
+  updatedAt: zod.coerce.date().optional(),
 });
 
 /**

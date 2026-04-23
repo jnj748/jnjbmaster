@@ -16,4 +16,10 @@ export interface UpsertCreditCategoryPricingBody {
   creditCost: number;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  noViewRefundDays?: number | null;
+  /** @nullable */
+  noViewRefundRatioPercent?: number | null;
+  /** @nullable */
+  premiumSurchargePercent?: number | null;
 }

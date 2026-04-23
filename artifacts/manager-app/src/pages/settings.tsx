@@ -158,11 +158,18 @@ function PlatformSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>미열람 환불 정책</CardTitle>
-          <CardDescription>관리소장이 견적을 일정 기간 열람하지 않으면 일부 크레딧을 자동 환불합니다</CardDescription>
+          <CardTitle>미열람 환불 정책 · 프리미엄 할증</CardTitle>
+          <CardDescription>
+            [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책은 별도 페이지에서 통합 관리합니다.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <RefundPolicyEditor />
+          <a
+            href={`${BASE}platform/quote-credit-policies`.replace(/\/+/g, "/")}
+            className="inline-flex items-center gap-2 text-sm text-primary underline"
+          >
+            견적 유형별 크레딧 설정 페이지로 이동 →
+          </a>
         </CardContent>
       </Card>
 
