@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
@@ -17,9 +18,8 @@ import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
 import {
   shareDocument,
   formatKoreanDate,
-  type OfficialDocumentInput,
 } from "@/lib/official-document";
-import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
+import { CompletionNotice } from "@/components/completion-notice";
 import {
   Wrench, Receipt, MessageSquareWarning, ChevronLeft, ChevronRight,
   CheckCircle2, AlertTriangle, Image as ImageIcon, ImageDown, Share2, Printer, NotebookPen,
@@ -255,10 +255,13 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const { call } = useApi();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { building } = useBuilding();
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<WorkLogEntry | null>(null);
   const [editMemo, setEditMemo] = useState("");
-  // [Task #318] 카드별 "문서로만들기" 다이얼로그 — 선택된 entry 만 보관.
+  // [Task #318] 카드별 "문서로만들기" — 필수업무 처리완료에서 쓰는 CompletionNotice
+  // 모달을 그대로 띄워 공고문/보고서/기안서 흐름을 일원화한다.
   const [docEntry, setDocEntry] = useState<WorkLogEntry | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -412,39 +415,33 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
         </DialogContent>
       </Dialog>
 
-      {/* [Task #318] 문서로만들기 — 필수업무 처리완료에서 쓰는 OfficialDocumentTriggers
-          를 그대로 재사용해 공고문/보고서/기안서 중 하나를 선택하면
-          /documents/preview 로 이동한다. 별도 프로세스를 만들지 않고 일원화. */}
-      <Dialog open={!!docEntry} onOpenChange={(v) => !v && setDocEntry(null)}>
-        <DialogContent className="max-w-md" data-testid="make-doc-dialog">
-          <DialogHeader>
-            <DialogTitle>문서로 만들기</DialogTitle>
-          </DialogHeader>
-          {docEntry ? (
-            <OfficialDocumentTriggers
-              buildInput={(): OfficialDocumentInput => buildOfficialDocInputFromEntry(docEntry)}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      {/* [Task #318] 문서로만들기 — 필수업무 처리완료/제안업무 처리에서 사용하는
+          CompletionNotice 모달을 그대로 띄운다. 풀페이지 /documents/preview 가 아닌
+          모달 UI(상단 탭 + 하단 외부공유/이미지저장/문서로저장 + 우상단 수정)와
+          빌딩명·공고NO·연락처가 포함된 정형문 빌더를 그대로 공유한다. */}
+      {docEntry ? (
+        <CompletionNotice
+          open={!!docEntry}
+          onOpenChange={(v) => { if (!v) setDocEntry(null); }}
+          alertTitle={`[${CATEGORY_LABEL[docEntry.category]}] ${(docEntry.memo.split("\n")[0] || "업무일지 기록").slice(0, 80)}`}
+          alertMessage={docEntry.memo}
+          completedDate={docEntry.occurredDate || (docEntry.occurredAt ?? new Date().toISOString()).slice(0, 10)}
+          notes={null}
+          closeUpPhotoUrl={docEntry.photoUrl ?? null}
+          widePhotoUrl={null}
+          buildingName={building?.name}
+          officeContact={
+            building?.managementOfficePhone
+              ? `관리사무소 ☎ ${building.managementOfficePhone}`
+              : undefined
+          }
+          logoUrl={building?.logoUrl ?? null}
+          authorName={user?.name ?? docEntry.authorName ?? null}
+          initialDocKind="notice"
+        />
+      ) : null}
     </div>
   );
-}
-
-// [Task #318] 업무일지 entry → OfficialDocumentInput 어댑터.
-// 공식 문서 프로세스(공고문/보고서/기안서) 본문에 들어갈 메타데이터를 구성한다.
-function buildOfficialDocInputFromEntry(e: WorkLogEntry): OfficialDocumentInput {
-  const date = e.occurredDate || (e.occurredAt ?? new Date().toISOString()).slice(0, 10);
-  const title = e.memo.split("\n")[0].slice(0, 60) || "업무일지 기록";
-  return {
-    source: "work-log",
-    sourceLabel: `업무일지 — ${CATEGORY_LABEL[e.category]}`,
-    title,
-    date,
-    authorName: e.authorName,
-    notes: e.memo,
-    photos: e.photoUrl ? [e.photoUrl] : undefined,
-  };
 }
 
 /* ───────────────────────── 일일 탭 (위저드 + 보고서) ───────────────────────── */
