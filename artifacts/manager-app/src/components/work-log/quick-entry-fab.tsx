@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Wrench, Receipt, MessageSquareWarning, Loader2 } from "lucide-react";
+import { Wrench, Receipt, MessageSquareWarning, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,14 +25,19 @@ const CATEGORIES: CategoryOption[] = [
   { value: "complaint", label: "민원", icon: MessageSquareWarning, hint: "주민 요청·소음·주차" },
 ];
 
-interface QuickEntryFabProps {
+export interface QuickEntryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }
 
-export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
+/**
+ * 일일메모(업무 기록) 다이얼로그 — 외부에서 제어한다.
+ * [Task #네비 정비] 우하단 플로팅 버튼은 제거되고, 하단 네비 가운데 + 버튼이 본 다이얼로그를 띄운다.
+ */
+export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDialogProps) {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<Category>("facility");
   const [memo, setMemo] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -86,36 +91,25 @@ export function QuickEntryFab({ onCreated }: QuickEntryFabProps) {
         setFollowUpOpen(true);
       }
     } catch (err) {
-      console.error("[QuickEntryFab] submit failed", err);
+      console.error("[QuickEntryDialog] submit failed", err);
       toast({ title: "저장 실패", description: String(err), variant: "destructive" });
     }
     setSubmitting(false);
     if (ok) {
       toast({ title: "기록되었습니다" });
       onCreated?.();
-      setOpen(false);
+      onOpenChange(false);
       reset();
     }
   }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="업무 기록 빠른 추가"
-        data-testid="fab-work-log-quick"
-        className="fixed right-4 z-40 w-14 h-14 rounded-full bg-accent text-accent-foreground shadow-lg flex items-center justify-center active:scale-95 transition"
-        style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        <Plus className="w-6 h-6" />
-      </button>
-
       <Dialog
         open={open}
         onOpenChange={(v) => {
           if (submitting) return;
-          setOpen(v);
+          onOpenChange(v);
           if (!v) reset();
         }}
       >

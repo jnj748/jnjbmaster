@@ -32,6 +32,7 @@ import {
   Sparkles,
   Clipboard,
   NotebookPen,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -265,8 +266,9 @@ export const ROUTES: RouteEntry[] = [
     // 시설 그룹 자체가 4-아이콘 허브 역할을 하므로 사이드바에서 숨김.
     // 그룹 헤더 클릭 시 /facility 로 이동 (layout.tsx 의 facilityGroupHref).
     sideMenu: [],
-    // [플랫폼관리자 메뉴 구조조정] 모바일 하단 "시설" 탭에서도 platform_admin 제거 — 사이드바 정책과 일관.
-    bottomNav: ["manager", "facility_staff"],
+    // [네비 정비] 관리소장 하단 탭에서 "시설" 제거 — 일정/시설은 사이드바·더보기로 진입.
+    //   facility_staff 의 본업 화면이므로 그쪽은 유지.
+    bottomNav: ["facility_staff"],
     bottomLabel: "시설",
     bottomOrder: 10,
   },
@@ -709,13 +711,14 @@ export function getBottomNavItems(role: Role): NavItem[] {
       { path: "/commissions", label: "수수료", icon: Coins },
     ];
   }
-  // [Task #246] 관리소장 모드 하단 네비는 사용 빈도 높은 4개(시설/업무일지/홈/AI비서)만 노출하고
-  // 홈을 가운데에 배치한다. 회계 탭은 제외되며 사이드바·더보기에서만 진입한다.
+  // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 일일메모(+) / AI비서 / 더보기.
+  //   "더보기"는 layout.tsx 가 항상 마지막에 추가하므로 여기서는 4칸만 반환.
+  //   "/__quick_entry" 는 라우트가 아닌 sentinel 경로 — layout.tsx 에서 일일메모 다이얼로그를 연다.
   if (role === "manager") {
     return [
-      { path: "/facility", label: "시설", icon: HardHat, group: "facility" },
-      { path: "/work-log", label: "업무일지", icon: NotebookPen, group: "reports" },
-      { ...rootItem("manager"), label: roleHomeShort("manager"), group: "dashboard" },
+      { ...rootItem("manager"), label: "홈", group: "dashboard" },
+      { path: "/work-log", label: "일지", icon: NotebookPen, group: "reports" },
+      { path: "/__quick_entry", label: "일일메모", icon: Plus, group: "dashboard" },
       { path: "/ai-assistant", label: "AI비서", icon: Sparkles, group: "dashboard" },
     ];
   }
