@@ -242,6 +242,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setDrawerOpen(false); }, [location]);
 
   const effectiveRole = getEffectiveRole(user);
+
+  // [Task #270] 시니어 사용자(관리소장) 모바일 폰트 확대 스코프 마커.
+  // index.css 의 @media (max-width: 899px) 오버라이드가 body[data-role="manager"]
+  // 일 때만 활성화되도록 역할별 마커를 body 에 부여한다. 다른 역할 모드(본사·
+  // 경리·시설기사·파트너)에서는 폰트가 그대로 유지된다.
+  useEffect(() => {
+    const prev = document.body.dataset.role;
+    document.body.dataset.role = effectiveRole;
+    return () => {
+      if (prev === undefined) {
+        delete document.body.dataset.role;
+      } else {
+        document.body.dataset.role = prev;
+      }
+    };
+  }, [effectiveRole]);
+
   const isPartner = effectiveRole === "partner";
   const sections = useMemo(() => getSidebarSections(effectiveRole), [effectiveRole]);
   const bottomItems = useMemo(() => getBottomNavItems(effectiveRole), [effectiveRole]);
