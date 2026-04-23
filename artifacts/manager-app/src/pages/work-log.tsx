@@ -785,9 +785,6 @@ function DailyJournalWizard({
   const { call } = useApi();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
-  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
   const [form, setForm] = useState({
     securityStatus: existing?.securityStatus ?? "ok" as Status,
     securityMemo: existing?.securityMemo ?? "",
@@ -807,29 +804,11 @@ function DailyJournalWizard({
     mutationFn: () => call<DailyJournal>(`/daily-journals/${date}`, {
       method: "PUT", body: JSON.stringify(form),
     }),
-    onSuccess: (saved) => {
+    onSuccess: () => {
+      // [Task #269] 일보 저장 시 후속조치 팝업은 더 이상 띄우지 않는다.
+      // 한 달 단위 누적 리마인드는 월보 탭에서만 1회 노출된다.
       toast({ title: "일일 일지가 저장되었습니다" });
-      // [Task #197] 4개 영역 메모를 합쳐 후속 조치 키워드를 감지한다.
-      const combined = SECTIONS
-        .map((s) => `${s.label}: ${form[`${s.key}Memo` as const] ?? ""}`)
-        .join("\n");
-      const detection = detectFollowUp(combined);
-      const nextSource: FollowUpSource | null = detection
-        ? {
-            type: "daily_journal",
-            id: saved?.id ?? date,
-            title: `${date} 일일업무일지 — ${detection.snippet.slice(0, 40)}`,
-            occurredAt: date,
-          }
-        : null;
-      // [후속조치 반복 방지] 이미 "다음에 하기"로 한 번 닫은 출처면 다시 띄우지 않는다.
-      if (detection && nextSource && !isFollowUpDismissed(nextSource)) {
-        setFollowUpSource(nextSource);
-        setFollowUpDetection(detection);
-        setFollowUpOpen(true);
-      } else {
-        onSaved();
-      }
+      onSaved();
     },
     onError: (e) => toast({ title: "저장 실패", description: String(e), variant: "destructive" }),
   });
@@ -851,13 +830,6 @@ function DailyJournalWizard({
   const photoKey = `${section.key}PhotoUrl` as const;
 
   return (
-    <>
-    <FollowUpSuggestionDialog
-      open={followUpOpen}
-      source={followUpSource}
-      detection={followUpDetection}
-      onClose={() => { setFollowUpOpen(false); onSaved(); }}
-    />
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -929,7 +901,6 @@ function DailyJournalWizard({
         </div>
       </DialogContent>
     </Dialog>
-    </>
   );
 }
 
@@ -942,36 +913,14 @@ function WeeklyTab() {
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
-  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-log-report-weekly", weekStart],
     queryFn: () => call<WeeklyReport>(`/work-log-reports/weekly?weekStart=${weekStart}`),
   });
 
-  // [Task #197] 주간 보고서를 "생성/공유" 하는 시점에 후속 조치 키워드를 감지한다.
-  // (단순 페이지 진입/탭 이동에는 띄우지 않는다.)
-  function maybeOfferFollowUp(report: WeeklyReport) {
-    const memos = [
-      ...Object.values(report.sectionTotals).flatMap((s) => s.memos),
-      ...report.days.flatMap((d) => d.topMemos),
-    ].join("\n");
-    const detection = detectFollowUp(memos);
-    if (!detection) return;
-    const nextSource: FollowUpSource = {
-      type: "weekly_journal",
-      id: report.weekStart,
-      title: `${report.weekStart}~${report.weekEnd} 주간보고 — ${detection.snippet.slice(0, 30)}`,
-      occurredAt: report.weekStart,
-    };
-    // [후속조치 반복 방지] 같은 주의 보고서는 한 번 "다음에 하기"하면 더 묻지 않는다.
-    if (isFollowUpDismissed(nextSource)) return;
-    setFollowUpSource(nextSource);
-    setFollowUpDetection(detection);
-    setFollowUpOpen(true);
-  }
+  // [Task #269] 주보 이미지 내보내기/공유 시 후속조치 팝업은 더 이상 띄우지 않는다.
+  // 한 달 단위 누적 리마인드는 월보 탭에서만 1회 노출된다.
 
   async function exportPng() {
     if (!ref.current || !data) return;
@@ -982,7 +931,6 @@ function WeeklyTab() {
         await downloadElementAsPng(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`));
       });
       toast({ title: "이미지 저장 완료" });
-      maybeOfferFollowUp(data);
     } catch (e) {
       toast({ title: "내보내기 실패", description: String(e), variant: "destructive" });
     } finally {
@@ -1004,11 +952,8 @@ function WeeklyTab() {
       const r = await shareDocument({ title: `주간 보고 ${data.weekStart}`, text: lines.join("\n") });
       if (r === "copied") {
         toast({ title: "본문이 클립보드에 복사되었습니다" });
-        maybeOfferFollowUp(data);
       } else if (r === "failed") {
         toast({ title: "공유 실패", variant: "destructive" });
-      } else {
-        maybeOfferFollowUp(data);
       }
     } finally {
       setSharing(false);
@@ -1020,12 +965,6 @@ function WeeklyTab() {
 
   return (
     <div className="space-y-3 pt-3">
-      <FollowUpSuggestionDialog
-        open={followUpOpen}
-        source={followUpSource}
-        detection={followUpDetection}
-        onClose={() => setFollowUpOpen(false)}
-      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))} data-testid="weekly-prev"><ChevronLeft className="w-4 h-4" /></Button>
@@ -1179,11 +1118,44 @@ function MonthlyTab() {
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
+  const [followUpSource, setFollowUpSource] = useState<FollowUpSource | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-log-report-monthly", month],
     queryFn: () => call<MonthlyReport>(`/work-log-reports/monthly?month=${month}`),
   });
+
+  // [Task #269] 월보 진입 시 해당 월의 메모/일보/주보 텍스트를 모아 후속조치
+  // 키워드를 1회 감지하고 리마인드 팝업을 띄운다. "다음에 하기" 후엔 같은 달
+  // 동안 다시 뜨지 않는다 (FollowUpSuggestionDialog 의 dismiss 셋 활용).
+  useEffect(() => {
+    if (!data) return;
+    const memos = [
+      data.textSummary,
+      ...data.weeks.map((w) => w.textSummary),
+      ...Object.values(data.sectionTotals).flatMap((s) => s.memos),
+      ...data.weeks.flatMap((w) => Object.values(w.sectionTotals).flatMap((s) => s.memos)),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const detection = detectFollowUp(memos);
+    if (!detection) return;
+    // dismiss 키 안정성: 사용자 세션은 한 건물 컨텍스트만 보유하므로 month 만으로
+    // 충분히 식별 가능. 건물명 변경/동명 건물 간 충돌 가능성을 피하기 위해
+    // 가변적인 buildingName 은 키에서 제외한다.
+    const nextSource: FollowUpSource = {
+      type: "monthly_journal",
+      id: data.month,
+      title: `${data.month} 월간 후속조치 리마인드 — ${detection.snippet.slice(0, 30)}`,
+      occurredAt: data.monthStart,
+    };
+    if (isFollowUpDismissed(nextSource)) return;
+    setFollowUpSource(nextSource);
+    setFollowUpDetection(detection);
+    setFollowUpOpen(true);
+  }, [data]);
 
   async function exportPng() {
     if (!ref.current || !data) return;
@@ -1231,6 +1203,12 @@ function MonthlyTab() {
 
   return (
     <div className="space-y-3 pt-3">
+      <FollowUpSuggestionDialog
+        open={followUpOpen}
+        source={followUpSource}
+        detection={followUpDetection}
+        onClose={() => setFollowUpOpen(false)}
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => shiftMonth(-1)} data-testid="monthly-prev"><ChevronLeft className="w-4 h-4" /></Button>

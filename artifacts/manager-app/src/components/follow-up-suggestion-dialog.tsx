@@ -145,10 +145,14 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-amber-600" />
-            후속 조치가 필요해 보여요
+            {source.type === "monthly_journal"
+              ? "이번 달 후속 조치 리마인드"
+              : "후속 조치가 필요해 보여요"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            해당 업무는 후속조치가 필요해보여요. 기안하시거나 견적을 받아보시겠어요?
+            {source.type === "monthly_journal"
+              ? "이번 달 메모/일보/주보에서 아직 처리되지 않은 후속조치 키워드가 모였습니다. 지금 정리해보시겠어요?"
+              : "해당 업무는 후속조치가 필요해보여요. 기안하시거나 견적을 받아보시겠어요?"}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

@@ -119,6 +119,7 @@ export interface FollowUpSource {
     | "work_log_memo"
     | "daily_journal"
     | "weekly_journal"
+    | "monthly_journal"
     | "inspection_legal_complete"
     | "inspection_suggested_complete"
     | "alert_action";
@@ -134,6 +135,7 @@ export const SOURCE_TYPE_LABEL: Record<FollowUpSource["type"], string> = {
   work_log_memo: "일일업무메모",
   daily_journal: "일일업무일지",
   weekly_journal: "주간업무일지",
+  monthly_journal: "월간업무리마인드",
   inspection_legal_complete: "법정점검 완료",
   inspection_suggested_complete: "권장점검 완료",
   alert_action: "알림 처리",
