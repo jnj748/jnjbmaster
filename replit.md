@@ -120,3 +120,8 @@ The project is a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
 - @google-cloud/storage
 - papaparse
 - data.go.kr BldRgstHubService/getBrTitleInfo, getBrRecapTitleInfo, getBrExposPubuseAreaInfo
+
+## Task #296 — 유저유형별 이용현황 분석 대시보드
+- DB: `usage_events` (user_id, role, path, menu_key, occurred_at). 180일 보존(스케줄러 일배치).
+- API: `POST /api/usage-events` (인증, 서버측 role, platform_admin 자기 트래픽 제외) / `GET /api/platform/usage-analytics?range=7d|30d|90d&role=` (platform_admin only) — summary/byRole/topMenus + 직전 동기간 대비 % 변화율.
+- Frontend: `useUsageTracker` hook (wouter location 변경 자동 전송), 페이지 `/platform/usage-analytics`.

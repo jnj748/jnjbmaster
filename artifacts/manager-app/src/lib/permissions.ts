@@ -523,6 +523,11 @@ export const ROUTES: RouteEntry[] = [
   { path: "/platform/partners", component: PlatformRolePartners,
     label: "파트너사 현황", icon: Package, group: "dashboard",
     access: ["platform_admin"], hidden: true },
+  // [Task #296] 유저유형별 이용현황 분석 대시보드 — 플랫폼관리자 전용.
+  { path: "/platform/usage-analytics",
+    component: lazy(() => import("@/pages/platform-usage-analytics")),
+    label: "유저유형별 이용현황", icon: BarChart3, group: "settings",
+    access: ["platform_admin"], hidden: true },
   // [Task #267] 파트너 크레딧 — 관리자 대시보드의 VendorCreditsPanel 만 떼어 단독 페이지로 진입.
   { path: "/platform/credits",
     component: lazy(() => import("@/pages/platform-credits")),
@@ -776,6 +781,8 @@ function platformAdminSidebar(): NavSection[] {
         { path: "/users", label: "사용자 관리", icon: Users },
         { path: "/document-templates", label: "서식 관리", icon: FileText },
         { path: "/report-system", label: "보고 체계", icon: BarChart3 },
+        // [Task #296] 유저유형별 이용현황 분석 대시보드.
+        { path: "/platform/usage-analytics", label: "유저유형별 이용현황", icon: BarChart3 },
       ],
     },
     {

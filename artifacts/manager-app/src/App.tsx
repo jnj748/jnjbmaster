@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { BuildingProvider } from "@/contexts/building-context";
 import { OnboardingProvider, useOnboarding } from "@/contexts/onboarding-context";
 import { OnboardingGate } from "@/components/onboarding-gate";
+import { useUsageTracker } from "@/hooks/use-usage-tracker";
 // [성능] 진입 직후 화면에 보이지 않는 컴포넌트는 lazy 로 분리해 초기 번들에서 제외.
 const OnboardingModal = lazy(() =>
   import("@/components/onboarding-modal").then((m) => ({ default: m.OnboardingModal })),
@@ -92,6 +93,8 @@ function AuthenticatedRoutes() {
   const { user } = useAuth();
   const role = getEffectiveRole(user);
   const routes = getRoutesForRole(role);
+  // [Task #296] 인증된 사용자의 라우트 변경을 자동 수집(분석용).
+  useUsageTracker();
   const DashboardComponent = ROOT_DASHBOARDS[role] ?? ROOT_DASHBOARDS.manager;
   const [location] = useLocationForGate();
 
