@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2 } from "lucide-react";
 import { useBuilding } from "@/contexts/building-context";
-import { ROLE_LABELS, type Role } from "@/lib/permissions";
+import type { Role } from "@/lib/permissions";
 import { WidgetErrorBoundary } from "./error-boundary";
 import type { WidgetDefinition, WidgetSpan } from "./types";
 
@@ -34,26 +34,16 @@ interface DashboardShellProps {
   role: Role;
 }
 
-function ShellHeader({ role }: { role: Role }) {
+function ShellHeader({ role: _role }: { role: Role }) {
   const { building } = useBuilding();
-  const roleLabel = ROLE_LABELS[role];
   const buildingName = building?.name ?? null;
 
+  if (!buildingName) return null;
+
   return (
-    <header className="flex flex-col gap-1 mb-4" data-dashboard-header>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-medium">{roleLabel}</span>
-        {buildingName && (
-          <>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1">
-              <Building2 className="w-3 h-3" />
-              <span className="truncate max-w-[14rem]">{buildingName}</span>
-            </span>
-          </>
-        )}
-      </div>
-      <h1 className="text-lg font-bold sm:text-xl">대시보드</h1>
+    <header className="flex items-center gap-2 mb-2" data-dashboard-header>
+      <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+      <h1 className="text-base font-bold sm:text-lg truncate">{buildingName}</h1>
     </header>
   );
 }
