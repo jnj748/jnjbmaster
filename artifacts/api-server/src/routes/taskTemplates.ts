@@ -14,8 +14,11 @@ import {
   taskTemplateScopeTypes,
   taskTemplateTaskTypes,
   taskTemplateBuildingUsageScopes,
+  taskTemplateEligibilityFields,
+  taskTemplateEligibilityOps,
   usersTable,
   type TaskTemplate,
+  type TaskTemplateEligibilityRule,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { computeNextDueDate } from "../lib/taskTemplateCycle";
@@ -29,6 +32,12 @@ const anchorTypeEnum = z.enum(taskTemplateAnchorTypes);
 const scopeEnum = z.enum(taskTemplateScopeTypes);
 const taskTypeEnum = z.enum(taskTemplateTaskTypes);
 const buildingUsageEnum = z.enum(taskTemplateBuildingUsageScopes);
+// [Task #305] 자격 기준 단일 규칙 스키마.
+const eligibilityRuleSchema = z.object({
+  field: z.enum(taskTemplateEligibilityFields),
+  op: z.enum(taskTemplateEligibilityOps),
+  value: z.number().finite(),
+});
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
@@ -56,6 +65,8 @@ const CreateBody = z.object({
   // [Task #304] anchored frequency 보조 입력값.
   anchorType: anchorTypeEnum.nullable().optional(),
   anchorOffsetYears: z.number().int().min(0).max(50).nullable().optional(),
+  // [Task #305] 자격 기준 (AND 조건). 빈 배열 = 자격 기준 없음.
+  eligibility: z.array(eligibilityRuleSchema).optional(),
   scopeType: scopeEnum.optional(),
   scopeValues: z.array(z.string()).optional(),
   // [#297] 표제부 주용도 기준 적용 건물(다중 선택). 빈 배열 = 전체.
@@ -215,6 +226,8 @@ router.post(
         // [Task #304]
         anchorType: d.anchorType ?? null,
         anchorOffsetYears: d.anchorOffsetYears ?? null,
+        // [Task #305]
+        eligibility: d.eligibility ?? [],
         scopeType: d.scopeType ?? "all",
         scopeValues: d.scopeValues ?? [],
         buildingUsageScopes: d.buildingUsageScopes ?? [],
@@ -263,6 +276,8 @@ router.patch(
       if (v !== undefined) {
         if (k === "scopeValues" && v == null) patch[k] = [];
         else if (k === "buildingUsageScopes" && v == null) patch[k] = [];
+        // [Task #305] eligibility null/undefined 안전 처리.
+        else if (k === "eligibility" && v == null) patch[k] = [];
         else patch[k] = v;
       }
     }
@@ -405,6 +420,53 @@ export interface TemplateAlertContext {
   // [Task #304] anchored frequency 계산용. 빌딩 사용승인일(approval_date).
   //   주입되지 않은 경우 resolveActiveTemplateAlerts 가 buildingId 로 자동 조회한다.
   buildingApprovalDate?: Date | null;
+  // [Task #305] 자격 기준(eligibility) 매칭용 빌딩 속성 스냅샷.
+  //   주입되지 않은 경우 resolveActiveTemplateAlerts 가 buildingId 로 자동 조회한다.
+  buildingAttrs?: BuildingEligibilityAttrs | null;
+}
+
+// [Task #305] eligibility 평가에 사용하는 빌딩 속성. numeric 컬럼은 string|number 로
+//   올 수 있어 toNum 유틸로 통일 처리한다. NULL 인 필드는 0(=대부분의 임계값을 통과
+//   못함) 으로 취급하므로, 자격 기준 미충족으로 안전하게 스킵된다.
+export interface BuildingEligibilityAttrs {
+  electricCapacityKw?: number | string | null;
+  totalArea?: number | string | null;
+  totalUnits?: number | null;
+  fireGrade?: number | null;
+  gasUsageMonthly?: number | string | null;
+}
+
+function toNum(v: unknown): number {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : 0;
+}
+
+// [Task #305] 자격 기준(AND) 평가. 규칙이 비어 있으면 항상 true.
+export function evaluateEligibility(
+  rules: TaskTemplateEligibilityRule[] | null | undefined,
+  attrs: BuildingEligibilityAttrs | null | undefined,
+): boolean {
+  if (!rules || rules.length === 0) return true;
+  // 빌딩 속성이 없으면(=빌딩 컨텍스트가 없는 사용자) 안전하게 스킵.
+  //   본부 화면처럼 buildingId 가 없는 경우 자격 기준이 있는 템플릿은 노출하지 않는다.
+  if (!attrs) return false;
+  for (const r of rules) {
+    const lhs = toNum((attrs as Record<string, unknown>)[r.field]);
+    const rhs = r.value;
+    let ok: boolean;
+    switch (r.op) {
+      case ">=": ok = lhs >= rhs; break;
+      case ">":  ok = lhs > rhs;  break;
+      case "<=": ok = lhs <= rhs; break;
+      case "<":  ok = lhs < rhs;  break;
+      case "=":  ok = lhs === rhs; break;
+      case "!=": ok = lhs !== rhs; break;
+      default: ok = false;
+    }
+    if (!ok) return false;
+  }
+  return true;
 }
 
 // [Task #221] 활성 템플릿을 사용자 컨텍스트(소속 건물/사용자 ID)로 필터링한 뒤
@@ -423,20 +485,48 @@ export async function resolveActiveTemplateAlerts(
     .from(taskTemplatesTable)
     .where(eq(taskTemplatesTable.isActive, true));
 
-  // [Task #304] anchored 템플릿이 1건이라도 있고 빌딩 컨텍스트가 있으면
-  //   사용승인일을 1회 조회해 캐싱한다. ctx 에 명시적으로 주입되어 있으면 그것을 사용.
+  // [Task #304/#305] anchored frequency 의 사용승인일과, eligibility 매칭에 쓰일
+  //   빌딩 속성을 한 번의 조회로 묶어서 가져온다.
   let anchorDate: Date | null = ctx.buildingApprovalDate ?? null;
+  let buildingAttrs: BuildingEligibilityAttrs | null = ctx.buildingAttrs ?? null;
   const hasAnchored = templates.some((t) => t.frequencyType === "anchored");
-  if (hasAnchored && anchorDate == null && ctx.buildingId) {
+  const hasEligibility = templates.some(
+    (t) => Array.isArray((t as { eligibility?: unknown }).eligibility) &&
+      ((t as { eligibility?: unknown[] }).eligibility?.length ?? 0) > 0,
+  );
+  const needBuildingFetch =
+    ctx.buildingId != null &&
+    ((hasAnchored && anchorDate == null) || (hasEligibility && buildingAttrs == null));
+  if (needBuildingFetch && ctx.buildingId) {
     const [b] = await db
-      .select({ approvalDate: buildingsTable.approvalDate })
+      .select({
+        approvalDate: buildingsTable.approvalDate,
+        electricCapacityKw: buildingsTable.electricCapacityKw,
+        totalArea: buildingsTable.totalArea,
+        totalUnits: buildingsTable.totalUnits,
+        fireGrade: buildingsTable.fireGrade,
+        gasUsageMonthly: buildingsTable.gasUsageMonthly,
+      })
       .from(buildingsTable)
       .where(eq(buildingsTable.id, ctx.buildingId));
-    anchorDate = b?.approvalDate ? new Date(b.approvalDate) : null;
-    if (!anchorDate) {
-      console.warn(
-        `[task-templates] 빌딩 ${ctx.buildingId} 에 사용승인일이 없어 하자담보 등 anchored 템플릿을 스킵합니다`,
-      );
+    if (anchorDate == null) {
+      anchorDate = b?.approvalDate ? new Date(b.approvalDate) : null;
+      if (hasAnchored && !anchorDate) {
+        console.warn(
+          `[task-templates] 빌딩 ${ctx.buildingId} 에 사용승인일이 없어 하자담보 등 anchored 템플릿을 스킵합니다`,
+        );
+      }
+    }
+    if (buildingAttrs == null) {
+      buildingAttrs = b
+        ? {
+            electricCapacityKw: b.electricCapacityKw,
+            totalArea: b.totalArea,
+            totalUnits: b.totalUnits,
+            fireGrade: b.fireGrade,
+            gasUsageMonthly: b.gasUsageMonthly,
+          }
+        : null;
     }
   }
 
@@ -469,6 +559,9 @@ export async function resolveActiveTemplateAlerts(
 
   for (const t of templates) {
     if (!templateAppliesTo(t, ctx)) continue;
+    // [Task #305] 자격 기준이 있으면 빌딩 속성과 매칭. 미충족이면 스킵.
+    const elig = (t as { eligibility?: TaskTemplateEligibilityRule[] | null }).eligibility ?? null;
+    if (elig && elig.length > 0 && !evaluateEligibility(elig, buildingAttrs)) continue;
     // [Task #304] anchored 템플릿은 빌딩 사용승인일을 컨텍스트로 전달.
     const due = computeNextDueDate(
       t,
@@ -571,6 +664,8 @@ router.get(
         .where(eq(buildingsTable.id, buildingId));
       buildingUsage = b?.buildingUsage ?? null;
     }
+    // [Task #305] eligibility 매칭에 필요한 빌딩 속성은 resolveActiveTemplateAlerts
+    //   내부에서 buildingId 로 자동 조회된다.
     const list = await resolveActiveTemplateAlerts(today, 100000, {
       userId,
       buildingId,

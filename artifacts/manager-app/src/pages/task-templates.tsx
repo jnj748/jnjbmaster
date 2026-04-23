@@ -81,6 +81,8 @@ interface TaskTemplate {
   // [Task #304]
   anchorType: AnchorType | null;
   anchorOffsetYears: number | null;
+  // [Task #305] 자격 기준 (AND 조건). 빈 배열 = 전체 빌딩 적용.
+  eligibility: EligibilityRule[];
   scopeType: "all" | "building_ids" | "user_ids";
   scopeValues: string[];
   buildingUsageScopes: BuildingUsage[];
@@ -156,6 +158,33 @@ const BUILDING_USAGES: BuildingUsage[] = [
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
+// [Task #305] 자격 기준(Eligibility) 입력용 메타데이터.
+type EligibilityField = "electricCapacityKw" | "totalArea" | "totalUnits" | "fireGrade" | "gasUsageMonthly";
+type EligibilityOp = ">=" | ">" | "<=" | "<" | "=" | "!=";
+interface EligibilityRule {
+  field: EligibilityField;
+  op: EligibilityOp;
+  value: number;
+}
+const ELIGIBILITY_FIELD_OPTIONS: { value: EligibilityField; label: string; unit: string }[] = [
+  { value: "electricCapacityKw",  label: "수전용량",   unit: "kW" },
+  { value: "totalArea",           label: "연면적",     unit: "㎡" },
+  { value: "totalUnits",          label: "세대수",     unit: "세대" },
+  { value: "fireGrade",           label: "소방등급",   unit: "급" },
+  { value: "gasUsageMonthly",     label: "가스사용량", unit: "㎥/월" },
+];
+const ELIGIBILITY_OPS: EligibilityOp[] = [">=", ">", "<=", "<", "=", "!="];
+
+function eligibilityFieldLabel(f: EligibilityField): string {
+  return ELIGIBILITY_FIELD_OPTIONS.find((o) => o.value === f)?.label ?? f;
+}
+function eligibilityFieldUnit(f: EligibilityField): string {
+  return ELIGIBILITY_FIELD_OPTIONS.find((o) => o.value === f)?.unit ?? "";
+}
+function formatEligibilityRule(r: EligibilityRule): string {
+  return `${eligibilityFieldLabel(r.field)} ${r.op} ${r.value}${eligibilityFieldUnit(r.field)}`;
+}
+
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
@@ -198,6 +227,7 @@ function emptyDraft(defaultRole?: string): DraftType {
     nthWeekday: null,
     anchorType: null,
     anchorOffsetYears: null,
+    eligibility: [],
     scopeType: "all",
     scopeValues: [],
     buildingUsageScopes: [],
@@ -385,6 +415,9 @@ export default function TaskTemplatesPage() {
       nthWeekday: t.nthWeekday ?? null,
       anchorType: t.anchorType ?? null,
       anchorOffsetYears: t.anchorOffsetYears ?? null,
+      eligibility: Array.isArray((t as { eligibility?: EligibilityRule[] }).eligibility)
+        ? (t as { eligibility: EligibilityRule[] }).eligibility
+        : [],
       scopeType: t.scopeType,
       scopeValues: t.scopeValues,
       buildingUsageScopes: t.buildingUsageScopes ?? [],
@@ -953,7 +986,102 @@ export default function TaskTemplatesPage() {
                           })}
                         </div>
 
-                        {/* 5행: 설명 */}
+                        {/* [Task #305] 5행: 자격 기준(Eligibility) — 빌딩 속성 매칭 규칙 */}
+                        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-medium">자격 기준 (선임 의무 임계)</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                모두 충족(AND) · 비워두면 전체 빌딩 적용
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={() =>
+                                setDraft({
+                                  ...draft,
+                                  eligibility: [
+                                    ...draft.eligibility,
+                                    { field: "totalArea", op: ">=", value: 0 },
+                                  ],
+                                })
+                              }
+                              data-testid={`btn-add-eligibility-${t.id}`}
+                            >
+                              <Plus className="w-3 h-3 mr-1" />규칙 추가
+                            </Button>
+                          </div>
+                          {draft.eligibility.length === 0 ? (
+                            <p className="text-[11px] text-muted-foreground px-1">자격 기준 없음 (전체 빌딩)</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {draft.eligibility.map((rule, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5">
+                                  <Select
+                                    value={rule.field}
+                                    onValueChange={(v) => {
+                                      const next = [...draft.eligibility];
+                                      next[idx] = { ...rule, field: v as EligibilityField };
+                                      setDraft({ ...draft, eligibility: next });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {ELIGIBILITY_FIELD_OPTIONS.map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={rule.op}
+                                    onValueChange={(v) => {
+                                      const next = [...draft.eligibility];
+                                      next[idx] = { ...rule, op: v as EligibilityOp };
+                                      setDraft({ ...draft, eligibility: next });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {ELIGIBILITY_OPS.map((op) => (
+                                        <SelectItem key={op} value={op}>{op}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-24 text-xs"
+                                    value={rule.value}
+                                    onChange={(e) => {
+                                      const next = [...draft.eligibility];
+                                      next[idx] = { ...rule, value: Number(e.target.value) };
+                                      setDraft({ ...draft, eligibility: next });
+                                    }}
+                                  />
+                                  <span className="text-[11px] text-muted-foreground w-12">
+                                    {eligibilityFieldUnit(rule.field)}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0"
+                                    onClick={() =>
+                                      setDraft({
+                                        ...draft,
+                                        eligibility: draft.eligibility.filter((_, i) => i !== idx),
+                                      })
+                                    }
+                                  >
+                                    <X className="w-3 h-3 text-red-500" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 6행: 설명 */}
                         <Textarea
                           value={draft.description ?? ""}
                           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
@@ -988,6 +1116,18 @@ export default function TaskTemplatesPage() {
                             적용 건물: {t.buildingUsageScopes.join(", ")}
                           </span>
                         )}
+                        {/* [Task #305] 자격 기준이 1개 이상이면 칩으로 노출. */}
+                        {Array.isArray((t as { eligibility?: EligibilityRule[] }).eligibility) &&
+                          ((t as { eligibility: EligibilityRule[] }).eligibility.length > 0) && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-700"
+                              data-testid={`badge-eligibility-${t.id}`}
+                              title="이 자격 기준을 충족하는 빌딩에서만 알림 노출"
+                            >
+                              자격: {(t as { eligibility: EligibilityRule[] }).eligibility
+                                .map(formatEligibilityRule).join(" · ")}
+                            </span>
+                          )}
                         <span className="text-xs text-muted-foreground">우선순위 {t.priority}</span>
                         <span className="text-xs text-muted-foreground">사전알림 D-{t.advanceAlertDays}</span>
                         {!t.isActive && <Badge variant="destructive">비활성</Badge>}
@@ -1402,6 +1542,101 @@ export default function TaskTemplatesPage() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* [Task #305] 자격 기준 — 빌딩 속성과 매칭되는 AND 규칙. 비우면 전체 빌딩 적용. */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label>자격 기준 (선임 의무 임계)</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        eligibility: [
+                          ...draft.eligibility,
+                          { field: "totalArea", op: ">=", value: 0 },
+                        ],
+                      })
+                    }
+                    data-testid="btn-add-eligibility-create"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />규칙 추가
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-1.5">
+                  모든 규칙을 충족(AND)하는 빌딩에서만 알림이 노출됩니다. 비워두면 전체 빌딩 적용.
+                </p>
+                {draft.eligibility.length === 0 ? (
+                  <p className="text-xs text-muted-foreground border border-dashed rounded p-2 text-center">
+                    자격 기준 없음 (전체 빌딩에 적용)
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {draft.eligibility.map((rule, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Select
+                          value={rule.field}
+                          onValueChange={(v) => {
+                            const next = [...draft.eligibility];
+                            next[idx] = { ...rule, field: v as EligibilityField };
+                            setDraft({ ...draft, eligibility: next });
+                          }}
+                        >
+                          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ELIGIBILITY_FIELD_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={rule.op}
+                          onValueChange={(v) => {
+                            const next = [...draft.eligibility];
+                            next[idx] = { ...rule, op: v as EligibilityOp };
+                            setDraft({ ...draft, eligibility: next });
+                          }}
+                        >
+                          <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ELIGIBILITY_OPS.map((op) => (
+                              <SelectItem key={op} value={op}>{op}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          className="w-28"
+                          value={rule.value}
+                          onChange={(e) => {
+                            const next = [...draft.eligibility];
+                            next[idx] = { ...rule, value: Number(e.target.value) };
+                            setDraft({ ...draft, eligibility: next });
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground w-14">
+                          {eligibilityFieldUnit(rule.field)}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              eligibility: draft.eligibility.filter((_, i) => i !== idx),
+                            })
+                          }
+                        >
+                          <X className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* [Task #221] 대시보드 알림에 노출될 아이콘/색상 (선택). */}

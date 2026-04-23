@@ -92,6 +92,13 @@
       "when": 1776974508576,
       "tag": "0012_task304_task_template_anchored",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777060000000,
+      "tag": "0013_task305_task_template_eligibility",
+      "breakpoints": true
     }
   ]
 }

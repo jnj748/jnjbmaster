@@ -35,6 +35,29 @@ export type TaskTemplateFrequencyType = (typeof taskTemplateFrequencyTypes)[numb
 export const taskTemplateAnchorTypes = ["building_approval_date"] as const;
 export type TaskTemplateAnchorType = (typeof taskTemplateAnchorTypes)[number];
 
+// [Task #305] 법정 선임 의무 자격 기준. 빌딩 속성과 비교해 알림 노출 여부를 결정한다.
+//   - field: 비교할 빌딩 속성 (numeric)
+//   - op:    비교 연산자
+//   - value: 임계값 (number)
+//   AND 조건의 배열로 사용한다. 빈 배열 = 자격 기준 없음(모든 빌딩 적용).
+export const taskTemplateEligibilityFields = [
+  "electricCapacityKw",
+  "totalArea",
+  "totalUnits",
+  "fireGrade",
+  "gasUsageMonthly",
+] as const;
+export type TaskTemplateEligibilityField = (typeof taskTemplateEligibilityFields)[number];
+
+export const taskTemplateEligibilityOps = [">=", ">", "<=", "<", "=", "!="] as const;
+export type TaskTemplateEligibilityOp = (typeof taskTemplateEligibilityOps)[number];
+
+export interface TaskTemplateEligibilityRule {
+  field: TaskTemplateEligibilityField;
+  op: TaskTemplateEligibilityOp;
+  value: number;
+}
+
 // [Task #297] 업무유형 — 관리소장 운영 분류. 신규 입력의 필수값.
 export const taskTemplateTaskTypes = [
   "facility",       // 시설
@@ -111,6 +134,8 @@ export const taskTemplatesTable = pgTable("task_templates", {
   //   anchorOffsetYears: 기준일 + N년 시점이 만료/점검 예정일
   anchorType: text("anchor_type"),
   anchorOffsetYears: integer("anchor_offset_years"),
+  // [Task #305] 자격 기준(AND 조건). 빈 배열 = 모든 빌딩 적용.
+  eligibility: jsonb("eligibility").$type<TaskTemplateEligibilityRule[]>().notNull().default([]),
   scopeType: text("scope_type").notNull().default("all"),
   scopeValues: jsonb("scope_values").$type<string[]>().notNull().default([]),
   // [#297] 표제부 주용도 기준 적용 건물(다중). 빈 배열 = 전체.

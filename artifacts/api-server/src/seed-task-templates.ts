@@ -34,6 +34,8 @@ export async function seedTaskTemplates(): Promise<void> {
       description: "75kW 이상 등 선임 기준 충족 건물의 전기안전관리자 선임 적격 여부를 매년 점검합니다.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "annual", yearInterval: 1,
+      // [Task #305] 전기안전관리법 제22조: 수전설비 75kW 이상.
+      eligibility: [{ field: "electricCapacityKw", op: ">=", value: 75 }],
       targetRoles: FACILITY, priority: 90, advanceAlertDays: 60,
     },
     {
@@ -73,9 +75,11 @@ export async function seedTaskTemplates(): Promise<void> {
     },
     {
       title: "소방안전관리자 선임 적격 확인",
-      description: "특정소방대상물 선임 기준에 따른 소방안전관리자 자격 적격 여부를 매년 점검합니다.",
+      description: "특정소방대상물 선임 기준(연면적 1,500㎡↑)에 따른 소방안전관리자 자격 적격 여부를 매년 점검합니다.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "annual", yearInterval: 1,
+      // [Task #305] 소방시설법 제24조 — 3급 이상 특정소방대상물 임계(연면적 1,500㎡).
+      eligibility: [{ field: "totalArea", op: ">=", value: 1500 }],
       targetRoles: FACILITY, priority: 90, advanceAlertDays: 60,
     },
     {
@@ -97,13 +101,17 @@ export async function seedTaskTemplates(): Promise<void> {
       description: "연면적 1만㎡ 이상 등 선임 기준 충족 건물의 기계설비유지관리자 선임 적격 점검.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "annual", yearInterval: 1,
+      // [Task #305] 기계설비법 제19조: 연면적 1만㎡ 이상.
+      eligibility: [{ field: "totalArea", op: ">=", value: 10000 }],
       targetRoles: FACILITY, priority: 85, advanceAlertDays: 60,
     },
     {
       title: "기계설비 성능점검",
-      description: "연 1회 기계설비 성능점검 실시 및 보고.",
+      description: "연 1회 기계설비 성능점검 실시 및 보고. 연면적 1만㎡ 이상 의무.",
       category: "mandatory", classification: "legal", taskType: "facility",
       frequencyType: "annual", yearInterval: 1,
+      // [Task #305] 기계설비법 시행령 — 연면적 1만㎡ 이상 대상.
+      eligibility: [{ field: "totalArea", op: ">=", value: 10000 }],
       targetRoles: FACILITY, priority: 85, advanceAlertDays: 30,
     },
     {
@@ -400,6 +408,8 @@ export async function seedTaskTemplates(): Promise<void> {
         // [Task #304]
         anchorType: s.anchorType ?? null,
         anchorOffsetYears: s.anchorOffsetYears ?? null,
+        // [Task #305] 자격 기준 멱등 동기화. 시드 정의가 없으면 빈 배열로 초기화.
+        eligibility: s.eligibility ?? [],
         targetRoles: s.targetRoles,
         priority: s.priority,
         advanceAlertDays: s.advanceAlertDays,
