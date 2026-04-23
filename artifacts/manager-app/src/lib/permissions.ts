@@ -694,7 +694,7 @@ function platformAdminSidebar(): NavSection[] {
     {
       title: "현황 대시보드",
       items: [
-        rootItem("platform_admin"),
+        // [Task #267] 사양상 정확히 5개 역할 항목만 노출. 루트(/) 항목은 별도로 두지 않는다.
         { path: "/platform/managers", label: "관리소장 현황", icon: Building2 },
         { path: "/platform/accountants", label: "경리·행정 현황", icon: Calculator },
         { path: "/platform/facility-staff", label: "시설기사 현황", icon: HardHat },
