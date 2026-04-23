@@ -2,7 +2,14 @@ import { useState } from "react";
 import {
   useGetCreditWallet,
   useListCreditLedger,
+  useListCreditTopupPackages,
+  useListMyCreditTopupOrders,
+  createCreditTopupOrder,
+  failCreditTopupOrder,
+  type CreditTopupPackage,
+  type CreditTopupOrder,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,40 +26,38 @@ import {
   Gift,
   AlertCircle,
   Plus,
-  Info,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
-// [Task #290] 파트너 전용 — 잔액·포인트·이력 + 크레딧 충전 신청 진입점.
-//   실 PG 결제는 Task #68 에서 채워질 예정으로, 이 페이지는 패키지 선택 UI 골격까지만 제공한다.
-//   기존 플랫폼용 /platform/credits (VendorCreditsPanel)는 건드리지 않는다.
-
-interface TopupPackage {
-  id: string;
-  credits: number;
-  price: number;
-  bonusPoints?: number;
-  highlight?: string;
-}
-
-const TOPUP_PACKAGES: TopupPackage[] = [
-  { id: "starter", credits: 100, price: 10_000 },
-  { id: "basic", credits: 300, price: 30_000, bonusPoints: 10 },
-  { id: "standard", credits: 500, price: 50_000, bonusPoints: 30, highlight: "인기" },
-  { id: "pro", credits: 1000, price: 95_000, bonusPoints: 100, highlight: "추천" },
-  { id: "premium", credits: 3000, price: 270_000, bonusPoints: 500 },
-];
+// [Task #319] 파트너 — 크레딧 충전 결제 (TossPayments).
+//   기존 패키지 5종 하드코딩 + handleRequestTopup placeholder 를 제거하고,
+//   서버 패키지 카탈로그(/credits/topup/packages) + 토스 결제창을 직접 호출한다.
+//   결제 콜백은 success / fail 라우트(아래 별도 파일)에서 confirm/fail API 를 호출.
 
 const ledgerKindLabel = (k: string): string => {
   switch (k) {
-    case "topup": return "충전";
-    case "bonus": return "보너스";
-    case "deduct": return "차감";
+    case "consumption": return "차감";
     case "refund": return "환불";
-    case "expire": return "만료";
-    case "adjust": return "조정";
+    case "manual_credit": return "수동 충전";
+    case "manual_debit": return "수동 차감";
+    case "package_purchase": return "충전";
+    case "rebate": return "리베이트";
+    case "adjustment": return "조정";
+    case "bonus_points": return "보너스";
     default: return k;
+  }
+};
+
+const orderStatusLabel = (s: string): { label: string; tone: string } => {
+  switch (s) {
+    case "paid": return { label: "결제완료", tone: "bg-emerald-100 text-emerald-700" };
+    case "pending": return { label: "결제중", tone: "bg-amber-100 text-amber-700" };
+    case "failed": return { label: "실패", tone: "bg-rose-100 text-rose-700" };
+    case "cancelled": return { label: "취소", tone: "bg-slate-100 text-slate-700" };
+    default: return { label: s, tone: "bg-slate-100 text-slate-700" };
   }
 };
 
@@ -60,17 +65,23 @@ export default function PartnerCredits() {
   const { user } = useAuth();
   const vendorId = user?.vendorId ?? null;
   const [topupOpen, setTopupOpen] = useState(false);
-  const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
+  const [selectedPkgId, setSelectedPkgId] = useState<number | null>(null);
+  const [paying, setPaying] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: wallet, isLoading: walletLoading } = useGetCreditWallet(
     vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
   );
   const { data: ledger, isLoading: ledgerLoading } = useListCreditLedger(
-    vendorId ? { vendorId, limit: 50 } : undefined,
+    vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
   );
+  const { data: pkgResp, isLoading: pkgLoading } = useListCreditTopupPackages();
+  const { data: orders } = useListMyCreditTopupOrders({
+    query: { enabled: !!vendorId },
+  });
 
   if (!vendorId) {
     return (
@@ -88,37 +99,75 @@ export default function PartnerCredits() {
     );
   }
 
-  function handleRequestTopup() {
-    if (!selectedPkg) {
-      toast({ title: "충전 패키지를 선택해 주세요", variant: "destructive" });
-      return;
+  const packages: CreditTopupPackage[] = (pkgResp?.packages ?? []) as CreditTopupPackage[];
+
+  async function handlePay() {
+    if (!selectedPkgId || !pkgResp) return;
+    const pkg = packages.find((p) => p.id === selectedPkgId);
+    if (!pkg) return;
+    setPaying(true);
+    try {
+      // 1) 서버에 pending 주문 생성 → tossOrderId 수신.
+      const created = await createCreditTopupOrder({ packageId: pkg.id });
+      const order = created.order;
+      const clientKey = created.tossClientKey;
+
+      // 2) 토스 결제창 호출.
+      const tossPayments = await loadTossPayments(clientKey);
+      const payment = tossPayments.payment({ customerKey: `vendor_${vendorId}` });
+      const baseUrl = window.location.origin + (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: pkg.priceKrw },
+        orderId: order.tossOrderId,
+        orderName: `크레딧 ${pkg.credits.toLocaleString()}C (${pkg.name})`,
+        successUrl: `${baseUrl}/me/credits/topup/success?orderId=${order.id}`,
+        failUrl: `${baseUrl}/me/credits/topup/fail?orderId=${order.id}`,
+        customerName: user?.name ?? undefined,
+        customerEmail: user?.email ?? undefined,
+        card: {
+          useEscrow: false,
+          flowMode: "DEFAULT",
+          useCardPoint: false,
+          useAppCardOnly: false,
+        },
+      });
+      // requestPayment는 페이지 리다이렉트로 successUrl/failUrl에 진입한다.
+    } catch (err: any) {
+      // 사용자가 닫거나 토스 측에서 실패 시 catch 로 떨어진다 (USER_CANCEL 등).
+      const message = err?.message ?? "결제창을 열 수 없습니다";
+      const code = err?.code ?? "";
+      if (code !== "USER_CANCEL") {
+        toast({ title: "결제 시작 실패", description: message, variant: "destructive" });
+      }
+      setPaying(false);
+      // 동일 패키지 재시도 가능하도록 다이얼로그는 유지.
+      void queryClient.invalidateQueries({ queryKey: ["/credits/topup/orders"] });
+      // 사용자 취소시에도 pending order는 fail로 마킹.
+      const orderId = (err as any)?.orderId;
+      if (orderId) {
+        await failCreditTopupOrder(orderId, { cancelled: code === "USER_CANCEL", reason: code });
+      }
     }
-    // [Task #290 / Task #68] 실 PG 결제 호출 자리.
-    //   현재는 진입점만 제공하고, 신청 의사만 안내한다.
-    toast({
-      title: "온라인 결제 준비 중입니다",
-      description:
-        "현재는 충전 신청 접수만 가능합니다. 본사에서 확인 후 충전 처리됩니다.",
-    });
-    setTopupOpen(false);
-    setSelectedPkg(null);
   }
+
+  const recentOrders: CreditTopupOrder[] = (orders ?? []) as CreditTopupOrder[];
 
   return (
     <div className="space-y-6" data-testid="page-partner-credits">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Coins className="w-5 h-5 text-amber-500" />
           <div>
             <h1 className="text-2xl font-bold">크레딧</h1>
             <p className="text-muted-foreground text-sm">
-              견적 제출에 사용할 크레딧 잔액과 사용 내역을 확인하고 충전을 신청합니다.
+              견적 제출에 사용할 크레딧 잔액과 사용 내역을 확인하고 충전합니다.
             </p>
           </div>
         </div>
         <Button onClick={() => setTopupOpen(true)} data-testid="button-open-topup">
           <Plus className="w-4 h-4 mr-1.5" />
-          크레딧 충전 신청
+          크레딧 충전
         </Button>
       </div>
 
@@ -130,15 +179,11 @@ export default function PartnerCredits() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">
-                    크레딧 잔액
-                  </p>
-                  <p className="text-3xl font-bold mt-1">
+                  <p className="text-sm text-muted-foreground font-medium">크레딧 잔액</p>
+                  <p className="text-3xl font-bold mt-1" data-testid="text-credit-balance">
                     {wallet.balance.toLocaleString()} C
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    입찰에 사용 가능한 크레딧
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">입찰에 사용 가능한 크레딧</p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-indigo-500">
                   <Wallet className="w-5 h-5 text-white" />
@@ -150,14 +195,12 @@ export default function PartnerCredits() {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">
-                    활동 포인트
-                  </p>
+                  <p className="text-sm text-muted-foreground font-medium">활동 포인트</p>
                   <p className="text-3xl font-bold mt-1">
                     {wallet.pointsBalance.toLocaleString()} P
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    리베이트 및 성실 제출 적립
+                    리베이트 및 결제 보너스
                   </p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-pink-500">
@@ -168,6 +211,46 @@ export default function PartnerCredits() {
           </Card>
         </div>
       ) : null}
+
+      {recentOrders.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-blue-500" />
+              최근 충전 결제 내역
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentOrders.slice(0, 10).map((o) => {
+              const tone = orderStatusLabel(o.status);
+              return (
+                <div
+                  key={o.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border text-sm"
+                  data-testid={`topup-order-${o.id}`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge className={`text-[11px] ${tone.tone}`}>{tone.label}</Badge>
+                      <p className="font-medium truncate">
+                        {o.packageName} · {o.credits.toLocaleString()}C
+                        {o.bonusPoints > 0 ? ` + ${o.bonusPoints}P` : ""}
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {new Date(o.createdAt).toLocaleString("ko-KR")}
+                      {o.failReason ? ` · ${o.failReason}` : ""}
+                    </p>
+                  </div>
+                  <p className="font-semibold shrink-0">
+                    {o.amountKrw.toLocaleString()}원
+                  </p>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -180,7 +263,7 @@ export default function PartnerCredits() {
           {ledgerLoading ? (
             <Skeleton className="h-40" />
           ) : ledger && ledger.length > 0 ? (
-            ledger.map((entry: any) => (
+            ledger.map((entry) => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border text-sm"
@@ -227,8 +310,9 @@ export default function PartnerCredits() {
       <ResponsiveDialog
         open={topupOpen}
         onOpenChange={(o) => {
+          if (paying) return;
           setTopupOpen(o);
-          if (!o) setSelectedPkg(null);
+          if (!o) setSelectedPkgId(null);
         }}
       >
         <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -236,67 +320,68 @@ export default function PartnerCredits() {
             <ResponsiveDialogTitle>크레딧 충전 패키지 선택</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           <div className="space-y-3">
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">
-                온라인 결제(PG)는 준비 중입니다. 패키지를 선택해 신청하시면 본사에서
-                확인 후 크레딧을 충전해 드립니다.
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              결제 완료 즉시 크레딧이 지갑에 충전됩니다. 결제 수단은 카드(테스트키 사용 중에는 토스 테스트 카드)입니다.
+            </p>
             <div className="space-y-2">
-              {TOPUP_PACKAGES.map((p) => {
-                const active = selectedPkg === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPkg(p.id)}
-                    data-testid={`topup-package-${p.id}`}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                      active
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-base">
-                            {p.credits.toLocaleString()} C
-                          </span>
-                          {p.bonusPoints ? (
-                            <Badge
-                              variant="outline"
-                              className="text-pink-600 border-pink-200"
-                            >
-                              + {p.bonusPoints} P
-                            </Badge>
-                          ) : null}
-                          {p.highlight && (
-                            <Badge className="bg-amber-500 hover:bg-amber-600">
-                              {p.highlight}
-                            </Badge>
-                          )}
+              {pkgLoading ? (
+                <Skeleton className="h-32" />
+              ) : packages.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  현재 활성화된 충전 패키지가 없습니다.
+                </p>
+              ) : (
+                packages.map((p) => {
+                  const active = selectedPkgId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedPkgId(p.id)}
+                      data-testid={`topup-package-${p.id}`}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                        active
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-base">
+                              {p.name} · {p.credits.toLocaleString()} C
+                            </span>
+                            {p.bonusPoints > 0 ? (
+                              <Badge variant="outline" className="text-pink-600 border-pink-200">
+                                + {p.bonusPoints} P
+                              </Badge>
+                            ) : null}
+                            {p.highlight && (
+                              <Badge className="bg-amber-500 hover:bg-amber-600">
+                                {p.highlight}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            1C = {Math.round(p.priceKrw / p.credits)}원
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          1C = {Math.round(p.price / p.credits)}원
+                        <p className="font-bold text-lg">
+                          {p.priceKrw.toLocaleString()}원
                         </p>
                       </div>
-                      <p className="font-bold text-lg">
-                        {p.price.toLocaleString()}원
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })
+              )}
             </div>
             <Button
               className="w-full"
-              onClick={handleRequestTopup}
-              disabled={!selectedPkg}
+              onClick={handlePay}
+              disabled={!selectedPkgId || paying}
               data-testid="button-request-topup"
             >
-              충전 신청 접수
+              {paying ? "결제 진행 중…" : "결제하기"}
             </Button>
           </div>
         </ResponsiveDialogContent>

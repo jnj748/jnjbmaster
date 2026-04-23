@@ -71,6 +71,8 @@ const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
 // [Task #290] 파트너 전용 화면 — 본인 업체 프로필 / 크레딧 잔액·충전 신청.
 const PartnerVendorProfile = lazy(() => import("@/pages/partner-vendor-profile"));
 const PartnerCredits = lazy(() => import("@/pages/partner-credits"));
+const PartnerCreditsTopupSuccess = lazy(() => import("@/pages/partner-credits-topup-success"));
+const PartnerCreditsTopupFail = lazy(() => import("@/pages/partner-credits-topup-fail"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingInfo = lazy(() => import("@/pages/building-info"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
@@ -715,6 +717,9 @@ export function getRoutesForRole(role: Role): { path: string; component: AnyComp
       { path: "/commissions", component: Commissions },
       { path: "/me/vendor", component: PartnerVendorProfile },
       { path: "/me/credits", component: PartnerCredits },
+      // [Task #319] 토스 결제 콜백.
+      { path: "/me/credits/topup/success", component: PartnerCreditsTopupSuccess },
+      { path: "/me/credits/topup/fail", component: PartnerCreditsTopupFail },
     ];
   }
   return ROUTES.filter((r) => r.access.includes(role)).map((r) => ({

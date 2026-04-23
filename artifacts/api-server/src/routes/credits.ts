@@ -12,6 +12,9 @@ import {
   usersTable,
   quotesTable,
   platformSettingsTable,
+  creditTopupPackagesTable,
+  creditTopupOrdersTable,
+  creditTopupOrderStatuses,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
@@ -21,6 +24,7 @@ import {
   isCreditsEnabled,
   getPremiumAmountThreshold,
   getPremiumSlotLimit,
+  recalcWalletBalance,
 } from "../lib/credits";
 
 const router: IRouter = Router();
@@ -510,6 +514,379 @@ router.put("/credits/quote-type-policies/category", platformAdminOnly, async (re
     })
     .returning();
   res.status(201).json(created);
+});
+
+// ============================================================
+// [Task #319] 파트너 크레딧 충전결제 (TossPayments)
+// ============================================================
+// 흐름: 1) POST /credits/topup/orders → pending order 생성 + tossOrderId 반환
+//       2) 클라이언트에서 토스 결제창 → success URL 콜백
+//       3) POST /credits/topup/orders/:id/confirm (paymentKey, amount) → 토스 confirm 호출
+//          → 금액 검증 + DB 트랜잭션으로 paid 전환 + postLedger(package_purchase / bonus_points)
+//       4) 결제 실패 시 POST /credits/topup/orders/:id/fail
+// 멱등성: tossOrderId UNIQUE + paid 상태 재confirm 호출 시 기존 결과를 그대로 반환.
+// 테스트키 fallback: 환경변수 TOSS_SECRET_KEY 가 없으면 토스 공식 테스트 시크릿 사용.
+const TOSS_TEST_SECRET_KEY = "test_sk_DpexMgkW36vG40RNKDrwGbR5ozO0";
+const TOSS_TEST_CLIENT_KEY = "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+const TOSS_CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm";
+
+function tossSecretKey(): string {
+  return process.env.TOSS_SECRET_KEY ?? TOSS_TEST_SECRET_KEY;
+}
+function tossClientKey(): string {
+  return process.env.TOSS_CLIENT_KEY ?? TOSS_TEST_CLIENT_KEY;
+}
+
+// 파트너 본인 vendorId 만 허용 (admin은 별도 admin 라우트 사용).
+async function requirePartnerVendorId(req: any, res: any): Promise<number | null> {
+  if (req.user?.role !== "partner") {
+    res.status(403).json({ error: "파트너만 사용 가능합니다" });
+    return null;
+  }
+  const vid = await resolveVendorIdForUser(req);
+  if (!vid) {
+    res.status(400).json({ error: "연결된 업체가 없습니다" });
+    return null;
+  }
+  return vid;
+}
+
+// ── 파트너용 패키지 목록 (활성만) ─────────────────────────────
+//   파트너 전용 (요구사항: 결제 메뉴는 파트너 역할만 사용).
+router.get("/credits/topup/packages", async (req, res): Promise<void> => {
+  const vendorId = await requirePartnerVendorId(req, res);
+  if (!vendorId) return;
+  const rows = await db
+    .select()
+    .from(creditTopupPackagesTable)
+    .where(eq(creditTopupPackagesTable.isActive, true))
+    .orderBy(creditTopupPackagesTable.sortOrder, creditTopupPackagesTable.id);
+  res.json({ packages: rows, tossClientKey: tossClientKey() });
+});
+
+// ── 주문 생성 ─────────────────────────────────────────────
+const CreateOrderBody = z.object({
+  packageId: z.number().int(),
+});
+router.post("/credits/topup/orders", async (req, res): Promise<void> => {
+  const vendorId = await requirePartnerVendorId(req, res);
+  if (!vendorId) return;
+  const parsed = CreateOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [pkg] = await db.select().from(creditTopupPackagesTable).where(eq(creditTopupPackagesTable.id, parsed.data.packageId));
+  if (!pkg || !pkg.isActive) {
+    res.status(404).json({ error: "패키지를 찾을 수 없습니다" });
+    return;
+  }
+  // 토스 orderId: 영문/숫자 6~64자. 'topup_<vendorId>_<timestamp>_<rand>' 형식.
+  const tossOrderId = `topup_${vendorId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const [created] = await db.insert(creditTopupOrdersTable).values({
+    vendorId,
+    userId: req.user?.userId ?? null,
+    packageId: pkg.id,
+    packageName: pkg.name,
+    credits: pkg.credits,
+    bonusPoints: pkg.bonusPoints,
+    amountKrw: pkg.priceKrw,
+    status: "pending",
+    tossOrderId,
+  }).returning();
+  res.status(201).json({
+    order: created,
+    tossClientKey: tossClientKey(),
+  });
+});
+
+// ── 주문 confirm (토스 paymentKey 수신 → 서버에서 확정) ─────
+const ConfirmOrderBody = z.object({
+  paymentKey: z.string().min(1),
+  amount: z.number().int().min(1),
+});
+router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void> => {
+  const vendorId = await requirePartnerVendorId(req, res);
+  if (!vendorId) return;
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 주문 id" });
+    return;
+  }
+  const parsed = ConfirmOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [order] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+  if (!order || order.vendorId !== vendorId) {
+    res.status(404).json({ error: "주문을 찾을 수 없습니다" });
+    return;
+  }
+  // 멱등성: 이미 paid 처리된 주문은 그대로 반환.
+  if (order.status === "paid") {
+    res.json({ order, alreadyPaid: true });
+    return;
+  }
+  if (order.status !== "pending") {
+    res.status(409).json({ error: `결제가 ${order.status} 상태입니다` });
+    return;
+  }
+  if (order.amountKrw !== parsed.data.amount) {
+    res.status(400).json({ error: "결제 금액이 주문 금액과 일치하지 않습니다" });
+    return;
+  }
+
+  // 토스 confirm 호출.
+  const auth = "Basic " + Buffer.from(`${tossSecretKey()}:`).toString("base64");
+  const tossRes = await fetch(TOSS_CONFIRM_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: auth,
+    },
+    body: JSON.stringify({
+      paymentKey: parsed.data.paymentKey,
+      orderId: order.tossOrderId,
+      amount: parsed.data.amount,
+    }),
+  });
+  const tossJson: any = await tossRes.json().catch(() => ({}));
+  if (!tossRes.ok) {
+    const reason = tossJson?.message ?? `HTTP ${tossRes.status}`;
+    // [동시성] 다른 동시 요청이 이미 paid 처리한 경우는 절대 덮어쓰지 않는다.
+    await db
+      .update(creditTopupOrdersTable)
+      .set({ status: "failed", failReason: String(reason).slice(0, 500), tossPaymentKey: parsed.data.paymentKey })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")));
+    res.status(400).json({ error: "토스 결제 확정 실패", reason });
+    return;
+  }
+  // 응답 금액 검증.
+  if (Number(tossJson.totalAmount) !== order.amountKrw) {
+    await db
+      .update(creditTopupOrdersTable)
+      .set({ status: "failed", failReason: "금액 불일치", tossPaymentKey: parsed.data.paymentKey })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")));
+    res.status(400).json({ error: "토스 응답 금액이 주문과 다릅니다" });
+    return;
+  }
+
+  // DB 트랜잭션 안에서 ledger 기록 + 주문 paid 처리.
+  const [actor] = req.user?.userId
+    ? await db.select().from(usersTable).where(eq(usersTable.id, req.user.userId))
+    : [];
+  const actorName = actor?.name ?? req.user?.email ?? null;
+
+  const result = await db.transaction(async (tx) => {
+    // [동시성/멱등성] 단일 atomic UPDATE 로 pending → paid 전환을 시도한다.
+    //   동일 주문에 대한 두 번째 동시 confirm 은 0건 영향 → alreadyPaid 분기로 들어간다.
+    //   ledger 작성도 이 UPDATE 가 성공한 트랜잭션에서만 수행 → 중복 충전 방지.
+    const [claimed] = await tx
+      .update(creditTopupOrdersTable)
+      .set({
+        status: "paid",
+        tossPaymentKey: parsed.data.paymentKey,
+        tossMethod: typeof tossJson?.method === "string" ? tossJson.method : null,
+        paidAt: new Date(),
+      })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")))
+      .returning();
+    if (!claimed) {
+      const [existing] = await tx.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+      return { order: existing ?? order, alreadyPaid: true as const };
+    }
+    // ledger: 크레딧 충전.
+    await getOrCreateWallet(order.vendorId, tx);
+    const [creditRow] = await tx.insert(creditLedgerTable).values({
+      vendorId: order.vendorId,
+      amount: order.credits,
+      kind: "package_purchase",
+      source: "package_purchase",
+      pointsAmount: 0,
+      notes: `${order.packageName} 결제 (토스, 주문 ${order.tossOrderId})`,
+      actorId: req.user?.userId ?? null,
+      actorName,
+    }).returning();
+    let bonusRowId: number | null = null;
+    if (order.bonusPoints > 0) {
+      const [bonusRow] = await tx.insert(creditLedgerTable).values({
+        vendorId: order.vendorId,
+        amount: 0,
+        kind: "bonus_points",
+        source: "package_purchase",
+        pointsAmount: order.bonusPoints,
+        notes: `${order.packageName} 보너스 포인트`,
+        actorId: req.user?.userId ?? null,
+        actorName,
+      }).returning();
+      bonusRowId = bonusRow.id;
+    }
+    // wallet 재계산.
+    await recalcWalletBalance(order.vendorId, tx);
+    // ledger id 를 주문에 역참조로 저장 (감사 로그용).
+    const [updated] = await tx
+      .update(creditTopupOrdersTable)
+      .set({ ledgerCreditId: creditRow.id, ledgerBonusId: bonusRowId })
+      .where(eq(creditTopupOrdersTable.id, id))
+      .returning();
+    return { order: updated ?? claimed, alreadyPaid: false as const };
+  });
+
+  res.json(result);
+});
+
+// ── 주문 실패/취소 기록 (사용자 결제창 닫기 등) ───────────
+const FailOrderBody = z.object({
+  reason: z.string().optional(),
+  cancelled: z.boolean().optional(),
+});
+router.post("/credits/topup/orders/:id/fail", async (req, res): Promise<void> => {
+  const vendorId = await requirePartnerVendorId(req, res);
+  if (!vendorId) return;
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 주문 id" });
+    return;
+  }
+  const parsed = FailOrderBody.safeParse(req.body);
+  const [order] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+  if (!order || order.vendorId !== vendorId) {
+    res.status(404).json({ error: "주문을 찾을 수 없습니다" });
+    return;
+  }
+  if (order.status !== "pending") {
+    res.json({ order });
+    return;
+  }
+  const status = parsed.success && parsed.data.cancelled ? "cancelled" : "failed";
+  const [updated] = await db
+    .update(creditTopupOrdersTable)
+    .set({ status, failReason: parsed.success ? (parsed.data.reason ?? null) : null })
+    .where(eq(creditTopupOrdersTable.id, id))
+    .returning();
+  res.json({ order: updated });
+});
+
+// ── 파트너 본인의 충전 내역 ────────────────────────────────
+router.get("/credits/topup/orders", async (req, res): Promise<void> => {
+  const vendorId = await requirePartnerVendorId(req, res);
+  if (!vendorId) return;
+  const rows = await db
+    .select()
+    .from(creditTopupOrdersTable)
+    .where(eq(creditTopupOrdersTable.vendorId, vendorId))
+    .orderBy(desc(creditTopupOrdersTable.createdAt))
+    .limit(100);
+  res.json(rows);
+});
+
+// ── 관리자: 패키지 CRUD ──────────────────────────────────
+router.get("/credits/admin/topup-packages", platformAdminOnly, async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(creditTopupPackagesTable)
+    .orderBy(creditTopupPackagesTable.sortOrder, creditTopupPackagesTable.id);
+  res.json(rows);
+});
+
+const TopupPackageBody = z.object({
+  name: z.string().min(1).max(60),
+  credits: z.number().int().min(1),
+  priceKrw: z.number().int().min(100),
+  bonusPoints: z.number().int().min(0).default(0),
+  highlight: z.string().max(20).nullable().optional(),
+  sortOrder: z.number().int().default(100),
+  isActive: z.boolean().default(true),
+});
+
+router.post("/credits/admin/topup-packages", platformAdminOnly, async (req, res): Promise<void> => {
+  const parsed = TopupPackageBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [created] = await db.insert(creditTopupPackagesTable).values({
+    name: parsed.data.name,
+    credits: parsed.data.credits,
+    priceKrw: parsed.data.priceKrw,
+    bonusPoints: parsed.data.bonusPoints,
+    highlight: parsed.data.highlight ?? null,
+    sortOrder: parsed.data.sortOrder,
+    isActive: parsed.data.isActive,
+  }).returning();
+  res.status(201).json(created);
+});
+
+router.put("/credits/admin/topup-packages/:id", platformAdminOnly, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 id" });
+    return;
+  }
+  const parsed = TopupPackageBody.partial().safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const setValues: Record<string, unknown> = {};
+  if (parsed.data.name !== undefined) setValues.name = parsed.data.name;
+  if (parsed.data.credits !== undefined) setValues.credits = parsed.data.credits;
+  if (parsed.data.priceKrw !== undefined) setValues.priceKrw = parsed.data.priceKrw;
+  if (parsed.data.bonusPoints !== undefined) setValues.bonusPoints = parsed.data.bonusPoints;
+  if (parsed.data.highlight !== undefined) setValues.highlight = parsed.data.highlight;
+  if (parsed.data.sortOrder !== undefined) setValues.sortOrder = parsed.data.sortOrder;
+  if (parsed.data.isActive !== undefined) setValues.isActive = parsed.data.isActive;
+  const [updated] = await db
+    .update(creditTopupPackagesTable)
+    .set(setValues)
+    .where(eq(creditTopupPackagesTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "패키지를 찾을 수 없습니다" });
+    return;
+  }
+  res.json(updated);
+});
+
+router.delete("/credits/admin/topup-packages/:id", platformAdminOnly, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 id" });
+    return;
+  }
+  const [removed] = await db
+    .delete(creditTopupPackagesTable)
+    .where(eq(creditTopupPackagesTable.id, id))
+    .returning();
+  if (!removed) {
+    res.status(404).json({ error: "패키지를 찾을 수 없습니다" });
+    return;
+  }
+  res.json({ ok: true, removed });
+});
+
+// ── 관리자: 충전 주문 목록 ────────────────────────────────
+router.get("/credits/admin/topup-orders", platformAdminOnly, async (req, res): Promise<void> => {
+  const status = typeof req.query.status === "string" ? req.query.status : null;
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 100) || 100, 1), 500);
+  const where = status && (creditTopupOrderStatuses as readonly string[]).includes(status)
+    ? eq(creditTopupOrdersTable.status, status as typeof creditTopupOrderStatuses[number])
+    : undefined;
+  const rowsQ = db
+    .select({
+      order: creditTopupOrdersTable,
+      vendor: vendorsTable,
+    })
+    .from(creditTopupOrdersTable)
+    .leftJoin(vendorsTable, eq(vendorsTable.id, creditTopupOrdersTable.vendorId))
+    .orderBy(desc(creditTopupOrdersTable.createdAt))
+    .limit(limit);
+  const rows = where ? await rowsQ.where(where) : await rowsQ;
+  res.json(rows.map((r) => ({
+    ...r.order,
+    vendorName: r.vendor?.name ?? null,
+  })));
 });
 
 export default router;

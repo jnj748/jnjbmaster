@@ -5363,6 +5363,221 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreditCategoryPricing"
 
+  /credits/topup/packages:
+    get:
+      operationId: listCreditTopupPackages
+      tags: [commissions]
+      summary: "[Task #319] Active topup packages + Toss client key (partner)"
+      responses:
+        "200":
+          description: Packages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditTopupPackagesResponse"
+
+  /credits/topup/orders:
+    get:
+      operationId: listMyCreditTopupOrders
+      tags: [commissions]
+      summary: "[Task #319] Partner: my recent topup orders"
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditTopupOrder"
+    post:
+      operationId: createCreditTopupOrder
+      tags: [commissions]
+      summary: "[Task #319] Partner: create pending topup order"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packageId]
+              properties:
+                packageId:
+                  type: integer
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditTopupOrderCreated"
+
+  /credits/topup/orders/{id}/confirm:
+    post:
+      operationId: confirmCreditTopupOrder
+      tags: [commissions]
+      summary: "[Task #319] Partner: confirm Toss payment"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentKey, amount]
+              properties:
+                paymentKey:
+                  type: string
+                amount:
+                  type: integer
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditTopupOrderConfirmed"
+
+  /credits/topup/orders/{id}/fail:
+    post:
+      operationId: failCreditTopupOrder
+      tags: [commissions]
+      summary: "[Task #319] Partner: mark order as failed/cancelled"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                cancelled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: "#/components/schemas/CreditTopupOrder"
+
+  /credits/admin/topup-packages:
+    get:
+      operationId: listAdminCreditTopupPackages
+      tags: [commissions]
+      summary: "[Task #319] platform_admin: all packages (incl. inactive)"
+      responses:
+        "200":
+          description: Packages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CreditTopupPackage"
+    post:
+      operationId: createCreditTopupPackage
+      tags: [commissions]
+      summary: "[Task #319] platform_admin: create package"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCreditTopupPackageBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditTopupPackage"
+
+  /credits/admin/topup-packages/{id}:
+    put:
+      operationId: updateCreditTopupPackage
+      tags: [commissions]
+      summary: "[Task #319] platform_admin: update package"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertCreditTopupPackageBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditTopupPackage"
+    delete:
+      operationId: deleteCreditTopupPackage
+      tags: [commissions]
+      summary: "[Task #319] platform_admin: delete package"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /credits/admin/topup-orders:
+    get:
+      operationId: listAdminCreditTopupOrders
+      tags: [commissions]
+      summary: "[Task #319] platform_admin: all topup orders (with vendor name)"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, failed, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCreditTopupOrder"
+
   /platform-settings:
     get:
       operationId: listPlatformSettings
@@ -11380,6 +11595,157 @@ components:
         - amount
         - kind
         - notes
+
+    CreditTopupPackage:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        credits:
+          type: integer
+        priceKrw:
+          type: integer
+        bonusPoints:
+          type: integer
+        highlight:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - credits
+        - priceKrw
+        - bonusPoints
+        - sortOrder
+        - isActive
+        - createdAt
+        - updatedAt
+
+    UpsertCreditTopupPackageBody:
+      type: object
+      properties:
+        name:
+          type: string
+        credits:
+          type: integer
+        priceKrw:
+          type: integer
+        bonusPoints:
+          type: integer
+        highlight:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    CreditTopupPackagesResponse:
+      type: object
+      properties:
+        packages:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditTopupPackage"
+        tossClientKey:
+          type: string
+      required:
+        - packages
+        - tossClientKey
+
+    CreditTopupOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        userId:
+          type: ["integer", "null"]
+        packageId:
+          type: ["integer", "null"]
+        packageName:
+          type: string
+        credits:
+          type: integer
+        bonusPoints:
+          type: integer
+        amountKrw:
+          type: integer
+        status:
+          type: string
+          enum: [pending, paid, failed, cancelled]
+        tossOrderId:
+          type: string
+        tossPaymentKey:
+          type: ["string", "null"]
+        tossMethod:
+          type: ["string", "null"]
+        failReason:
+          type: ["string", "null"]
+        ledgerCreditId:
+          type: ["integer", "null"]
+        ledgerBonusId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - vendorId
+        - packageName
+        - credits
+        - bonusPoints
+        - amountKrw
+        - status
+        - tossOrderId
+        - createdAt
+        - updatedAt
+
+    AdminCreditTopupOrder:
+      allOf:
+        - $ref: "#/components/schemas/CreditTopupOrder"
+        - type: object
+          properties:
+            vendorName:
+              type: ["string", "null"]
+
+    CreditTopupOrderCreated:
+      type: object
+      properties:
+        order:
+          $ref: "#/components/schemas/CreditTopupOrder"
+        tossClientKey:
+          type: string
+      required:
+        - order
+        - tossClientKey
+
+    CreditTopupOrderConfirmed:
+      type: object
+      properties:
+        order:
+          $ref: "#/components/schemas/CreditTopupOrder"
+        alreadyPaid:
+          type: boolean
+      required:
+        - order
 
     AdminWalletRow:
       type: object

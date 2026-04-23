@@ -67,6 +67,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@tosspayments/tosspayments-sdk": "^2.7.0",
     "html-docx-js-typescript": "^0.1.5",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",

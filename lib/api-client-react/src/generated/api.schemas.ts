@@ -4667,6 +4667,90 @@ export interface AdjustCreditsBody {
   notes: string;
 }
 
+export interface CreditTopupPackage {
+  id: number;
+  name: string;
+  credits: number;
+  priceKrw: number;
+  bonusPoints: number;
+  /** @nullable */
+  highlight?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertCreditTopupPackageBody {
+  name?: string;
+  credits?: number;
+  priceKrw?: number;
+  bonusPoints?: number;
+  /** @nullable */
+  highlight?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface CreditTopupPackagesResponse {
+  packages: CreditTopupPackage[];
+  tossClientKey: string;
+}
+
+export type CreditTopupOrderStatus =
+  (typeof CreditTopupOrderStatus)[keyof typeof CreditTopupOrderStatus];
+
+export const CreditTopupOrderStatus = {
+  pending: "pending",
+  paid: "paid",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export interface CreditTopupOrder {
+  id: number;
+  vendorId: number;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  packageId?: number | null;
+  packageName: string;
+  credits: number;
+  bonusPoints: number;
+  amountKrw: number;
+  status: CreditTopupOrderStatus;
+  tossOrderId: string;
+  /** @nullable */
+  tossPaymentKey?: string | null;
+  /** @nullable */
+  tossMethod?: string | null;
+  /** @nullable */
+  failReason?: string | null;
+  /** @nullable */
+  ledgerCreditId?: number | null;
+  /** @nullable */
+  ledgerBonusId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
+export type AdminCreditTopupOrder = CreditTopupOrder & {
+  /** @nullable */
+  vendorName?: string | null;
+};
+
+export interface CreditTopupOrderCreated {
+  order: CreditTopupOrder;
+  tossClientKey: string;
+}
+
+export interface CreditTopupOrderConfirmed {
+  order: CreditTopupOrder;
+  alreadyPaid?: boolean;
+}
+
 export interface AdminWalletRow {
   vendorId: number;
   vendorName: string;
@@ -5777,3 +5861,40 @@ export type PreviewCreditCostParams = {
 export type DeleteCreditCategoryPricing200 = {
   ok?: boolean;
 };
+
+export type CreateCreditTopupOrderBody = {
+  packageId: number;
+};
+
+export type ConfirmCreditTopupOrderBody = {
+  paymentKey: string;
+  amount: number;
+};
+
+export type FailCreditTopupOrderBody = {
+  reason?: string;
+  cancelled?: boolean;
+};
+
+export type FailCreditTopupOrder200 = {
+  order?: CreditTopupOrder;
+};
+
+export type DeleteCreditTopupPackage200 = {
+  ok?: boolean;
+};
+
+export type ListAdminCreditTopupOrdersParams = {
+  status?: ListAdminCreditTopupOrdersStatus;
+  limit?: number;
+};
+
+export type ListAdminCreditTopupOrdersStatus =
+  (typeof ListAdminCreditTopupOrdersStatus)[keyof typeof ListAdminCreditTopupOrdersStatus];
+
+export const ListAdminCreditTopupOrdersStatus = {
+  pending: "pending",
+  paid: "paid",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;

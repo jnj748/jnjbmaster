@@ -7227,6 +7227,245 @@ export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
 });
 
 /**
+ * @summary [Task #319] Active topup packages + Toss client key (partner)
+ */
+export const ListCreditTopupPackagesResponse = zod.object({
+  packages: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      credits: zod.number(),
+      priceKrw: zod.number(),
+      bonusPoints: zod.number(),
+      highlight: zod.string().nullish(),
+      sortOrder: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  tossClientKey: zod.string(),
+});
+
+/**
+ * @summary [Task #319] Partner: my recent topup orders
+ */
+export const ListMyCreditTopupOrdersResponseItem = zod.object({
+  id: zod.number(),
+  vendorId: zod.number(),
+  userId: zod.number().nullish(),
+  packageId: zod.number().nullish(),
+  packageName: zod.string(),
+  credits: zod.number(),
+  bonusPoints: zod.number(),
+  amountKrw: zod.number(),
+  status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+  tossOrderId: zod.string(),
+  tossPaymentKey: zod.string().nullish(),
+  tossMethod: zod.string().nullish(),
+  failReason: zod.string().nullish(),
+  ledgerCreditId: zod.number().nullish(),
+  ledgerBonusId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  paidAt: zod.coerce.date().nullish(),
+});
+export const ListMyCreditTopupOrdersResponse = zod.array(
+  ListMyCreditTopupOrdersResponseItem,
+);
+
+/**
+ * @summary [Task #319] Partner: create pending topup order
+ */
+export const CreateCreditTopupOrderBody = zod.object({
+  packageId: zod.number(),
+});
+
+/**
+ * @summary [Task #319] Partner: confirm Toss payment
+ */
+export const ConfirmCreditTopupOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ConfirmCreditTopupOrderBody = zod.object({
+  paymentKey: zod.string(),
+  amount: zod.number(),
+});
+
+export const ConfirmCreditTopupOrderResponse = zod.object({
+  order: zod.object({
+    id: zod.number(),
+    vendorId: zod.number(),
+    userId: zod.number().nullish(),
+    packageId: zod.number().nullish(),
+    packageName: zod.string(),
+    credits: zod.number(),
+    bonusPoints: zod.number(),
+    amountKrw: zod.number(),
+    status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+    tossOrderId: zod.string(),
+    tossPaymentKey: zod.string().nullish(),
+    tossMethod: zod.string().nullish(),
+    failReason: zod.string().nullish(),
+    ledgerCreditId: zod.number().nullish(),
+    ledgerBonusId: zod.number().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+    paidAt: zod.coerce.date().nullish(),
+  }),
+  alreadyPaid: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #319] Partner: mark order as failed/cancelled
+ */
+export const FailCreditTopupOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const FailCreditTopupOrderBody = zod.object({
+  reason: zod.string().optional(),
+  cancelled: zod.boolean().optional(),
+});
+
+export const FailCreditTopupOrderResponse = zod.object({
+  order: zod
+    .object({
+      id: zod.number(),
+      vendorId: zod.number(),
+      userId: zod.number().nullish(),
+      packageId: zod.number().nullish(),
+      packageName: zod.string(),
+      credits: zod.number(),
+      bonusPoints: zod.number(),
+      amountKrw: zod.number(),
+      status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+      tossOrderId: zod.string(),
+      tossPaymentKey: zod.string().nullish(),
+      tossMethod: zod.string().nullish(),
+      failReason: zod.string().nullish(),
+      ledgerCreditId: zod.number().nullish(),
+      ledgerBonusId: zod.number().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      paidAt: zod.coerce.date().nullish(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary [Task #319] platform_admin: all packages (incl. inactive)
+ */
+export const ListAdminCreditTopupPackagesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  credits: zod.number(),
+  priceKrw: zod.number(),
+  bonusPoints: zod.number(),
+  highlight: zod.string().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAdminCreditTopupPackagesResponse = zod.array(
+  ListAdminCreditTopupPackagesResponseItem,
+);
+
+/**
+ * @summary [Task #319] platform_admin: create package
+ */
+export const CreateCreditTopupPackageBody = zod.object({
+  name: zod.string().optional(),
+  credits: zod.number().optional(),
+  priceKrw: zod.number().optional(),
+  bonusPoints: zod.number().optional(),
+  highlight: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #319] platform_admin: update package
+ */
+export const UpdateCreditTopupPackageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCreditTopupPackageBody = zod.object({
+  name: zod.string().optional(),
+  credits: zod.number().optional(),
+  priceKrw: zod.number().optional(),
+  bonusPoints: zod.number().optional(),
+  highlight: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateCreditTopupPackageResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  credits: zod.number(),
+  priceKrw: zod.number(),
+  bonusPoints: zod.number(),
+  highlight: zod.string().nullish(),
+  sortOrder: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary [Task #319] platform_admin: delete package
+ */
+export const DeleteCreditTopupPackageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCreditTopupPackageResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #319] platform_admin: all topup orders (with vendor name)
+ */
+export const ListAdminCreditTopupOrdersQueryParams = zod.object({
+  status: zod.enum(["pending", "paid", "failed", "cancelled"]).optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListAdminCreditTopupOrdersResponseItem = zod
+  .object({
+    id: zod.number(),
+    vendorId: zod.number(),
+    userId: zod.number().nullish(),
+    packageId: zod.number().nullish(),
+    packageName: zod.string(),
+    credits: zod.number(),
+    bonusPoints: zod.number(),
+    amountKrw: zod.number(),
+    status: zod.enum(["pending", "paid", "failed", "cancelled"]),
+    tossOrderId: zod.string(),
+    tossPaymentKey: zod.string().nullish(),
+    tossMethod: zod.string().nullish(),
+    failReason: zod.string().nullish(),
+    ledgerCreditId: zod.number().nullish(),
+    ledgerBonusId: zod.number().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+    paidAt: zod.coerce.date().nullish(),
+  })
+  .and(
+    zod.object({
+      vendorName: zod.string().nullish(),
+    }),
+  );
+export const ListAdminCreditTopupOrdersResponse = zod.array(
+  ListAdminCreditTopupOrdersResponseItem,
+);
+
+/**
  * @summary List platform feature flags / settings
  */
 export const ListPlatformSettingsResponseItem = zod.object({

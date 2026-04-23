@@ -166,6 +166,9 @@ importers:
 
   artifacts/manager-app:
     dependencies:
+      '@tosspayments/tosspayments-sdk':
+        specifier: ^2.7.0
+        version: 2.7.0
       html-docx-js-typescript:
         specifier: ^0.1.5
         version: 0.1.5
@@ -2278,6 +2281,9 @@ packages:
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
     engines: {node: '>= 10'}
+
+  '@tosspayments/tosspayments-sdk@2.7.0':
+    resolution: {integrity: sha512-qpVIMpxdmKNOKwOZuSbkyGO5CpbF3+kqJcHLjGsTdyOsNex8ai+ceQc7zyCJhq+qZf9jglJpx9Q0bGVWwGjcbQ==}
 
   '@transloadit/prettier-bytes@0.3.5':
     resolution: {integrity: sha512-xF4A3d/ZyX2LJWeQZREZQw+qFX4TGQ8bGVP97OLRt6sPO6T0TNHBFTuRHOJh7RNmYOBmQ9MHxpolD9bXihpuVA==}
@@ -6244,6 +6250,8 @@ snapshots:
       react: 18.3.1
 
   '@tootallnate/once@2.0.0': {}
+
+  '@tosspayments/tosspayments-sdk@2.7.0': {}
 
   '@transloadit/prettier-bytes@0.3.5': {}
 

@@ -20,6 +20,7 @@ import type {
   ActiveCampaign,
   ActivityItem,
   AdjustCreditsBody,
+  AdminCreditTopupOrder,
   AdminWalletRow,
   AiChatMessage,
   AiChatSession,
@@ -62,6 +63,7 @@ import type {
   Complaint,
   ComplaintAnalytics,
   CompleteInspectionBody,
+  ConfirmCreditTopupOrderBody,
   Contract,
   ContractDetail,
   ContractDocument,
@@ -75,6 +77,7 @@ import type {
   CreateContractBody,
   CreateContractFromQuoteBody,
   CreateContractFromQuoteResponse,
+  CreateCreditTopupOrderBody,
   CreateDailyReportBody,
   CreateDocumentTemplateBody,
   CreateInspectionBody,
@@ -103,6 +106,11 @@ import type {
   CreditCategoryPricing,
   CreditCostPreview,
   CreditLedgerEntry,
+  CreditTopupOrder,
+  CreditTopupOrderConfirmed,
+  CreditTopupOrderCreated,
+  CreditTopupPackage,
+  CreditTopupPackagesResponse,
   CreditWallet,
   DailyReportItem,
   DashboardAnalytics,
@@ -110,6 +118,7 @@ import type {
   DataDestructionLog,
   DeleteComplaint200,
   DeleteCreditCategoryPricing200,
+  DeleteCreditTopupPackage200,
   DeleteDocumentTemplate200,
   DeletePlatformAnnouncement200,
   DeletePlatformCampaign200,
@@ -132,6 +141,8 @@ import type {
   FacilityDashboard,
   FacilityDefectTrends,
   FacilityStatusSummary,
+  FailCreditTopupOrder200,
+  FailCreditTopupOrderBody,
   FeeTrendItem,
   FinalizeUpload200,
   FinalizeUploadBody,
@@ -165,6 +176,7 @@ import type {
   InterimSettlementResponse,
   KakaoNotifyBody,
   KakaoNotifyResponse,
+  ListAdminCreditTopupOrdersParams,
   ListAlertActionsParams,
   ListApprovalsParams,
   ListComplaintsParams,
@@ -275,6 +287,7 @@ import type {
   UploadUrlResponse,
   UpsertCommissionRateBody,
   UpsertCreditCategoryPricingBody,
+  UpsertCreditTopupPackageBody,
   UpsertDocumentChecklistBody,
   UpsertManagementContractTemplateBody,
   UpsertPlatformSettingBody,
@@ -21943,6 +21956,878 @@ export const useUpsertQuoteTypePolicyCategory = <
 > => {
   return useMutation(getUpsertQuoteTypePolicyCategoryMutationOptions(options));
 };
+
+/**
+ * @summary [Task #319] Active topup packages + Toss client key (partner)
+ */
+export const getListCreditTopupPackagesUrl = () => {
+  return `/api/credits/topup/packages`;
+};
+
+export const listCreditTopupPackages = async (
+  options?: RequestInit,
+): Promise<CreditTopupPackagesResponse> => {
+  return customFetch<CreditTopupPackagesResponse>(
+    getListCreditTopupPackagesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCreditTopupPackagesQueryKey = () => {
+  return [`/api/credits/topup/packages`] as const;
+};
+
+export const getListCreditTopupPackagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCreditTopupPackages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditTopupPackages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCreditTopupPackagesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCreditTopupPackages>>
+  > = ({ signal }) => listCreditTopupPackages({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditTopupPackages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCreditTopupPackagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCreditTopupPackages>>
+>;
+export type ListCreditTopupPackagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] Active topup packages + Toss client key (partner)
+ */
+
+export function useListCreditTopupPackages<
+  TData = Awaited<ReturnType<typeof listCreditTopupPackages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditTopupPackages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCreditTopupPackagesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #319] Partner: my recent topup orders
+ */
+export const getListMyCreditTopupOrdersUrl = () => {
+  return `/api/credits/topup/orders`;
+};
+
+export const listMyCreditTopupOrders = async (
+  options?: RequestInit,
+): Promise<CreditTopupOrder[]> => {
+  return customFetch<CreditTopupOrder[]>(getListMyCreditTopupOrdersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyCreditTopupOrdersQueryKey = () => {
+  return [`/api/credits/topup/orders`] as const;
+};
+
+export const getListMyCreditTopupOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyCreditTopupOrders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCreditTopupOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyCreditTopupOrdersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyCreditTopupOrders>>
+  > = ({ signal }) => listMyCreditTopupOrders({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCreditTopupOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyCreditTopupOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyCreditTopupOrders>>
+>;
+export type ListMyCreditTopupOrdersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] Partner: my recent topup orders
+ */
+
+export function useListMyCreditTopupOrders<
+  TData = Awaited<ReturnType<typeof listMyCreditTopupOrders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCreditTopupOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyCreditTopupOrdersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #319] Partner: create pending topup order
+ */
+export const getCreateCreditTopupOrderUrl = () => {
+  return `/api/credits/topup/orders`;
+};
+
+export const createCreditTopupOrder = async (
+  createCreditTopupOrderBody: CreateCreditTopupOrderBody,
+  options?: RequestInit,
+): Promise<CreditTopupOrderCreated> => {
+  return customFetch<CreditTopupOrderCreated>(getCreateCreditTopupOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCreditTopupOrderBody),
+  });
+};
+
+export const getCreateCreditTopupOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditTopupOrder>>,
+    TError,
+    { data: BodyType<CreateCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCreditTopupOrder>>,
+  TError,
+  { data: BodyType<CreateCreditTopupOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["createCreditTopupOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCreditTopupOrder>>,
+    { data: BodyType<CreateCreditTopupOrderBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCreditTopupOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCreditTopupOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCreditTopupOrder>>
+>;
+export type CreateCreditTopupOrderMutationBody =
+  BodyType<CreateCreditTopupOrderBody>;
+export type CreateCreditTopupOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] Partner: create pending topup order
+ */
+export const useCreateCreditTopupOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditTopupOrder>>,
+    TError,
+    { data: BodyType<CreateCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCreditTopupOrder>>,
+  TError,
+  { data: BodyType<CreateCreditTopupOrderBody> },
+  TContext
+> => {
+  return useMutation(getCreateCreditTopupOrderMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] Partner: confirm Toss payment
+ */
+export const getConfirmCreditTopupOrderUrl = (id: number) => {
+  return `/api/credits/topup/orders/${id}/confirm`;
+};
+
+export const confirmCreditTopupOrder = async (
+  id: number,
+  confirmCreditTopupOrderBody: ConfirmCreditTopupOrderBody,
+  options?: RequestInit,
+): Promise<CreditTopupOrderConfirmed> => {
+  return customFetch<CreditTopupOrderConfirmed>(
+    getConfirmCreditTopupOrderUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(confirmCreditTopupOrderBody),
+    },
+  );
+};
+
+export const getConfirmCreditTopupOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmCreditTopupOrder>>,
+    TError,
+    { id: number; data: BodyType<ConfirmCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmCreditTopupOrder>>,
+  TError,
+  { id: number; data: BodyType<ConfirmCreditTopupOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmCreditTopupOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmCreditTopupOrder>>,
+    { id: number; data: BodyType<ConfirmCreditTopupOrderBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return confirmCreditTopupOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmCreditTopupOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmCreditTopupOrder>>
+>;
+export type ConfirmCreditTopupOrderMutationBody =
+  BodyType<ConfirmCreditTopupOrderBody>;
+export type ConfirmCreditTopupOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] Partner: confirm Toss payment
+ */
+export const useConfirmCreditTopupOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmCreditTopupOrder>>,
+    TError,
+    { id: number; data: BodyType<ConfirmCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmCreditTopupOrder>>,
+  TError,
+  { id: number; data: BodyType<ConfirmCreditTopupOrderBody> },
+  TContext
+> => {
+  return useMutation(getConfirmCreditTopupOrderMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] Partner: mark order as failed/cancelled
+ */
+export const getFailCreditTopupOrderUrl = (id: number) => {
+  return `/api/credits/topup/orders/${id}/fail`;
+};
+
+export const failCreditTopupOrder = async (
+  id: number,
+  failCreditTopupOrderBody?: FailCreditTopupOrderBody,
+  options?: RequestInit,
+): Promise<FailCreditTopupOrder200> => {
+  return customFetch<FailCreditTopupOrder200>(getFailCreditTopupOrderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(failCreditTopupOrderBody),
+  });
+};
+
+export const getFailCreditTopupOrderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof failCreditTopupOrder>>,
+    TError,
+    { id: number; data: BodyType<FailCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof failCreditTopupOrder>>,
+  TError,
+  { id: number; data: BodyType<FailCreditTopupOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["failCreditTopupOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof failCreditTopupOrder>>,
+    { id: number; data: BodyType<FailCreditTopupOrderBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return failCreditTopupOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FailCreditTopupOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof failCreditTopupOrder>>
+>;
+export type FailCreditTopupOrderMutationBody =
+  BodyType<FailCreditTopupOrderBody>;
+export type FailCreditTopupOrderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] Partner: mark order as failed/cancelled
+ */
+export const useFailCreditTopupOrder = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof failCreditTopupOrder>>,
+    TError,
+    { id: number; data: BodyType<FailCreditTopupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof failCreditTopupOrder>>,
+  TError,
+  { id: number; data: BodyType<FailCreditTopupOrderBody> },
+  TContext
+> => {
+  return useMutation(getFailCreditTopupOrderMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] platform_admin: all packages (incl. inactive)
+ */
+export const getListAdminCreditTopupPackagesUrl = () => {
+  return `/api/credits/admin/topup-packages`;
+};
+
+export const listAdminCreditTopupPackages = async (
+  options?: RequestInit,
+): Promise<CreditTopupPackage[]> => {
+  return customFetch<CreditTopupPackage[]>(
+    getListAdminCreditTopupPackagesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminCreditTopupPackagesQueryKey = () => {
+  return [`/api/credits/admin/topup-packages`] as const;
+};
+
+export const getListAdminCreditTopupPackagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminCreditTopupPackages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditTopupPackages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminCreditTopupPackagesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminCreditTopupPackages>>
+  > = ({ signal }) =>
+    listAdminCreditTopupPackages({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditTopupPackages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminCreditTopupPackagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminCreditTopupPackages>>
+>;
+export type ListAdminCreditTopupPackagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] platform_admin: all packages (incl. inactive)
+ */
+
+export function useListAdminCreditTopupPackages<
+  TData = Awaited<ReturnType<typeof listAdminCreditTopupPackages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditTopupPackages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminCreditTopupPackagesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #319] platform_admin: create package
+ */
+export const getCreateCreditTopupPackageUrl = () => {
+  return `/api/credits/admin/topup-packages`;
+};
+
+export const createCreditTopupPackage = async (
+  upsertCreditTopupPackageBody: UpsertCreditTopupPackageBody,
+  options?: RequestInit,
+): Promise<CreditTopupPackage> => {
+  return customFetch<CreditTopupPackage>(getCreateCreditTopupPackageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertCreditTopupPackageBody),
+  });
+};
+
+export const getCreateCreditTopupPackageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditTopupPackage>>,
+    TError,
+    { data: BodyType<UpsertCreditTopupPackageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCreditTopupPackage>>,
+  TError,
+  { data: BodyType<UpsertCreditTopupPackageBody> },
+  TContext
+> => {
+  const mutationKey = ["createCreditTopupPackage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCreditTopupPackage>>,
+    { data: BodyType<UpsertCreditTopupPackageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCreditTopupPackage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCreditTopupPackageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCreditTopupPackage>>
+>;
+export type CreateCreditTopupPackageMutationBody =
+  BodyType<UpsertCreditTopupPackageBody>;
+export type CreateCreditTopupPackageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] platform_admin: create package
+ */
+export const useCreateCreditTopupPackage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditTopupPackage>>,
+    TError,
+    { data: BodyType<UpsertCreditTopupPackageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCreditTopupPackage>>,
+  TError,
+  { data: BodyType<UpsertCreditTopupPackageBody> },
+  TContext
+> => {
+  return useMutation(getCreateCreditTopupPackageMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] platform_admin: update package
+ */
+export const getUpdateCreditTopupPackageUrl = (id: number) => {
+  return `/api/credits/admin/topup-packages/${id}`;
+};
+
+export const updateCreditTopupPackage = async (
+  id: number,
+  upsertCreditTopupPackageBody: UpsertCreditTopupPackageBody,
+  options?: RequestInit,
+): Promise<CreditTopupPackage> => {
+  return customFetch<CreditTopupPackage>(getUpdateCreditTopupPackageUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertCreditTopupPackageBody),
+  });
+};
+
+export const getUpdateCreditTopupPackageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCreditTopupPackage>>,
+    TError,
+    { id: number; data: BodyType<UpsertCreditTopupPackageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCreditTopupPackage>>,
+  TError,
+  { id: number; data: BodyType<UpsertCreditTopupPackageBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCreditTopupPackage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCreditTopupPackage>>,
+    { id: number; data: BodyType<UpsertCreditTopupPackageBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCreditTopupPackage(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCreditTopupPackageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCreditTopupPackage>>
+>;
+export type UpdateCreditTopupPackageMutationBody =
+  BodyType<UpsertCreditTopupPackageBody>;
+export type UpdateCreditTopupPackageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] platform_admin: update package
+ */
+export const useUpdateCreditTopupPackage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCreditTopupPackage>>,
+    TError,
+    { id: number; data: BodyType<UpsertCreditTopupPackageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCreditTopupPackage>>,
+  TError,
+  { id: number; data: BodyType<UpsertCreditTopupPackageBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCreditTopupPackageMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] platform_admin: delete package
+ */
+export const getDeleteCreditTopupPackageUrl = (id: number) => {
+  return `/api/credits/admin/topup-packages/${id}`;
+};
+
+export const deleteCreditTopupPackage = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteCreditTopupPackage200> => {
+  return customFetch<DeleteCreditTopupPackage200>(
+    getDeleteCreditTopupPackageUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteCreditTopupPackageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCreditTopupPackage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCreditTopupPackage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCreditTopupPackage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCreditTopupPackage>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCreditTopupPackage(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCreditTopupPackageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCreditTopupPackage>>
+>;
+
+export type DeleteCreditTopupPackageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] platform_admin: delete package
+ */
+export const useDeleteCreditTopupPackage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCreditTopupPackage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCreditTopupPackage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCreditTopupPackageMutationOptions(options));
+};
+
+/**
+ * @summary [Task #319] platform_admin: all topup orders (with vendor name)
+ */
+export const getListAdminCreditTopupOrdersUrl = (
+  params?: ListAdminCreditTopupOrdersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/credits/admin/topup-orders?${stringifiedParams}`
+    : `/api/credits/admin/topup-orders`;
+};
+
+export const listAdminCreditTopupOrders = async (
+  params?: ListAdminCreditTopupOrdersParams,
+  options?: RequestInit,
+): Promise<AdminCreditTopupOrder[]> => {
+  return customFetch<AdminCreditTopupOrder[]>(
+    getListAdminCreditTopupOrdersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminCreditTopupOrdersQueryKey = (
+  params?: ListAdminCreditTopupOrdersParams,
+) => {
+  return [
+    `/api/credits/admin/topup-orders`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminCreditTopupOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminCreditTopupOrders>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditTopupOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminCreditTopupOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminCreditTopupOrdersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminCreditTopupOrders>>
+  > = ({ signal }) =>
+    listAdminCreditTopupOrders(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCreditTopupOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminCreditTopupOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminCreditTopupOrders>>
+>;
+export type ListAdminCreditTopupOrdersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #319] platform_admin: all topup orders (with vendor name)
+ */
+
+export function useListAdminCreditTopupOrders<
+  TData = Awaited<ReturnType<typeof listAdminCreditTopupOrders>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCreditTopupOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminCreditTopupOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminCreditTopupOrdersQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List platform feature flags / settings
