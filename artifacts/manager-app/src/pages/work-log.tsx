@@ -317,7 +317,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
       ) : grouped.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            아직 기록이 없습니다. 우측 하단의 + 버튼으로 빠르게 추가해보세요.
+            아직 기록이 없습니다. 가운데 + 버튼으로 빠르게 추가해보세요.
           </CardContent>
         </Card>
       ) : (
