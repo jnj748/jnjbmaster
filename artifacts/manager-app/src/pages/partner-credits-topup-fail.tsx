@@ -14,7 +14,8 @@ export default function PartnerCreditsTopupFail() {
     if (calledRef.current) return;
     calledRef.current = true;
     const params = new URLSearchParams(window.location.search);
-    const orderDbId = Number(params.get("orderId"));
+    // Toss 도 orderId 쿼리를 같이 보내므로 우리 DB id 는 orderDbId 로 분리해서 받는다.
+    const orderDbId = Number(params.get("orderDbId"));
     const code = params.get("code") ?? "";
     const message = params.get("message") ?? "";
     if (orderDbId) {

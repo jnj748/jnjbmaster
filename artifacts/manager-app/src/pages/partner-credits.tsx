@@ -121,8 +121,8 @@ export default function PartnerCredits() {
         amount: { currency: "KRW", value: pkg.priceKrw },
         orderId: order.tossOrderId,
         orderName: `크레딧 ${pkg.credits.toLocaleString()}C (${pkg.name})`,
-        successUrl: `${baseUrl}/me/credits/topup/success?orderId=${order.id}`,
-        failUrl: `${baseUrl}/me/credits/topup/fail?orderId=${order.id}`,
+        successUrl: `${baseUrl}/me/credits/topup/success?orderDbId=${order.id}`,
+        failUrl: `${baseUrl}/me/credits/topup/fail?orderDbId=${order.id}`,
         customerName: user?.name ?? undefined,
         customerEmail: user?.email ?? undefined,
         card: {
