@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building, Calendar, ChevronRight, Image as ImageIcon, MapPin } from "lucide-react";
+import { Building, Calendar, Image as ImageIcon, MapPin } from "lucide-react";
 import { StepAddress } from "@/components/building-setup/step-address";
 import { StepInfo } from "@/components/building-setup/step-info";
 import { StepLogo } from "@/components/building-setup/step-logo";
@@ -63,15 +63,14 @@ export default function BuildingSetup() {
           <button
             key={i}
             onClick={() => setup.setActiveStep(i)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               setup.activeStep === i
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            <step.icon className="w-4 h-4" />
-            {step.label}
-            {i < steps.length - 1 && <ChevronRight className="w-4 h-4 ml-1 text-muted-foreground" />}
+            <step.icon className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">{step.label}</span>
           </button>
         ))}
       </div>
