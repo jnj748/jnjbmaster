@@ -845,6 +845,19 @@ function roleHomeShort(role: Role): string {
   }
 }
 
+/** Resolve the menu group for a given path (or null if none). */
+export function getRouteGroup(path: string): Group | null {
+  const match = ROUTES.find((r) => path === r.path || path.startsWith(r.path + "/"));
+  return match?.group ?? null;
+}
+
+/** True if the route's group is currently enabled for the user. */
+export function isRouteCategoryEnabled(path: string, disabledCategories?: readonly string[] | null): boolean {
+  const group = getRouteGroup(path);
+  if (!group) return true;
+  return isCategoryEnabled(group, disabledCategories);
+}
+
 /** True if role is allowed to navigate to the given path. */
 export function canAccess(role: Role, path: string): boolean {
   if (path === "/") return true;

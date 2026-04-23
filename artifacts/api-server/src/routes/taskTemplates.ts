@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
+  alertActionsTable,
   taskTemplatesTable,
   taskTemplateAuditLogsTable,
   taskTemplateCategories,
@@ -293,6 +294,30 @@ export async function resolveActiveTemplateAlerts(
     .from(taskTemplatesTable)
     .where(eq(taskTemplatesTable.isActive, true));
 
+  // [Task #221+] 사용자가 처리완료/연기한 템플릿 알림은 동일 사이클 동안
+  // 다시 노출하지 않는다. 키는 (alertType, templateId). 다른 사용자의
+  // 액션이 본인 알림을 가리지 않도록 ctx.userId 로 스코프한다.
+  const completedTemplateActions = ctx.userId
+    ? await db
+        .select()
+        .from(alertActionsTable)
+        .where(
+          and(
+            inArray(alertActionsTable.alertType, ["task_template_mandatory", "task_template_suggested"]),
+            eq(alertActionsTable.relatedEntityType, "task_template"),
+            eq(alertActionsTable.userId, ctx.userId),
+          ),
+        )
+    : [];
+  const completedActionMap = new Map<string, typeof completedTemplateActions[0]>();
+  for (const a of completedTemplateActions) {
+    const key = `${a.alertType}:${a.relatedEntityId}`;
+    const prev = completedActionMap.get(key);
+    if (!prev || new Date(a.createdAt) > new Date(prev.createdAt)) {
+      completedActionMap.set(key, a);
+    }
+  }
+
   const alerts: ResolvedTemplateAlert[] = [];
   let id = startId;
 
@@ -303,6 +328,25 @@ export async function resolveActiveTemplateAlerts(
     const alertWindowStart = new Date(due);
     alertWindowStart.setDate(alertWindowStart.getDate() - t.advanceAlertDays);
     if (today < alertWindowStart) continue;
+
+    const tplCategory = t.category as "mandatory" | "suggested";
+    const alertTypeKey = tplCategory === "mandatory" ? "task_template_mandatory" : "task_template_suggested";
+    const recentAction = completedActionMap.get(`${alertTypeKey}:${t.id}`);
+    if (recentAction) {
+      // 처리완료: 현재 사이클의 due 보다 같거나 늦은 시점에 완료 처리되었으면 숨김.
+      if (recentAction.actionType === "completed") {
+        const completedAt = recentAction.completedDate
+          ? new Date(recentAction.completedDate)
+          : new Date(recentAction.createdAt);
+        if (completedAt >= alertWindowStart) continue;
+      }
+      // 연기: 연기 일수만큼 알림 윈도우 진입 자체를 미룸.
+      if (recentAction.actionType === "postponed" && recentAction.postponeDays) {
+        const postponedUntil = new Date(recentAction.createdAt);
+        postponedUntil.setDate(postponedUntil.getDate() + recentAction.postponeDays);
+        if (today < postponedUntil) continue;
+      }
+    }
 
     const dueIso = due.toISOString().split("T")[0];
     const daysLeft = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));

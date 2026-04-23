@@ -630,6 +630,8 @@ export default function Dashboard() {
       case "task_overdue": return "task";
       case "task_followup": return "task";
       case "warranty_expiry": return "warranty";
+      case "task_template_mandatory": return "task_template";
+      case "task_template_suggested": return "task_template";
       default: return "task";
     }
   }
@@ -662,7 +664,11 @@ export default function Dashboard() {
     }
 
     if (alert.type === "task_template_mandatory" || alert.type === "task_template_suggested") {
-      navigate(alert.relatedId ? `/tasks?template=${alert.relatedId}` : "/tasks");
+      if (!alert.relatedId) {
+        toast({ title: "처리할 항목 정보를 찾을 수 없습니다", description: alert.title });
+        return;
+      }
+      openAlertAction(alert);
       return;
     }
 

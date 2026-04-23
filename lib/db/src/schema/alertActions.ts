@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const alertActionsTable = pgTable("alert_actions", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id"),
   alertType: text("alert_type").notNull(),
   relatedEntityType: text("related_entity_type").notNull(),
   relatedEntityId: integer("related_entity_id").notNull(),

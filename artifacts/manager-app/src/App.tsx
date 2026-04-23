@@ -18,10 +18,12 @@ const BrowsingBanner = lazy(() =>
 import {
   getRoutesForRole,
   getEffectiveRole,
+  isRouteCategoryEnabled,
   ROOT_DASHBOARDS,
   type Role,
 } from "@/lib/permissions";
 const Login = lazy(() => import("@/pages/login"));
+const FeatureUnavailablePage = lazy(() => import("@/pages/feature-unavailable"));
 const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
@@ -183,13 +185,14 @@ function AuthenticatedRoutes() {
                 <Route path="/onboarding/facility-staff" component={FacilityWizardPage} />
                 <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
                 <Route path="/onboarding/partner" component={PartnerWizardPage} />
-                <Route path="/facility-approvals" component={lazy(() => import("@/pages/facility-approvals"))} />
                 <Route path="/documents/preview" component={DocumentPreviewPage} />
                 <Route path="/recent-documents" component={RecentDocumentsPage} />
                 <Route path="/" component={DashboardComponent} />
-                {routes.map((r) => (
-                  <Route key={r.path} path={r.path} component={r.component} />
-                ))}
+                {routes.map((r) => {
+                  const enabled = isRouteCategoryEnabled(r.path, user?.disabledCategories);
+                  const Component = enabled ? r.component : FeatureUnavailablePage;
+                  return <Route key={r.path} path={r.path} component={Component} />;
+                })}
                 <Route>
                   <Redirect to="/" />
                 </Route>

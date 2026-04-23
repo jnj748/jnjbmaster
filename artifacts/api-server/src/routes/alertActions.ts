@@ -156,6 +156,7 @@ router.post("/alert-actions", async (req, res): Promise<void> => {
   const [action] = await db
     .insert(alertActionsTable)
     .values({
+      userId: req.user?.id ?? null,
       alertType: data.alertType,
       relatedEntityType: data.relatedEntityType,
       relatedEntityId: data.relatedEntityId,
