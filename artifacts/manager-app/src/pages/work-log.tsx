@@ -380,8 +380,10 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
                       ) : null}
                     </div>
                     {/* [Task #256] 액션 영역: 수정/삭제 + 기안하기/견적받기.
-                        시각 부담을 줄이려고 작은 라인 아이콘 + 짧은 라벨로 구성한다. */}
-                    <div className="flex flex-col gap-1 shrink-0 text-[11px] items-stretch">
+                        시각 부담을 줄이려고 작은 라인 아이콘 + 짧은 라벨로 구성한다.
+                        [Hotfix] 4개 버튼을 1열 세로로 쌓으면 카드 높이가 과하게 길어져
+                        2×2 그리드로 변경 — 기안/견적이 1행, 수정/삭제가 2행. */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 shrink-0 text-[11px] items-start">
                       <button
                         type="button"
                         onClick={() => setLocation(`/approvals/create?${approvalParams}`)}
