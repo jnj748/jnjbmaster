@@ -125,7 +125,10 @@ function refineFrequencyFields<T extends z.ZodTypeAny>(schema: T): z.ZodEffects<
 }
 
 const CreateBodyChecked = refineFrequencyFields(CreateBody);
-const UpdateBody = CreateBody.partial();
+// [Task #304] PATCH 도 frequency 별 필드 정합성을 동일하게 강제한다.
+//   anchored 로 변경하면서 anchorType / anchorOffsetYears 를 누락하는 등의
+//   부분 업데이트가 API 직접 호출로 들어와도 차단되도록 한다.
+const UpdateBody = refineFrequencyFields(CreateBody.partial());
 
 async function recordAudit(
   userId: number | undefined,
