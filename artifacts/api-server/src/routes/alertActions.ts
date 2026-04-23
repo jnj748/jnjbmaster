@@ -54,6 +54,26 @@ router.post("/alert-actions", requireRole(
   }
 
   const data = parsed.data;
+
+  // [Task #304] 권한 스코프 가드.
+  //   manager / platform_admin 은 기존과 동일하게 모든 alertType 에 대해 처리 가능.
+  //   확장된 역할(hq_executive / facility_staff / accountant)은 anchored 하자담보
+  //   만료 등 "템플릿 알림"만 처리하도록 제한한다. 즉 alertType 이
+  //   task_template_mandatory / task_template_suggested 이고 relatedEntityType 이
+  //   task_template 일 때만 통과시키며, 기존 inspection / task / tax 엔티티의
+  //   상태/일정을 임의로 변경할 수 없다(IDOR 방지).
+  const role = req.user?.role;
+  const isPrivileged = role === "manager" || role === "platform_admin";
+  if (!isPrivileged) {
+    const isTemplateAlert =
+      (data.alertType === "task_template_mandatory" || data.alertType === "task_template_suggested") &&
+      data.relatedEntityType === "task_template";
+    if (!isTemplateAlert) {
+      res.status(403).json({ error: "해당 알림을 처리할 권한이 없습니다." });
+      return;
+    }
+  }
+
   let computedNextCycleDate: string | null = null;
   let actedOnDueDate: string | null = null;
 
