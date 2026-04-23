@@ -680,6 +680,9 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             <p className="text-xs text-muted-foreground border border-gray-300 rounded p-3">아직 작성되지 않았습니다.</p>
           )}
 
+          {/* [일보] 첨부사진을 셀 안에 명함 크기(약 85mm 폭, 16:9) 고정 틀로
+              자동첨부. 인쇄 시 A4 상에서 명함 사이즈로 일정하게 보이도록
+              print: 분기로 mm 단위 폭을 고정한다. 사진이 없으면 "-". */}
           <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 금일 업무 기록 ({report.entries.length}건)</p>
           {report.entries.length === 0 ? (
             <p className="text-sm border border-gray-300 rounded p-3 text-muted-foreground">기록 없음</p>
@@ -687,18 +690,28 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr>
-                  <th className="border border-gray-400 bg-gray-100 p-2 w-24">분류</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-20">분류</th>
                   <th className="border border-gray-400 bg-gray-100 p-2">메모</th>
-                  <th className="border border-gray-400 bg-gray-100 p-2 w-16">사진</th>
+                  <th className="border border-gray-400 bg-gray-100 p-2 w-[200px] print:w-[90mm]">사진</th>
                 </tr>
               </thead>
               <tbody>
                 {report.entries.map((e) => (
-                  <tr key={e.id}>
-                    <td className="border border-gray-400 p-2">{CATEGORY_LABEL[e.category]}</td>
-                    <td className="border border-gray-400 p-2 whitespace-pre-line">{e.memo}</td>
-                    <td className="border border-gray-400 p-2 text-center">
-                      {e.photoUrl ? <ImageIcon className="inline w-3 h-3 text-muted-foreground" /> : "-"}
+                  <tr key={e.id} className="break-inside-avoid">
+                    <td className="border border-gray-400 p-2 align-top">{CATEGORY_LABEL[e.category]}</td>
+                    <td className="border border-gray-400 p-2 whitespace-pre-line align-top">{e.memo}</td>
+                    <td className="border border-gray-400 p-1 text-center align-middle">
+                      {e.photoUrl ? (
+                        <div className="mx-auto w-[180px] print:w-[85mm] aspect-video overflow-hidden rounded border border-gray-300 bg-gray-50">
+                          <AuthImage
+                            src={e.photoUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                   </tr>
                 ))}
