@@ -161,6 +161,130 @@ router.post("/credits/adjust", hqOnly, async (req, res): Promise<void> => {
   res.status(201).json(ledger);
 });
 
+// [Task #312] 플랫폼 관리자 — 파트너 크레딧 현황 대시보드.
+//   기간(months) 동안의 충전(top-up)/소모(consumption)/환불(refund) 추이 + 카테고리별 소모/환불,
+//   현재 지갑 누계, 최근 30일 미열람 환불 통계.
+//   집계는 모두 read-only 이며, raw SQL 로 한 번에 그룹핑한다.
+router.get("/credits/admin/dashboard", platformAdminOnly, async (req, res): Promise<void> => {
+  const monthsRaw = Number(req.query.months ?? 12);
+  const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(Math.trunc(monthsRaw), 1), 36) : 12;
+  // 월 키는 UTC 기준 'YYYY-MM' (대시보드 차트용 단순 라벨).
+  const TOP_UP_KINDS = ["manual_credit", "package_purchase", "rebate", "adjustment"];
+
+  // 1) 합계 KPI ─ 충전(양수만)/소모(절대값)/환불(양수만)
+  const totalsRow = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment')
+                         AND amount > 0 THEN amount END), 0)::int   AS top_up_amount,
+      COALESCE(SUM(CASE WHEN kind = 'consumption' THEN ABS(amount) END), 0)::int  AS consumption_amount,
+      COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
+                         AND notes LIKE '미열람 환불%' THEN amount END), 0)::int AS refund_amount,
+      COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
+                         AND notes LIKE '미열람 환불%' THEN 1 END), 0)::int      AS refund_count
+    FROM credit_ledger
+  `);
+  const t = (totalsRow.rows?.[0] ?? {}) as Record<string, unknown>;
+
+  // 2) 지갑 잔액/포인트 합계
+  const walletRow = await db.execute(sql`
+    SELECT COALESCE(SUM(balance), 0)::int AS wallet_balance,
+           COALESCE(SUM(points_balance), 0)::int AS wallet_points_balance
+    FROM vendor_credit_wallets
+  `);
+  const w = (walletRow.rows?.[0] ?? {}) as Record<string, unknown>;
+
+  // 3) 월별 충전/소모/환불 추이 (UTC 월 트렁크).
+  //    GENERATE_SERIES 로 빈 월을 0 으로 채워 차트가 끊기지 않게 한다.
+  const monthly = await db.execute(sql`
+    WITH months AS (
+      SELECT to_char(date_trunc('month', (now() AT TIME ZONE 'UTC') - (s || ' month')::interval), 'YYYY-MM') AS m
+      FROM generate_series(0, ${months - 1}) s
+    ),
+    agg AS (
+      SELECT to_char(date_trunc('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS m,
+             COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment')
+                                AND amount > 0 THEN amount END), 0)::int AS top_up,
+             COALESCE(SUM(CASE WHEN kind = 'consumption' THEN ABS(amount) END), 0)::int AS consumption,
+             COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
+                                AND notes LIKE '미열람 환불%' THEN amount END), 0)::int AS refund,
+             COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
+                                AND notes LIKE '미열람 환불%' THEN 1 END), 0)::int     AS refund_count
+      FROM credit_ledger
+      WHERE created_at >= date_trunc('month', (now() AT TIME ZONE 'UTC') - ((${months} - 1) || ' month')::interval)
+      GROUP BY 1
+    )
+    SELECT months.m AS month,
+           COALESCE(agg.top_up, 0) AS top_up,
+           COALESCE(agg.consumption, 0) AS consumption,
+           COALESCE(agg.refund, 0) AS refund,
+           COALESCE(agg.refund_count, 0) AS refund_count
+    FROM months LEFT JOIN agg USING (m)
+    ORDER BY months.m ASC
+  `);
+  const monthlyRows = (monthly.rows ?? []) as Array<Record<string, unknown>>;
+
+  // 4) 카테고리(용역유형)별 소모/환불 — credit_ledger.rfq_id → rfqs.category JOIN.
+  //    카테고리가 없는(null) 레저는 'unknown' 으로 묶는다.
+  const cat = await db.execute(sql`
+    SELECT COALESCE(r.category, 'unknown') AS category,
+           COALESCE(SUM(CASE WHEN cl.kind = 'consumption' THEN ABS(cl.amount) END), 0)::int AS consumption,
+           COALESCE(SUM(CASE WHEN cl.kind = 'refund' AND cl.amount > 0
+                              AND cl.notes LIKE '미열람 환불%' THEN cl.amount END), 0)::int AS refund,
+           COALESCE(SUM(CASE WHEN cl.kind = 'consumption' THEN 1 END), 0)::int             AS consumption_count,
+           COALESCE(SUM(CASE WHEN cl.kind = 'refund' AND cl.amount > 0
+                              AND cl.notes LIKE '미열람 환불%' THEN 1 END), 0)::int AS refund_count
+    FROM credit_ledger cl
+    LEFT JOIN rfqs r ON r.id = cl.rfq_id
+    WHERE cl.kind IN ('consumption','refund')
+    GROUP BY 1
+    ORDER BY consumption DESC
+  `);
+  const catRows = (cat.rows ?? []) as Array<Record<string, unknown>>;
+
+  // 5) 최근 30일 미열람 환불 통계.
+  const last30 = await db.execute(sql`
+    SELECT COALESCE(SUM(amount), 0)::int AS amount,
+           COALESCE(SUM(CASE WHEN amount > 0 THEN 1 END), 0)::int AS count
+    FROM credit_ledger
+    WHERE kind = 'refund'
+      AND amount > 0
+      AND notes LIKE '미열람 환불%'
+      AND created_at >= (now() - interval '30 days')
+  `);
+  const r30 = (last30.rows?.[0] ?? {}) as Record<string, unknown>;
+
+  res.json({
+    totals: {
+      topUpAmount: Number(t.top_up_amount ?? 0),
+      consumptionAmount: Number(t.consumption_amount ?? 0),
+      refundAmount: Number(t.refund_amount ?? 0),
+      refundCount: Number(t.refund_count ?? 0),
+      walletBalance: Number(w.wallet_balance ?? 0),
+      walletPointsBalance: Number(w.wallet_points_balance ?? 0),
+    },
+    monthly: monthlyRows.map((r) => ({
+      month: String(r.month),
+      topUp: Number(r.top_up ?? 0),
+      consumption: Number(r.consumption ?? 0),
+      refund: Number(r.refund ?? 0),
+      refundCount: Number(r.refund_count ?? 0),
+    })),
+    byCategory: catRows.map((r) => ({
+      category: String(r.category),
+      consumption: Number(r.consumption ?? 0),
+      refund: Number(r.refund ?? 0),
+      consumptionCount: Number(r.consumption_count ?? 0),
+      refundCount: Number(r.refund_count ?? 0),
+    })),
+    refundLast30d: {
+      amount: Number(r30.amount ?? 0),
+      count: Number(r30.count ?? 0),
+    },
+    months,
+    topUpKinds: TOP_UP_KINDS,
+  });
+});
+
 router.get("/credits/admin/wallets", hqOnly, async (_req, res): Promise<void> => {
   const rows = await db
     .select({

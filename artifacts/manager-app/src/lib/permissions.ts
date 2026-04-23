@@ -531,7 +531,7 @@ export const ROUTES: RouteEntry[] = [
   // [Task #267] 파트너 크레딧 — 관리자 대시보드의 VendorCreditsPanel 만 떼어 단독 페이지로 진입.
   { path: "/platform/credits",
     component: lazy(() => import("@/pages/platform-credits")),
-    label: "파트너 크레딧", icon: Coins, group: "settings",
+    label: "파트너 크레딧 현황", icon: Coins, group: "settings",
     access: ["platform_admin"], hidden: true },
   // [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책 통합 관리.
   { path: "/platform/quote-credit-policies",
@@ -768,7 +768,7 @@ function platformAdminSidebar(): NavSection[] {
       items: [
         { path: "/platform/partners", label: "현황", icon: Package },
         { path: "/vendors", label: "협력업체", icon: Building2 },
-        { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
+        { path: "/platform/credits", label: "파트너 크레딧 현황", icon: Coins },
         // [Task #298] 카테고리 × 프리미엄 단위 크레딧/환불 정책 통합 관리.
         { path: "/platform/quote-credit-policies", label: "견적 유형별 크레딧 설정", icon: Coins },
       ],
