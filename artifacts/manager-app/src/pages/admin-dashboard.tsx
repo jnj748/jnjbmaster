@@ -35,9 +35,9 @@ interface UserRecord {
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
   partner: "파트너사",
-  platform_admin: "플랫폼 관리자",
-  hq_executive: "총괄책임자",
-  accountant: "회계/행정",
+  platform_admin: "플랫폼",
+  hq_executive: "본사",
+  accountant: "경리",
   facility_staff: "시설관리",
 };
 

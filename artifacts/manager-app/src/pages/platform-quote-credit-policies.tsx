@@ -51,7 +51,7 @@ export default function PlatformQuoteCreditPoliciesPage() {
   if (user?.role !== "platform_admin") {
     return (
       <div className="p-6">
-        <p className="text-sm text-muted-foreground">플랫폼 관리자만 접근할 수 있습니다.</p>
+        <p className="text-sm text-muted-foreground">플랫폼만 접근할 수 있습니다.</p>
       </div>
     );
   }

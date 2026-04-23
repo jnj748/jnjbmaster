@@ -290,7 +290,7 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
   // AI가 즉시 인용할 수 있도록 한다.
   const latestBill = recentBills[0] ?? null;
 
-  // [공통자료] 플랫폼 관리자가 업로드한 법령·개정안·운영 가이드 등.
+  // [공통자료] 플랫폼이 업로드한 법령·개정안·운영 가이드 등.
   // 모든 건물 공통이며 활성(isActive=true) 자료만 포함한다.
   // 토큰 절약을 위해 본문은 항목당 1500자, 전체 합 8000자로 잘라 사용.
   // 토큰 예산을 넘는 자료는 머리만 자르고 "(이하 생략)" 표기.
@@ -395,7 +395,7 @@ export async function buildBuildingContext(buildingId: number | null): Promise<B
     // 모든 건물 공통으로 적용되는 법령·개정안·운영 가이드 등.
     // 본문(body)을 직접 인용해도 되며, 자료가 없으면 일반 상식으로 답하세요.
     platformKnowledge: {
-      note: "플랫폼 관리자가 등록한 공통 자료입니다. 법령·개정안·내부 가이드 등이 포함되며, 현재 건물에 한정되지 않는 전사 공통 정보입니다. 자료를 인용할 때는 한국어 제목과 시행일(있을 경우)을 함께 표기하세요.",
+      note: "플랫폼이 등록한 공통 자료입니다. 법령·개정안·내부 가이드 등이 포함되며, 현재 건물에 한정되지 않는 전사 공통 정보입니다. 자료를 인용할 때는 한국어 제목과 시행일(있을 경우)을 함께 표기하세요.",
       docs: platformDocs,
     },
   };

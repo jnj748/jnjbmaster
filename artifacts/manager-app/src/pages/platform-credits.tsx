@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Badge } from "@/components/ui/badge";
 import { VendorCreditsPanel } from "@/pages/admin-dashboard";
 
-// [Task #312] 플랫폼관리자 — 파트너 크레딧 현황 대시보드.
+// [Task #312] 플랫폼 — 파트너 크레딧 현황 대시보드.
 //   기존 "파트너 크레딧" 메뉴(잔액 표 + 수동 충전/차감)를 대시보드 형태로 재구성.
 //   상단: KPI 카드 4개 / 월별 충전·소모·환불 추이 / 용역유형별 소모·환불.
 //   하단: 기존 파트너별 잔액·수동 조정 패널을 그대로 유지(운영 편의).

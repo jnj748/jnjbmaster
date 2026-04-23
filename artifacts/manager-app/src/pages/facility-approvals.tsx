@@ -1,4 +1,4 @@
-// [Task #132] 시설기사 가입 승인 처리 화면 (관리소장 / 본사 / 플랫폼관리자).
+// [Task #132] 시설기사 가입 승인 처리 화면 (관리소장 / 본사 / 플랫폼).
 import { useEffect, useState } from "react";
 import { Check, X, RefreshCw, UserCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";

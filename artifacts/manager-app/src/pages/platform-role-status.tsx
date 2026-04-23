@@ -12,7 +12,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 
-// [Task #267] 플랫폼관리자 — 역할별 가입/활동 현황 페이지.
+// [Task #267] 플랫폼 — 역할별 가입/활동 현황 페이지.
 //   5개 라우트(/platform/managers, accountants, facility-staff, hq-executives, partners)가
 //   동일 레이아웃을 공유하므로 단일 컴포넌트를 매개변수화하고 얇은 래퍼 5개로 export.
 //   백엔드 신규 엔드포인트 없이 기존 GET /api/users 만 사용한다.

@@ -437,7 +437,7 @@ export default function Attendance() {
                               <TableCell className="font-medium">{s.userName}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">
-                                  {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설기사" : s.role === "accountant" ? "경리/회계" : s.role}
+                                  {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설기사" : s.role === "accountant" ? "경리" : s.role}
                                 </Badge>
                               </TableCell>
                               <TableCell>{s.presentDays}일</TableCell>
@@ -485,7 +485,7 @@ export default function Attendance() {
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-sm">{s.userName}</span>
                               <Badge variant="outline" className="text-xs">
-                                {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설기사" : s.role === "accountant" ? "경리/회계" : s.role}
+                                {s.role === "manager" ? "관리소장" : s.role === "facility_staff" ? "시설기사" : s.role === "accountant" ? "경리" : s.role}
                               </Badge>
                             </div>
                             <span className="text-sm font-semibold">{s.attendanceRate}%</span>

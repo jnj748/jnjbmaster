@@ -380,7 +380,7 @@ export default function ApprovalCreate() {
   const roleLabels: Record<string, string> = {
     manager: "관리소장",
     partner: "파트너사",
-    platform_admin: "플랫폼 관리자",
+    platform_admin: "플랫폼",
   };
 
   const availableApprovers = userList.filter(

@@ -88,7 +88,7 @@ const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
-// [Task #267] 플랫폼관리자 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
+// [Task #267] 플랫폼 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
 const PlatformRoleManagers = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.ManagersStatus })));
 const PlatformRoleAccountants = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.AccountantsStatus })));
 const PlatformRoleFacility = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.FacilityStaffStatus })));
@@ -152,10 +152,10 @@ export function getEffectiveRole(user: { role?: string | null; portalType?: stri
 
 export const ROLE_LABELS: Record<Role, string> = {
   manager: "관리소장",
-  accountant: "경리/회계",
+  accountant: "경리",
   facility_staff: "시설기사",
-  hq_executive: "총괄책임자",
-  platform_admin: "플랫폼 관리자",
+  hq_executive: "본사",
+  platform_admin: "플랫폼",
   partner: "파트너사",
 };
 
@@ -171,7 +171,7 @@ export const GROUP_TITLES: Record<Group, string> = {
 
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   manager: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
-  // [플랫폼관리자 메뉴 구조조정] 플랫폼관리자는 개별 건물 실무를 직접 수행하지
+  // [플랫폼 메뉴 구조조정] 플랫폼는 개별 건물 실무를 직접 수행하지
   //   않으므로 dashboard/residents/facility/accounting 그룹의 사이드바 노출을
   //   전부 제거하고, "보고/마켓플레이스/설정" 3 그룹만 사용한다. 통합 대시보드
   //   ("/")는 ROOT_DASHBOARDS 로 항상 진입 가능하므로 영향 없음.
@@ -195,8 +195,8 @@ const FULL_OPS: Role[] = ["manager", "platform_admin"];
  */
 export const ROUTES: RouteEntry[] = [
   // ── Dashboard group (besides "/") ────────────────────────────────
-  // [플랫폼관리자 메뉴 구조조정] 일정·업무관리·AI비서·업무일지는 현장 운영 도구로,
-  //   플랫폼관리자 사이드바에서는 숨긴다 (라우트 접근은 지원/디버깅용으로 유지).
+  // [플랫폼 메뉴 구조조정] 일정·업무관리·AI비서·업무일지는 현장 운영 도구로,
+  //   플랫폼 사이드바에서는 숨긴다 (라우트 접근은 지원/디버깅용으로 유지).
   {
     path: "/calendar", component: CalendarPage,
     label: "일정", icon: CalendarDays, group: "dashboard",
@@ -238,8 +238,8 @@ export const ROUTES: RouteEntry[] = [
   },
 
   // ── Residents group ─────────────────────────────────────────────
-  // [플랫폼관리자 메뉴 구조조정] 호실/입주민/차량은 건물별 운영 데이터로,
-  //   플랫폼관리자 사이드바에서는 숨긴다.
+  // [플랫폼 메뉴 구조조정] 호실/입주민/차량은 건물별 운영 데이터로,
+  //   플랫폼 사이드바에서는 숨긴다.
   {
     path: "/units", component: Units,
     label: "호실 관리", icon: Building, group: "residents",
@@ -282,7 +282,7 @@ export const ROUTES: RouteEntry[] = [
     bottomLabel: "시설",
     bottomOrder: 10,
   },
-  // [플랫폼관리자 메뉴 구조조정] 시설 운영 항목 4종은 플랫폼관리자 사이드바에서 숨김.
+  // [플랫폼 메뉴 구조조정] 시설 운영 항목 4종은 플랫폼 사이드바에서 숨김.
   {
     path: "/inspections", component: Inspections,
     label: "법정 점검", icon: Shield, group: "facility",
@@ -342,15 +342,15 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: [],
     // [Task #246] manager 역할은 회계 탭을 하단 네비에서 제외 (사이드바·더보기에서는 유지).
-    // [플랫폼관리자 메뉴 구조조정] 모바일 하단 "회계" 탭에서도 platform_admin 제거.
+    // [플랫폼 메뉴 구조조정] 모바일 하단 "회계" 탭에서도 platform_admin 제거.
     bottomNav: ["accountant"],
     bottomLabel: "회계",
     bottomOrder: 30,
   },
   // [관리소장 모드 단순화] 회계 그룹은 관리소장에게 "관리비 요약"만 노출.
   //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·회계(accountant)
-  //   및 플랫폼 관리자 전용으로 한정.
-  // [플랫폼관리자 메뉴 구조조정] 회계 운영 항목은 플랫폼관리자 사이드바에서 숨김.
+  //   및 플랫폼 전용으로 한정.
+  // [플랫폼 메뉴 구조조정] 회계 운영 항목은 플랫폼 사이드바에서 숨김.
   {
     path: "/erp/accounting", component: ErpPhase2,
     label: "회계 엔진", icon: Calculator, group: "accounting",
@@ -427,14 +427,14 @@ export const ROUTES: RouteEntry[] = [
     label: "기안서", icon: ClipboardList, group: "reports",
     // [관리소장 메뉴 숨김] 기안서 기능은 문서생성으로 대체되어 manager 접근 제거
     access: ["platform_admin", "accountant"],
-    // [플랫폼관리자 메뉴 구조조정] 기안서 작성은 경리 실무 — 플랫폼관리자 사이드바에서 숨김.
+    // [플랫폼 메뉴 구조조정] 기안서 작성은 경리 실무 — 플랫폼 사이드바에서 숨김.
     sideMenu: ["accountant"],
   },
   {
     path: "/approvals", component: Approvals,
     label: "결재함", icon: ClipboardCheck, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
-    // [관리소장 메뉴 숨김] 결재함은 회계 사이드바에만 노출 (플랫폼관리자 제외).
+    // [관리소장 메뉴 숨김] 결재함은 회계 사이드바에만 노출 (플랫폼 제외).
     sideMenu: ["accountant"],
     bottomNav: ["accountant"],
     bottomLabel: "결재",
@@ -449,7 +449,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/report-system", component: ReportSystemPage,
     label: "보고 체계", icon: BarChart3, group: "reports",
     access: ["manager", "platform_admin"],
-    // [관리소장 메뉴 숨김] 보고 체계는 플랫폼 관리자 사이드바에만 노출.
+    // [관리소장 메뉴 숨김] 보고 체계는 플랫폼 사이드바에만 노출.
     sideMenu: ["platform_admin"],
   },
   {
@@ -457,7 +457,7 @@ export const ROUTES: RouteEntry[] = [
     label: "일간/주간 보고", icon: FileText, group: "reports",
     access: ["manager", "platform_admin", "hq_executive"],
     // [관리소장 메뉴 숨김] 일간/주간 보고는 본사 총괄 사이드바에만 노출.
-    // [플랫폼관리자 메뉴 구조조정] 플랫폼관리자 사이드바에서도 숨김.
+    // [플랫폼 메뉴 구조조정] 플랫폼 사이드바에서도 숨김.
     sideMenu: ["hq_executive"],
     bottomNav: ["hq_executive"],
     bottomLabel: "보고서",
@@ -465,7 +465,7 @@ export const ROUTES: RouteEntry[] = [
   },
 
   // ── Partner marketplace group ───────────────────────────────────
-  // [플랫폼관리자 메뉴 구조조정] 견적 요청은 관리소장 실무 — 플랫폼관리자 사이드바에서 숨김.
+  // [플랫폼 메뉴 구조조정] 견적 요청은 관리소장 실무 — 플랫폼 사이드바에서 숨김.
   {
     path: "/rfqs", component: Rfqs,
     label: "견적 요청", icon: Send, group: "marketplace",
@@ -476,7 +476,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/work-reports", component: WorkReportsPage,
     label: "작업 검수", icon: ClipboardCheck, group: "marketplace",
     access: ["manager", "platform_admin"],
-    // [관리소장 메뉴 숨김] 작업 검수는 플랫폼 관리자 사이드바에만 노출.
+    // [관리소장 메뉴 숨김] 작업 검수는 플랫폼 사이드바에만 노출.
     sideMenu: ["platform_admin"],
   },
   {
@@ -501,12 +501,12 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/users", component: Users_,
     label: "사용자 관리", icon: Users, group: "settings",
-    // [관리소장 메뉴 숨김] 사용자 관리는 플랫폼 관리자/본사 권한 전용.
+    // [관리소장 메뉴 숨김] 사용자 관리는 플랫폼/본사 권한 전용.
     access: ["platform_admin", "hq_executive"],
     // [Task #267] platform_admin 의 사이드바·하단 네비는 커스텀 브랜치에서 직접 구성.
     sideMenu: ["hq_executive"],
   },
-  // [Task #267] 플랫폼관리자 전용 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
+  // [Task #267] 플랫폼 전용 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
   //   사이드바 노출은 커스텀 브랜치(getSidebarSections platform_admin)에서 직접 구성하므로 hidden:true.
   { path: "/platform/managers", component: PlatformRoleManagers,
     label: "관리소장 현황", icon: Building2, group: "dashboard",
@@ -523,7 +523,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/platform/partners", component: PlatformRolePartners,
     label: "파트너사 현황", icon: Package, group: "dashboard",
     access: ["platform_admin"], hidden: true },
-  // [Task #296] 유저유형별 이용현황 분석 대시보드 — 플랫폼관리자 전용.
+  // [Task #296] 유저유형별 이용현황 분석 대시보드 — 플랫폼 전용.
   { path: "/platform/usage-analytics",
     component: lazy(() => import("@/pages/platform-usage-analytics")),
     label: "유저유형별 이용현황", icon: BarChart3, group: "settings",
@@ -544,18 +544,18 @@ export const ROUTES: RouteEntry[] = [
     label: "캠페인 알림", icon: Megaphone, group: "settings",
     access: ["platform_admin"], hidden: true },
   {
-    // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼관리자)
+    // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼)
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
     label: "시설기사 승인", icon: UserCheck, group: "settings",
     access: ["manager", "platform_admin", "hq_executive"],
-    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼 관리자/본사만 노출.
+    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼/본사만 노출.
     sideMenu: ["platform_admin", "hq_executive"],
   },
   {
     path: "/document-templates", component: DocumentTemplates,
     label: "서식 관리", icon: FileText, group: "settings",
     access: ["manager", "platform_admin"],
-    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼 관리자만 노출. 접근 권한 자체는 유지.
+    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼만 노출. 접근 권한 자체는 유지.
     sideMenu: ["platform_admin"],
   },
   {
@@ -571,7 +571,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin", "hq_executive"],
   },
   {
-    // 플랫폼관리자 전용 — 모든 관리소장 AI 비서가 공통 참조하는
+    // 플랫폼 전용 — 모든 관리소장 AI 비서가 공통 참조하는
     // 법령·개정안·운영 가이드 자료실.
     path: "/platform-knowledge-docs",
     component: lazy(() => import("@/pages/platform-knowledge-docs")),
@@ -579,7 +579,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin", "hq_executive"],
   },
   {
-    // [Task #221] 플랫폼관리자 전용 — 필수/제안업무 템플릿 일괄 관리.
+    // [Task #221] 플랫폼 전용 — 필수/제안업무 템플릿 일괄 관리.
     path: "/settings/task-templates",
     component: lazy(() => import("@/pages/task-templates")),
     label: "업무 템플릿 관리", icon: ClipboardList, group: "settings",
@@ -606,7 +606,7 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin"],
     sideMenu: ["manager", "platform_admin"],
   },
-  // [플랫폼관리자 메뉴 정비] 역할×메뉴 활성/비활성 그리드. 플랫폼관리자 전용.
+  // [플랫폼 메뉴 정비] 역할×메뉴 활성/비활성 그리드. 플랫폼 전용.
   //   사이드바 노출은 platformAdminSidebar() 가 직접 추가하므로 여기서는 hidden.
   {
     path: "/settings/menu-overrides",
@@ -723,7 +723,7 @@ export function getRoutesForRole(role: Role): { path: string; component: AnyComp
   }));
 }
 
-// [카테고리 메뉴 제어] 플랫폼 관리자가 사용자별로 끈 카테고리.
+// [카테고리 메뉴 제어] 플랫폼이 사용자별로 끈 카테고리.
 //   "dashboard" 는 항상 활성으로 강제(홈 진입 보장)하고, 그 외 그룹만 필터.
 function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): boolean {
   if (group === "dashboard") return true;
@@ -731,11 +731,11 @@ function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): b
   return !disabled.includes(group);
 }
 
-// [Task #267] 플랫폼관리자 전용 사이드바.
+// [Task #267] 플랫폼 전용 사이드바.
 //   ROUTES.access 는 그대로 두어 직접 URL 접근은 보존하되, 사이드바에서 실무 메뉴(시설/회계/입주민/
 //   보고/AI 비서 등)는 일괄 숨긴다.
 // [Task #283] 역할별 7 그룹 시안으로 확장 → 그러나 5개 역할 × 5개 콘텐츠 메뉴 = 25개 항목 중복 발생.
-// [플랫폼관리자 메뉴 정비] 약관·공지/캠페인·AI 자료·업무 템플릿은 이미 각 페이지 내부에
+// [플랫폼 메뉴 정비] 약관·공지/캠페인·AI 자료·업무 템플릿은 이미 각 페이지 내부에
 //   "역할별 탭"이 있으므로 사이드바에서는 단일 진입점만 노출한다. 역할 그룹에는 "현황"과
 //   그 역할 고유의 운영 메뉴(시설기사 승인 / 협력업체·크레딧)만 남기고, 콘텐츠 메뉴는
 //   "콘텐츠 관리" 그룹 한 곳으로 모은다.
@@ -804,7 +804,7 @@ function platformAdminSidebar(): NavSection[] {
 }
 
 // ── Role × menu block overrides ───────────────────────────────────
-// [플랫폼관리자 메뉴 정비] 플랫폼관리자가 "유저유형별 메뉴 활성화" 그리드에서
+// [플랫폼 메뉴 정비] 플랫폼이 "유저유형별 메뉴 활성화" 그리드에서
 //   특정 역할의 메뉴를 끄면, 사이드바·하단 네비·라우트 가드에서 모두 숨겨야 한다.
 //   서버는 enabled=false 행만 저장한다(부재 = 활성 기본값). 여기서는 path 를
 //   blockId 로 사용하며, ROUTES 의 path 와 1:1 매핑한다.
@@ -816,7 +816,7 @@ export function isMenuBlockEnabled(
   overrides?: readonly MenuOverride[] | null,
 ): boolean {
   if (!overrides || overrides.length === 0) return true;
-  // 플랫폼관리자는 본인 사이드바 토글 대상이 아니므로 항상 활성.
+  // 플랫폼는 본인 사이드바 토글 대상이 아니므로 항상 활성.
   if (role === "platform_admin") return true;
   for (const o of overrides) {
     if (o.role === role && o.blockId === blockId && o.enabled === false) return false;
@@ -856,7 +856,7 @@ export function getSidebarSections(
   const sections: NavSection[] = [];
 
   for (const group of groups) {
-    // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리는 사이드바에서 숨김.
+    // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리는 사이드바에서 숨김.
     if (!isCategoryEnabled(group, disabledCategories)) continue;
     const items: NavItem[] = [];
     if (group === "dashboard") {
@@ -867,7 +867,7 @@ export function getSidebarSections(
       if (entry.hidden) continue;
       const visibleTo = entry.sideMenu ?? entry.access;
       if (!visibleTo.includes(role)) continue;
-      // [플랫폼관리자 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
+      // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
       if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
       items.push({
         path: entry.path,
@@ -897,7 +897,7 @@ export function getBottomNavItems(
   disabledCategories?: readonly string[] | null,
   overrides?: readonly MenuOverride[] | null,
 ): NavItem[] {
-  // [Task #267] 플랫폼관리자 하단 네비도 사이드바와 동일 원칙으로 정리.
+  // [Task #267] 플랫폼 하단 네비도 사이드바와 동일 원칙으로 정리.
   //   홈(현황 카드) / 사용자 / 설정. 시설/회계/AI비서/업무일지 같은 실무 탭은 노출하지 않는다.
   if (role === "platform_admin") {
     return [
@@ -937,7 +937,7 @@ export function getBottomNavItems(
     if (!inBottom.includes(role)) continue;
     // [카테고리 메뉴 제어] 끈 카테고리에 속하는 하단 탭은 숨김.
     if (!isCategoryEnabled(entry.group, disabledCategories)) continue;
-    // [플랫폼관리자 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 하단 탭에서도 숨김.
+    // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 하단 탭에서도 숨김.
     if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
     tail.push({
       entry,

@@ -191,7 +191,7 @@ const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 // [Task #283] 역할별 노출 옵션 (UI). 빈 배열 = 전체 공통.
 const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "manager", label: "관리자" },
-  { value: "accountant", label: "경리/회계" },
+  { value: "accountant", label: "경리" },
   { value: "facility_staff", label: "시설직원" },
   { value: "partner", label: "파트너사" },
   { value: "hq_executive", label: "본사총괄" },
@@ -575,7 +575,7 @@ export default function TaskTemplatesPage() {
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground">
           <AlertCircle className="w-8 h-8 mx-auto mb-2 text-amber-500" />
-          이 화면은 플랫폼 관리자 전용입니다.
+          이 화면은 플랫폼 전용입니다.
         </CardContent>
       </Card>
     );

@@ -20,7 +20,7 @@ export default function FacilityWizardPage() {
   return (
     <WizardShell
       title="시설기사 정보 등록"
-      subtitle="등록 후 관리소장 또는 플랫폼 관리자의 승인을 받습니다."
+      subtitle="등록 후 관리소장 또는 플랫폼의 승인을 받습니다."
       currentStep={1}
       totalSteps={2}
       loading={loading}
@@ -95,7 +95,7 @@ export default function FacilityWizardPage() {
           </div>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          제출하면 해당 지역 관리소장 또는 플랫폼 관리자가 승인 여부를 검토합니다. 승인 전까지는 일부 기능이 제한됩니다.
+          제출하면 해당 지역 관리소장 또는 플랫폼이 승인 여부를 검토합니다. 승인 전까지는 일부 기능이 제한됩니다.
         </div>
       </div>
     </WizardShell>

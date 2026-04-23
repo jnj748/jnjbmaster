@@ -13,7 +13,7 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-// 플랫폼 관리자가 관리하는 공통 지식 자료(법령/개정안/가이드 등) CRUD.
+// 플랫폼이 관리하는 공통 지식 자료(법령/개정안/가이드 등) CRUD.
 // 관리소장 AI 비서가 공통 컨텍스트로 참조한다.
 
 // 본문 입력 검증:

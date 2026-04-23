@@ -124,7 +124,7 @@ export default function PlatformUsageAnalyticsPage() {
   if (!isPlatformAdmin) {
     return (
       <div className="p-6">
-        <div className="text-sm text-slate-600">플랫폼 관리자만 접근할 수 있습니다.</div>
+        <div className="text-sm text-slate-600">플랫폼만 접근할 수 있습니다.</div>
       </div>
     );
   }
@@ -140,7 +140,7 @@ export default function PlatformUsageAnalyticsPage() {
         </div>
         <p className="text-xs text-slate-500 mt-1">
           역할별로 어떤 메뉴를 얼마나 사용하는지, 이전 동기간 대비 증감률을 한눈에 확인합니다.
-          플랫폼 관리자 본인의 트래픽은 분석에서 제외됩니다.
+          플랫폼 본인의 트래픽은 분석에서 제외됩니다.
         </p>
       </div>
 

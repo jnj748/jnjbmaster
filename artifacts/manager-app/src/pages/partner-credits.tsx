@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // [Task #290] 파트너 전용 — 잔액·포인트·이력 + 크레딧 충전 신청 진입점.
 //   실 PG 결제는 Task #68 에서 채워질 예정으로, 이 페이지는 패키지 선택 UI 골격까지만 제공한다.
-//   기존 플랫폼관리자용 /platform/credits (VendorCreditsPanel)는 건드리지 않는다.
+//   기존 플랫폼용 /platform/credits (VendorCreditsPanel)는 건드리지 않는다.
 
 interface TopupPackage {
   id: string;

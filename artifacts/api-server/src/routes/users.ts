@@ -17,7 +17,7 @@ function generateTempPassword(): string {
 const validRoles = ["manager", "partner", "platform_admin", "hq_executive", "accountant", "facility_staff"];
 const validPortals = ["building", "partner", "hq"];
 
-// [카테고리 메뉴 제어] 플랫폼 관리자가 사용자별로 끌 수 있는 카테고리.
+// [카테고리 메뉴 제어] 플랫폼이 사용자별로 끌 수 있는 카테고리.
 //   "dashboard" 는 홈 진입 보장을 위해 항상 활성 — 입력에서 제거.
 const validCategories = ["residents", "facility", "accounting", "reports", "marketplace", "settings"] as const;
 function sanitizeDisabledCategories(value: unknown): string[] | undefined {
@@ -49,7 +49,7 @@ router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), a
         portalType: usersTable.portalType,
         createdAt: usersTable.createdAt,
         disabledCategories: usersTable.disabledCategories,
-        // [Task #267] 플랫폼관리자 역할 현황 페이지에서 "활성 건물 수" 집계용.
+        // [Task #267] 플랫폼 역할 현황 페이지에서 "활성 건물 수" 집계용.
         buildingId: usersTable.buildingId,
       })
       .from(usersTable)
@@ -78,7 +78,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
     const actorRole = req.user?.role;
     const privilegedRoles = ["platform_admin", "hq_executive"];
     if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
-      res.status(403).json({ error: "해당 역할의 사용자는 플랫폼 관리자만 생성할 수 있습니다" });
+      res.status(403).json({ error: "해당 역할의 사용자는 플랫폼만 생성할 수 있습니다" });
       return;
     }
 
@@ -92,7 +92,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       return;
     }
     if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
-      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
+      res.status(400).json({ error: "본사 포털은 본사 또는 플랫폼만 가능합니다" });
       return;
     }
     if (portalType === "building" && role === "partner") {
@@ -108,7 +108,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
 
     const finalPassword = password || generateTempPassword();
     const passwordHash = await bcrypt.hash(finalPassword, 10);
-    // [카테고리 메뉴 제어] disabledCategories 는 플랫폼 관리자만 설정 가능. 그 외 역할은 무시.
+    // [카테고리 메뉴 제어] disabledCategories 는 플랫폼만 설정 가능. 그 외 역할은 무시.
     const disabledForInsert =
       actorRole === "platform_admin" ? sanitizeDisabledCategories(disabledCategories) : undefined;
     const [user] = await db.insert(usersTable).values({
@@ -150,10 +150,10 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
     const { name, role, phone, portalType, disabledCategories } = req.body;
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
-    // [카테고리 메뉴 제어] 플랫폼 관리자만 disabledCategories 수정 가능.
+    // [카테고리 메뉴 제어] 플랫폼만 disabledCategories 수정 가능.
     if (disabledCategories !== undefined) {
       if (req.user?.role !== "platform_admin") {
-        res.status(403).json({ error: "카테고리 메뉴 설정은 플랫폼 관리자만 변경할 수 있습니다" });
+        res.status(403).json({ error: "카테고리 메뉴 설정은 플랫폼만 변경할 수 있습니다" });
         return;
       }
       const sanitized = sanitizeDisabledCategories(disabledCategories) ?? [];
@@ -167,7 +167,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       const actorRole = req.user?.role;
       const privilegedRoles = ["platform_admin", "hq_executive"];
       if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
-        res.status(403).json({ error: "해당 역할로의 변경은 플랫폼 관리자만 가능합니다" });
+        res.status(403).json({ error: "해당 역할로의 변경은 플랫폼만 가능합니다" });
         return;
       }
       updateData.role = role;
@@ -202,7 +202,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       return;
     }
     if (finalPortal === "hq" && !["hq_executive", "platform_admin"].includes(finalRole)) {
-      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
+      res.status(400).json({ error: "본사 포털은 본사 또는 플랫폼만 가능합니다" });
       return;
     }
     if (finalPortal === "building" && finalRole === "partner") {

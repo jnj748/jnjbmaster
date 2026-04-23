@@ -40,7 +40,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     roleSelected = false;
   } else {
     if (!selfRegistrableRoles.includes(requestedRole)) {
-      res.status(400).json({ error: "자가 등록할 수 없는 역할입니다. 플랫폼 관리자에게 문의해주세요." });
+      res.status(400).json({ error: "자가 등록할 수 없는 역할입니다. 플랫폼에게 문의해주세요." });
       return;
     }
     role = requestedRole;
@@ -54,7 +54,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       return;
     }
     if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
-      res.status(400).json({ error: "본사 포털은 총괄책임자 또는 플랫폼 관리자만 가능합니다" });
+      res.status(400).json({ error: "본사 포털은 본사 또는 플랫폼만 가능합니다" });
       return;
     }
     if (portalType === "building" && role === "partner") {

@@ -2,7 +2,7 @@ import { pgTable, text, serial, integer, timestamp, boolean, index } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-// 플랫폼 관리자가 업로드/입력하는 공통 지식 자료 (법령·개정안·운영 가이드 등).
+// 플랫폼이 업로드/입력하는 공통 지식 자료 (법령·개정안·운영 가이드 등).
 // 모든 관리소장 AI 비서가 공통으로 참조한다.
 //
 // - bodyText: AI 가 실제로 사용하는 본문(직접 붙여넣기). 가장 중요한 필드.

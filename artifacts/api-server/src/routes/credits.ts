@@ -26,7 +26,7 @@ import {
 const router: IRouter = Router();
 const hqOnly = requireRole("platform_admin", "hq_executive");
 const partnerOrHq = requireRole("partner", "platform_admin", "hq_executive");
-// [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책은 플랫폼 관리자 전용.
+// [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책은 플랫폼 전용.
 const platformAdminOnly = requireRole("platform_admin");
 
 async function resolveVendorIdForUser(req: any): Promise<number | null> {
@@ -161,7 +161,7 @@ router.post("/credits/adjust", hqOnly, async (req, res): Promise<void> => {
   res.status(201).json(ledger);
 });
 
-// [Task #312] 플랫폼 관리자 — 파트너 크레딧 현황 대시보드.
+// [Task #312] 플랫폼 — 파트너 크레딧 현황 대시보드.
 //   기간(months) 동안의 충전(top-up)/소모(consumption)/환불(refund) 추이 + 카테고리별 소모/환불,
 //   현재 지갑 누계, 최근 30일 미열람 환불 통계.
 //   집계는 모두 read-only 이며, raw SQL 로 한 번에 그룹핑한다.
@@ -396,7 +396,7 @@ router.delete("/credits/category-pricing/:id", hqOnly, async (req, res): Promise
   res.json({ ok: true, removed });
 });
 
-// [Task #298] 견적 유형별 크레딧 정책 통합 관리 — 플랫폼 관리자 전용 엔드포인트.
+// [Task #298] 견적 유형별 크레딧 정책 통합 관리 — 플랫폼 전용 엔드포인트.
 //   GET: 공통 기본값(platform_settings) + 카테고리 기본 행(default-region) 정책을 한 번에 반환.
 //   PUT: 한 카테고리의 기본 단가 행에 대한 정책 오버라이드 upsert.
 const POLICY_KEYS = [

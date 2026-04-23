@@ -11,11 +11,11 @@ interface UserRecord {
   phone: string | null;
   portalType: string;
   createdAt: string;
-  // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리.
+  // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리.
   disabledCategories?: string[];
 }
 
-// [카테고리 메뉴 제어] 플랫폼 관리자가 켜고 끌 수 있는 카테고리 목록.
+// [카테고리 메뉴 제어] 플랫폼이 켜고 끌 수 있는 카테고리 목록.
 //   "dashboard" 는 홈 진입 보장을 위해 제외.
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "facility", label: "시설관리" },
@@ -29,9 +29,9 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
 const roleLabels: Record<string, string> = {
   manager: "관리소장",
   partner: "파트너사",
-  platform_admin: "플랫폼 관리자",
-  hq_executive: "총괄책임자",
-  accountant: "회계/행정",
+  platform_admin: "플랫폼",
+  hq_executive: "본사",
+  accountant: "경리",
   facility_staff: "시설관리",
 };
 
@@ -366,7 +366,7 @@ function UserModal({
             role,
             phone: phone || null,
             portalType,
-            // [카테고리 메뉴 제어] 플랫폼 관리자만 보냄. 그 외 역할은 백엔드가 무시.
+            // [카테고리 메뉴 제어] 플랫폼만 보냄. 그 외 역할은 백엔드가 무시.
             ...(isPlatformAdmin ? { disabledCategories } : {}),
           }),
         });
@@ -388,7 +388,7 @@ function UserModal({
             role,
             phone: phone || null,
             portalType,
-            // [카테고리 메뉴 제어] 신규 생성 시에도 플랫폼 관리자가 끈 카테고리를 함께 저장.
+            // [카테고리 메뉴 제어] 신규 생성 시에도 플랫폼이 끈 카테고리를 함께 저장.
             ...(isPlatformAdmin ? { disabledCategories } : {}),
           }),
         });
@@ -412,11 +412,11 @@ function UserModal({
 
   const allRoles = [
     { value: "manager", label: "관리소장" },
-    { value: "accountant", label: "회계/행정" },
+    { value: "accountant", label: "경리" },
     { value: "facility_staff", label: "시설관리" },
-    { value: "hq_executive", label: "총괄책임자" },
+    { value: "hq_executive", label: "본사" },
     { value: "partner", label: "파트너사" },
-    { value: "platform_admin", label: "플랫폼 관리자" },
+    { value: "platform_admin", label: "플랫폼" },
   ];
 
   return (

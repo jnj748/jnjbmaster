@@ -380,10 +380,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [effectiveRole]);
 
   const isPartner = effectiveRole === "partner";
-  // [카테고리 메뉴 제어] 플랫폼 관리자가 끈 카테고리는 사이드바·하단 네비에서 모두 숨김.
+  // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리는 사이드바·하단 네비에서 모두 숨김.
   const disabledCategories = user?.disabledCategories ?? [];
   const disabledKey = disabledCategories.join(",");
-  // [플랫폼관리자 메뉴 정비] 역할×메뉴 활성화 그리드 결과를 1분 캐시로 가져와
+  // [플랫폼 메뉴 정비] 역할×메뉴 활성화 그리드 결과를 1분 캐시로 가져와
   //   사이드바·하단 네비 필터에 동일하게 적용.
   const menuOverrides = useMenuOverrides(!!user);
   const overridesKey = useMemo(

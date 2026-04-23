@@ -7,7 +7,7 @@
  */
 
 /**
- * 관리소장(manager), 파트너사(partner), 플랫폼 관리자(platform_admin), 총괄책임자(hq_executive), 회계/행정(accountant), 시설관리(facility_staff)
+ * 관리소장(manager), 파트너사(partner), 플랫폼(platform_admin), 본사(hq_executive), 경리(accountant), 시설관리(facility_staff)
  */
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 

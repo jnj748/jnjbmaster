@@ -7,7 +7,7 @@ import { and, desc, eq } from "drizzle-orm";
 const router: IRouter = Router();
 
 // [Task #132] 신청 주소/지역 기준으로 매칭되는 건물·관리소장을 찾고, 없으면 미지정으로 둔다.
-// 그리고 매칭된 관리소장(또는 플랫폼 관리자)에게 인박스 알림을 생성한다.
+// 그리고 매칭된 관리소장(또는 플랫폼)에게 인박스 알림을 생성한다.
 export async function resolveTargetsAndNotify(requestId: number): Promise<void> {
   const [reqRow] = await db.select().from(facilityStaffSignupRequestsTable)
     .where(eq(facilityStaffSignupRequestsTable.id, requestId));
@@ -152,7 +152,7 @@ router.post("/facility-signup-requests/:id/approve", requireRole("manager", "pla
   if (!guard.ok) { res.status(guard.status).json({ error: guard.error }); return; }
 
   // [Task #132] 승인 시 건물 배정은 관리소장이면 본인 건물,
-  // 플랫폼 관리자/HQ면 명시적으로 받거나 신청서의 targetBuildingId를 사용한다.
+  // 플랫폼/HQ면 명시적으로 받거나 신청서의 targetBuildingId를 사용한다.
   // 본문 buildingId가 명시되면 우선, 없으면 manager.buildingId, 없으면 request.targetBuildingId
   const [reqRowExisting] = await db.select().from(facilityStaffSignupRequestsTable)
     .where(eq(facilityStaffSignupRequestsTable.id, id));

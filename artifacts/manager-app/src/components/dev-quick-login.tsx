@@ -5,10 +5,10 @@ import { useAuth } from "@/contexts/auth-context";
 
 const TEST_ACCOUNTS = [
   { email: "manager@test.com", label: "관리소장", portalType: "building" as const, color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
-  { email: "accountant@test.com", label: "경리/회계", portalType: "building" as const, color: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
+  { email: "accountant@test.com", label: "경리", portalType: "building" as const, color: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
   { email: "facility@test.com", label: "시설기사", portalType: "building" as const, color: "bg-teal-100 text-teal-700 hover:bg-teal-200" },
-  { email: "hq@test.com", label: "총괄책임자", portalType: "hq" as const, color: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" },
-  { email: "admin@test.com", label: "플랫폼 관리자", portalType: "hq" as const, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
+  { email: "hq@test.com", label: "본사", portalType: "hq" as const, color: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" },
+  { email: "admin@test.com", label: "플랫폼", portalType: "hq" as const, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
   { email: "partner@test.com", label: "파트너사", portalType: "partner" as const, color: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
 ];
 

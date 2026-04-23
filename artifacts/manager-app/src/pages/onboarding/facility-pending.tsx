@@ -45,7 +45,7 @@ export default function FacilityPendingPage() {
         </div>
         <h1 className="mt-3 text-xl font-bold text-slate-900">승인 대기 중</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {user?.name ?? "회원"}님의 시설기사 가입 요청이 접수되었습니다. 관리소장 또는 플랫폼 관리자가 승인하면 모든 기능을 사용할 수 있습니다.
+          {user?.name ?? "회원"}님의 시설기사 가입 요청이 접수되었습니다. 관리소장 또는 플랫폼이 승인하면 모든 기능을 사용할 수 있습니다.
         </p>
         {request?.status === "rejected" && (
           <div className="mt-4 rounded-lg bg-red-50 text-red-700 p-3 text-xs text-left">

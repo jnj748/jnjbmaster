@@ -5,9 +5,9 @@ import { db, usageEventsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 // [Task #296] 유저유형별 이용현황 분석 — 이벤트 수집 + 집계 엔드포인트.
-//   - POST /usage-events  : 인증 사용자(플랫폼관리자 제외 기본)의 페이지 진입을 적재.
+//   - POST /usage-events  : 인증 사용자(플랫폼 제외 기본)의 페이지 진입을 적재.
 //                            role 은 서버측 req.user.role 를 신뢰(위·변조 방지).
-//   - GET  /platform/usage-analytics : 플랫폼관리자 전용 집계.
+//   - GET  /platform/usage-analytics : 플랫폼 전용 집계.
 
 const router: IRouter = Router();
 
@@ -35,7 +35,7 @@ router.post("/usage-events", async (req, res): Promise<void> => {
     res.status(204).end();
     return;
   }
-  // 플랫폼관리자 자기 자신의 트래픽은 분석 대상에서 제외(과한 자가집계 방지).
+  // 플랫폼 자기 자신의 트래픽은 분석 대상에서 제외(과한 자가집계 방지).
   if (req.user.role === "platform_admin") {
     res.status(204).end();
     return;

@@ -234,7 +234,7 @@ export default function Login() {
 
           {isHq && (
             <div className="mb-4 p-2.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs">
-              총괄책임자 · 플랫폼 관리자 전용 포털
+              본사 · 플랫폼 전용 포털
             </div>
           )}
 

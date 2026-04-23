@@ -27,7 +27,7 @@ const PutBody = z.object({
   overrides: z.array(OverrideRow),
 });
 
-// 플랫폼 관리자만 저장. 전체 페이로드를 받아 차이만 upsert/delete (단순화: 전부 upsert).
+// 플랫폼만 저장. 전체 페이로드를 받아 차이만 upsert/delete (단순화: 전부 upsert).
 router.put(
   "/platform/menu-overrides",
   requireRole("platform_admin"),

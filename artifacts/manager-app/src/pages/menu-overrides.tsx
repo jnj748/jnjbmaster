@@ -179,7 +179,7 @@ export default function MenuOverridesPage() {
   if (!isPlatformAdmin) {
     return (
       <div className="p-6">
-        <div className="text-sm text-slate-600">플랫폼 관리자만 접근할 수 있습니다.</div>
+        <div className="text-sm text-slate-600">플랫폼만 접근할 수 있습니다.</div>
       </div>
     );
   }

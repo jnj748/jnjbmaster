@@ -913,7 +913,7 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
     return;
   }
 
-  // [Task #174] 권한 검증: 본인 건물이거나 본사/플랫폼 관리자만 호출 가능.
+  // [Task #174] 권한 검증: 본인 건물이거나 본사/플랫폼만 호출 가능.
   const userId = req.user?.userId;
   if (!userId) {
     res.status(401).json({ error: "로그인이 필요합니다" });
@@ -1057,7 +1057,7 @@ router.get("/buildings/legal-inspections-summary", async (req: Request, res: Res
 
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   if (!user || (user.role !== "hq_executive" && user.role !== "platform_admin")) {
-    res.status(403).json({ error: "총괄책임자 전용입니다" });
+    res.status(403).json({ error: "본사 전용입니다" });
     return;
   }
 
