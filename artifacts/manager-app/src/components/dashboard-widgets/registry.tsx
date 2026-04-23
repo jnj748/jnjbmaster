@@ -117,8 +117,11 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   facility_staff: {
     widgets: ["building-info", "facility-main"],
   },
+  // [Task #267] 통합 대시보드 단순화: 5역할 카드 + 파트너 크레딧 패널만 노출.
+  //   admin-main 위젯이 ROLE_CARDS + VendorCreditsPanel 을 렌더하므로
+  //   pending-approvals 등 부가 위젯은 제거한다.
   platform_admin: {
-    widgets: ["pending-approvals", "admin-main"],
+    widgets: ["admin-main"],
   },
   hq_executive: {
     widgets: ["hq-main"],

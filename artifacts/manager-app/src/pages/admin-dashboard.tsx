@@ -7,10 +7,7 @@ import {
   Users,
   Building2,
   Shield,
-  Settings,
   UserPlus,
-  Activity,
-  ChevronRight,
   Wallet,
   Calculator,
   HardHat,
@@ -101,20 +98,10 @@ const ROLE_CARDS: {
   },
 ];
 
-const roleBadgeColors: Record<string, string> = {
-  manager: "bg-blue-100 text-blue-700",
-  partner: "bg-emerald-100 text-emerald-700",
-  platform_admin: "bg-purple-100 text-purple-700",
-  hq_executive: "bg-indigo-100 text-indigo-700",
-  accountant: "bg-amber-100 text-amber-700",
-  facility_staff: "bg-teal-100 text-teal-700",
-};
-
 export default function AdminDashboard() {
   const { token } = useAuth();
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const API_BASE = `${BASE}api`;
@@ -126,8 +113,8 @@ export default function AdminDashboard() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) setUsers(await res.json());
-      } catch {} finally {
-        setLoading(false);
+      } catch {
+        /* noop */
       }
     })();
   }, [token, API_BASE]);
@@ -137,10 +124,11 @@ export default function AdminDashboard() {
     return acc;
   }, {});
 
+  // [Task #267] 통합 대시보드는 5역할 카드 + 파트너 크레딧 패널만 단순 노출.
+  //   기존 "역할별 사용자 현황", "최근 등록 사용자", 하단 퀵링크 3개는 제거.
+  //   각 역할별 상세는 /platform/<role> 현황 페이지에서 다룬다.
   return (
     <div className="space-y-6">
-      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
-          사용자 관리 진입 버튼만 남긴다. */}
       <div className="flex items-start justify-end flex-wrap gap-3">
         <Button onClick={() => navigate("/users")} className="gap-2">
           <UserPlus className="w-4 h-4" />
@@ -148,7 +136,6 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      {/* [Task #267] 4-카드 사용자 통계를 5-역할 카드로 교체. 각 카드 클릭 시 역할 현황 페이지로 이동. */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {ROLE_CARDS.map((card) => (
           <Card
@@ -179,92 +166,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              역할별 사용자 현황
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(roleLabels).map(([role, label]) => (
-              <div key={role} className="flex items-center justify-between p-3 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <Badge className={`text-xs ${roleBadgeColors[role]}`}>{label}</Badge>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold">{roleCounts[role] || 0}명</span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              최근 등록 사용자
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? (
-              <p className="text-sm text-muted-foreground text-center py-4">로딩 중...</p>
-            ) : users.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">등록된 사용자가 없습니다</p>
-            ) : (
-              users.slice(-5).reverse().map((u) => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{u.name}</p>
-                    <p className="text-xs text-muted-foreground">{u.email}</p>
-                  </div>
-                  <Badge className={`text-[10px] ${roleBadgeColors[u.role]}`}>
-                    {roleLabels[u.role] || u.role}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
       <VendorCreditsPanel />
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/users")}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-accent/10"><Users className="w-5 h-5 text-accent" /></div>
-            <div>
-              <p className="text-sm font-medium">사용자 관리</p>
-              <p className="text-xs text-muted-foreground">계정 생성 · 역할 변경</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/settings?tab=building")}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10"><Building2 className="w-5 h-5 text-blue-500" /></div>
-            <div>
-              <p className="text-sm font-medium">건물 설정</p>
-              <p className="text-xs text-muted-foreground">건물 정보 · 사용자 배정</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/vendors")}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10"><Settings className="w-5 h-5 text-emerald-500" /></div>
-            <div>
-              <p className="text-sm font-medium">협력업체 관리</p>
-              <p className="text-xs text-muted-foreground">업체 등록 · 계약 관리</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
