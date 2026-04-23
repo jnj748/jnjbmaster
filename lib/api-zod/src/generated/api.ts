@@ -2220,6 +2220,8 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "tax_due",
     "task_overdue",
     "task_followup",
+    "task_template_mandatory",
+    "task_template_suggested",
     "warranty_expiry",
     "vendor_recommendation",
     "data_destruction",
