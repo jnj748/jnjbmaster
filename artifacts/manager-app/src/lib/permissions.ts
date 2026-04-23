@@ -782,7 +782,6 @@ function platformAdminSidebar(): NavSection[] {
       title: "설정",
       items: [
         { path: "/settings/menu-overrides", label: "유저유형별 메뉴 활성화", icon: Settings },
-        { path: "/attendance", label: "출퇴근 관리", icon: Clock },
         { path: "/settings/profile", label: "내정보 수정", icon: User },
         { path: "/settings/building", label: "건물정보 수정", icon: Building },
       ],
