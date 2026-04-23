@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable, legalAppointeesTable, accountingInitialFilesTable } from "@workspace/db";
-import { eq, and, lte, gte, sql, desc } from "drizzle-orm";
+import { eq, and, lte, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 import {
   LEGAL_PRESETS,
@@ -320,69 +320,82 @@ router.post("/buildings", async (req: Request, res: Response) => {
       })
       .where(eq(usersTable.id, userId));
 
-    // [Task #218] 신규 매니저 첫 건물 등록 시 대시보드 검증 편의를 위해 "test" 점검 4건을 시드한다.
-    //  - 필수업무현황(legal) 2건 + 제안업무현황(self_regular/seasonal) 2건.
-    //  - name="test" 중복 검사로 재시드 방지.
+    // [Task #265] 신규 매니저 첫 건물 등록 시 대시보드 체험용 실제 업무 4건을 시드한다.
+    //  - 필수업무현황(legal) 2건: 소방점검(연체) + 정화조 청소(D-20)
+    //  - 제안업무현황 2건: 미화·경비원 교육(D-5) + 에어컨 정비 공지(D-10)
+    //  - (buildingId, name) 4종 집합 기준으로 중복 검사하여 일부만 남아있어도 안전하게 멱등 유지.
     if (isFirstBuildingForManager) {
       try {
+        const SEED_NAMES: { fire: string; septic: string; edu: string; ac: string } = {
+          fire: "(테스트업무) 소방점검",
+          septic: "(테스트업무) 정화조 청소",
+          edu: "(테스트업무) 미화·경비원 교육의 달",
+          ac: "(테스트업무) 에어컨 가동 전 정비 진행 공지",
+        };
+        const seedNameList: string[] = Object.values(SEED_NAMES);
         const existingTest = await db
-          .select({ id: inspectionsTable.id })
+          .select({ name: inspectionsTable.name })
           .from(inspectionsTable)
-          .where(and(eq(inspectionsTable.buildingId, building.id), eq(inspectionsTable.name, "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요")))
-          .limit(1);
-        if (existingTest.length === 0) {
-          const today = new Date();
-          const plusDays = (n: number) => {
-            const d = new Date(today);
-            d.setDate(d.getDate() + n);
-            return d.toISOString().split("T")[0];
-          };
-          await db.insert(inspectionsTable).values([
-            {
-              buildingId: building.id,
-              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
-              category: "electrical",
-              inspectionType: "legal",
-              frequencyPerYear: 1,
-              legalCycleMonths: 12,
-              nextDueDate: plusDays(7),
-              status: "upcoming",
-              advanceAlertDays: 30,
-            },
-            {
-              buildingId: building.id,
-              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
-              category: "fire_safety",
-              inspectionType: "legal",
-              frequencyPerYear: 1,
-              legalCycleMonths: 12,
-              nextDueDate: plusDays(14),
-              status: "upcoming",
-              advanceAlertDays: 30,
-            },
-            {
-              buildingId: building.id,
-              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
-              category: "self_regular",
-              inspectionType: "self_regular",
-              frequencyPerYear: 12,
-              intervalDays: 30,
-              nextDueDate: plusDays(7),
-              status: "upcoming",
-              advanceAlertDays: 7,
-            },
-            {
-              buildingId: building.id,
-              name: "테스트업무-연습용업무입니다. 탭하여 업무를 처리해보세요",
-              category: "seasonal",
-              inspectionType: "seasonal",
-              frequencyPerYear: 4,
-              intervalDays: 90,
-              nextDueDate: plusDays(14),
-              status: "upcoming",
-              advanceAlertDays: 14,
-            },
-          ]);
+          .where(and(
+            eq(inspectionsTable.buildingId, building.id),
+            inArray(inspectionsTable.name, seedNameList),
+          ));
+        const existingNames = new Set(existingTest.map((r) => r.name));
+        const today = new Date();
+        const plusDays = (n: number) => {
+          const d = new Date(today);
+          d.setDate(d.getDate() + n);
+          return d.toISOString().split("T")[0];
+        };
+        const candidates: Array<typeof inspectionsTable.$inferInsert> = [
+          {
+            buildingId: building.id,
+            name: SEED_NAMES.fire,
+            category: "fire_safety",
+            inspectionType: "legal",
+            frequencyPerYear: 2,
+            legalCycleMonths: 6,
+            nextDueDate: plusDays(-3),
+            status: "overdue",
+            advanceAlertDays: 30,
+          },
+          {
+            buildingId: building.id,
+            name: SEED_NAMES.septic,
+            category: "septic",
+            inspectionType: "legal",
+            frequencyPerYear: 1,
+            legalCycleMonths: 12,
+            nextDueDate: plusDays(20),
+            status: "upcoming",
+            advanceAlertDays: 30,
+          },
+          {
+            buildingId: building.id,
+            name: SEED_NAMES.edu,
+            category: "self_regular",
+            inspectionType: "self_regular",
+            frequencyPerYear: 12,
+            intervalDays: 30,
+            nextDueDate: plusDays(5),
+            status: "upcoming",
+            advanceAlertDays: 7,
+          },
+          {
+            buildingId: building.id,
+            name: SEED_NAMES.ac,
+            category: "seasonal",
+            inspectionType: "seasonal",
+            frequencyPerYear: 4,
+            intervalDays: 90,
+            nextDueDate: plusDays(10),
+            status: "upcoming",
+            advanceAlertDays: 14,
+          },
+        ];
+        const toInsert = candidates.filter((c) => !existingNames.has(c.name));
+        if (toInsert.length > 0) {
+          await db.insert(inspectionsTable).values(toInsert);
         }
       } catch (seedErr) {
         req.log.warn({ err: seedErr, buildingId: building.id }, "Failed to seed test inspections for first building");
