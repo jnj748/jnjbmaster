@@ -1,65 +1,191 @@
-// [Task #132] 파트너사 위저드. 회사정보 → 사업자등록증 업로드 → 취급분야 선택.
-import { useEffect, useState } from "react";
+// [Task #284] 파트너 온보딩 위저드 (신규).
+// 단계:
+//   1) 회사 기본정보 (사업자명·등록번호·대표자명·연락처·이메일)
+//   2) 업역 선택 (다중, 최소 1개)
+//   3) 사업자등록증 업로드 (이미지/PDF, 필수)
+//   4) 파트너 약관 동의 + 최종 검토 → 등록 완료
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Upload, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2, Upload, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { WizardShell } from "@/components/wizard/wizard-shell";
+import {
+  ConsentSection,
+  buildDecisions,
+  getMissingRequired,
+  type ConsentDocument,
+} from "@/components/consent-section";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
+const STORAGE_KEY = "partnerWizard:draft:v1";
 
-interface Category { id: number; code: string; label: string; sortOrder: number }
+interface Category {
+  id: number;
+  code: string;
+  label: string;
+  sortOrder: number;
+}
+
+interface DraftState {
+  companyName: string;
+  businessNumber: string;
+  representativeName: string;
+  contactPhone: string;
+  contactEmail: string;
+  selectedCategories: string[];
+  bizCertUrl: string | null;
+  bizCertName: string | null;
+  bizCertSize: number | null;
+}
+
+const TOTAL_STEPS = 4;
+
+// 형식 검증 유틸 ────────────────────────────────────────────
+function formatBusinessNumber(input: string): string {
+  const digits = input.replace(/\D/g, "").slice(0, 10);
+  if (digits.length < 4) return digits;
+  if (digits.length < 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+function isValidBusinessNumber(value: string): boolean {
+  return /^\d{3}-\d{2}-\d{5}$/.test(value);
+}
+function isValidPhone(value: string): boolean {
+  // 02-xxx(x)-xxxx 또는 010-xxxx-xxxx 등 7~11자리 숫자.
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 9 && digits.length <= 11;
+}
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function loadDraft(): Partial<DraftState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<DraftState>;
+  } catch {
+    return {};
+  }
+}
 
 export default function PartnerWizardPage() {
   const { token, user } = useAuth();
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [companyName, setCompanyName] = useState("");
-  const [businessNumber, setBusinessNumber] = useState("");
-  const [representativeName, setRepresentativeName] = useState("");
-  const [contactPhone, setContactPhone] = useState(user?.phone ?? "");
-  const [agreePartnerTerms, setAgreePartnerTerms] = useState(false);
-  const [bizCertUrl, setBizCertUrl] = useState<string | null>(null);
-  const [bizCertName, setBizCertName] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
 
+  const initial = useMemo(loadDraft, []);
+
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [companyName, setCompanyName] = useState(initial.companyName ?? "");
+  const [businessNumber, setBusinessNumber] = useState(initial.businessNumber ?? "");
+  const [representativeName, setRepresentativeName] = useState(initial.representativeName ?? "");
+  const [contactPhone, setContactPhone] = useState(initial.contactPhone ?? user?.phone ?? "");
+  const [contactEmail, setContactEmail] = useState(initial.contactEmail ?? user?.email ?? "");
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set(initial.selectedCategories ?? []),
+  );
+
+  const [bizCertUrl, setBizCertUrl] = useState<string | null>(initial.bizCertUrl ?? null);
+  const [bizCertName, setBizCertName] = useState<string | null>(initial.bizCertName ?? null);
+  const [bizCertSize, setBizCertSize] = useState<number | null>(initial.bizCertSize ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const [consentDocs, setConsentDocs] = useState<ConsentDocument[]>([]);
+  const [consentValue, setConsentValue] = useState<Record<string, boolean>>({});
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // 카테고리 로드 ──
   useEffect(() => {
-    fetch(`${API_BASE}/vendor-categories`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => setCategories(d.categories || []))
-      .catch(() => null);
+    let cancelled = false;
+    setCategoriesLoading(true);
+    fetch(`${API_BASE}/vendor-categories`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
+      .then((d) => {
+        if (cancelled) return;
+        const list: Category[] = Array.isArray(d?.categories) ? d.categories : [];
+        list.sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, "ko"));
+        setCategories(list);
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
-  async function uploadBizCert(file: File) {
-    setUploading(true);
-    setErr("");
+  // 입력값 자동 저장 (제출 실패 시 복구용) ──
+  useEffect(() => {
+    const draft: DraftState = {
+      companyName,
+      businessNumber,
+      representativeName,
+      contactPhone,
+      contactEmail,
+      selectedCategories: Array.from(selectedCategories),
+      bizCertUrl,
+      bizCertName,
+      bizCertSize,
+    };
     try {
-      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
-      });
-      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
-      const { uploadURL, objectPath } = await signRes.json();
-      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-      if (!putRes.ok) throw new Error("파일 업로드 실패");
-      await fetch(`${API_BASE}/storage/uploads/finalize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ objectPath }),
-      });
-      setBizCertUrl(objectPath);
-      setBizCertName(file.name);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "오류");
-    } finally {
-      setUploading(false);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      /* ignore */
     }
-  }
+  }, [
+    companyName,
+    businessNumber,
+    representativeName,
+    contactPhone,
+    contactEmail,
+    selectedCategories,
+    bizCertUrl,
+    bizCertName,
+    bizCertSize,
+  ]);
+
+  // Step 1 검증 ──
+  const errStep1 = {
+    companyName: !companyName.trim() ? "사업자명(법인명)을 입력해 주세요" : "",
+    businessNumber: !businessNumber.trim()
+      ? "사업자등록번호를 입력해 주세요"
+      : !isValidBusinessNumber(businessNumber)
+        ? "형식: 000-00-00000"
+        : "",
+    representativeName: !representativeName.trim() ? "대표자명을 입력해 주세요" : "",
+    contactPhone: !contactPhone.trim()
+      ? "대표 연락처를 입력해 주세요"
+      : !isValidPhone(contactPhone)
+        ? "올바른 전화번호 형식이 아닙니다"
+        : "",
+    contactEmail: !contactEmail.trim()
+      ? "담당자 이메일을 입력해 주세요"
+      : !isValidEmail(contactEmail)
+        ? "올바른 이메일 형식이 아닙니다"
+        : "",
+  };
+  const step1Valid = Object.values(errStep1).every((v) => !v);
+
+  // Step 2 검증 ──
+  const step2Valid = selectedCategories.size > 0;
+
+  // Step 3 검증 ──
+  const step3Valid = !!bizCertUrl;
+
+  // Step 4 검증 ──
+  const missingRequiredConsents = getMissingRequired(consentDocs, consentValue);
+  const step4Valid = consentDocs.length > 0 && missingRequiredConsents.length === 0;
 
   function toggleCategory(code: string) {
     setSelectedCategories((s) => {
@@ -70,160 +196,465 @@ export default function PartnerWizardPage() {
     });
   }
 
+  async function handleUpload(file: File) {
+    setUploadError("");
+    if (!/^image\/|application\/pdf$/.test(file.type) && !/\.(pdf|jpg|jpeg|png|webp|heic)$/i.test(file.name)) {
+      setUploadError("이미지(JPG/PNG/WebP) 또는 PDF 파일만 업로드 가능합니다");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setUploadError("파일 크기는 20MB 이하여야 합니다");
+      return;
+    }
+    setUploading(true);
+    try {
+      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!signRes.ok) throw new Error("업로드 URL 발급에 실패했습니다");
+      const { uploadURL, objectPath } = await signRes.json();
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("파일 업로드에 실패했습니다");
+      await fetch(`${API_BASE}/storage/uploads/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ objectPath }),
+      });
+      setBizCertUrl(objectPath);
+      setBizCertName(file.name);
+      setBizCertSize(file.size);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!step1Valid || !step2Valid || !step3Valid || !step4Valid) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      // 1) 약관 동의 기록 (필수+선택). 멱등.
+      const decisions = buildDecisions(consentDocs, consentValue);
+      const consentResults = await Promise.allSettled(
+        decisions
+          .filter((d) => d.agreed)
+          .map((d) =>
+            fetch(`${API_BASE}/platform/consents`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                consentType: d.type,
+                version: d.version,
+                contextRef: "partner-wizard",
+              }),
+            }).then(async (r) => {
+              if (!r.ok) {
+                const d2 = await r.json().catch(() => ({}));
+                throw new Error(d2?.error || "약관 동의 기록에 실패했습니다");
+              }
+            }),
+          ),
+      );
+      const failedConsent = consentResults.find((r) => r.status === "rejected");
+      if (failedConsent && failedConsent.status === "rejected") {
+        throw new Error(
+          failedConsent.reason instanceof Error
+            ? failedConsent.reason.message
+            : "약관 동의 기록에 실패했습니다",
+        );
+      }
+
+      // 2) 파트너 온보딩 저장.
+      const body = {
+        name: companyName.trim(),
+        businessNumber: businessNumber.trim(),
+        representativeName: representativeName.trim(),
+        phone: contactPhone.trim(),
+        email: contactEmail.trim(),
+        businessRegUrl: bizCertUrl,
+        categories: Array.from(selectedCategories),
+      };
+      const res = await fetch(`${API_BASE}/vendors/onboarding`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        const msg =
+          res.status === 404
+            ? "파트너 등록 서비스를 찾을 수 없어 입력하신 내용을 임시 저장했습니다. 잠시 후 다시 시도해 주세요."
+            : d?.error || "파트너 등록에 실패했습니다";
+        throw new Error(msg);
+      }
+
+      // 성공 — 임시 저장 정리.
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      setLocation("/");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "등록 중 오류가 발생했습니다");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // 공통 입력 라벨/에러 헬퍼 ─
+  function fieldErr(name: keyof typeof errStep1) {
+    return touched[name] && errStep1[name] ? errStep1[name] : "";
+  }
+
+  // ───────── Step 1: 회사 기본정보 ─────────
   if (step === 1) {
     return (
       <WizardShell
-        title="파트너사 회사 정보"
-        subtitle="견적·계약에 사용될 회사 기본 정보를 입력합니다."
+        title="회사 기본정보"
+        subtitle="견적·계약·정산에 사용되는 정보입니다."
         currentStep={1}
-        totalSteps={3}
-        nextDisabled={!companyName.trim() || !businessNumber.trim() || !representativeName.trim() || !agreePartnerTerms}
-        onNext={() => setStep(2)}
+        totalSteps={TOTAL_STEPS}
+        nextDisabled={!step1Valid}
+        onNext={() => {
+          setTouched({
+            companyName: true,
+            businessNumber: true,
+            representativeName: true,
+            contactPhone: true,
+            contactEmail: true,
+          });
+          if (step1Valid) setStep(2);
+        }}
       >
         <div className="space-y-3 text-sm">
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">회사명</label>
-            <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">사업자등록번호</label>
-            <input value={businessNumber} onChange={(e) => setBusinessNumber(e.target.value)} placeholder="000-00-00000" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">대표자명</label>
-            <input value={representativeName} onChange={(e) => setRepresentativeName(e.target.value)} placeholder="홍길동" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">대표 연락처</label>
-            <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="02-0000-0000" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          </div>
-          <label className="flex items-start gap-2 mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={agreePartnerTerms}
-              onChange={(e) => setAgreePartnerTerms(e.target.checked)}
-              className="mt-0.5"
-            />
-            <span className="text-xs text-slate-700">
-              <strong>(필수)</strong> 파트너사 이용약관·중개수수료·정산 정책에 동의합니다. 동의하지 않으면 파트너사 등록을 진행할 수 없습니다.
-            </span>
-          </label>
+          <Field
+            label="사업자명(법인명)"
+            required
+            value={companyName}
+            onChange={setCompanyName}
+            onBlur={() => setTouched((t) => ({ ...t, companyName: true }))}
+            placeholder="(주)관리의달인"
+            error={fieldErr("companyName")}
+            testid="partner-company-name"
+          />
+          <Field
+            label="사업자등록번호"
+            required
+            value={businessNumber}
+            onChange={(v) => setBusinessNumber(formatBusinessNumber(v))}
+            onBlur={() => setTouched((t) => ({ ...t, businessNumber: true }))}
+            placeholder="000-00-00000"
+            inputMode="numeric"
+            error={fieldErr("businessNumber")}
+            testid="partner-business-number"
+          />
+          <Field
+            label="대표자명"
+            required
+            value={representativeName}
+            onChange={setRepresentativeName}
+            onBlur={() => setTouched((t) => ({ ...t, representativeName: true }))}
+            placeholder="홍길동"
+            error={fieldErr("representativeName")}
+            testid="partner-representative"
+          />
+          <Field
+            label="대표 연락처"
+            required
+            value={contactPhone}
+            onChange={setContactPhone}
+            onBlur={() => setTouched((t) => ({ ...t, contactPhone: true }))}
+            placeholder="02-0000-0000"
+            inputMode="tel"
+            error={fieldErr("contactPhone")}
+            testid="partner-phone"
+          />
+          <Field
+            label="담당자 이메일"
+            required
+            value={contactEmail}
+            onChange={setContactEmail}
+            onBlur={() => setTouched((t) => ({ ...t, contactEmail: true }))}
+            placeholder="contact@company.co.kr"
+            inputMode="email"
+            type="email"
+            error={fieldErr("contactEmail")}
+            testid="partner-email"
+            hint="회원가입 이메일이 기본값입니다. 필요 시 수정하세요."
+          />
+          {!step1Valid && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              모든 필수 항목(<span className="text-red-500">*</span>)을 올바른 형식으로 입력하면 다음 단계로 진행할 수 있습니다.
+            </p>
+          )}
         </div>
       </WizardShell>
     );
   }
 
+  // ───────── Step 2: 업역 선택 ─────────
   if (step === 2) {
     return (
       <WizardShell
-        title="사업자등록증 업로드"
-        subtitle="견적 매칭 시 발주처에 자동 노출됩니다."
+        title="취급 분야(업역) 선택"
+        subtitle="복수 선택 가능. 최소 1개 이상 선택해 주세요."
         currentStep={2}
-        totalSteps={3}
+        totalSteps={TOTAL_STEPS}
         onPrev={() => setStep(1)}
         onNext={() => setStep(3)}
-        nextDisabled={!bizCertUrl}
+        nextDisabled={!step2Valid}
       >
-        {err && <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3">{err}</div>}
-        <label className="block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30">
+        {categoriesLoading ? (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> 분야 목록을 불러오는 중...
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            등록된 분야가 없습니다. 잠시 후 다시 시도해 주세요.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {categories.map((c) => {
+                const active = selectedCategories.has(c.code);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategory(c.code)}
+                    data-testid={`partner-category-${c.code}`}
+                    className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
+                      active
+                        ? "border-blue-400 bg-blue-50 text-blue-700 font-medium"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 text-[11px] text-slate-500">
+              선택됨: {selectedCategories.size}개
+            </div>
+            {!step2Valid && (
+              <div className="mt-2 text-[11px] text-red-600">최소 1개 이상의 분야를 선택해 주세요.</div>
+            )}
+          </>
+        )}
+      </WizardShell>
+    );
+  }
+
+  // ───────── Step 3: 사업자등록증 업로드 ─────────
+  if (step === 3) {
+    return (
+      <WizardShell
+        title="사업자등록증 업로드"
+        subtitle="견적 매칭 시 발주처에 제공되는 증빙 서류입니다."
+        currentStep={3}
+        totalSteps={TOTAL_STEPS}
+        onPrev={() => setStep(2)}
+        onNext={() => setStep(4)}
+        nextDisabled={!step3Valid}
+      >
+        {uploadError && (
+          <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3" role="alert">
+            {uploadError}
+          </div>
+        )}
+        <label
+          className="block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
+          data-testid="partner-bizcert-dropzone"
+        >
           {uploading ? (
-            <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
+            <div className="flex flex-col items-center gap-2 text-sm text-slate-500">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              업로드 중...
+            </div>
           ) : bizCertUrl ? (
-            <div className="text-sm text-emerald-700 inline-flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4" /> {bizCertName} 업로드 완료
+            <div className="flex flex-col items-center gap-1 text-sm text-emerald-700">
+              <CheckCircle2 className="w-6 h-6" />
+              <span className="font-medium">{bizCertName}</span>
+              {bizCertSize != null && (
+                <span className="text-[11px] text-slate-500">
+                  {(bizCertSize / 1024).toFixed(1)} KB · 다른 파일로 교체하려면 클릭하세요.
+                </span>
+              )}
             </div>
           ) : (
             <div className="text-sm text-slate-500">
               <Upload className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-              클릭해서 사업자등록증 파일 선택 (PDF/이미지)
+              클릭해서 사업자등록증 파일 선택
+              <div className="mt-1 text-[11px] text-slate-400">PDF, JPG, PNG, WebP · 최대 20MB</div>
             </div>
           )}
           <input
             type="file"
             className="hidden"
             accept="image/*,application/pdf"
+            data-testid="partner-bizcert-input"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) uploadBizCert(f);
+              if (f) handleUpload(f);
+              e.target.value = "";
             }}
           />
         </label>
-        <p className="mt-2 text-[11px] text-slate-500">건너뛸 경우 첫 견적 응답 전까지 등록을 마쳐야 합니다.</p>
+        <p className="mt-2 text-[11px] text-slate-500">
+          업로드한 파일은 본사 검토 및 견적 매칭 외 용도로 사용되지 않습니다.
+        </p>
+        {!step3Valid && !uploading && (
+          <p className="mt-1 text-[11px] text-red-600">사업자등록증을 업로드해야 다음 단계로 진행할 수 있습니다.</p>
+        )}
       </WizardShell>
     );
   }
 
+  // ───────── Step 4: 약관 동의 + 최종 검토 ─────────
   return (
     <WizardShell
-      title="취급 분야 선택"
-      subtitle="복수 선택 가능. 견적 매칭에 활용됩니다."
-      currentStep={3}
-      totalSteps={3}
-      onPrev={() => setStep(2)}
-      loading={loading}
+      title="약관 동의 및 최종 검토"
+      subtitle="입력하신 내용을 확인하고 약관에 동의한 뒤 등록을 완료합니다."
+      currentStep={4}
+      totalSteps={TOTAL_STEPS}
+      onPrev={() => setStep(3)}
+      loading={submitting}
       nextLabel="등록 완료"
-      nextDisabled={selectedCategories.size === 0}
-      onNext={async () => {
-        setLoading(true);
-        setErr("");
-        try {
-          // 회사 정보를 vendor 레코드에 저장. 기존 vendors POST endpoint 사용 시도.
-          const body = {
-            name: companyName,
-            businessNumber,
-            representativeName,
-            phone: contactPhone,
-            businessRegUrl: bizCertUrl,
-            categories: Array.from(selectedCategories),
-          };
-          // 파트너사 약관 동의 기록 먼저 저장 (멱등 — 백엔드는 가장 최근 기록 사용).
-          const consentRes = await fetch(`${API_BASE}/platform/consents`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ consentType: "partner_terms", version: "1.0", contextRef: "partner-wizard" }),
-          });
-          if (!consentRes.ok) {
-            const d = await consentRes.json().catch(() => ({}));
-            throw new Error(d?.error || "약관 동의 기록에 실패했습니다");
-          }
-          const res = await fetch(`${API_BASE}/vendors/onboarding`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) {
-            const d = await res.json().catch(() => ({}));
-            throw new Error(d?.error || "파트너사 등록에 실패했습니다");
-          }
-          setLocation("/");
-        } catch (e) {
-          setErr(e instanceof Error ? e.message : "오류");
-        } finally {
-          setLoading(false);
-        }
-      }}
+      nextDisabled={!step4Valid || submitting}
+      onNext={handleSubmit}
     >
-      {err && <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3">{err}</div>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {categories.map((c) => {
-          const active = selectedCategories.has(c.code);
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => toggleCategory(c.code)}
-              className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-                active ? "border-blue-400 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              {c.label}
-            </button>
-          );
-        })}
+      {submitError && (
+        <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3" role="alert">
+          {submitError}
+        </div>
+      )}
+
+      {/* 최종 검토 요약 */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-4 text-xs space-y-1.5">
+        <SummaryRow label="사업자명" value={companyName} />
+        <SummaryRow label="사업자등록번호" value={businessNumber} />
+        <SummaryRow label="대표자명" value={representativeName} />
+        <SummaryRow label="대표 연락처" value={contactPhone} />
+        <SummaryRow label="담당자 이메일" value={contactEmail} />
+        <SummaryRow
+          label="취급 분야"
+          value={
+            categories
+              .filter((c) => selectedCategories.has(c.code))
+              .map((c) => c.label)
+              .join(", ") || "—"
+          }
+        />
+        <div className="flex items-start gap-2">
+          <span className="w-20 shrink-0 text-slate-500">사업자등록증</span>
+          {bizCertUrl ? (
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <FileText className="w-3.5 h-3.5" />
+              {bizCertName}
+            </span>
+          ) : (
+            <span className="text-red-600">미업로드</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setStep(1)}
+          className="mt-1 text-[11px] text-blue-600 hover:underline"
+        >
+          내용 수정하기
+        </button>
       </div>
-      {categories.length === 0 && (
-        <div className="text-xs text-slate-500">분야 목록을 불러오는 중...</div>
+
+      <ConsentSection
+        role="partner"
+        value={consentValue}
+        onChange={setConsentValue}
+        onDocsLoaded={setConsentDocs}
+      />
+
+      {consentDocs.length > 0 && missingRequiredConsents.length > 0 && (
+        <div className="mt-2 text-[11px] text-red-600">
+          필수 약관에 모두 동의해야 등록을 완료할 수 있습니다.
+        </div>
       )}
     </WizardShell>
+  );
+}
+
+// ───────── 작은 보조 컴포넌트 ─────────
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  required?: boolean;
+  type?: string;
+  inputMode?: "text" | "tel" | "email" | "numeric";
+  error?: string;
+  hint?: string;
+  testid?: string;
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  onBlur,
+  placeholder,
+  required,
+  type = "text",
+  inputMode = "text",
+  error,
+  hint,
+  testid,
+}: FieldProps) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        type={type}
+        inputMode={inputMode}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        data-testid={testid}
+        aria-invalid={!!error}
+        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+          error ? "border-red-300" : "border-slate-300"
+        }`}
+      />
+      {error ? (
+        <p className="mt-1 text-[11px] text-red-600">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="w-20 shrink-0 text-slate-500">{label}</span>
+      <span className="flex-1 text-slate-800 break-all">{value || "—"}</span>
+    </div>
   );
 }

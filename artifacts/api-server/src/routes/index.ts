@@ -95,6 +95,9 @@ router.use(rfqsRouter);
 router.use(creditsRouter);
 router.use(platformSettingsRouter);
 router.use(taskTemplatesRouter);
+// [Task #284] vendorCategoriesRouter는 partner 위저드에서 접근해야 하므로
+// 파트너 역할을 차단하는 buildingRouter(buildingOnly) 보다 먼저 마운트한다.
+router.use(vendorCategoriesRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
@@ -143,7 +146,6 @@ buildingRouter.use(workLogsRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);
-router.use(vendorCategoriesRouter);
 router.use(accountingInitialFilesRouter);
 router.use(facilitySignupRequestsRouter);
 
