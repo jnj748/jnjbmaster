@@ -68,6 +68,9 @@ const ReportSystemPage = lazy(() => import("@/pages/report-system"));
 // [Task #142] 역할별 대시보드 컴포넌트 직접 import 제거 — 모두 통합 셸을 통해
 // 진입하며, 위젯 코드는 dashboard-widgets/registry.tsx 에서 lazy 로딩한다.
 const VendorPortal = lazy(() => import("@/pages/vendor-portal"));
+// [Task #290] 파트너 전용 화면 — 본인 업체 프로필 / 크레딧 잔액·충전 신청.
+const PartnerVendorProfile = lazy(() => import("@/pages/partner-vendor-profile"));
+const PartnerCredits = lazy(() => import("@/pages/partner-credits"));
 const Attendance = lazy(() => import("@/pages/attendance"));
 const BuildingInfo = lazy(() => import("@/pages/building-info"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
@@ -479,7 +482,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/vendors", component: Vendors,
     label: "협력업체", icon: Building2, group: "marketplace",
-    access: ["manager", "platform_admin", "hq_executive", "accountant", "partner"],
+    // [Task #290] partner 는 협력업체 풀에서 제외 — 본인 업체는 /me/vendor 로 진입.
+    access: ["manager", "platform_admin", "hq_executive", "accountant"],
     sideMenu: ["manager", "platform_admin", "hq_executive"],
     bottomNav: ["hq_executive"],
     bottomLabel: "계약",
@@ -635,11 +639,19 @@ const ROOT_ICONS: Record<Role, LucideIcon> = {
   partner: LayoutDashboard,
 };
 
-// Partner has a custom RFQ portal page distinct from /rfqs.
-const PARTNER_VENDORS_LABEL = "업체 정보";
+// [Task #290] 파트너 메뉴 라벨/아이콘 — 협력업체 풀(/vendors) 진입 제거,
+//   "내 업체 정보"(/me/vendor)와 "크레딧"(/me/credits) 추가.
+const PARTNER_HOME_LABEL = "홈";
 const PARTNER_RFQ_LABEL = "견적 요청";
+const PARTNER_QUOTES_LABEL = "내 견적·작업";
+const PARTNER_CREDITS_LABEL = "크레딧";
+const PARTNER_COMMISSIONS_LABEL = "정산·수수료";
+const PARTNER_MY_VENDOR_LABEL = "내 업체 정보";
 const PARTNER_RFQ_ICON: LucideIcon = FileText;
-const PARTNER_VENDORS_ICON: LucideIcon = Package;
+const PARTNER_QUOTES_ICON: LucideIcon = Send;
+const PARTNER_CREDITS_ICON: LucideIcon = Coins;
+const PARTNER_COMMISSIONS_ICON: LucideIcon = DollarSign;
+const PARTNER_MY_VENDOR_ICON: LucideIcon = Building2;
 
 export interface NavItem {
   path: string;
@@ -685,12 +697,14 @@ const rootItem = (role: Role): NavItem => ({
 /** Returns SPA route definitions {path, component} for a role. */
 export function getRoutesForRole(role: Role): { path: string; component: AnyComponent }[] {
   if (role === "partner") {
-    // Partner uses a custom portal component for /rfqs; vendors/commissions
-    // are shared. /settings is intentionally NOT exposed (dead route removed).
+    // [Task #290] 파트너는 협력업체 풀(`/vendors`) 대신 본인 업체 전용 페이지
+    //   (`/me/vendor`)와 크레딧 페이지(`/me/credits`)에만 접근한다.
+    //   /settings 는 의도적으로 노출하지 않는다.
     return [
       { path: "/rfqs", component: VendorPortal },
-      { path: "/vendors", component: Vendors },
       { path: "/commissions", component: Commissions },
+      { path: "/me/vendor", component: PartnerVendorProfile },
+      { path: "/me/credits", component: PartnerCredits },
     ];
   }
   return ROUTES.filter((r) => r.access.includes(role)).map((r) => ({
@@ -805,12 +819,16 @@ export function getSidebarSections(
 ): NavSection[] {
   if (role === "platform_admin") return platformAdminSidebar();
   if (role === "partner") {
-    // Partner sidebar is intentionally flat.
+    // [Task #290] 파트너 사이드바 — 협력업체 풀(/vendors) 제거, 본인 업체 정보 + 크레딧 추가.
+    //   동선: 홈 → 견적 요청 → 내 견적·작업 → 크레딧 → 정산·수수료 → 내 업체 정보.
+    //   [meno-overrides] HEAD 의 isMenuBlockEnabled 필터링 동작 유지: 루트("/")는 항상 노출.
     const partnerItems: NavItem[] = [
-      rootItem("partner"),
+      { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
       { path: "/rfqs", label: PARTNER_RFQ_LABEL, icon: PARTNER_RFQ_ICON },
-      { path: "/vendors", label: PARTNER_VENDORS_LABEL, icon: PARTNER_VENDORS_ICON },
-      { path: "/commissions", label: "수수료", icon: Coins },
+      { path: "/rfqs", query: { tab: "quotes" }, label: PARTNER_QUOTES_LABEL, icon: PARTNER_QUOTES_ICON },
+      { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
+      { path: "/commissions", label: PARTNER_COMMISSIONS_LABEL, icon: PARTNER_COMMISSIONS_ICON },
+      { path: "/me/vendor", label: PARTNER_MY_VENDOR_LABEL, icon: PARTNER_MY_VENDOR_ICON },
     ];
     return [
       {
@@ -876,11 +894,14 @@ export function getBottomNavItems(
     ];
   }
   if (role === "partner") {
+    // [Task #290] 파트너 하단 네비 — 사이드바 6 항목과 동일한 동선.
+    //   "내 견적·작업" 까지 노출하고, 내 업체 정보는 더보기 드로어로 빠진다.
     return [
-      rootItem("partner"),
+      { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
       { path: "/rfqs", label: "견적", icon: PARTNER_RFQ_ICON },
-      { path: "/vendors", label: "업체", icon: PARTNER_VENDORS_ICON },
-      { path: "/commissions", label: "수수료", icon: Coins },
+      { path: "/rfqs", query: { tab: "quotes" }, label: "내 견적", icon: PARTNER_QUOTES_ICON },
+      { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
+      { path: "/commissions", label: "수수료", icon: PARTNER_COMMISSIONS_ICON },
     ];
   }
   // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 업무기록(+) / AI비서 / 더보기.

@@ -16,7 +16,8 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use("/vendors", requireRole("manager", "platform_admin", "hq_executive", "accountant", "partner"));
+// [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
+router.use("/vendors", requireRole("manager", "platform_admin", "hq_executive", "accountant"));
 router.get("/vendors", async (req, res): Promise<void> => {
   const params = ListVendorsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -177,6 +178,61 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
     await db.update(usersTable).set({ vendorId: vendorRow.id }).where(eq(usersTable.id, userId));
   }
   res.status(200).json({ vendor: vendorRow });
+});
+
+// [Task #290] partner 자기 업체 전용 엔드포인트.
+//   - GET /me/vendor   → 본인(user.vendorId)의 vendor 행만 반환.
+//   - PATCH /me/vendor → 본인(user.vendorId)의 vendor 행만 수정.
+//   풀 목록(/vendors)을 클라이언트로 내려보내지 않기 위한 분리.
+router.get("/me/vendor", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || user.role !== "partner") {
+    res.status(403).json({ error: "파트너 계정만 사용할 수 있습니다" });
+    return;
+  }
+  if (!user.vendorId) {
+    res.status(404).json({ error: "연결된 업체가 없습니다" });
+    return;
+  }
+  const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, user.vendorId));
+  if (!vendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  res.json(UpdateVendorResponse.parse(vendor));
+});
+
+router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || user.role !== "partner") {
+    res.status(403).json({ error: "파트너 계정만 사용할 수 있습니다" });
+    return;
+  }
+  if (!user.vendorId) {
+    res.status(404).json({ error: "연결된 업체가 없습니다" });
+    return;
+  }
+  const parsed = UpdateVendorBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  // type 필드는 파트너가 변경할 수 없도록 강제로 platform 으로 고정.
+  const safe = { ...parsed.data, type: "platform" as const };
+  const [vendor] = await db
+    .update(vendorsTable)
+    .set(safe)
+    .where(eq(vendorsTable.id, user.vendorId))
+    .returning();
+  if (!vendor) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  res.json(UpdateVendorResponse.parse(vendor));
 });
 
 router.post("/vendors/register", async (req, res): Promise<void> => {

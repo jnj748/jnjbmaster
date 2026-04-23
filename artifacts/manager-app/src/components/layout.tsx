@@ -776,10 +776,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </button>
               );
             }
-            const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+            // [Task #290] 사이드바와 동일하게 query 까지 포함한 href·active 판정 사용.
+            //   같은 path 가 다른 tab 으로 두 번 등장할 수 있으므로 key 도 path+query 로 구성.
+            const navHref = navItemHref(item);
+            const isActive = isNavItemActive(item, location);
+            const navKey = item.query
+              ? `${item.path}?${new URLSearchParams(item.query).toString()}`
+              : item.path;
             // 하단 네비게이션은 무색(중립) 처리 — 활성 탭만 foreground 로 강조.
             return (
-              <Link key={item.path} href={item.path}>
+              <Link key={navKey} href={navHref}>
                 <button className={cn(
                   "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
                   isActive ? "font-semibold text-foreground" : "text-muted-foreground"

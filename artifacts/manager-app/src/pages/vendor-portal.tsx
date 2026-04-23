@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { useLocation } from "wouter";
 import {
   useListRfqs,
   useListQuotes,
@@ -33,7 +34,21 @@ const TabFallback = () => <Skeleton className="h-64" />;
 
 export default function VendorPortal() {
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState<PortalTab>("dashboard");
+  // [Task #290] 사이드바·하단 네비에서 ?tab= 쿼리로 진입 시 해당 탭을 초기 선택한다.
+  const [location] = useLocation();
+  const initialTab: PortalTab = (() => {
+    if (typeof window === "undefined") return "dashboard";
+    const t = new URLSearchParams(window.location.search).get("tab") as PortalTab | null;
+    const valid: PortalTab[] = ["dashboard", "rfqs", "quotes", "reports", "settlements"];
+    return t && valid.includes(t) ? t : "dashboard";
+  })();
+  const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = new URLSearchParams(window.location.search).get("tab") as PortalTab | null;
+    const valid: PortalTab[] = ["dashboard", "rfqs", "quotes", "reports", "settlements"];
+    if (t && valid.includes(t)) setActiveTab(t);
+  }, [location]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
