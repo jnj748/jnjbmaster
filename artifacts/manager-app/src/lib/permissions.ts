@@ -84,6 +84,12 @@ const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
+// [Task #267] 플랫폼관리자 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
+const PlatformRoleManagers = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.ManagersStatus })));
+const PlatformRoleAccountants = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.AccountantsStatus })));
+const PlatformRoleFacility = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.FacilityStaffStatus })));
+const PlatformRoleHq = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.HqExecutivesStatus })));
+const PlatformRolePartners = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.PartnersStatus })));
 
 export type Role =
   | "manager"
@@ -492,9 +498,31 @@ export const ROUTES: RouteEntry[] = [
     label: "사용자 관리", icon: Users, group: "settings",
     // [관리소장 메뉴 숨김] 사용자 관리는 플랫폼 관리자/본사 권한 전용.
     access: ["platform_admin", "hq_executive"],
-    bottomNav: ["platform_admin"],
-    bottomLabelOverrides: { platform_admin: "사용자" },
+    // [Task #267] platform_admin 의 사이드바·하단 네비는 커스텀 브랜치에서 직접 구성.
+    sideMenu: ["hq_executive"],
   },
+  // [Task #267] 플랫폼관리자 전용 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
+  //   사이드바 노출은 커스텀 브랜치(getSidebarSections platform_admin)에서 직접 구성하므로 hidden:true.
+  { path: "/platform/managers", component: PlatformRoleManagers,
+    label: "관리소장 현황", icon: Building2, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
+  { path: "/platform/accountants", component: PlatformRoleAccountants,
+    label: "경리·행정 현황", icon: Calculator, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
+  { path: "/platform/facility-staff", component: PlatformRoleFacility,
+    label: "시설기사 현황", icon: HardHat, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
+  { path: "/platform/hq-executives", component: PlatformRoleHq,
+    label: "본사총괄 현황", icon: Shield, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
+  { path: "/platform/partners", component: PlatformRolePartners,
+    label: "파트너사 현황", icon: Package, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
+  // [Task #267] 파트너 크레딧 — 관리자 대시보드의 VendorCreditsPanel 만 떼어 단독 페이지로 진입.
+  { path: "/platform/credits",
+    component: lazy(() => import("@/pages/platform-credits")),
+    label: "파트너 크레딧", icon: Coins, group: "settings",
+    access: ["platform_admin"], hidden: true },
   {
     // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼관리자)
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
@@ -658,8 +686,51 @@ function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): b
   return !disabled.includes(group);
 }
 
+// [Task #267] 플랫폼관리자 전용 사이드바 — 3 그룹(현황 대시보드 / 데이터 관리 / 설정)만 노출.
+//   ROUTES.access 는 그대로 두어 직접 URL 접근은 보존하되, 사이드바에서 실무 메뉴(시설/회계/입주민/
+//   보고/AI 비서 등)를 일괄 숨긴다.
+function platformAdminSidebar(): NavSection[] {
+  return [
+    {
+      title: "현황 대시보드",
+      items: [
+        rootItem("platform_admin"),
+        { path: "/platform/managers", label: "관리소장 현황", icon: Building2 },
+        { path: "/platform/accountants", label: "경리·행정 현황", icon: Calculator },
+        { path: "/platform/facility-staff", label: "시설기사 현황", icon: HardHat },
+        { path: "/platform/hq-executives", label: "본사총괄 현황", icon: Shield },
+        { path: "/platform/partners", label: "파트너사 현황", icon: Package },
+      ],
+    },
+    {
+      title: "데이터 관리",
+      items: [
+        { path: "/users", label: "사용자 관리", icon: Users },
+        { path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck },
+        { path: "/vendors", label: "협력업체", icon: Building2 },
+        { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
+        { path: "/platform-consents", label: "약관 관리", icon: FileText },
+        { path: "/platform-announcements", label: "공지 관리", icon: FileText },
+        { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: FileText },
+        { path: "/settings/task-templates", label: "업무 템플릿 관리", icon: ClipboardList },
+        { path: "/document-templates", label: "서식 관리", icon: FileText },
+        { path: "/report-system", label: "보고 체계", icon: BarChart3 },
+      ],
+    },
+    {
+      title: "설정",
+      items: [
+        { path: "/attendance", label: "출퇴근 관리", icon: Clock },
+        { path: "/settings/profile", label: "내정보 수정", icon: User },
+        { path: "/settings/building", label: "건물정보 수정", icon: Building },
+      ],
+    },
+  ];
+}
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
 export function getSidebarSections(role: Role, disabledCategories?: readonly string[] | null): NavSection[] {
+  if (role === "platform_admin") return platformAdminSidebar();
   if (role === "partner") {
     // Partner sidebar is intentionally flat.
     return [
@@ -713,6 +784,15 @@ export function getSidebarSections(role: Role, disabledCategories?: readonly str
 
 /** Returns the mobile bottom nav items for a role (excluding the "더보기" toggle). */
 export function getBottomNavItems(role: Role, disabledCategories?: readonly string[] | null): NavItem[] {
+  // [Task #267] 플랫폼관리자 하단 네비도 사이드바와 동일 원칙으로 정리.
+  //   홈(현황 카드) / 사용자 / 설정. 시설/회계/AI비서/업무일지 같은 실무 탭은 노출하지 않는다.
+  if (role === "platform_admin") {
+    return [
+      { ...rootItem("platform_admin"), label: "관리", group: "dashboard" },
+      { path: "/users", label: "사용자", icon: Users, group: "settings" },
+      { path: "/settings/profile", label: "설정", icon: Settings, group: "settings" },
+    ];
+  }
   if (role === "partner") {
     return [
       rootItem("partner"),

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useLocation } from "wouter";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
 interface UserRecord {
@@ -40,6 +41,24 @@ const portalLabels: Record<string, string> = {
   hq: "본사",
 };
 
+// [Task #267] /users?role=<role> 쿼리 파라미터를 읽어 초기 필터로 사용.
+//   유효한 역할만 통과시키고, 그 외에는 무시한다.
+const VALID_ROLE_FILTERS = new Set([
+  "manager",
+  "accountant",
+  "facility_staff",
+  "hq_executive",
+  "platform_admin",
+  "partner",
+]);
+
+function readRoleFilterFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const r = params.get("role") ?? "";
+  return VALID_ROLE_FILTERS.has(r) ? r : "";
+}
+
 export default function Users() {
   const { token, user: currentUser } = useAuth();
   const isPlatformAdmin = currentUser?.role === "platform_admin";
@@ -48,6 +67,13 @@ export default function Users() {
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
   const [error, setError] = useState("");
+  // [Task #267] 역할 필터 — 초깃값은 ?role= 쿼리에서 읽고, 셀렉트로 변경 가능.
+  //   wouter 의 useLocation 은 search 변경을 트리거하지 않으므로 location 변경마다 동기화.
+  const [location] = useLocation();
+  const [roleFilter, setRoleFilter] = useState<string>(() => readRoleFilterFromUrl());
+  useEffect(() => {
+    setRoleFilter(readRoleFilterFromUrl());
+  }, [location]);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const API_BASE = `${BASE}api`;
@@ -83,6 +109,14 @@ export default function Users() {
     }
   };
 
+  // [Task #267] 역할 필터 적용된 목록.
+  //   훅은 early return 위에서 호출되어야 한다(React Rules of Hooks).
+  const filteredUsers = useMemo(
+    () => (roleFilter ? users.filter((u) => u.role === roleFilter) : users),
+    [users, roleFilter],
+  );
+  const filterRoleLabel = roleFilter ? roleLabels[roleFilter] ?? roleFilter : "";
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -110,12 +144,41 @@ export default function Users() {
         </button>
       </div>
 
+      {/* [Task #267] 역할별 필터 — ?role= 쿼리 또는 셀렉트로 변경. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label htmlFor="role-filter" className="text-sm text-slate-600">역할:</label>
+        <select
+          id="role-filter"
+          value={roleFilter}
+          onChange={(e) => {
+            const v = e.target.value;
+            setRoleFilter(v);
+            const url = new URL(window.location.href);
+            if (v) url.searchParams.set("role", v);
+            else url.searchParams.delete("role");
+            window.history.replaceState({}, "", url);
+          }}
+          className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
+          data-testid="role-filter-select"
+        >
+          <option value="">전체</option>
+          {Object.entries(roleLabels).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        {roleFilter && (
+          <span className="text-xs text-slate-500" data-testid="role-filter-summary">
+            {filterRoleLabel} {filteredUsers.length}명
+          </span>
+        )}
+      </div>
+
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>
       )}
 
       <div className="desktop:hidden space-y-2">
-        {users.map((user) => (
+        {filteredUsers.map((user) => (
           <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -148,9 +211,9 @@ export default function Users() {
             </div>
           </div>
         ))}
-        {users.length === 0 && (
+        {filteredUsers.length === 0 && (
           <div className="bg-white rounded-xl border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-            등록된 사용자가 없습니다
+            {roleFilter ? `${filterRoleLabel} 역할 사용자가 없습니다` : "등록된 사용자가 없습니다"}
           </div>
         )}
       </div>
@@ -170,7 +233,7 @@ export default function Users() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">{user.name}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{user.email}</td>
@@ -205,10 +268,10 @@ export default function Users() {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
+            {filteredUsers.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
-                  등록된 사용자가 없습니다
+                  {roleFilter ? `${filterRoleLabel} 역할 사용자가 없습니다` : "등록된 사용자가 없습니다"}
                 </td>
               </tr>
             )}

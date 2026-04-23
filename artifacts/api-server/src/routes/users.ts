@@ -49,6 +49,8 @@ router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), a
         portalType: usersTable.portalType,
         createdAt: usersTable.createdAt,
         disabledCategories: usersTable.disabledCategories,
+        // [Task #267] 플랫폼관리자 역할 현황 페이지에서 "활성 건물 수" 집계용.
+        buildingId: usersTable.buildingId,
       })
       .from(usersTable)
       .orderBy(usersTable.createdAt);

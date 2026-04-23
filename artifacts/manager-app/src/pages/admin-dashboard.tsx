@@ -12,6 +12,9 @@ import {
   Activity,
   ChevronRight,
   Wallet,
+  Calculator,
+  HardHat,
+  Package,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -40,6 +43,63 @@ const roleLabels: Record<string, string> = {
   accountant: "회계/행정",
   facility_staff: "시설관리",
 };
+
+// [Task #267] 통합 대시보드 5-역할 카드 정의. 각 카드는 /platform/<role> 현황 페이지로 이동.
+const ROLE_CARDS: {
+  role: string;
+  label: string;
+  subtitle: string;
+  href: string;
+  icon: typeof Users;
+  bg: string;
+  color: string;
+}[] = [
+  {
+    role: "manager",
+    label: "관리소장",
+    subtitle: "현장 관리자",
+    href: "/platform/managers",
+    icon: Building2,
+    bg: "bg-blue-500/10",
+    color: "text-blue-500",
+  },
+  {
+    role: "accountant",
+    label: "경리·행정",
+    subtitle: "관리비·결재",
+    href: "/platform/accountants",
+    icon: Calculator,
+    bg: "bg-amber-500/10",
+    color: "text-amber-500",
+  },
+  {
+    role: "facility_staff",
+    label: "시설기사",
+    subtitle: "점검·보수",
+    href: "/platform/facility-staff",
+    icon: HardHat,
+    bg: "bg-teal-500/10",
+    color: "text-teal-500",
+  },
+  {
+    role: "hq_executive",
+    label: "본사총괄",
+    subtitle: "운영 모니터링",
+    href: "/platform/hq-executives",
+    icon: Shield,
+    bg: "bg-indigo-500/10",
+    color: "text-indigo-500",
+  },
+  {
+    role: "partner",
+    label: "파트너사",
+    subtitle: "협력업체",
+    href: "/platform/partners",
+    icon: Package,
+    bg: "bg-emerald-500/10",
+    color: "text-emerald-500",
+  },
+];
 
 const roleBadgeColors: Record<string, string> = {
   manager: "bg-blue-100 text-blue-700",
@@ -88,55 +148,35 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">전체 사용자</p>
-                <p className="text-2xl font-bold mt-1">{users.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">등록된 계정</p>
+      {/* [Task #267] 4-카드 사용자 통계를 5-역할 카드로 교체. 각 카드 클릭 시 역할 현황 페이지로 이동. */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {ROLE_CARDS.map((card) => (
+          <Card
+            key={card.role}
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate(card.href)}
+            data-testid={`role-card-${card.role}`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground truncate">
+                    {card.label}
+                  </p>
+                  <p className="text-2xl font-bold mt-1">
+                    {roleCounts[card.role] || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    {card.subtitle}
+                  </p>
+                </div>
+                <div className={`p-2 rounded-lg ${card.bg}`}>
+                  <card.icon className={`w-5 h-5 ${card.color}`} />
+                </div>
               </div>
-              <div className="p-2 rounded-lg bg-accent/10"><Users className="w-5 h-5 text-accent" /></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">관리소장</p>
-                <p className="text-2xl font-bold mt-1">{roleCounts["manager"] || 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">현장 관리자</p>
-              </div>
-              <div className="p-2 rounded-lg bg-blue-500/10"><Building2 className="w-5 h-5 text-blue-500" /></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">총괄/관리자</p>
-                <p className="text-2xl font-bold mt-1">{(roleCounts["hq_executive"] || 0) + (roleCounts["platform_admin"] || 0)}</p>
-                <p className="text-xs text-muted-foreground mt-1">본사 인원</p>
-              </div>
-              <div className="p-2 rounded-lg bg-purple-500/10"><Shield className="w-5 h-5 text-purple-500" /></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">파트너사</p>
-                <p className="text-2xl font-bold mt-1">{roleCounts["partner"] || 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">협력업체</p>
-              </div>
-              <div className="p-2 rounded-lg bg-emerald-500/10"><Activity className="w-5 h-5 text-emerald-500" /></div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -229,7 +269,7 @@ export default function AdminDashboard() {
   );
 }
 
-function VendorCreditsPanel() {
+export function VendorCreditsPanel() {
   const { data: wallets } = useListAdminCreditWallets();
   const adjustMutation = useAdjustCredits();
   const qc = useQueryClient();
