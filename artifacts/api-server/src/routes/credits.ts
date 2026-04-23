@@ -684,13 +684,31 @@ router.post("/credits/topup/orders/:id/confirm", async (req, res): Promise<void>
     res.status(400).json({ error: "토스 결제 확정 실패", reason });
     return;
   }
-  // 응답 금액 검증.
+  // 응답 금액 / orderId / paymentKey 교차 검증.
+  //   토스가 어떤 이유로 다른 주문 정보를 응답했더라도 ledger 를 잘못 적재하지 않도록
+  //   서버에서 한 번 더 확인한다.
   if (Number(tossJson.totalAmount) !== order.amountKrw) {
     await db
       .update(creditTopupOrdersTable)
       .set({ status: "failed", failReason: "금액 불일치" })
       .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")));
     res.status(400).json({ error: "토스 응답 금액이 주문과 다릅니다" });
+    return;
+  }
+  if (typeof tossJson?.orderId === "string" && tossJson.orderId !== order.tossOrderId) {
+    await db
+      .update(creditTopupOrdersTable)
+      .set({ status: "failed", failReason: `주문ID 불일치: ${String(tossJson.orderId).slice(0, 100)}` })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")));
+    res.status(400).json({ error: "토스 응답 주문ID가 주문과 다릅니다" });
+    return;
+  }
+  if (typeof tossJson?.paymentKey === "string" && tossJson.paymentKey !== parsed.data.paymentKey) {
+    await db
+      .update(creditTopupOrdersTable)
+      .set({ status: "failed", failReason: "paymentKey 불일치" })
+      .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "processing")));
+    res.status(400).json({ error: "토스 응답 paymentKey 가 요청과 다릅니다" });
     return;
   }
 
@@ -776,15 +794,23 @@ router.post("/credits/topup/orders/:id/fail", async (req, res): Promise<void> =>
     return;
   }
   if (order.status !== "pending") {
+    // 이미 confirm 이 점유(processing) 했거나 종료 상태 → fail 호출은 무시.
     res.json({ order });
     return;
   }
   const status = parsed.success && parsed.data.cancelled ? "cancelled" : "failed";
+  // [동시성] status='pending' 가드를 UPDATE WHERE 에 포함시켜 confirm 의 점유와 경합하지 않도록 한다.
+  //   confirm 이 한발 빨라 processing 으로 넘긴 경우 0건 영향 → 최신 상태를 다시 읽어 반환.
   const [updated] = await db
     .update(creditTopupOrdersTable)
     .set({ status, failReason: parsed.success ? (parsed.data.reason ?? null) : null })
-    .where(eq(creditTopupOrdersTable.id, id))
+    .where(and(eq(creditTopupOrdersTable.id, id), eq(creditTopupOrdersTable.status, "pending")))
     .returning();
+  if (!updated) {
+    const [latest] = await db.select().from(creditTopupOrdersTable).where(eq(creditTopupOrdersTable.id, id));
+    res.json({ order: latest ?? order });
+    return;
+  }
   res.json({ order: updated });
 });
 
