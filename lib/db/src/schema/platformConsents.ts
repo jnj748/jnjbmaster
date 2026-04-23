@@ -17,6 +17,7 @@ export const consentRoles = [
   "accountant",
   "facility_staff",
   "partner",
+  "hq_executive",
 ] as const;
 
 export const consentStatuses = ["agreed", "declined"] as const;

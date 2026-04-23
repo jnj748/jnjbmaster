@@ -3703,6 +3703,224 @@ paths:
                 required:
                   - ok
 
+  /platform/campaigns:
+    get:
+      operationId: listPlatformCampaigns
+      tags: [campaigns]
+      summary: List platform campaigns (platform admin)
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [manager, accountant, facility_staff, hq_executive, partner]
+      responses:
+        "200":
+          description: Campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformCampaign"
+    post:
+      operationId: createPlatformCampaign
+      tags: [campaigns]
+      summary: Create a platform campaign (platform admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformCampaignBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformCampaign"
+
+  /platform/campaigns/{id}:
+    patch:
+      operationId: updatePlatformCampaign
+      tags: [campaigns]
+      summary: Update a platform campaign (platform admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformCampaignBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformCampaign"
+    delete:
+      operationId: deletePlatformCampaign
+      tags: [campaigns]
+      summary: Delete a platform campaign (platform admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /platform/campaigns/{id}/stop:
+    post:
+      operationId: stopPlatformCampaign
+      tags: [campaigns]
+      summary: Stop a platform campaign (platform admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformCampaign"
+
+  /campaigns/active:
+    get:
+      operationId: listActiveCampaigns
+      tags: [campaigns]
+      summary: List active campaigns visible to the current user
+      responses:
+        "200":
+          description: Active campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActiveCampaign"
+
+  /campaigns/{id}/impression:
+    post:
+      operationId: recordCampaignImpression
+      tags: [campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /campaigns/{id}/read:
+    post:
+      operationId: markCampaignRead
+      tags: [campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /campaigns/{id}/cta-click:
+    post:
+      operationId: recordCampaignCtaClick
+      tags: [campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /campaigns/{id}/dismiss:
+    post:
+      operationId: dismissCampaign
+      tags: [campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [today, forever]
+              required: [mode]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
   /platform/knowledge-docs:
     get:
       operationId: listPlatformKnowledgeDocs
@@ -7703,6 +7921,195 @@ components:
         - isActive
         - createdAt
         - updatedAt
+
+    PlatformCampaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        targetRole:
+          type: string
+          enum: [manager, accountant, facility_staff, hq_executive, partner]
+        type:
+          type: string
+          enum: [required, suggested, other]
+        audienceFilter:
+          type: string
+          enum: [all, active]
+        title:
+          type: string
+        body:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [modal, banner, bell, push]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: ["string", "null"]
+          format: date-time
+        recurrence:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        recurrenceDays:
+          type: ["array", "null"]
+          items:
+            type: integer
+        maxImpressionsPerUser:
+          type: integer
+        ctaLabel:
+          type: ["string", "null"]
+        ctaUrl:
+          type: ["string", "null"]
+        achievementText:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isStopped:
+          type: boolean
+        createdBy:
+          type: ["integer", "null"]
+        createdByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        stats:
+          type: object
+          properties:
+            impressions:
+              type: integer
+            reads:
+              type: integer
+            ctaClicks:
+              type: integer
+          required: [impressions, reads, ctaClicks]
+      required:
+        - id
+        - targetRole
+        - type
+        - audienceFilter
+        - title
+        - body
+        - channels
+        - startsAt
+        - recurrence
+        - maxImpressionsPerUser
+        - isActive
+        - isStopped
+        - createdAt
+        - updatedAt
+
+    PlatformCampaignBody:
+      type: object
+      properties:
+        targetRole:
+          type: string
+          enum: [manager, accountant, facility_staff, hq_executive, partner]
+        type:
+          type: string
+          enum: [required, suggested, other]
+        audienceFilter:
+          type: string
+          enum: [all, active]
+        title:
+          type: string
+        body:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [modal, banner, bell, push]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: ["string", "null"]
+          format: date-time
+        recurrence:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        recurrenceDays:
+          type: ["array", "null"]
+          items:
+            type: integer
+        maxImpressionsPerUser:
+          type: integer
+        ctaLabel:
+          type: ["string", "null"]
+        ctaUrl:
+          type: ["string", "null"]
+        achievementText:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+      required:
+        - targetRole
+        - title
+        - body
+        - channels
+
+    ActiveCampaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [required, suggested, other]
+        title:
+          type: string
+        body:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [modal, banner, bell, push]
+        ctaLabel:
+          type: ["string", "null"]
+        ctaUrl:
+          type: ["string", "null"]
+        achievementText:
+          type: ["string", "null"]
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: ["string", "null"]
+          format: date-time
+        maxImpressionsPerUser:
+          type: integer
+        impressionCount:
+          type: integer
+        isRead:
+          type: boolean
+        modalEligible:
+          type: boolean
+      required:
+        - id
+        - type
+        - title
+        - body
+        - channels
+        - startsAt
+        - maxImpressionsPerUser
+        - impressionCount
+        - isRead
+        - modalEligible
 
     DocumentChecklist:
       type: object

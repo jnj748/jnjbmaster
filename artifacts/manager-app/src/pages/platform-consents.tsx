@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { FileText, Plus, Save, Upload, CheckCircle2 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
-type ConsentRole = "manager" | "accountant" | "facility_staff" | "partner";
+type ConsentRole = "manager" | "accountant" | "facility_staff" | "hq_executive" | "partner";
 type ConsentType = "terms" | "privacy" | "partner_terms" | "marketing" | "third_party_sharing";
 
 const ROLE_LABEL: Record<ConsentRole, string> = {
   manager: "관리소장",
   accountant: "경리·행정",
   facility_staff: "시설기사",
+  hq_executive: "본사총괄",
   partner: "파트너사",
 };
 
@@ -49,17 +51,32 @@ const ROLE_TYPES: Record<ConsentRole, ConsentType[]> = {
   manager: ["terms", "privacy", "marketing", "third_party_sharing"],
   accountant: ["terms", "privacy", "marketing", "third_party_sharing"],
   facility_staff: ["terms", "privacy", "marketing", "third_party_sharing"],
+  hq_executive: ["terms", "privacy", "marketing", "third_party_sharing"],
   partner: ["terms", "privacy", "partner_terms", "marketing", "third_party_sharing"],
 };
 
-const ROLES: ConsentRole[] = ["manager", "accountant", "facility_staff", "partner"];
+const ROLES: ConsentRole[] = ["manager", "accountant", "facility_staff", "hq_executive", "partner"];
 
 export default function PlatformConsentsPage() {
   const { token } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeRole, setActiveRole] = useState<ConsentRole>("manager");
+  const [activeRole, setActiveRole] = useState<ConsentRole>(() => {
+    if (typeof window === "undefined") return "manager";
+    const r = new URLSearchParams(window.location.search).get("role") ?? "";
+    return (["manager", "accountant", "facility_staff", "hq_executive", "partner"].includes(r) ? r : "manager") as ConsentRole;
+  });
+  // [Task #283] 사이드바에서 같은 경로로 role 만 바뀌어 진입할 때도 탭이 동기화되도록
+  //   location 변화에 맞춰 ?role= 을 다시 읽어 activeRole 을 갱신한다.
+  const [location] = useLocation();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const r = new URLSearchParams(window.location.search).get("role") ?? "";
+    if (["manager", "accountant", "facility_staff", "hq_executive", "partner"].includes(r)) {
+      setActiveRole(r as ConsentRole);
+    }
+  }, [location]);
   const [activeType, setActiveType] = useState<ConsentType>("terms");
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);

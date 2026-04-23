@@ -33,6 +33,7 @@ import {
   Clipboard,
   NotebookPen,
   Plus,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -523,6 +524,11 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-credits")),
     label: "파트너 크레딧", icon: Coins, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #283] 역할별 캠페인 알림 관리 — 단일 페이지가 ?role= 쿼리로 5개 역할 범위를 전환.
+  { path: "/platform/campaigns",
+    component: lazy(() => import("@/pages/platform-campaigns")),
+    label: "캠페인 알림", icon: Megaphone, group: "settings",
+    access: ["platform_admin"], hidden: true },
   {
     // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼관리자)
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
@@ -629,6 +635,11 @@ export interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
+  /** Optional query-string suffix appended to `path` when navigating
+   *  (e.g. `?role=manager`). Active matching also requires every key/value
+   *  here to match the current URL, so the same `path` can appear multiple
+   *  times for different scopes. */
+  query?: Record<string, string>;
   /** When set, tapping this nav item should open a sheet listing the group's
    *  items rather than navigating to `path`. */
   groupSheet?: Group;
@@ -689,30 +700,83 @@ function isCategoryEnabled(group: Group, disabled?: readonly string[] | null): b
 // [Task #267] 플랫폼관리자 전용 사이드바 — 3 그룹(현황 대시보드 / 데이터 관리 / 설정)만 노출.
 //   ROUTES.access 는 그대로 두어 직접 URL 접근은 보존하되, 사이드바에서 실무 메뉴(시설/회계/입주민/
 //   보고/AI 비서 등)를 일괄 숨긴다.
+// [Task #283] 플랫폼관리자 사이드바를 사용자 역할별 7 그룹으로 재구성한다.
+//   각 역할 그룹은 동일 메뉴 패턴을 갖되, 약관·공지·AI 자료·업무 템플릿·캠페인은
+//   기존 페이지에 ?role= 쿼리 파라미터로 진입한다 (페이지가 해당 역할 데이터로 필터링).
+function roleNavItems(
+  role: TargetRole,
+  statusPath: string,
+  statusIcon: LucideIcon,
+  options: { showTaskTemplates?: boolean; extra?: NavItem[] } = {},
+): NavItem[] {
+  // [Task #283] 메뉴 순서: 현황 → (역할별 운영 항목: 시설기사 승인 / 협력업체·크레딧)
+  //   → 약관 → 공지 → AI 공통 자료 → 업무 템플릿 → 캠페인 알림.
+  //   운영 항목을 콘텐츠 항목보다 앞에 두어 평소 사용 동선을 단축한다.
+  const items: NavItem[] = [
+    { path: statusPath, label: "현황", icon: statusIcon },
+  ];
+  if (options.extra) {
+    for (const e of options.extra) items.push(e);
+  }
+  items.push(
+    { path: "/platform-consents", label: "약관", icon: FileText, query: { role } },
+    { path: "/platform-announcements", label: "공지", icon: Megaphone, query: { role } },
+    { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: BookOpen, query: { role } },
+  );
+  if (options.showTaskTemplates !== false) {
+    items.push({
+      path: "/settings/task-templates",
+      label: "업무 템플릿",
+      icon: ClipboardList,
+      query: { role },
+    });
+  }
+  items.push({
+    path: "/platform/campaigns",
+    label: "캠페인 알림",
+    icon: Send,
+    query: { role },
+  });
+  return items;
+}
+
+type TargetRole = "manager" | "accountant" | "facility_staff" | "hq_executive" | "partner";
+
 function platformAdminSidebar(): NavSection[] {
   return [
     {
-      title: "현황 대시보드",
-      items: [
-        // [Task #267] 사양상 정확히 5개 역할 항목만 노출. 루트(/) 항목은 별도로 두지 않는다.
-        { path: "/platform/managers", label: "관리소장 현황", icon: Building2 },
-        { path: "/platform/accountants", label: "경리·행정 현황", icon: Calculator },
-        { path: "/platform/facility-staff", label: "시설기사 현황", icon: HardHat },
-        { path: "/platform/hq-executives", label: "본사총괄 현황", icon: Shield },
-        { path: "/platform/partners", label: "파트너사 현황", icon: Package },
-      ],
+      title: "관리소장",
+      items: roleNavItems("manager", "/platform/managers", Building2),
     },
     {
-      title: "데이터 관리",
+      title: "경리·행정",
+      items: roleNavItems("accountant", "/platform/accountants", Calculator),
+    },
+    {
+      title: "시설기사",
+      items: roleNavItems("facility_staff", "/platform/facility-staff", HardHat, {
+        extra: [{ path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck }],
+      }),
+    },
+    {
+      title: "본사총괄",
+      items: roleNavItems("hq_executive", "/platform/hq-executives", Shield),
+    },
+    {
+      title: "파트너사",
+      // 파트너사는 업무 템플릿 개념이 없으므로 해당 메뉴는 생략한다.
+      items: roleNavItems("partner", "/platform/partners", Package, {
+        showTaskTemplates: false,
+        extra: [
+          { path: "/vendors", label: "협력업체", icon: Building2 },
+          { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
+        ],
+      }),
+    },
+    {
+      title: "공통·시스템",
       items: [
         { path: "/users", label: "사용자 관리", icon: Users },
-        { path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck },
-        { path: "/vendors", label: "협력업체", icon: Building2 },
-        { path: "/platform/credits", label: "파트너 크레딧", icon: Coins },
-        { path: "/platform-consents", label: "약관 관리", icon: FileText },
-        { path: "/platform-announcements", label: "공지 관리", icon: FileText },
-        { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: FileText },
-        { path: "/settings/task-templates", label: "업무 템플릿 관리", icon: ClipboardList },
         { path: "/document-templates", label: "서식 관리", icon: FileText },
         { path: "/report-system", label: "보고 체계", icon: BarChart3 },
       ],

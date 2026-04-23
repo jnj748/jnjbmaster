@@ -5007,6 +5007,276 @@ export const DeletePlatformAnnouncementResponse = zod.object({
 });
 
 /**
+ * @summary List platform campaigns (platform admin)
+ */
+export const ListPlatformCampaignsQueryParams = zod.object({
+  role: zod
+    .enum([
+      "manager",
+      "accountant",
+      "facility_staff",
+      "hq_executive",
+      "partner",
+    ])
+    .optional(),
+});
+
+export const ListPlatformCampaignsResponseItem = zod.object({
+  id: zod.number(),
+  targetRole: zod.enum([
+    "manager",
+    "accountant",
+    "facility_staff",
+    "hq_executive",
+    "partner",
+  ]),
+  type: zod.enum(["required", "suggested", "other"]),
+  audienceFilter: zod.enum(["all", "active"]),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
+  recurrenceDays: zod.array(zod.number()).nullish(),
+  maxImpressionsPerUser: zod.number(),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  isActive: zod.boolean(),
+  isStopped: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  stats: zod
+    .object({
+      impressions: zod.number(),
+      reads: zod.number(),
+      ctaClicks: zod.number(),
+    })
+    .optional(),
+});
+export const ListPlatformCampaignsResponse = zod.array(
+  ListPlatformCampaignsResponseItem,
+);
+
+/**
+ * @summary Create a platform campaign (platform admin)
+ */
+export const CreatePlatformCampaignBody = zod.object({
+  targetRole: zod.enum([
+    "manager",
+    "accountant",
+    "facility_staff",
+    "hq_executive",
+    "partner",
+  ]),
+  type: zod.enum(["required", "suggested", "other"]).optional(),
+  audienceFilter: zod.enum(["all", "active"]).optional(),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  startsAt: zod.coerce.date().optional(),
+  endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
+  recurrenceDays: zod.array(zod.number()).nullish(),
+  maxImpressionsPerUser: zod.number().optional(),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a platform campaign (platform admin)
+ */
+export const UpdatePlatformCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePlatformCampaignBody = zod.object({
+  targetRole: zod.enum([
+    "manager",
+    "accountant",
+    "facility_staff",
+    "hq_executive",
+    "partner",
+  ]),
+  type: zod.enum(["required", "suggested", "other"]).optional(),
+  audienceFilter: zod.enum(["all", "active"]).optional(),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  startsAt: zod.coerce.date().optional(),
+  endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
+  recurrenceDays: zod.array(zod.number()).nullish(),
+  maxImpressionsPerUser: zod.number().optional(),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdatePlatformCampaignResponse = zod.object({
+  id: zod.number(),
+  targetRole: zod.enum([
+    "manager",
+    "accountant",
+    "facility_staff",
+    "hq_executive",
+    "partner",
+  ]),
+  type: zod.enum(["required", "suggested", "other"]),
+  audienceFilter: zod.enum(["all", "active"]),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
+  recurrenceDays: zod.array(zod.number()).nullish(),
+  maxImpressionsPerUser: zod.number(),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  isActive: zod.boolean(),
+  isStopped: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  stats: zod
+    .object({
+      impressions: zod.number(),
+      reads: zod.number(),
+      ctaClicks: zod.number(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Delete a platform campaign (platform admin)
+ */
+export const DeletePlatformCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeletePlatformCampaignResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Stop a platform campaign (platform admin)
+ */
+export const StopPlatformCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const StopPlatformCampaignResponse = zod.object({
+  id: zod.number(),
+  targetRole: zod.enum([
+    "manager",
+    "accountant",
+    "facility_staff",
+    "hq_executive",
+    "partner",
+  ]),
+  type: zod.enum(["required", "suggested", "other"]),
+  audienceFilter: zod.enum(["all", "active"]),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
+  recurrenceDays: zod.array(zod.number()).nullish(),
+  maxImpressionsPerUser: zod.number(),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  isActive: zod.boolean(),
+  isStopped: zod.boolean(),
+  createdBy: zod.number().nullish(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  stats: zod
+    .object({
+      impressions: zod.number(),
+      reads: zod.number(),
+      ctaClicks: zod.number(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary List active campaigns visible to the current user
+ */
+export const ListActiveCampaignsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.enum(["required", "suggested", "other"]),
+  title: zod.string(),
+  body: zod.string(),
+  imageUrl: zod.string().nullish(),
+  channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
+  ctaLabel: zod.string().nullish(),
+  ctaUrl: zod.string().nullish(),
+  achievementText: zod.string().nullish(),
+  startsAt: zod.coerce.date(),
+  endsAt: zod.coerce.date().nullish(),
+  maxImpressionsPerUser: zod.number(),
+  impressionCount: zod.number(),
+  isRead: zod.boolean(),
+  modalEligible: zod.boolean(),
+});
+export const ListActiveCampaignsResponse = zod.array(
+  ListActiveCampaignsResponseItem,
+);
+
+export const RecordCampaignImpressionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RecordCampaignImpressionResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+export const MarkCampaignReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkCampaignReadResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+export const RecordCampaignCtaClickParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RecordCampaignCtaClickResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+export const DismissCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DismissCampaignBody = zod.object({
+  mode: zod.enum(["today", "forever"]),
+});
+
+export const DismissCampaignResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary List platform-managed knowledge documents (HQ admin)
  */
 export const ListPlatformKnowledgeDocsResponseItem = zod.object({

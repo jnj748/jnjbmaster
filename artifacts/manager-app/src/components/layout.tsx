@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import { Link, useLocation } from "wouter";
 import { QuickEntryDialog } from "@/components/work-log/quick-entry-fab";
+import { CampaignModalHost } from "@/components/campaigns/campaign-modal-host";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -8,6 +10,11 @@ import {
   useGetUnreadNotificationCount,
   useMarkNotificationRead,
   useMarkAnnouncementRead,
+  useListActiveCampaigns,
+  useMarkCampaignRead,
+  useDismissCampaign,
+  useRecordCampaignImpression,
+  getListActiveCampaignsQueryKey,
   useGetFacilityStatusSummary,
   getListNotificationsQueryKey,
   getGetUnreadNotificationCountQueryKey,
@@ -49,10 +56,26 @@ import {
   getSidebarSections,
   getBottomNavItems,
   getEffectiveRole,
+  type NavItem,
   type NavSection,
   type Role,
 } from "@/lib/permissions";
 import { CATEGORY_ICON_CLASS, GROUP_TO_CATEGORY } from "@/lib/category-colors";
+
+function navItemHref(item: NavItem): string {
+  if (!item.query) return item.path;
+  const qs = new URLSearchParams(item.query).toString();
+  return qs ? `${item.path}?${qs}` : item.path;
+}
+
+function isNavItemActive(item: NavItem, location: string): boolean {
+  const pathMatch = item.path === "/" ? location === "/" : location.startsWith(item.path);
+  if (!pathMatch) return false;
+  if (!item.query) return true;
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return Object.entries(item.query).every(([k, v]) => params.get(k) === v);
+}
 
 // All sidebar / bottom-nav definitions live in `@/lib/permissions` and are
 // derived from the role × screen permission matrix (single source of truth).
@@ -120,14 +143,45 @@ function NotifBell() {
   const [openDetail, setOpenDetail] = useState<Notification | null>(null);
   const { data: unreadCount } = useGetUnreadNotificationCount({ query: { staleTime: 30 * 1000, refetchInterval: 60 * 1000 } });
   const { data: notifications } = useListNotifications({ query: { enabled: notifOpen } });
+  const { data: campaigns = [] } = useListActiveCampaigns({
+    query: { enabled: notifOpen, staleTime: 60_000 },
+  });
+  const { data: campaignsForBadge = [] } = useListActiveCampaigns({
+    query: { staleTime: 60_000, refetchInterval: 5 * 60_000 },
+  });
+  const markCampaignRead = useMarkCampaignRead();
+  const dismissCampaign = useDismissCampaign();
+  const recordCampaignImpression = useRecordCampaignImpression();
+  // [Task #283] 알림벨 캠페인 노출 추적: 팝오버가 처음 열려서 캠페인이 보일 때
+  //   각 캠페인에 대해 세션당 1회 임프레션을 적재한다 (maxImpressionsPerUser 정책 일관성).
+  const bellImpressionsRecorded = useRef<Set<number>>(new Set());
   const markRead = useMarkNotificationRead();
   const markAnnouncementRead = useMarkAnnouncementRead();
   const queryClient = useQueryClient();
+  const bellCampaigns = useMemo(
+    () => campaigns.filter((c) => (c.channels ?? []).includes("bell")),
+    [campaigns],
+  );
+  const unreadCampaignsForBadge = useMemo(
+    () => campaignsForBadge.filter((c) => (c.channels ?? []).includes("bell") && !c.isRead).length,
+    [campaignsForBadge],
+  );
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetUnreadNotificationCountQueryKey() });
   }, [queryClient]);
+
+  // [Task #283] 알림벨이 열리고 캠페인 섹션이 렌더되는 시점에 노출 추적.
+  useEffect(() => {
+    if (!notifOpen) return;
+    if (bellCampaigns.length === 0) return;
+    const fresh = bellCampaigns.filter((c) => !bellImpressionsRecorded.current.has(c.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((c) => bellImpressionsRecorded.current.add(c.id));
+    Promise.all(fresh.map((c) => recordCampaignImpression.mutateAsync({ id: c.id }).catch(() => undefined)))
+      .then(() => queryClient.invalidateQueries({ queryKey: getListActiveCampaignsQueryKey() }));
+  }, [notifOpen, bellCampaigns, recordCampaignImpression, queryClient]);
 
   const handleMarkRead = useCallback(async (n: Notification) => {
     if (isAnnouncement(n)) {
@@ -157,9 +211,9 @@ function NotifBell() {
         <PopoverTrigger asChild>
           <Button variant="ghost" size="sm" className="relative min-w-[44px] min-h-[44px]">
             <Bell className="w-5 h-5" />
-            {(unreadCount?.count ?? 0) > 0 && (
+            {((unreadCount?.count ?? 0) + unreadCampaignsForBadge) > 0 && (
               <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {unreadCount!.count}
+                {(unreadCount?.count ?? 0) + unreadCampaignsForBadge}
               </span>
             )}
           </Button>
@@ -169,6 +223,69 @@ function NotifBell() {
             <div className="font-medium text-sm">알림</div>
           </div>
           <ScrollArea className="max-h-80">
+            {bellCampaigns.length > 0 && (
+              <div className="border-b" data-testid="bell-campaign-section">
+                <div className="px-3 pt-2 pb-1 text-[11px] font-semibold text-blue-700 bg-blue-50/40">
+                  이벤트 · 캠페인
+                </div>
+                <div className="divide-y">
+                  {bellCampaigns.map((c) => (
+                    <div
+                      key={`camp-${c.id}`}
+                      className={cn(
+                        "p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors min-h-[44px]",
+                        !c.isRead && "bg-blue-50/40",
+                      )}
+                      onClick={async () => {
+                        if (!c.isRead) {
+                          try {
+                            await markCampaignRead.mutateAsync({ id: c.id });
+                            queryClient.invalidateQueries({ queryKey: getListActiveCampaignsQueryKey() });
+                          } catch {
+                            /* tolerate */
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Badge variant="secondary" className="shrink-0 gap-1 bg-blue-100 text-blue-700 hover:bg-blue-100">
+                            <Megaphone className="w-3 h-3" />
+                            캠페인
+                          </Badge>
+                          <p className="font-medium text-sm truncate">{c.title}</p>
+                        </div>
+                        {!c.isRead && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                      </div>
+                      {/* [Task #283] 본문은 마크다운 리치텍스트로 렌더. */}
+                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2 prose prose-xs max-w-none">
+                        <ReactMarkdown>{c.body}</ReactMarkdown>
+                      </div>
+                      {c.type !== "required" && (
+                        <div className="mt-1.5 flex justify-end">
+                          <button
+                            type="button"
+                            className="text-[11px] text-slate-500 hover:text-slate-700 underline-offset-2 hover:underline"
+                            data-testid={`bell-campaign-dismiss-${c.id}`}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await dismissCampaign.mutateAsync({ id: c.id, data: { mode: "forever" } });
+                                queryClient.invalidateQueries({ queryKey: getListActiveCampaignsQueryKey() });
+                              } catch {
+                                /* tolerate */
+                              }
+                            }}
+                          >
+                            다시 보지 않기
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {notifications && notifications.length > 0 ? (
               <div className="divide-y">
                 {notifications.map((n) => {
@@ -379,11 +496,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div key={si}>
           {section.headerHref ? <Link href={section.headerHref}>{header}</Link> : header}
           {section.items.map((item) => {
-            const isActive =
-              item.path === "/" ? location === "/" : location.startsWith(item.path);
+            const navHref = navItemHref(item);
+            const isActive = isNavItemActive(item, location);
             const badge = badgeForPath(item.path);
             return (
-              <Link key={item.path} href={item.path}>
+              <Link key={navHref} href={navHref}>
                 <div
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
@@ -414,9 +531,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {section.items.map((item) => {
-          const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+          const navHref = navItemHref(item);
+          const isActive = isNavItemActive(item, location);
           return (
-            <Link key={item.path} href={item.path}>
+            <Link key={navHref} href={navHref}>
               <div
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
@@ -542,14 +660,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {/* [종배치] 모바일 드로어도 세로 리스트로 통일 */}
                 <div className="flex flex-col gap-1">
                   {section.items.map((item) => {
-                    const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
+                    const navHref = navItemHref(item);
+                    const isActive = isNavItemActive(item, location);
                     const badge = badgeForPath(item.path);
                     // [Task #256] 드로어 항목 아이콘에도 카테고리 색을 적용 — 같은
                     // 카테고리는 어느 화면(드로어/하단 네비/카드)에서도 동일 색.
                     const drawerCatToken = item.group ? GROUP_TO_CATEGORY[item.group] : "system";
                     const drawerIconColor = CATEGORY_ICON_CLASS[drawerCatToken];
                     return (
-                      <Link key={item.path} href={item.path}>
+                      <Link key={navHref} href={navHref}>
                         <button
                           onClick={() => setDrawerOpen(false)}
                           aria-label={badge?.ariaLabel ?? item.label}
@@ -620,6 +739,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* [네비 정비] 우하단 플로팅 메모 버튼은 제거. 업무기록은 하단 네비 가운데 + 버튼이 띄운다. */}
+      <CampaignModalHost />
       <QuickEntryDialog
         open={quickEntryOpen}
         onOpenChange={setQuickEntryOpen}

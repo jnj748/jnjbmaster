@@ -64,6 +64,27 @@
       "when": 1776902243332,
       "tag": "0008_debug_diff",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776926005941,
+      "tag": "0009_parallel_franklin_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776927158032,
+      "tag": "0010_plain_jack_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776927740819,
+      "tag": "0011_purple_nebula",
+      "breakpoints": true
     }
   ]
 }

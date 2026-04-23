@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Plus, Pencil, Trash2, Save, X, CheckCircle2, Upload, Paperclip, FileDown, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,11 +33,21 @@ interface DraftState {
   effectiveDate: string;
   version: string;
   isActive: boolean;
+  // [Task #283] 노출 대상 역할. 빈 배열이면 전체 공통.
+  targetRoles: string[];
 }
 
 const CATEGORY_PRESETS = ["법령", "개정안", "운영가이드", "안전관리", "회계/세무", "기타"];
 
-function emptyDraft(): DraftState {
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "manager", label: "관리자" },
+  { value: "accountant", label: "경리/회계" },
+  { value: "facility_staff", label: "시설직원" },
+  { value: "partner", label: "파트너사" },
+  { value: "hq_executive", label: "본사총괄" },
+];
+
+function emptyDraft(defaultRole?: string): DraftState {
   return {
     id: null,
     title: "",
@@ -49,13 +59,35 @@ function emptyDraft(): DraftState {
     effectiveDate: "",
     version: "",
     isActive: true,
+    targetRoles: defaultRole ? [defaultRole] : [],
   };
 }
 
 export default function PlatformKnowledgeDocsPage() {
   const queryClient = useQueryClient();
   const { token } = useAuth();
-  const { data: docs = [], isLoading } = useListPlatformKnowledgeDocs();
+  // [Task #283] ?role= 컨텍스트가 있으면 generated 훅 대신 role 쿼리를 포함한 직접 fetch 로
+  //   서버측 역할 필터링을 적용한다. (codegen 갱신을 피하기 위한 미니멀 우회)
+  const _roleFromUrl = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("role") ?? ""
+    : "";
+  const generated = useListPlatformKnowledgeDocs({ query: { enabled: !_roleFromUrl } });
+  const [roleScopedDocs, setRoleScopedDocs] = useState<typeof generated.data>([] as never);
+  const [roleScopedLoading, setRoleScopedLoading] = useState(false);
+  useEffect(() => {
+    if (!_roleFromUrl) return;
+    let cancelled = false;
+    setRoleScopedLoading(true);
+    fetch(`${import.meta.env.BASE_URL ?? "/"}api/platform/knowledge-docs?role=${encodeURIComponent(_roleFromUrl)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (!cancelled) setRoleScopedDocs(d); })
+      .finally(() => { if (!cancelled) setRoleScopedLoading(false); });
+    return () => { cancelled = true; };
+  }, [_roleFromUrl, token]);
+  const docs = (_roleFromUrl ? roleScopedDocs : generated.data) ?? [];
+  const isLoading = _roleFromUrl ? roleScopedLoading : generated.isLoading;
   const create = useCreatePlatformKnowledgeDoc();
   const update = useUpdatePlatformKnowledgeDoc();
   const remove = useDeletePlatformKnowledgeDoc();
@@ -92,7 +124,7 @@ export default function PlatformKnowledgeDocsPage() {
     setInfo("");
     setPiiWarning(null);
     setPiiConfirmed(false);
-    setDraft(emptyDraft());
+    setDraft(emptyDraft(_roleFromUrl || undefined));
   }
 
   function startEdit(d: PlatformKnowledgeDoc) {
@@ -111,6 +143,7 @@ export default function PlatformKnowledgeDocsPage() {
       effectiveDate: d.effectiveDate ?? "",
       version: d.version ?? "",
       isActive: d.isActive,
+      targetRoles: ((d as unknown as { targetRoles?: string[] | null }).targetRoles) ?? [],
     });
   }
 
@@ -178,6 +211,7 @@ export default function PlatformKnowledgeDocsPage() {
       effectiveDate: draft.effectiveDate || null,
       version: draft.version || null,
       isActive: draft.isActive,
+      targetRoles: draft.targetRoles.length > 0 ? draft.targetRoles : null,
       // 사용자가 PII 경고를 보고 명시적으로 "확인" 토글을 켰을 때만 우회.
       confirmPii: piiConfirmed,
     };
@@ -227,6 +261,23 @@ export default function PlatformKnowledgeDocsPage() {
     return `${API_BASE}/storage/objects/${trimmed}?token=${t}`;
   }
 
+  // [Task #283] AI 공통 자료실은 '전역 공통 리소스'로 명세가 확정되었다.
+  //   - 모든 역할의 AI 비서가 동일한 자료를 참조한다 (역할별 분리 저장소가 아님).
+  //   - 사이드바에서 ?role=… 으로 진입한 경우 어느 역할 메뉴에서 들어왔는지를
+  //     배너로 명시해 사용자가 잘못된 컨텍스트로 오해하지 않게 한다.
+  //   - 향후 역할별 자료가 필요해지면 targetRoles 컬럼을 추가하고 필터링한다.
+  const ROLE_BADGE: Record<string, string> = {
+    manager: "관리소장",
+    accountant: "경리·행정",
+    facility_staff: "시설기사",
+    hq_executive: "본사총괄",
+    partner: "파트너사",
+  };
+  const roleParam = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("role") ?? ""
+    : "";
+  const roleBadge = ROLE_BADGE[roleParam] ?? null;
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -234,6 +285,11 @@ export default function PlatformKnowledgeDocsPage() {
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-slate-700" />
             <h1 className="text-xl font-semibold text-slate-900">AI 공통 자료실</h1>
+            {roleBadge && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {roleBadge} 컨텍스트
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500 mt-1">
             여기에 등록한 법령·개정안·운영 가이드는 모든 관리소장의 AI 비서가 공통 참고자료로 사용합니다.
@@ -242,6 +298,13 @@ export default function PlatformKnowledgeDocsPage() {
               본문(텍스트)이 AI 답변 근거가 되며, 첨부 파일은 관리자 다운로드용 원본입니다.
             </span>
           </p>
+          {roleBadge && (
+            <div className="mt-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
+              이 자료실은 모든 역할이 공유하는 <b>전역 공통 리소스</b>입니다. 현재
+              {" "}<b>{roleBadge}</b> 메뉴에서 진입하셨지만, 여기서 등록·수정하는 자료는
+              모든 역할의 AI 비서에 동일하게 반영됩니다.
+            </div>
+          )}
         </div>
         <Button onClick={startNew} disabled={!!draft}>
           <Plus className="w-4 h-4 mr-1" />새 자료
@@ -339,6 +402,37 @@ export default function PlatformKnowledgeDocsPage() {
                   placeholder="예) v2026-01"
                   maxLength={50}
                 />
+              </div>
+            </div>
+
+            {/* [Task #283] 노출 대상 역할(미선택 = 전체 공통). ?role=… 진입 시 기본 선택. */}
+            <div>
+              <Label className="text-xs">노출 대상 역할 (선택 안 하면 전체 공통)</Label>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {ROLE_OPTIONS.map((opt) => {
+                  const checked = draft.targetRoles.includes(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`text-xs px-2 py-1 rounded border cursor-pointer ${
+                        checked ? "bg-primary text-primary-foreground border-primary" : "bg-white border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? draft.targetRoles.filter((r) => r !== opt.value)
+                            : [...draft.targetRoles, opt.value];
+                          setDraft({ ...draft, targetRoles: next });
+                        }}
+                      />
+                      {opt.label}
+                    </label>
+                  );
+                })}
               </div>
             </div>
 

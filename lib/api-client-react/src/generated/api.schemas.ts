@@ -2175,6 +2175,209 @@ export interface PlatformAnnouncement {
   updatedAt: string;
 }
 
+export type PlatformCampaignTargetRole =
+  (typeof PlatformCampaignTargetRole)[keyof typeof PlatformCampaignTargetRole];
+
+export const PlatformCampaignTargetRole = {
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  hq_executive: "hq_executive",
+  partner: "partner",
+} as const;
+
+export type PlatformCampaignType =
+  (typeof PlatformCampaignType)[keyof typeof PlatformCampaignType];
+
+export const PlatformCampaignType = {
+  required: "required",
+  suggested: "suggested",
+  other: "other",
+} as const;
+
+export type PlatformCampaignAudienceFilter =
+  (typeof PlatformCampaignAudienceFilter)[keyof typeof PlatformCampaignAudienceFilter];
+
+export const PlatformCampaignAudienceFilter = {
+  all: "all",
+  active: "active",
+} as const;
+
+export type PlatformCampaignChannelsItem =
+  (typeof PlatformCampaignChannelsItem)[keyof typeof PlatformCampaignChannelsItem];
+
+export const PlatformCampaignChannelsItem = {
+  modal: "modal",
+  banner: "banner",
+  bell: "bell",
+  push: "push",
+} as const;
+
+export type PlatformCampaignRecurrence =
+  (typeof PlatformCampaignRecurrence)[keyof typeof PlatformCampaignRecurrence];
+
+export const PlatformCampaignRecurrence = {
+  none: "none",
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export type PlatformCampaignStats = {
+  impressions: number;
+  reads: number;
+  ctaClicks: number;
+};
+
+export interface PlatformCampaign {
+  id: number;
+  targetRole: PlatformCampaignTargetRole;
+  type: PlatformCampaignType;
+  audienceFilter: PlatformCampaignAudienceFilter;
+  title: string;
+  body: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  channels: PlatformCampaignChannelsItem[];
+  startsAt: string;
+  /** @nullable */
+  endsAt?: string | null;
+  recurrence: PlatformCampaignRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
+  maxImpressionsPerUser: number;
+  /** @nullable */
+  ctaLabel?: string | null;
+  /** @nullable */
+  ctaUrl?: string | null;
+  /** @nullable */
+  achievementText?: string | null;
+  isActive: boolean;
+  isStopped: boolean;
+  /** @nullable */
+  createdBy?: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  stats?: PlatformCampaignStats;
+}
+
+export type PlatformCampaignBodyTargetRole =
+  (typeof PlatformCampaignBodyTargetRole)[keyof typeof PlatformCampaignBodyTargetRole];
+
+export const PlatformCampaignBodyTargetRole = {
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  hq_executive: "hq_executive",
+  partner: "partner",
+} as const;
+
+export type PlatformCampaignBodyType =
+  (typeof PlatformCampaignBodyType)[keyof typeof PlatformCampaignBodyType];
+
+export const PlatformCampaignBodyType = {
+  required: "required",
+  suggested: "suggested",
+  other: "other",
+} as const;
+
+export type PlatformCampaignBodyAudienceFilter =
+  (typeof PlatformCampaignBodyAudienceFilter)[keyof typeof PlatformCampaignBodyAudienceFilter];
+
+export const PlatformCampaignBodyAudienceFilter = {
+  all: "all",
+  active: "active",
+} as const;
+
+export type PlatformCampaignBodyChannelsItem =
+  (typeof PlatformCampaignBodyChannelsItem)[keyof typeof PlatformCampaignBodyChannelsItem];
+
+export const PlatformCampaignBodyChannelsItem = {
+  modal: "modal",
+  banner: "banner",
+  bell: "bell",
+  push: "push",
+} as const;
+
+export type PlatformCampaignBodyRecurrence =
+  (typeof PlatformCampaignBodyRecurrence)[keyof typeof PlatformCampaignBodyRecurrence];
+
+export const PlatformCampaignBodyRecurrence = {
+  none: "none",
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export interface PlatformCampaignBody {
+  targetRole: PlatformCampaignBodyTargetRole;
+  type?: PlatformCampaignBodyType;
+  audienceFilter?: PlatformCampaignBodyAudienceFilter;
+  title: string;
+  body: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  channels: PlatformCampaignBodyChannelsItem[];
+  startsAt?: string;
+  /** @nullable */
+  endsAt?: string | null;
+  recurrence?: PlatformCampaignBodyRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
+  maxImpressionsPerUser?: number;
+  /** @nullable */
+  ctaLabel?: string | null;
+  /** @nullable */
+  ctaUrl?: string | null;
+  /** @nullable */
+  achievementText?: string | null;
+  isActive?: boolean;
+}
+
+export type ActiveCampaignType =
+  (typeof ActiveCampaignType)[keyof typeof ActiveCampaignType];
+
+export const ActiveCampaignType = {
+  required: "required",
+  suggested: "suggested",
+  other: "other",
+} as const;
+
+export type ActiveCampaignChannelsItem =
+  (typeof ActiveCampaignChannelsItem)[keyof typeof ActiveCampaignChannelsItem];
+
+export const ActiveCampaignChannelsItem = {
+  modal: "modal",
+  banner: "banner",
+  bell: "bell",
+  push: "push",
+} as const;
+
+export interface ActiveCampaign {
+  id: number;
+  type: ActiveCampaignType;
+  title: string;
+  body: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  channels: ActiveCampaignChannelsItem[];
+  /** @nullable */
+  ctaLabel?: string | null;
+  /** @nullable */
+  ctaUrl?: string | null;
+  /** @nullable */
+  achievementText?: string | null;
+  startsAt: string;
+  /** @nullable */
+  endsAt?: string | null;
+  maxImpressionsPerUser: number;
+  impressionCount: number;
+  isRead: boolean;
+  modalEligible: boolean;
+}
+
 export type DocumentChecklistEntityType =
   (typeof DocumentChecklistEntityType)[keyof typeof DocumentChecklistEntityType];
 
@@ -5245,6 +5448,53 @@ export type UpdatePlatformAnnouncementBody = {
 };
 
 export type DeletePlatformAnnouncement200 = {
+  ok: boolean;
+};
+
+export type ListPlatformCampaignsParams = {
+  role?: ListPlatformCampaignsRole;
+};
+
+export type ListPlatformCampaignsRole =
+  (typeof ListPlatformCampaignsRole)[keyof typeof ListPlatformCampaignsRole];
+
+export const ListPlatformCampaignsRole = {
+  manager: "manager",
+  accountant: "accountant",
+  facility_staff: "facility_staff",
+  hq_executive: "hq_executive",
+  partner: "partner",
+} as const;
+
+export type DeletePlatformCampaign200 = {
+  ok: boolean;
+};
+
+export type RecordCampaignImpression200 = {
+  ok: boolean;
+};
+
+export type MarkCampaignRead200 = {
+  ok: boolean;
+};
+
+export type RecordCampaignCtaClick200 = {
+  ok: boolean;
+};
+
+export type DismissCampaignBodyMode =
+  (typeof DismissCampaignBodyMode)[keyof typeof DismissCampaignBodyMode];
+
+export const DismissCampaignBodyMode = {
+  today: "today",
+  forever: "forever",
+} as const;
+
+export type DismissCampaignBody = {
+  mode: DismissCampaignBodyMode;
+};
+
+export type DismissCampaign200 = {
   ok: boolean;
 };
 

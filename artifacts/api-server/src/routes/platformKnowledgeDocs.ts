@@ -33,6 +33,8 @@ const CreateBody = z.object({
   effectiveDate: z.string().nullable().optional(),
   version: z.string().max(50).nullable().optional(),
   isActive: z.boolean().optional(),
+  // [Task #283] 역할별 자료 노출 대상. NULL/빈배열이면 전체 공통.
+  targetRoles: z.array(z.string()).nullable().optional(),
   // PII 감지 우회 확인 — 사용자가 "확인했습니다" 동의 후 재전송 시 true.
   confirmPii: z.boolean().optional(),
 });
@@ -80,12 +82,21 @@ async function lockDownAttachment(objectPath: string | null | undefined, userId:
 router.get(
   "/platform/knowledge-docs",
   requireRole("platform_admin", "hq_executive"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
+    const role = typeof req.query.role === "string" ? req.query.role : "";
     const rows = await db
       .select()
       .from(platformKnowledgeDocsTable)
       .orderBy(desc(platformKnowledgeDocsTable.createdAt));
-    res.json(rows);
+    // [Task #283] ?role= 가 주어지면 targetRoles 가 NULL/빈배열(전체 공통) 이거나
+    //   해당 role 을 포함하는 행만 반환한다.
+    const filtered = role
+      ? rows.filter((r) => {
+          const tr = (r as { targetRoles?: string[] | null }).targetRoles;
+          return !tr || tr.length === 0 || tr.includes(role);
+        })
+      : rows;
+    res.json(filtered);
   },
 );
 
@@ -132,9 +143,10 @@ router.post(
         effectiveDate: d.effectiveDate ?? null,
         version: d.version ?? null,
         isActive: d.isActive ?? true,
+        targetRoles: d.targetRoles ?? null,
         createdBy: req.user!.userId,
         createdByName: author?.name ?? null,
-      })
+      } as never)
       .returning();
     res.status(201).json(created);
   },
@@ -176,6 +188,7 @@ router.patch(
     if (d.effectiveDate !== undefined) patch.effectiveDate = d.effectiveDate;
     if (d.version !== undefined) patch.version = d.version;
     if (d.isActive !== undefined) patch.isActive = d.isActive;
+    if (d.targetRoles !== undefined) patch.targetRoles = d.targetRoles;
 
     // 새 첨부가 들어왔다면 DB 업데이트 전에 비공개 ACL 설정을 먼저 시도.
     // 실패하면 doc 변경 자체를 적용하지 않는다.

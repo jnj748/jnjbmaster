@@ -73,16 +73,23 @@ function fromIso(iso: string | Date | null | undefined): string {
   return new Date(d.getTime() - off).toISOString().slice(0, 16);
 }
 
-function emptyDraft(): DraftState {
+function emptyDraft(defaultAudience: Audience[] = ["all"]): DraftState {
   return {
     id: null,
     title: "",
     body: "",
-    audience: ["all"],
+    audience: defaultAudience,
     startsAt: nowLocal(),
     endsAt: "",
     isActive: true,
   };
+}
+
+const ROLE_AUDIENCES = new Set(["manager", "accountant", "facility_staff", "partner", "hq_executive"]);
+function readRoleParam(): Audience | null {
+  if (typeof window === "undefined") return null;
+  const r = new URLSearchParams(window.location.search).get("role") ?? "";
+  return ROLE_AUDIENCES.has(r) ? (r as Audience) : null;
 }
 
 function statusFor(a: PlatformAnnouncement): { label: string; tone: "active" | "scheduled" | "expired" | "inactive" } {
@@ -106,18 +113,25 @@ export default function PlatformAnnouncementsPage() {
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
 
-  const sorted = useMemo(
-    () =>
-      [...announcements].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      ),
-    [announcements],
-  );
+  // [Task #283] 사이드바에서 ?role=… 으로 진입하면 해당 역할 대상 공지로 필터링하고
+  //   새 공지 작성 시 audience 의 기본값을 그 역할로 미리 채운다.
+  const roleParam = readRoleParam();
+
+  const sorted = useMemo(() => {
+    const arr = [...announcements].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    if (!roleParam) return arr;
+    return arr.filter((a) => {
+      const aud = (a.audience as Audience[]) ?? [];
+      return aud.includes("all") || aud.includes(roleParam);
+    });
+  }, [announcements, roleParam]);
 
   function startNew() {
     setError("");
     setInfo("");
-    setDraft(emptyDraft());
+    setDraft(emptyDraft(roleParam ? [roleParam] : ["all"]));
   }
 
   function startEdit(a: PlatformAnnouncement) {

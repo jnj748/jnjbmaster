@@ -41,6 +41,8 @@ const CreateBody = z.object({
   advanceAlertDays: z.number().int().min(0).max(365).optional(),
   isActive: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  // [Task #283] 역할별 템플릿 노출 대상. NULL/빈배열이면 전체 공통.
+  targetRoles: z.array(z.string()).nullable().optional(),
 });
 
 const UpdateBody = CreateBody.partial();
@@ -74,12 +76,21 @@ async function recordAudit(
 router.get(
   "/platform/task-templates",
   requireRole("platform_admin"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
+    const role = typeof req.query.role === "string" ? req.query.role : "";
     const rows = await db
       .select()
       .from(taskTemplatesTable)
       .orderBy(desc(taskTemplatesTable.priority), asc(taskTemplatesTable.title));
-    res.json(rows);
+    // [Task #283] ?role= 컨텍스트가 있으면 targetRoles 가 비어있거나(전체 공통)
+    //   해당 role 을 포함하는 템플릿만 노출한다.
+    const filtered = role
+      ? rows.filter((r) => {
+          const tr = (r as { targetRoles?: string[] | null }).targetRoles;
+          return !tr || tr.length === 0 || tr.includes(role);
+        })
+      : rows;
+    res.json(filtered);
   },
 );
 
@@ -117,9 +128,10 @@ router.post(
         advanceAlertDays: d.advanceAlertDays ?? 7,
         isActive: d.isActive ?? true,
         metadata: d.metadata ?? {},
+        targetRoles: d.targetRoles ?? null,
         createdBy: userId ?? null,
         createdByName: author?.name ?? null,
-      })
+      } as never)
       .returning();
     await recordAudit(userId, "create", created, { after: created });
     res.status(201).json(created);

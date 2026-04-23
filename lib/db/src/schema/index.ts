@@ -43,6 +43,7 @@ export * from "./monthlyBillSummaries";
 export * from "./warranties";
 export * from "./platformConsents";
 export * from "./platformAnnouncements";
+export * from "./platformCampaigns";
 export * from "./platformKnowledgeDocs";
 export * from "./platformSettings";
 export * from "./creditCategoryPricing";

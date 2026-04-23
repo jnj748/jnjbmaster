@@ -30,6 +30,9 @@ const AccountantMainWidget = lazy(() => import("@/pages/accountant-dashboard"));
 const FacilityMainWidget = lazy(() => import("@/pages/facility-worktool"));
 const PartnerMainWidget = lazy(() => import("@/pages/partner-dashboard"));
 const AdminMainWidget = lazy(() => import("@/pages/admin-dashboard"));
+const CampaignBannerWidget = lazy(() =>
+  import("./widgets/campaign-banner-widget").then((m) => ({ default: m.CampaignBannerWidget })),
+);
 
 export const WIDGETS = {
   "pending-approvals": {
@@ -92,6 +95,12 @@ export const WIDGETS = {
     span: "full",
     label: "플랫폼 안전 관리실",
   },
+  "campaign-banner": {
+    key: "campaign-banner",
+    component: CampaignBannerWidget,
+    span: "full",
+    label: "이벤트 · 안내",
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 export type CatalogWidgetKey = keyof typeof WIDGETS;
@@ -101,6 +110,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   // 결재 권한이 있는 다른 역할(accountant, platform_admin)에는 영향 없음.
   manager: {
     widgets: [
+      "campaign-banner",
       "manager-main",
       "delinquency-summary",
       "building-info",
@@ -108,6 +118,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   },
   accountant: {
     widgets: [
+      "campaign-banner",
       "building-info",
       "pending-approvals",
       "delinquency-summary",
@@ -115,7 +126,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     ],
   },
   facility_staff: {
-    widgets: ["building-info", "facility-main"],
+    widgets: ["campaign-banner", "building-info", "facility-main"],
   },
   // [Task #267] 통합 대시보드 단순화: 5역할 카드 + 파트너 크레딧 패널만 노출.
   //   admin-main 위젯이 ROLE_CARDS + VendorCreditsPanel 을 렌더하므로
@@ -124,10 +135,12 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: ["admin-main"],
   },
   hq_executive: {
-    widgets: ["hq-main"],
+    // [Task #283] hq_executive 도 banner 채널 캠페인을 받아야 하므로 상단에 배너 슬롯 추가.
+    widgets: ["campaign-banner", "hq-main"],
   },
   partner: {
-    widgets: ["partner-main"],
+    // [Task #283] partner 도 banner 채널 캠페인 노출 대상이므로 배너 슬롯 추가.
+    widgets: ["campaign-banner", "partner-main"],
   },
 };
 

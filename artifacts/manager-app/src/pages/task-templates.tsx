@@ -100,7 +100,20 @@ const ACTION_LABEL: Record<AuditLog["action"], string> = {
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
-function emptyDraft(): Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName"> {
+// [Task #283] 역할별 노출 옵션 (UI). 빈 배열 = 전체 공통.
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "manager", label: "관리자" },
+  { value: "accountant", label: "경리/회계" },
+  { value: "facility_staff", label: "시설직원" },
+  { value: "partner", label: "파트너사" },
+  { value: "hq_executive", label: "본사총괄" },
+];
+
+type DraftType = Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName"> & {
+  targetRoles: string[];
+};
+
+function emptyDraft(defaultRole?: string): DraftType {
   return {
     title: "",
     description: "",
@@ -119,6 +132,7 @@ function emptyDraft(): Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "cr
     advanceAlertDays: 7,
     isActive: true,
     metadata: {},
+    targetRoles: defaultRole ? [defaultRole] : [],
   };
 }
 
@@ -142,10 +156,18 @@ export default function TaskTemplatesPage() {
     [token],
   );
 
+  // [Task #283] ?role= 컨텍스트가 있으면 서버 측에서 targetRoles 기준으로 필터된
+  //   템플릿만 반환받는다.
+  const _roleFromUrl = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("role") ?? ""
+    : "";
   const { data: templates = [], isLoading } = useQuery<TaskTemplate[]>({
-    queryKey: ["task-templates"],
+    queryKey: ["task-templates", _roleFromUrl],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/platform/task-templates`, { headers });
+      const url = _roleFromUrl
+        ? `${API_BASE}/platform/task-templates?role=${encodeURIComponent(_roleFromUrl)}`
+        : `${API_BASE}/platform/task-templates`;
+      const res = await fetch(url, { headers });
       if (!res.ok) throw new Error("템플릿 목록을 불러올 수 없습니다");
       return res.json();
     },
@@ -224,7 +246,7 @@ export default function TaskTemplatesPage() {
 
   function startCreate() {
     setEditing(null);
-    setDraft(emptyDraft());
+    setDraft(emptyDraft(_roleFromUrl || undefined));
   }
 
   function startEdit(t: TaskTemplate) {
@@ -247,6 +269,7 @@ export default function TaskTemplatesPage() {
       advanceAlertDays: t.advanceAlertDays,
       isActive: t.isActive,
       metadata: t.metadata,
+      targetRoles: ((t as unknown as { targetRoles?: string[] | null }).targetRoles) ?? [],
     });
   }
 
@@ -296,10 +319,51 @@ export default function TaskTemplatesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">업무 템플릿 관리</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">업무 템플릿 관리</h1>
+            {(() => {
+              // [Task #283] 사이드바에서 ?role= 으로 진입한 컨텍스트를 헤더에 표시.
+              if (typeof window === "undefined") return null;
+              const r = new URLSearchParams(window.location.search).get("role") ?? "";
+              const map: Record<string, string> = {
+                manager: "관리소장",
+                accountant: "경리·행정",
+                facility_staff: "시설기사",
+                hq_executive: "본사총괄",
+              };
+              const label = map[r];
+              if (!label) return null;
+              return (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  {label} 컨텍스트
+                </span>
+              );
+            })()}
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             관리소장 대시보드의 필수업무·제안업무 항목을 본사가 일괄 관리합니다.
           </p>
+          {(() => {
+            // [Task #283] 업무 템플릿은 '전역 공통 리소스'로 명세 확정.
+            //   사이드바 ?role= 컨텍스트에서 들어오더라도 등록·수정한 템플릿은
+            //   해당 역할이 아니라 시스템 전체에 동일하게 반영된다.
+            if (typeof window === "undefined") return null;
+            const r = new URLSearchParams(window.location.search).get("role") ?? "";
+            const map: Record<string, string> = {
+              manager: "관리소장",
+              accountant: "경리·행정",
+              facility_staff: "시설기사",
+              hq_executive: "본사총괄",
+            };
+            const label = map[r];
+            if (!label) return null;
+            return (
+              <div className="mt-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
+                업무 템플릿은 모든 역할이 공유하는 <b>전역 공통 리소스</b>입니다.
+                <b> {label}</b> 메뉴로 진입했지만, 등록·수정한 템플릿은 시스템 전체에 동일하게 적용됩니다.
+              </div>
+            );
+          })()}
         </div>
         <Button onClick={startCreate} data-testid="btn-create-template">
           <Plus className="w-4 h-4 mr-1" />새 템플릿
@@ -574,6 +638,37 @@ export default function TaskTemplatesPage() {
                     onCheckedChange={(c) => setDraft({ ...draft, isActive: c })}
                   />
                   <Label>활성</Label>
+                </div>
+              </div>
+
+              {/* [Task #283] 노출 대상 역할 (미선택 = 전체 공통). ?role=… 진입 시 기본 선택. */}
+              <div>
+                <Label>노출 대상 역할 (선택 안 하면 전체 공통)</Label>
+                <div className="flex flex-wrap gap-2 mt-1.5">
+                  {ROLE_OPTIONS.map((opt) => {
+                    const checked = draft.targetRoles.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`text-xs px-2 py-1 rounded border cursor-pointer ${
+                          checked ? "bg-primary text-primary-foreground border-primary" : "bg-white border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? draft.targetRoles.filter((r) => r !== opt.value)
+                              : [...draft.targetRoles, opt.value];
+                            setDraft({ ...draft, targetRoles: next });
+                          }}
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
               {/* [Task #221] 대시보드 알림에 노출될 아이콘/색상 (선택). */}

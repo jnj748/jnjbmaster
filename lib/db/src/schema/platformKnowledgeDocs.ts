@@ -24,6 +24,9 @@ export const platformKnowledgeDocsTable = pgTable(
     effectiveDate: text("effective_date"),
     version: text("version"),
     isActive: boolean("is_active").notNull().default(true),
+    // [Task #283] 역할별 적용 대상. NULL/빈 배열은 "전체 공통" 의미이며,
+    //   값이 들어 있으면 ?role= 컨텍스트와 일치하는 역할에만 노출/필터된다.
+    targetRoles: text("target_roles").array(),
     createdBy: integer("created_by"),
     createdByName: text("created_by_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

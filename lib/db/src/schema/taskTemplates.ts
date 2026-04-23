@@ -48,6 +48,9 @@ export const taskTemplatesTable = pgTable("task_templates", {
   startDate: text("start_date"),
   scopeType: text("scope_type").notNull().default("all"),
   scopeValues: jsonb("scope_values").$type<string[]>().notNull().default([]),
+  // [Task #283] 역할별 적용 대상. NULL/빈 배열은 "전체 공통",
+  //   값이 있으면 ?role= 컨텍스트와 일치하는 역할에서만 노출/필터된다.
+  targetRoles: text("target_roles").array(),
   priority: integer("priority").notNull().default(50),
   advanceAlertDays: integer("advance_alert_days").notNull().default(7),
   isActive: boolean("is_active").notNull().default(true),
