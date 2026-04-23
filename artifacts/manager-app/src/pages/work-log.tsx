@@ -485,18 +485,18 @@ function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWiza
 
   return (
     <div className="space-y-3 pt-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Button variant="outline" size="sm" onClick={() => setDate(addDays(date, -1))} data-testid="daily-prev">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" data-testid="daily-date" />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-36 sm:w-40" data-testid="daily-date" />
           <Button variant="outline" size="sm" onClick={() => setDate(addDays(date, 1))} data-testid="daily-next">
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <Button onClick={() => setWizardOpen(true)} data-testid="open-wizard">
-          {reportQ.data?.journal ? "일일 일지 수정" : "일일 일지 작성"}
+        <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setWizardOpen(true)} data-testid="open-wizard">
+          {reportQ.data?.journal ? "일지 수정" : "일지 작성"}
         </Button>
       </div>
 
