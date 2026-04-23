@@ -31,10 +31,10 @@ interface ChatMessage {
 }
 
 const SUGGESTED_PROMPTS = [
-  "이번 달 미납 호실 알려줘",
-  "곧 만료되는 보증 항목은 뭐가 있어?",
-  "최근 6개월간 가장 자주 발생한 민원 유형은?",
-  "다음 90일 안에 해야 할 법정 점검을 알려줘",
+  "이번 달 미납 호실, 함께 살펴봐 줄래요?",
+  "곧 만료되는 보증 항목, 미리 챙겨주세요",
+  "최근 6개월 자주 들어온 민원 유형이 궁금해요",
+  "다음 90일 안에 챙겨야 할 법정 점검 알려주세요",
 ];
 
 const CITATION_TYPE_LABELS: Record<string, string> = {
@@ -239,9 +239,9 @@ export default function AiAssistantPage() {
           {loaded && messages.length === 0 && !streaming && (
             <div className="text-center py-12 space-y-4">
               <Sparkles className="h-12 w-12 mx-auto text-primary" />
-              <h2 className="text-lg font-medium">건물 운영에 대해 무엇이든 물어보세요</h2>
+              <h2 className="text-lg font-medium">소장님, 오늘도 함께 풀어볼까요?</h2>
               <p className="text-sm text-muted-foreground">
-                민원, 보증, 점검, 관리비 등 건물 자료를 바탕으로 답변해 드립니다.
+                민원·보증·점검·관리비, 어떤 질문이든 곁에서 도와드릴게요.
               </p>
               <div className="grid gap-2 max-w-md mx-auto pt-4">
                 {SUGGESTED_PROMPTS.map(p => (
@@ -310,7 +310,7 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
         <CardContent className="p-3 space-y-2">
           {isStreaming ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> 답변을 작성 중입니다…
+              <Loader2 className="h-3 w-3 animate-spin" /> 정성껏 답변을 준비하고 있어요…
             </div>
           ) : (
             <p className="whitespace-pre-wrap text-sm leading-relaxed" data-testid={isUser ? "message-user" : "message-assistant"}>
@@ -340,7 +340,7 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
                   );
                 })
               ) : (
-                <span className="text-xs text-muted-foreground" data-testid="citations-empty">참고 자료 없음</span>
+                <span className="text-xs text-muted-foreground" data-testid="citations-empty">이번엔 참고할 자료가 없어요</span>
               )}
             </div>
           )}

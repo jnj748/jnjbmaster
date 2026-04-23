@@ -149,13 +149,13 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const GROUP_TITLES: Record<Group, string> = {
-  dashboard: "대시보드",
-  residents: "호실 및 입주민 관리",
-  facility: "시설관리",
-  accounting: "회계 및 관리비",
-  reports: "보고 및 전자결재",
-  marketplace: "파트너 마켓플레이스",
-  settings: "설정",
+  dashboard: "오늘의 한눈 대시보드",
+  residents: "입주민과 함께하는 호실 관리",
+  facility: "든든하게 지키는 시설관리",
+  accounting: "꼼꼼하게 챙기는 회계·관리비",
+  reports: "차곡차곡 쌓는 보고·전자결재",
+  marketplace: "함께 키우는 파트너 마켓",
+  settings: "내 손에 맞춘 설정",
 };
 
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {

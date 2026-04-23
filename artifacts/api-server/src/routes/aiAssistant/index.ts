@@ -136,7 +136,7 @@ router.get("/ai/sessions", async (req: Request, res: Response): Promise<void> =>
 router.post("/ai/sessions", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
   const buildingId = await getUserBuildingId(userId);
-  const title = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "새 대화";
+  const title = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "오늘의 새 대화";
   const [row] = await db
     .insert(aiChatSessionsTable)
     .values({ userId, buildingId, title })
