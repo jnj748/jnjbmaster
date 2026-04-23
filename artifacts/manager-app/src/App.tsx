@@ -66,13 +66,17 @@ const queryClient = new QueryClient({
 // 새로운 모바일 위저드(`/onboarding/manager`)로 직행한다. 레거시 면제 계정은 영향 없음.
 function ManagerOnboardingRedirect() {
   const { status, isLoading, isManager } = useOnboarding();
+  const { user } = useAuth();
   const [location, setLocation] = useLocationForGate();
+  // [Task #268] status 캐시가 갱신되기 전 한 틱 동안 위저드로 다시 튕기는 루프를 막기 위해
+  // 동기적으로 갱신되는 user.onboardingPreference 도 함께 본다.
   const shouldRedirect =
     isManager &&
     !isLoading &&
     !!status &&
     !status.isLegacyExempt &&
     status.preference === null &&
+    (user?.onboardingPreference ?? null) === null &&
     !location.startsWith("/onboarding/manager") &&
     !location.startsWith("/onboarding/role-select");
   // 부수효과는 useEffect에서만 수행 — 렌더 중 navigate 호출 금지.

@@ -469,6 +469,12 @@ export default function ManagerWizardPage() {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});
+        // [Task #268] 정상 완료 경로에서도 (테스트업무) 4건 누락이 없는지 한 번 더
+        // 멱등 보장. 첫 POST /buildings 에서 이미 시드돼 있으면 추가 insert 없음.
+        await fetch(`${API_BASE}/buildings/seed-test-inspections`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
       }
       setLocation("/");
     } finally {
@@ -477,11 +483,26 @@ export default function ManagerWizardPage() {
   }
 
   // ── 화면 렌더 ──
+  // [Task #268] X 버튼으로 강제 종료할 때, 건물이 이미 저장된 적이 있으면
+  // 멱등 시드를 한 번 트리거해 (테스트업무) 4건을 채워 두고 대시보드로 이동한다.
+  // 저장 전이라면 그냥 대시보드로 가고, 다음 위저드 진입 후 첫 건물 저장 시점에 시드된다.
+  async function closeWizard() {
+    if (building.id) {
+      try {
+        await fetch(`${API_BASE}/buildings/seed-test-inspections`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {/* 비차단: 다음 진입 시점에 다시 보장됨 */}
+    }
+    setLocation("/");
+  }
+
   return (
     <Shell
       stepIdx={Math.max(0, stepIdx)}
       total={totalSteps}
-      onClose={() => setLocation("/")}
+      onClose={closeWizard}
       hideProgress={step === "intro"}
     >
       {step === "intro" && (

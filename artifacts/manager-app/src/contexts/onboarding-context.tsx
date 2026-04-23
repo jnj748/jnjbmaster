@@ -76,6 +76,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     onSuccess: (preference) => {
       // 즉시 user/state 갱신 — 모달이 다시 뜨지 않도록.
       if (user) setUser({ ...user, onboardingPreference: preference });
+      // [Task #268] status 캐시도 즉시 갱신해 finalize() 직후 한 틱 동안
+      // preference=null 로 보여 ManagerOnboardingRedirect 가 위저드로 다시 튕기지 않게 한다.
+      queryClient.setQueryData<OnboardingStatus | undefined>(
+        ["onboarding", "status", user?.id],
+        (prev) => (prev ? { ...prev, preference } : prev),
+      );
       queryClient.invalidateQueries({ queryKey: ["onboarding", "status", user?.id] });
     },
   });

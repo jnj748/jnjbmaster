@@ -278,6 +278,104 @@ router.get("/buildings/check-manager", async (req: Request, res: Response) => {
   }
 });
 
+// [Task #268] 신규 매니저 첫 화면 체험용 (테스트업무) 4건을 멱등하게 시드한다.
+//  - POST /buildings 첫 등록 시점 외에도, 위저드를 강제 종료한 뒤 다시 진입하거나
+//    대시보드에 처음 도달했을 때에도 동일 진입점을 호출해 누락분만 채워 넣는다.
+//  - (buildingId, name) 4종 집합으로 중복 검사하므로 여러 번 호출돼도 항상 4건만 존재한다.
+async function ensureTestInspectionsForBuilding(buildingId: number): Promise<number> {
+  const SEED_NAMES = {
+    fire: "(테스트업무) 소방점검",
+    septic: "(테스트업무) 정화조 청소",
+    edu: "(테스트업무) 미화·경비원 교육의 달",
+    ac: "(테스트업무) 에어컨 가동 전 정비 진행 공지",
+  } as const;
+  const seedNameList: string[] = Object.values(SEED_NAMES);
+  const existingTest = await db
+    .select({ name: inspectionsTable.name })
+    .from(inspectionsTable)
+    .where(and(
+      eq(inspectionsTable.buildingId, buildingId),
+      inArray(inspectionsTable.name, seedNameList),
+    ));
+  const existingNames = new Set(existingTest.map((r) => r.name));
+  const today = new Date();
+  const plusDays = (n: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split("T")[0];
+  };
+  const candidates: Array<typeof inspectionsTable.$inferInsert> = [
+    {
+      buildingId,
+      name: SEED_NAMES.fire,
+      category: "fire_safety",
+      inspectionType: "legal",
+      frequencyPerYear: 2,
+      legalCycleMonths: 6,
+      nextDueDate: plusDays(-3),
+      status: "overdue",
+      advanceAlertDays: 30,
+    },
+    {
+      buildingId,
+      name: SEED_NAMES.septic,
+      category: "septic",
+      inspectionType: "legal",
+      frequencyPerYear: 1,
+      legalCycleMonths: 12,
+      nextDueDate: plusDays(20),
+      status: "upcoming",
+      advanceAlertDays: 30,
+    },
+    {
+      buildingId,
+      name: SEED_NAMES.edu,
+      category: "self_regular",
+      inspectionType: "self_regular",
+      frequencyPerYear: 12,
+      intervalDays: 30,
+      nextDueDate: plusDays(5),
+      status: "upcoming",
+      advanceAlertDays: 7,
+    },
+    {
+      buildingId,
+      name: SEED_NAMES.ac,
+      category: "seasonal",
+      inspectionType: "seasonal",
+      frequencyPerYear: 4,
+      intervalDays: 90,
+      nextDueDate: plusDays(10),
+      status: "upcoming",
+      advanceAlertDays: 14,
+    },
+  ];
+  const toInsert = candidates.filter((c) => !existingNames.has(c.name));
+  if (toInsert.length > 0) {
+    await db.insert(inspectionsTable).values(toInsert);
+  }
+  return toInsert.length;
+}
+
+// [Task #268] 위저드를 X로 강제 종료한 뒤 또는 대시보드 첫 진입 시 호출되는 멱등 시드 트리거.
+//   - 본인 건물이 있어야 동작하고, 없는 경우 noop (다음 위저드 진입 후 첫 건물 저장에서 시드).
+router.post("/buildings/seed-test-inspections", async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const me = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+    if (!me || me.role !== "manager" || !me.buildingId) {
+      res.json({ seeded: 0, skipped: true });
+      return;
+    }
+    const seeded = await ensureTestInspectionsForBuilding(me.buildingId);
+    res.json({ seeded, skipped: false });
+  } catch (e) {
+    req.log.error({ err: e }, "Failed to seed test inspections (idempotent)");
+    res.status(500).json({ error: "테스트업무 시드에 실패했습니다." });
+  }
+});
+
 router.post("/buildings", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -320,83 +418,12 @@ router.post("/buildings", async (req: Request, res: Response) => {
       })
       .where(eq(usersTable.id, userId));
 
-    // [Task #265] 신규 매니저 첫 건물 등록 시 대시보드 체험용 실제 업무 4건을 시드한다.
-    //  - 필수업무현황(legal) 2건: 소방점검(연체) + 정화조 청소(D-20)
-    //  - 제안업무현황 2건: 미화·경비원 교육(D-5) + 에어컨 정비 공지(D-10)
-    //  - (buildingId, name) 4종 집합 기준으로 중복 검사하여 일부만 남아있어도 안전하게 멱등 유지.
+    // [Task #265/#268] 신규 매니저 첫 건물 등록 시 대시보드 체험용 (테스트업무) 4건을 시드한다.
+    //  - 첫 등록뿐 아니라 위저드 강제 종료 후 재진입 케이스도 동일한 ensureTestInspectionsForBuilding
+    //    헬퍼(POST /buildings/seed-test-inspections 와 공유)를 통해 멱등하게 보장된다.
     if (isFirstBuildingForManager) {
       try {
-        const SEED_NAMES: { fire: string; septic: string; edu: string; ac: string } = {
-          fire: "(테스트업무) 소방점검",
-          septic: "(테스트업무) 정화조 청소",
-          edu: "(테스트업무) 미화·경비원 교육의 달",
-          ac: "(테스트업무) 에어컨 가동 전 정비 진행 공지",
-        };
-        const seedNameList: string[] = Object.values(SEED_NAMES);
-        const existingTest = await db
-          .select({ name: inspectionsTable.name })
-          .from(inspectionsTable)
-          .where(and(
-            eq(inspectionsTable.buildingId, building.id),
-            inArray(inspectionsTable.name, seedNameList),
-          ));
-        const existingNames = new Set(existingTest.map((r) => r.name));
-        const today = new Date();
-        const plusDays = (n: number) => {
-          const d = new Date(today);
-          d.setDate(d.getDate() + n);
-          return d.toISOString().split("T")[0];
-        };
-        const candidates: Array<typeof inspectionsTable.$inferInsert> = [
-          {
-            buildingId: building.id,
-            name: SEED_NAMES.fire,
-            category: "fire_safety",
-            inspectionType: "legal",
-            frequencyPerYear: 2,
-            legalCycleMonths: 6,
-            nextDueDate: plusDays(-3),
-            status: "overdue",
-            advanceAlertDays: 30,
-          },
-          {
-            buildingId: building.id,
-            name: SEED_NAMES.septic,
-            category: "septic",
-            inspectionType: "legal",
-            frequencyPerYear: 1,
-            legalCycleMonths: 12,
-            nextDueDate: plusDays(20),
-            status: "upcoming",
-            advanceAlertDays: 30,
-          },
-          {
-            buildingId: building.id,
-            name: SEED_NAMES.edu,
-            category: "self_regular",
-            inspectionType: "self_regular",
-            frequencyPerYear: 12,
-            intervalDays: 30,
-            nextDueDate: plusDays(5),
-            status: "upcoming",
-            advanceAlertDays: 7,
-          },
-          {
-            buildingId: building.id,
-            name: SEED_NAMES.ac,
-            category: "seasonal",
-            inspectionType: "seasonal",
-            frequencyPerYear: 4,
-            intervalDays: 90,
-            nextDueDate: plusDays(10),
-            status: "upcoming",
-            advanceAlertDays: 14,
-          },
-        ];
-        const toInsert = candidates.filter((c) => !existingNames.has(c.name));
-        if (toInsert.length > 0) {
-          await db.insert(inspectionsTable).values(toInsert);
-        }
+        await ensureTestInspectionsForBuilding(building.id);
       } catch (seedErr) {
         req.log.warn({ err: seedErr, buildingId: building.id }, "Failed to seed test inspections for first building");
       }
