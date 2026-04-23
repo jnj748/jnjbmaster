@@ -801,14 +801,14 @@ export function getBottomNavItems(role: Role, disabledCategories?: readonly stri
       { path: "/commissions", label: "수수료", icon: Coins },
     ];
   }
-  // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 일일메모(+) / AI비서 / 더보기.
+  // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 업무기록(+) / AI비서 / 더보기.
   //   "더보기"는 layout.tsx 가 항상 마지막에 추가하므로 여기서는 4칸만 반환.
-  //   "/__quick_entry" 는 라우트가 아닌 sentinel 경로 — layout.tsx 에서 일일메모 다이얼로그를 연다.
+  //   "/__quick_entry" 는 라우트가 아닌 sentinel 경로 — layout.tsx 에서 업무기록 다이얼로그를 연다.
   if (role === "manager") {
     const managerItems: NavItem[] = [
       { ...rootItem("manager"), label: "홈", group: "dashboard" },
       { path: "/work-log", label: "일지", icon: NotebookPen, group: "reports" },
-      { path: "/__quick_entry", label: "일일메모", icon: Plus, group: "dashboard" },
+      { path: "/__quick_entry", label: "업무기록", icon: Plus, group: "dashboard" },
       { path: "/ai-assistant", label: "AI비서", icon: Sparkles, group: "dashboard" },
     ];
     // [카테고리 메뉴 제어] 끈 카테고리에 속한 하단 탭 제거(dashboard 는 항상 통과).

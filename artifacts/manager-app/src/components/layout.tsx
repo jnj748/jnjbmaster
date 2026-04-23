@@ -237,7 +237,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // [네비 정비] 일일메모(QuickEntry) 다이얼로그 — 하단 네비 가운데 + 버튼이 토글.
+  // [네비 정비] 업무기록(QuickEntry) 다이얼로그 — 하단 네비 가운데 + 버튼이 토글.
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -619,7 +619,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* [네비 정비] 우하단 플로팅 메모 버튼은 제거. 일일메모는 하단 네비 가운데 + 버튼이 띄운다. */}
+      {/* [네비 정비] 우하단 플로팅 메모 버튼은 제거. 업무기록은 하단 네비 가운데 + 버튼이 띄운다. */}
       <QuickEntryDialog
         open={quickEntryOpen}
         onOpenChange={setQuickEntryOpen}
@@ -630,7 +630,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
         >
           {bottomNavItems.map((item) => {
-            // [네비 정비] 일일메모 sentinel — 라우팅이 아닌 다이얼로그 트리거.
+            // [네비 정비] 업무기록 sentinel — 라우팅이 아닌 다이얼로그 트리거.
             if (item.path === "/__quick_entry") {
               return (
                 <button
@@ -638,7 +638,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   type="button"
                   onClick={() => setQuickEntryOpen(true)}
                   data-testid="bottom-nav-quick-entry"
-                  aria-label="일일메모"
+                  aria-label="업무기록"
                   className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
                 >
                   <span className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md active:scale-95 transition">
