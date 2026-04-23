@@ -18,6 +18,11 @@ export const creditCategoryPricingTable = pgTable("credit_category_pricing", {
   noViewRefundDays: integer("no_view_refund_days"),
   noViewRefundRatioPercent: integer("no_view_refund_ratio_percent"),
   premiumSurchargePercent: integer("premium_surcharge_percent"),
+  // [Task #312] 카테고리 한글 표시명 — 모든 화면(견적/파트너 가입·매칭/통계)에서
+  // 카테고리 라벨의 단일 출처(single source of truth)로 사용한다. NULL 이면 시드된
+  // 기본 라벨(RFQ_CATEGORY_LABELS) 또는 카테고리 코드로 폴백한다. 기본 단가 행
+  // (sido/sigungu = NULL) 에서만 의미가 있다.
+  displayNameKo: text("display_name_ko"),
   // [Task #226] 변경 이력 표시용 — 마지막 저장한 어드민의 표시 이름.
   updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -407,6 +407,26 @@ const POLICY_KEYS = [
   "premium_amount_threshold",
 ] as const;
 
+// [Task #312] 카테고리 한글 표시명 — 모든 인증된 사용자가 조회 가능.
+//   견적/파트너/시설기사/본사 화면에서 카테고리 라벨의 단일 출처(SoT) 로 사용한다.
+//   기본 단가 행(sido/sigungu = NULL)에서 display_name_ko 를 읽어 map 으로 반환한다.
+router.get("/categories/labels", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ category: creditCategoryPricingTable.category, displayNameKo: creditCategoryPricingTable.displayNameKo, updatedAt: creditCategoryPricingTable.updatedAt })
+    .from(creditCategoryPricingTable)
+    .where(and(
+      sql`${creditCategoryPricingTable.sido} IS NULL`,
+      sql`${creditCategoryPricingTable.sigungu} IS NULL`,
+    ));
+  const labels: Record<string, string> = {};
+  for (const r of rows) {
+    if (r.displayNameKo && r.displayNameKo.trim()) {
+      labels[r.category] = r.displayNameKo;
+    }
+  }
+  res.json({ labels });
+});
+
 router.get("/credits/quote-type-policies", platformAdminOnly, async (_req, res): Promise<void> => {
   const settings = await db.select().from(platformSettingsTable);
   const settingsMap = new Map(settings.map((s) => [s.key, s]));
@@ -438,6 +458,8 @@ const UpsertQuoteTypePolicyBody = z.object({
   noViewRefundDays: z.number().int().min(1).max(60).nullable().optional(),
   noViewRefundRatioPercent: z.number().int().min(0).max(100).nullable().optional(),
   premiumSurchargePercent: z.number().int().min(0).max(500).nullable().optional(),
+  // [Task #312] 카테고리 한글 표시명. 빈 문자열은 null 로 정규화한다.
+  displayNameKo: z.string().trim().min(1).max(60).nullable().optional(),
 });
 
 router.put("/credits/quote-type-policies/category", platformAdminOnly, async (req, res): Promise<void> => {
@@ -463,6 +485,8 @@ router.put("/credits/quote-type-policies/category", platformAdminOnly, async (re
     noViewRefundDays: parsed.data.noViewRefundDays ?? null,
     noViewRefundRatioPercent: parsed.data.noViewRefundRatioPercent ?? null,
     premiumSurchargePercent: parsed.data.premiumSurchargePercent ?? null,
+    // [Task #312] displayNameKo 가 명시적으로 전달된 경우에만 갱신한다 (undefined 면 기존값 유지).
+    ...(parsed.data.displayNameKo !== undefined ? { displayNameKo: parsed.data.displayNameKo } : {}),
     updatedBy: actorName,
   };
   if (existing.length > 0) {

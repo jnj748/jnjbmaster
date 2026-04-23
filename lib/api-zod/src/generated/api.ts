@@ -7109,6 +7109,7 @@ export const ListCreditCategoryPricingResponseItem = zod.object({
   noViewRefundDays: zod.number().nullish(),
   noViewRefundRatioPercent: zod.number().nullish(),
   premiumSurchargePercent: zod.number().nullish(),
+  displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -7142,6 +7143,7 @@ export const UpsertCreditCategoryPricingResponse = zod.object({
   noViewRefundDays: zod.number().nullish(),
   noViewRefundRatioPercent: zod.number().nullish(),
   premiumSurchargePercent: zod.number().nullish(),
+  displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -7155,6 +7157,13 @@ export const DeleteCreditCategoryPricingParams = zod.object({
 
 export const DeleteCreditCategoryPricingResponse = zod.object({
   ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #312] Authenticated: category code → Korean display label map
+ */
+export const ListCategoryLabelsResponse = zod.object({
+  labels: zod.record(zod.string(), zod.string()),
 });
 
 /**
@@ -7182,6 +7191,7 @@ export const ListQuoteTypePoliciesResponse = zod.object({
       noViewRefundDays: zod.number().nullish(),
       noViewRefundRatioPercent: zod.number().nullish(),
       premiumSurchargePercent: zod.number().nullish(),
+      displayNameKo: zod.string().nullish(),
       updatedBy: zod.string().nullish(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -7197,6 +7207,7 @@ export const UpsertQuoteTypePolicyCategoryBody = zod.object({
   noViewRefundDays: zod.number().nullish(),
   noViewRefundRatioPercent: zod.number().nullish(),
   premiumSurchargePercent: zod.number().nullish(),
+  displayNameKo: zod.string().nullish(),
 });
 
 export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
@@ -7210,6 +7221,7 @@ export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
   noViewRefundDays: zod.number().nullish(),
   noViewRefundRatioPercent: zod.number().nullish(),
   premiumSurchargePercent: zod.number().nullish(),
+  displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.coerce.date().optional(),
 });

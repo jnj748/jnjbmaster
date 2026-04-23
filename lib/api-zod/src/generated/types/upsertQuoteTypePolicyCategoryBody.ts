@@ -15,4 +15,6 @@ export interface UpsertQuoteTypePolicyCategoryBody {
   noViewRefundRatioPercent?: number | null;
   /** @nullable */
   premiumSurchargePercent?: number | null;
+  /** @nullable */
+  displayNameKo?: string | null;
 }

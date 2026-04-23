@@ -5312,6 +5312,19 @@ paths:
                   ok:
                     type: boolean
 
+  /categories/labels:
+    get:
+      operationId: listCategoryLabels
+      tags: [commissions]
+      summary: "[Task #312] Authenticated: category code → Korean display label map"
+      responses:
+        "200":
+          description: Category labels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryLabelsResponse"
+
   /credits/quote-type-policies:
     get:
       operationId: listQuoteTypePolicies
@@ -11414,6 +11427,8 @@ components:
           type: ["integer", "null"]
         premiumSurchargePercent:
           type: ["integer", "null"]
+        displayNameKo:
+          type: ["string", "null"]
         updatedBy:
           type: ["string", "null"]
         updatedAt:
@@ -11424,6 +11439,16 @@ components:
         - category
         - tier
         - creditCost
+
+    CategoryLabelsResponse:
+      type: object
+      properties:
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - labels
 
     UpsertCreditCategoryPricingBody:
       type: object
@@ -11496,6 +11521,8 @@ components:
           type: ["integer", "null"]
         premiumSurchargePercent:
           type: ["integer", "null"]
+        displayNameKo:
+          type: ["string", "null"]
       required:
         - category
         - creditCost

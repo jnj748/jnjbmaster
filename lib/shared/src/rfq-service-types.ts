@@ -38,9 +38,24 @@ export const RFQ_CATEGORY_LABELS: Record<string, string> = {
   other: "기타",
 };
 
+// [Task #312] 런타임 오버라이드 레지스트리.
+//   클라이언트 부트스트랩 시 GET /categories/labels 응답을 setRfqCategoryLabelOverrides()
+//   로 주입하면, 모든 화면(헬퍼를 사용하는 한)이 즉시 DB 의 한글 표시명을 보게 된다.
+//   서버 측에서는 호출되지 않으므로(RFQ_CATEGORY_LABELS 폴백) 안전하다.
+let RFQ_CATEGORY_LABEL_OVERRIDES: Record<string, string> = {};
+
+export function setRfqCategoryLabelOverrides(map: Record<string, string> | null | undefined): void {
+  RFQ_CATEGORY_LABEL_OVERRIDES = { ...(map ?? {}) };
+}
+
+export function getRfqCategoryLabelOverrides(): Record<string, string> {
+  return { ...RFQ_CATEGORY_LABEL_OVERRIDES };
+}
+
 export function rfqCategoryLabel(value: string | null | undefined): string {
   if (!value) return "";
-  return RFQ_CATEGORY_LABELS[value] ?? value;
+  // 우선순위: DB 오버라이드 > 하드코딩 시드 > 코드 자체.
+  return RFQ_CATEGORY_LABEL_OVERRIDES[value] ?? RFQ_CATEGORY_LABELS[value] ?? value;
 }
 
 export function buildRfqAutoTitle(

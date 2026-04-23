@@ -69,6 +69,11 @@ export async function ensureRfqMatchSchema(): Promise<void> {
     ALTER TABLE credit_category_pricing
       ADD COLUMN IF NOT EXISTS premium_surcharge_percent integer
   `);
+  // [Task #312] 카테고리 한글 표시명. 기본 단가 행에서만 의미있음.
+  await db.execute(sql`
+    ALTER TABLE credit_category_pricing
+      ADD COLUMN IF NOT EXISTS display_name_ko text
+  `);
   const psExists = (await db.execute<{ exists: boolean }>(sql`
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables

@@ -14,6 +14,8 @@ import {
   type CreditCategoryPricing,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useInvalidateCategoryLabels } from "@/hooks/use-category-labels";
+import { rfqCategoryLabel } from "@workspace/shared/rfq-service-types";
 
 // [Task #298] 견적 유형(카테고리 × 프리미엄 여부)별 크레딧 정책을 한 화면에서 관리한다.
 //   - 상단: 공통 기본값 (미열람 환불 비율/일수, 프리미엄 할증율, 프리미엄 슬롯 한도/금액 임계치)
@@ -40,6 +42,12 @@ function percentInputToRatio(percent: string): string {
 
 export default function PlatformQuoteCreditPoliciesPage() {
   const { user } = useAuth();
+  // [Task #312] 브라우저 탭 타이틀까지 새 메뉴명으로 동기화한다.
+  useEffect(() => {
+    const prev = document.title;
+    document.title = "크레딧정책설정 · 관리의달인";
+    return () => { document.title = prev; };
+  }, []);
   if (user?.role !== "platform_admin") {
     return (
       <div className="p-6">
@@ -50,10 +58,11 @@ export default function PlatformQuoteCreditPoliciesPage() {
   return (
     <div className="space-y-6 pb-12" data-testid="page-platform-quote-credit-policies">
       <div>
-        <h1 className="text-2xl font-bold">견적 유형별 크레딧 설정</h1>
+        <h1 className="text-2xl font-bold">크레딧정책설정</h1>
         <p className="text-sm text-muted-foreground mt-1">
           견적 유형(카테고리 × 프리미엄 여부)에 따라 소모 크레딧과 미열람 환불 정책을 관리합니다.
-          공통 기본값을 우선 설정하고, 필요 시 카테고리 단위로 덮어씁니다.
+          공통 기본값을 우선 설정하고, 필요 시 카테고리 단위로 덮어씁니다. 카테고리의 한글 표시명을
+          수정하면 모든 사용자(파트너·시설기사·본사·관리자) 화면에 즉시 반영됩니다.
         </p>
       </div>
       <CommonPolicySection />
@@ -185,6 +194,7 @@ function CommonPolicySection() {
 function CategoryPolicyTable() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const invalidateLabels = useInvalidateCategoryLabels();
   const { data: policies } = useListQuoteTypePolicies();
   const upsert = useUpsertQuoteTypePolicyCategory();
 
@@ -195,6 +205,8 @@ function CategoryPolicyTable() {
 
   async function refresh() {
     qc.invalidateQueries({ queryKey: getListQuoteTypePoliciesQueryKey() });
+    // [Task #312] 라벨 변경이 즉시 다른 화면에도 반영되도록 전역 라벨 캐시도 무효화한다.
+    invalidateLabels();
   }
 
   return (
@@ -216,6 +228,7 @@ function CategoryPolicyTable() {
               <thead>
                 <tr className="border-b text-xs text-muted-foreground">
                   <th className="text-left p-2">카테고리</th>
+                  <th className="text-left p-2">한글 표시명</th>
                   <th className="text-right p-2">기본 소모 크레딧</th>
                   <th className="text-right p-2">미열람 환불 비율 (%)</th>
                   <th className="text-right p-2">미열람 환불 기간 (일)</th>
@@ -252,13 +265,17 @@ function CategoryPolicyRow({
   const [refundDays, setRefundDays] = useState<string>(row.noViewRefundDays != null ? String(row.noViewRefundDays) : "");
   const [refundRatioPct, setRefundRatioPct] = useState<string>(row.noViewRefundRatioPercent != null ? String(row.noViewRefundRatioPercent) : "");
   const [surchargePct, setSurchargePct] = useState<string>(row.premiumSurchargePercent != null ? String(row.premiumSurchargePercent) : "");
+  // [Task #312] 한글 표시명. 비어있으면 시드된 기본 한글 라벨을 폴백으로 보여준다.
+  const fallbackLabel = rfqCategoryLabel(row.category);
+  const [displayNameKo, setDisplayNameKo] = useState<string>(row.displayNameKo ?? fallbackLabel);
 
   useEffect(() => {
     setCreditCost(String(row.creditCost));
     setRefundDays(row.noViewRefundDays != null ? String(row.noViewRefundDays) : "");
     setRefundRatioPct(row.noViewRefundRatioPercent != null ? String(row.noViewRefundRatioPercent) : "");
     setSurchargePct(row.premiumSurchargePercent != null ? String(row.premiumSurchargePercent) : "");
-  }, [row.id, row.creditCost, row.noViewRefundDays, row.noViewRefundRatioPercent, row.premiumSurchargePercent]);
+    setDisplayNameKo(row.displayNameKo ?? rfqCategoryLabel(row.category));
+  }, [row.id, row.creditCost, row.noViewRefundDays, row.noViewRefundRatioPercent, row.premiumSurchargePercent, row.displayNameKo, row.category]);
 
   function parseOverride(v: string): number | null {
     const t = v.trim();
@@ -276,6 +293,10 @@ function CategoryPolicyRow({
     if (days != null && !(days >= 1 && days <= 60)) { onToast({ title: "환불 기간은 1~60일이어야 합니다", variant: "destructive" }); return; }
     if (ratio != null && !(ratio >= 0 && ratio <= 100)) { onToast({ title: "환불 비율은 0~100% 사이여야 합니다", variant: "destructive" }); return; }
     if (surcharge != null && !(surcharge >= 0 && surcharge <= 500)) { onToast({ title: "프리미엄 할증율은 0~500% 사이여야 합니다", variant: "destructive" }); return; }
+    // [Task #312] 한글 표시명: 빈 값은 거부(폴백을 명시적으로 선택하려면 시드 라벨로 채워두면 됨).
+    const labelTrim = displayNameKo.trim();
+    if (!labelTrim) { onToast({ title: "한글 표시명은 비워둘 수 없습니다", variant: "destructive" }); return; }
+    if (labelTrim.length > 60) { onToast({ title: "한글 표시명은 60자 이내여야 합니다", variant: "destructive" }); return; }
     await upsertMutateAsync({
       data: {
         category: row.category,
@@ -283,10 +304,11 @@ function CategoryPolicyRow({
         noViewRefundDays: days,
         noViewRefundRatioPercent: ratio,
         premiumSurchargePercent: surcharge,
+        displayNameKo: labelTrim,
       },
     });
     onSaved();
-    onToast({ title: `${row.category} 정책이 저장되었습니다` });
+    onToast({ title: `${labelTrim}(${row.category}) 정책이 저장되었습니다` });
   }
 
   async function clearOverrides() {
@@ -312,9 +334,22 @@ function CategoryPolicyRow({
 
   const hasAnyOverride = row.noViewRefundDays != null || row.noViewRefundRatioPercent != null || row.premiumSurchargePercent != null;
 
+  // [Task #312] 카테고리 열은 한글 표시명을 메인으로, 코드는 보조 텍스트로만 표시한다.
+  const displayedLabel = (row.displayNameKo && row.displayNameKo.trim()) || fallbackLabel || row.category;
   return (
     <tr className="border-b" data-testid={`row-category-${row.category}`}>
-      <td className="p-2 font-medium">{row.category}</td>
+      <td className="p-2">
+        <div className="font-medium" data-testid={`label-category-${row.category}`}>{displayedLabel}</div>
+        <div className="text-[10px] font-mono text-muted-foreground">{row.category}</div>
+      </td>
+      <td className="p-2">
+        <Input
+          value={displayNameKo}
+          onChange={(e) => setDisplayNameKo(e.target.value)}
+          className="h-8 w-40"
+          data-testid={`input-display-name-${row.category}`}
+        />
+      </td>
       <td className="p-2 text-right">
         <Input value={creditCost} onChange={(e) => setCreditCost(e.target.value)} className="h-8 w-20 text-right" data-testid={`input-cost-${row.category}`} />
       </td>

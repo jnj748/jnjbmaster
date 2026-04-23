@@ -4695,8 +4695,16 @@ export interface CreditCategoryPricing {
   /** @nullable */
   premiumSurchargePercent?: number | null;
   /** @nullable */
+  displayNameKo?: string | null;
+  /** @nullable */
   updatedBy?: string | null;
   updatedAt?: string;
+}
+
+export type CategoryLabelsResponseLabels = { [key: string]: string };
+
+export interface CategoryLabelsResponse {
+  labels: CategoryLabelsResponseLabels;
 }
 
 export interface UpsertCreditCategoryPricingBody {
@@ -4743,6 +4751,8 @@ export interface UpsertQuoteTypePolicyCategoryBody {
   noViewRefundRatioPercent?: number | null;
   /** @nullable */
   premiumSurchargePercent?: number | null;
+  /** @nullable */
+  displayNameKo?: string | null;
 }
 
 export interface PlatformSetting {

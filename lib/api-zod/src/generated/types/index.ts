@@ -68,6 +68,8 @@ export * from "./castBallotBody";
 export * from "./castBallotBodyChoice";
 export * from "./castBallotResponse";
 export * from "./categoryCount";
+export * from "./categoryLabelsResponse";
+export * from "./categoryLabelsResponseLabels";
 export * from "./checkAttendanceBody";
 export * from "./checkAttendanceBodyCheckType";
 export * from "./commission";

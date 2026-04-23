@@ -4,7 +4,8 @@ import {
   creditCategoryPricingTable,
   commissionRatesTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { RFQ_CATEGORY_LABELS } from "@workspace/shared/rfq-service-types";
 
 // Categories aligned with RFQ category enum in openapi.yaml
 // enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
@@ -94,8 +95,27 @@ export async function seedPartnerBm(): Promise<void> {
   for (const p of PRICING) {
     const existing = await db.select().from(creditCategoryPricingTable).where(eq(creditCategoryPricingTable.category, p.category));
     if (existing.length === 0) {
-      await db.insert(creditCategoryPricingTable).values(p);
+      await db.insert(creditCategoryPricingTable).values({
+        ...p,
+        // [Task #312] 신규 카테고리 행 시드 시 한글 표시명도 함께 채운다.
+        displayNameKo: RFQ_CATEGORY_LABELS[p.category] ?? null,
+      });
     }
+  }
+
+  // [Task #312] 기본 단가 행(sido/sigungu = NULL)에 display_name_ko 가 비어 있으면
+  //   하드코딩된 RFQ_CATEGORY_LABELS 값으로 백필 한다. 이미 관리자가 수정한 값은
+  //   덮어쓰지 않는다(NULL 인 행만 갱신).
+  for (const [code, label] of Object.entries(RFQ_CATEGORY_LABELS)) {
+    await db
+      .update(creditCategoryPricingTable)
+      .set({ displayNameKo: label })
+      .where(and(
+        eq(creditCategoryPricingTable.category, code),
+        sql`${creditCategoryPricingTable.sido} IS NULL`,
+        sql`${creditCategoryPricingTable.sigungu} IS NULL`,
+        sql`${creditCategoryPricingTable.displayNameKo} IS NULL`,
+      ));
   }
 
   for (const r of COMMISSION_RATES) {

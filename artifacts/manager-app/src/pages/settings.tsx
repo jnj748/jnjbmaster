@@ -168,7 +168,7 @@ function PlatformSettings() {
             href={`${BASE}platform/quote-credit-policies`.replace(/\/+/g, "/")}
             className="inline-flex items-center gap-2 text-sm text-primary underline"
           >
-            견적 유형별 크레딧 설정 페이지로 이동 →
+            크레딧정책설정 페이지로 이동 →
           </a>
         </CardContent>
       </Card>

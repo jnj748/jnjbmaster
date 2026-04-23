@@ -24,6 +24,8 @@ export interface CreditCategoryPricing {
   /** @nullable */
   premiumSurchargePercent?: number | null;
   /** @nullable */
+  displayNameKo?: string | null;
+  /** @nullable */
   updatedBy?: string | null;
   updatedAt?: Date;
 }

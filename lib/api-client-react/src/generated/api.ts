@@ -52,6 +52,7 @@ import type {
   CancelVehicleBody,
   CastBallotBody,
   CastBallotResponse,
+  CategoryLabelsResponse,
   CheckAttendanceBody,
   Commission,
   CommissionEvent,
@@ -21702,6 +21703,81 @@ export const useDeleteCreditCategoryPricing = <
 > => {
   return useMutation(getDeleteCreditCategoryPricingMutationOptions(options));
 };
+
+/**
+ * @summary [Task #312] Authenticated: category code → Korean display label map
+ */
+export const getListCategoryLabelsUrl = () => {
+  return `/api/categories/labels`;
+};
+
+export const listCategoryLabels = async (
+  options?: RequestInit,
+): Promise<CategoryLabelsResponse> => {
+  return customFetch<CategoryLabelsResponse>(getListCategoryLabelsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCategoryLabelsQueryKey = () => {
+  return [`/api/categories/labels`] as const;
+};
+
+export const getListCategoryLabelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCategoryLabels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCategoryLabels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCategoryLabelsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCategoryLabels>>
+  > = ({ signal }) => listCategoryLabels({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCategoryLabels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCategoryLabelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCategoryLabels>>
+>;
+export type ListCategoryLabelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #312] Authenticated: category code → Korean display label map
+ */
+
+export function useListCategoryLabels<
+  TData = Awaited<ReturnType<typeof listCategoryLabels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCategoryLabels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCategoryLabelsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary [Task #298] platform_admin only: list common defaults + per-category policy overrides
