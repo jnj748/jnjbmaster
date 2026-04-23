@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { Plus, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertCircle, Check, X } from "lucide-react";
 
 type Frequency = "one_time" | "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
 type Category = "mandatory" | "suggested";
@@ -473,7 +473,246 @@ export default function TaskTemplatesPage() {
             </Card>
           ) : (
             (() => {
-              const renderRow = (t: TaskTemplate) => (
+              const renderRow = (t: TaskTemplate) => {
+                const isEditingThis = editing?.id === t.id && draft;
+                if (isEditingThis && draft) {
+                  return (
+                    <Card
+                      key={t.id}
+                      data-testid={`template-row-edit-${t.id}`}
+                      className="border-primary/40 ring-1 ring-primary/20"
+                    >
+                      <CardContent className="p-3 space-y-2">
+                        {/* 1행: 제목 + 저장/취소 */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={draft.title}
+                            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                            placeholder="제목"
+                            className="flex-1 h-9"
+                            data-testid="input-template-title-inline"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleSave}
+                            disabled={updateMutation.isPending}
+                            data-testid={`btn-save-inline-${t.id}`}
+                          >
+                            <Check className="w-4 h-4 mr-1" />저장
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setEditing(null); setDraft(null); }}
+                            data-testid={`btn-cancel-inline-${t.id}`}
+                          >
+                            <X className="w-4 h-4 mr-1" />취소
+                          </Button>
+                        </div>
+
+                        {/* 2행: 옵션을 가로로 나열 */}
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">카테고리</span>
+                            <Select
+                              value={draft.category}
+                              onValueChange={(v) => handleCategoryChange(v as Category)}
+                            >
+                              <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="mandatory">{CATEGORY_LABEL.mandatory}</SelectItem>
+                                <SelectItem value="suggested">{CATEGORY_LABEL.suggested}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">업무유형</span>
+                            <Select
+                              value={draft.taskType ?? "etc"}
+                              onValueChange={(v) => setDraft({ ...draft, taskType: v as TaskType })}
+                            >
+                              <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(TASK_TYPE_LABEL) as TaskType[]).map((k) => (
+                                  <SelectItem key={k} value={k}>{TASK_TYPE_LABEL[k]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">반복주기</span>
+                            <Select
+                              value={draft.frequencyType}
+                              onValueChange={(v) => handleFrequencyChange(v as Frequency)}
+                            >
+                              <SelectTrigger className="h-8 w-24 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(FREQUENCY_LABEL) as Frequency[]).map((k) => (
+                                  <SelectItem key={k} value={k}>{FREQUENCY_LABEL[k]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {draft.frequencyType === "weekly" && (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground">요일</span>
+                              <div className="flex gap-1 h-8 items-center">
+                                {WEEKDAY_LABELS.map((label, idx) => {
+                                  const checked = (draft.weekdays ?? []).includes(idx);
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={idx}
+                                      onClick={() => {
+                                        const cur = draft.weekdays ?? [];
+                                        const next = checked
+                                          ? cur.filter((d) => d !== idx)
+                                          : [...cur, idx].sort((a, b) => a - b);
+                                        setDraft({ ...draft, weekdays: next });
+                                      }}
+                                      className={`text-[11px] w-6 h-6 rounded border ${
+                                        checked
+                                          ? "bg-primary text-primary-foreground border-primary"
+                                          : "bg-white border-slate-300"
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {draft.frequencyType === "monthly" && (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground">며칠</span>
+                              <Input
+                                type="number" min={1} max={31}
+                                className="h-8 w-16 text-xs"
+                                value={draft.dayOfMonth ?? ""}
+                                onChange={(e) =>
+                                  setDraft({
+                                    ...draft,
+                                    dayOfMonth: e.target.value ? Number(e.target.value) : null,
+                                  })
+                                }
+                              />
+                            </div>
+                          )}
+                          {draft.frequencyType === "annual" && (
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground">몇 년마다</span>
+                              <Input
+                                type="number" min={1} max={50}
+                                className="h-8 w-16 text-xs"
+                                value={draft.yearInterval ?? ""}
+                                onChange={(e) =>
+                                  setDraft({
+                                    ...draft,
+                                    yearInterval: e.target.value ? Number(e.target.value) : null,
+                                  })
+                                }
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">우선순위</span>
+                            <Input
+                              type="number" min={0} max={100}
+                              className="h-8 w-16 text-xs"
+                              value={draft.priority}
+                              onChange={(e) => setDraft({ ...draft, priority: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">사전알림 D-</span>
+                            <Input
+                              type="number" min={0} max={365}
+                              className="h-8 w-16 text-xs"
+                              value={draft.advanceAlertDays}
+                              onChange={(e) => setDraft({ ...draft, advanceAlertDays: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-muted-foreground">활성</span>
+                            <div className="h-8 flex items-center">
+                              <Switch
+                                checked={draft.isActive}
+                                onCheckedChange={(c) => setDraft({ ...draft, isActive: c })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3행: 노출 대상 역할 */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground mr-1">노출 대상:</span>
+                          {ROLE_OPTIONS.map((opt) => {
+                            const checked = draft.targetRoles.includes(opt.value);
+                            return (
+                              <button
+                                type="button"
+                                key={opt.value}
+                                onClick={() => {
+                                  const next = checked
+                                    ? draft.targetRoles.filter((r) => r !== opt.value)
+                                    : [...draft.targetRoles, opt.value];
+                                  setDraft({ ...draft, targetRoles: next });
+                                }}
+                                className={`text-[11px] px-2 py-0.5 rounded border ${
+                                  checked
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-white border-slate-300"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* 4행: 적용 건물 */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground mr-1">적용 건물:</span>
+                          {BUILDING_USAGES.map((u) => {
+                            const checked = draft.buildingUsageScopes.includes(u);
+                            return (
+                              <button
+                                type="button"
+                                key={u}
+                                onClick={() => {
+                                  const next = checked
+                                    ? draft.buildingUsageScopes.filter((x) => x !== u)
+                                    : [...draft.buildingUsageScopes, u];
+                                  setDraft({ ...draft, buildingUsageScopes: next });
+                                }}
+                                className={`text-[11px] px-2 py-0.5 rounded border ${
+                                  checked
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-white border-slate-300"
+                                }`}
+                              >
+                                {u}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* 5행: 설명 */}
+                        <Textarea
+                          value={draft.description ?? ""}
+                          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                          rows={2}
+                          placeholder="설명 (선택)"
+                          className="text-xs"
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return (
                 <Card key={t.id} data-testid={`template-row-${t.id}`}>
                   <CardContent className="p-4 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -511,7 +750,7 @@ export default function TaskTemplatesPage() {
                         onCheckedChange={() => handleToggleActive(t)}
                         aria-label="활성화"
                       />
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(t)}>
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(t)} data-testid={`btn-edit-${t.id}`}>
                         <Pencil className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(t)}>
@@ -520,7 +759,8 @@ export default function TaskTemplatesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              );
+                );
+              };
 
               if (filterCategory !== "all") {
                 return <div className="space-y-2">{filtered.map(renderRow)}</div>;
@@ -558,10 +798,10 @@ export default function TaskTemplatesPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+      <Dialog open={!!draft && !editing} onOpenChange={(o) => !o && setDraft(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "템플릿 수정" : "새 업무 템플릿"}</DialogTitle>
+            <DialogTitle>새 업무 템플릿</DialogTitle>
             <DialogDescription>
               관리소장·본부관리자 대시보드에 표시될 업무 항목을 정의합니다.
             </DialogDescription>
