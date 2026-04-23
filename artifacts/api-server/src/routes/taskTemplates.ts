@@ -436,23 +436,29 @@ export interface BuildingEligibilityAttrs {
   gasUsageMonthly?: number | string | null;
 }
 
-function toNum(v: unknown): number {
-  if (v === null || v === undefined || v === "") return 0;
+// [Task #305] 빌딩 속성값을 숫자로 정규화. 미지(unknown)는 null 로 반환해
+//   호출 측이 "값 없음 = 자격 미충족" 으로 판단할 수 있게 한다. 0 으로 강제하면
+//   `<`/`<=`/`!=` 규칙에서 잘못 통과될 위험이 있어 명시적으로 분리한다.
+function attrToNum(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
   const n = typeof v === "number" ? v : parseFloat(String(v));
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
 
 // [Task #305] 자격 기준(AND) 평가. 규칙이 비어 있으면 항상 true.
+//   - attrs 자체가 없으면(빌딩 컨텍스트 부재) false.
+//   - 특정 필드 값이 없으면(unknown) 해당 규칙은 항상 fail → 보수적으로 노출 안 함.
+//     (예: gasUsageMonthly 가 입력되지 않았는데 `< 100` 규칙을 두는 경우, 0 으로
+//      간주해 잘못 통과되는 것을 방지)
 export function evaluateEligibility(
   rules: TaskTemplateEligibilityRule[] | null | undefined,
   attrs: BuildingEligibilityAttrs | null | undefined,
 ): boolean {
   if (!rules || rules.length === 0) return true;
-  // 빌딩 속성이 없으면(=빌딩 컨텍스트가 없는 사용자) 안전하게 스킵.
-  //   본부 화면처럼 buildingId 가 없는 경우 자격 기준이 있는 템플릿은 노출하지 않는다.
   if (!attrs) return false;
   for (const r of rules) {
-    const lhs = toNum((attrs as Record<string, unknown>)[r.field]);
+    const lhs = attrToNum((attrs as Record<string, unknown>)[r.field]);
+    if (lhs === null) return false;
     const rhs = r.value;
     let ok: boolean;
     switch (r.op) {
