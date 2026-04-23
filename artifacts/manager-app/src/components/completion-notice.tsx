@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -109,7 +109,7 @@ export function CompletionNotice({
   closeUpPhotoUrl,
   widePhotoUrl,
   buildingName = "OO아파트",
-  officeContact = "관리사무소 ☎ 02-0000-0000",
+  officeContact = "관리사무소 02-0000-0000",
   logoUrl = null,
   sealUrl = null,
   authorName = null,
@@ -125,9 +125,27 @@ export function CompletionNotice({
   const cleanAlertTitle = stripDday(alertTitle);
   const cleanAlertMessage = stripDday(alertMessage);
   const [title, setTitle] = useState(`${cleanAlertTitle} 처리 완료 안내`);
-  const [body, setBody] = useState(
-    `안녕하십니까, 입주민 여러분.\n\n금번 「${cleanAlertTitle}」 업무가 아래와 같이 완료되었음을 안내드립니다.\n${cleanAlertMessage}\n\n안전하고 쾌적한 주거환경 조성을 위해 최선을 다하겠습니다.\n주민 여러분의 양해와 협조에 깊이 감사드립니다.`
+  const defaultBodies = useMemo<Record<DocKind, string>>(
+    () => ({
+      notice:
+        `안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n` +
+        `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
+        `${cleanAlertMessage}\n\n` +
+        `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`,
+      report:
+        `${buildingName} ${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
+        `${cleanAlertMessage}`,
+      draft:
+        `처리 항목: ${cleanAlertTitle}\n` +
+        `완료 일자: ${formatNoticeDate(completedDate)}\n` +
+        `업무 결과: ${cleanAlertMessage}`,
+    }),
+    [buildingName, cleanAlertTitle, cleanAlertMessage, completedDate],
   );
+  const [editedBodies, setEditedBodies] = useState<Partial<Record<DocKind, string>>>({});
+  const body = editedBodies[docKind] ?? defaultBodies[docKind];
+  const setBody = (value: string) =>
+    setEditedBodies((prev) => ({ ...prev, [docKind]: value }));
   const [contact, setContact] = useState(officeContact);
   const [notesText, setNotesText] = useState(notes || "");
   const [exporting, setExporting] = useState(false);
@@ -559,18 +577,20 @@ function NoticeBody(props: {
       <PhotosBlock closeUpPhotoUrl={closeUpPhotoUrl} widePhotoUrl={widePhotoUrl} />
 
       <div className="text-center pt-12 mt-8 space-y-3">
-        <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
-          {buildingName} 관리사무소
-        </p>
-        <div className="flex justify-center pt-2">
-          {sealUrl ? (
-            <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
-          ) : (
-            <div className="text-xs text-gray-500 border border-dashed border-gray-400 rounded-full w-20 h-20 flex items-center justify-center">
-              (직인생략)
+        {sealUrl ? (
+          <>
+            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+              {buildingName} 관리사무소
+            </p>
+            <div className="flex justify-center pt-2">
+              <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+            {buildingName} 관리사무소 직인생략
+          </p>
+        )}
       </div>
     </>
   );
