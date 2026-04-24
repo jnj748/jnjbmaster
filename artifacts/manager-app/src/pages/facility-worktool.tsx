@@ -27,7 +27,9 @@ import { useAuth } from "@/contexts/auth-context";
 import type { OfficialDocumentInput } from "@/lib/official-document";
 import {
   MobileOnly,
+  DesktopOnly,
   MobileKpiStrip,
+  MobileTabPanels,
   type KpiItem,
 } from "@/components/dashboard-widgets/mobile-compact";
 
@@ -208,14 +210,9 @@ export default function FacilityWorktool() {
     },
   ];
 
-  return (
-    <div className="space-y-4 max-w-lg mx-auto">
-      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다. */}
-      {/* [Task #327] 모바일 한 화면 압축 — KPI 스트립으로 진행 상태 시각화 */}
-      <MobileOnly>
-        <MobileKpiStrip items={facilityKpis} />
-      </MobileOnly>
-
+  // [Task #327] 모바일/데스크탑 양쪽에서 공유하는 섹션 JSX.
+  // 상태(checklist/notes/photo)는 단일 소스를 유지하기 위해 변수로 추출.
+  const checkClockSection = (
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -243,7 +240,9 @@ export default function FacilityWorktool() {
           </div>
         </CardContent>
       </Card>
+  );
 
+  const checklistSection = (
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -370,6 +369,9 @@ export default function FacilityWorktool() {
           )}
         </CardContent>
       </Card>
+  );
+
+  const photoInputEl = (
       <input
         ref={photoInputRef}
         type="file"
@@ -378,6 +380,48 @@ export default function FacilityWorktool() {
         className="hidden"
         onChange={handlePhotoCapture}
       />
+  );
+
+  return (
+    <div className="max-w-lg mx-auto">
+      {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다. */}
+      {/* [Task #327] 모바일 한 화면 압축 — KPI 스트립 + 탭(출퇴근/점검표) */}
+      <MobileOnly>
+        <div className="space-y-3">
+          <MobileKpiStrip items={facilityKpis} />
+          <MobileTabPanels
+            sections={[
+              {
+                key: "clock",
+                label: "출퇴근",
+                content: <div className="space-y-3">{checkClockSection}</div>,
+              },
+              {
+                key: "checklist",
+                label: "점검표",
+                badge: (
+                  <Badge
+                    variant={completedCount === checklist.length ? "default" : "secondary"}
+                    className="text-[9px] h-4 px-1"
+                  >
+                    {completedCount}/{checklist.length}
+                  </Badge>
+                ),
+                content: <div className="space-y-3">{checklistSection}</div>,
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
+
+      <DesktopOnly>
+        <div className="space-y-4">
+          {checkClockSection}
+          {checklistSection}
+        </div>
+      </DesktopOnly>
+
+      {photoInputEl}
     </div>
   );
 }
