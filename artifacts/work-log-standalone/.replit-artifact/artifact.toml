@@ -1,0 +1,33 @@
+kind = "web"
+previewPath = "/work-log/"
+title = "업무일지 (이식형)"
+version = "1.0.0"
+id = "artifacts/work-log-standalone"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/work-log/" ]
+localPort = 18267
+
+[services.development]
+run = "pnpm --filter work-log-standalone run dev"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "work-log-standalone", "run", "build"]
+
+[services.production.run]
+args = ["pnpm", "--filter", "work-log-standalone", "run", "start"]
+
+[services.production.run.env]
+NODE_ENV = "production"
+
+[services.env]
+PORT = "18267"
+BASE_PATH = "/work-log/"

@@ -121,6 +121,13 @@ The project is a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
 - papaparse
 - data.go.kr BldRgstHubService/getBrTitleInfo, getBrRecapTitleInfo, getBrExposPubuseAreaInfo
 
+## Task #323 — 업무일지 단일폴더 휴대용 앱 (work-log-standalone, 2026-04-24)
+- **목표**: manager-app의 "관리소장 업무기록 → 일지 → 주보 → 월보" 흐름을 의존성 없는 단일 폴더로 추출 (`artifacts/work-log-standalone/`).
+- **휴대성**: 폴더 전체를 통째로 복사하면 어디서든 `npm install && npm run dev` 로 동작. `@workspace/*` 또는 `catalog:` 의존성 0건. SQLite(`better-sqlite3`)로 외부 DB/인증/멀티테넌트 제거.
+- **기능**: 4단계 일일 위저드(보안/미화/시설/민원, 상태 필수 + "특이사항" 선택 시 메모 필수 검증 모달), 카테고리/사진URL 빠른 메모, 일보/주보/월보 수동 생성 + A4 인쇄 CSS, 특이사항 강조 표시(요약 타일 + 별도 강조 섹션 + 행 하이라이트, 인쇄에도 색상 유지).
+- **구성**: React 18.3 + Vite 6 + Express 4 + Drizzle, dev/prod 모두 단일 HTTP 서버에 Vite middleware/static 마운트. tsx는 `node ./node_modules/tsx/dist/cli.mjs`로 직접 호출(pnpm `.bin` 심볼릭 링크 의존성 회피, yarn PnP 미지원 — README 명시).
+- **검증**: e2e 테스트(주요 흐름 전부) + healthz/today smoke API 통과.
+
 ## Task #296 — 유저유형별 이용현황 분석 대시보드
 - DB: `usage_events` (user_id, role, path, menu_key, occurred_at). 180일 보존(스케줄러 일배치).
 - API: `POST /api/usage-events` (인증, 서버측 role, platform_admin 자기 트래픽 제외) / `GET /api/platform/usage-analytics?range=7d|30d|90d&role=` (platform_admin only) — summary/byRole/topMenus + 직전 동기간 대비 % 변화율.
