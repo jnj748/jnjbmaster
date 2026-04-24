@@ -233,16 +233,21 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium">메모</span>
-                <VoiceInputButton
-                  title="메모 음성 입력"
-                  ariaLabel="메모 음성 입력"
-                  testId="fab-memo-voice"
-                  onInsert={(text) =>
-                    setMemo((prev) => (prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text))
-                  }
-                />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">음성으로 메모할 수도 있어요</span>
+                  <VoiceInputButton
+                    className="h-10 w-10 text-blue-600 hover:text-blue-700"
+                    iconClassName="w-6 h-6"
+                    title="메모 음성 입력"
+                    ariaLabel="메모 음성 입력"
+                    testId="fab-memo-voice"
+                    onInsert={(text) =>
+                      setMemo((prev) => (prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text))
+                    }
+                  />
+                </div>
               </div>
               <Textarea
                 value={memo}

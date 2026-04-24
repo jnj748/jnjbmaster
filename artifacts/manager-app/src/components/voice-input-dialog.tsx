@@ -352,6 +352,7 @@ interface VoiceInputButtonProps {
   title?: string;
   ariaLabel?: string;
   className?: string;
+  iconClassName?: string;
   testId?: string;
 }
 
@@ -360,6 +361,7 @@ export function VoiceInputButton({
   title,
   ariaLabel = "음성으로 입력",
   className,
+  iconClassName,
   testId,
 }: VoiceInputButtonProps) {
   const [open, setOpen] = useState(false);
@@ -374,7 +376,7 @@ export function VoiceInputButton({
         onClick={() => setOpen(true)}
         data-testid={testId}
       >
-        <Mic className="w-4 h-4" />
+        <Mic className={iconClassName ?? "w-4 h-4"} />
       </Button>
       <VoiceInputDialog
         open={open}
