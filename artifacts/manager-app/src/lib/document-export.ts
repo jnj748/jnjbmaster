@@ -90,14 +90,34 @@ export async function elementToDocxBlob(element: HTMLElement, title: string): Pr
 /**
  * 주어진 엘리먼트를 PDF Blob 으로 만들어 반환한다.
  * A4 세로 기준으로 너비를 맞추고, 길이가 길면 페이지를 자동으로 분할한다.
+ *
+ * [용량 최적화]
+ *   - PNG 대신 JPEG(품질 0.82) 로 캡처 → 동일 해상도 대비 5~10배 압축.
+ *   - pixelRatio 기본 1.5 (이전 2). 외부 공유 PDF 는 인쇄가 아닌 화면 열람 위주이므로
+ *     1.5 배율로도 텍스트 가독성에 충분하면서 픽셀 수가 약 56% 로 감소.
+ *   - jsPDF compress 옵션으로 객체 스트림을 zlib 압축.
+ *   - 기기 DPR 이 매우 높은 모바일에서는 캡처가 과도해질 수 있어 cap 을 둔다.
+ *   필요시 호출자에서 quality / pixelRatio 를 조정할 수 있다.
  */
-export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
-  const { toPng } = await import("html-to-image");
+export interface PdfBlobOptions {
+  /** JPEG 품질 0~1. 기본 0.82 (가독성/용량 균형). */
+  quality?: number;
+  /** 캡처 배율. 기본 1.5. 모바일 DPR 영향 받지 않도록 명시 지정 권장. */
+  pixelRatio?: number;
+}
+export async function elementToPdfBlob(
+  element: HTMLElement,
+  options: PdfBlobOptions = {},
+): Promise<Blob> {
+  const { toJpeg } = await import("html-to-image");
   const { jsPDF } = await import("jspdf");
-  const dataUrl = await toPng(element, {
+  const quality = options.quality ?? 0.82;
+  const pixelRatio = options.pixelRatio ?? 1.5;
+  const dataUrl = await toJpeg(element, {
     cacheBust: false,
     backgroundColor: "#ffffff",
-    pixelRatio: 2,
+    pixelRatio,
+    quality,
   });
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -105,19 +125,21 @@ export async function elementToPdfBlob(element: HTMLElement): Promise<Blob> {
     img.onerror = () => reject(new Error("이미지 로드 실패"));
     img.src = dataUrl;
   });
-  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "p" });
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "p", compress: true });
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const imgW = pageW;
   const imgH = (img.height * imgW) / img.width;
   let heightLeft = imgH;
   let position = 0;
-  pdf.addImage(dataUrl, "PNG", 0, position, imgW, imgH);
+  // FAST 압축 모드: 이미 JPEG 로 손실 압축된 데이터이므로 jsPDF 의 추가 deflate 는 의미가 적고
+  // FAST 옵션이 처리 속도를 크게 단축한다.
+  pdf.addImage(dataUrl, "JPEG", 0, position, imgW, imgH, undefined, "FAST");
   heightLeft -= pageH;
   while (heightLeft > 0) {
     position = heightLeft - imgH;
     pdf.addPage();
-    pdf.addImage(dataUrl, "PNG", 0, position, imgW, imgH);
+    pdf.addImage(dataUrl, "JPEG", 0, position, imgW, imgH, undefined, "FAST");
     heightLeft -= pageH;
   }
   return pdf.output("blob");
