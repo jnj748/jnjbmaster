@@ -5476,6 +5476,114 @@ paths:
                   order:
                     $ref: "#/components/schemas/CreditTopupOrder"
 
+  /building-notice-templates:
+    get:
+      operationId: listBuildingNoticeTemplates
+      tags: [buildings]
+      summary: "[Task #323] 활성 공지문 템플릿 목록 (매니저용)"
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BuildingNoticeTemplate"
+                required: [templates]
+
+  /building-notice-templates/admin:
+    get:
+      operationId: listAdminBuildingNoticeTemplates
+      tags: [buildings]
+      summary: "[Task #323] platform_admin: 전체 템플릿"
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BuildingNoticeTemplate"
+                required: [templates]
+    post:
+      operationId: createBuildingNoticeTemplate
+      tags: [buildings]
+      summary: "[Task #323] platform_admin: 템플릿 생성"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBuildingNoticeTemplateBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: "#/components/schemas/BuildingNoticeTemplate"
+                required: [template]
+
+  /building-notice-templates/admin/{id}:
+    put:
+      operationId: updateBuildingNoticeTemplate
+      tags: [buildings]
+      summary: "[Task #323] platform_admin: 템플릿 수정"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBuildingNoticeTemplateBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: "#/components/schemas/BuildingNoticeTemplate"
+                required: [template]
+    delete:
+      operationId: deleteBuildingNoticeTemplate
+      tags: [buildings]
+      summary: "[Task #323] platform_admin: 템플릿 삭제"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
   /credits/admin/topup-packages:
     get:
       operationId: listAdminCreditTopupPackages
@@ -11595,6 +11703,65 @@ components:
         - amount
         - kind
         - notes
+
+    BuildingNoticeTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        icon:
+          type: ["string", "null"]
+        bodyHtml:
+          type: string
+        customFieldLabels:
+          type: ["string", "null"]
+          description: "JSON 직렬화된 string[]"
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - bodyHtml
+        - sortOrder
+        - isActive
+        - createdAt
+        - updatedAt
+
+    UpsertBuildingNoticeTemplateBody:
+      type: object
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        icon:
+          type: ["string", "null"]
+        bodyHtml:
+          type: string
+        customFieldLabels:
+          type: ["array", "null"]
+          items:
+            type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required:
+        - title
+        - bodyHtml
 
     CreditTopupPackage:
       type: object

@@ -545,6 +545,16 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-campaigns")),
     label: "캠페인 알림", icon: Megaphone, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #323] 공지문 템플릿 — 매니저용 선택 페이지(/notices/templates)와 플랫폼 CRUD 페이지(/platform/notice-templates).
+  { path: "/notices/templates",
+    component: lazy(() => import("@/pages/manager-notice-templates")),
+    label: "공지문 템플릿", icon: FileText, group: "facility",
+    access: ["manager", "platform_admin"],
+    sideMenu: ["manager"] },
+  { path: "/platform/notice-templates",
+    component: lazy(() => import("@/pages/platform-notice-templates")),
+    label: "공지문 템플릿 관리", icon: FileText, group: "settings",
+    access: ["platform_admin"], hidden: true },
   {
     // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼)
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),

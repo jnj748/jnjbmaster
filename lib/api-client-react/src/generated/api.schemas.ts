@@ -4667,6 +4667,36 @@ export interface AdjustCreditsBody {
   notes: string;
 }
 
+export interface BuildingNoticeTemplate {
+  id: number;
+  title: string;
+  category: string;
+  /** @nullable */
+  icon?: string | null;
+  bodyHtml: string;
+  /**
+   * JSON 직렬화된 string[]
+   * @nullable
+   */
+  customFieldLabels?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertBuildingNoticeTemplateBody {
+  title: string;
+  category?: string;
+  /** @nullable */
+  icon?: string | null;
+  bodyHtml: string;
+  /** @nullable */
+  customFieldLabels?: string[] | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
 export interface CreditTopupPackage {
   id: number;
   name: string;
@@ -5879,6 +5909,26 @@ export type FailCreditTopupOrderBody = {
 
 export type FailCreditTopupOrder200 = {
   order?: CreditTopupOrder;
+};
+
+export type ListBuildingNoticeTemplates200 = {
+  templates: BuildingNoticeTemplate[];
+};
+
+export type ListAdminBuildingNoticeTemplates200 = {
+  templates: BuildingNoticeTemplate[];
+};
+
+export type CreateBuildingNoticeTemplate200 = {
+  template: BuildingNoticeTemplate;
+};
+
+export type UpdateBuildingNoticeTemplate200 = {
+  template: BuildingNoticeTemplate;
+};
+
+export type DeleteBuildingNoticeTemplate200 = {
+  ok?: boolean;
 };
 
 export type DeleteCreditTopupPackage200 = {

@@ -106,6 +106,13 @@
       "when": 1777200000000,
       "tag": "0014_task319_credit_topup",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1777300000000,
+      "tag": "0015_task323_building_notice_templates",
+      "breakpoints": true
     }
   ]
 }

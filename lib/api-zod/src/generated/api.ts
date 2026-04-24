@@ -7361,6 +7361,129 @@ export const FailCreditTopupOrderResponse = zod.object({
 });
 
 /**
+ * @summary [Task #323] 활성 공지문 템플릿 목록 (매니저용)
+ */
+export const ListBuildingNoticeTemplatesResponse = zod.object({
+  templates: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      category: zod.string(),
+      icon: zod.string().nullish(),
+      bodyHtml: zod.string(),
+      customFieldLabels: zod
+        .string()
+        .nullish()
+        .describe("JSON 직렬화된 string[]"),
+      sortOrder: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #323] platform_admin: 전체 템플릿
+ */
+export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
+  templates: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      category: zod.string(),
+      icon: zod.string().nullish(),
+      bodyHtml: zod.string(),
+      customFieldLabels: zod
+        .string()
+        .nullish()
+        .describe("JSON 직렬화된 string[]"),
+      sortOrder: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 생성
+ */
+export const CreateBuildingNoticeTemplateBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  icon: zod.string().nullish(),
+  bodyHtml: zod.string(),
+  customFieldLabels: zod.array(zod.string()).nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const CreateBuildingNoticeTemplateResponse = zod.object({
+  template: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    category: zod.string(),
+    icon: zod.string().nullish(),
+    bodyHtml: zod.string(),
+    customFieldLabels: zod
+      .string()
+      .nullish()
+      .describe("JSON 직렬화된 string[]"),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 수정
+ */
+export const UpdateBuildingNoticeTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBuildingNoticeTemplateBody = zod.object({
+  title: zod.string(),
+  category: zod.string().optional(),
+  icon: zod.string().nullish(),
+  bodyHtml: zod.string(),
+  customFieldLabels: zod.array(zod.string()).nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateBuildingNoticeTemplateResponse = zod.object({
+  template: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    category: zod.string(),
+    icon: zod.string().nullish(),
+    bodyHtml: zod.string(),
+    customFieldLabels: zod
+      .string()
+      .nullish()
+      .describe("JSON 직렬화된 string[]"),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 삭제
+ */
+export const DeleteBuildingNoticeTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteBuildingNoticeTemplateResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
  * @summary [Task #319] platform_admin: all packages (incl. inactive)
  */
 export const ListAdminCreditTopupPackagesResponseItem = zod.object({

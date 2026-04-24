@@ -71,6 +71,7 @@ import type {
   CreateAiSessionBody,
   CreateAlertActionBody,
   CreateApprovalBody,
+  CreateBuildingNoticeTemplate200,
   CreateBuildingWarrantiesBody,
   CreateCommissionBody,
   CreateComplaintBody,
@@ -116,6 +117,7 @@ import type {
   DashboardAnalytics,
   DashboardSummary,
   DataDestructionLog,
+  DeleteBuildingNoticeTemplate200,
   DeleteComplaint200,
   DeleteCreditCategoryPricing200,
   DeleteCreditTopupPackage200,
@@ -176,9 +178,11 @@ import type {
   InterimSettlementResponse,
   KakaoNotifyBody,
   KakaoNotifyResponse,
+  ListAdminBuildingNoticeTemplates200,
   ListAdminCreditTopupOrdersParams,
   ListAlertActionsParams,
   ListApprovalsParams,
+  ListBuildingNoticeTemplates200,
   ListComplaintsParams,
   ListContractsParams,
   ListCreditLedgerParams,
@@ -257,6 +261,7 @@ import type {
   TenantCardToken,
   TransitionContractStatusBody,
   Unit,
+  UpdateBuildingNoticeTemplate200,
   UpdateBuildingWarrantyBody,
   UpdateCommissionBody,
   UpdateComplaintBody,
@@ -285,6 +290,7 @@ import type {
   UploadContractDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertBuildingNoticeTemplateBody,
   UpsertCommissionRateBody,
   UpsertCreditCategoryPricingBody,
   UpsertCreditTopupPackageBody,
@@ -22376,6 +22382,434 @@ export const useFailCreditTopupOrder = <
   TContext
 > => {
   return useMutation(getFailCreditTopupOrderMutationOptions(options));
+};
+
+/**
+ * @summary [Task #323] 활성 공지문 템플릿 목록 (매니저용)
+ */
+export const getListBuildingNoticeTemplatesUrl = () => {
+  return `/api/building-notice-templates`;
+};
+
+export const listBuildingNoticeTemplates = async (
+  options?: RequestInit,
+): Promise<ListBuildingNoticeTemplates200> => {
+  return customFetch<ListBuildingNoticeTemplates200>(
+    getListBuildingNoticeTemplatesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListBuildingNoticeTemplatesQueryKey = () => {
+  return [`/api/building-notice-templates`] as const;
+};
+
+export const getListBuildingNoticeTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBuildingNoticeTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildingNoticeTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListBuildingNoticeTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listBuildingNoticeTemplates>>
+  > = ({ signal }) =>
+    listBuildingNoticeTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildingNoticeTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBuildingNoticeTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBuildingNoticeTemplates>>
+>;
+export type ListBuildingNoticeTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #323] 활성 공지문 템플릿 목록 (매니저용)
+ */
+
+export function useListBuildingNoticeTemplates<
+  TData = Awaited<ReturnType<typeof listBuildingNoticeTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBuildingNoticeTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBuildingNoticeTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #323] platform_admin: 전체 템플릿
+ */
+export const getListAdminBuildingNoticeTemplatesUrl = () => {
+  return `/api/building-notice-templates/admin`;
+};
+
+export const listAdminBuildingNoticeTemplates = async (
+  options?: RequestInit,
+): Promise<ListAdminBuildingNoticeTemplates200> => {
+  return customFetch<ListAdminBuildingNoticeTemplates200>(
+    getListAdminBuildingNoticeTemplatesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminBuildingNoticeTemplatesQueryKey = () => {
+  return [`/api/building-notice-templates/admin`] as const;
+};
+
+export const getListAdminBuildingNoticeTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminBuildingNoticeTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>
+  > = ({ signal }) =>
+    listAdminBuildingNoticeTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminBuildingNoticeTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>
+>;
+export type ListAdminBuildingNoticeTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #323] platform_admin: 전체 템플릿
+ */
+
+export function useListAdminBuildingNoticeTemplates<
+  TData = Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminBuildingNoticeTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminBuildingNoticeTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 생성
+ */
+export const getCreateBuildingNoticeTemplateUrl = () => {
+  return `/api/building-notice-templates/admin`;
+};
+
+export const createBuildingNoticeTemplate = async (
+  upsertBuildingNoticeTemplateBody: UpsertBuildingNoticeTemplateBody,
+  options?: RequestInit,
+): Promise<CreateBuildingNoticeTemplate200> => {
+  return customFetch<CreateBuildingNoticeTemplate200>(
+    getCreateBuildingNoticeTemplateUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertBuildingNoticeTemplateBody),
+    },
+  );
+};
+
+export const getCreateBuildingNoticeTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBuildingNoticeTemplate>>,
+    TError,
+    { data: BodyType<UpsertBuildingNoticeTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBuildingNoticeTemplate>>,
+  TError,
+  { data: BodyType<UpsertBuildingNoticeTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createBuildingNoticeTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBuildingNoticeTemplate>>,
+    { data: BodyType<UpsertBuildingNoticeTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBuildingNoticeTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBuildingNoticeTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBuildingNoticeTemplate>>
+>;
+export type CreateBuildingNoticeTemplateMutationBody =
+  BodyType<UpsertBuildingNoticeTemplateBody>;
+export type CreateBuildingNoticeTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 생성
+ */
+export const useCreateBuildingNoticeTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBuildingNoticeTemplate>>,
+    TError,
+    { data: BodyType<UpsertBuildingNoticeTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBuildingNoticeTemplate>>,
+  TError,
+  { data: BodyType<UpsertBuildingNoticeTemplateBody> },
+  TContext
+> => {
+  return useMutation(getCreateBuildingNoticeTemplateMutationOptions(options));
+};
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 수정
+ */
+export const getUpdateBuildingNoticeTemplateUrl = (id: number) => {
+  return `/api/building-notice-templates/admin/${id}`;
+};
+
+export const updateBuildingNoticeTemplate = async (
+  id: number,
+  upsertBuildingNoticeTemplateBody: UpsertBuildingNoticeTemplateBody,
+  options?: RequestInit,
+): Promise<UpdateBuildingNoticeTemplate200> => {
+  return customFetch<UpdateBuildingNoticeTemplate200>(
+    getUpdateBuildingNoticeTemplateUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertBuildingNoticeTemplateBody),
+    },
+  );
+};
+
+export const getUpdateBuildingNoticeTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpsertBuildingNoticeTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpsertBuildingNoticeTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["updateBuildingNoticeTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>,
+    { id: number; data: BodyType<UpsertBuildingNoticeTemplateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateBuildingNoticeTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBuildingNoticeTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>
+>;
+export type UpdateBuildingNoticeTemplateMutationBody =
+  BodyType<UpsertBuildingNoticeTemplateBody>;
+export type UpdateBuildingNoticeTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 수정
+ */
+export const useUpdateBuildingNoticeTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpsertBuildingNoticeTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBuildingNoticeTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpsertBuildingNoticeTemplateBody> },
+  TContext
+> => {
+  return useMutation(getUpdateBuildingNoticeTemplateMutationOptions(options));
+};
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 삭제
+ */
+export const getDeleteBuildingNoticeTemplateUrl = (id: number) => {
+  return `/api/building-notice-templates/admin/${id}`;
+};
+
+export const deleteBuildingNoticeTemplate = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteBuildingNoticeTemplate200> => {
+  return customFetch<DeleteBuildingNoticeTemplate200>(
+    getDeleteBuildingNoticeTemplateUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteBuildingNoticeTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteBuildingNoticeTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteBuildingNoticeTemplate(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteBuildingNoticeTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>
+>;
+
+export type DeleteBuildingNoticeTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #323] platform_admin: 템플릿 삭제
+ */
+export const useDeleteBuildingNoticeTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteBuildingNoticeTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteBuildingNoticeTemplateMutationOptions(options));
 };
 
 /**

@@ -1,0 +1,261 @@
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListAdminBuildingNoticeTemplates,
+  createBuildingNoticeTemplate,
+  updateBuildingNoticeTemplate,
+  deleteBuildingNoticeTemplate,
+} from "@workspace/api-client-react";
+import type {
+  BuildingNoticeTemplate,
+  UpsertBuildingNoticeTemplateBody,
+} from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+
+// [Task #323] platform_admin 전용 — 공지문 템플릿 관리.
+//   매니저가 사용하는 모든 템플릿(불조심/분리수거 등)을 여기서 추가/수정/삭제한다.
+
+interface FormState {
+  id?: number;
+  title: string;
+  category: string;
+  icon: string;
+  bodyHtml: string;
+  customFieldLabelsCsv: string; // 사용자에게는 콤마로 입력받는다 (예: "기간,장소").
+  sortOrder: number;
+  isActive: boolean;
+}
+
+function blank(): FormState {
+  return {
+    title: "",
+    category: "일반",
+    icon: "📄",
+    bodyHtml:
+      `<div style="font-family: 'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;">\n  <h2>{{buildingName}} 안내문</h2>\n  <p>본문을 작성하세요. 사용 가능한 토큰: {{buildingName}}, {{addressFull}}, {{managementOfficePhone}}, {{date}}, {{customA}}, {{customB}}, {{customC}}.</p>\n</div>`,
+    customFieldLabelsCsv: "",
+    sortOrder: 100,
+    isActive: true,
+  };
+}
+
+function parseLabels(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function PlatformNoticeTemplatesPage() {
+  const { data, isLoading } = useListAdminBuildingNoticeTemplates();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<FormState>(blank());
+  const [saving, setSaving] = useState(false);
+  const templates: BuildingNoticeTemplate[] = data?.templates ?? [];
+
+  function startCreate() {
+    setForm(blank());
+    setOpen(true);
+  }
+
+  function startEdit(t: BuildingNoticeTemplate) {
+    setForm({
+      id: t.id,
+      title: t.title,
+      category: t.category,
+      icon: t.icon ?? "",
+      bodyHtml: t.bodyHtml,
+      customFieldLabelsCsv: parseLabels(t.customFieldLabels).join(","),
+      sortOrder: t.sortOrder,
+      isActive: t.isActive,
+    });
+    setOpen(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const labels = form.customFieldLabelsCsv
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const body: UpsertBuildingNoticeTemplateBody = {
+        title: form.title,
+        category: form.category || "일반",
+        icon: form.icon || null,
+        bodyHtml: form.bodyHtml,
+        customFieldLabels: labels.length > 0 ? labels : null,
+        sortOrder: Number(form.sortOrder) || 100,
+        isActive: form.isActive,
+      };
+      if (form.id) {
+        await updateBuildingNoticeTemplate(form.id, body);
+      } else {
+        await createBuildingNoticeTemplate(body);
+      }
+      toast({ title: "저장되었습니다" });
+      setOpen(false);
+      void qc.invalidateQueries({ queryKey: ["/api/building-notice-templates/admin"] });
+      void qc.invalidateQueries({ queryKey: ["/api/building-notice-templates"] });
+    } catch (err: any) {
+      toast({ title: "저장 실패", description: err?.message ?? "", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(t: BuildingNoticeTemplate) {
+    if (!window.confirm(`"${t.title}" 템플릿을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteBuildingNoticeTemplate(t.id);
+      toast({ title: "삭제되었습니다" });
+      void qc.invalidateQueries({ queryKey: ["/api/building-notice-templates/admin"] });
+      void qc.invalidateQueries({ queryKey: ["/api/building-notice-templates"] });
+    } catch (err: any) {
+      toast({ title: "삭제 실패", description: err?.message ?? "", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-6 max-w-5xl">
+      <Card>
+        <CardHeader className="pb-2 flex-row items-center justify-between">
+          <CardTitle className="text-base">공지문 템플릿 관리</CardTitle>
+          <Button size="sm" onClick={startCreate} data-testid="button-create-template">
+            <Plus className="w-4 h-4 mr-1" />새 템플릿
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" data-testid="table-templates">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="text-left px-3 py-2">정렬</th>
+                  <th className="text-left px-3 py-2">아이콘</th>
+                  <th className="text-left px-3 py-2">분류</th>
+                  <th className="text-left px-3 py-2">제목</th>
+                  <th className="text-left px-3 py-2">입력칸</th>
+                  <th className="text-center px-3 py-2">활성</th>
+                  <th className="text-right px-3 py-2">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">불러오는 중…</td></tr>
+                ) : templates.length === 0 ? (
+                  <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">템플릿이 없습니다</td></tr>
+                ) : templates.map((t) => (
+                  <tr key={t.id} className="border-t border-slate-100" data-testid={`row-template-${t.id}`}>
+                    <td className="px-3 py-2">{t.sortOrder}</td>
+                    <td className="px-3 py-2 text-lg">{t.icon ?? ""}</td>
+                    <td className="px-3 py-2"><Badge variant="outline">{t.category}</Badge></td>
+                    <td className="px-3 py-2 font-medium">{t.title}</td>
+                    <td className="px-3 py-2 text-slate-500">
+                      {parseLabels(t.customFieldLabels).join(", ") || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {t.isActive ? <Badge>활성</Badge> : <Badge variant="outline">비활성</Badge>}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button size="icon" variant="ghost" onClick={() => startEdit(t)} data-testid={`button-edit-template-${t.id}`}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => handleDelete(t)} data-testid={`button-delete-template-${t.id}`}>
+                        <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ResponsiveDialog open={open} onOpenChange={setOpen}>
+        <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{form.id ? "템플릿 편집" : "새 템플릿"}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          <div className="space-y-3 px-1">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <Label>제목</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-testid="input-template-title" />
+              </div>
+              <div>
+                <Label>아이콘 (이모지)</Label>
+                <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="🔥" data-testid="input-template-icon" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>분류 (예: 안전, 위생, 공지)</Label>
+                <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} data-testid="input-template-category" />
+              </div>
+              <div>
+                <Label>정렬</Label>
+                <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div>
+              <Label>사용자 입력칸 라벨 (콤마로 구분, 최대 3개)</Label>
+              <Input
+                value={form.customFieldLabelsCsv}
+                onChange={(e) => setForm({ ...form, customFieldLabelsCsv: e.target.value })}
+                placeholder="기간, 장소"
+                data-testid="input-template-labels"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                여기 적은 라벨이 입력칸으로 노출되어 본문의 {"{{customA}} {{customB}} {{customC}}"} 위치에 채워집니다.
+              </p>
+            </div>
+            <div>
+              <Label>본문 HTML</Label>
+              <Textarea
+                value={form.bodyHtml}
+                onChange={(e) => setForm({ ...form, bodyHtml: e.target.value })}
+                rows={14}
+                className="font-mono text-xs"
+                data-testid="input-template-body"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                토큰: {"{{buildingName}} {{addressFull}} {{managementOfficePhone}} {{date}} {{customA}} {{customB}} {{customC}}"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+              <Label>활성화</Label>
+            </div>
+          </div>
+          <ResponsiveDialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>취소</Button>
+            <Button onClick={handleSave} disabled={saving || !form.title || !form.bodyHtml} data-testid="button-save-template">
+              {saving ? "저장 중…" : "저장"}
+            </Button>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </div>
+  );
+}
