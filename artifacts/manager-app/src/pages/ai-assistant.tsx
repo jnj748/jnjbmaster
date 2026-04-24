@@ -208,21 +208,21 @@ export default function AiAssistantPage() {
         - 데스크탑(≥900px) 에서는 하단 네비가 숨겨지고 좌측 사이드바만 존재하므로 헤더만 차감한다.
       */}
       <style>{`
+        /* [모바일 앱화] 부모 .layout-content-area 가 이제 100dvh-헤더-네비 로 고정 높이를 가지므로
+           negative margin 으로 패딩만 상쇄하고 100% 높이를 차지하면 충분하다. */
         .ai-assistant-fill {
-          /* mobile: parent has p-3 (12px) + padding-bottom: 60px + safe-area */
-          margin: -12px -12px calc(-12px - 60px - env(safe-area-inset-bottom, 0px)) -12px;
-          /* mobile header(약 60px) + bottom nav(60px) + safe-area */
-          height: calc(100dvh - 60px - 60px - env(safe-area-inset-bottom, 0px));
+          margin: -12px;
+          height: calc(100% + 24px);
         }
         @media (min-width: 640px) and (max-width: 899px) {
           .ai-assistant-fill {
-            /* tablet (sm+): parent has p-6 (24px), bottom nav still visible */
-            margin: -24px -24px calc(-24px - 60px - env(safe-area-inset-bottom, 0px)) -24px;
+            margin: -24px;
+            height: calc(100% + 48px);
           }
         }
         @media (min-width: 900px) {
           .ai-assistant-fill {
-            /* desktop: parent p-6 (24px), no bottom nav, no safe-area concern */
+            /* desktop: 사이드바만 있고 하단 네비가 없어 본문이 body 스크롤. dvh 기반 유지. */
             margin: -24px;
             height: calc(100dvh - 65px);
           }

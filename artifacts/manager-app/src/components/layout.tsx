@@ -570,6 +570,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           width: 100%;
           min-height: 100vh;
         }
+        .layout-column {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          min-height: 100vh;
+        }
         .layout-sidebar { display: none; }
         .layout-mobile-header { display: flex; }
         .layout-desktop-header { display: none; }
@@ -577,9 +583,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
         .layout-content-area { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
         @media (max-width: 899px) {
+          /* [Task #모바일 앱화] 모바일에서는 헤더+컨텐츠+하단네비 가 한 화면에 고정.
+             컨텐츠가 짧으면 스크롤이 전혀 발생하지 않고, 길면 컨텐츠 영역 안에서만 스크롤된다. */
           .layout-grid {
             max-width: 100vw;
+            overflow: hidden;
+            height: calc(100dvh - 60px - env(safe-area-inset-bottom, 0px));
+            min-height: 0;
+          }
+          .layout-column {
+            height: 100%;
+            min-height: 0;
+            flex: 1 1 auto;
+          }
+          .layout-content-area {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
             overflow-x: hidden;
+            padding-bottom: 0;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
           }
         }
 
@@ -714,7 +738,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <SidebarContent navLinks={navLinks} user={user} logout={logout} base={base} isPartner={isPartner} />
         </aside>
 
-        <div className="flex flex-col min-h-screen min-w-0">
+        <div className="layout-column">
           <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-2 py-2 items-center justify-between">
             <div className="flex items-center gap-1 min-w-0">
               {showBack ? (

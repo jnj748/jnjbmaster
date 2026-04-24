@@ -125,3 +125,12 @@ The project is a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9.
 - DB: `usage_events` (user_id, role, path, menu_key, occurred_at). 180일 보존(스케줄러 일배치).
 - API: `POST /api/usage-events` (인증, 서버측 role, platform_admin 자기 트래픽 제외) / `GET /api/platform/usage-analytics?range=7d|30d|90d&role=` (platform_admin only) — summary/byRole/topMenus + 직전 동기간 대비 % 변화율.
 - Frontend: `useUsageTracker` hook (wouter location 변경 자동 전송), 페이지 `/platform/usage-analytics`.
+
+## 모바일 앱화 (고정 셸 레이아웃, 2026-04-24)
+- `artifacts/manager-app/src/components/layout.tsx` 의 모바일(@media max-width:899px) 레이아웃을 "고정 셸"로 전환:
+  - `.layout-grid` height = `calc(100dvh - 60px - safe-area)` + `overflow: hidden` (하단 네비 위까지 정확히 차지).
+  - `.layout-column` 은 그리드 100% 채움, `min-height: 0` 으로 flex 자식 높이 제한 해제.
+  - `.layout-content-area` 가 `flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 0` 로 내부 스크롤 컨테이너가 됨.
+- 효과: 컨텐츠가 1뷰포트 안에 들어가는 페이지(대시보드 위젯이 적은 경우, 짧은 폼 등)는 스크롤바가 전혀 안 뜨고, 긴 페이지는 헤더/하단네비 고정한 채 본문만 스크롤(앱 같은 동작).
+- 데스크탑(≥900px)은 기존 body-scroll 유지 — 사이드바 + body scroll 그대로.
+- `artifacts/manager-app/src/pages/ai-assistant.tsx` 의 `.ai-assistant-fill` 도 부모가 이미 100dvh-bound 가 됐으므로 `height: calc(100% + 패딩)` 로 단순화. 데스크탑은 dvh 기반 유지.
