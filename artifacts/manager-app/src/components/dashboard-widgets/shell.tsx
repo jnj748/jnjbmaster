@@ -64,13 +64,15 @@ export function DashboardShell({ widgets, role }: DashboardShellProps) {
     );
   }
 
-  // [Task #327] 모바일(≤899px)에서는 *-main 위젯이 모든 정보를 흡수한
-  // 컴팩트 뷰를 자체 렌더링하므로 보조 위젯(building-info / delinquency-
-  // summary / pending-approvals / campaign-banner 등)을 숨겨 첫 화면이
-  // 한 viewport 안에 들어오게 한다. *-main 이 없으면 기존 위젯 전체를
-  // 렌더해 안전한 fallback 을 제공.
+  // [Task #327] 모바일(≤899px) 위젯 순서: *-main 위젯이 KPI 스트립 + 탭으로
+  // 핵심 정보를 첫 화면에 노출한다. 그 아래 보조 위젯(campaign-banner /
+  // building-info / pending-approvals / delinquency-summary 등) 을 그대로
+  // 단일 컬럼으로 쌓아 추가 정보 손실 없이 스크롤 접근 가능하게 한다.
+  // *-main 이 없으면 원래 순서를 유지.
   const mainWidget = widgets.find((w) => w.key.endsWith("-main"));
-  const mobileWidgets = mainWidget ? [mainWidget] : widgets;
+  const mobileWidgets = mainWidget
+    ? [mainWidget, ...widgets.filter((w) => w !== mainWidget)]
+    : widgets;
 
   function renderWidget(w: WidgetDefinition, withSpan: boolean) {
     const Cmp = w.component;
