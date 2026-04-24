@@ -64,26 +64,45 @@ export function DashboardShell({ widgets, role }: DashboardShellProps) {
     );
   }
 
+  // [Task #327] 모바일(≤899px)에서는 *-main 위젯이 모든 정보를 흡수한
+  // 컴팩트 뷰를 자체 렌더링하므로 보조 위젯(building-info / delinquency-
+  // summary / pending-approvals / campaign-banner 등)을 숨겨 첫 화면이
+  // 한 viewport 안에 들어오게 한다. *-main 이 없으면 기존 위젯 전체를
+  // 렌더해 안전한 fallback 을 제공.
+  const mainWidget = widgets.find((w) => w.key.endsWith("-main"));
+  const mobileWidgets = mainWidget ? [mainWidget] : widgets;
+
+  function renderWidget(w: WidgetDefinition, withSpan: boolean) {
+    const Cmp = w.component;
+    return (
+      <div
+        key={w.key}
+        className={withSpan ? spanClass(w.span) : ""}
+        data-widget-key={w.key}
+      >
+        <WidgetErrorBoundary widgetKey={w.key}>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <Cmp />
+          </Suspense>
+        </WidgetErrorBoundary>
+      </div>
+    );
+  }
+
   return (
     <div className="p-3 sm:p-4" data-dashboard-shell>
       <ShellHeader role={role} />
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-min">
-        {widgets.map((w) => {
-          const Cmp = w.component;
-          return (
-            <div
-              key={w.key}
-              className={spanClass(w.span)}
-              data-widget-key={w.key}
-            >
-              <WidgetErrorBoundary widgetKey={w.key}>
-                <Suspense fallback={<WidgetSkeleton />}>
-                  <Cmp />
-                </Suspense>
-              </WidgetErrorBoundary>
-            </div>
-          );
-        })}
+      {/* 모바일: *-main 위젯만 (자체 컴팩트 뷰 포함) */}
+      <div className="dash-mobile-only">
+        <div className="space-y-3">
+          {mobileWidgets.map((w) => renderWidget(w, false))}
+        </div>
+      </div>
+      {/* 데스크탑: 기존 다단 그리드 그대로 */}
+      <div className="dash-desktop-only">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-min">
+          {widgets.map((w) => renderWidget(w, true))}
+        </div>
       </div>
     </div>
   );

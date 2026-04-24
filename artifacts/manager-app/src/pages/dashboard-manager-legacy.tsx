@@ -12,6 +12,9 @@ import {
   // [Task #142] useGetDelinquencySummary, useListApprovals 는 공유 위젯
   // (delinquency-summary-widget / pending-approvals-widget)으로 분리되어
   // 이 페이지에서는 더 이상 사용하지 않는다.
+  // [Task #327] 모바일 컴팩트 KPI 에서는 같은 useGetDelinquencySummary 를
+  // 다시 사용한다 — React Query 가 cache 공유로 중복 호출을 dedupe.
+  useGetDelinquencySummary,
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
   type CreateRfqBody,
@@ -74,6 +77,14 @@ import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-reque
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
 // 위젯 카탈로그를 통해 렌더링된다.
 import { Printer } from "lucide-react";
+// [Task #327] 모바일 컴팩트 KPI/탭 위젯 — ≤899px 한 화면 압축
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileKpiStrip,
+  MobileTabPanels,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 function StatCard({
   title,
@@ -561,6 +572,9 @@ export default function Dashboard() {
   const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   // [Task #142] 연체 요약은 delinquency-summary-widget 으로 추출되어
   // 카탈로그가 별도 위젯으로 렌더링한다.
+  // [Task #327] 모바일 컴팩트 KPI 에서 연체 합계가 필요해 같은 hook 을 다시
+  // 호출한다. React Query 가 같은 query key 로 응답을 캐시 → 추가 fetch 없음.
+  const { data: delinquencySummary } = useGetDelinquencySummary();
 
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
@@ -861,8 +875,207 @@ export default function Dashboard() {
     return false;
   });
 
+  // [Task #327] 모바일 컴팩트 KPI 4개 — 관리소장이 첫 화면에서 봐야 하는 핵심.
+  const managerKpis: KpiItem[] = [
+    {
+      key: "mandatory",
+      label: "필수업무",
+      value: legalAlerts.length,
+      hint: legalAlerts.length > 0 ? "탭에서 처리" : "처리할 항목 없음",
+      icon: ClipboardCheck,
+      iconClass: "text-white",
+      iconBg: "bg-chart-3",
+      highlight: legalAlerts.length > 0 ? "warn" : "default",
+    },
+    {
+      key: "delinquency",
+      label: "연체 세대",
+      value: delinquencySummary?.totalOverdue ?? 0,
+      hint:
+        delinquencySummary && delinquencySummary.parkingSuspended > 0
+          ? `주차 정지 ${delinquencySummary.parkingSuspended}`
+          : "관리비 미납",
+      icon: AlertTriangle,
+      iconClass: "text-white",
+      iconBg: "bg-rose-500",
+      href: "/erp/accounting",
+      highlight: (delinquencySummary?.totalOverdue ?? 0) > 0 ? "danger" : "default",
+    },
+    {
+      key: "unpaid",
+      label: "미수금률",
+      value: analytics ? `${analytics.unpaidSummary.unpaidRate}%` : "-",
+      hint: analytics
+        ? `${(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원`
+        : "데이터 준비중",
+      icon: Coins,
+      iconClass: "text-white",
+      iconBg: "bg-chart-4",
+      href: "/erp/fees-summary",
+      highlight: analytics && analytics.unpaidSummary.unpaidRate > 10 ? "warn" : "default",
+    },
+    {
+      key: "occupancy",
+      label: "입주율",
+      value: totalUnits > 0 ? `${occupancyRate}%` : "-",
+      hint: totalUnits > 0 ? `${occupiedUnits}/${totalUnits}` : "건물 등록 필요",
+      icon: Building2,
+      iconClass: "text-white",
+      iconBg: "bg-chart-5",
+      href: "/units",
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <>
+      {/* [Task #327] 모바일 컴팩트 — KPI 4개 + 탭(긴급/관리비/건물) */}
+      <MobileOnly>
+        <div className="space-y-3">
+          <MobileKpiStrip items={managerKpis} />
+          <MobileTabPanels
+            sections={[
+              {
+                key: "urgent",
+                label: "긴급",
+                badge:
+                  legalAlerts.length + proposedAlerts.length > 0 ? (
+                    <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                      {legalAlerts.length + proposedAlerts.length}
+                    </Badge>
+                  ) : undefined,
+                content: (
+                  <div className="space-y-3">
+                    <AlertSection
+                      title="필수업무"
+                      icon={ClipboardCheck}
+                      iconClassName="text-chart-3"
+                      alerts={legalAlerts}
+                      loading={alertsLoading}
+                      emptyMessage="처리할 필수업무가 없습니다"
+                      onAlertClick={handleAlertClick}
+                    />
+                    <AlertSection
+                      title="제안업무"
+                      icon={ListChecks}
+                      iconClassName="text-chart-2"
+                      alerts={proposedAlerts}
+                      loading={alertsLoading}
+                      emptyMessage="제안할 업무가 없습니다"
+                      onAlertClick={handleAlertClick}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: "fees",
+                label: "관리비",
+                content: (
+                  <div className="space-y-3">
+                    <TodayWorkLogEntry />
+                    <FeesSummaryWidget unpaidRate={analytics?.unpaidSummary.unpaidRate ?? null} />
+                  </div>
+                ),
+              },
+              {
+                key: "building",
+                label: "건물",
+                content: (
+                  <div className="space-y-2">
+                    <Link href="/units">
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded bg-chart-5">
+                            <Building2 className="w-3.5 h-3.5 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">세대수 / 입주율</p>
+                            <p className="text-xs font-bold">
+                              {totalUnits > 0 ? `${totalUnits}세대 · ${occupancyRate}%` : "건물 등록 필요"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                    <Link href="/vehicles">
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded bg-chart-3">
+                            <Car className="w-3.5 h-3.5 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">등록 차량 / 세대당</p>
+                            <p className="text-xs font-bold">
+                              {vehicleCount}대 · {totalUnits > 0 ? `${vehiclesPerUnit}대` : "-"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                    {pendingCardCount > 0 && (
+                      <Link href="/tenants">
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 cursor-pointer hover:bg-orange-100/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-orange-600" />
+                              <span className="text-xs text-orange-800 font-medium">
+                                입주자카드 처리: {pendingCardCount}건
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-orange-700 ml-5 mt-1 space-y-0.5">
+                            {unverifiedTenantCount > 0 && <p>• 서류 확인 대기 {unverifiedTenantCount}</p>}
+                            {unitsMissingCard > 0 && <p>• 카드 미작성 {unitsMissingCard}</p>}
+                          </div>
+                        </div>
+                      </Link>
+                    )}
+                    {analytics && analytics.dataDestructionCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowDestructionDialog(true)}
+                        className="w-full text-left bg-red-50 border border-red-200 rounded-lg p-2.5 hover:bg-red-100/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <span className="text-xs text-red-800 font-medium">
+                              개인정보 파기 대상: {analytics.dataDestructionCount}건
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-red-700 ml-5 mt-1">
+                          보유기간 만료 데이터 — 즉시 파기 절차 진행
+                        </p>
+                      </button>
+                    )}
+                    <Link href="/recent-documents">
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className={`w-3.5 h-3.5 ${CATEGORY_ICON_CLASS.system}`} />
+                          <span className="text-xs font-medium">최근 문서함</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">열기 →</span>
+                      </div>
+                    </Link>
+                    <Link href="/work-log?tab=activity">
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <ListChecks className={`w-3.5 h-3.5 ${CATEGORY_ICON_CLASS.reports}`} />
+                          <span className="text-xs font-medium">처리 내역</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">열기 →</span>
+                      </div>
+                    </Link>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
+
+      <DesktopOnly>
+        <div className="space-y-6">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           건물 미등록 시 안내 링크는 building-info-widget 이 담당한다. */}
 
@@ -1288,7 +1501,9 @@ export default function Dashboard() {
 
       {/* [Task #142] <BuildingInfoCard /> 는 building-info-widget 으로
           추출되어 셸의 위젯 그리드 상단에서 렌더링된다. */}
-    </div>
+        </div>
+      </DesktopOnly>
+    </>
   );
 }
 

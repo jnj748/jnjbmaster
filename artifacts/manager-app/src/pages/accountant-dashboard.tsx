@@ -10,6 +10,13 @@ import {
   Send,
   Bell,
 } from "lucide-react";
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileKpiStrip,
+  MobileTabPanels,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 const today = new Date();
 const currentMonth = today.getMonth() + 1;
@@ -89,8 +96,160 @@ export default function AccountantDashboard() {
 
   const urgentCount = TAX_EVENTS.filter(e => !e.done && e.daysUntil >= 0 && e.daysUntil <= 3).length;
 
+  // [Task #327] 모바일 컴팩트 KPI
+  const mobileKpis: KpiItem[] = [
+    {
+      key: "next-tax",
+      label: "다음 세무",
+      value:
+        daysUntilNext !== null && daysUntilNext > 0
+          ? `D-${daysUntilNext}`
+          : daysUntilNext === 0
+            ? "D-Day"
+            : "완료",
+      hint: nextEvent?.title ?? "이번 달 완료",
+      icon: CalendarDays,
+      iconClass: "text-white",
+      iconBg: "bg-accent",
+      highlight: daysUntilNext !== null && daysUntilNext <= 3 ? "warn" : "default",
+    },
+    {
+      key: "delinquent",
+      label: "미납 세대",
+      value: DELINQUENT_UNITS.length,
+      hint: `₩${(totalDelinquent / 10000).toFixed(0)}만원`,
+      icon: AlertTriangle,
+      iconClass: "text-white",
+      iconBg: "bg-destructive",
+      highlight: DELINQUENT_UNITS.length > 0 ? "danger" : "default",
+    },
+    {
+      key: "done",
+      label: "완료 일정",
+      value: `${TAX_EVENTS.filter((e) => e.done).length}/${TAX_EVENTS.length}`,
+      hint: "이번 달 기준",
+      icon: CheckCircle,
+      iconClass: "text-white",
+      iconBg: "bg-emerald-500",
+    },
+    {
+      key: "urgent",
+      label: "긴급 알림",
+      value: urgentCount > 0 ? `${urgentCount}건` : "없음",
+      hint: "D-3 이내",
+      icon: Bell,
+      iconClass: "text-white",
+      iconBg: "bg-amber-500",
+      highlight: urgentCount > 0 ? "warn" : "default",
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <>
+      {/* [Task #327] 모바일 컴팩트 — KPI 4개 + 탭(캘린더/미납) */}
+      <MobileOnly>
+        <div className="space-y-3">
+          <MobileKpiStrip items={mobileKpis} />
+          <MobileTabPanels
+            sections={[
+              {
+                key: "calendar",
+                label: `${currentMonth}월 캘린더`,
+                content: (
+                  <div className="space-y-1.5">
+                    {TAX_EVENTS.map((event, i) => {
+                      const isUrgent =
+                        !event.done && event.daysUntil >= 0 && event.daysUntil <= 3;
+                      return (
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between p-2 rounded-lg border text-xs ${
+                            event.done ? "opacity-60" : ""
+                          } ${isUrgent ? "border-red-300 bg-red-50/50" : ""}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[11px] font-mono font-bold w-7 text-center shrink-0">
+                              {event.day}일
+                            </span>
+                            {event.done ? (
+                              <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                            ) : isUrgent ? (
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            ) : (
+                              <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            )}
+                            <span className="text-[11px] font-medium truncate">
+                              {event.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isUrgent && (
+                              <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                                {event.daysUntil === 0 ? "D-Day" : `D-${event.daysUntil}`}
+                              </Badge>
+                            )}
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] h-4 px-1 ${typeColors[event.type]}`}
+                            >
+                              {typeLabels[event.type]}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ),
+              },
+              {
+                key: "delinquent",
+                label: "미납 관리",
+                badge:
+                  DELINQUENT_UNITS.length > 0 ? (
+                    <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                      {DELINQUENT_UNITS.length}
+                    </Badge>
+                  ) : undefined,
+                content: (
+                  <div className="space-y-2">
+                    {DELINQUENT_UNITS.map((u) => (
+                      <div key={u.unit} className="p-2 rounded-lg border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs font-bold">{u.unit}</span>
+                            <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                              {u.months}개월
+                            </Badge>
+                          </div>
+                          <span className="text-xs font-bold">
+                            ₩{u.amount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {u.lastAction}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] gap-1 shrink-0"
+                          >
+                            <Send className="w-3 h-3" />
+                            문자
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
+
+      <DesktopOnly>
+        <div className="space-y-6">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           긴급 배지(있을 때)만 남긴다. */}
       <div className="flex items-start justify-end">
@@ -236,6 +395,8 @@ export default function AccountantDashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+        </div>
+      </DesktopOnly>
+    </>
   );
 }

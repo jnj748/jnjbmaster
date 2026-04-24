@@ -22,6 +22,11 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileTabPanels,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 interface UserRecord {
   id: number;
@@ -128,46 +133,105 @@ export default function AdminDashboard() {
   //   기존 "역할별 사용자 현황", "최근 등록 사용자", 하단 퀵링크 3개는 제거.
   //   각 역할별 상세는 /platform/<role> 현황 페이지에서 다룬다.
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-end flex-wrap gap-3">
-        <Button onClick={() => navigate("/users")} className="gap-2">
-          <UserPlus className="w-4 h-4" />
-          사용자 관리
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {ROLE_CARDS.map((card) => (
-          <Card
-            key={card.role}
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => navigate(card.href)}
-            data-testid={`role-card-${card.role}`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground truncate">
+    <>
+      {/* [Task #327] 모바일 컴팩트 — 5역할 컴팩트 카드 + 탭(현황/크레딧) */}
+      <MobileOnly>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {ROLE_CARDS.map((card) => (
+              <button
+                key={card.role}
+                type="button"
+                onClick={() => navigate(card.href)}
+                data-testid={`role-card-${card.role}`}
+                className="rounded-lg border bg-card p-2.5 h-[68px] flex items-center gap-2 hover:bg-muted/30 transition-colors text-left"
+              >
+                <span className={`p-1.5 rounded ${card.bg} shrink-0`}>
+                  <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-muted-foreground leading-tight truncate">
                     {card.label}
                   </p>
-                  <p className="text-2xl font-bold mt-1">
+                  <p className="text-[15px] font-bold leading-tight">
                     {roleCounts[card.role] || 0}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                  <p className="text-[9px] text-muted-foreground leading-tight truncate">
                     {card.subtitle}
                   </p>
                 </div>
-                <div className={`p-2 rounded-lg ${card.bg}`}>
-                  <card.icon className={`w-5 h-5 ${card.color}`} />
-                </div>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => navigate("/users")}
+              data-testid="btn-user-mgmt-mobile"
+              className="rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-2.5 h-[68px] flex items-center gap-2 hover:bg-primary/10 transition-colors"
+            >
+              <span className="p-1.5 rounded bg-primary/20 shrink-0">
+                <UserPlus className="w-3.5 h-3.5 text-primary" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-muted-foreground leading-tight">전체</p>
+                <p className="text-[13px] font-semibold leading-tight">사용자 관리</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </button>
+          </div>
+          <MobileTabPanels
+            sections={[
+              {
+                key: "credits",
+                label: "파트너 크레딧",
+                content: <VendorCreditsPanel />,
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
 
-      <VendorCreditsPanel />
-    </div>
+      <DesktopOnly>
+        <div className="space-y-6">
+          <div className="flex items-start justify-end flex-wrap gap-3">
+            <Button onClick={() => navigate("/users")} className="gap-2">
+              <UserPlus className="w-4 h-4" />
+              사용자 관리
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {ROLE_CARDS.map((card) => (
+              <Card
+                key={card.role}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate(card.href)}
+                data-testid={`role-card-desktop-${card.role}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground truncate">
+                        {card.label}
+                      </p>
+                      <p className="text-2xl font-bold mt-1">
+                        {roleCounts[card.role] || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {card.subtitle}
+                      </p>
+                    </div>
+                    <div className={`p-2 rounded-lg ${card.bg}`}>
+                      <card.icon className={`w-5 h-5 ${card.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <VendorCreditsPanel />
+        </div>
+      </DesktopOnly>
+    </>
   );
 }
 

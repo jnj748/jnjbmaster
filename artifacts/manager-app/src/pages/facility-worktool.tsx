@@ -25,6 +25,11 @@ import {
 import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
 import { useAuth } from "@/contexts/auth-context";
 import type { OfficialDocumentInput } from "@/lib/official-document";
+import {
+  MobileOnly,
+  MobileKpiStrip,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 type CheckResult = "good" | "caution" | "bad" | null;
 
@@ -154,9 +159,62 @@ export default function FacilityWorktool() {
 
   const categories = [...new Set(checklist.map((c) => c.category))];
 
+  // [Task #327] 모바일 KPI 스트립 — 점검 진행률·주의·불량을 한눈에.
+  // 시설기사 화면은 출퇴근 + 10항목 점검표가 핵심 워크플로우라 탭 분리 대신
+  // 상단 KPI 만 추가해 첫 화면에서 진행 상태를 파악할 수 있게 한다.
+  const facilityKpis: KpiItem[] = [
+    {
+      key: "attendance",
+      label: "출근 상태",
+      value: hasCheckedOut ? "퇴근" : hasCheckedIn ? "근무중" : "미출근",
+      hint: hasCheckedIn
+        ? `출근 ${todayRecords?.find((r) => r.checkType === "check_in")?.checkedAt?.slice(11, 16) ?? ""}`
+        : "출근 버튼 누르기",
+      icon: hasCheckedOut ? LogOut : LogIn,
+      iconClass: "text-white",
+      iconBg: hasCheckedIn ? "bg-emerald-500" : "bg-muted-foreground",
+      highlight: hasCheckedIn ? "good" : "default",
+    },
+    {
+      key: "progress",
+      label: "점검 진행",
+      value: `${completedCount}/${checklist.length}`,
+      hint:
+        completedCount === checklist.length ? "전체 완료" : `${checklist.length - completedCount}건 남음`,
+      icon: ClipboardCheck,
+      iconClass: "text-white",
+      iconBg: "bg-blue-500",
+      highlight: completedCount === checklist.length ? "good" : "info",
+    },
+    {
+      key: "caution",
+      label: "주의 항목",
+      value: cautionCount,
+      hint: cautionCount > 0 ? "사진 첨부 필요" : "이상 없음",
+      icon: AlertTriangle,
+      iconClass: "text-white",
+      iconBg: "bg-amber-500",
+      highlight: cautionCount > 0 ? "warn" : "default",
+    },
+    {
+      key: "bad",
+      label: "불량 항목",
+      value: badCount,
+      hint: badCount > 0 ? "긴급 조치" : "이상 없음",
+      icon: XCircle,
+      iconClass: "text-white",
+      iconBg: "bg-rose-500",
+      highlight: badCount > 0 ? "danger" : "default",
+    },
+  ];
+
   return (
     <div className="space-y-4 max-w-lg mx-auto">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다. */}
+      {/* [Task #327] 모바일 한 화면 압축 — KPI 스트립으로 진행 상태 시각화 */}
+      <MobileOnly>
+        <MobileKpiStrip items={facilityKpis} />
+      </MobileOnly>
 
       <Card>
         <CardContent className="p-4">

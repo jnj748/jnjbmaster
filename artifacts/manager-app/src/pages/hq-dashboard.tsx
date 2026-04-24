@@ -26,6 +26,13 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useListMonthlySummaryReports, useListBuildings, useGetDashboardAlerts } from "@workspace/api-client-react";
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileKpiStrip,
+  MobileTabPanels,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "초안", variant: "outline" },
@@ -184,8 +191,217 @@ export default function HqDashboard() {
 
   const hasData = buildingStats.length > 0;
 
+  // [Task #327] 모바일 컴팩트 KPI 4개
+  const hqKpis: KpiItem[] = [
+    {
+      key: "buildings",
+      label: "관리 건물",
+      value: buildings.length,
+      hint: `총 ${totalUnits}세대`,
+      icon: Building2,
+      iconClass: "text-white",
+      iconBg: "bg-accent",
+    },
+    {
+      key: "rate",
+      label: "평균 수납률",
+      value: hasData ? `${avgCollectionRate}%` : "-",
+      hint: "전체 현장 기준",
+      icon: TrendingUp,
+      iconClass: "text-white",
+      iconBg: "bg-emerald-500",
+      highlight: avgCollectionRate >= 95 ? "good" : avgCollectionRate >= 85 ? "default" : "warn",
+    },
+    {
+      key: "delinquent",
+      label: "미납 합계",
+      value: hasData ? `${(totalDelinquent / 10000).toFixed(0)}만원` : "-",
+      hint: "전체 현장",
+      icon: Wallet,
+      iconClass: "text-white",
+      iconBg: "bg-rose-500",
+      highlight: totalDelinquent > 0 ? "danger" : "default",
+    },
+    {
+      key: "card",
+      label: "입주카드율",
+      value: hasData ? `${occupantCardRate}%` : "-",
+      hint: `${totalOccupantCards}/${totalUnits}`,
+      icon: UserCheck,
+      iconClass: "text-white",
+      iconBg: "bg-amber-500",
+      highlight: occupantCardRate >= 80 ? "good" : "warn",
+    },
+  ];
+
+  // 모바일에서 셀렉터(전체 건물 / 개별 건물) 재사용
+  const mobileBuildingSelector = (
+    <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+      <SelectTrigger className="w-full h-9 text-xs">
+        <Building2 className="w-3.5 h-3.5 mr-1.5" />
+        <SelectValue placeholder="건물 선택" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">전체 건물</SelectItem>
+        {buildings.map((b) => (
+          <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
-    <div className="space-y-6">
+    <>
+      {/* [Task #327] 모바일 컴팩트 — KPI 4개 + 탭(법정점검/수납/월간보고) */}
+      <MobileOnly>
+        <div className="space-y-3">
+          {mobileBuildingSelector}
+          <MobileKpiStrip items={hqKpis} />
+          <MobileTabPanels
+            sections={[
+              {
+                key: "legal",
+                label: "법정점검",
+                badge:
+                  legalTotals.overdue > 0 ? (
+                    <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                      {legalTotals.overdue}
+                    </Badge>
+                  ) : undefined,
+                content: (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div className="rounded border border-destructive/30 bg-destructive/5 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">초과</p>
+                        <p className="text-base font-bold text-destructive">{legalTotals.overdue}</p>
+                      </div>
+                      <div className="rounded border border-orange-300 bg-orange-50 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">7일</p>
+                        <p className="text-base font-bold text-orange-600">{legalTotals.due7}</p>
+                      </div>
+                      <div className="rounded border border-amber-300 bg-amber-50 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">30일</p>
+                        <p className="text-base font-bold text-amber-600">{legalTotals.due30}</p>
+                      </div>
+                    </div>
+                    {legalSummaries.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-4 text-center">
+                        표시할 법정점검이 없습니다
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {legalSummaries.slice(0, 8).map((s) => {
+                          const total = s.overdueCount + s.due7Count + s.due30Count;
+                          const isClean = total === 0;
+                          return (
+                            <div
+                              key={s.buildingId}
+                              className="flex items-center justify-between gap-2 p-2 rounded border bg-card"
+                            >
+                              <p className="text-xs font-medium truncate flex-1">{s.buildingName}</p>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {s.overdueCount > 0 && (
+                                  <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                                    초과 {s.overdueCount}
+                                  </Badge>
+                                )}
+                                {s.due7Count > 0 && (
+                                  <Badge className="text-[9px] h-4 px-1 bg-orange-500 hover:bg-orange-500/90">
+                                    7일 {s.due7Count}
+                                  </Badge>
+                                )}
+                                {s.due30Count > 0 && (
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1 border-amber-400 text-amber-700">
+                                    30일 {s.due30Count}
+                                  </Badge>
+                                )}
+                                {isClean && (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1">정상</Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: "collection",
+                label: "수납",
+                content: !hasData ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    월간보고서 데이터가 없습니다
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {buildingStats.map((b) => (
+                      <div
+                        key={b.reportId}
+                        className="flex items-center justify-between p-2 rounded border bg-card"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate">{b.buildingName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {b.totalUnits}세대 · 미납{" "}
+                            {b.unpaidUnits > 0 && (
+                              <span className="text-destructive font-medium">
+                                {b.unpaidUnits}세대
+                              </span>
+                            )}{" "}
+                            ₩{b.unpaidAmount.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <CollectionGauge rate={b.collectionRate} size={36} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                key: "reports",
+                label: "월간보고",
+                content: !hasData ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    보고서 데이터가 없습니다
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {buildingStats.map((r) => {
+                      const st = statusLabels[r.status];
+                      return (
+                        <div
+                          key={r.reportId}
+                          className="flex items-center justify-between p-2 rounded border bg-card"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{r.buildingName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {r.month} · 수납 {r.collectionRate}%
+                            </p>
+                          </div>
+                          <Badge
+                            variant={st?.variant ?? "outline"}
+                            className="text-[9px] h-4 px-1"
+                          >
+                            {st?.label ?? r.status}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
+
+      <DesktopOnly>
+        <div className="space-y-6">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           건물 선택 셀렉터만 남긴다. */}
       <div className="flex items-start justify-end flex-wrap gap-3">
@@ -652,6 +868,8 @@ export default function HqDashboard() {
           </Card>
         </div>
       )}
-    </div>
+        </div>
+      </DesktopOnly>
+    </>
   );
 }

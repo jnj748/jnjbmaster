@@ -34,6 +34,13 @@ import {
   Plus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileKpiStrip,
+  MobileTabPanels,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 
 const categoryLabel = (c: string) => {
   const map: Record<string, string> = {
@@ -126,8 +133,185 @@ export default function PartnerDashboard() {
     );
   }
 
+  // [Task #327] 모바일 컴팩트 KPI/탭 — 데이터 hooks 는 위에서 이미 호출됐으므로
+  // 여기서는 표시 전용. 데스크탑 뷰는 아래 <DesktopOnly> 안에 그대로 유지.
+  const mobileKpis: KpiItem[] = [
+    {
+      key: "credit",
+      label: "크레딧 잔액",
+      value: wallet ? `${wallet.balance.toLocaleString()} C` : "—",
+      hint: wallet ? `${wallet.pointsBalance.toLocaleString()} P 활동` : undefined,
+      icon: Wallet,
+      iconClass: "text-white",
+      iconBg: "bg-indigo-500",
+      href: "/me/credits",
+      highlight: "info",
+    },
+    {
+      key: "waiting",
+      label: "신규 요청",
+      value: waitingRfqs.length,
+      hint: waitingRfqs.length > 0 ? "탭에서 확인" : "대기 중 없음",
+      icon: Bell,
+      iconClass: "text-white",
+      iconBg: "bg-teal-500",
+      highlight: waitingRfqs.length > 0 ? "good" : "default",
+    },
+    {
+      key: "quotes",
+      label: "진행 견적",
+      value: submittedQuotes + acceptedQuotes,
+      hint: `제출 ${submittedQuotes} · 채택 ${acceptedQuotes}`,
+      icon: Send,
+      iconClass: "text-white",
+      iconBg: "bg-blue-500",
+      href: "/rfqs?tab=quotes",
+    },
+    {
+      key: "settle",
+      label: "대기 정산",
+      value: pendingSettlements + pendingCommissions,
+      hint: `보고서 ${pendingReports} 대기`,
+      icon: Coins,
+      iconClass: "text-white",
+      iconBg: "bg-purple-500",
+      href: "/commissions",
+      highlight: pendingSettlements + pendingCommissions > 0 ? "warn" : "default",
+    },
+  ];
+
   return (
-    <div className="space-y-6" data-testid="page-partner-dashboard">
+    <div data-testid="page-partner-dashboard">
+      <MobileOnly>
+        <div className="space-y-3">
+          <MobileKpiStrip items={mobileKpis} />
+          <MobileTabPanels
+            sections={[
+              {
+                key: "rfqs",
+                label: "신규 요청",
+                badge: waitingRfqs.length > 0 ? (
+                  <Badge variant="destructive" className="text-[9px] h-4 px-1">{waitingRfqs.length}</Badge>
+                ) : undefined,
+                content: vendorId ? (
+                  waitingRfqs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4 text-center">
+                      신규 요청이 없습니다
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {waitingRfqs.map((r) => (
+                        <Link key={r.id} href="/rfqs">
+                          <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:border-teal-300 cursor-pointer">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium truncate">{r.title}</p>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
+                                  {categoryLabel(r.category)}
+                                </Badge>
+                                {(r.sido || r.sigungu) && (
+                                  <span className="flex items-center gap-0.5">
+                                    <MapPin className="w-2.5 h-2.5" />
+                                    {[r.sido, r.sigungu].filter(Boolean).join(" ")}
+                                  </span>
+                                )}
+                                {r.deadline && (
+                                  <span>마감 {new Date(r.deadline).toLocaleDateString("ko-KR")}</span>
+                                )}
+                              </p>
+                            </div>
+                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          </div>
+                        </Link>
+                      ))}
+                      <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                        견적 제출 시 크레딧 차감, {refundDays}일 미열람 시 {refundRatioPct}% 환불.
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    파트너 정보가 등록되지 않았습니다
+                  </p>
+                ),
+              },
+              {
+                key: "credit-recent",
+                label: "최근 활동",
+                content: ledgerArr.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    사용 내역이 없습니다
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {ledgerArr.slice(0, 6).map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between p-2 rounded border bg-card text-xs"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-[11px] truncate">{entry.kind}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {entry.notes ?? entry.source ?? ""}
+                          </p>
+                        </div>
+                        <p
+                          className={`font-semibold text-[11px] shrink-0 ml-2 ${entry.amount < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                        >
+                          {entry.amount > 0 ? "+" : ""}{entry.amount} C
+                        </p>
+                      </div>
+                    ))}
+                    <Link href="/me/credits">
+                      <p className="text-[10px] text-primary hover:underline text-right pt-1">
+                        전체 내역 보기 →
+                      </p>
+                    </Link>
+                  </div>
+                ),
+              },
+              {
+                key: "commissions",
+                label: "정산",
+                content: commissionsArr.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    수수료 내역이 없습니다
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {commissionsArr.slice(0, 6).map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between p-2 rounded border bg-card"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium truncate">{c.vendorName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {c.commissionAmount?.toLocaleString()}원
+                          </p>
+                        </div>
+                        <Badge
+                          variant={c.status === "completed" ? "default" : "secondary"}
+                          className="text-[9px] h-4 px-1.5"
+                        >
+                          {c.status === "pending" && "대기"}
+                          {c.status === "billed" && "청구"}
+                          {c.status === "collected" && "수금"}
+                          {c.status === "completed" && "완료"}
+                          {c.status === "cancelled" && "취소"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+      </MobileOnly>
+
+      <DesktopOnly>
+        <div className="space-y-6">
       {/* 1) 기다리는 견적 요청 */}
       {vendorId && (
         <Card className="border-teal-200 bg-teal-50/50">
@@ -431,6 +615,8 @@ export default function PartnerDashboard() {
           </CardContent>
         </Card>
       </div>
+        </div>
+      </DesktopOnly>
     </div>
   );
 }

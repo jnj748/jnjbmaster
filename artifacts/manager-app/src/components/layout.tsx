@@ -582,6 +582,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         .layout-bottom-nav { display: flex; }
         .layout-content-area { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
+        /* [Task #327] 6 역할 대시보드 모바일/데스크탑 분기용 헬퍼 클래스.
+           모바일은 ≤899px (layout 의 다른 분기와 동일 breakpoint),
+           데스크탑은 ≥900px. JS viewport 측정 없이 CSS-only. */
+        .dash-mobile-only { display: none; }
+        .dash-desktop-only { display: block; }
+
         @media (max-width: 899px) {
           /* [Task #모바일 앱화] 모바일에서는 헤더+컨텐츠+하단네비 가 한 화면에 고정.
              컨텐츠가 짧으면 스크롤이 전혀 발생하지 않고, 길면 컨텐츠 영역 안에서만 스크롤된다. */
@@ -605,6 +611,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
           }
+          .dash-mobile-only { display: block; }
+          .dash-desktop-only { display: none; }
         }
 
         @media (min-width: 900px) {
