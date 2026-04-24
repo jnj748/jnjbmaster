@@ -186,16 +186,48 @@ function readInitialTab(): WorkLogTab {
   return "timeline";
 }
 
+// [개선] 대시보드/타임라인의 "오늘 업무일지 만들기" 진입점은 일보 탭으로
+// 먼저 보내지 않고, 곧장 작성 모달을 띄운다. 모달 저장 완료 후에 일보 탭으로
+// 자동 이동하여 단계 수를 줄이고 두 진입점의 동작을 일관되게 만든다.
+function readInitialOpenDaily(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("openDaily") === "1";
+}
+
 export default function WorkLogPage() {
   const [tab, setTab] = useState<WorkLogTab>(readInitialTab);
   const [autoOpenDailyWizard, setAutoOpenDailyWizard] = useState(false);
+  // [개선] 페이지 상단에서 "오늘 일지" 작성 모달을 직접 띄운다. 어떤 탭에 있든
+  //   모달은 그대로 노출되고, 저장 시 탭만 daily 로 전환한다.
+  const [todayWizardOpen, setTodayWizardOpen] = useState<boolean>(readInitialOpenDaily);
+  const today = useMemo(() => todayISO(), []);
+  const { call } = useApi();
+  // 오늘자 일지(있으면 form 의 기본값으로 사용)를 가볍게 미리 가져온다.
+  const todayJournalQ = useQuery({
+    queryKey: ["work-log-today-journal", today],
+    queryFn: () => call<DailyJournal | null>(`/daily-journals/${today}`).catch(() => null),
+    staleTime: 30 * 1000,
+  });
 
   // [Task #250] URL 의 ?tab= 변경(processing 내역에서 일지로 점프 등)에 반응해 탭을 재동기화한다.
   useEffect(() => {
-    const sync = () => setTab(readInitialTab());
+    const sync = () => {
+      setTab(readInitialTab());
+      if (readInitialOpenDaily()) setTodayWizardOpen(true);
+    };
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
   }, []);
+
+  // 모달이 닫히면 URL 의 openDaily 플래그를 제거해 새로고침 시 다시 열리지 않도록 한다.
+  useEffect(() => {
+    if (todayWizardOpen) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("openDaily")) {
+      url.searchParams.delete("openDaily");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [todayWizardOpen]);
 
   // 탭 전환 시 URL 도 함께 업데이트해 새로고침/북마크 시 동일 탭으로 복귀.
   useEffect(() => {
@@ -234,7 +266,7 @@ export default function WorkLogPage() {
           <TabsTrigger value="activity" data-testid="tab-activity" className="text-[11px] px-1 py-1.5 h-8">모든기록</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline">
-          <TimelineTab onGoDaily={() => { setAutoOpenDailyWizard(true); setTab("daily"); }} />
+          <TimelineTab onGoDaily={() => setTodayWizardOpen(true)} />
         </TabsContent>
         <TabsContent value="daily">
           <DailyTab
@@ -246,6 +278,20 @@ export default function WorkLogPage() {
         <TabsContent value="monthly"><MonthlyTab /></TabsContent>
         <TabsContent value="activity"><ActivityTab /></TabsContent>
       </Tabs>
+
+      {/* [개선] 모달은 페이지 최상위에서 렌더 — 어떤 탭에서 호출되어도 동일하게 노출. */}
+      {todayWizardOpen && (
+        <DailyJournalWizard
+          date={today}
+          existing={todayJournalQ.data ?? null}
+          onClose={() => setTodayWizardOpen(false)}
+          onSaved={() => {
+            setTodayWizardOpen(false);
+            todayJournalQ.refetch();
+            setTab("daily");
+          }}
+        />
+      )}
     </div>
   );
 }

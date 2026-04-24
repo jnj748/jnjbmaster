@@ -366,7 +366,7 @@ function TodayWorkLogEntry() {
   return (
     <Card>
       <CardContent className="p-3">
-        <Link href="/work-log?tab=daily">
+        <Link href="/work-log?openDaily=1">
           <button
             type="button"
             data-testid="dashboard-today-worklog"
