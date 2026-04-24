@@ -113,15 +113,29 @@ export function VoiceInputDialog({
     rec.continuous = true;
     rec.interimResults = true;
 
+    // [중복방지] 일부 브라우저(특히 모바일 Chrome)는 event.resultIndex 를 매 이벤트마다
+    // 0 으로 보내거나, 이미 isFinal 처리된 결과를 후속 이벤트에서도 다시 포함시킨다.
+    // 결과적으로 같은 문장이 finalTextRef 에 반복 추가되어 "같은 말이 여러 번 입력"되는 현상이 발생한다.
+    // 세션 내에서 이미 final 로 처리한 인덱스를 Set 으로 추적해 한 번만 누적한다.
+    // 세션이 재시작되면(onend → rec.start) 결과 배열이 초기화되므로 Set 도 함께 비운다.
+    const processedFinalIndices = new Set<number>();
+
     rec.onresult = (event: any) => {
       let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
-        const transcript = result[0]?.transcript ?? "";
+        const transcript: string = result[0]?.transcript ?? "";
         if (result.isFinal) {
-          const sep = finalTextRef.current && !finalTextRef.current.endsWith(" ") ? " " : "";
-          finalTextRef.current = finalTextRef.current + sep + transcript.trim();
-          setFinalText(finalTextRef.current);
+          if (!processedFinalIndices.has(i)) {
+            processedFinalIndices.add(i);
+            const cleaned = transcript.trim();
+            if (cleaned.length > 0) {
+              const sep =
+                finalTextRef.current && !finalTextRef.current.endsWith(" ") ? " " : "";
+              finalTextRef.current = finalTextRef.current + sep + cleaned;
+              setFinalText(finalTextRef.current);
+            }
+          }
         } else {
           interim += transcript;
         }
@@ -150,6 +164,8 @@ export function VoiceInputDialog({
       // 사용자가 종료하지 않았고 60초 미만이면 자동 재시작 (continuous 모드 보강)
       if (shouldRestartRef.current && !stoppedByUserRef.current) {
         try {
+          // 새 세션은 결과 배열이 0부터 다시 시작하므로 인덱스 추적도 초기화한다.
+          processedFinalIndices.clear();
           rec.start();
           return;
         } catch (err) {
