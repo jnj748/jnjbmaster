@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "mRxpU40_hOiVAjfXB6L20"
+uri = "file://dist/work-log-standalone.zip"
+type = "unspecified"
+title = "이식형 업무일지 앱 (work-log-standalone)"
