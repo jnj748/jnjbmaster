@@ -377,7 +377,7 @@ function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
       ) : (
         grouped.map(([date, items]) => (
           <div key={date} className="space-y-2">
-            <div className="text-xs font-semibold text-muted-foreground sticky top-0 bg-background py-1">
+            <div className="text-xs font-semibold text-muted-foreground sticky top-0 z-10 bg-background py-1">
               {formatKoreanDate(date)}
             </div>
             {items.map((e) => {
