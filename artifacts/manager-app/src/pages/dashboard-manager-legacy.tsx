@@ -960,7 +960,7 @@ export default function Dashboard() {
             alerts={proposedAlerts}
             loading={alertsLoading}
             placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
-            placeholderOne={"제안 업무가 1개만 남았습니다.\n남은 업무를 처리해보면 어떨까요? 소장님"}
+            placeholderOne={"업무가 1개 남았습니다.\n남은 업무를 처리해보세요 소장님!"}
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
@@ -996,7 +996,7 @@ export default function Dashboard() {
         alerts={proposedAlerts}
         loading={alertsLoading}
         placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
-        placeholderOne={"제안 업무가 1개만 남았습니다.\n남은 업무를 처리해보면 어떨까요? 소장님"}
+        placeholderOne={"업무가 1개 남았습니다.\n남은 업무를 처리해보세요 소장님!"}
         onAlertClick={handleAlertClick}
       />
 
