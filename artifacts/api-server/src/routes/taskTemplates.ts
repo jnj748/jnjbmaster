@@ -48,6 +48,9 @@ const CreateBody = z.object({
   taskType: taskTypeEnum.nullable().optional(),
   iconName: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
+  // [Task #381] 업무 목적(한 줄). 빈 문자열 허용, 최대 80자.
+  //   미입력 시 빈 문자열로 저장되며 알람 메시지는 기존 마감일 안내로 폴백된다.
+  purpose: z.string().max(80).optional(),
   frequencyType: frequencyEnum,
   intervalValue: z.number().int().positive().nullable().optional(),
   fixedMonth: z.number().int().min(1).max(12).nullable().optional(),
@@ -213,6 +216,8 @@ router.post(
         taskType: d.taskType ?? null,
         iconName: d.iconName ?? null,
         color: d.color ?? null,
+        // [Task #381] 입력 미제공/null 은 빈 문자열로 정규화. NOT NULL 컬럼.
+        purpose: d.purpose ?? "",
         frequencyType: d.frequencyType,
         intervalValue: d.intervalValue ?? null,
         fixedMonth: d.fixedMonth ?? null,
@@ -278,6 +283,8 @@ router.patch(
         else if (k === "buildingUsageScopes" && v == null) patch[k] = [];
         // [Task #305] eligibility null/undefined 안전 처리.
         else if (k === "eligibility" && v == null) patch[k] = [];
+        // [Task #381] purpose 는 NOT NULL — null 입력은 빈 문자열로 정규화.
+        else if (k === "purpose" && v == null) patch[k] = "";
         else patch[k] = v;
       }
     }
@@ -611,6 +618,14 @@ export async function resolveActiveTemplateAlerts(
         : `${daysLeft}일 남음`;
 
     const category = t.category as "mandatory" | "suggested";
+    // [Task #381] 제안업무 카드 둘째 줄에는 관리자가 입력한 "목적" 을 우선 노출.
+    //   - purpose 가 비어 있으면 기존 마감일 안내 메시지로 폴백.
+    //   - 필수업무 카드는 클라이언트에서 고정 문구("미처리시 과태료 발생") 로
+    //     덮어쓰므로 message 값과 무관하지만, 일관성을 위해 동일 규칙을 적용한다.
+    const tplPurpose = (t as { purpose?: string | null }).purpose;
+    const purposeTrimmed = typeof tplPurpose === "string" ? tplPurpose.trim() : "";
+    const fallbackMessage = `${t.description ?? t.title} — ${dueIso} (${dDayLabel})`;
+    const message = purposeTrimmed.length > 0 ? purposeTrimmed : fallbackMessage;
     alerts.push({
       id: id++,
       type:
@@ -621,7 +636,7 @@ export async function resolveActiveTemplateAlerts(
       templateCategory: category,
       classification: t.classification as "legal" | "internal",
       title: t.title,
-      message: `${t.description ?? t.title} — ${dueIso} (${dDayLabel})`,
+      message,
       severity,
       relatedId: t.id,
       hasDraft: false,

@@ -110,6 +110,11 @@ export const taskTemplatesTable = pgTable("task_templates", {
   taskType: text("task_type"),
   iconName: text("icon_name"),
   color: text("color"),
+  // [Task #381] 관리자가 입력하는 "이 업무를 왜 하는지" 한 줄 설명. 모바일 대시보드
+  //   "제안업무" 알람 카드 둘째 줄에 노출되어 시니어 사용자가 업무 의도를 즉시
+  //   이해할 수 있게 한다. 빈 문자열이면 기존 마감일 안내 메시지로 폴백한다.
+  //   필수업무 카드는 별도 고정 문구를 사용하므로 영향을 받지 않는다.
+  purpose: text("purpose").notNull().default(""),
   frequencyType: text("frequency_type").notNull().default("one_time"),
   intervalValue: integer("interval_value"),
   // [#297, deprecated] fixedMonth/fixedDay/startDate 는 신규 다이얼로그에서 입력하지

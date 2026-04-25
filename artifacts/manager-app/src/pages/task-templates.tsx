@@ -69,6 +69,9 @@ interface TaskTemplate {
   taskType: TaskType | null;
   iconName: string | null;
   color: string | null;
+  // [Task #381] 관리자가 입력하는 업무 목적(한 줄). 빈 문자열 가능.
+  //   값이 있으면 모바일 대시보드 "제안업무" 알람 카드 둘째 줄에 노출된다.
+  purpose: string;
   frequencyType: Frequency;
   intervalValue: number | null;
   fixedMonth: number | null;
@@ -216,6 +219,8 @@ function emptyDraft(defaultRole?: string): DraftType {
     taskType: "facility",
     iconName: null,
     color: null,
+    // [Task #381] 신규 입력 시 빈 문자열로 시작.
+    purpose: "",
     frequencyType: "annual",
     intervalValue: null,
     fixedMonth: null,
@@ -404,6 +409,8 @@ export default function TaskTemplatesPage() {
       taskType: t.taskType ?? "etc",
       iconName: t.iconName,
       color: t.color,
+      // [Task #381] 기존 행은 NOT NULL DEFAULT '' 로 비어있을 수 있음.
+      purpose: t.purpose ?? "",
       frequencyType: t.frequencyType,
       intervalValue: t.intervalValue,
       fixedMonth: t.fixedMonth,
@@ -1217,6 +1224,21 @@ export default function TaskTemplatesPage() {
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                   rows={2}
                 />
+              </div>
+              {/* [Task #381] 업무 목적 — 모바일 "제안업무" 알람 카드 둘째 줄에
+                  노출되는 한 줄 문구. 비워두면 기존 마감일 안내로 폴백된다. */}
+              <div>
+                <Label>목적 (선택)</Label>
+                <Input
+                  value={draft.purpose}
+                  onChange={(e) => setDraft({ ...draft, purpose: e.target.value })}
+                  maxLength={80}
+                  placeholder="예: 화재 발생 시 인명 피해 예방"
+                  data-testid="input-template-purpose"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  관리소장 모바일 대시보드의 "제안업무" 카드 둘째 줄에 표시됩니다 (최대 80자).
+                </p>
               </div>
 
               {/* [#297] 카테고리 + 업무유형 (분류는 제거됨). */}
