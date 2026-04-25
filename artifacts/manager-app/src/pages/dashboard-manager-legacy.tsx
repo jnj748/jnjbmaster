@@ -187,6 +187,12 @@ function AlertSection({
   placeholderZero,
   placeholderOne,
   onAlertClick,
+  // [Task #380] 섹션 종류(필수/제안) 식별자.
+  //   - mandatory: 둘째 줄을 "미처리시 과태료 발생" 고정 문구로 표시
+  //     (법정 의무 업무라는 점을 시니어 사용자에게 분명히 전달).
+  //   - suggested: 기존처럼 alert.message 를 그대로 노출.
+  //   기본값은 안전하게 suggested 동작.
+  sectionKind = "suggested",
 }: {
   title: string;
   description: string;
@@ -197,6 +203,7 @@ function AlertSection({
   placeholderZero: string;
   placeholderOne: string;
   onAlertClick: (alert: DashboardAlert) => void;
+  sectionKind?: "mandatory" | "suggested";
 }) {
   const PAGE_SIZE = 2;
   const slots: AlertSlot[] = alerts.map((alert) => ({ kind: "alert" as const, alert }));
@@ -335,7 +342,17 @@ function AlertSection({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{alert.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                        {/* [Task #380] 필수업무 섹션은 둘째 줄을 "미처리시 과태료 발생" 고정 문구로
+                            노출해 법정 의무 업무라는 점을 시니어 사용자에게 분명히 전달한다.
+                            제안업무 섹션은 기존처럼 alert.message 를 그대로 보여준다. */}
+                        {sectionKind === "mandatory" ? (
+                          <p className="text-xs text-red-600 font-medium truncate">미처리시 과태료 발생</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                        )}
+                        {/* 빨간색(7일 이내/초과) 카드의 추가 penaltyInfo 라인은 기존대로 동작.
+                            mandatory 섹션에서는 둘째 줄 고정 문구와 의미가 중복될 수 있어
+                            penaltyInfo 가 별도 정보(예: 과태료 금액)일 때만 의미가 있다. */}
                         {trafficColor === "red" && alert.penaltyInfo && (
                           <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {alert.penaltyInfo}</p>
                         )}
@@ -954,6 +971,7 @@ export default function Dashboard() {
             placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
             placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
             onAlertClick={handleAlertClick}
+            sectionKind="mandatory"
           />
           <AlertSection
             title="제안업무"
@@ -987,6 +1005,7 @@ export default function Dashboard() {
         placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
         placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
         onAlertClick={handleAlertClick}
+        sectionKind="mandatory"
       />
 
       {/* [Task #184 → #331] 제안업무현황 — 자체/격주/계절/행정 점검 */}
