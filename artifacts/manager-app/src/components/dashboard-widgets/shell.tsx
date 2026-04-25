@@ -64,15 +64,22 @@ export function DashboardShell({ widgets, role }: DashboardShellProps) {
     );
   }
 
-  // [Task #327] 모바일(≤899px) 위젯 순서: *-main 위젯이 KPI 스트립 + 탭으로
-  // 핵심 정보를 첫 화면에 노출한다. 그 아래 보조 위젯(campaign-banner /
-  // building-info / pending-approvals / delinquency-summary 등) 을 그대로
-  // 단일 컬럼으로 쌓아 추가 정보 손실 없이 스크롤 접근 가능하게 한다.
-  // *-main 이 없으면 원래 순서를 유지.
+  // [Task #327] 모바일(≤899px) 위젯 순서: *-main 위젯이 KPI 스트립 + 핵심 섹션
+  // 으로 첫 화면을 채우고, 그 아래 보조 위젯(campaign-banner / building-info /
+  // pending-approvals 등)을 단일 컬럼으로 쌓는다.
+  //   - delinquency-summary-widget 은 *-main KPI 의 "연체 세대" 항목과 정보가
+  //     겹쳐 사용자 요청(2026-04 매니저 모바일 배치 변경)에 따라 모바일에서 숨김.
+  //   - *-main 이 없으면 원래 순서를 유지.
+  const MOBILE_HIDDEN_KEYS = new Set(["delinquency-summary-widget"]);
   const mainWidget = widgets.find((w) => w.key.endsWith("-main"));
   const mobileWidgets = mainWidget
-    ? [mainWidget, ...widgets.filter((w) => w !== mainWidget)]
-    : widgets;
+    ? [
+        mainWidget,
+        ...widgets.filter(
+          (w) => w !== mainWidget && !MOBILE_HIDDEN_KEYS.has(w.key),
+        ),
+      ]
+    : widgets.filter((w) => !MOBILE_HIDDEN_KEYS.has(w.key));
 
   function renderWidget(w: WidgetDefinition, withSpan: boolean) {
     const Cmp = w.component;
