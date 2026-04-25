@@ -212,7 +212,7 @@ export default function ContractsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold">파트너 계약 관리</h1>
+          <h1 className="text-2xl font-bold">계약 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
             품의 → 계약 → 이행 → 정산 → 갱신의 전체 생애주기를 관리합니다
           </p>
