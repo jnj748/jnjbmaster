@@ -64,22 +64,28 @@ export function DashboardShell({ widgets, role }: DashboardShellProps) {
     );
   }
 
-  // [Task #327] 모바일(≤899px) 위젯 순서: *-main 위젯이 KPI 스트립 + 핵심 섹션
-  // 으로 첫 화면을 채우고, 그 아래 보조 위젯(campaign-banner / building-info /
-  // pending-approvals 등)을 단일 컬럼으로 쌓는다.
-  //   - delinquency-summary-widget 은 *-main KPI 의 "연체 세대" 항목과 정보가
-  //     겹쳐 사용자 요청(2026-04 매니저 모바일 배치 변경)에 따라 모바일에서 숨김.
-  //   - *-main 이 없으면 원래 순서를 유지.
-  const MOBILE_HIDDEN_KEYS = new Set(["delinquency-summary-widget"]);
+  // [Task #327 → 사용자 배치 변경 v2] 모바일(≤899px) 위젯 순서:
+  //   1) *-main 위젯 (필수업무/제안업무/일지자동작성/KPI 4개)
+  //   2) delinquency-summary-widget — 사용자 요청에 따라 KPI(연체 세대 항목)
+  //      바로 다음에 "연체 세대 현황" 카드를 노출.
+  //   3) 나머지 보조 위젯(campaign-banner / building-info / pending-approvals 등)
+  // *-main 이 없으면 원래 순서를 유지하되 연체세대 위젯만 앞으로 끌어올린다.
   const mainWidget = widgets.find((w) => w.key.endsWith("-main"));
-  const mobileWidgets = mainWidget
-    ? [
-        mainWidget,
-        ...widgets.filter(
-          (w) => w !== mainWidget && !MOBILE_HIDDEN_KEYS.has(w.key),
-        ),
-      ]
-    : widgets.filter((w) => !MOBILE_HIDDEN_KEYS.has(w.key));
+  const delinquencyWidget = widgets.find(
+    (w) => w.key === "delinquency-summary-widget",
+  );
+  const mobileWidgets = (() => {
+    const ordered: typeof widgets = [];
+    if (mainWidget) ordered.push(mainWidget);
+    if (delinquencyWidget && delinquencyWidget !== mainWidget) {
+      ordered.push(delinquencyWidget);
+    }
+    for (const w of widgets) {
+      if (w === mainWidget || w === delinquencyWidget) continue;
+      ordered.push(w);
+    }
+    return ordered;
+  })();
 
   function renderWidget(w: WidgetDefinition, withSpan: boolean) {
     const Cmp = w.component;

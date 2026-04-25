@@ -928,14 +928,16 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* [Task #327 → 사용자 배치 변경 요청]
-          모바일 컴팩트 — KPI 4개(2×2) + 평탄 세로 스크롤.
-          탭 분리(긴급/관리비/건물)를 제거하고 핵심 3개 섹션만:
-          1) 필수업무  2) 제안업무  3) 오늘의 일지 만들기 안내.
-          연체 세대 현황 카드는 KPI 와 중복이라 제거(shell.tsx 에서도 필터). */}
+      {/* [Task #327 → 사용자 배치 변경 요청 v2]
+          모바일 컴팩트 — 평탄 세로 스크롤. 탭(긴급/관리비/건물)은 제거.
+          순서:
+          1) 필수업무
+          2) 제안업무
+          3) 오늘 업무일지 자동 작성하기 (TodayWorkLogEntry)
+          4) KPI 4개(2×2) — 일지 자동작성과 연체세대 현황 사이
+          5) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더) */}
       <MobileOnly>
         <div className="space-y-3">
-          <MobileKpiStrip items={managerKpis} />
           <AlertSection
             title="필수업무"
             icon={ClipboardCheck}
@@ -955,6 +957,7 @@ export default function Dashboard() {
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
+          <MobileKpiStrip items={managerKpis} />
         </div>
       </MobileOnly>
 
