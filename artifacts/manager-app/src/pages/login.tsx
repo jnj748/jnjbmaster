@@ -194,20 +194,20 @@ export default function Login() {
     if (submit) submit(consentValue);
   }
 
-  // [Task #368] 인증 셸: dvh + safe-area + overflow-hidden 으로 페이지 스크롤바를
-  // 제거하고, 카드 내부(폼 필드 영역)만 스크롤되게 한다. 액션 버튼은 항상 한
-  // 화면에 고정되어 보이도록 카드 하단에 배치한다.
+  // [Task #368/#377] 인증 셸:
+  // - 모바일: dvh + overflow-hidden 으로 페이지 스크롤바를 제거하고 카드 내부만 스크롤(앱 느낌).
+  // - 데스크톱(md+): 셸을 해제(min-h-screen + 자동 높이 + 화면 중앙 정렬)하고 카드는 콘텐츠 높이로
+  //   자연스럽게 줄어들도록 한다. 시니어 이용자 가시성을 위해 폰트와 여백을 한 단계 확대한다.
   return (
     <div
-      className="flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100"
+      className="flex flex-col overflow-hidden md:overflow-visible md:justify-center h-[100dvh] md:h-auto md:min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"
       style={{
-        height: "100dvh",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
       {/* 헤더: 뒤로가기 (포털별 페이지에서 통합 /login 으로 돌아가는 단축 경로) */}
-      <div className="shrink-0 w-full max-w-md mx-auto px-5 pt-3 pb-1">
+      <div className="shrink-0 w-full max-w-md mx-auto px-5 pt-3 pb-1 md:pt-6">
         <button
           onClick={() => setLocation("/login")}
           className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
@@ -217,14 +217,14 @@ export default function Login() {
         </button>
       </div>
 
-      {/* 본문: 카드 (flex-1, 내부 스크롤) */}
-      <div className="flex-1 min-h-0 w-full max-w-md mx-auto px-4 pt-3 pb-2 flex flex-col">
+      {/* 본문: 카드 (모바일 flex-1 + 내부 스크롤, 데스크톱은 콘텐츠 높이) */}
+      <div className="flex-1 min-h-0 md:flex-none w-full max-w-md mx-auto px-4 pt-3 pb-2 md:py-4 flex flex-col">
         <form
           onSubmit={handleSubmit}
-          className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+          className="flex-1 min-h-0 md:flex-none h-full md:h-auto flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
         >
           {/* 카드 상단: 제목·뱃지·에러·단계표시 (고정) */}
-          <div className="shrink-0 px-5 pt-5 pb-3">
+          <div className="shrink-0 px-5 pt-5 pb-3 md:px-6 md:pt-6">
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isBuilding ? "bg-blue-50" : isHq ? "bg-indigo-50" : "bg-emerald-50"}`}>
                 {isBuilding ? (
@@ -236,35 +236,35 @@ export default function Login() {
                 )}
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-slate-900 leading-tight">
+                <h1 className="text-lg md:text-xl font-semibold text-slate-900 leading-tight">
                   {isRegister ? "회원가입" : "관리의달인"}
                 </h1>
-                <p className="text-xs text-slate-500 leading-tight">
+                <p className="text-sm text-slate-500 leading-tight">
                   건물관리 AI자동화 솔루션
                 </p>
               </div>
             </div>
 
             {isBuilding && (
-              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[11px] leading-snug">
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs leading-snug">
                 집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
               </div>
             )}
 
             {isHq && (
-              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] leading-snug">
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs leading-snug">
                 본사 · 플랫폼 전용 포털
               </div>
             )}
 
             {error && (
-              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs leading-snug">
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-sm leading-snug">
                 {error}
               </div>
             )}
 
             {isRegister && (
-              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className={signupStep === "account" ? "font-semibold text-slate-700" : ""}>1. 계정</span>
                 <span>›</span>
                 <span className={signupStep === "consent" ? "font-semibold text-slate-700" : ""}>2. 약관 동의</span>
@@ -272,8 +272,8 @@ export default function Login() {
             )}
           </div>
 
-          {/* 카드 본문: 입력 필드 (스크롤 영역) */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-3">
+          {/* 카드 본문: 입력 필드 (모바일 스크롤, 데스크톱 자연스러운 높이) */}
+          <div className="flex-1 min-h-0 overflow-y-auto md:flex-none md:overflow-visible px-5 pb-3 md:px-6 space-y-3">
             {/* 소셜 로그인은 당분간 숨김 (네이버/카카오/구글) */}
             {false && !isHq && providers.length > 0 && (
               <div className="space-y-2">
@@ -398,8 +398,8 @@ export default function Login() {
             {/* 2단계: 약관 동의 */}
             {isRegister && signupStep === "consent" && (
               <>
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
-                  <Shield className="inline w-3 h-3 mr-1 -mt-0.5" />
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 leading-relaxed">
+                  <Shield className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
                   (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
                   <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
                 </div>
@@ -414,7 +414,7 @@ export default function Login() {
 
             {/* 로그인 모드의 통신판매중개자 안내 (스크롤 영역에 함께 배치) */}
             {!isRegister && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-800 leading-snug">
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 leading-snug">
                 (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
                 <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
                 회원가입 시 이용약관·개인정보처리방침{role === "partner" || portalType === "partner" ? "·파트너 이용약관" : ""}에
@@ -424,7 +424,7 @@ export default function Login() {
           </div>
 
           {/* 카드 하단: 액션 버튼 + 회원가입/로그인 토글 (고정) */}
-          <div className="shrink-0 px-5 pt-3 pb-4 border-t border-slate-100 space-y-2">
+          <div className="shrink-0 px-5 pt-3 pb-4 md:px-6 md:pb-5 border-t border-slate-100 space-y-2">
             <div className="flex gap-2">
               {isRegister && signupStep === "consent" && (
                 <button
@@ -438,7 +438,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading || (isRegister && signupStep === "consent" && !consentsOk)}
-                className={`flex-1 py-2.5 rounded-lg text-white font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex-1 py-2.5 rounded-lg text-white font-medium text-sm md:text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isBuilding
                     ? "bg-blue-600 hover:bg-blue-700"
                     : isHq
@@ -465,7 +465,7 @@ export default function Login() {
                     setSignupStep("account");
                     setError("");
                   }}
-                  className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                  className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
                 >
                   {isRegister ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
                 </button>

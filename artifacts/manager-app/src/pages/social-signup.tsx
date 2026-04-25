@@ -80,19 +80,18 @@ export default function SocialSignup() {
   if (error && !pending) {
     return (
       <div
-        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        className="flex items-center justify-center bg-slate-50 overflow-hidden md:overflow-visible h-[100dvh] md:h-auto md:min-h-screen"
         style={{
-          height: "100dvh",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md w-full mx-4">
-          <h1 className="text-lg font-semibold text-slate-900 mb-2">가입 진행 불가</h1>
+          <h1 className="text-lg md:text-xl font-semibold text-slate-900 mb-2">가입 진행 불가</h1>
           <p className="text-sm text-slate-600 mb-6">{error}</p>
           <button
             onClick={() => setLocation("/login")}
-            className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium text-sm hover:bg-slate-800"
+            className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium text-sm md:text-base hover:bg-slate-800"
           >
             로그인으로 돌아가기
           </button>
@@ -104,9 +103,8 @@ export default function SocialSignup() {
   if (!pending) {
     return (
       <div
-        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        className="flex items-center justify-center bg-slate-50 overflow-hidden md:overflow-visible h-[100dvh] md:h-auto md:min-h-screen"
         style={{
-          height: "100dvh",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
@@ -194,33 +192,34 @@ export default function SocialSignup() {
     if (submit) submit(consentValue);
   }
 
-  // [Task #368] 인증 셸: dvh + safe-area + overflow-hidden 으로 페이지 스크롤바를
-  // 제거하고, 카드 내부(폼 필드 영역)만 스크롤되게 한다.
+  // [Task #368/#377] 인증 셸:
+  // - 모바일: dvh + overflow-hidden 으로 페이지 스크롤바를 제거하고 카드 내부만 스크롤(앱 느낌).
+  // - 데스크톱(md+): 셸을 해제(min-h-screen + 자동 높이 + 화면 중앙 정렬)하고 카드는 콘텐츠 높이로
+  //   자연스럽게 줄어들도록 한다. 시니어 가시성을 위해 폰트·여백을 한 단계 확대한다.
   return (
     <div
-      className="flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100"
+      className="flex flex-col overflow-hidden md:overflow-visible md:justify-center h-[100dvh] md:h-auto md:min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"
       style={{
-        height: "100dvh",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="flex-1 min-h-0 w-full max-w-md mx-auto px-4 py-3 flex flex-col">
+      <div className="flex-1 min-h-0 md:flex-none w-full max-w-md mx-auto px-4 py-3 md:py-6 flex flex-col">
         <form
           onSubmit={handleSubmit}
-          className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+          className="flex-1 min-h-0 md:flex-none h-full md:h-auto flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
         >
-          <div className="shrink-0 px-5 pt-5 pb-3">
-            <h1 className="text-lg font-semibold text-slate-900 mb-1">소셜 회원가입</h1>
-            <p className="text-xs text-slate-500">
+          <div className="shrink-0 px-5 pt-5 pb-3 md:px-6 md:pt-6">
+            <h1 className="text-lg md:text-xl font-semibold text-slate-900 mb-1">소셜 회원가입</h1>
+            <p className="text-sm text-slate-500">
               {PROVIDER_LABEL[pending.provider]} 계정으로 {isPartner ? "파트너사" : "현장 관리"} 포털에 가입합니다.
             </p>
             {error && (
-              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs leading-snug">{error}</div>
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-sm leading-snug">{error}</div>
             )}
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto md:flex-none md:overflow-visible px-5 pb-3 md:px-6 space-y-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">이름 *</label>
               <input
@@ -259,8 +258,8 @@ export default function SocialSignup() {
               />
             </div>
 
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 leading-relaxed">
-              <Shield className="inline w-3 h-3 mr-1 -mt-0.5" />
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 leading-relaxed">
+              <Shield className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
               (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
               <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
             </div>
@@ -273,11 +272,11 @@ export default function SocialSignup() {
             />
           </div>
 
-          <div className="shrink-0 px-5 pt-3 pb-4 border-t border-slate-100">
+          <div className="shrink-0 px-5 pt-3 pb-4 md:px-6 md:pb-5 border-t border-slate-100">
             <button
               type="submit"
               disabled={loading || !consentsOk}
-              className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-medium text-sm md:text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "처리 중..." : "가입 완료"}
             </button>

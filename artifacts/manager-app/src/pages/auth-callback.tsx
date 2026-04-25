@@ -37,24 +37,23 @@ export default function AuthCallback() {
     setError("인증 응답이 비어 있습니다.");
   }, [applyToken, setLocation]);
 
-  // [Task #368] 인증 셸 통일: dvh + safe-area + overflow-hidden 으로 페이지
-  // 스크롤바를 제거.
+  // [Task #368/#377] 인증 셸 통일: 모바일은 dvh + overflow-hidden(앱 느낌),
+  // 데스크톱(md+)은 셸 해제 + 화면 중앙 정렬. 시니어 가시성 위해 폰트·여백 한 단계 확대.
   if (error) {
     return (
       <div
-        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        className="flex items-center justify-center bg-slate-50 overflow-hidden md:overflow-visible h-[100dvh] md:h-auto md:min-h-screen"
         style={{
-          height: "100dvh",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md w-full mx-4">
-          <h1 className="text-lg font-semibold text-slate-900 mb-2">로그인 실패</h1>
+          <h1 className="text-lg md:text-xl font-semibold text-slate-900 mb-2">로그인 실패</h1>
           <p className="text-sm text-slate-600 mb-6">{error}</p>
           <button
             onClick={() => setLocation("/login")}
-            className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium text-sm hover:bg-slate-800"
+            className="w-full py-2.5 rounded-lg bg-slate-900 text-white font-medium text-sm md:text-base hover:bg-slate-800"
           >
             로그인으로 돌아가기
           </button>
@@ -65,9 +64,8 @@ export default function AuthCallback() {
 
   return (
     <div
-      className="flex items-center justify-center bg-slate-50 overflow-hidden"
+      className="flex items-center justify-center bg-slate-50 overflow-hidden md:overflow-visible h-[100dvh] md:h-auto md:min-h-screen"
       style={{
-        height: "100dvh",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
