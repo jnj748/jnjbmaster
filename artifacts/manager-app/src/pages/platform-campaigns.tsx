@@ -19,6 +19,7 @@ import {
   type PlatformCampaign,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 type TargetRole = "manager" | "accountant" | "facility_staff" | "hq_executive" | "partner";
 type CampaignType = "required" | "suggested" | "other";
@@ -27,11 +28,11 @@ type AudienceFilter = "all" | "active";
 type Recurrence = "none" | "daily" | "weekly" | "monthly";
 
 const ROLE_LABEL: Record<TargetRole, string> = {
-  manager: "관리소장",
-  accountant: "경리·회계",
-  facility_staff: "시설기사",
-  hq_executive: "본사총괄",
-  partner: "파트너사",
+  manager: ROLE_LABELS.manager,
+  accountant: ROLE_LABELS.accountant,
+  facility_staff: ROLE_LABELS.facility_staff,
+  hq_executive: ROLE_LABELS.hq_executive,
+  partner: ROLE_LABELS.partner,
 };
 const TYPE_LABEL: Record<CampaignType, string> = {
   required: "필수",

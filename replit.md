@@ -62,6 +62,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Building Setup & Integration:** Integrates with the Korean `건축물대장` (Building Register) API for information and automated inspection scheduling, using Kakao Postcode for address searches.
 - **Usage Analytics Dashboard:** Tracks user activity (`usage_events`) for platform_admin to analyze usage patterns by role, path, and menu, including percentage changes over time.
 - **Onboarding Automation:** Streamlined first-time manager login with preference selection, status tracking, and guided setup.
+- **Role Display Labels (Single Source):** 6개 역할(`platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, `partner`)의 화면 표시명은 `lib/shared/src/role-labels.ts` 의 `ROLE_LABELS` (및 `PORTAL_LABELS`) 한 곳에서만 정의된다. 프런트/백엔드 모든 표시 문구는 `import { ROLE_LABELS } from "@workspace/shared/role-labels"` 로 가져오며, enum 키(`platform_admin` 등)는 DB·API 호환을 위해 절대 변경하지 않는다. 라벨 변경 시 본 파일만 수정하면 전체 반영된다.
 
 ## External Dependencies
 - Node.js

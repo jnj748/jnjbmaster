@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Vendor, VendorCategory } from "@workspace/api-client-react";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,7 +224,7 @@ export default function PartnerVendorProfile() {
             <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
             <h2 className="text-lg font-bold mb-2">업체 연결 필요</h2>
             <p className="text-muted-foreground text-sm">
-              계정에 연결된 업체가 없습니다. 본사 관리자에게 문의해 주세요.
+              계정에 연결된 업체가 없습니다. {ROLE_LABELS.platform_admin}에게 문의해 주세요.
             </p>
           </CardContent>
         </Card>

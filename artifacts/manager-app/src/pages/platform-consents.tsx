@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { FileText, Plus, Save, Upload, CheckCircle2 } from "lucide-react";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -10,11 +11,11 @@ type ConsentRole = "manager" | "accountant" | "facility_staff" | "hq_executive" 
 type ConsentType = "terms" | "privacy" | "partner_terms" | "marketing" | "third_party_sharing";
 
 const ROLE_LABEL: Record<ConsentRole, string> = {
-  manager: "관리소장",
-  accountant: "경리·회계",
-  facility_staff: "시설기사",
-  hq_executive: "본사총괄",
-  partner: "파트너사",
+  manager: ROLE_LABELS.manager,
+  accountant: ROLE_LABELS.accountant,
+  facility_staff: ROLE_LABELS.facility_staff,
+  hq_executive: ROLE_LABELS.hq_executive,
+  partner: ROLE_LABELS.partner,
 };
 
 const TYPE_LABEL: Record<ConsentType, string> = {

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CalendarClock,
 } from "lucide-react";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 // [Task #267] 플랫폼 — 역할별 가입/활동 현황 페이지.
 //   5개 라우트(/platform/managers, accountants, facility-staff, hq-executives, partners)가
@@ -32,28 +33,28 @@ const ROLE_META: Record<
   { label: string; description: string; accent: string }
 > = {
   manager: {
-    label: "관리소장",
-    description: "현장에서 입주민과 시설을 직접 챙기는 관리소장 현황",
+    label: ROLE_LABELS.manager,
+    description: `현장에서 입주민과 시설을 직접 챙기는 ${ROLE_LABELS.manager} 현황`,
     accent: "bg-blue-100 text-blue-700",
   },
   accountant: {
-    label: "경리·회계",
-    description: "관리비 부과·수납·전자결재를 맡는 경리·회계 담당자 현황",
+    label: ROLE_LABELS.accountant,
+    description: `관리비 부과·수납·전자결재를 맡는 ${ROLE_LABELS.accountant} 담당자 현황`,
     accent: "bg-amber-100 text-amber-700",
   },
   facility_staff: {
-    label: "시설기사",
-    description: "법정 점검·시설 보수·안전교육을 책임지는 시설기사 현황",
+    label: ROLE_LABELS.facility_staff,
+    description: `법정 점검·시설 보수·안전교육을 책임지는 ${ROLE_LABELS.facility_staff} 현황`,
     accent: "bg-teal-100 text-teal-700",
   },
   hq_executive: {
-    label: "본사총괄",
-    description: "여러 건물의 운영 지표를 모니터링하는 본사 총괄 현황",
+    label: ROLE_LABELS.hq_executive,
+    description: `여러 건물의 운영 지표를 모니터링하는 ${ROLE_LABELS.hq_executive} 현황`,
     accent: "bg-indigo-100 text-indigo-700",
   },
   partner: {
-    label: "파트너사",
-    description: "협력업체로 견적·공사·계약을 담당하는 파트너사 현황",
+    label: ROLE_LABELS.partner,
+    description: `협력업체로 견적·공사·계약을 담당하는 ${ROLE_LABELS.partner} 현황`,
     accent: "bg-emerald-100 text-emerald-700",
   },
 };

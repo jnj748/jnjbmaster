@@ -10,6 +10,8 @@ import {
   type SocialProvider,
 } from "@workspace/db";
 import { signToken, authMiddleware, approvalGateMiddleware } from "../middlewares/auth";
+// [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import {
   buildAuthorizeUrl,
   checkCallbackRateLimit,
@@ -62,7 +64,7 @@ router.get("/auth/oauth/:provider/init", async (req, res): Promise<void> => {
     return;
   }
   if (!["building", "partner"].includes(portalType)) {
-    res.status(400).json({ error: "본사 포털은 소셜 로그인을 사용할 수 없습니다. 이메일·비밀번호로 로그인해 주세요." });
+    res.status(400).json({ error: `${ROLE_LABELS.hq_executive} 포털은 소셜 로그인을 사용할 수 없습니다. 이메일·비밀번호로 로그인해 주세요.` });
     return;
   }
 
@@ -89,7 +91,7 @@ router.get("/auth/oauth/:provider/link/init", authMiddleware, approvalGateMiddle
     return;
   }
   if (req.user!.portalType === "hq") {
-    res.status(403).json({ error: "본사 포털 계정은 소셜 계정을 연결할 수 없습니다" });
+    res.status(403).json({ error: `${ROLE_LABELS.hq_executive} 포털 계정은 소셜 계정을 연결할 수 없습니다` });
     return;
   }
   const cfg = getProviderConfig(provider);
@@ -346,7 +348,7 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
       return;
     }
     if (existing.portalType === "hq") {
-      res.status(403).json({ error: "본사 포털 계정에는 소셜 로그인을 연결할 수 없습니다" });
+      res.status(403).json({ error: `${ROLE_LABELS.hq_executive} 포털 계정에는 소셜 로그인을 연결할 수 없습니다` });
       return;
     }
     if (existing.portalType !== pending.portalType) {

@@ -2,6 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, inspectionsTable, safetyChecklistsTable, maintenanceLogsTable, unitsTable, vehiclesTable, legalAppointeesTable, accountingInitialFilesTable } from "@workspace/db";
 import { eq, and, lte, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
+// [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { computeNextDueDateFromBaseline } from "../lib/taskTemplateCycle";
 import type { TaskTemplate } from "@workspace/db";
 import {
@@ -791,7 +793,7 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
 
   const me = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   if (!me || (me.role !== "manager" && me.role !== "platform_admin")) {
-    res.status(403).json({ error: "관리소장 또는 플랫폼 관리자만 사용할 수 있습니다." });
+    res.status(403).json({ error: `${ROLE_LABELS.manager} 또는 ${ROLE_LABELS.platform_admin}만 사용할 수 있습니다.` });
     return;
   }
   if (!me.buildingId) {
@@ -1338,7 +1340,7 @@ router.get("/buildings/legal-inspections-summary", async (req: Request, res: Res
 
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   if (!user || (user.role !== "hq_executive" && user.role !== "platform_admin")) {
-    res.status(403).json({ error: "본사 전용입니다" });
+    res.status(403).json({ error: `${ROLE_LABELS.hq_executive} 전용입니다` });
     return;
   }
 

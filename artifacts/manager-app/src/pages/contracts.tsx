@@ -17,6 +17,7 @@ import {
   type Settlement,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -311,7 +312,7 @@ function ContractDetailDialog({
                     { key: "quote_received", label: "견적 도착", done: true },
                     { key: "quote_accepted", label: "견적 수락", done: true },
                     { key: "partner_agreed", label: "파트너 동의", done: partnerAgreed },
-                    { key: "hq_approved", label: "본사 결재", done: hqApproved },
+                    { key: "hq_approved", label: `${ROLE_LABELS.hq_executive} 결재`, done: hqApproved },
                     { key: "activated", label: "계약 활성화", done: activated },
                   ];
                   return stages.map((s, i) => (

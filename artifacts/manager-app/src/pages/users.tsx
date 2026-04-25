@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { ROLE_LABELS, PORTAL_LABELS, type AppRole } from "@workspace/shared/role-labels";
 
 interface UserRecord {
   id: number;
@@ -26,20 +27,9 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "settings", label: "설정" },
 ];
 
-const roleLabels: Record<string, string> = {
-  manager: "관리소장",
-  partner: "파트너사",
-  platform_admin: "플랫폼",
-  hq_executive: "본사",
-  accountant: "경리",
-  facility_staff: "시설관리",
-};
-
-const portalLabels: Record<string, string> = {
-  building: "건물관리",
-  partner: "파트너사",
-  hq: "본사",
-};
+// [역할 라벨 SoT] @workspace/shared/role-labels 에서 역할/포털 라벨을 가져온다.
+const roleLabels: Record<string, string> = ROLE_LABELS;
+const portalLabels: Record<string, string> = PORTAL_LABELS;
 
 // [Task #267] /users?role=<role> 쿼리 파라미터를 읽어 초기 필터로 사용.
 //   유효한 역할만 통과시키고, 그 외에는 무시한다.
@@ -410,13 +400,14 @@ function UserModal({
     }
   };
 
-  const allRoles = [
-    { value: "manager", label: "관리소장" },
-    { value: "accountant", label: "경리" },
-    { value: "facility_staff", label: "시설관리" },
-    { value: "hq_executive", label: "본사" },
-    { value: "partner", label: "파트너사" },
-    { value: "platform_admin", label: "플랫폼" },
+  // [역할 라벨 SoT] 화면 표시 라벨은 ROLE_LABELS 에서 가져온다.
+  const allRoles: { value: AppRole; label: string }[] = [
+    { value: "manager", label: ROLE_LABELS.manager },
+    { value: "accountant", label: ROLE_LABELS.accountant },
+    { value: "facility_staff", label: ROLE_LABELS.facility_staff },
+    { value: "hq_executive", label: ROLE_LABELS.hq_executive },
+    { value: "partner", label: ROLE_LABELS.partner },
+    { value: "platform_admin", label: ROLE_LABELS.platform_admin },
   ];
 
   return (

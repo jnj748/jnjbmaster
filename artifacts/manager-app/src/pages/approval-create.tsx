@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -377,11 +378,8 @@ export default function ApprovalCreate() {
     }
   }
 
-  const roleLabels: Record<string, string> = {
-    manager: "관리소장",
-    partner: "파트너사",
-    platform_admin: "플랫폼",
-  };
+  // [역할 라벨 SoT] @workspace/shared/role-labels 의 ROLE_LABELS 사용.
+  const roleLabels: Record<string, string> = ROLE_LABELS;
 
   const availableApprovers = userList.filter(
     (u) => !approvalSteps.some((s) => s.approverId === u.id) && u.id !== user?.userId

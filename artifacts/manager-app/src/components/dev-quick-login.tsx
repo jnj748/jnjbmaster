@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Zap, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
+// [역할 라벨 SoT] 빠른 로그인 버튼 라벨도 ROLE_LABELS 에서 가져온다.
 const TEST_ACCOUNTS = [
-  { email: "manager@test.com", label: "관리소장", portalType: "building" as const, color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
-  { email: "accountant@test.com", label: "경리", portalType: "building" as const, color: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
-  { email: "facility@test.com", label: "시설기사", portalType: "building" as const, color: "bg-teal-100 text-teal-700 hover:bg-teal-200" },
-  { email: "hq@test.com", label: "본사", portalType: "hq" as const, color: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" },
-  { email: "admin@test.com", label: "플랫폼", portalType: "hq" as const, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
-  { email: "partner@test.com", label: "파트너사", portalType: "partner" as const, color: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
+  { email: "manager@test.com", label: ROLE_LABELS.manager, portalType: "building" as const, color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+  { email: "accountant@test.com", label: ROLE_LABELS.accountant, portalType: "building" as const, color: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
+  { email: "facility@test.com", label: ROLE_LABELS.facility_staff, portalType: "building" as const, color: "bg-teal-100 text-teal-700 hover:bg-teal-200" },
+  { email: "hq@test.com", label: ROLE_LABELS.hq_executive, portalType: "hq" as const, color: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" },
+  { email: "admin@test.com", label: ROLE_LABELS.platform_admin, portalType: "hq" as const, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
+  { email: "partner@test.com", label: ROLE_LABELS.partner, portalType: "partner" as const, color: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
 ];
 
 const TEST_PASSWORD = "test1234!";

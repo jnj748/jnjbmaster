@@ -28,6 +28,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Plus, Pencil, Trash2, AlertCircle, Check, X } from "lucide-react";
@@ -190,11 +191,11 @@ const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
 // [Task #283] 역할별 노출 옵션 (UI). 빈 배열 = 전체 공통.
 const ROLE_OPTIONS: { value: string; label: string }[] = [
-  { value: "manager", label: "관리자" },
-  { value: "accountant", label: "경리" },
-  { value: "facility_staff", label: "시설직원" },
-  { value: "partner", label: "파트너사" },
-  { value: "hq_executive", label: "본사총괄" },
+  { value: "manager", label: ROLE_LABELS.manager },
+  { value: "accountant", label: ROLE_LABELS.accountant },
+  { value: "facility_staff", label: ROLE_LABELS.facility_staff },
+  { value: "partner", label: ROLE_LABELS.partner },
+  { value: "hq_executive", label: ROLE_LABELS.hq_executive },
 ];
 
 type DraftType = Omit<TaskTemplate, "id" | "createdAt" | "updatedAt" | "createdBy" | "createdByName" | "targetRoles"> & {
@@ -591,10 +592,10 @@ export default function TaskTemplatesPage() {
               if (typeof window === "undefined") return null;
               const r = new URLSearchParams(window.location.search).get("role") ?? "";
               const map: Record<string, string> = {
-                manager: "관리소장",
-                accountant: "경리·회계",
-                facility_staff: "시설기사",
-                hq_executive: "본사총괄",
+                manager: ROLE_LABELS.manager,
+                accountant: ROLE_LABELS.accountant,
+                facility_staff: ROLE_LABELS.facility_staff,
+                hq_executive: ROLE_LABELS.hq_executive,
               };
               const label = map[r];
               if (!label) return null;

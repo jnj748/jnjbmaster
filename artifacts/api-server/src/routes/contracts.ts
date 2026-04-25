@@ -15,6 +15,8 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [역할 라벨 SoT] 알림 본문 등 한국어 역할 라벨은 단일 소스에서 가져온다.
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 const router: IRouter = Router();
 
@@ -474,7 +476,7 @@ partnerContractsRouter.post("/contracts/:id/agree", requireRole("partner"), asyn
     recipientType: row.buildingId ? `manager:${row.buildingId}` : "hq",
     notificationType: "contract_partner_agreed",
     title: "[계약] 파트너가 계약 내용에 동의했습니다",
-    message: `${row.vendorName} - ${row.title}: 파트너가 계약 내용에 동의했습니다. 본사 결재를 진행해주세요.`,
+    message: `${row.vendorName} - ${row.title}: 파트너가 계약 내용에 동의했습니다. ${ROLE_LABELS.hq_executive} 결재를 진행해주세요.`,
     relatedEntityType: "contract",
     relatedEntityId: row.id,
   });

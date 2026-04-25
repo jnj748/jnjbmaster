@@ -8,6 +8,7 @@
   "exports": {
     "./korean-districts": "./src/korean-districts.ts",
     "./facility-today-progress": "./src/facility-today-progress.ts",
-    "./rfq-service-types": "./src/rfq-service-types.ts"
+    "./rfq-service-types": "./src/rfq-service-types.ts",
+    "./role-labels": "./src/role-labels.ts"
   }
 }

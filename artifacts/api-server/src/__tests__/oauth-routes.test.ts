@@ -171,7 +171,7 @@ test("init: HQ portal is rejected with 400", async () => {
   const res = await fetchManual(`${baseUrl}/api/auth/oauth/google/init?portalType=hq`);
   assert.equal(res.status, 400);
   const body = (await res.json()) as { error: string };
-  assert.match(body.error, /본사 포털은 소셜 로그인을 사용할 수 없습니다/);
+  assert.match(body.error, /본부장 포털은 소셜 로그인을 사용할 수 없습니다/);
 });
 
 test("init: building portal returns redirect to provider authorize URL", async () => {
@@ -212,7 +212,7 @@ test("link/init: HQ portal user is rejected with 403", async () => {
   });
   assert.equal(res.status, 403);
   const body = (await res.json()) as { error: string };
-  assert.match(body.error, /본사 포털 계정은 소셜 계정을 연결할 수 없습니다/);
+  assert.match(body.error, /본부장 포털 계정은 소셜 계정을 연결할 수 없습니다/);
 });
 
 test("callback Branch 1: existing social account → instant login token", async () => {

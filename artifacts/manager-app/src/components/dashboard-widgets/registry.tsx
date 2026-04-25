@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import type { Role } from "@/lib/permissions";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import type { WidgetDefinition } from "./types";
 
 // Widget catalog and per-role layout. Shared widgets (building-info,
@@ -74,7 +75,7 @@ export const WIDGETS = {
     key: "hq-main",
     component: HqMainWidget,
     span: "full",
-    label: "본사 운영 한눈 보기",
+    label: `${ROLE_LABELS.hq_executive} 운영 한눈 보기`,
   },
   "accountant-main": {
     key: "accountant-main",
@@ -98,7 +99,7 @@ export const WIDGETS = {
     key: "admin-main",
     component: AdminMainWidget,
     span: "full",
-    label: "플랫폼 안전 관리실",
+    label: `${ROLE_LABELS.platform_admin} 안전 관리실`,
   },
   "campaign-banner": {
     key: "campaign-banner",

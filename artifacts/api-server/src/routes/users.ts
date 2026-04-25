@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { randomInt } from "crypto";
+// [역할 라벨 SoT] 사용자에게 보이는 한국어 역할 라벨은 단일 소스에서 가져온다.
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 const router: IRouter = Router();
 
@@ -78,7 +80,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
     const actorRole = req.user?.role;
     const privilegedRoles = ["platform_admin", "hq_executive"];
     if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
-      res.status(403).json({ error: "해당 역할의 사용자는 플랫폼만 생성할 수 있습니다" });
+      res.status(403).json({ error: `해당 역할의 사용자는 ${ROLE_LABELS.platform_admin}만 생성할 수 있습니다` });
       return;
     }
 
@@ -92,7 +94,7 @@ router.post("/users", requireRole("manager", "platform_admin", "hq_executive"), 
       return;
     }
     if (portalType === "hq" && !["hq_executive", "platform_admin"].includes(role)) {
-      res.status(400).json({ error: "본사 포털은 본사 또는 플랫폼만 가능합니다" });
+      res.status(400).json({ error: `${ROLE_LABELS.hq_executive} 포털은 ${ROLE_LABELS.hq_executive} 또는 ${ROLE_LABELS.platform_admin}만 가능합니다` });
       return;
     }
     if (portalType === "building" && role === "partner") {
@@ -153,7 +155,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
     // [카테고리 메뉴 제어] 플랫폼만 disabledCategories 수정 가능.
     if (disabledCategories !== undefined) {
       if (req.user?.role !== "platform_admin") {
-        res.status(403).json({ error: "카테고리 메뉴 설정은 플랫폼만 변경할 수 있습니다" });
+        res.status(403).json({ error: `카테고리 메뉴 설정은 ${ROLE_LABELS.platform_admin}만 변경할 수 있습니다` });
         return;
       }
       const sanitized = sanitizeDisabledCategories(disabledCategories) ?? [];
@@ -167,7 +169,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       const actorRole = req.user?.role;
       const privilegedRoles = ["platform_admin", "hq_executive"];
       if (privilegedRoles.includes(role) && actorRole !== "platform_admin") {
-        res.status(403).json({ error: "해당 역할로의 변경은 플랫폼만 가능합니다" });
+        res.status(403).json({ error: `해당 역할로의 변경은 ${ROLE_LABELS.platform_admin}만 가능합니다` });
         return;
       }
       updateData.role = role;
@@ -202,7 +204,7 @@ router.patch("/users/:id", requireRole("manager", "platform_admin", "hq_executiv
       return;
     }
     if (finalPortal === "hq" && !["hq_executive", "platform_admin"].includes(finalRole)) {
-      res.status(400).json({ error: "본사 포털은 본사 또는 플랫폼만 가능합니다" });
+      res.status(400).json({ error: `${ROLE_LABELS.hq_executive} 포털은 ${ROLE_LABELS.hq_executive} 또는 ${ROLE_LABELS.platform_admin}만 가능합니다` });
       return;
     }
     if (finalPortal === "building" && finalRole === "partner") {

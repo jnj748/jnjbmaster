@@ -97,13 +97,14 @@ const PlatformRoleFacility = lazy(() => import("@/pages/platform-role-status").t
 const PlatformRoleHq = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.HqExecutivesStatus })));
 const PlatformRolePartners = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.PartnersStatus })));
 
-export type Role =
-  | "manager"
-  | "accountant"
-  | "facility_staff"
-  | "hq_executive"
-  | "platform_admin"
-  | "partner";
+// [역할 라벨 SoT] 역할 키 / 표시 라벨은 @workspace/shared/role-labels 에서
+//   단일 소스로 정의한다. 라벨이 바뀌면 그 파일만 수정하면 프런트엔드와
+//   백엔드가 동시에 반영된다.
+import { ROLE_LABELS as SHARED_ROLE_LABELS, type AppRole, roleLabel } from "@workspace/shared/role-labels";
+
+export type Role = AppRole;
+
+export { roleLabel };
 
 export type Group =
   | "dashboard"
@@ -152,14 +153,7 @@ export function getEffectiveRole(user: { role?: string | null; portalType?: stri
   return (user.role as Role) ?? "manager";
 }
 
-export const ROLE_LABELS: Record<Role, string> = {
-  manager: "관리소장",
-  accountant: "경리",
-  facility_staff: "시설기사",
-  hq_executive: "본사",
-  platform_admin: "플랫폼",
-  partner: "파트너사",
-};
+export const ROLE_LABELS = SHARED_ROLE_LABELS;
 
 export const GROUP_TITLES: Record<Group, string> = {
   dashboard: "오늘의 한눈 대시보드",
@@ -520,7 +514,7 @@ export const ROUTES: RouteEntry[] = [
     label: "시설기사 현황", icon: HardHat, group: "dashboard",
     access: ["platform_admin"], hidden: true },
   { path: "/platform/hq-executives", component: PlatformRoleHq,
-    label: "본사총괄 현황", icon: Shield, group: "dashboard",
+    label: `${SHARED_ROLE_LABELS.hq_executive} 현황`, icon: Shield, group: "dashboard",
     access: ["platform_admin"], hidden: true },
   { path: "/platform/partners", component: PlatformRolePartners,
     label: "파트너사 현황", icon: Package, group: "dashboard",
@@ -645,8 +639,8 @@ export const ROOT_DASHBOARDS: Record<Role, AnyComponent> = {
 
 const ROOT_LABELS: Record<Role, string> = {
   manager: "대시보드",
-  platform_admin: "플랫폼 관리",
-  hq_executive: "본사 대시보드",
+  platform_admin: `${SHARED_ROLE_LABELS.platform_admin} 관리`,
+  hq_executive: `${SHARED_ROLE_LABELS.hq_executive} 대시보드`,
   accountant: "대시보드",
   facility_staff: "일일 업무",
   partner: "대시보드",
@@ -760,30 +754,30 @@ type TargetRole = "manager" | "accountant" | "facility_staff" | "hq_executive" |
 function platformAdminSidebar(): NavSection[] {
   return [
     {
-      title: "관리소장",
+      title: SHARED_ROLE_LABELS.manager,
       items: [{ path: "/platform/managers", label: "현황", icon: Building2 }],
     },
     {
-      title: "경리·회계",
+      title: SHARED_ROLE_LABELS.accountant,
       items: [{ path: "/platform/accountants", label: "현황", icon: Calculator }],
     },
     {
-      title: "시설기사",
+      title: SHARED_ROLE_LABELS.facility_staff,
       items: [
         { path: "/platform/facility-staff", label: "현황", icon: HardHat },
-        { path: "/facility-approvals", label: "시설기사 승인", icon: UserCheck },
+        { path: "/facility-approvals", label: `${SHARED_ROLE_LABELS.facility_staff} 승인`, icon: UserCheck },
       ],
     },
     {
-      title: "본사총괄",
+      title: SHARED_ROLE_LABELS.hq_executive,
       items: [{ path: "/platform/hq-executives", label: "현황", icon: Shield }],
     },
     {
-      title: "파트너사",
+      title: SHARED_ROLE_LABELS.partner,
       items: [
         { path: "/platform/partners", label: "현황", icon: Package },
         { path: "/vendors", label: "협력업체", icon: Building2 },
-        { path: "/platform/credits", label: "파트너 크레딧 현황", icon: Coins },
+        { path: "/platform/credits", label: `${SHARED_ROLE_LABELS.partner} 크레딧 현황`, icon: Coins },
         // [Task #298] 카테고리 × 프리미엄 단위 크레딧/환불 정책 통합 관리.
         { path: "/platform/quote-credit-policies", label: "크레딧정책설정", icon: Coins },
       ],
@@ -792,7 +786,7 @@ function platformAdminSidebar(): NavSection[] {
       title: "콘텐츠 관리",
       items: [
         { path: "/platform-consents", label: "약관 관리", icon: FileText },
-        { path: "/platform-announcements", label: "본사 알림(공지·캠페인)", icon: Megaphone },
+        { path: "/platform-announcements", label: `${SHARED_ROLE_LABELS.hq_executive} 알림(공지·캠페인)`, icon: Megaphone },
         { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: BookOpen },
         { path: "/settings/task-templates", label: "업무 템플릿", icon: ClipboardList },
       ],

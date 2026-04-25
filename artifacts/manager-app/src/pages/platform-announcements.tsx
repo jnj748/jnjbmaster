@@ -16,6 +16,7 @@ import {
   type PlatformAnnouncement,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 type Audience =
   | "all"
@@ -27,11 +28,11 @@ type Audience =
 
 const AUDIENCE_LABEL: Record<Audience, string> = {
   all: "전체",
-  manager: "관리소장",
-  accountant: "경리·회계",
-  facility_staff: "시설기사",
-  partner: "파트너사",
-  hq_executive: "본사 임원",
+  manager: ROLE_LABELS.manager,
+  accountant: ROLE_LABELS.accountant,
+  facility_staff: ROLE_LABELS.facility_staff,
+  partner: ROLE_LABELS.partner,
+  hq_executive: ROLE_LABELS.hq_executive,
 };
 
 const AUDIENCE_ORDER: Audience[] = [

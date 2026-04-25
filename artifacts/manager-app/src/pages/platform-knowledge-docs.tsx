@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 // 플랫폼 전용 — 모든 관리소장 AI 비서가 공통으로 참조할
 // 법령/개정안/운영 가이드 등을 등록·관리한다.
@@ -40,11 +41,11 @@ interface DraftState {
 const CATEGORY_PRESETS = ["법령", "개정안", "운영가이드", "안전관리", "회계/세무", "기타"];
 
 const ROLE_OPTIONS: { value: string; label: string }[] = [
-  { value: "manager", label: "관리자" },
-  { value: "accountant", label: "경리" },
-  { value: "facility_staff", label: "시설직원" },
-  { value: "partner", label: "파트너사" },
-  { value: "hq_executive", label: "본사총괄" },
+  { value: "manager", label: ROLE_LABELS.manager },
+  { value: "accountant", label: ROLE_LABELS.accountant },
+  { value: "facility_staff", label: ROLE_LABELS.facility_staff },
+  { value: "partner", label: ROLE_LABELS.partner },
+  { value: "hq_executive", label: ROLE_LABELS.hq_executive },
 ];
 
 function emptyDraft(defaultRole?: string): DraftState {
@@ -267,11 +268,11 @@ export default function PlatformKnowledgeDocsPage() {
   //     배너로 명시해 사용자가 잘못된 컨텍스트로 오해하지 않게 한다.
   //   - 향후 역할별 자료가 필요해지면 targetRoles 컬럼을 추가하고 필터링한다.
   const ROLE_BADGE: Record<string, string> = {
-    manager: "관리소장",
-    accountant: "경리·회계",
-    facility_staff: "시설기사",
-    hq_executive: "본사총괄",
-    partner: "파트너사",
+    manager: ROLE_LABELS.manager,
+    accountant: ROLE_LABELS.accountant,
+    facility_staff: ROLE_LABELS.facility_staff,
+    hq_executive: ROLE_LABELS.hq_executive,
+    partner: ROLE_LABELS.partner,
   };
   const roleParam = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("role") ?? ""

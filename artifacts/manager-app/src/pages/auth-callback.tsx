@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 const ERROR_MESSAGES: Record<string, string> = {
   rate_limit: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
@@ -8,7 +9,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: "인증 세션이 만료되었습니다. 다시 시도해 주세요.",
   missing_params: "인증 응답이 올바르지 않습니다.",
   oauth_failed: "소셜 로그인 중 오류가 발생했습니다.",
-  hq_not_allowed: "본사 포털은 소셜 로그인을 사용할 수 없습니다.",
+  hq_not_allowed: `${ROLE_LABELS.hq_executive} 포털은 소셜 로그인을 사용할 수 없습니다.`,
   portal_mismatch: "이 계정은 다른 포털용입니다.",
   access_denied: "소셜 로그인이 취소되었습니다.",
 };

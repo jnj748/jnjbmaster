@@ -22,6 +22,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import {
   MobileOnly,
   DesktopOnly,
@@ -37,14 +38,8 @@ interface UserRecord {
   createdAt: string;
 }
 
-const roleLabels: Record<string, string> = {
-  manager: "관리소장",
-  partner: "파트너사",
-  platform_admin: "플랫폼",
-  hq_executive: "본사",
-  accountant: "경리",
-  facility_staff: "시설관리",
-};
+// [역할 라벨 SoT] @workspace/shared/role-labels 의 ROLE_LABELS 를 그대로 사용한다.
+const roleLabels: Record<string, string> = ROLE_LABELS;
 
 // [Task #267] 통합 대시보드 5-역할 카드 정의. 각 카드는 /platform/<role> 현황 페이지로 이동.
 const ROLE_CARDS: {
@@ -58,7 +53,7 @@ const ROLE_CARDS: {
 }[] = [
   {
     role: "manager",
-    label: "관리소장",
+    label: roleLabels.manager,
     subtitle: "현장 관리자",
     href: "/platform/managers",
     icon: Building2,
@@ -67,7 +62,7 @@ const ROLE_CARDS: {
   },
   {
     role: "accountant",
-    label: "경리·회계",
+    label: roleLabels.accountant,
     subtitle: "관리비·결재",
     href: "/platform/accountants",
     icon: Calculator,
@@ -76,7 +71,7 @@ const ROLE_CARDS: {
   },
   {
     role: "facility_staff",
-    label: "시설기사",
+    label: roleLabels.facility_staff,
     subtitle: "점검·보수",
     href: "/platform/facility-staff",
     icon: HardHat,
@@ -85,7 +80,7 @@ const ROLE_CARDS: {
   },
   {
     role: "hq_executive",
-    label: "본사총괄",
+    label: roleLabels.hq_executive,
     subtitle: "운영 모니터링",
     href: "/platform/hq-executives",
     icon: Shield,
@@ -94,7 +89,7 @@ const ROLE_CARDS: {
   },
   {
     role: "partner",
-    label: "파트너사",
+    label: roleLabels.partner,
     subtitle: "협력업체",
     href: "/platform/partners",
     icon: Package,

@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -244,11 +245,8 @@ export default function Approvals() {
   const isSingleStepPending = (a: ApprovalItem) => !isMultiStep(a) && a.status === "pending";
   const isMultiStepInProgress = (a: ApprovalItem) => isMultiStep(a) && a.status === "in_progress";
 
-  const roleLabels: Record<string, string> = {
-    manager: "관리소장",
-    partner: "파트너사",
-    platform_admin: "플랫폼",
-  };
+  // [역할 라벨 SoT] @workspace/shared/role-labels 의 ROLE_LABELS 사용.
+  const roleLabels: Record<string, string> = ROLE_LABELS;
 
   const stepStatusLabel = (status: string) => {
     switch (status) {
