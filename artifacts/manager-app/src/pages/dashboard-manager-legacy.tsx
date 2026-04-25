@@ -971,7 +971,7 @@ export default function Dashboard() {
         <div className="space-y-3">
           <AlertSection
             title="필수업무"
-            description="필수업무는 법적으로 반드시 처리해야하는 업무입니다."
+            description="법적으로 반드시 해야하는 업무"
             icon={ClipboardCheck}
             iconClassName="text-chart-3"
             alerts={legalAlerts}
@@ -982,7 +982,7 @@ export default function Dashboard() {
           />
           <AlertSection
             title="제안업무"
-            description="지금 시기 처리하면 좋은 관리업무입니다."
+            description="지금 시기 처리하면 좋아요"
             icon={ListChecks}
             iconClassName="text-chart-2"
             alerts={proposedAlerts}
@@ -1004,7 +1004,7 @@ export default function Dashboard() {
       {/* [Task #184 → #331] 필수업무현황 — legal 점검 + 비점검 알림 */}
       <AlertSection
         title="필수업무현황"
-        description="필수업무는 법적으로 반드시 처리해야하는 업무입니다."
+        description="법적으로 반드시 해야하는 업무"
         icon={ClipboardCheck}
         iconClassName="text-chart-3"
         alerts={legalAlerts}
@@ -1017,7 +1017,7 @@ export default function Dashboard() {
       {/* [Task #184 → #331] 제안업무현황 — 자체/격주/계절/행정 점검 */}
       <AlertSection
         title="제안업무현황"
-        description="지금 시기 처리하면 좋은 관리업무입니다."
+        description="지금 시기 처리하면 좋아요"
         icon={ListChecks}
         iconClassName="text-chart-2"
         alerts={proposedAlerts}
