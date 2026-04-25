@@ -19,6 +19,7 @@
   - 정해진 보기에 맞지 않을 가능성이 있을 때만 마지막 옵션으로 "기타(직접 입력)" 를 두고, 선택 시에만 별도 텍스트 입력으로 후속 질의한다.
   - 결정에 영향을 주는 맥락(영향 범위, 호환성 리스크, SoT 위치 등)은 질문 직전 본문에서 요약 제공하고, 질문 자체에는 옵션과 짧은 설명만 둔다.
   - 개발 의사결정이 아닌 일반 대화·확인·진행 보고에는 적용하지 않는다.
+  - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 ## System Architecture
 The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 and TypeScript 5.9.
