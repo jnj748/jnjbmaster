@@ -541,6 +541,13 @@ export interface Vendor {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /**
+   * 누적된 평가의 평균 별점 (없으면 null)
+   * @nullable
+   */
+  avgRating?: number | null;
+  /** 누적 평가 건수 */
+  reviewCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1185,6 +1192,62 @@ export interface UpdateWorkReportBody {
   reviewNotes?: string | null;
   /** @nullable */
   contractId?: number | null;
+}
+
+export interface VendorReview {
+  id: number;
+  vendorId: number;
+  workReportId: number;
+  /** @nullable */
+  rfqId?: number | null;
+  /** @nullable */
+  quoteId?: number | null;
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  reviewerUserId?: number | null;
+  /** 1.0 ~ 5.0 (0.5 단위) */
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VendorReviewWithContext = VendorReview & {
+  /** @nullable */
+  buildingName?: string | null;
+  /** @nullable */
+  workReportTitle?: string | null;
+  /** @nullable */
+  reviewerName?: string | null;
+};
+
+export interface WorkReportReviewResponse {
+  review?: VendorReview | null;
+  /** 7일 이내 수정 가능 여부 */
+  canEdit: boolean;
+}
+
+export interface CreateVendorReviewBody {
+  workReportId: number;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /** @nullable */
+  comment?: string | null;
+}
+
+export interface UpdateVendorReviewBody {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating?: number;
+  /** @nullable */
+  comment?: string | null;
 }
 
 export type SettlementStatus =
@@ -5331,6 +5394,11 @@ export const ListWorkReportsStatus = {
   approved: "approved",
   rejected: "rejected",
 } as const;
+
+export type ListVendorReviewsParams = {
+  limit?: number;
+  offset?: number;
+};
 
 export type ListSettlementsParams = {
   vendorId?: number;

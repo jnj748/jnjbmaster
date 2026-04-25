@@ -16,11 +16,12 @@
 The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-- Developed using React, Vite, and Tailwind CSS, with shadcn/ui for UI components.
+- Built with React, Vite, and Tailwind CSS, using shadcn/ui for components.
 - Features distinct portals for `building` managers, `hq` (headquarters), and `partner` vendors, each with role-based dashboards.
 - Implements a mobile-first design approach with a custom 900px desktop breakpoint and UI text exclusively in Korean.
 - Supports data export functionalities, leveraging `jsPDF` for PDF generation.
-- Mobile layouts are designed as a "fixed shell" where content scrolls within a fixed header and bottom navigation, mimicking native app behavior.
+- Mobile layouts are designed as a "fixed shell" where content scrolls within a fixed header and bottom navigation, mimicking native app behavior, while desktop retains body scrolling.
+- Performance optimization includes React.lazy code splitting, Vite manualChunks, and React Query optimizations for heavy libraries like `jspdf`, `papaparse`, and `html-to-image`.
 
 **Backend:**
 - Built on an Express 5 API framework.
@@ -34,13 +35,13 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 **Core Features & Design Patterns:**
 - **Modular Monorepo:** The codebase is organized into `api-server`, `web`, `db`, and `api-spec` packages.
 - **Automated Document Generation:** Supports generating weekly reports, expense approvals, maintenance drafts, and legal inspection notices.
-- **Multi-step Approval Workflows:** Implements flexible approval processes (up to 5 levels) for tasks, inspections, RFQs, and work reports.
+- **Multi-step Approval Workflows:** Implements flexible approval processes (up to 5 levels) for tasks, inspections, RFQs, and work reports. This includes a detailed workflow for quote reception, acceptance, partner agreement, and contract activation with in-app deep-linking and multi-stage trackers.
 - **AI Integration:** Incorporates AI for commission record generation and intelligent vendor matching.
 - **BuildingContext:** Provides a global context for building-specific information, optimized for manager roles.
-- **Dynamic Dashboards:** Role-based dashboards with mobile bottom navigation and desktop sidebar for categorized access.
-- **Integrated Calendar:** Aggregates and color-codes all accounting and facility management events.
+- **Dynamic Dashboards:** Role-based dashboards with mobile bottom navigation and desktop sidebar for categorized access, including usage analytics for platform administrators.
+- **Integrated Calendar:** Aggregates and color-codes all accounting and facility management events with detailed event lists.
 - **ERP-style Accounting Dashboard:** Features pre-billing checklists, a management fee calculation engine, and unit-specific warnings.
-- **Facility Management Dashboard:** Central hub for legal inspections (29 presets), safety checklists, and maintenance logs, incorporating legal compliance requirements and a traffic light alert system.
+- **Facility Management Dashboard:** Central hub for legal inspections (29 presets), safety checklists, and maintenance logs, incorporating legal compliance requirements and a traffic light alert system with delay reason recording.
 - **Attendance Management:** PC/mobile check-in/out with automated detection and manager visualizations.
 - **In-app Notification System:** Provides real-time alerts for various system events.
 - **Document Templates:** Offers 5 default system templates with options for custom template management.
@@ -48,11 +49,11 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Hierarchical Reporting:** Aggregates daily reports into weekly and monthly summaries.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction (tenant/owner data anonymization after 3 years).
 - **Meter Reading Management:** Handles water, electricity, gas, and heating meter readings with CSV bulk upload, manual entry, and anomaly detection.
-- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and interim settlements. Includes automated delinquency detection, tracking actions, and auto-resolution.
-- **Complaints Management:** Enhanced workflow with status tracking, extended categories, sensitivity grading, auto-escalation, recurring complaint detection, and analytics.
+- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and interim settlements. Includes automated delinquency detection (including `suspended` vehicle status), tracking actions, and auto-resolution.
+- **Complaints Management:** Enhanced workflow with status tracking, extended categories, sensitivity grading, auto-escalation, recurring complaint detection, and analytics for HQ.
 - **Electronic Voting:** Functionality for creating agendas, tracking participation, and displaying results with ballot uniqueness.
-- **Monthly Reporting Pipeline:** Automated generation of monthly summary reports by querying structured accounting data.
-- **Partner Marketplace:** Extended vendor categories, subcategories, and warranty tracking linked to building approval dates.
+- **Monthly Reporting Pipeline:** Automated generation of monthly summary reports by querying structured accounting data and storing them in `monthly_summary_reports`.
+- **Partner Marketplace:** Extended vendor categories, subcategories, and warranty tracking (12 presets, expiry dates, 60/30-day alerts) linked to building approval dates.
 - **Seasonal Maintenance:** Provides suggestions with priority levels and one-click RFQ creation.
 - **Geo-based Vendor Matching:** RFQs can automatically match vendors based on geographical location.
 - **Object Storage Integration:** Utilizes presigned URLs for secure photo attachments.
@@ -60,6 +61,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Digital Tenant Card:** Token-based self-registration for tenants, encompassing personal info, vehicle registration, document uploads, and e-signatures, with manager verification.
 - **Building Setup & Integration:** Integrates with the Korean `건축물대장` (Building Register) API for information and automated inspection scheduling, using Kakao Postcode for address searches.
 - **Usage Analytics Dashboard:** Tracks user activity (`usage_events`) for platform_admin to analyze usage patterns by role, path, and menu, including percentage changes over time.
+- **Onboarding Automation:** Streamlined first-time manager login with preference selection, status tracking, and guided setup.
 
 ## External Dependencies
 - Node.js

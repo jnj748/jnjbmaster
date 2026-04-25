@@ -28,10 +28,12 @@ import {
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin } from "lucide-react";
+import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin, MessageSquareText } from "lucide-react";
 import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { koreanDistricts, sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import { VendorRatingInline } from "@/components/star-rating";
+import { VendorReviewsListDialog } from "@/components/vendor-reviews-list-dialog";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -69,6 +71,9 @@ export default function Vendors() {
   const updateMutation = useUpdateVendor();
   const deleteMutation = useDeleteVendor();
 
+  // [Task #339] 평가 목록 다이얼로그를 열 대상 vendor.
+  const [reviewListVendor, setReviewListVendor] = useState<any>(null);
+
   const [form, setForm] = useState({
     name: "",
     category: "elevator",
@@ -76,7 +81,6 @@ export default function Vendors() {
     phone: "",
     email: "",
     address: "",
-    rating: "",
     isRecommended: false,
     notes: "",
     contractBuildingName: "",
@@ -93,7 +97,7 @@ export default function Vendors() {
   function resetForm() {
     setForm({
       name: "", category: "elevator", contactName: "", phone: "", email: "",
-      address: "", rating: "", isRecommended: false, notes: "",
+      address: "", isRecommended: false, notes: "",
       contractBuildingName: "", contractStartDate: "", contractEndDate: "",
       businessRegNumber: "", representativeName: "", serviceArea: "",
       subCategories: "", sido: "", sigungu: "",
@@ -110,7 +114,6 @@ export default function Vendors() {
       phone: item.phone || "",
       email: item.email || "",
       address: item.address || "",
-      rating: item.rating?.toString() || "",
       isRecommended: item.isRecommended,
       notes: item.notes || "",
       contractBuildingName: item.contractBuildingName || "",
@@ -136,7 +139,7 @@ export default function Vendors() {
       phone: form.phone || null,
       email: form.email || null,
       address: form.address || null,
-      rating: form.rating ? parseFloat(form.rating) : null,
+      // [Task #339] rating 은 평균값 캐시로만 사용되므로 입력 폼에서 보내지 않는다.
       isRecommended: form.isRecommended,
       notes: form.notes || null,
       subCategories: form.subCategories || null,
@@ -233,20 +236,23 @@ export default function Vendors() {
                   <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>이메일</Label>
-                  <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-                <div>
-                  <Label>평점 (1-5)</Label>
-                  <Input type="number" inputMode="decimal" min="1" max="5" step="0.1" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} />
-                </div>
+              <div>
+                <Label>이메일</Label>
+                <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
               <div>
                 <Label>주소</Label>
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
+              {editing && (
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm flex items-center justify-between">
+                  <span className="text-muted-foreground">누적 평가 (자동 집계)</span>
+                  <VendorRatingInline
+                    avgRating={editing.avgRating}
+                    reviewCount={editing.reviewCount}
+                  />
+                </div>
+              )}
 
               <div className="border-t pt-4">
                 <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
@@ -447,12 +453,22 @@ export default function Vendors() {
                       <Mail className="w-3 h-3" /> {vendor.email}
                     </p>
                   )}
-                  {vendor.rating && (
-                    <p className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-chart-3" />
-                      {vendor.rating.toFixed(1)}
-                    </p>
-                  )}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <VendorRatingInline
+                      avgRating={vendor.avgRating}
+                      reviewCount={vendor.reviewCount}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setReviewListVendor(vendor)}
+                      data-testid={`vendor-reviews-${vendor.id}`}
+                    >
+                      <MessageSquareText className="w-3 h-3 mr-1" />
+                      평가 보기
+                    </Button>
+                  </div>
                   {(vendor.sido || vendor.sigungu) && (
                     <p className="flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
@@ -489,6 +505,12 @@ export default function Vendors() {
           </CardContent>
         </Card>
       )}
+
+      <VendorReviewsListDialog
+        open={reviewListVendor !== null}
+        onOpenChange={(o) => { if (!o) setReviewListVendor(null); }}
+        vendor={reviewListVendor}
+      />
     </div>
   );
 }

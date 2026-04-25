@@ -102,6 +102,7 @@ import type {
   CreateUnitBody,
   CreateVehicleBody,
   CreateVendorBody,
+  CreateVendorReviewBody,
   CreateVoteBody,
   CreateWorkReportBody,
   CreditCategoryPricing,
@@ -206,6 +207,7 @@ import type {
   ListTenantsParams,
   ListUnitsParams,
   ListVehiclesParams,
+  ListVendorReviewsParams,
   ListVendorsParams,
   ListWeeklySummaryReportsParams,
   ListWorkReportsParams,
@@ -285,6 +287,7 @@ import type {
   UpdateUnitBody,
   UpdateVehicleBody,
   UpdateVendorBody,
+  UpdateVendorReviewBody,
   UpdateVoteBody,
   UpdateWorkReportBody,
   UploadContractDocumentBody,
@@ -301,6 +304,8 @@ import type {
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
+  VendorReview,
+  VendorReviewWithContext,
   VerifyTenantBody,
   Vote,
   VoteDetail,
@@ -309,6 +314,7 @@ import type {
   WeeklyReport,
   WeeklySummaryReportItem,
   WorkReport,
+  WorkReportReviewResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -5866,6 +5872,379 @@ export const useUpdateWorkReport = <
   TContext
 > => {
   return useMutation(getUpdateWorkReportMutationOptions(options));
+};
+
+/**
+ * @summary Get the vendor review attached to a work report (if any)
+ */
+export const getGetWorkReportReviewUrl = (id: number) => {
+  return `/api/work-reports/${id}/review`;
+};
+
+export const getWorkReportReview = async (
+  id: number,
+  options?: RequestInit,
+): Promise<WorkReportReviewResponse> => {
+  return customFetch<WorkReportReviewResponse>(getGetWorkReportReviewUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkReportReviewQueryKey = (id: number) => {
+  return [`/api/work-reports/${id}/review`] as const;
+};
+
+export const getGetWorkReportReviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkReportReview>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkReportReview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWorkReportReviewQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWorkReportReview>>
+  > = ({ signal }) => getWorkReportReview(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkReportReview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWorkReportReviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkReportReview>>
+>;
+export type GetWorkReportReviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the vendor review attached to a work report (if any)
+ */
+
+export function useGetWorkReportReview<
+  TData = Awaited<ReturnType<typeof getWorkReportReview>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkReportReview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWorkReportReviewQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List recent reviews for a vendor (latest first)
+ */
+export const getListVendorReviewsUrl = (
+  id: number,
+  params?: ListVendorReviewsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/vendors/${id}/reviews?${stringifiedParams}`
+    : `/api/vendors/${id}/reviews`;
+};
+
+export const listVendorReviews = async (
+  id: number,
+  params?: ListVendorReviewsParams,
+  options?: RequestInit,
+): Promise<VendorReviewWithContext[]> => {
+  return customFetch<VendorReviewWithContext[]>(
+    getListVendorReviewsUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListVendorReviewsQueryKey = (
+  id: number,
+  params?: ListVendorReviewsParams,
+) => {
+  return [`/api/vendors/${id}/reviews`, ...(params ? [params] : [])] as const;
+};
+
+export const getListVendorReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVendorReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListVendorReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listVendorReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListVendorReviewsQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listVendorReviews>>
+  > = ({ signal }) =>
+    listVendorReviews(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listVendorReviews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListVendorReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listVendorReviews>>
+>;
+export type ListVendorReviewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List recent reviews for a vendor (latest first)
+ */
+
+export function useListVendorReviews<
+  TData = Awaited<ReturnType<typeof listVendorReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListVendorReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listVendorReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListVendorReviewsQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a vendor review for an approved work report
+ */
+export const getCreateVendorReviewUrl = () => {
+  return `/api/vendor-reviews`;
+};
+
+export const createVendorReview = async (
+  createVendorReviewBody: CreateVendorReviewBody,
+  options?: RequestInit,
+): Promise<VendorReview> => {
+  return customFetch<VendorReview>(getCreateVendorReviewUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createVendorReviewBody),
+  });
+};
+
+export const getCreateVendorReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVendorReview>>,
+    TError,
+    { data: BodyType<CreateVendorReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVendorReview>>,
+  TError,
+  { data: BodyType<CreateVendorReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["createVendorReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVendorReview>>,
+    { data: BodyType<CreateVendorReviewBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createVendorReview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVendorReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVendorReview>>
+>;
+export type CreateVendorReviewMutationBody = BodyType<CreateVendorReviewBody>;
+export type CreateVendorReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a vendor review for an approved work report
+ */
+export const useCreateVendorReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVendorReview>>,
+    TError,
+    { data: BodyType<CreateVendorReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createVendorReview>>,
+  TError,
+  { data: BodyType<CreateVendorReviewBody> },
+  TContext
+> => {
+  return useMutation(getCreateVendorReviewMutationOptions(options));
+};
+
+/**
+ * @summary Update an existing vendor review (within 7 days)
+ */
+export const getUpdateVendorReviewUrl = (id: number) => {
+  return `/api/vendor-reviews/${id}`;
+};
+
+export const updateVendorReview = async (
+  id: number,
+  updateVendorReviewBody: UpdateVendorReviewBody,
+  options?: RequestInit,
+): Promise<VendorReview> => {
+  return customFetch<VendorReview>(getUpdateVendorReviewUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVendorReviewBody),
+  });
+};
+
+export const getUpdateVendorReviewMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVendorReview>>,
+    TError,
+    { id: number; data: BodyType<UpdateVendorReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateVendorReview>>,
+  TError,
+  { id: number; data: BodyType<UpdateVendorReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["updateVendorReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateVendorReview>>,
+    { id: number; data: BodyType<UpdateVendorReviewBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateVendorReview(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateVendorReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateVendorReview>>
+>;
+export type UpdateVendorReviewMutationBody = BodyType<UpdateVendorReviewBody>;
+export type UpdateVendorReviewMutationError = ErrorType<void>;
+
+/**
+ * @summary Update an existing vendor review (within 7 days)
+ */
+export const useUpdateVendorReview = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateVendorReview>>,
+    TError,
+    { id: number; data: BodyType<UpdateVendorReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateVendorReview>>,
+  TError,
+  { id: number; data: BodyType<UpdateVendorReviewBody> },
+  TContext
+> => {
+  return useMutation(getUpdateVendorReviewMutationOptions(options));
 };
 
 /**

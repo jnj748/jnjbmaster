@@ -83,6 +83,10 @@ router.patch("/work-reports/:id", async (req, res): Promise<void> => {
   const updateData: any = { ...parsed.data };
   if (parsed.data.status === "approved" || parsed.data.status === "rejected") {
     updateData.reviewedAt = new Date();
+    // [Task #339] 검수자 본인이 별점·한줄평을 작성하므로 승인/반려 시 user id 를 기록한다.
+    if (req.user?.userId) {
+      updateData.reviewerUserId = req.user.userId;
+    }
   }
 
   const [prev] = await db.select().from(workReportsTable).where(eq(workReportsTable.id, params.data.id));

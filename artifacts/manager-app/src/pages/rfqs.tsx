@@ -13,6 +13,7 @@ import {
   listContracts,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
+  type Vendor,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +65,7 @@ import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { RfqMatchStatsCard } from "@/pages/settings";
+import { VendorRatingInline } from "@/components/star-rating";
 
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
@@ -346,6 +348,8 @@ export default function Rfqs() {
   };
 
   const platformVendors = vendors?.filter((v) => v.type === "platform") || [];
+  // [Task #339] 견적 비교에서 업체별 누적 별점·건수를 빠르게 조회하기 위한 맵.
+  const vendorById = new Map<number, Vendor>((vendors || []).map((v) => [v.id, v]));
 
   return (
     <div className="space-y-6">
@@ -643,6 +647,7 @@ export default function Rfqs() {
                           <thead>
                             <tr className="border-b bg-muted/50">
                               <th className="text-left p-2 font-medium">업체</th>
+                              <th className="text-left p-2 font-medium">평가</th>
                               <th className="text-right p-2 font-medium">견적 금액</th>
                               <th className="text-center p-2 font-medium">예상 소요일</th>
                               <th className="text-center p-2 font-medium">착수 가능일</th>
@@ -652,9 +657,18 @@ export default function Rfqs() {
                             </tr>
                           </thead>
                           <tbody>
-                            {compareQuotes.map((q: any) => (
+                            {compareQuotes.map((q: any) => {
+                              // [Task #339] 업체별 누적 별점·건수 표시.
+                              const v = vendorById.get(q.vendorId);
+                              return (
                               <tr key={q.id} className="border-b last:border-0">
                                 <td className="p-2 font-medium">{q.vendorName}</td>
+                                <td className="p-2">
+                                  <VendorRatingInline
+                                    avgRating={v?.avgRating}
+                                    reviewCount={v?.reviewCount}
+                                  />
+                                </td>
                                 <td className="p-2 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
                                 <td className="p-2 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
                                 <td className="p-2 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
@@ -683,7 +697,8 @@ export default function Rfqs() {
                                   )}
                                 </td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

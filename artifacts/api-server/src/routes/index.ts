@@ -6,6 +6,7 @@ import tasksRouter from "./tasks";
 import inspectionsRouter from "./inspections";
 import taxSchedulesRouter from "./taxSchedules";
 import vendorsRouter from "./vendors";
+import vendorReviewsRouter from "./vendorReviews";
 import commissionsRouter from "./commissions";
 import dashboardRouter from "./dashboard";
 import draftsRouter from "./drafts";
@@ -87,6 +88,11 @@ router.use(authMiddleware);
 router.use(approvalGateMiddleware);
 
 router.get("/complaints/analytics", requireRole("hq_executive", "platform_admin"), handleComplaintAnalytics);
+// [Task #339] vendorReviewsRouter must be mounted BEFORE vendorsRouter:
+// vendors.ts has a `router.use("/vendors", requireRole(...))` middleware that
+// rejects partner requests (including legitimate /vendors/:id/reviews access).
+// Mounting reviews first lets that route resolve before reaching the gate.
+router.use(vendorReviewsRouter);
 router.use(vendorsRouter);
 router.use(commissionsRouter);
 router.use(notificationsRouter);

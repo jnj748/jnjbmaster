@@ -65,3 +65,4 @@ export * from "./workLogs";
 export * from "./taskTemplates";
 export * from "./roleMenuOverrides";
 export * from "./usageEvents";
+export * from "./vendorReviews";

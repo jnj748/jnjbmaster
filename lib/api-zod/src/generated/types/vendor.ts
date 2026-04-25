@@ -48,6 +48,13 @@ export interface Vendor {
   contractStartDate?: Date | null;
   /** @nullable */
   contractEndDate?: Date | null;
+  /**
+   * 누적된 평가의 평균 별점 (없으면 null)
+   * @nullable
+   */
+  avgRating?: number | null;
+  /** 누적 평가 건수 */
+  reviewCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

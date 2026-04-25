@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, vendorsTable, usersTable, platformConsentsTable } from "@workspace/db";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { db, vendorsTable, usersTable, platformConsentsTable, vendorReviewsTable } from "@workspace/db";
 import {
   ListVendorsQueryParams,
   ListVendorsResponse,
@@ -18,6 +18,39 @@ import { requireRole } from "../middlewares/auth";
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
 router.use("/vendors", requireRole("manager", "platform_admin", "hq_executive", "accountant"));
+
+// [Task #339] 평가 평균/건수 집계용 서브쿼리.
+const reviewAggSq = db.$with("review_agg").as(
+  db
+    .select({
+      vendorId: vendorReviewsTable.vendorId,
+      avgRating: sql<number | null>`avg(${vendorReviewsTable.rating})`.mapWith(Number).as("avg_rating"),
+      reviewCount: sql<number>`count(*)`.mapWith(Number).as("review_count"),
+    })
+    .from(vendorReviewsTable)
+    .groupBy(vendorReviewsTable.vendorId),
+);
+
+// 단건 vendor 응답에 avgRating·reviewCount 를 채운다.
+// 모든 vendor-반환 엔드포인트가 동일한 응답 모델을 갖도록 보장한다.
+async function enrichVendorAggregates<T extends { id: number }>(
+  vendor: T,
+): Promise<T & { avgRating: number | null; reviewCount: number }> {
+  const [agg] = await db
+    .select({
+      avgRating: sql<number | null>`avg(${vendorReviewsTable.rating})`.mapWith(Number),
+      reviewCount: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(vendorReviewsTable)
+    .where(eq(vendorReviewsTable.vendorId, vendor.id));
+  const reviewCount = agg?.reviewCount ?? 0;
+  return {
+    ...vendor,
+    avgRating: reviewCount > 0 ? (agg?.avgRating ?? null) : null,
+    reviewCount,
+  };
+}
+
 router.get("/vendors", async (req, res): Promise<void> => {
   const params = ListVendorsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -31,12 +64,24 @@ router.get("/vendors", async (req, res): Promise<void> => {
   }
 
   const vendors = await db
-    .select()
+    .with(reviewAggSq)
+    .select({
+      vendor: vendorsTable,
+      avgRating: reviewAggSq.avgRating,
+      reviewCount: reviewAggSq.reviewCount,
+    })
     .from(vendorsTable)
+    .leftJoin(reviewAggSq, eq(reviewAggSq.vendorId, vendorsTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(vendorsTable.name);
 
-  res.json(ListVendorsResponse.parse(vendors));
+  const enriched = vendors.map((row) => ({
+    ...row.vendor,
+    avgRating: row.avgRating ?? null,
+    reviewCount: row.reviewCount ?? 0,
+  }));
+
+  res.json(ListVendorsResponse.parse(enriched));
 });
 
 router.post("/vendors", async (req, res): Promise<void> => {
@@ -104,9 +149,16 @@ router.get("/vendors/recommend", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #339] 추천 업체 응답에도 누적 평가 집계를 포함한다.
   const vendors = await db
-    .select()
+    .with(reviewAggSq)
+    .select({
+      vendor: vendorsTable,
+      avgRating: reviewAggSq.avgRating,
+      reviewCount: reviewAggSq.reviewCount,
+    })
     .from(vendorsTable)
+    .leftJoin(reviewAggSq, eq(reviewAggSq.vendorId, vendorsTable.id))
     .where(
       and(
         eq(vendorsTable.category, params.data.category),
@@ -115,7 +167,12 @@ router.get("/vendors/recommend", async (req, res): Promise<void> => {
     )
     .orderBy(desc(vendorsTable.rating));
 
-  res.json(GetRecommendedVendorsResponse.parse(vendors));
+  const enriched = vendors.map((row) => ({
+    ...row.vendor,
+    avgRating: row.avgRating ?? null,
+    reviewCount: row.reviewCount ?? 0,
+  }));
+  res.json(GetRecommendedVendorsResponse.parse(enriched));
 });
 
 // [Task #132] 파트너사 위저드 완료. 회사 + 사업자등록증 + 분야 저장 후 user.vendorId 연결.
@@ -201,7 +258,8 @@ router.get("/me/vendor", async (req: Request, res: Response): Promise<void> => {
     res.status(404).json({ error: "Vendor not found" });
     return;
   }
-  res.json(UpdateVendorResponse.parse(vendor));
+  // [Task #339] 본인 업체에도 누적 평가 집계를 포함해 일관된 응답 모델을 보장한다.
+  res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
 
 router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> => {
@@ -232,7 +290,7 @@ router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> =>
     res.status(404).json({ error: "Vendor not found" });
     return;
   }
-  res.json(UpdateVendorResponse.parse(vendor));
+  res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
 
 router.post("/vendors/register", async (req, res): Promise<void> => {

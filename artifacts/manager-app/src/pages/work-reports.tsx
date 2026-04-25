@@ -30,6 +30,7 @@ import {
   XCircle,
   Eye,
   Image,
+  Star,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -39,12 +40,16 @@ import {
 } from "@/components/intermediary-disclaimer";
 import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
 import type { OfficialDocumentInput } from "@/lib/official-document";
+import { VendorReviewDialog } from "@/components/vendor-review-dialog";
 
 export default function WorkReports() {
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [reviewId, setReviewId] = useState<number | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // [Task #339] 승인 직후 자동으로 띄울 별점·한줄평 모달.
+  // ratingTargetId 가 set 되면 모달이 열리고, 닫으면 다시 null 로 리셋.
+  const [ratingTargetId, setRatingTargetId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,15 +64,27 @@ export default function WorkReports() {
 
   async function handleReview(status: "approved" | "rejected") {
     if (!reviewId) return;
+    const targetId = reviewId;
     await updateMutation.mutateAsync({
-      id: reviewId,
+      id: targetId,
       data: { status, reviewNotes: reviewNotes || null },
     });
     queryClient.invalidateQueries({ queryKey: getListWorkReportsQueryKey() });
     toast({ title: status === "approved" ? "검수 승인되었습니다" : "검수 반려되었습니다" });
     setReviewId(null);
     setReviewNotes("");
+    // [Task #339] 승인된 경우 협력업체 별점·한줄평 모달을 즉시 띄운다.
+    if (status === "approved") {
+      setRatingTargetId(targetId);
+    }
   }
+
+  // 승인 완료된 보고에 대해 평가 입력/수정 모달을 다시 열기 위한 핸들러.
+  function openReviewForReport(reportId: number) {
+    setRatingTargetId(reportId);
+  }
+
+  const ratingTarget = reports?.find((r: any) => r.id === ratingTargetId);
 
   const statusLabel = (s: string) => {
     switch (s) {
@@ -155,6 +172,17 @@ export default function WorkReports() {
                       >
                         <Eye className="w-3.5 h-3.5 mr-1" />
                         검수
+                      </Button>
+                    )}
+                    {report.status === "approved" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openReviewForReport(report.id)}
+                        data-testid={`work-report-rate-${report.id}`}
+                      >
+                        <Star className="w-3.5 h-3.5 mr-1" />
+                        평가
                       </Button>
                     )}
                   </div>
@@ -265,6 +293,14 @@ export default function WorkReports() {
         onOpenChange={setConfirmOpen}
         onConfirm={() => handleReview("approved")}
         contextRef={reviewId ? `work_report:${reviewId}` : undefined}
+      />
+
+      <VendorReviewDialog
+        open={ratingTargetId !== null}
+        onOpenChange={(o) => { if (!o) setRatingTargetId(null); }}
+        workReportId={ratingTargetId}
+        vendorName={ratingTarget?.vendorName}
+        workReportTitle={ratingTarget?.title}
       />
     </div>
   );

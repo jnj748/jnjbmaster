@@ -120,6 +120,20 @@
       "when": 1777400000000,
       "tag": "0016_task328_building_register_data",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777500000000,
+      "tag": "0017_task335_partner_agreed",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1777600000000,
+      "tag": "0018_task339_vendor_reviews",
+      "breakpoints": true
     }
   ]
 }

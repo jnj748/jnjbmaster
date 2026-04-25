@@ -17,6 +17,8 @@ export const workReportsTable = pgTable("work_reports", {
   status: text("status").notNull().default("submitted"),
   reviewNotes: text("review_notes"),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  // [Task #339] 검수자(승인자) 사용자 ID — 별점 등록 시 본인 검증에 사용한다.
+  reviewerUserId: integer("reviewer_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

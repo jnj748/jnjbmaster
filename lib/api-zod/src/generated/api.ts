@@ -845,6 +845,8 @@ export const ListVendorsQueryParams = zod.object({
   type: zod.enum(["contracted", "platform"]).optional(),
 });
 
+export const listVendorsResponseReviewCountDefault = 0;
+
 export const ListVendorsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -883,6 +885,14 @@ export const ListVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(listVendorsResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -979,6 +989,8 @@ export const UpdateVendorBody = zod.object({
   contractEndDate: zod.coerce.date().nullish(),
 });
 
+export const updateVendorResponseReviewCountDefault = 0;
+
 export const UpdateVendorResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -1017,6 +1029,14 @@ export const UpdateVendorResponse = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(updateVendorResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1034,6 +1054,8 @@ export const DeleteVendorParams = zod.object({
 export const GetRecommendedVendorsQueryParams = zod.object({
   category: zod.coerce.string(),
 });
+
+export const getRecommendedVendorsResponseReviewCountDefault = 0;
 
 export const GetRecommendedVendorsResponseItem = zod.object({
   id: zod.number(),
@@ -1073,6 +1095,14 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(getRecommendedVendorsResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1662,6 +1692,8 @@ export const GetRfqMatchedVendorsParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const getRfqMatchedVendorsResponseReviewCountDefault = 0;
+
 export const GetRfqMatchedVendorsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -1700,6 +1732,14 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.coerce.date().nullish(),
   contractEndDate: zod.coerce.date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(getRfqMatchedVendorsResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2017,6 +2057,114 @@ export const UpdateWorkReportResponse = zod.object({
   status: zod.enum(["submitted", "approved", "rejected"]),
   reviewNotes: zod.string().nullish(),
   reviewedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get the vendor review attached to a work report (if any)
+ */
+export const GetWorkReportReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetWorkReportReviewResponse = zod.object({
+  review: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        vendorId: zod.number(),
+        workReportId: zod.number(),
+        rfqId: zod.number().nullish(),
+        quoteId: zod.number().nullish(),
+        buildingId: zod.number().nullish(),
+        reviewerUserId: zod.number().nullish(),
+        rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
+        comment: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  canEdit: zod.boolean().describe("7일 이내 수정 가능 여부"),
+});
+
+/**
+ * @summary List recent reviews for a vendor (latest first)
+ */
+export const ListVendorReviewsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const listVendorReviewsQueryLimitDefault = 20;
+export const listVendorReviewsQueryOffsetDefault = 0;
+
+export const ListVendorReviewsQueryParams = zod.object({
+  limit: zod.coerce.number().default(listVendorReviewsQueryLimitDefault),
+  offset: zod.coerce.number().default(listVendorReviewsQueryOffsetDefault),
+});
+
+export const ListVendorReviewsResponseItem = zod
+  .object({
+    id: zod.number(),
+    vendorId: zod.number(),
+    workReportId: zod.number(),
+    rfqId: zod.number().nullish(),
+    quoteId: zod.number().nullish(),
+    buildingId: zod.number().nullish(),
+    reviewerUserId: zod.number().nullish(),
+    rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
+    comment: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      buildingName: zod.string().nullish(),
+      workReportTitle: zod.string().nullish(),
+      reviewerName: zod.string().nullish(),
+    }),
+  );
+export const ListVendorReviewsResponse = zod.array(
+  ListVendorReviewsResponseItem,
+);
+
+/**
+ * @summary Create a vendor review for an approved work report
+ */
+export const createVendorReviewBodyRatingMax = 5;
+
+export const CreateVendorReviewBody = zod.object({
+  workReportId: zod.number(),
+  rating: zod.number().min(1).max(createVendorReviewBodyRatingMax),
+  comment: zod.string().nullish(),
+});
+
+/**
+ * @summary Update an existing vendor review (within 7 days)
+ */
+export const UpdateVendorReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateVendorReviewBodyRatingMax = 5;
+
+export const UpdateVendorReviewBody = zod.object({
+  rating: zod.number().min(1).max(updateVendorReviewBodyRatingMax).optional(),
+  comment: zod.string().nullish(),
+});
+
+export const UpdateVendorReviewResponse = zod.object({
+  id: zod.number(),
+  vendorId: zod.number(),
+  workReportId: zod.number(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  buildingId: zod.number().nullish(),
+  reviewerUserId: zod.number().nullish(),
+  rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
+  comment: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
