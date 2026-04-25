@@ -712,9 +712,15 @@ export default function Rfqs() {
                         </table>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        아직 제출된 견적이 없습니다
-                      </p>
+                      // [Task #388] 제출된 견적이 0건인 경우에도 비교 견적 유도 카드 노출.
+                      <EmptyQuoteRfqSuggestion
+                        variant="rfqs-page-submitted"
+                        fallback={
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            아직 제출된 견적이 없습니다
+                          </p>
+                        }
+                      />
                     )}
                   </div>
                 )}
