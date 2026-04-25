@@ -45,9 +45,26 @@ const FALLBACK_SUGGESTED_PROMPTS = [
 ];
 
 const INSUFFICIENT_INFO_PREFIX = "현재 입력된 정보가 적어 답변이 어렵습니다";
+const GENERAL_NOTICE_LABEL = "(일반 안내)";
 
 function isInsufficientInfoAnswer(content: string): boolean {
   return content.trimStart().startsWith(INSUFFICIENT_INFO_PREFIX);
+}
+
+/**
+ * 답변 본문 끝의 "(일반 안내) ..." 안내문을 분리해 본문과 출처 라벨로 나눈다.
+ * 라벨 위치는 본문 마지막 줄(또는 문단 끝)이며, 시스템 프롬프트가 한국어 라벨로
+ * 강제 출력하도록 지시한다. 라벨이 없으면 body 만 그대로 반환한다.
+ */
+function splitGeneralNotice(content: string): { body: string; notice: string | null } {
+  const trimmed = content.replace(/\s+$/, "");
+  const idx = trimmed.lastIndexOf(GENERAL_NOTICE_LABEL);
+  if (idx === -1) return { body: content, notice: null };
+  // 마지막 라벨 이후 줄바꿈이 없어야 "끝에 붙은 라벨"로 인정한다 (본문 중간 인용 회피).
+  const afterLabel = trimmed.slice(idx);
+  if (afterLabel.includes("\n")) return { body: content, notice: null };
+  const body = trimmed.slice(0, idx).replace(/\s+$/, "");
+  return { body, notice: afterLabel };
 }
 
 const CITATION_TYPE_LABELS: Record<string, string> = {
@@ -343,6 +360,11 @@ function MessageBubble({
     !isStreamingPlaceholder &&
     !!message.content &&
     isInsufficientInfoAnswer(message.content);
+  // 답변 끝에 붙는 "(일반 안내) ..." 출처 라벨은 본문보다 옅게 표시해
+  // 일반 지식 답변임을 자연스럽게 구분한다. 사용자 입력에는 적용하지 않는다.
+  const { body: bodyText, notice } = !isUser && message.content
+    ? splitGeneralNotice(message.content)
+    : { body: message.content, notice: null };
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <Card className={`max-w-[80%] ${isUser ? "bg-primary text-primary-foreground" : ""}`}>
@@ -352,9 +374,19 @@ function MessageBubble({
               <Loader2 className="h-3 w-3 animate-spin" /> 정성껏 답변을 준비하고 있어요…
             </div>
           ) : (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed" data-testid={isUser ? "message-user" : "message-assistant"}>
-              {message.content}
-            </p>
+            <>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed" data-testid={isUser ? "message-user" : "message-assistant"}>
+                {bodyText}
+              </p>
+              {notice && (
+                <p
+                  className="whitespace-pre-wrap text-xs text-muted-foreground leading-snug"
+                  data-testid="message-general-notice"
+                >
+                  {notice}
+                </p>
+              )}
+            </>
           )}
           {hasCitations && (
             <div className="flex flex-wrap gap-1 pt-2 border-t border-border/40">

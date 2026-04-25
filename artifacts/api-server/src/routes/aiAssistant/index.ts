@@ -9,7 +9,13 @@ import {
 } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { requireRole } from "../../middlewares/auth";
-import { buildBuildingContext, buildSystemPrompt } from "./context";
+import {
+  buildBuildingContext,
+  buildSystemPrompt,
+  GENERAL_NOTICE_LABEL,
+  GENERAL_NOTICE_LINE,
+  INSUFFICIENT_INFO_PREFIX,
+} from "./context";
 
 const router: IRouter = Router();
 
@@ -108,7 +114,14 @@ class ParenSanitizer {
   }
 }
 
-export const __test = { stripEnglishKeyParens, ParenSanitizer };
+export const __test = {
+  stripEnglishKeyParens,
+  ParenSanitizer,
+  buildSystemPrompt,
+  GENERAL_NOTICE_LABEL,
+  GENERAL_NOTICE_LINE,
+  INSUFFICIENT_INFO_PREFIX,
+};
 
 async function getUserBuildingId(userId: number): Promise<number | null> {
   const u = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
