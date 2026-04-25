@@ -19,12 +19,14 @@ export function DesktopOnly({ children }: { children: ReactNode }) {
 
 export type KpiHighlight = "default" | "warn" | "danger" | "good" | "info";
 
+// [사용자 요청 2026-04] 배경색 과다로 시각 피로 — KPI 카드 배경은 모두 화이트로
+// 통일하고 강조는 보더 색상으로만 표현한다. (이전: bg-amber-50 / bg-red-50 등)
 const HIGHLIGHT_STYLES: Record<KpiHighlight, string> = {
   default: "border-border bg-card",
-  warn: "border-amber-200 bg-amber-50",
-  danger: "border-red-200 bg-red-50",
-  good: "border-emerald-200 bg-emerald-50",
-  info: "border-blue-200 bg-blue-50",
+  warn: "border-amber-200 bg-card",
+  danger: "border-red-200 bg-card",
+  good: "border-emerald-200 bg-card",
+  info: "border-blue-200 bg-card",
 };
 
 export interface KpiItem {
@@ -58,8 +60,10 @@ export function MobileKpiStrip({ items }: { items: KpiItem[] }) {
             data-testid={`mobile-kpi-${it.key}`}
             onClick={it.onClick}
           >
-            <span className={`p-1.5 rounded ${it.iconBg ?? "bg-muted"} shrink-0`}>
-              <Icon className={`w-3.5 h-3.5 ${it.iconClass ?? "text-foreground"}`} />
+            {/* [사용자 요청] 아이콘 컨테이너 배경(bg-chart-N / bg-rose-N 등) 제거.
+                색은 아이콘 자체로만 표현해 시각 노이즈 최소화. */}
+            <span className="p-1.5 shrink-0">
+              <Icon className={`w-4 h-4 ${it.iconClass && it.iconClass !== "text-white" ? it.iconClass : "text-foreground"}`} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] text-muted-foreground leading-tight truncate">{it.label}</p>

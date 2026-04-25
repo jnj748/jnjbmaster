@@ -23,8 +23,10 @@ export default function DelinquencySummaryWidget() {
 
   const detected = data.totalOverdue - data.notified - data.parkingSuspended;
 
+  // [사용자 요청 2026-04] 위젯 배경 화이트 통일. 강조는 보더(border-red-200)와
+  // 아이콘/텍스트/배지 색상만 사용. 하위 3개 셀도 화이트 + 보더만.
   return (
-    <Card className="border-red-200 bg-red-50">
+    <Card className="border-red-200 bg-card">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -43,15 +45,15 @@ export default function DelinquencySummaryWidget() {
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white rounded-lg p-2 text-center border border-red-100">
+          <div className="bg-card rounded-lg p-2 text-center border border-red-100">
             <p className="text-lg font-bold text-red-700">{detected}</p>
             <p className="text-[10px] text-red-600">감지됨</p>
           </div>
-          <div className="bg-white rounded-lg p-2 text-center border border-orange-100">
+          <div className="bg-card rounded-lg p-2 text-center border border-orange-100">
             <p className="text-lg font-bold text-orange-600">{data.notified}</p>
             <p className="text-[10px] text-orange-500">독촉 발송</p>
           </div>
-          <div className="bg-white rounded-lg p-2 text-center border border-red-100">
+          <div className="bg-card rounded-lg p-2 text-center border border-red-100">
             <p className="text-lg font-bold text-red-800">
               {data.parkingSuspended}
             </p>

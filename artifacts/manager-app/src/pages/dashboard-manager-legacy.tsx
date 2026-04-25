@@ -259,14 +259,14 @@ function AlertSection({
                       key={alert.id}
                       role={isInteractive ? "button" : undefined}
                       tabIndex={isInteractive ? 0 : undefined}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors border-l-4 ${
+                      className={`flex items-center gap-3 p-3 rounded-lg border bg-card transition-colors border-l-4 ${
                         isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
                       } ${
                         trafficColor === "red"
-                          ? "border-l-red-500 bg-red-50/40"
+                          ? "border-l-red-500"
                           : trafficColor === "yellow"
-                          ? "border-l-yellow-400 bg-yellow-50/30"
-                          : "border-l-green-500 bg-green-50/20"
+                          ? "border-l-yellow-400"
+                          : "border-l-green-500"
                       }`}
                       onClick={() => isInteractive && onAlertClick(alert)}
                       onKeyDown={(e) => {
@@ -1050,7 +1050,7 @@ export default function Dashboard() {
           위젯으로 분리되어 셸이 렌더링한다. */}
 
       {pendingCardCount > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
+        <div className="bg-card border border-orange-200 rounded-lg p-3 space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-orange-600" />
@@ -1103,7 +1103,7 @@ export default function Dashboard() {
           추출되어 카탈로그의 별도 위젯으로 렌더링된다. */}
 
       {analytics && analytics.dataDestructionCount > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className="bg-card border border-red-200 rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trash2 className="w-4 h-4 text-red-600" />
