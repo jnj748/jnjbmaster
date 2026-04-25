@@ -37,6 +37,19 @@ const SUGGESTED_PROMPTS = [
   "3개월 내 해야하는 법정점검은?",
 ];
 
+const FALLBACK_SUGGESTED_PROMPTS = [
+  "우리 건물 준공일?",
+  "최근 2개월간 가장 자주 발생한 민원은?",
+  "우리 건물 소방안전관리자 선임 기준은?",
+  "3개월 내 해야하는 법정점검은?",
+];
+
+const INSUFFICIENT_INFO_PREFIX = "현재 입력된 정보가 적어 답변이 어렵습니다";
+
+function isInsufficientInfoAnswer(content: string): boolean {
+  return content.trimStart().startsWith(INSUFFICIENT_INFO_PREFIX);
+}
+
 const CITATION_TYPE_LABELS: Record<string, string> = {
   warranty: "보증",
   maintenance_log: "시설일지",
@@ -260,7 +273,12 @@ export default function AiAssistantPage() {
           )}
 
           {messages.map(msg => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              onSuggestionClick={sendMessage}
+              suggestionsDisabled={streaming}
+            />
           ))}
 
           {streaming && (
@@ -272,6 +290,9 @@ export default function AiAssistantPage() {
                 citations: streamedCitations,
               }}
               isStreaming={!streamedText}
+              isStreamingPlaceholder
+              onSuggestionClick={sendMessage}
+              suggestionsDisabled={streaming}
             />
           )}
         </div>
@@ -302,8 +323,26 @@ export default function AiAssistantPage() {
   );
 }
 
-function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStreaming?: boolean }) {
+function MessageBubble({
+  message,
+  isStreaming,
+  isStreamingPlaceholder,
+  onSuggestionClick,
+  suggestionsDisabled,
+}: {
+  message: ChatMessage;
+  isStreaming?: boolean;
+  isStreamingPlaceholder?: boolean;
+  onSuggestionClick?: (text: string) => void;
+  suggestionsDisabled?: boolean;
+}) {
   const isUser = message.role === "user";
+  const hasCitations = !isUser && message.citations && message.citations.length > 0;
+  const showFallbackSuggestions =
+    !isUser &&
+    !isStreamingPlaceholder &&
+    !!message.content &&
+    isInsufficientInfoAnswer(message.content);
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <Card className={`max-w-[80%] ${isUser ? "bg-primary text-primary-foreground" : ""}`}>
@@ -317,31 +356,47 @@ function MessageBubble({ message, isStreaming }: { message: ChatMessage; isStrea
               {message.content}
             </p>
           )}
-          {!isStreaming && !isUser && (
+          {hasCitations && (
             <div className="flex flex-wrap gap-1 pt-2 border-t border-border/40">
-              {message.citations && message.citations.length > 0 ? (
-                message.citations.map((c, i) => {
-                  const href = CITATION_TYPE_HREFS[c.type] ?? null;
-                  const label = `${CITATION_TYPE_LABELS[c.type] ?? c.type} · ${c.label}`;
-                  const testId = `citation-${c.type}-${c.id}`;
-                  if (href) {
-                    return (
-                      <Link key={`${c.type}-${c.id}-${i}`} href={href} data-testid={testId}>
-                        <Badge variant="secondary" className="text-xs cursor-pointer hover-elevate">
-                          {label}
-                        </Badge>
-                      </Link>
-                    );
-                  }
+              {message.citations.map((c, i) => {
+                const href = CITATION_TYPE_HREFS[c.type] ?? null;
+                const label = `${CITATION_TYPE_LABELS[c.type] ?? c.type} · ${c.label}`;
+                const testId = `citation-${c.type}-${c.id}`;
+                if (href) {
                   return (
-                    <Badge key={`${c.type}-${c.id}-${i}`} variant="secondary" className="text-xs" data-testid={testId}>
-                      {label}
-                    </Badge>
+                    <Link key={`${c.type}-${c.id}-${i}`} href={href} data-testid={testId}>
+                      <Badge variant="secondary" className="text-xs cursor-pointer hover-elevate">
+                        {label}
+                      </Badge>
+                    </Link>
                   );
-                })
-              ) : (
-                <span className="text-xs text-muted-foreground" data-testid="citations-empty">이번엔 참고할 자료가 없어요</span>
-              )}
+                }
+                return (
+                  <Badge key={`${c.type}-${c.id}-${i}`} variant="secondary" className="text-xs" data-testid={testId}>
+                    {label}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          {showFallbackSuggestions && (
+            <div className="space-y-2 pt-2 border-t border-border/40" data-testid="fallback-suggestions">
+              <p className="text-xs text-muted-foreground">이런 내용은 어떠신가요?</p>
+              <div className="grid gap-2">
+                {FALLBACK_SUGGESTED_PROMPTS.map(p => (
+                  <Button
+                    key={p}
+                    variant="outline"
+                    size="sm"
+                    className="text-left justify-start whitespace-normal h-auto py-2"
+                    disabled={suggestionsDisabled || !onSuggestionClick}
+                    onClick={() => onSuggestionClick?.(p)}
+                    data-testid={`fallback-suggestion-${p}`}
+                  >
+                    {p}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
