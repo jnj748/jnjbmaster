@@ -245,12 +245,6 @@ export default function Login() {
               </div>
             </div>
 
-            {isBuilding && (
-              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs leading-snug">
-                집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
-              </div>
-            )}
-
             {isHq && (
               <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs leading-snug">
                 본사 · 플랫폼 전용 포털
