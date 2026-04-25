@@ -164,34 +164,53 @@ interface DashboardAlert {
   createdAt: string;
 }
 
-// [Task #184] Renders one alert section (필수업무현황/제안업무현황). The
-// pagination, swipe and click-to-action behavior is identical between
-// the two sections; only the source array and copy differ. Keep the
-// page size at 2 — task spec narrows the previous "3 per page" layout.
+// [Task #184 → #331] Renders one alert section (필수업무현황/제안업무현황).
+// - Always pads to PAGE_SIZE (2) slots so layout height stays constant
+//   regardless of card count (0/1/2/3+).
+// - Title shows description text inline + count badge.
+// - Traffic light: green ≥30d, yellow 7~29d, red <7d or overdue.
+type AlertSlot =
+  | { kind: "alert"; alert: DashboardAlert }
+  | { kind: "placeholder"; message?: string };
+
 function AlertSection({
   title,
+  description,
   icon: Icon,
   iconClassName,
   alerts,
   loading,
-  emptyMessage,
+  placeholderZero,
+  placeholderOne,
   onAlertClick,
 }: {
   title: string;
+  description: string;
   icon: React.ElementType;
   iconClassName: string;
   alerts: DashboardAlert[];
   loading: boolean;
-  emptyMessage: string;
+  placeholderZero: string;
+  placeholderOne: string;
   onAlertClick: (alert: DashboardAlert) => void;
 }) {
   const PAGE_SIZE = 2;
-  const [page, setPage] = useState(0);
-  const pages = Array.from(
-    { length: Math.ceil(alerts.length / PAGE_SIZE) },
-    (_, i) => alerts.slice(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE),
+  const slots: AlertSlot[] = alerts.map((alert) => ({ kind: "alert" as const, alert }));
+  if (alerts.length === 0) {
+    slots.push({ kind: "placeholder", message: placeholderZero });
+    slots.push({ kind: "placeholder" });
+  } else if (alerts.length === 1) {
+    slots.push({ kind: "placeholder", message: placeholderOne });
+  } else if (alerts.length % 2 === 1) {
+    // Pad last page so it still occupies 2 rows of vertical space.
+    slots.push({ kind: "placeholder" });
+  }
+  const pages: AlertSlot[][] = Array.from(
+    { length: Math.ceil(slots.length / PAGE_SIZE) },
+    (_, i) => slots.slice(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE),
   );
   const totalPages = pages.length;
+  const [page, setPage] = useState(0);
   // Reset to first page when alert count changes (e.g. after action).
   useEffect(() => {
     if (page > 0 && page >= totalPages) setPage(0);
@@ -199,18 +218,19 @@ function AlertSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-base font-bold flex items-center gap-2">
-            <Icon className={`w-4 h-4 ${iconClassName}`} />
-            {title}
-            {alerts.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground ml-1">
-                총 {alerts.length}건
-              </span>
-            )}
-          </h2>
-        </div>
+      <div className="flex items-center justify-between mb-3 gap-2 min-w-0">
+        <h2 className="text-base font-bold flex items-center gap-2 min-w-0 flex-1">
+          <Icon className={`w-4 h-4 shrink-0 ${iconClassName}`} />
+          <span className="shrink-0">{title}</span>
+          <span className="text-xs font-normal text-muted-foreground truncate min-w-0">
+            {description}
+          </span>
+          {alerts.length > 0 && (
+            <span className="text-xs font-normal text-muted-foreground shrink-0">
+              총 {alerts.length}건
+            </span>
+          )}
+        </h2>
       </div>
       {loading ? (
         <div className="space-y-2">
@@ -218,7 +238,7 @@ function AlertSection({
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}
         </div>
-      ) : alerts.length > 0 ? (
+      ) : (
         <div
           className="overflow-hidden relative"
           onTouchStart={(e) => {
@@ -240,15 +260,32 @@ function AlertSection({
             className="flex transition-transform duration-300 ease-in-out"
             style={{ transform: `translateX(-${page * 100}%)` }}
           >
-            {pages.map((pageAlerts, pi) => (
+            {pages.map((pageSlots, pi) => (
               <div key={pi} className="w-full shrink-0 space-y-2 px-0.5">
-                {pageAlerts.map((alert) => {
+                {pageSlots.map((slot, si) => {
+                  if (slot.kind === "placeholder") {
+                    return (
+                      <div
+                        key={`ph-${pi}-${si}`}
+                        className="flex items-center justify-center p-3 rounded-lg border border-dashed bg-muted/20 min-h-[64px]"
+                        aria-hidden={slot.message ? undefined : true}
+                      >
+                        {slot.message && (
+                          <p className="text-xs text-muted-foreground text-center whitespace-pre-line leading-relaxed">
+                            {slot.message}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+                  const alert = slot.alert;
                   const dday = getDdayLabel(alert.dueDate ?? null);
-                  const trafficColor = dday.isOverdue
-                    ? "red"
-                    : dday.days !== null && dday.days <= 30
-                    ? "yellow"
-                    : "green";
+                  const trafficColor =
+                    dday.isOverdue || (dday.days !== null && dday.days < 7)
+                      ? "red"
+                      : dday.days !== null && dday.days < 30
+                      ? "yellow"
+                      : "green";
                   const isInteractive =
                     (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
                     alert.type === "data_destruction" ||
@@ -259,7 +296,7 @@ function AlertSection({
                       key={alert.id}
                       role={isInteractive ? "button" : undefined}
                       tabIndex={isInteractive ? 0 : undefined}
-                      className={`flex items-center gap-3 p-3 rounded-lg border bg-card transition-colors border-l-4 ${
+                      className={`flex items-center gap-3 p-3 rounded-lg border bg-card transition-colors border-l-4 min-h-[64px] ${
                         isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
                       } ${
                         trafficColor === "red"
@@ -329,12 +366,6 @@ function AlertSection({
             </div>
           )}
         </div>
-      ) : (
-        <Card>
-          <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
@@ -940,20 +971,24 @@ export default function Dashboard() {
         <div className="space-y-3">
           <AlertSection
             title="필수업무"
+            description="필수업무는 법적으로 반드시 처리해야하는 업무입니다."
             icon={ClipboardCheck}
             iconClassName="text-chart-3"
             alerts={legalAlerts}
             loading={alertsLoading}
-            emptyMessage="처리할 필수업무가 없습니다"
+            placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
+            placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
             onAlertClick={handleAlertClick}
           />
           <AlertSection
             title="제안업무"
+            description="지금 시기 처리하면 좋은 관리업무입니다."
             icon={ListChecks}
             iconClassName="text-chart-2"
             alerts={proposedAlerts}
             loading={alertsLoading}
-            emptyMessage="제안할 업무가 없습니다"
+            placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
+            placeholderOne="제안 업무가 1개만 남았습니다. 남은 업무를 처리해보면 어떨까요? 소장님"
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
@@ -966,25 +1001,29 @@ export default function Dashboard() {
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           건물 미등록 시 안내 링크는 building-info-widget 이 담당한다. */}
 
-      {/* [Task #184] 필수업무현황 — legal 점검 + 비점검 알림 */}
+      {/* [Task #184 → #331] 필수업무현황 — legal 점검 + 비점검 알림 */}
       <AlertSection
         title="필수업무현황"
+        description="필수업무는 법적으로 반드시 처리해야하는 업무입니다."
         icon={ClipboardCheck}
         iconClassName="text-chart-3"
         alerts={legalAlerts}
         loading={alertsLoading}
-        emptyMessage="현재 처리할 필수업무가 없습니다"
+        placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
+        placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
         onAlertClick={handleAlertClick}
       />
 
-      {/* [Task #184] 제안업무현황 — 자체/격주/계절/행정 점검 */}
+      {/* [Task #184 → #331] 제안업무현황 — 자체/격주/계절/행정 점검 */}
       <AlertSection
         title="제안업무현황"
+        description="지금 시기 처리하면 좋은 관리업무입니다."
         icon={ListChecks}
         iconClassName="text-chart-2"
         alerts={proposedAlerts}
         loading={alertsLoading}
-        emptyMessage="현재 제안할 업무가 없습니다"
+        placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
+        placeholderOne="제안 업무가 1개만 남았습니다. 남은 업무를 처리해보면 어떨까요? 소장님"
         onAlertClick={handleAlertClick}
       />
 
