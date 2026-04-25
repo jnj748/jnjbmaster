@@ -66,6 +66,22 @@ router.get("/inspections/presets", async (_req, res): Promise<void> => {
     presets = await db.select().from(legalInspectionPresetsTable);
   }
 
+  let subItemsChanged = false;
+  for (const row of presets) {
+    const source = LEGAL_PRESETS.find((p) => p.name === row.name);
+    if (!source) continue;
+    if ((source.subItems ?? null) !== (row.subItems ?? null)) {
+      await db
+        .update(legalInspectionPresetsTable)
+        .set({ subItems: source.subItems ?? null })
+        .where(eq(legalInspectionPresetsTable.id, row.id));
+      subItemsChanged = true;
+    }
+  }
+  if (subItemsChanged) {
+    presets = await db.select().from(legalInspectionPresetsTable);
+  }
+
   res.json(ListInspectionPresetsResponse.parse(presets));
 });
 

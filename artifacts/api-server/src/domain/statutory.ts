@@ -406,7 +406,7 @@ export const LEGAL_PRESETS = [
     description: "퇴거 후 관리비 정산 완료 시점부터 3년 보관",
     legalBasis: "개인정보보호법, 관리규약",
     recommendedMonths: null,
-    subItems: JSON.stringify(["퇴거자 카드 정리", "보관 기한 확인", "개인정보 파기"]),
+    subItems: JSON.stringify(["퇴거자 카드 정리", "보관 기한 확인"]),
     seasonalNotes: null,
     penaltyInfo: null,
   },
