@@ -59,6 +59,7 @@ export const EMPTY_BUILDING: BuildingData = {
   electricCapacityKw: "",
   gasUsageMonthly: "",
   approvalDate: "",
+  registerData: null,
 };
 
 export function useBuildingSetup() {
@@ -228,6 +229,9 @@ export function useBuildingSetup() {
           gasUsageMonthly: data.building.gasUsageMonthly || "",
           approvalDate: data.building.approvalDate || "",
           addressLocked: data.building.addressLocked || false,
+          // [Task #328] 기존 건물의 표제부 원본 데이터를 위저드 상태로 복원해
+          // 재저장 시 누락되지 않도록 한다(재조회를 하지 않은 경우 보존).
+          registerData: data.building.registerData || null,
         });
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
@@ -332,6 +336,15 @@ export function useBuildingSetup() {
 
       if (result.found && result.data) {
         const d = result.data;
+        // [Task #328] 표제부/총괄표제부 응답 원본도 함께 보관해 저장 시 buildings.register_data
+        // 컬럼에 담길 수 있게 한다. raw 가 비는 경우(서버 폴백)는 null 처리.
+        const rawFromServer = (result as { raw?: { title?: unknown; recap?: unknown } }).raw;
+        const nextRegisterData = rawFromServer && (rawFromServer.title || rawFromServer.recap)
+          ? {
+              title: (rawFromServer.title as Record<string, unknown> | null) ?? null,
+              recap: (rawFromServer.recap as Record<string, unknown> | null) ?? null,
+            }
+          : null;
         setRegisterPreview(d);
         setBuilding((prev) => ({
           ...prev,
@@ -353,6 +366,7 @@ export function useBuildingSetup() {
           buildingArea: d.buildingArea || prev.buildingArea,
           buildingCoverageRatio: d.buildingCoverageRatio || prev.buildingCoverageRatio,
           floorAreaRatio: d.floorAreaRatio || prev.floorAreaRatio,
+          registerData: nextRegisterData ?? prev.registerData ?? null,
         }));
 
         toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
@@ -455,6 +469,8 @@ export function useBuildingSetup() {
         ...building,
         safetyManagerRequired: safetyResult?.safetyManagerRequired || false,
         safetyManagerType: safetyResult?.safetyManagerType || null,
+        // [Task #328] 건축물대장 표제부 원본을 함께 전송해 buildings.register_data 컬럼에 저장.
+        registerData: building.registerData ?? null,
       };
 
       const res = await fetch(url, {

@@ -175,6 +175,8 @@ const BUILDING_BOOL_FIELDS = [
 const BUILDING_BOOL_DEFAULTS: Record<string, boolean> = {
   hasPlayground: false, hasGas: true, hasSepticTank: true, safetyManagerRequired: false,
 };
+// [Task #328] 건축물대장 표제부/총괄표제부 원본을 통째로 저장하는 jsonb 필드.
+const BUILDING_JSON_FIELDS = ["registerData"] as const;
 
 function buildBuildingInsertValues(data: Record<string, unknown>): Record<string, unknown> {
   const v: Record<string, unknown> = { name: data.name };
@@ -182,6 +184,9 @@ function buildBuildingInsertValues(data: Record<string, unknown>): Record<string
   for (const f of BUILDING_INT_FIELDS) v[f] = data[f] ? parseInt(String(data[f])) : null;
   for (const f of BUILDING_NUMERIC_FIELDS) v[f] = data[f] || null;
   for (const f of BUILDING_BOOL_FIELDS) v[f] = data[f] ?? BUILDING_BOOL_DEFAULTS[f];
+  for (const f of BUILDING_JSON_FIELDS) {
+    if (data[f] !== undefined && data[f] !== null) v[f] = data[f];
+  }
   return v;
 }
 
@@ -198,6 +203,9 @@ function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string
     if (data[f] !== undefined) v[f] = data[f] || null;
   }
   for (const f of BUILDING_BOOL_FIELDS) {
+    if (data[f] !== undefined) v[f] = data[f];
+  }
+  for (const f of BUILDING_JSON_FIELDS) {
     if (data[f] !== undefined) v[f] = data[f];
   }
   return v;
@@ -585,6 +593,13 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
 
     const buildingInfo = {
       found: true,
+      // [Task #328] 표제부/총괄표제부 응답 원본을 그대로 전달해 클라이언트가
+      // 신규 항목(지붕/높이/에너지등급/내진설계/부속건축물/허가일·착공일/주차 상세 등)을
+      // 잃지 않고 저장·표시할 수 있게 한다. 기존 평탄화 필드(data.*)는 하위 호환 유지.
+      raw: {
+        title: titleItem || null,
+        recap: recapItem || null,
+      },
       data: {
         buildingName: t.bldNm || r.bldNm || "",
         mainPurpose: t.mainPurpsCdNm || t.etcPurps || r.mainPurpsCdNm || "",

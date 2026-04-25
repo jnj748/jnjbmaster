@@ -86,6 +86,12 @@ interface BuildingState {
   elevatorCount: string;
   parkingSpaces: string;
   logoUrl: string | null;
+  // [Task #328] 표제부/총괄표제부 응답 원본. 위저드 lookup-register 응답에서
+  // raw 를 받아 두었다가 건물 저장 payload 에 함께 보내 buildings.register_data 에 보관한다.
+  registerData?: {
+    title?: Record<string, unknown> | null;
+    recap?: Record<string, unknown> | null;
+  } | null;
 }
 
 interface SafetyField {
@@ -122,6 +128,7 @@ const EMPTY: BuildingState = {
   elevatorCount: "",
   parkingSpaces: "",
   logoUrl: null,
+  registerData: null,
 };
 
 const INS_DEFS: Record<string, { category: string; name: string; title: string; help: string }> = {
@@ -225,6 +232,10 @@ export default function ManagerWizardPage() {
       elevatorCount: b.elevatorCount != null ? String(b.elevatorCount) : prev.elevatorCount,
       parkingSpaces: b.parkingSpaces != null ? String(b.parkingSpaces) : prev.parkingSpaces,
       logoUrl: (b.logoUrl as string) ?? prev.logoUrl,
+      // [Task #328] 기존 building_register_data 를 보존한다. lookup-register 를 다시
+      // 실행하지 않은 채 위저드를 저장해도 raw 응답이 사라지지 않도록 한다.
+      registerData:
+        (b.registerData as BuildingState["registerData"]) ?? prev.registerData ?? null,
     }));
   }
 
@@ -311,6 +322,14 @@ export default function ManagerWizardPage() {
         const j = await r.json();
         if (j?.found && j.data) {
           const x = j.data;
+          // [Task #328] 표제부/총괄표제부 응답 원본도 함께 보관해 저장 시 함께 전송한다.
+          const rawFromServer = (j as { raw?: { title?: unknown; recap?: unknown } }).raw;
+          const nextRegisterData = rawFromServer && (rawFromServer.title || rawFromServer.recap)
+            ? {
+                title: (rawFromServer.title as Record<string, unknown> | null) ?? null,
+                recap: (rawFromServer.recap as Record<string, unknown> | null) ?? null,
+              }
+            : null;
           merged = {
             ...merged,
             name: x.buildingName || merged.name,
@@ -327,6 +346,7 @@ export default function ManagerWizardPage() {
               : merged.completionDate,
             elevatorCount: x.elevatorCount ? String(x.elevatorCount) : merged.elevatorCount,
             parkingSpaces: x.parkingCount ? String(x.parkingCount) : merged.parkingSpaces,
+            registerData: nextRegisterData ?? merged.registerData ?? null,
           };
         }
       }
@@ -370,6 +390,8 @@ export default function ManagerWizardPage() {
         parkingSpaces: merged.parkingSpaces ? Number(merged.parkingSpaces) : null,
         safetyManagerRequired: safetyJson?.safetyManagerRequired ?? false,
         safetyManagerType: safetyJson?.safetyManagerType ?? null,
+        // [Task #328] 표제부/총괄표제부 응답 원본을 함께 전송해 buildings.register_data 컬럼에 저장한다.
+        registerData: merged.registerData ?? null,
       };
       const method = merged.id ? "PUT" : "POST";
       const url = merged.id ? `${API_BASE}/buildings/${merged.id}` : `${API_BASE}/buildings`;

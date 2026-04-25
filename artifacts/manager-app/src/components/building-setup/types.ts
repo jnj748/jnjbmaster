@@ -31,6 +31,12 @@ export interface BuildingData {
   approvalDate: string;
   areaBasis?: string | null;
   addressLocked?: boolean;
+  // [Task #328] 표제부/총괄표제부 응답 원본. 위저드에서 조회 시 받아 두었다가
+  // 저장 시 함께 전송해 buildings.register_data 컬럼에 보관한다.
+  registerData?: {
+    title?: Record<string, unknown> | null;
+    recap?: Record<string, unknown> | null;
+  } | null;
 }
 
 export interface AppointmentField {

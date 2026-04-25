@@ -29,6 +29,15 @@ export const PREMIUM_FEATURES: BuildingFeatures = {
   eVoting: true,
 };
 
+// [Task #328] 건축물대장 표제부/총괄표제부 응답 원본 보관 형식.
+// title=표제부(getBrTitleInfo), recap=총괄표제부(getBrRecapTitleInfo) 응답의
+// items.item 원본 객체를 그대로 저장한다. 정부 API 스키마 변동 시에도 누락 없이
+// 보존되도록 키 이름은 변환하지 않는다. lookup-register API의 raw 필드와 형태가 동일.
+export type BuildingRegisterData = {
+  title?: Record<string, unknown> | null;
+  recap?: Record<string, unknown> | null;
+};
+
 export const buildingsTable = pgTable("buildings", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -73,6 +82,9 @@ export const buildingsTable = pgTable("buildings", {
   pricePerUnit: integer("price_per_unit").notNull().default(200),
   plan: text("plan").notNull().default("basic").$type<"basic" | "premium" | "enterprise">(),
   featuresEnabled: jsonb("features_enabled").$type<BuildingFeatures>().notNull().default(BASIC_FEATURES),
+  // [Task #328] 표제부/총괄표제부 응답 원본을 그대로 보관해 신규 항목(지붕/높이/에너지등급/
+  // 내진설계/부속건축물/허가일·착공일/주차 상세 등)을 잃지 않고 상세 화면에서 활용한다.
+  registerData: jsonb("register_data").$type<BuildingRegisterData>(),
   isActive: boolean("is_active").notNull().default(true),
   isReadOnly: boolean("is_read_only").notNull().default(false),
   billingDay: integer("billing_day").notNull().default(1),
