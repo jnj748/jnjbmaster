@@ -12,9 +12,8 @@ import {
   // [Task #142] useGetDelinquencySummary, useListApprovals 는 공유 위젯
   // (delinquency-summary-widget / pending-approvals-widget)으로 분리되어
   // 이 페이지에서는 더 이상 사용하지 않는다.
-  // [Task #327] 모바일 컴팩트 KPI 에서는 같은 useGetDelinquencySummary 를
-  // 다시 사용한다 — React Query 가 cache 공유로 중복 호출을 dedupe.
-  useGetDelinquencySummary,
+  // [Task #358] 모바일 KPI 4종(연체 세대 등)은 제거되어 더 이상 매니저 대시보드에서
+  // useGetDelinquencySummary 를 직접 호출하지 않는다.
   getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
   type CreateRfqBody,
@@ -77,14 +76,19 @@ import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-reque
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
 // 위젯 카탈로그를 통해 렌더링된다.
 import { Printer } from "lucide-react";
-// [Task #327] 모바일 컴팩트 KPI/탭 위젯 — ≤899px 한 화면 압축
+// [Task #327] 모바일 컴팩트 위젯 — ≤899px 한 화면 압축
+// [Task #358] 모바일 첫 화면의 2×2 KPI 묶음을 제거하면서 MobileKpiStrip / KpiItem
+// 의존성도 함께 정리한다. (MobileKpiStrip 자체는 다른 역할 대시보드가 아직 사용
+// 하지 않으므로 mobile-compact.tsx 에 그대로 남겨 둔다.)
 import {
   MobileOnly,
   DesktopOnly,
-  MobileKpiStrip,
-  MobileTabPanels,
-  type KpiItem,
 } from "@/components/dashboard-widgets/mobile-compact";
+// [Task #358] 모바일 첫 화면에 추가되는 두 위젯.
+//  - 건물관련 계약현황 한 줄
+//  - 제출받은 견적서 카드 리스트
+import BuildingContractsSummaryWidget from "@/components/dashboard-widgets/widgets/building-contracts-summary-widget";
+import SubmittedQuotesWidget from "@/components/dashboard-widgets/widgets/submitted-quotes-widget";
 
 function StatCard({
   title,
@@ -604,9 +608,9 @@ export default function Dashboard() {
   const { data: unitsSummary } = useGetUnitsSummary({ query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   // [Task #142] 연체 요약은 delinquency-summary-widget 으로 추출되어
   // 카탈로그가 별도 위젯으로 렌더링한다.
-  // [Task #327] 모바일 컴팩트 KPI 에서 연체 합계가 필요해 같은 hook 을 다시
-  // 호출한다. React Query 가 같은 query key 로 응답을 캐시 → 추가 fetch 없음.
-  const { data: delinquencySummary } = useGetDelinquencySummary();
+  // [Task #358] 모바일 KPI(연체 세대) 가 사라지면서 매니저 대시보드는 더 이상
+  // delinquencySummary 를 직접 호출하지 않는다. 연체 정보는 delinquency-summary-widget
+  // 에서 그대로 노출된다.
 
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
   const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
@@ -917,67 +921,24 @@ export default function Dashboard() {
     return false;
   });
 
-  // [Task #327] 모바일 컴팩트 KPI 4개 — 관리소장이 첫 화면에서 봐야 하는 핵심.
-  const managerKpis: KpiItem[] = [
-    {
-      key: "mandatory",
-      label: "필수업무",
-      value: legalAlerts.length,
-      hint: legalAlerts.length > 0 ? "처리 필요" : "처리할 항목 없음",
-      icon: ClipboardCheck,
-      iconClass: "text-white",
-      iconBg: "bg-chart-3",
-      highlight: legalAlerts.length > 0 ? "warn" : "default",
-    },
-    {
-      key: "delinquency",
-      label: "연체 세대",
-      value: delinquencySummary?.totalOverdue ?? 0,
-      hint:
-        delinquencySummary && delinquencySummary.parkingSuspended > 0
-          ? `주차 정지 ${delinquencySummary.parkingSuspended}`
-          : "관리비 미납",
-      icon: AlertTriangle,
-      iconClass: "text-white",
-      iconBg: "bg-rose-500",
-      href: "/erp/accounting",
-      highlight: (delinquencySummary?.totalOverdue ?? 0) > 0 ? "danger" : "default",
-    },
-    {
-      key: "unpaid",
-      label: "미수금률",
-      value: analytics ? `${analytics.unpaidSummary.unpaidRate}%` : "-",
-      hint: analytics
-        ? `${(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원`
-        : "데이터 준비중",
-      icon: Coins,
-      iconClass: "text-white",
-      iconBg: "bg-chart-4",
-      href: "/erp/fees-summary",
-      highlight: analytics && analytics.unpaidSummary.unpaidRate > 10 ? "warn" : "default",
-    },
-    {
-      key: "occupancy",
-      label: "입주율",
-      value: totalUnits > 0 ? `${occupancyRate}%` : "-",
-      hint: totalUnits > 0 ? `${occupiedUnits}/${totalUnits}` : "건물 등록 필요",
-      icon: Building2,
-      iconClass: "text-white",
-      iconBg: "bg-chart-5",
-      href: "/units",
-    },
-  ];
+  // [Task #358] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 / 입주율)
+  // 묶음은 다른 섹션과 정보가 중복되어 제거했다. 같은 자리에 "건물관련 계약현황"
+  // 한 줄과 "제출받은 견적서" 위젯을 배치한다.
 
   return (
     <>
-      {/* [Task #327 → 사용자 배치 변경 요청 v2]
-          모바일 컴팩트 — 평탄 세로 스크롤. 탭(긴급/관리비/건물)은 제거.
+      {/* [Task #327 → #358] 모바일 컴팩트 — 평탄 세로 스크롤.
           순서:
           1) 필수업무
           2) 제안업무
           3) 오늘 업무일지 자동 작성하기 (TodayWorkLogEntry)
-          4) KPI 4개(2×2) — 일지 자동작성과 연체세대 현황 사이
-          5) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더) */}
+          4) 건물관련 계약현황 한 줄 (BuildingContractsSummaryWidget)
+          5) 제출받은 견적서 (SubmittedQuotesWidget)
+          6) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더)
+
+          이전(Task #327)에는 4번 자리에 KPI 4개(필수업무 / 연체 세대 / 미수금률 /
+          입주율)가 있었으나, 같은 정보가 이미 다른 섹션에 노출되어 있어 첫 화면
+          가독성을 떨어뜨린다는 피드백으로 제거했다(#358). */}
       <MobileOnly>
         <div className="space-y-3">
           <AlertSection
@@ -1003,7 +964,8 @@ export default function Dashboard() {
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
-          <MobileKpiStrip items={managerKpis} />
+          <BuildingContractsSummaryWidget />
+          <SubmittedQuotesWidget />
         </div>
       </MobileOnly>
 
