@@ -59,6 +59,7 @@ type StepKey =
   | "address"
   | "loading"
   | "info"
+  | "name"
   | "ins-fire"
   | "ins-elec"
   | "ins-bsafe"
@@ -242,7 +243,10 @@ export default function ManagerWizardPage() {
   // ── 단계 시퀀스 (기계설비는 연면적 10,000㎡ 이상에서만 노출) ──
   const sequence: StepKey[] = useMemo(() => {
     const includeMech = Number(building.totalArea || 0) >= 10000;
-    const base: StepKey[] = ["intro", "address", "loading", "info", "ins-fire", "ins-elec", "ins-bsafe"];
+    // [Task #340] info(건축물대장 자동조회 결과) 단계 직후 사용자가 실제로 사용할 건물명을
+    // 입력/확정하는 name 단계를 추가한다. buildings.name 컬럼을 그대로 사용해 모든 출력
+    // (관리사무소·알림·견적서 등)이 사용자가 입력한 이름으로 일관되게 표시되도록 한다.
+    const base: StepKey[] = ["intro", "address", "loading", "info", "name", "ins-fire", "ins-elec", "ins-bsafe"];
     if (includeMech) base.push("ins-mech");
     base.push("logo", "bill", "done");
     return base;
@@ -466,6 +470,46 @@ export default function ManagerWizardPage() {
     return true;
   }
 
+  // [Task #340] 사용자가 입력한 건물명(buildings.name)을 즉시 PUT 으로 갱신한다.
+  //   - trim 후 빈 문자열이면 안내 토스트 후 false 반환(다음 단계로 진행하지 않음).
+  //   - 서버 저장 실패 시도 토스트 후 false 반환.
+  //   - 성공 시 로컬 building.name state 도 동기화.
+  async function saveBuildingName(rawName: string): Promise<boolean> {
+    const name = rawName.trim();
+    if (!name) {
+      toast({ title: "건물명을 입력해 주세요.", variant: "destructive" });
+      return false;
+    }
+    if (!building.id) {
+      // 이론상 info 단계에서 이미 저장돼 있어야 한다. 안전망으로 state만 갱신.
+      setBuilding((p) => ({ ...p, name }));
+      return true;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/buildings/${building.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          title: j.error || "건물명 저장에 실패했습니다. 다시 시도해 주세요.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      setBuilding((p) => ({ ...p, name }));
+      return true;
+    } catch (e) {
+      toast({
+        title: e instanceof Error ? e.message : "건물명 저장에 실패했습니다.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }
+
   // ── 로고 저장 (PhotoUploadField에서 logoUrl 갱신될 때 즉시 PUT) ──
   async function saveLogo(url: string | null) {
     setBuilding((p) => ({ ...p, logoUrl: url }));
@@ -581,7 +625,21 @@ export default function ManagerWizardPage() {
           building={building}
           safety={safety}
           onPrev={() => setStep("address")}
-          onNext={() => setStep("ins-fire")}
+          onNext={() => setStep("name")}
+        />
+      )}
+
+      {step === "name" && (
+        <BuildingNameStep
+          initialName={building.name}
+          busy={busy}
+          onPrev={goPrev}
+          onSubmit={async (val) => {
+            setBusy(true);
+            const ok = await saveBuildingName(val);
+            setBusy(false);
+            if (ok) goNext();
+          }}
         />
       )}
 
@@ -929,7 +987,70 @@ function InfoStep({
         </div>
       )}
 
-      <NavBar onPrev={onPrev} onNext={onNext} nextLabel="이대로 진행할게요" />
+      {/* [Task #340] 다음 단계에서 사용자가 실제 사용할 건물명을 직접 확인·수정한다. */}
+      <NavBar onPrev={onPrev} onNext={onNext} nextLabel="건물명 확인하기" />
+    </div>
+  );
+}
+
+/* ───────────────────────── 단계: 건물명 입력/확인 ───────────────────────── */
+
+// [Task #340] 건축물대장 자동 입력값(bldNm)이 실제 사용자가 부르는 이름과 다른 경우가 많아
+// 사용자가 직접 입력/수정한 값을 buildings.name 으로 저장하는 단계. 빈 값 차단, 위저드 재진입
+// 시 마지막 저장값을 기본값으로 보여 준다.
+function BuildingNameStep({
+  initialName,
+  onPrev,
+  onSubmit,
+  busy,
+}: {
+  initialName: string;
+  onPrev: () => void;
+  onSubmit: (value: string) => void | Promise<void>;
+  busy?: boolean;
+}) {
+  const [name, setName] = useState(initialName ?? "");
+  // 위저드 재진입/자동조회 결과 갱신 시 외부에서 들어온 initialName 을 따라간다.
+  useEffect(() => {
+    setName(initialName ?? "");
+  }, [initialName]);
+  const trimmed = name.trim();
+  const disabled = trimmed.length === 0;
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-slate-900">실제 사용할 건물명을 입력해 주세요</h2>
+      <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+        이 이름이 관리사무소·알림·문서·견적 요청서에 그대로 사용됩니다.
+        건축물대장 이름이 실제로 부르는 이름과 다르면 수정해 주세요.
+      </p>
+
+      <div className="mt-5">
+        <label htmlFor="building-name-input" className="text-xs text-slate-600">
+          건물명
+        </label>
+        <input
+          id="building-name-input"
+          data-testid="building-name-input"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예) 달인아파트, 행복빌딩 1차"
+          maxLength={120}
+          className="mt-1 w-full h-12 px-3 border border-slate-300 rounded-xl text-sm bg-white"
+          autoFocus
+        />
+        <p className="text-[11px] text-slate-400 mt-2">
+          예: "주건축물1" 처럼 표시되었다면, 입주민·관리자가 부르는 정식 명칭으로 바꿔 주세요.
+        </p>
+      </div>
+
+      <NavBar
+        onPrev={onPrev}
+        onNext={() => onSubmit(trimmed)}
+        nextLabel="이 이름으로 저장"
+        nextDisabled={disabled}
+        busy={busy}
+      />
     </div>
   );
 }
