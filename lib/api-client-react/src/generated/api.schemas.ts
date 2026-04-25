@@ -2228,6 +2228,16 @@ export const PlatformAnnouncementAudienceItem = {
   hq_executive: "hq_executive",
 } as const;
 
+export type PlatformAnnouncementRecurrence =
+  (typeof PlatformAnnouncementRecurrence)[keyof typeof PlatformAnnouncementRecurrence];
+
+export const PlatformAnnouncementRecurrence = {
+  none: "none",
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
 export interface PlatformAnnouncement {
   id: number;
   title: string;
@@ -2236,6 +2246,9 @@ export interface PlatformAnnouncement {
   startsAt: string;
   /** @nullable */
   endsAt?: string | null;
+  recurrence: PlatformAnnouncementRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
   isActive: boolean;
   /** @nullable */
   createdBy?: number | null;
@@ -5707,6 +5720,16 @@ export const CreatePlatformAnnouncementBodyAudienceItem = {
   hq_executive: "hq_executive",
 } as const;
 
+export type CreatePlatformAnnouncementBodyRecurrence =
+  (typeof CreatePlatformAnnouncementBodyRecurrence)[keyof typeof CreatePlatformAnnouncementBodyRecurrence];
+
+export const CreatePlatformAnnouncementBodyRecurrence = {
+  none: "none",
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
 export type CreatePlatformAnnouncementBody = {
   title: string;
   body: string;
@@ -5714,6 +5737,9 @@ export type CreatePlatformAnnouncementBody = {
   startsAt?: string;
   /** @nullable */
   endsAt?: string | null;
+  recurrence?: CreatePlatformAnnouncementBodyRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
   isActive?: boolean;
 };
 
@@ -5729,6 +5755,16 @@ export const UpdatePlatformAnnouncementBodyAudienceItem = {
   hq_executive: "hq_executive",
 } as const;
 
+export type UpdatePlatformAnnouncementBodyRecurrence =
+  (typeof UpdatePlatformAnnouncementBodyRecurrence)[keyof typeof UpdatePlatformAnnouncementBodyRecurrence];
+
+export const UpdatePlatformAnnouncementBodyRecurrence = {
+  none: "none",
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
 export type UpdatePlatformAnnouncementBody = {
   title?: string;
   body?: string;
@@ -5736,6 +5772,9 @@ export type UpdatePlatformAnnouncementBody = {
   startsAt?: string;
   /** @nullable */
   endsAt?: string | null;
+  recurrence?: UpdatePlatformAnnouncementBodyRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
   isActive?: boolean;
 };
 

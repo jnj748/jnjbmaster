@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreatePlatformAnnouncementBodyAudienceItem } from "./createPlatformAnnouncementBodyAudienceItem";
+import type { CreatePlatformAnnouncementBodyRecurrence } from "./createPlatformAnnouncementBodyRecurrence";
 
 export type CreatePlatformAnnouncementBody = {
   title: string;
@@ -14,5 +15,8 @@ export type CreatePlatformAnnouncementBody = {
   startsAt?: Date;
   /** @nullable */
   endsAt?: Date | null;
+  recurrence?: CreatePlatformAnnouncementBodyRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
   isActive?: boolean;
 };

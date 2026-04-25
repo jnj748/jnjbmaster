@@ -26,6 +26,37 @@ type Audience =
   | "partner"
   | "hq_executive";
 
+// [Task #365] 본사 알림 반복주기 — 캠페인과 동일한 enum/UX 패턴을 따른다.
+type Recurrence = "none" | "daily" | "weekly" | "monthly";
+
+const RECURRENCE_LABEL: Record<Recurrence, string> = {
+  none: "반복 없음",
+  daily: "매일",
+  weekly: "매주 특정 요일",
+  monthly: "매월 특정 일자",
+};
+
+const WEEKDAY_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
+
+function recurrenceSummary(
+  recurrence: Recurrence | undefined,
+  days: number[] | null | undefined,
+): string {
+  if (!recurrence || recurrence === "none") return "반복 없음";
+  if (recurrence === "daily") return "매일";
+  if (recurrence === "weekly") {
+    const ds = Array.isArray(days) ? [...days].sort((a, b) => a - b) : [];
+    if (ds.length === 0) return "매주";
+    return `매주 ${ds.map((d) => WEEKDAY_LABEL[d] ?? d).join("·")}`;
+  }
+  if (recurrence === "monthly") {
+    const ds = Array.isArray(days) ? [...days].sort((a, b) => a - b) : [];
+    if (ds.length === 0) return "매월";
+    return `매월 ${ds.join(", ")}일`;
+  }
+  return "반복 없음";
+}
+
 const AUDIENCE_LABEL: Record<Audience, string> = {
   all: "전체",
   manager: ROLE_LABELS.manager,
@@ -51,6 +82,8 @@ interface DraftState {
   audience: Audience[];
   startsAt: string; // yyyy-MM-ddTHH:mm
   endsAt: string;
+  recurrence: Recurrence;
+  recurrenceDays: number[];
   isActive: boolean;
 }
 
@@ -82,6 +115,8 @@ function emptyDraft(defaultAudience: Audience[] = ["all"]): DraftState {
     audience: defaultAudience,
     startsAt: nowLocal(),
     endsAt: "",
+    recurrence: "none",
+    recurrenceDays: [],
     isActive: true,
   };
 }
@@ -145,8 +180,17 @@ export default function PlatformAnnouncementsPage() {
       audience: (a.audience as Audience[]) ?? ["all"],
       startsAt: fromIso(a.startsAt) || nowLocal(),
       endsAt: fromIso(a.endsAt),
+      recurrence: (a.recurrence as Recurrence) ?? "none",
+      recurrenceDays: (a.recurrenceDays as number[]) ?? [],
       isActive: a.isActive,
     });
+  }
+
+  function toggleRecurrenceDay(d: number, checked: boolean) {
+    if (!draft) return;
+    let next = draft.recurrenceDays.filter((x) => x !== d);
+    if (checked) next = [...next, d].sort((a, b) => a - b);
+    setDraft({ ...draft, recurrenceDays: next });
   }
 
   function toggleAudience(role: Audience, checked: boolean) {
@@ -172,10 +216,23 @@ export default function PlatformAnnouncementsPage() {
       setError("제목과 본문을 입력해 주세요");
       return;
     }
+    // [Task #365] 캠페인과 동일한 검증 — 매주는 1개 이상 요일, 매월은 1~31 범위 1개 이상.
+    if (draft.recurrence === "weekly" && draft.recurrenceDays.length === 0) {
+      setError("매주 반복 시 최소 1개 이상의 요일을 선택해 주세요");
+      return;
+    }
+    if (draft.recurrence === "monthly" && draft.recurrenceDays.length === 0) {
+      setError("매월 반복 시 1~31 사이의 일자를 한 개 이상 입력해 주세요");
+      return;
+    }
     setError("");
     setInfo("");
     const startsAtIso = toIsoOrNull(draft.startsAt) ?? new Date().toISOString();
     const endsAtIso = toIsoOrNull(draft.endsAt);
+    const recurrenceDaysPayload =
+      draft.recurrence === "weekly" || draft.recurrence === "monthly"
+        ? draft.recurrenceDays
+        : null;
     try {
       if (draft.id === null) {
         await create.mutateAsync({
@@ -185,6 +242,8 @@ export default function PlatformAnnouncementsPage() {
             audience: draft.audience,
             startsAt: startsAtIso,
             endsAt: endsAtIso,
+            recurrence: draft.recurrence,
+            recurrenceDays: recurrenceDaysPayload,
             isActive: draft.isActive,
           },
         });
@@ -198,6 +257,8 @@ export default function PlatformAnnouncementsPage() {
             audience: draft.audience,
             startsAt: startsAtIso,
             endsAt: endsAtIso,
+            recurrence: draft.recurrence,
+            recurrenceDays: recurrenceDaysPayload,
             isActive: draft.isActive,
           },
         });
@@ -310,6 +371,63 @@ export default function PlatformAnnouncementsPage() {
                 />
               </div>
             </div>
+            <div>
+              <Label className="text-xs">반복 주기</Label>
+              <select
+                value={draft.recurrence}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    recurrence: e.target.value as Recurrence,
+                    // 주기 변경 시 일자 선택은 비운다(잘못된 값이 남는 것을 방지).
+                    recurrenceDays: [],
+                  })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+              >
+                {(Object.keys(RECURRENCE_LABEL) as Recurrence[]).map((r) => (
+                  <option key={r} value={r}>{RECURRENCE_LABEL[r]}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                "반복 없음"이면 게시 기간 동안 항상 노출됩니다. 매주/매월을 선택하면 해당 요일·일자에만 알림 벨에 보입니다.
+              </p>
+            </div>
+            {draft.recurrence === "weekly" && (
+              <div>
+                <Label className="text-xs">반복 요일</Label>
+                <div className="flex flex-wrap gap-3 mt-1.5">
+                  {WEEKDAY_LABEL.map((label, idx) => (
+                    <label key={idx} className="flex items-center gap-1 text-sm">
+                      <Checkbox
+                        checked={draft.recurrenceDays.includes(idx)}
+                        onCheckedChange={(c) => toggleRecurrenceDay(idx, c === true)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            {draft.recurrence === "monthly" && (
+              <div>
+                <Label className="text-xs">반복 일자 (1-31, 쉼표 구분)</Label>
+                <Input
+                  value={draft.recurrenceDays.join(",")}
+                  onChange={(e) => {
+                    const parts = e.target.value
+                      .split(",")
+                      .map((s) => Number(s.trim()))
+                      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 31);
+                    setDraft({
+                      ...draft,
+                      recurrenceDays: Array.from(new Set(parts)).sort((a, b) => a - b),
+                    });
+                  }}
+                  placeholder="예: 1, 15"
+                />
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={draft.isActive}
@@ -387,6 +505,10 @@ export default function PlatformAnnouncementsPage() {
                         게시: {new Date(a.startsAt).toLocaleString("ko-KR")}
                         {" · "}
                         종료: {a.endsAt ? new Date(a.endsAt).toLocaleString("ko-KR") : "기한 없음"}
+                        {" · "}반복: {recurrenceSummary(
+                          a.recurrence as Recurrence | undefined,
+                          a.recurrenceDays as number[] | null | undefined,
+                        )}
                         {a.createdByName ? ` · 작성자: ${a.createdByName}` : ""}
                       </div>
                     </div>

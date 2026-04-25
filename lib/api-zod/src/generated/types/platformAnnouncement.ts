@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PlatformAnnouncementAudienceItem } from "./platformAnnouncementAudienceItem";
+import type { PlatformAnnouncementRecurrence } from "./platformAnnouncementRecurrence";
 
 export interface PlatformAnnouncement {
   id: number;
@@ -15,6 +16,9 @@ export interface PlatformAnnouncement {
   startsAt: Date;
   /** @nullable */
   endsAt?: Date | null;
+  recurrence: PlatformAnnouncementRecurrence;
+  /** @nullable */
+  recurrenceDays?: number[] | null;
   isActive: boolean;
   /** @nullable */
   createdBy?: number | null;

@@ -3785,6 +3785,13 @@ paths:
                 endsAt:
                   type: ["string", "null"]
                   format: date-time
+                recurrence:
+                  type: string
+                  enum: [none, daily, weekly, monthly]
+                recurrenceDays:
+                  type: ["array", "null"]
+                  items:
+                    type: integer
                 isActive:
                   type: boolean
               required:
@@ -3832,6 +3839,13 @@ paths:
                 endsAt:
                   type: ["string", "null"]
                   format: date-time
+                recurrence:
+                  type: string
+                  enum: [none, daily, weekly, monthly]
+                recurrenceDays:
+                  type: ["array", "null"]
+                  items:
+                    type: integer
                 isActive:
                   type: boolean
       responses:
@@ -8537,6 +8551,13 @@ components:
         endsAt:
           type: ["string", "null"]
           format: date-time
+        recurrence:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        recurrenceDays:
+          type: ["array", "null"]
+          items:
+            type: integer
         isActive:
           type: boolean
         createdBy:
@@ -8555,6 +8576,7 @@ components:
         - body
         - audience
         - startsAt
+        - recurrence
         - isActive
         - createdAt
         - updatedAt

@@ -5158,6 +5158,8 @@ export const ListPlatformAnnouncementsResponseItem = zod.object({
   ),
   startsAt: zod.coerce.date(),
   endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
+  recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
@@ -5186,6 +5188,8 @@ export const CreatePlatformAnnouncementBody = zod.object({
   ),
   startsAt: zod.coerce.date().optional(),
   endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
+  recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean().optional(),
 });
 
@@ -5213,6 +5217,8 @@ export const UpdatePlatformAnnouncementBody = zod.object({
     .optional(),
   startsAt: zod.coerce.date().optional(),
   endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
+  recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean().optional(),
 });
 
@@ -5232,6 +5238,8 @@ export const UpdatePlatformAnnouncementResponse = zod.object({
   ),
   startsAt: zod.coerce.date(),
   endsAt: zod.coerce.date().nullish(),
+  recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
+  recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),

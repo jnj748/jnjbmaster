@@ -14,6 +14,10 @@ export const announcementAudienceRoles = [
 
 export type AnnouncementAudienceRole = (typeof announcementAudienceRoles)[number];
 
+// [Task #365] 본사 알림 반복주기 — 캠페인과 동일한 enum 을 그대로 차용한다.
+export const announcementRecurrence = ["none", "daily", "weekly", "monthly"] as const;
+export type AnnouncementRecurrence = (typeof announcementRecurrence)[number];
+
 export const platformAnnouncementsTable = pgTable("platform_announcements", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -22,6 +26,10 @@ export const platformAnnouncementsTable = pgTable("platform_announcements", {
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
   endsAt: timestamp("ends_at", { withTimezone: true }),
   isActive: boolean("is_active").notNull().default(true),
+  // [Task #365] 게시 윈도우 안에서도 특정 요일/일자에만 노출되도록 제어한다.
+  // weekly: recurrenceDays 는 0(일)~6(토), monthly: 1~31. none/daily 는 null.
+  recurrence: text("recurrence", { enum: announcementRecurrence }).notNull().default("none"),
+  recurrenceDays: jsonb("recurrence_days").$type<number[]>(),
   createdBy: integer("created_by"),
   createdByName: text("created_by_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
