@@ -87,7 +87,6 @@ import {
 // [Task #358] 모바일 첫 화면에 추가되는 두 위젯.
 //  - 건물관련 계약현황 한 줄
 //  - 제출받은 견적서 카드 리스트
-import BuildingContractsSummaryWidget from "@/components/dashboard-widgets/widgets/building-contracts-summary-widget";
 import SubmittedQuotesWidget from "@/components/dashboard-widgets/widgets/submitted-quotes-widget";
 
 function StatCard({
@@ -927,14 +926,17 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* [Task #327 → #358] 모바일 컴팩트 — 평탄 세로 스크롤.
+      {/* [Task #327 → #358 → 위젯 병합] 모바일 컴팩트 — 평탄 세로 스크롤.
           순서:
           1) 필수업무
           2) 제안업무
           3) 오늘 업무일지 자동 작성하기 (TodayWorkLogEntry)
-          4) 건물관련 계약현황 한 줄 (BuildingContractsSummaryWidget)
-          5) 제출받은 견적서 (SubmittedQuotesWidget)
-          6) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더)
+          4) 제출받은 견적서 (SubmittedQuotesWidget)
+          5) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더)
+
+          "건물관련 계약현황" 한 줄은 registry 의 manager 레이아웃을 통해
+          manager-main 위에 노출되며 갱신 검토(만료 75일 이내) 카운터를 흡수한다.
+          여기서 직접 렌더하던 라인은 중복 노출을 피하기 위해 제거했다.
 
           이전(Task #327)에는 4번 자리에 KPI 4개(필수업무 / 연체 세대 / 미수금률 /
           입주율)가 있었으나, 같은 정보가 이미 다른 섹션에 노출되어 있어 첫 화면
@@ -964,7 +966,6 @@ export default function Dashboard() {
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
-          <BuildingContractsSummaryWidget />
           <SubmittedQuotesWidget />
         </div>
       </MobileOnly>

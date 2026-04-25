@@ -9,13 +9,14 @@ import { useBuilding } from "@/contexts/building-context";
 //   서버 알림 잡 / contracts 페이지 배너 / 갱신 검토 위젯과 같은 값이 보장된다.
 import { CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS } from "@workspace/shared/contract-renewal";
 
-// [Task #358] 모바일 첫 화면용 "건물관련 계약현황" 한 줄 위젯.
+// [Task #358 → 갱신 검토 위젯 병합] 건물관련 계약현황 한 줄 위젯.
 // - 현재 건물의 계약을 상태별로 압축해 한 줄 안에 보여준다.
 // - 진행중 = active / in_progress
 // - 결재대기 = draft / in_approval
-// - 만료임박 = renewal_due 또는 endDate 가 오늘부터 75일(2개월 15일) 이내인 active/in_progress
+// - 갱신 검토 = renewal_due 또는 endDate 가 오늘부터 75일(2개월 15일) 이내인 active/in_progress
+// - 갱신 검토가 1건 이상이면 amber 로 강조되고 클릭 시 /contracts?expiring=1 로 이동(만료 임박만 펼침).
+// - 갱신 검토가 0건이면 일반 /contracts 로 이동.
 // - 표시할 만한 계약이 없으면 "등록된 계약이 없습니다" 안내가 같은 줄 자리에 노출.
-// - 줄 전체를 누르면 /contracts 로 이동.
 
 function isExpiringSoon(endDate: string | null | undefined): boolean {
   if (!endDate) return false;
@@ -78,10 +79,13 @@ export default function BuildingContractsSummaryWidget() {
       );
     }
     const empty = showableTotal === 0;
+    const hasReview = summary.expiring > 0;
     return (
       <Card className="hover-elevate active-elevate-2 cursor-pointer">
         <CardContent className="py-3 px-3 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-primary shrink-0" />
+          <FileText
+            className={`w-4 h-4 shrink-0 ${hasReview ? "text-amber-700" : "text-primary"}`}
+          />
           {empty ? (
             <span
               className="text-sm text-muted-foreground flex-1 truncate"
@@ -99,29 +103,33 @@ export default function BuildingContractsSummaryWidget() {
               <span className="font-medium">결재대기 {summary.pending}</span>
               <span className="text-muted-foreground"> · </span>
               <span
-                className={`font-medium ${summary.expiring > 0 ? "text-amber-700" : ""}`}
+                className={`font-medium ${hasReview ? "text-amber-700" : ""}`}
+                data-testid="contracts-summary-renewal"
               >
-                만료임박 {summary.expiring}
+                갱신 검토 {summary.expiring}건
               </span>
             </span>
           )}
           <span
-            className="text-xs text-primary font-medium shrink-0"
+            className={`text-xs font-medium shrink-0 ${hasReview ? "text-amber-700" : "text-primary"}`}
             data-testid="contracts-summary-manage-link"
           >
-            관리 →
+            {hasReview ? "검토 →" : "관리 →"}
           </span>
         </CardContent>
       </Card>
     );
   })();
 
+  // 갱신 검토 N>0 이면 만료 임박만 펼쳐 보이는 화면으로 진입한다.
+  const targetHref = summary.expiring > 0 ? "/contracts?expiring=1" : "/contracts";
+
   return (
     <section data-testid="building-contracts-summary-widget">
       <div className="flex items-center justify-between mb-1.5">
         <h2 className="text-sm font-bold">건물관련 계약현황</h2>
       </div>
-      <Link href="/contracts">{inner}</Link>
+      <Link href={targetHref}>{inner}</Link>
     </section>
   );
 }
