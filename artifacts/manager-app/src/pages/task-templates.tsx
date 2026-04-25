@@ -1097,6 +1097,18 @@ export default function TaskTemplatesPage() {
                           placeholder="설명 (선택)"
                           className="text-xs"
                         />
+
+                        {/* [Task #381] 7행: 목적 — 모바일 "제안업무" 알람 카드 둘째 줄에
+                            노출되는 한 줄 문구. 인라인 편집/생성 다이얼로그 양쪽에서 동일하게 보여
+                            기존 행도 편집 시 이미 저장된 값을 확인·수정할 수 있게 한다. */}
+                        <Input
+                          value={draft.purpose}
+                          onChange={(e) => setDraft({ ...draft, purpose: e.target.value })}
+                          maxLength={80}
+                          placeholder='목적 (선택, 예: "화재 발생 시 인명 피해 예방")'
+                          className="text-xs"
+                          data-testid={`input-template-purpose-inline-${t.id}`}
+                        />
                       </CardContent>
                     </Card>
                   );
