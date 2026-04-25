@@ -20,6 +20,11 @@ const DelinquencySummaryWidget = lazy(
 const WarrantyDdayWidget = lazy(
   () => import("./widgets/warranty-dday-widget"),
 );
+// [Task #348] 호실 일괄 가져오기 제안업무 카드. 자체 노출 조건 판단(0건/미동기화)을
+// 갖고 있으며 조건이 안 맞으면 null 을 반환하므로 항상 매니저 레이아웃에 포함해도 안전.
+const UnitsImportSuggestionWidget = lazy(
+  () => import("./widgets/units-import-suggestion-widget"),
+);
 
 // Role-specific main wrappers (legacy page bodies)
 const ManagerMainWidget = lazy(
@@ -101,6 +106,12 @@ export const WIDGETS = {
     span: "full",
     label: "이벤트 · 안내",
   },
+  "units-import-suggestion": {
+    key: "units-import-suggestion",
+    component: UnitsImportSuggestionWidget,
+    span: "full",
+    label: "제안업무 · 호실 일괄 가져오기",
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 export type CatalogWidgetKey = keyof typeof WIDGETS;
@@ -111,6 +122,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   manager: {
     widgets: [
       "campaign-banner",
+      "units-import-suggestion",
       "manager-main",
       "delinquency-summary",
       "building-info",

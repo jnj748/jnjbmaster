@@ -37,6 +37,8 @@ export interface BuildingData {
     title?: Record<string, unknown> | null;
     recap?: Record<string, unknown> | null;
   } | null;
+  // [Task #348] 건축물대장 관리PK(mgmBldrgstPk). 호실 일괄 가져오기/단계 게이트에 사용.
+  buildingRegisterPk?: string | null;
 }
 
 export interface AppointmentField {

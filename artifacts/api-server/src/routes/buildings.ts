@@ -669,6 +669,72 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
   }
 });
 
+// [Task #348] 건축물대장 전유부/공용부 면적 정보 조회. 호실 미리보기/일괄 가져오기에서
+// 동일하게 호출하므로 라우트 핸들러와 별도로 분리해 둔다.
+export interface AreaInfoRow {
+  floorNo: string;
+  purposeName: string;
+  hoNm: string;
+  exposArea: number;
+  pubUseArea: number;
+}
+
+async function fetchAreaInfoFromRegister(mgmBldrgstPk: string): Promise<AreaInfoRow[] | null> {
+  const apiKey = process.env.BUILDING_REGISTER_API_KEY;
+  if (!apiKey) throw new Error("API_KEY_MISSING");
+
+  // [Task #348] 공공데이터 API는 페이지당 최대 100건까지 반환하므로, 100건이 넘는
+  // 호실(예: 대형 오피스텔/주상복합)이 누락되지 않도록 totalCount 기반으로 끝까지 순회한다.
+  // 안전 장치: 최대 50페이지(=5,000건)까지만 시도. 그 이상은 거의 단일 건물에서 발생하지 않음.
+  const PAGE_SIZE = 100;
+  const MAX_PAGES = 50;
+  const all: Record<string, unknown>[] = [];
+  let totalCount = Number.POSITIVE_INFINITY;
+  let firstFetchOk = false;
+
+  for (let pageNo = 1; pageNo <= MAX_PAGES; pageNo++) {
+    const queryParams = new URLSearchParams({
+      mgmBldrgstPk,
+      numOfRows: String(PAGE_SIZE),
+      pageNo: String(pageNo),
+      _type: "json",
+    });
+    const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
+
+    const result = await fetch(
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`,
+    ).then((r) => (r.ok ? r.json() : null));
+
+    const body = result?.response?.body;
+    const items = body?.items?.item;
+
+    if (pageNo === 1) {
+      firstFetchOk = result != null;
+      if (typeof body?.totalCount === "number") totalCount = body.totalCount;
+      else if (typeof body?.totalCount === "string") totalCount = Number(body.totalCount) || 0;
+    }
+
+    if (!items) break;
+    const list = Array.isArray(items) ? items : [items];
+    all.push(...list);
+
+    if (all.length >= totalCount) break;
+    if (list.length < PAGE_SIZE) break;
+  }
+
+  if (!firstFetchOk) return null;
+  if (all.length === 0) return null;
+
+  return all.map((item) => ({
+    floorNo: String(item.flrNoNm ?? item.flrNo ?? ""),
+    purposeName: String(item.mainPurpsCdNm ?? item.etcPurps ?? ""),
+    // 호실번호는 hoNm 필드에 들어 있다. 비어 있으면 층/면적만 가져오는 일반 항목.
+    hoNm: String(item.hoNm ?? ""),
+    exposArea: item.area ? parseFloat(String(item.area)) : 0,
+    pubUseArea: item.cmmnPuprpsArea ? parseFloat(String(item.cmmnPuprpsArea)) : 0,
+  }));
+}
+
 router.get("/buildings/lookup-area-info", async (req: Request, res: Response) => {
   const { mgmBldrgstPk } = req.query;
   if (!mgmBldrgstPk) {
@@ -676,44 +742,208 @@ router.get("/buildings/lookup-area-info", async (req: Request, res: Response) =>
     return;
   }
 
-  const apiKey = process.env.BUILDING_REGISTER_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다" });
+  try {
+    const areas = await fetchAreaInfoFromRegister(String(mgmBldrgstPk));
+    if (!areas) {
+      res.json({ found: false, areas: [] });
+      return;
+    }
+    res.json({ found: true, areas });
+  } catch (error) {
+    if (error instanceof Error && error.message === "API_KEY_MISSING") {
+      res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다" });
+      return;
+    }
+    req.log.error({ err: error }, "Error looking up area info");
+    res.status(500).json({ error: "전용/공용면적 조회 실패" });
+  }
+});
+
+// [Task #348] 건축물대장 면적 정보 → units 일괄 upsert.
+// 매칭 키: (정규화된 층 + 호실번호). 동일 행이 있으면 면적/용도/source/sync 시각만 갱신.
+// 사용자 수기 입력 컬럼(소유자/입주민/연락처/메모 등)은 건드리지 않는다.
+// dryRun=true 면 DB 변경 없이 미리보기만 반환한다.
+function normalizeFloor(raw: string): string {
+  // "1층", "1F", "지1층" 등을 단순화. 빈 값은 빈 문자열 그대로.
+  if (!raw) return "";
+  const trimmed = raw.replace(/\s+/g, "").trim();
+  // 숫자만 추출(부호 포함). "지1" → "-1", "1층" → "1".
+  const negative = /^지하|^지/.test(trimmed) || /^B/i.test(trimmed);
+  const m = trimmed.match(/-?\d+/);
+  if (!m) return trimmed;
+  const n = parseInt(m[0], 10);
+  return String(negative ? -Math.abs(n) : n);
+}
+
+function deriveUnitNumber(row: AreaInfoRow): string {
+  // 호실번호(hoNm)가 있으면 그대로 사용, 없으면 층 단위 행이라 호실 등록 불가.
+  return row.hoNm.trim();
+}
+
+function nearlyEqual(a: number | string | null, b: number): boolean {
+  const av = a == null ? 0 : Number(a);
+  return Math.abs(av - b) < 0.01;
+}
+
+router.post("/buildings/units/import-from-register", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const me = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!me || (me.role !== "manager" && me.role !== "platform_admin")) {
+    res.status(403).json({ error: "관리소장 또는 플랫폼 관리자만 사용할 수 있습니다." });
+    return;
+  }
+  if (!me.buildingId) {
+    res.status(400).json({ error: "연결된 건물이 없습니다." });
+    return;
+  }
+
+  const dryRun = req.body?.dryRun === true;
+  const buildingId = me.buildingId;
+
+  const [building] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, buildingId));
+  if (!building) {
+    res.status(404).json({ error: "건물을 찾을 수 없습니다." });
+    return;
+  }
+  if (!building.buildingRegisterPk) {
+    res.status(400).json({ error: "건물에 등록된 관리건축물대장PK가 없습니다. 먼저 주소로 건축물대장을 조회해 주세요." });
+    return;
+  }
+
+  let areas: AreaInfoRow[] | null;
+  try {
+    areas = await fetchAreaInfoFromRegister(building.buildingRegisterPk);
+  } catch (e) {
+    if (e instanceof Error && e.message === "API_KEY_MISSING") {
+      res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다." });
+      return;
+    }
+    req.log.error({ err: e, buildingId }, "Failed to fetch area info from register");
+    res.status(502).json({ error: "건축물대장 면적 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요." });
+    return;
+  }
+
+  if (!areas || areas.length === 0) {
+    res.status(404).json({ error: "건축물대장에서 면적 정보를 찾을 수 없습니다." });
+    return;
+  }
+
+  // hoNm(호실번호)가 비어 있는 행은 층 합계 행이므로 호실 단위 데이터로는 사용하지 않는다.
+  const rows = areas.filter((a) => deriveUnitNumber(a) !== "");
+  if (rows.length === 0) {
+    res.status(404).json({ error: "건축물대장에서 호실 단위 면적 정보를 찾을 수 없습니다." });
+    return;
+  }
+
+  // 기존 호실 로딩(층+호실번호 매칭).
+  const existing = await db.select().from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+  const existingByKey = new Map<string, typeof existing[number]>();
+  for (const u of existing) {
+    existingByKey.set(`${normalizeFloor(u.floor)}|${u.unitNumber.trim()}`, u);
+  }
+
+  // 같은 (층+호실번호)가 대장 응답 내에 중복 등장할 수 있으므로 후행 행이 우선되도록 dedupe.
+  const previewMap = new Map<string, { row: AreaInfoRow; floor: string; unitNumber: string }>();
+  for (const r of rows) {
+    const floor = normalizeFloor(r.floorNo);
+    const unitNumber = deriveUnitNumber(r);
+    previewMap.set(`${floor}|${unitNumber}`, { row: r, floor, unitNumber });
+  }
+
+  const items: Array<{
+    floor: string;
+    unitNumber: string;
+    exclusiveArea: number;
+    commonArea: number;
+    usage: string | null;
+    action: "create" | "update" | "skip";
+  }> = [];
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  const now = new Date();
+  const upserts: Array<{ id?: number; values: Record<string, unknown> }> = [];
+
+  for (const { row, floor, unitNumber } of previewMap.values()) {
+    const exclusiveArea = row.exposArea;
+    const commonArea = row.pubUseArea;
+    const usage = row.purposeName || null;
+    const key = `${floor}|${unitNumber}`;
+    const prev = existingByKey.get(key);
+
+    if (!prev) {
+      items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "create" });
+      created++;
+      upserts.push({
+        values: {
+          buildingId,
+          unitNumber,
+          floor,
+          exclusiveArea: String(exclusiveArea),
+          commonArea: String(commonArea),
+          usage,
+          source: "register",
+          apiGenerated: true,
+          mgmBldrgstPk: building.buildingRegisterPk,
+          lastRegisterSyncedAt: now,
+        },
+      });
+    } else {
+      const sameArea = nearlyEqual(prev.exclusiveArea, exclusiveArea) && nearlyEqual(prev.commonArea, commonArea);
+      const sameUsage = (prev.usage ?? null) === usage;
+      if (sameArea && sameUsage && prev.source === "register") {
+        items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "skip" });
+        skipped++;
+        // 마지막 동기화 시각만 갱신.
+        upserts.push({
+          id: prev.id,
+          values: { lastRegisterSyncedAt: now, mgmBldrgstPk: building.buildingRegisterPk },
+        });
+      } else {
+        items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "update" });
+        updated++;
+        upserts.push({
+          id: prev.id,
+          values: {
+            exclusiveArea: String(exclusiveArea),
+            commonArea: String(commonArea),
+            usage,
+            source: "register",
+            apiGenerated: true,
+            mgmBldrgstPk: building.buildingRegisterPk,
+            lastRegisterSyncedAt: now,
+          },
+        });
+      }
+    }
+  }
+
+  if (dryRun) {
+    res.json({ dryRun: true, created, updated, skipped, items, lastSyncedAt: null });
     return;
   }
 
   try {
-    const queryParams = new URLSearchParams({
-      mgmBldrgstPk: String(mgmBldrgstPk),
-      numOfRows: "100",
-      pageNo: "1",
-      _type: "json",
+    await db.transaction(async (tx) => {
+      for (const op of upserts) {
+        if (op.id) {
+          await tx.update(unitsTable).set(op.values).where(eq(unitsTable.id, op.id));
+        } else {
+          await tx.insert(unitsTable).values(op.values as typeof unitsTable.$inferInsert);
+        }
+      }
     });
-    const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
-
-    const result = await fetch(
-      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`
-    ).then((r) => (r.ok ? r.json() : null));
-
-    const items = result?.response?.body?.items?.item;
-    if (!items) {
-      res.json({ found: false, areas: [] });
-      return;
-    }
-
-    const areaList = Array.isArray(items) ? items : [items];
-    const areas = areaList.map((item: Record<string, unknown>) => ({
-      floorNo: item.flrNoNm || item.flrNo || "",
-      purposeName: item.mainPurpsCdNm || item.etcPurps || "",
-      exposArea: item.area ? parseFloat(String(item.area)) : 0,
-      pubUseArea: item.cmmnPuprpsArea ? parseFloat(String(item.cmmnPuprpsArea)) : 0,
-    }));
-
-    res.json({ found: true, areas });
-  } catch (error) {
-    req.log.error({ err: error }, "Error looking up area info");
-    res.status(500).json({ error: "전용/공용면적 조회 실패" });
+  } catch (e) {
+    req.log.error({ err: e, buildingId }, "Failed to upsert units from register");
+    res.status(500).json({ error: "호실 일괄 가져오기에 실패했습니다. 잠시 후 다시 시도해 주세요." });
+    return;
   }
+
+  res.json({ dryRun: false, created, updated, skipped, items, lastSyncedAt: now.toISOString() });
 });
 
 interface AppointmentField {

@@ -60,6 +60,8 @@ export const EMPTY_BUILDING: BuildingData = {
   gasUsageMonthly: "",
   approvalDate: "",
   registerData: null,
+  // [Task #348] 호실 일괄 가져오기 단계 게이팅에 사용. 주소→건축물대장 조회 시 저장된 PK.
+  buildingRegisterPk: null as string | null,
 };
 
 export function useBuildingSetup() {
@@ -232,6 +234,7 @@ export function useBuildingSetup() {
           // [Task #328] 기존 건물의 표제부 원본 데이터를 위저드 상태로 복원해
           // 재저장 시 누락되지 않도록 한다(재조회를 하지 않은 경우 보존).
           registerData: data.building.registerData || null,
+          buildingRegisterPk: data.building.buildingRegisterPk || null,
         });
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
@@ -367,6 +370,9 @@ export function useBuildingSetup() {
           buildingCoverageRatio: d.buildingCoverageRatio || prev.buildingCoverageRatio,
           floorAreaRatio: d.floorAreaRatio || prev.floorAreaRatio,
           registerData: nextRegisterData ?? prev.registerData ?? null,
+          // [Task #348] 대장 조회 직후 mgmBldrgstPk 를 위저드 상태에 즉시 반영해야
+          // "호실 일괄 가져오기" 단계 게이트가 정확히 풀린다.
+          buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
         }));
 
         toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
@@ -471,6 +477,8 @@ export function useBuildingSetup() {
         safetyManagerType: safetyResult?.safetyManagerType || null,
         // [Task #328] 건축물대장 표제부 원본을 함께 전송해 buildings.register_data 컬럼에 저장.
         registerData: building.registerData ?? null,
+        // [Task #348] mgmBldrgstPk 영속화 — 호실 일괄 가져오기 단계 게이트 및 백엔드 매칭에 사용.
+        buildingRegisterPk: building.buildingRegisterPk ?? null,
       };
 
       const res = await fetch(url, {

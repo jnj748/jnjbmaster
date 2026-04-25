@@ -39,7 +39,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { Search, DownloadCloud } from "lucide-react";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
 import { GenerateDialog, type GenForm } from "@/components/units/generate-dialog";
@@ -65,6 +66,7 @@ const emptyForm: UnitFormState = {
 };
 
 export default function UnitsPage() {
+  const [, navigate] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Unit | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
@@ -340,6 +342,16 @@ export default function UnitsPage() {
             setForm={setForm}
             onSubmit={handleSubmit}
           />
+
+          {/* [Task #348] 건축물대장 → 호실 일괄 가져오기 바로가기. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/settings/building?tab=units-import")}
+          >
+            <DownloadCloud className="w-4 h-4 mr-1" />
+            대장 동기화
+          </Button>
         </div>
       </div>
 

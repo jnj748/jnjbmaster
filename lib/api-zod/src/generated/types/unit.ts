@@ -5,6 +5,7 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UnitSource } from "./unitSource";
 import type { UnitStatus } from "./unitStatus";
 
 export interface Unit {
@@ -21,6 +22,11 @@ export interface Unit {
   /** @nullable */
   notes?: string | null;
   status: UnitStatus;
+  source: UnitSource;
+  /** @nullable */
+  lastRegisterSyncedAt?: Date | null;
+  /** @nullable */
+  mgmBldrgstPk?: string | null;
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;

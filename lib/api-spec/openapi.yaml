@@ -2300,6 +2300,40 @@ paths:
                 items:
                   $ref: "#/components/schemas/BuildingListItem"
 
+  # ── [Task #348] 건축물대장 기반 호실 일괄 가져오기 ─────────────────────
+  /buildings/units/import-from-register:
+    post:
+      operationId: importUnitsFromRegister
+      tags: [buildings]
+      summary: 건축물대장(전유부/공용부) 면적 정보로 호실을 일괄 upsert
+      description: |
+        현재 사용자의 건물에 연결된 mgmBldrgstPk 로 건축물대장 전유부/공용부
+        면적 정보를 조회해 호실(units)을 idempotent 하게 upsert 한다.
+        매칭 키는 (층 + 호실번호); 동일 행이 있으면 면적/용도/source/마지막
+        동기화 시각만 갱신하고, 사용자 수기 입력(소유자/입주민/연락처/메모 등)은
+        절대 덮어쓰지 않는다. dryRun=true 면 DB 변경 없이 미리보기만 반환한다.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dryRun:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: 가져오기 결과 (실제 또는 미리보기)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportUnitsFromRegisterResponse"
+        "400":
+          description: 건물에 등록된 mgmBldrgstPk 가 없습니다.
+        "404":
+          description: 건축물대장에서 면적 정보를 찾을 수 없습니다.
+
   # ── Warranty Management ──────────────────────────────────
   /warranties/presets:
     get:
@@ -10600,7 +10634,7 @@ components:
 
     Unit:
       type: object
-      required: [id, buildingId, unitNumber, floor, status, createdAt, updatedAt]
+      required: [id, buildingId, unitNumber, floor, status, source, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -10621,6 +10655,19 @@ components:
         status:
           type: string
           enum: [vacant, occupied, maintenance]
+        # [Task #348] 호실 데이터 출처. 'register' = 건축물대장 자동 가져오기,
+        # 'csv' = CSV 업로드, 'manual' = 수기 입력. 호실 관리/입주민/회계에서
+        # 출처 뱃지로 노출하는 단일 소스.
+        source:
+          type: string
+          enum: [register, manual, csv]
+        # [Task #348] 마지막으로 건축물대장에서 동기화된 시각.
+        lastRegisterSyncedAt:
+          type: ["string", "null"]
+          format: date-time
+        # [Task #348] 동기화에 사용한 관리건축물대장PK.
+        mgmBldrgstPk:
+          type: ["string", "null"]
         tenantCount:
           type: integer
         ownerCount:
@@ -10632,6 +10679,52 @@ components:
           format: date-time
         updatedAt:
           type: string
+          format: date-time
+
+    # [Task #348] 호실 일괄 가져오기 미리보기 행. 신규/갱신/유지(스킵) 분류와
+    # 함께 화면에 미리보기 표를 그릴 때 사용한다.
+    ImportUnitPreviewItem:
+      type: object
+      required: [floor, unitNumber, exclusiveArea, commonArea, usage, action]
+      properties:
+        floor:
+          type: string
+        unitNumber:
+          type: string
+        exclusiveArea:
+          type: number
+        commonArea:
+          type: number
+        usage:
+          type: ["string", "null"]
+        # 'create' = 신규 등록 예정/실시
+        # 'update' = 면적/용도 갱신 예정/실시 (사용자 수기 컬럼은 보존)
+        # 'skip'   = 면적/용도 변화가 없어 그대로 유지
+        action:
+          type: string
+          enum: [create, update, skip]
+
+    ImportUnitsFromRegisterResponse:
+      type: object
+      required: [dryRun, created, updated, skipped, items]
+      properties:
+        dryRun:
+          type: boolean
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        # dryRun=true: DB 변경 없이 산정된 미리보기.
+        # dryRun=false: 실제 적용된 결과를 동일한 형태로 반환.
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportUnitPreviewItem"
+        # 마지막 동기화 시각. dryRun=true 면 null.
+        lastSyncedAt:
+          type: ["string", "null"]
           format: date-time
 
     CreateUnitBody:

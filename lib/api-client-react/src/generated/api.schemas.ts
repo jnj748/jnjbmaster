@@ -3821,6 +3821,14 @@ export const UnitStatus = {
   maintenance: "maintenance",
 } as const;
 
+export type UnitSource = (typeof UnitSource)[keyof typeof UnitSource];
+
+export const UnitSource = {
+  register: "register",
+  manual: "manual",
+  csv: "csv",
+} as const;
+
 export interface Unit {
   id: number;
   buildingId: number;
@@ -3835,11 +3843,45 @@ export interface Unit {
   /** @nullable */
   notes?: string | null;
   status: UnitStatus;
+  source: UnitSource;
+  /** @nullable */
+  lastRegisterSyncedAt?: string | null;
+  /** @nullable */
+  mgmBldrgstPk?: string | null;
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ImportUnitPreviewItemAction =
+  (typeof ImportUnitPreviewItemAction)[keyof typeof ImportUnitPreviewItemAction];
+
+export const ImportUnitPreviewItemAction = {
+  create: "create",
+  update: "update",
+  skip: "skip",
+} as const;
+
+export interface ImportUnitPreviewItem {
+  floor: string;
+  unitNumber: string;
+  exclusiveArea: number;
+  commonArea: number;
+  /** @nullable */
+  usage: string | null;
+  action: ImportUnitPreviewItemAction;
+}
+
+export interface ImportUnitsFromRegisterResponse {
+  dryRun: boolean;
+  created: number;
+  updated: number;
+  skipped: number;
+  items: ImportUnitPreviewItem[];
+  /** @nullable */
+  lastSyncedAt?: string | null;
 }
 
 export type CreateUnitBodyStatus =
@@ -5452,6 +5494,10 @@ export type ListWeeklySummaryReportsParams = {
 export type ListMonthlySummaryReportsParams = {
   month?: string;
   buildingId?: number;
+};
+
+export type ImportUnitsFromRegisterBody = {
+  dryRun?: boolean;
 };
 
 export type ListContractsParams = {

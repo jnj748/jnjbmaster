@@ -85,7 +85,25 @@ export function UnitsFloorList({
                       const st = statusMap[unit.status] || statusMap.vacant;
                       return (
                         <TableRow key={unit.id}>
-                          <TableCell className="font-medium">{unit.unitNumber}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <span>{unit.unitNumber}</span>
+                              {/* [Task #348] 출처 뱃지 — 대장 동기화로 들어온 호실은 한눈에 구분 */}
+                              {unit.source === "register" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 border-emerald-300 bg-emerald-50 text-emerald-700"
+                                  title={
+                                    unit.lastRegisterSyncedAt
+                                      ? `대장 동기화: ${new Date(unit.lastRegisterSyncedAt).toLocaleString("ko-KR")}`
+                                      : "건축물대장 출처"
+                                  }
+                                >
+                                  대장
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={st.variant}>{st.label}</Badge>
                           </TableCell>

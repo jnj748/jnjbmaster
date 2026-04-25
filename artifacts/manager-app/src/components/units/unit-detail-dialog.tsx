@@ -6,13 +6,20 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { Edit, Trash2, Users, UserCheck, Car } from "lucide-react";
+import { Edit, Trash2, Users, UserCheck, Car, FileText } from "lucide-react";
 import type { GetUnit200 } from "@workspace/api-client-react";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
   occupied: { label: "입주", variant: "default" },
   maintenance: { label: "정비중", variant: "destructive" },
+};
+
+// [Task #348] source 컬럼 한글 표기. 'register' = 건축물대장 출처.
+const SOURCE_MAP: Record<string, { label: string; cls: string }> = {
+  register: { label: "대장 출처", cls: "bg-emerald-100 text-emerald-700" },
+  manual: { label: "직접 입력", cls: "bg-slate-100 text-slate-600" },
+  csv: { label: "CSV 가져오기", cls: "bg-sky-100 text-sky-700" },
 };
 
 interface Props {
@@ -44,6 +51,18 @@ export function UnitDetailDialog({ detailUnitId, unitDetail, onClose, onEdit, on
               <div><span className="text-muted-foreground">용도:</span> {unitDetail.usage || "-"}</div>
               <div><span className="text-muted-foreground">전용면적:</span> {unitDetail.exclusiveArea ? `${unitDetail.exclusiveArea}m²` : "-"}</div>
               <div><span className="text-muted-foreground">공용면적:</span> {unitDetail.commonArea ? `${unitDetail.commonArea}m²` : "-"}</div>
+              {/* [Task #348] 출처 / 마지막 동기화 시각. 어느 데이터가 대장에서 왔는지 한눈에 확인. */}
+              <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1">
+                <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                <Badge className={SOURCE_MAP[unitDetail.source]?.cls || SOURCE_MAP.manual.cls}>
+                  {SOURCE_MAP[unitDetail.source]?.label || unitDetail.source}
+                </Badge>
+                {unitDetail.lastRegisterSyncedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    마지막 동기화 {new Date(unitDetail.lastRegisterSyncedAt).toLocaleString("ko-KR")}
+                  </span>
+                )}
+              </div>
               {unitDetail.notes && (
                 <div className="col-span-2"><span className="text-muted-foreground">비고:</span> {unitDetail.notes}</div>
               )}

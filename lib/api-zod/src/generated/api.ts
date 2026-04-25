@@ -3237,6 +3237,39 @@ export const ListBuildingsResponseItem = zod.object({
 export const ListBuildingsResponse = zod.array(ListBuildingsResponseItem);
 
 /**
+ * 현재 사용자의 건물에 연결된 mgmBldrgstPk 로 건축물대장 전유부/공용부
+면적 정보를 조회해 호실(units)을 idempotent 하게 upsert 한다.
+매칭 키는 (층 + 호실번호); 동일 행이 있으면 면적/용도/source/마지막
+동기화 시각만 갱신하고, 사용자 수기 입력(소유자/입주민/연락처/메모 등)은
+절대 덮어쓰지 않는다. dryRun=true 면 DB 변경 없이 미리보기만 반환한다.
+
+ * @summary 건축물대장(전유부/공용부) 면적 정보로 호실을 일괄 upsert
+ */
+export const importUnitsFromRegisterBodyDryRunDefault = false;
+
+export const ImportUnitsFromRegisterBody = zod.object({
+  dryRun: zod.boolean().default(importUnitsFromRegisterBodyDryRunDefault),
+});
+
+export const ImportUnitsFromRegisterResponse = zod.object({
+  dryRun: zod.boolean(),
+  created: zod.number(),
+  updated: zod.number(),
+  skipped: zod.number(),
+  items: zod.array(
+    zod.object({
+      floor: zod.string(),
+      unitNumber: zod.string(),
+      exclusiveArea: zod.number(),
+      commonArea: zod.number(),
+      usage: zod.string().nullable(),
+      action: zod.enum(["create", "update", "skip"]),
+    }),
+  ),
+  lastSyncedAt: zod.coerce.date().nullish(),
+});
+
+/**
  * @summary List warranty period presets by construction trade
  */
 export const ListWarrantyPresetsResponseItem = zod.object({
@@ -4352,6 +4385,9 @@ export const ListUnitsResponseItem = zod.object({
   usage: zod.string().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
+  source: zod.enum(["register", "manual", "csv"]),
+  lastRegisterSyncedAt: zod.coerce.date().nullish(),
+  mgmBldrgstPk: zod.string().nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
@@ -4445,6 +4481,9 @@ export const GetUnitResponse = zod
     usage: zod.string().nullish(),
     notes: zod.string().nullish(),
     status: zod.enum(["vacant", "occupied", "maintenance"]),
+    source: zod.enum(["register", "manual", "csv"]),
+    lastRegisterSyncedAt: zod.coerce.date().nullish(),
+    mgmBldrgstPk: zod.string().nullish(),
     tenantCount: zod.number().optional(),
     ownerCount: zod.number().optional(),
     vehicleCount: zod.number().optional(),
@@ -4590,6 +4629,9 @@ export const UpdateUnitResponse = zod.object({
   usage: zod.string().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
+  source: zod.enum(["register", "manual", "csv"]),
+  lastRegisterSyncedAt: zod.coerce.date().nullish(),
+  mgmBldrgstPk: zod.string().nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),

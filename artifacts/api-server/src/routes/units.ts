@@ -59,6 +59,11 @@ router.get("/units", async (req: Request, res: Response): Promise<void> => {
       usage: unitsTable.usage,
       notes: unitsTable.notes,
       status: unitsTable.status,
+      // [Task #348] 호실 출처/마지막 동기화 시각/대장PK — 목록에서도 출처 뱃지를
+      // 보여주고, 대시보드 "제안업무" 카드가 동기화 이력 유무를 판단할 수 있게 한다.
+      source: unitsTable.source,
+      lastRegisterSyncedAt: unitsTable.lastRegisterSyncedAt,
+      mgmBldrgstPk: unitsTable.mgmBldrgstPk,
       createdAt: unitsTable.createdAt,
       updatedAt: unitsTable.updatedAt,
       tenantCount: sql<number>`(SELECT count(*)::int FROM tenants WHERE tenants.unit_id = units.id AND tenants.status = 'active')`,

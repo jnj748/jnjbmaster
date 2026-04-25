@@ -171,6 +171,8 @@ import type {
   GetUnregisteredVehicles200,
   GetWeeklyReportParams,
   HealthStatus,
+  ImportUnitsFromRegisterBody,
+  ImportUnitsFromRegisterResponse,
   IncompleteUnitIssue,
   Inspection,
   InspectionLog,
@@ -9699,6 +9701,102 @@ export function useListBuildings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * 현재 사용자의 건물에 연결된 mgmBldrgstPk 로 건축물대장 전유부/공용부
+면적 정보를 조회해 호실(units)을 idempotent 하게 upsert 한다.
+매칭 키는 (층 + 호실번호); 동일 행이 있으면 면적/용도/source/마지막
+동기화 시각만 갱신하고, 사용자 수기 입력(소유자/입주민/연락처/메모 등)은
+절대 덮어쓰지 않는다. dryRun=true 면 DB 변경 없이 미리보기만 반환한다.
+
+ * @summary 건축물대장(전유부/공용부) 면적 정보로 호실을 일괄 upsert
+ */
+export const getImportUnitsFromRegisterUrl = () => {
+  return `/api/buildings/units/import-from-register`;
+};
+
+export const importUnitsFromRegister = async (
+  importUnitsFromRegisterBody?: ImportUnitsFromRegisterBody,
+  options?: RequestInit,
+): Promise<ImportUnitsFromRegisterResponse> => {
+  return customFetch<ImportUnitsFromRegisterResponse>(
+    getImportUnitsFromRegisterUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(importUnitsFromRegisterBody),
+    },
+  );
+};
+
+export const getImportUnitsFromRegisterMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importUnitsFromRegister>>,
+    TError,
+    { data: BodyType<ImportUnitsFromRegisterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importUnitsFromRegister>>,
+  TError,
+  { data: BodyType<ImportUnitsFromRegisterBody> },
+  TContext
+> => {
+  const mutationKey = ["importUnitsFromRegister"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importUnitsFromRegister>>,
+    { data: BodyType<ImportUnitsFromRegisterBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importUnitsFromRegister(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportUnitsFromRegisterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importUnitsFromRegister>>
+>;
+export type ImportUnitsFromRegisterMutationBody =
+  BodyType<ImportUnitsFromRegisterBody>;
+export type ImportUnitsFromRegisterMutationError = ErrorType<void>;
+
+/**
+ * @summary 건축물대장(전유부/공용부) 면적 정보로 호실을 일괄 upsert
+ */
+export const useImportUnitsFromRegister = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importUnitsFromRegister>>,
+    TError,
+    { data: BodyType<ImportUnitsFromRegisterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importUnitsFromRegister>>,
+  TError,
+  { data: BodyType<ImportUnitsFromRegisterBody> },
+  TContext
+> => {
+  return useMutation(getImportUnitsFromRegisterMutationOptions(options));
+};
 
 /**
  * @summary List warranty period presets by construction trade
