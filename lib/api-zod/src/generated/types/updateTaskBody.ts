@@ -17,5 +17,5 @@ export interface UpdateTaskBody {
   priority?: UpdateTaskBodyPriority;
   status?: UpdateTaskBodyStatus;
   /** @nullable */
-  dueDate?: Date | null;
+  dueDate?: string | null;
 }

@@ -15,5 +15,5 @@ export interface WarrantyPreset {
   description?: string | null;
   /** @nullable */
   legalBasis?: string | null;
-  createdAt?: Date;
+  createdAt?: string;
 }

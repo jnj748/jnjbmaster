@@ -16,8 +16,8 @@ export interface TaxDeadlineChecklist {
   /** @nullable */
   completedBy?: number | null;
   /** @nullable */
-  completedAt?: Date | null;
-  dueDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  completedAt?: string | null;
+  dueDate: string;
+  createdAt: string;
+  updatedAt: string;
 }

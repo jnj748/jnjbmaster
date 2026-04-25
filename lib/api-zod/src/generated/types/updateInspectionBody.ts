@@ -23,8 +23,8 @@ export interface UpdateInspectionBody {
   /** @nullable */
   recommendedMonths?: string | null;
   /** @nullable */
-  lastInspectionDate?: Date | null;
-  nextDueDate?: Date;
+  lastInspectionDate?: string | null;
+  nextDueDate?: string;
   status?: UpdateInspectionBodyStatus;
   /** @nullable */
   notes?: string | null;

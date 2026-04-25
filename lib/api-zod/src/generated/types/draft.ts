@@ -16,6 +16,6 @@ export interface Draft {
   inspectionId?: number | null;
   body: string;
   status: DraftStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

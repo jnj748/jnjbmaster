@@ -19,9 +19,9 @@ export interface UpdateContractBody {
   /** @nullable */
   contractAmount?: number | null;
   /** @nullable */
-  startDate?: Date | null;
+  startDate?: string | null;
   /** @nullable */
-  endDate?: Date | null;
+  endDate?: string | null;
   /** @nullable */
   status?: UpdateContractBodyStatus;
   /** @nullable */

@@ -26,17 +26,17 @@ export interface Contract {
   /** @nullable */
   contractAmount?: number | null;
   /** @nullable */
-  startDate?: Date | null;
+  startDate?: string | null;
   /** @nullable */
-  endDate?: Date | null;
+  endDate?: string | null;
   status: ContractStatus;
   isRecurring: boolean;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
-  renewalAlertSent?: Date | null;
+  renewalAlertSent?: string | null;
   /** @nullable */
-  partnerAgreedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  partnerAgreedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

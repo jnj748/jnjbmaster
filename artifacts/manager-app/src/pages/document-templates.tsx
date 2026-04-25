@@ -32,17 +32,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, Edit, Trash2, Settings } from "lucide-react";
 
-interface TemplateItem {
-  id: number;
-  name: string;
-  category: string;
-  description: string | null;
-  fields: string;
-  bodyTemplate: string;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// 코드젠된 DocumentTemplateItem 을 단일 SoT 로 사용한다.
+import type { DocumentTemplateItem as TemplateItem } from "@workspace/api-client-react";
 
 const categoryLabels: Record<string, string> = {
   general: "일반",
@@ -81,7 +72,7 @@ export default function DocumentTemplates() {
   function openEdit(t: TemplateItem) {
     setEditId(t.id);
     setFormName(t.name);
-    setFormCategory(t.category);
+    setFormCategory(t.category as CreateDocumentTemplateBodyCategory);
     setFormDescription(t.description || "");
     setFormFields(t.fields);
     setFormBody(t.bodyTemplate);

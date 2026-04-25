@@ -12,6 +12,6 @@ export interface AiChatSession {
   /** @nullable */
   buildingId?: number | null;
   title: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -75,7 +75,7 @@ router.patch("/tax-deadline-checklists/:id", requireRole("manager", "platform_ad
 
   const [item] = await db
     .update(taxDeadlineChecklistsTable)
-    .set(parsed.data)
+    .set(parsed.data as never)
     .where(eq(taxDeadlineChecklistsTable.id, params.data.id))
     .returning();
 

@@ -14,7 +14,12 @@ import {
   getListTenantCardTokensQueryKey,
   getGetManagementContractTemplateQueryKey,
 } from "@workspace/api-client-react";
-import type { Tenant, CreateTenantBody, ListTenantsParams } from "@workspace/api-client-react";
+import type {
+  Tenant,
+  CreateTenantBody,
+  ListTenantsParams,
+  UpsertManagementContractTemplateBody,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBuilding } from "@/contexts/building-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -401,7 +406,12 @@ export default function Tenants() {
         template={contractTemplate ?? null}
         buildingId={building?.id ?? 0}
         onSave={async (data) => {
-          await upsertTemplateMutation.mutateAsync({ data });
+          // ContractTemplateDialog 가 제공하는 data 는 모든 필수 필드(buildingId,
+          // feeObligationClause, penaltyClause, specialFundClause, privacyRetentionClause)를
+          // 채워서 넘겨주므로 UpsertManagementContractTemplateBody 로 안전하게 캐스트한다.
+          await upsertTemplateMutation.mutateAsync({
+            data: data as unknown as UpsertManagementContractTemplateBody,
+          });
           queryClient.invalidateQueries({ queryKey: getGetManagementContractTemplateQueryKey({ buildingId: building?.id ?? 0 }) });
           toast({ title: "관리계약서 양식이 저장되었습니다" });
           setTemplateDialog(false);

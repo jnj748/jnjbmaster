@@ -10,5 +10,5 @@ export type WeeklyReportNextWeekInspectionsItem = {
   id: number;
   name: string;
   category: string;
-  nextDueDate: Date;
+  nextDueDate: string;
 };

@@ -40,7 +40,7 @@ export interface CreateVendorBody {
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
-  contractStartDate?: Date | null;
+  contractStartDate?: string | null;
   /** @nullable */
-  contractEndDate?: Date | null;
+  contractEndDate?: string | null;
 }

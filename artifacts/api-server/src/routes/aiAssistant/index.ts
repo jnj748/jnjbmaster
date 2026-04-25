@@ -159,7 +159,7 @@ router.post("/ai/sessions", async (req: Request, res: Response): Promise<void> =
 
 router.patch("/ai/sessions/:id", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
   if (!title) { res.status(400).json({ error: "title is required" }); return; }
   const session = await loadOwnedSession(id, userId);
@@ -174,7 +174,7 @@ router.patch("/ai/sessions/:id", async (req: Request, res: Response): Promise<vo
 
 router.delete("/ai/sessions/:id", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const session = await loadOwnedSession(id, userId);
   if (!session) { res.status(404).json({ error: "Not found" }); return; }
   await db.delete(aiChatSessionsTable).where(eq(aiChatSessionsTable.id, id));
@@ -183,7 +183,7 @@ router.delete("/ai/sessions/:id", async (req: Request, res: Response): Promise<v
 
 router.get("/ai/sessions/:id/messages", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   const session = await loadOwnedSession(id, userId);
   if (!session) { res.status(404).json({ error: "Not found" }); return; }
   const messages = await db

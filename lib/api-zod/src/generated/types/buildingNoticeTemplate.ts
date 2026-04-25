@@ -20,6 +20,6 @@ export interface BuildingNoticeTemplate {
   customFieldLabels?: string | null;
   sortOrder: number;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

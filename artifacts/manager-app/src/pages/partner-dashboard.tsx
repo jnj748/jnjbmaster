@@ -69,7 +69,7 @@ export default function PartnerDashboard() {
     { query: { enabled: !!vendorId } },
   );
   const { data: ledger } = useListCreditLedger(
-    vendorId ? { vendorId, limit: 5 } : undefined,
+    vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
   );
   const { data: openRfqs } = useListRfqs(undefined, { query: { enabled: !!vendorId } });

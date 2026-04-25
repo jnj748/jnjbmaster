@@ -145,28 +145,28 @@ export default function BuildingInfo() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 desktop:grid-cols-2 gap-x-8 gap-y-3">
-            {b.addressFull && (
+            {!!b.addressFull && (
               <InfoRow label="도로명 주소" value={String(b.addressFull)} />
             )}
-            {b.addressJibun && (
+            {!!b.addressJibun && (
               <InfoRow label="지번 주소" value={String(b.addressJibun)} />
             )}
-            {b.zipCode && (
+            {!!b.zipCode && (
               <InfoRow label="우편번호" value={String(b.zipCode)} />
             )}
-            {b.buildingUsage && (
+            {!!b.buildingUsage && (
               <InfoRow label="용도" value={String(b.buildingUsage)} />
             )}
-            {b.structureType && (
+            {!!b.structureType && (
               <InfoRow label="구조" value={String(b.structureType)} />
             )}
-            {b.completionDate && (
+            {!!b.completionDate && (
               <InfoRow label="준공일" value={String(b.completionDate)} />
             )}
-            {b.managementOfficePhone && (
+            {!!b.managementOfficePhone && (
               <InfoRow label="관리사무소 전화" value={String(b.managementOfficePhone)} />
             )}
-            {b.managementOfficeFax && (
+            {!!b.managementOfficeFax && (
               <InfoRow label="관리사무소 팩스" value={String(b.managementOfficeFax)} />
             )}
           </div>
@@ -209,7 +209,7 @@ export default function BuildingInfo() {
         token={token}
       />
 
-      {(b.buildingArea || b.buildingCoverageRatio || b.floorAreaRatio) && (
+      {!!(b.buildingArea || b.buildingCoverageRatio || b.floorAreaRatio) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -219,25 +219,25 @@ export default function BuildingInfo() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4 text-sm">
-              {b.buildingArea && (
+              {!!b.buildingArea && (
                 <div>
                   <span className="text-muted-foreground">건축면적</span>
                   <p className="font-medium">{Number(b.buildingArea).toLocaleString()}㎡</p>
                 </div>
               )}
-              {b.landArea && (
+              {!!b.landArea && (
                 <div>
                   <span className="text-muted-foreground">대지면적</span>
                   <p className="font-medium">{Number(b.landArea).toLocaleString()}㎡</p>
                 </div>
               )}
-              {b.buildingCoverageRatio && (
+              {!!b.buildingCoverageRatio && (
                 <div>
                   <span className="text-muted-foreground">건폐율</span>
                   <p className="font-medium">{Number(b.buildingCoverageRatio).toFixed(2)}%</p>
                 </div>
               )}
-              {b.floorAreaRatio && (
+              {!!b.floorAreaRatio && (
                 <div>
                   <span className="text-muted-foreground">용적률</span>
                   <p className="font-medium">{Number(b.floorAreaRatio).toFixed(2)}%</p>
@@ -508,11 +508,14 @@ function BuildingRegisterDetailsCard({ registerData }: { registerData: RegisterR
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: unknown }) {
+  // value 는 OverviewData.building (Record<string, unknown>) 에서 직접 들어오므로
+  // 명시적으로 문자열화하여 ReactNode 호환성을 보장한다.
+  const text = value === null || value === undefined ? "" : String(value);
   return (
     <div className="flex items-baseline gap-3">
       <span className="text-sm text-muted-foreground whitespace-nowrap min-w-[100px]">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <span className="text-sm font-medium">{text}</span>
     </div>
   );
 }

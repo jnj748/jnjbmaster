@@ -20,7 +20,10 @@ const WORK_START_MINUTE = 0;
 const WORK_END_HOUR = 18;
 const WORK_END_MINUTE = 0;
 
-function determineStatus(checkType: string, checkTime: Date): string {
+function determineStatus(
+  checkType: string,
+  checkTime: Date,
+): "normal" | "late" | "early_leave" | "absent" {
   const hours = checkTime.getHours();
   const minutes = checkTime.getMinutes();
   const totalMinutes = hours * 60 + minutes;
@@ -107,7 +110,8 @@ router.post("/attendance/check", buildingStaff, async (req, res): Promise<void> 
     ipAddress,
     userAgent,
     note: parsed.data.note || null,
-    checkInTime: parsed.data.checkType === "check_in" ? now : null,
+    // drizzle timestamp 컬럼은 Date 객체를 받으나 schema 타입이 좁게 추론되어 cast.
+    checkInTime: (parsed.data.checkType === "check_in" ? now : null) as unknown as Date | null,
     checkOutTime: parsed.data.checkType === "check_out" ? now : null,
   }).returning();
 

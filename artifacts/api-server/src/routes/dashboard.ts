@@ -192,6 +192,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     dueDate: string | null;
     penaltyInfo: string | null;
     inspectionType?: string | null;
+    cycleMonths?: number | null;
+    intervalDays?: number | null;
     createdAt: string;
   }> = [];
 

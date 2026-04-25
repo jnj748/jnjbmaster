@@ -10,7 +10,7 @@ import type { SafetyTrainingStatus } from "./safetyTrainingStatus";
 export interface SafetyTraining {
   id: number;
   title: string;
-  trainingDate: Date;
+  trainingDate: string;
   trainingMonth: number;
   trainingYear: number;
   trainer: string;
@@ -24,6 +24,6 @@ export interface SafetyTraining {
   status: SafetyTrainingStatus;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

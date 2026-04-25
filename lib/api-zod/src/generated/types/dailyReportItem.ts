@@ -26,7 +26,7 @@ export interface DailyReportItem {
   /** @nullable */
   reviewComment?: string | null;
   /** @nullable */
-  reviewedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

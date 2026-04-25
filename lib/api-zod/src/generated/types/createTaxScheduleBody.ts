@@ -13,6 +13,6 @@ export interface CreateTaxScheduleBody {
   /** @nullable */
   description?: string | null;
   scheduleType: CreateTaxScheduleBodyScheduleType;
-  dueDate: Date;
+  dueDate: string;
   recurrence: CreateTaxScheduleBodyRecurrence;
 }

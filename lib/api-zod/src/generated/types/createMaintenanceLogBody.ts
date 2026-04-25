@@ -12,7 +12,7 @@ export interface CreateMaintenanceLogBody {
   title: string;
   description: string;
   category: CreateMaintenanceLogBodyCategory;
-  workDate?: Date;
+  workDate?: string;
   worker?: string;
   status?: CreateMaintenanceLogBodyStatus;
   /** @nullable */

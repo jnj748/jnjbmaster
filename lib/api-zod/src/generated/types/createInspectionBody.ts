@@ -22,8 +22,8 @@ export interface CreateInspectionBody {
   /** @nullable */
   recommendedMonths?: string | null;
   /** @nullable */
-  lastInspectionDate?: Date | null;
-  nextDueDate: Date;
+  lastInspectionDate?: string | null;
+  nextDueDate: string;
   /** @nullable */
   notes?: string | null;
   /** @nullable */

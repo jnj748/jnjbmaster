@@ -36,11 +36,9 @@ import {
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
-declare global {
-  interface Window {
-    daum?: { Postcode: new (opts: { oncomplete: (d: DaumResult) => void }) => { open: () => void } };
-  }
-}
+// [건물 등록 SoT] window.daum 글로벌 타입 정의는 building-setup.tsx 에 단일
+// 선언이 있다. 동일 글로벌을 여기서 또 declare 하면 modifier 차이로
+// TS2687/TS2717 이 발생하므로 import 만 한다.
 
 interface DaumResult {
   roadAddress: string;

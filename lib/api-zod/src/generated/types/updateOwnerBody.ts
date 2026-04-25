@@ -11,15 +11,15 @@ export interface UpdateOwnerBody {
   unit?: string;
   ownerName?: string;
   /** @nullable */
-  birthDate?: Date | null;
+  birthDate?: string | null;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
-  interiorStartDate?: Date | null;
+  interiorStartDate?: string | null;
   /** @nullable */
-  moveInDate?: Date | null;
+  moveInDate?: string | null;
   /** @nullable */
-  moveOutDate?: Date | null;
+  moveOutDate?: string | null;
   /** @nullable */
   companyName?: string | null;
   /** @nullable */
@@ -37,7 +37,7 @@ export interface UpdateOwnerBody {
   notes?: string | null;
   status?: UpdateOwnerBodyStatus;
   /** @nullable */
-  privacyConsentDate?: Date | null;
+  privacyConsentDate?: string | null;
   businessRegDoc?: boolean;
   idDoc?: boolean;
   propertyDoc?: boolean;

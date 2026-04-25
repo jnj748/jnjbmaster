@@ -20,8 +20,8 @@ export interface CreateRfqBody {
   buildingId?: number | null;
   buildingName: string;
   /** @nullable */
-  desiredDate?: Date | null;
-  deadline: Date;
+  desiredDate?: string | null;
+  deadline: string;
   /** @nullable */
   vendorIds?: string | null;
   /** @nullable */

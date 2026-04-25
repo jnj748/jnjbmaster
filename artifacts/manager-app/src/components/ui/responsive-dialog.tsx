@@ -49,20 +49,41 @@ function ResponsiveDialogTrigger({ children, asChild, ...rest }: TriggerProps & 
 
 interface ContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
+  // Radix Dialog primitive props — desktop 분기에서 forward, mobile(Drawer) 에서는 무시.
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
+  onPointerDownOutside?: (event: Event) => void;
+  onInteractOutside?: (event: Event) => void;
 }
 
-function ResponsiveDialogContent({ children, className, ...rest }: ContentProps) {
+function ResponsiveDialogContent({
+  children,
+  className,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
+  ...rest
+}: ContentProps) {
   const isMobile = useIsMobile();
   if (isMobile) {
     return (
-      <DrawerContent className={cn("max-h-[90vh]", className)}>
+      <DrawerContent className={cn("max-h-[90vh]", className)} {...rest}>
         <div className="min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-4">
           {children}
         </div>
       </DrawerContent>
     );
   }
-  return <DialogContent className={className}>{children}</DialogContent>;
+  return (
+    <DialogContent
+      className={className}
+      onEscapeKeyDown={onEscapeKeyDown}
+      onPointerDownOutside={onPointerDownOutside}
+      onInteractOutside={onInteractOutside}
+      {...rest}
+    >
+      {children}
+    </DialogContent>
+  );
 }
 
 function ResponsiveDialogHeader({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

@@ -12,7 +12,7 @@ export interface CreateCommissionBody {
   contractAmount: number;
   commissionRate: number;
   commissionAmount: number;
-  matchedDate: Date;
+  matchedDate: string;
   /** @nullable */
   notes?: string | null;
 }

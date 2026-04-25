@@ -92,7 +92,7 @@ router.get("/delinquency/summary", async (req: Request, res: Response): Promise<
 });
 
 router.post("/delinquency/:id/notify", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "잘못된 ID" }); return; }
 
   const buildingId = await getUserBuildingId(req);
@@ -123,7 +123,7 @@ router.post("/delinquency/:id/notify", async (req: Request, res: Response): Prom
 });
 
 router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "잘못된 ID" }); return; }
 
   const buildingId = await getUserBuildingId(req);
@@ -174,7 +174,7 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
 });
 
 router.post("/delinquency/:id/resolve", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "잘못된 ID" }); return; }
 
   const buildingId = await getUserBuildingId(req);

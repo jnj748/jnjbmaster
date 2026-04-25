@@ -11,5 +11,5 @@ export interface CreateTaxDeadlineChecklistBody {
   itemName: string;
   /** @nullable */
   description?: string | null;
-  dueDate: Date;
+  dueDate: string;
 }

@@ -17,11 +17,11 @@ export interface CreateTenantBody {
   /** @nullable */
   emergencyContact?: string | null;
   /** @nullable */
-  interiorStartDate?: Date | null;
+  interiorStartDate?: string | null;
   /** @nullable */
-  moveInDate?: Date | null;
+  moveInDate?: string | null;
   /** @nullable */
-  moveOutDate?: Date | null;
+  moveOutDate?: string | null;
   /** @nullable */
   email?: string | null;
   /** @nullable */
@@ -42,7 +42,7 @@ export interface CreateTenantBody {
   /** @nullable */
   guarantorResidentId?: string | null;
   /** @nullable */
-  privacyConsentDate?: Date | null;
+  privacyConsentDate?: string | null;
   contractDoc?: boolean;
   businessRegDoc?: boolean;
   idDoc?: boolean;
@@ -62,8 +62,8 @@ export interface CreateTenantBody {
   /** @nullable */
   signatureName?: string | null;
   /** @nullable */
-  signatureDate?: Date | null;
+  signatureDate?: string | null;
   /** @nullable */
-  billingStartDate?: Date | null;
+  billingStartDate?: string | null;
   verificationStatus?: CreateTenantBodyVerificationStatus;
 }

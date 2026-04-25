@@ -199,8 +199,8 @@ export default function PlatformAnnouncementsPage() {
       setDraft({ ...draft, audience: checked ? ["all"] : [] });
       return;
     }
-    let next = draft.audience.filter((r) => r !== "all");
-    if (checked) next = Array.from(new Set([...next, role]));
+    let next: Audience[] = draft.audience.filter((r) => r !== "all");
+    if (checked) next = Array.from(new Set<Audience>([...next, role]));
     else next = next.filter((r) => r !== role);
     if (next.length === 0) next = ["all"];
     setDraft({ ...draft, audience: next });

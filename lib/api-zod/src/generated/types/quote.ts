@@ -20,19 +20,19 @@ export interface Quote {
   /** @nullable */
   estimatedDays?: number | null;
   /** @nullable */
-  availableDate?: Date | null;
+  availableDate?: string | null;
   /** @nullable */
   notes?: string | null;
   status: QuoteStatus;
   /** @nullable */
   contractFilePath?: string | null;
   /** @nullable */
-  contractUploadedAt?: Date | null;
+  contractUploadedAt?: string | null;
   requiredDocsComplete?: boolean;
   /** @nullable */
-  firstViewedAt?: Date | null;
+  firstViewedAt?: string | null;
   /** @nullable */
-  noViewRefundedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  noViewRefundedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

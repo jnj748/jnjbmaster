@@ -351,7 +351,7 @@ router.delete("/vehicles/:id", async (req: Request, res): Promise<void> => {
 });
 
 router.post("/vehicles/:id/cancel", async (req: Request, res): Promise<void> => {
-  const idParam = parseInt(req.params.id);
+  const idParam = parseInt(req.params.id as string);
   if (isNaN(idParam)) {
     res.status(400).json({ error: "Invalid id" });
     return;
@@ -453,7 +453,7 @@ router.post("/vehicles/batch-cancel", async (req: Request, res): Promise<void> =
 });
 
 router.get("/vehicles/:id/history", async (req: Request, res): Promise<void> => {
-  const idParam = parseInt(req.params.id);
+  const idParam = parseInt(req.params.id as string);
   if (isNaN(idParam)) {
     res.status(400).json({ error: "Invalid id" });
     return;

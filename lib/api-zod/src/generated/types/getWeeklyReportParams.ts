@@ -7,5 +7,5 @@
  */
 
 export type GetWeeklyReportParams = {
-  weekStart: Date;
+  weekStart: string;
 };

@@ -11,7 +11,7 @@ import type { CalendarEventStatus } from "./calendarEventStatus";
 export interface CalendarEvent {
   id: string;
   title: string;
-  date: Date;
+  date: string;
   source: CalendarEventSource;
   originalType: string;
   status: CalendarEventStatus;

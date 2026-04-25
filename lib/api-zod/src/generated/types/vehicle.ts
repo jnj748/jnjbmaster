@@ -31,9 +31,9 @@ export interface Vehicle {
   leaseDoc: boolean;
   status: VehicleStatus;
   /** @nullable */
-  cancelledAt?: Date | null;
+  cancelledAt?: string | null;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

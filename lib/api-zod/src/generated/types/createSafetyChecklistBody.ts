@@ -11,7 +11,7 @@ import type { CreateSafetyChecklistBodyItemsItem } from "./createSafetyChecklist
 export interface CreateSafetyChecklistBody {
   category: CreateSafetyChecklistBodyCategory;
   title: string;
-  inspectionDate: Date;
+  inspectionDate: string;
   inspector: string;
   /** @nullable */
   notes?: string | null;

@@ -13,9 +13,9 @@ export interface CreateContractFromQuoteBody {
   /** @nullable */
   buildingName?: string | null;
   /** @nullable */
-  startDate?: Date | null;
+  startDate?: string | null;
   /** @nullable */
-  endDate?: Date | null;
+  endDate?: string | null;
   /** @nullable */
   title?: string | null;
   /** @nullable */

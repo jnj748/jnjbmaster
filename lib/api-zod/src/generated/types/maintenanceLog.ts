@@ -13,12 +13,12 @@ export interface MaintenanceLog {
   title: string;
   description: string;
   category: MaintenanceLogCategory;
-  workDate: Date;
+  workDate: string;
   worker: string;
   status: MaintenanceLogStatus;
   reportSent: boolean;
   /** @nullable */
-  reportSentAt?: Date | null;
+  reportSentAt?: string | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
@@ -29,6 +29,6 @@ export interface MaintenanceLog {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

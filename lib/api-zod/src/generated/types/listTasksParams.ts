@@ -11,5 +11,5 @@ import type { ListTasksStatus } from "./listTasksStatus";
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
-  date?: Date;
+  date?: string;
 };

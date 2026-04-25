@@ -30,8 +30,8 @@ export interface CreditTopupOrder {
   ledgerCreditId?: number | null;
   /** @nullable */
   ledgerBonusId?: number | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   /** @nullable */
-  paidAt?: Date | null;
+  paidAt?: string | null;
 }

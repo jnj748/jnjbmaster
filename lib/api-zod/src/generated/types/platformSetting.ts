@@ -14,5 +14,5 @@ export interface PlatformSetting {
   description?: string | null;
   /** @nullable */
   updatedBy?: string | null;
-  updatedAt?: Date;
+  updatedAt?: string;
 }

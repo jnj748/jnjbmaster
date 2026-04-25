@@ -6,6 +6,7 @@ import {
   getListApprovalsQueryKey,
   getGetApprovalStatsQueryKey,
   getGetExecutiveKpiQueryKey,
+  type ListApprovalsParams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
@@ -124,7 +125,9 @@ export default function Approvals() {
   const API_BASE = `${BASE}api`;
 
   const { data: approvals, isLoading } = useListApprovals(
-    statusFilter ? { status: statusFilter } : {}
+    statusFilter
+      ? { status: statusFilter as ListApprovalsParams["status"] }
+      : {},
   );
 
   useEffect(() => {
@@ -508,7 +511,7 @@ export default function Approvals() {
                   <div className="space-y-2">
                     {approvalSteps.map((step) => {
                       const isCurrent = step.stepOrder === selectedApproval.currentStep;
-                      const canProcess = isCurrent && step.status === "pending" && step.approverId === user?.userId;
+                      const canProcess = isCurrent && step.status === "pending" && step.approverId === user?.id;
                       return (
                         <div
                           key={step.id}

@@ -14,7 +14,7 @@ export interface MonthlyPayment {
   paidAmount: number;
   isPaid: boolean;
   dueDate: string;
-  paidAt?: Date | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+  paidAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }

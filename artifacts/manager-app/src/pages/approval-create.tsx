@@ -88,14 +88,8 @@ interface RecipientInput {
   type: "recipient" | "cc";
 }
 
-interface TemplateItem {
-  id: number;
-  name: string;
-  category: string;
-  description: string | null;
-  isSystem: boolean;
-  bodyTemplate: string;
-}
+// 코드젠된 DocumentTemplateItem 을 단일 SoT 로 사용한다.
+import type { DocumentTemplateItem as TemplateItem } from "@workspace/api-client-react";
 
 export default function ApprovalCreate() {
   const { user, token } = useAuth();
@@ -382,7 +376,7 @@ export default function ApprovalCreate() {
   const roleLabels: Record<string, string> = ROLE_LABELS;
 
   const availableApprovers = userList.filter(
-    (u) => !approvalSteps.some((s) => s.approverId === u.id) && u.id !== user?.userId
+    (u) => !approvalSteps.some((s) => s.approverId === u.id) && u.id !== user?.id
   );
 
   const availableRecipients = userList.filter(

@@ -7,6 +7,6 @@
  */
 
 export interface CreateBuildingWarrantiesBody {
-  approvalDate: Date;
+  approvalDate: string;
   presetIds?: number[];
 }

@@ -27,5 +27,5 @@ export interface CreditCategoryPricing {
   displayNameKo?: string | null;
   /** @nullable */
   updatedBy?: string | null;
-  updatedAt?: Date;
+  updatedAt?: string;
 }

@@ -14,7 +14,7 @@ export interface UpdateTaxScheduleBody {
   /** @nullable */
   description?: string | null;
   scheduleType?: UpdateTaxScheduleBodyScheduleType;
-  dueDate?: Date;
+  dueDate?: string;
   recurrence?: UpdateTaxScheduleBodyRecurrence;
   status?: UpdateTaxScheduleBodyStatus;
 }

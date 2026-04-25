@@ -13,6 +13,6 @@ export interface DigitalSignatureItem {
   userName: string;
   signatureType: DigitalSignatureItemSignatureType;
   signatureData: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

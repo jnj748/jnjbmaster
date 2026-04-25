@@ -16,7 +16,7 @@ export interface CreateWorkReportBody {
   title: string;
   /** @nullable */
   description?: string | null;
-  completionDate: Date;
+  completionDate: string;
   /** @nullable */
   photoUrls?: string | null;
 }

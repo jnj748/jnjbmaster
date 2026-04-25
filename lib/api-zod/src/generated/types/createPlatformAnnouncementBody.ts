@@ -12,9 +12,9 @@ export type CreatePlatformAnnouncementBody = {
   title: string;
   body: string;
   audience: CreatePlatformAnnouncementBodyAudienceItem[];
-  startsAt?: Date;
+  startsAt?: string;
   /** @nullable */
-  endsAt?: Date | null;
+  endsAt?: string | null;
   recurrence?: CreatePlatformAnnouncementBodyRecurrence;
   /** @nullable */
   recurrenceDays?: number[] | null;

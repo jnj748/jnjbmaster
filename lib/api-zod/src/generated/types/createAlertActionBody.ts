@@ -13,9 +13,9 @@ export interface CreateAlertActionBody {
   relatedEntityId: number;
   actionType: CreateAlertActionBodyActionType;
   /** @nullable */
-  completedDate?: Date | null;
+  completedDate?: string | null;
   /** @nullable */
-  nextCycleDate?: Date | null;
+  nextCycleDate?: string | null;
   /** @nullable */
   postponeDays?: number | null;
   /** @nullable */

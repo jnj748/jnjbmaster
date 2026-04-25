@@ -259,9 +259,8 @@ router.post("/inspections/:id/complete", async (req, res): Promise<void> => {
   }
   const inspection = existing[0];
 
-  const inspDateStr = parsed.data.inspectionDate instanceof Date
-    ? parsed.data.inspectionDate.toISOString().split("T")[0]
-    : String(parsed.data.inspectionDate);
+  // useDates=false 로 codegen 된 zod 스키마라 inspectionDate 는 항상 문자열.
+  const inspDateStr = String(parsed.data.inspectionDate);
 
   await db.insert(inspectionLogsTable).values({
     inspectionId: params.data.id,

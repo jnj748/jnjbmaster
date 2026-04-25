@@ -8,7 +8,7 @@
 import type { CompleteInspectionBodyResult } from "./completeInspectionBodyResult";
 
 export interface CompleteInspectionBody {
-  inspectionDate: Date;
+  inspectionDate: string;
   result: CompleteInspectionBodyResult;
   /** @nullable */
   memo?: string | null;

@@ -14,5 +14,5 @@ export interface UpdateQuoteBody {
   /** @nullable */
   contractFilePath?: string | null;
   /** @nullable */
-  contractUploadedAt?: Date | null;
+  contractUploadedAt?: string | null;
 }

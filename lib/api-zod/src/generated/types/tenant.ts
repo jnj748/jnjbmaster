@@ -19,11 +19,11 @@ export interface Tenant {
   /** @nullable */
   emergencyContact?: string | null;
   /** @nullable */
-  interiorStartDate?: Date | null;
+  interiorStartDate?: string | null;
   /** @nullable */
-  moveInDate?: Date | null;
+  moveInDate?: string | null;
   /** @nullable */
-  moveOutDate?: Date | null;
+  moveOutDate?: string | null;
   /** @nullable */
   email?: string | null;
   /** @nullable */
@@ -45,7 +45,7 @@ export interface Tenant {
   guarantorResidentId?: string | null;
   status: TenantStatus;
   /** @nullable */
-  privacyConsentDate?: Date | null;
+  privacyConsentDate?: string | null;
   contractDoc: boolean;
   businessRegDoc: boolean;
   idDoc: boolean;
@@ -65,16 +65,16 @@ export interface Tenant {
   /** @nullable */
   signatureName?: string | null;
   /** @nullable */
-  signatureDate?: Date | null;
+  signatureDate?: string | null;
   /** @nullable */
-  billingStartDate?: Date | null;
+  billingStartDate?: string | null;
   verificationStatus: TenantVerificationStatus;
   /** @nullable */
-  verifiedAt?: Date | null;
+  verifiedAt?: string | null;
   /** @nullable */
   verifiedBy?: string | null;
-  createdAt: Date;
+  createdAt: string;
   /** @nullable */
-  dataDestructionDate?: Date | null;
-  updatedAt: Date;
+  dataDestructionDate?: string | null;
+  updatedAt: string;
 }

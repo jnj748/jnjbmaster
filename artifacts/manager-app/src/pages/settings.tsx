@@ -493,7 +493,7 @@ function RateRow({ row, onSave }: { row: CommissionRate; onSave: (d: UpsertCommi
       </td>
       <td className="p-2"><Input value={fixedRate} onChange={(e) => setFixedRate(e.target.value)} className="h-8 w-20" /></td>
       <td className="p-2 text-right">
-        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, rateType, fixedRate: Number(fixedRate), slidingRules: row.slidingRules, description: row.description })}>
+        <Button size="sm" variant="outline" onClick={() => onSave({ category: row.category, rateType, fixedRate: Number(fixedRate), description: row.description })}>
           저장
         </Button>
       </td>

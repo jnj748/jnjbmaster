@@ -15,5 +15,5 @@ export interface CreateTaskBody {
   category: CreateTaskBodyCategory;
   priority: CreateTaskBodyPriority;
   /** @nullable */
-  dueDate?: Date | null;
+  dueDate?: string | null;
 }

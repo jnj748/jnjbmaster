@@ -24,14 +24,14 @@ export interface Inspection {
   /** @nullable */
   recommendedMonths?: string | null;
   /** @nullable */
-  lastInspectionDate?: Date | null;
-  nextDueDate: Date;
+  lastInspectionDate?: string | null;
+  nextDueDate: string;
   status: InspectionStatus;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
   legalBasis?: string | null;
   advanceAlertDays: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

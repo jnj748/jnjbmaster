@@ -10,7 +10,7 @@ import type { UpdateSettlementBodyStatus } from "./updateSettlementBodyStatus";
 export interface UpdateSettlementBody {
   status?: UpdateSettlementBodyStatus;
   /** @nullable */
-  paidAt?: Date | null;
+  paidAt?: string | null;
   /** @nullable */
   notes?: string | null;
 }

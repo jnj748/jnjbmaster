@@ -84,7 +84,7 @@ const CreateBody = z.object({
 
 // [Task #302] frequencyType 별 필수 보조값 검증 (defense-in-depth).
 //   UI 가 이미 보장하지만 API 에서도 일관성 강제.
-function refineFrequencyFields<T extends z.ZodTypeAny>(schema: T): z.ZodEffects<T> {
+function refineFrequencyFields<T extends z.ZodTypeAny>(schema: T) {
   return schema.superRefine((val, ctx) => {
     const v = val as Partial<z.infer<typeof CreateBody>>;
     if (v.frequencyType === "biweekly") {
@@ -276,7 +276,7 @@ router.patch(
     }
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     const d = parsed.data;
-    for (const k of Object.keys(d) as (keyof typeof d)[]) {
+    for (const k of Object.keys(d) as Array<Extract<keyof typeof d, string>>) {
       const v = d[k];
       if (v !== undefined) {
         if (k === "scopeValues" && v == null) patch[k] = [];

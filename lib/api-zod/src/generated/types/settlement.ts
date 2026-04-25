@@ -19,9 +19,9 @@ export interface Settlement {
   paymentAmount: number;
   status: SettlementStatus;
   /** @nullable */
-  paidAt?: Date | null;
+  paidAt?: string | null;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

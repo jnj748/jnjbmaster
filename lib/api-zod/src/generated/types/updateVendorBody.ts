@@ -42,7 +42,7 @@ export interface UpdateVendorBody {
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
-  contractStartDate?: Date | null;
+  contractStartDate?: string | null;
   /** @nullable */
-  contractEndDate?: Date | null;
+  contractEndDate?: string | null;
 }

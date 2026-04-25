@@ -8,7 +8,7 @@
 
 export interface CreateSafetyTrainingBody {
   title: string;
-  trainingDate: Date;
+  trainingDate: string;
   trainingMonth: number;
   trainingYear: number;
   trainer: string;

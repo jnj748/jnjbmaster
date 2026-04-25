@@ -21,7 +21,7 @@ export interface Alert {
   /** @nullable */
   actionStatus?: string | null;
   /** @nullable */
-  dueDate?: Date | null;
+  dueDate?: string | null;
   /** @nullable */
   penaltyInfo?: string | null;
   /**
@@ -29,5 +29,5 @@ export interface Alert {
    * @nullable
    */
   inspectionType?: AlertInspectionType;
-  createdAt: Date;
+  createdAt: string;
 }

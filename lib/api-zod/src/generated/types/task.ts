@@ -18,9 +18,9 @@ export interface Task {
   priority: TaskPriority;
   status: TaskStatus;
   /** @nullable */
-  dueDate?: Date | null;
+  dueDate?: string | null;
   /** @nullable */
-  completedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

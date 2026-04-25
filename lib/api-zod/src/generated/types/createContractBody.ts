@@ -25,9 +25,9 @@ export interface CreateContractBody {
   /** @nullable */
   contractAmount?: number | null;
   /** @nullable */
-  startDate?: Date | null;
+  startDate?: string | null;
   /** @nullable */
-  endDate?: Date | null;
+  endDate?: string | null;
   status?: CreateContractBodyStatus;
   isRecurring?: boolean;
   /** @nullable */

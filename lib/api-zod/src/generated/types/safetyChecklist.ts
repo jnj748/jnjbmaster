@@ -12,7 +12,7 @@ export interface SafetyChecklist {
   id: number;
   category: SafetyChecklistCategory;
   title: string;
-  inspectionDate: Date;
+  inspectionDate: string;
   inspector: string;
   status: SafetyChecklistStatus;
   /** @nullable */
@@ -21,6 +21,6 @@ export interface SafetyChecklist {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

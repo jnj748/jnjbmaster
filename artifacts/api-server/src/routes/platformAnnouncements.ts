@@ -192,7 +192,7 @@ router.patch(
         if (d.recurrenceDays !== undefined) {
           const range =
             effectiveRecurrence === "weekly" ? { min: 0, max: 6 } : { min: 1, max: 31 };
-          const invalid = d.recurrenceDays.find(
+          const invalid = (d.recurrenceDays ?? []).find(
             (v) => !Number.isInteger(v) || v < range.min || v > range.max,
           );
           if (invalid !== undefined) {

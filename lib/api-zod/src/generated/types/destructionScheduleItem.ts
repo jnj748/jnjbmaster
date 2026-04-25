@@ -11,8 +11,8 @@ export interface DestructionScheduleItem {
   entityId: number;
   unit: string;
   name: string;
-  moveOutDate: Date;
-  dataDestructionDate: Date;
+  moveOutDate: string;
+  dataDestructionDate: string;
   daysUntilDestruction: number;
   status: string;
 }

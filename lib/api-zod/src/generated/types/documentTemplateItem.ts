@@ -17,6 +17,6 @@ export interface DocumentTemplateItem {
   bodyTemplate: string;
   isSystem: boolean;
   sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

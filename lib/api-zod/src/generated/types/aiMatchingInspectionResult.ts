@@ -11,7 +11,7 @@ export interface AiMatchingInspectionResult {
   inspectionId: number;
   inspectionName: string;
   category: string;
-  nextDueDate: Date;
+  nextDueDate: string;
   daysUntilDue: number;
   /** @nullable */
   draftId?: number | null;

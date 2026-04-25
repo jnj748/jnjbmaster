@@ -12,5 +12,5 @@ export interface BulkRegisterInspectionsBody {
   /** Specific preset IDs to register (if empty, all presets for the category) */
   presetIds: number[];
   /** Base date for calculating next due dates */
-  baseDate: Date;
+  baseDate: string;
 }

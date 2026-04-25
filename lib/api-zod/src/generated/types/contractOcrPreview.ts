@@ -25,9 +25,9 @@ export interface ContractOcrPreview {
   /** @nullable */
   title?: string | null;
   /** @nullable */
-  startDate?: Date | null;
+  startDate?: string | null;
   /** @nullable */
-  endDate?: Date | null;
+  endDate?: string | null;
   /** @nullable */
   contractAmount?: number | null;
   /** @nullable */

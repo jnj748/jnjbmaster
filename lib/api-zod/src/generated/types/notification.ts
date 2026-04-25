@@ -19,5 +19,5 @@ export interface Notification {
   relatedEntityType?: string | null;
   /** @nullable */
   relatedEntityId?: number | null;
-  createdAt: Date;
+  createdAt: string;
 }

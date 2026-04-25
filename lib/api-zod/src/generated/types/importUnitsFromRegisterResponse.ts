@@ -14,5 +14,5 @@ export interface ImportUnitsFromRegisterResponse {
   skipped: number;
   items: ImportUnitPreviewItem[];
   /** @nullable */
-  lastSyncedAt?: Date | null;
+  lastSyncedAt?: string | null;
 }

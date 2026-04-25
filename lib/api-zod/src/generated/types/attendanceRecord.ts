@@ -12,11 +12,11 @@ export interface AttendanceRecord {
   id: number;
   userId: number;
   userName?: string;
-  checkDate: Date;
+  checkDate: string;
   /** @nullable */
-  checkInTime?: Date | null;
+  checkInTime?: string | null;
   /** @nullable */
-  checkOutTime?: Date | null;
+  checkOutTime?: string | null;
   checkType: AttendanceRecordCheckType;
   status: AttendanceRecordStatus;
   /** @nullable */
@@ -27,5 +27,5 @@ export interface AttendanceRecord {
   userAgent?: string | null;
   /** @nullable */
   note?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

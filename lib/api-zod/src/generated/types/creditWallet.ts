@@ -12,6 +12,6 @@ export interface CreditWallet {
   balance: number;
   pointsBalance: number;
   creditsEnabled?: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }

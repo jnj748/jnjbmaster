@@ -16,5 +16,5 @@ export interface CommissionRate {
   slidingRules?: string | null;
   /** @nullable */
   description?: string | null;
-  updatedAt?: Date;
+  updatedAt?: string;
 }

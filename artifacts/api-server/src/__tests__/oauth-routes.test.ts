@@ -64,7 +64,7 @@ function clearFetchStub() {
   stubs = [];
 }
 
-globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = typeof input === "string" ? input : (input as URL | Request).toString();
   for (const s of stubs) {
     if (s.urlMatch.test(url)) {

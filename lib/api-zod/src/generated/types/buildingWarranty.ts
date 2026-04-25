@@ -15,17 +15,17 @@ export interface BuildingWarranty {
   tradeCategory: string;
   tradeName: string;
   warrantyYears: number;
-  startDate: Date;
-  expiryDate: Date;
+  startDate: string;
+  expiryDate: string;
   status: BuildingWarrantyStatus;
   /** @nullable */
   contractorName?: string | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
-  alertSent60?: Date | null;
+  alertSent60?: string | null;
   /** @nullable */
-  alertSent30?: Date | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+  alertSent30?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }

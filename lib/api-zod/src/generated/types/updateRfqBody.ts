@@ -18,8 +18,8 @@ export interface UpdateRfqBody {
   description?: string | null;
   buildingName?: string;
   /** @nullable */
-  desiredDate?: Date | null;
-  deadline?: Date;
+  desiredDate?: string | null;
+  deadline?: string;
   status?: UpdateRfqBodyStatus;
   /** @nullable */
   vendorIds?: string | null;

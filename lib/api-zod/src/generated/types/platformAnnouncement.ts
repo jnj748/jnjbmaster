@@ -13,9 +13,9 @@ export interface PlatformAnnouncement {
   title: string;
   body: string;
   audience: PlatformAnnouncementAudienceItem[];
-  startsAt: Date;
+  startsAt: string;
   /** @nullable */
-  endsAt?: Date | null;
+  endsAt?: string | null;
   recurrence: PlatformAnnouncementRecurrence;
   /** @nullable */
   recurrenceDays?: number[] | null;
@@ -24,6 +24,6 @@ export interface PlatformAnnouncement {
   createdBy?: number | null;
   /** @nullable */
   createdByName?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

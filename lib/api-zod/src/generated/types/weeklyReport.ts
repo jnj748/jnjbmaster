@@ -10,8 +10,8 @@ import type { WeeklyReportComplaintSummary } from "./weeklyReportComplaintSummar
 import type { WeeklyReportNextWeekInspectionsItem } from "./weeklyReportNextWeekInspectionsItem";
 
 export interface WeeklyReport {
-  weekStart: Date;
-  weekEnd: Date;
+  weekStart: string;
+  weekEnd: string;
   totalTasks: number;
   completedTasks: number;
   pendingTasks: number;

@@ -398,7 +398,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
 
   const [quote] = await db
     .update(quotesTable)
-    .set(parsed.data)
+    .set(parsed.data as never)
     .where(eq(quotesTable.id, params.data.id))
     .returning();
 

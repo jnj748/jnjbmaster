@@ -15,5 +15,5 @@ export interface SafetyChecklistItem {
   result?: string | null;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

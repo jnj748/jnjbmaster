@@ -886,6 +886,7 @@ export default function Dashboard() {
     toast({ title: "견적 요청이 생성되었습니다" });
     setRfqDocumentData({
       ...rfqData,
+      title: rfqData.title ?? "",
       createdAt: new Date().toISOString(),
     });
     setSelectedAlert(null);

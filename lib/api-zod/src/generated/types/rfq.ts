@@ -20,8 +20,8 @@ export interface Rfq {
   description?: string | null;
   buildingName: string;
   /** @nullable */
-  desiredDate?: Date | null;
-  deadline: Date;
+  desiredDate?: string | null;
+  deadline: string;
   status: RfqStatus;
   /** @nullable */
   vendorIds?: string | null;
@@ -35,8 +35,8 @@ export interface Rfq {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   /**
    * [Task #226] 파트너 시점 예상 차감 크레딧 (요청자가 파트너이거나 forVendorId가 명시된 경우에만 채워진다).
    * @nullable

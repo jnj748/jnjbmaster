@@ -16,5 +16,5 @@ export interface ManagementContractTemplate {
   privacyRetentionClause: string;
   /** @nullable */
   additionalClauses?: ManagementContractTemplateAdditionalClauses;
-  createdAt: Date;
+  createdAt: string;
 }

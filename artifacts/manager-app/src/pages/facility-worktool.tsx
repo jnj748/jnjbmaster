@@ -170,7 +170,7 @@ export default function FacilityWorktool() {
       label: "출근 상태",
       value: hasCheckedOut ? "퇴근" : hasCheckedIn ? "근무중" : "미출근",
       hint: hasCheckedIn
-        ? `출근 ${todayRecords?.find((r) => r.checkType === "check_in")?.checkedAt?.slice(11, 16) ?? ""}`
+        ? `출근 ${todayRecords?.find((r) => r.checkType === "check_in")?.checkInTime?.slice(11, 16) ?? ""}`
         : "출근 버튼 누르기",
       icon: hasCheckedOut ? LogOut : LogIn,
       iconClass: "text-white",

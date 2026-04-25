@@ -13,5 +13,5 @@ export interface ApprovalRecipientItem {
   userId: number;
   userName: string;
   type: ApprovalRecipientItemType;
-  createdAt: Date;
+  createdAt: string;
 }

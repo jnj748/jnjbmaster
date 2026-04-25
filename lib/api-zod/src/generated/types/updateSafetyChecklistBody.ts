@@ -11,7 +11,7 @@ import type { UpdateSafetyChecklistBodyStatus } from "./updateSafetyChecklistBod
 export interface UpdateSafetyChecklistBody {
   category?: UpdateSafetyChecklistBodyCategory;
   title?: string;
-  inspectionDate?: Date;
+  inspectionDate?: string;
   inspector?: string;
   status?: UpdateSafetyChecklistBodyStatus;
   /** @nullable */

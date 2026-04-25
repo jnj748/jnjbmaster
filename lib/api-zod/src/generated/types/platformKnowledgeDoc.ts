@@ -26,6 +26,6 @@ export interface PlatformKnowledgeDoc {
   createdBy?: number | null;
   /** @nullable */
   createdByName?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

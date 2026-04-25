@@ -14,6 +14,6 @@ export interface UpdateTaxDeadlineChecklistBody {
   /** @nullable */
   completedBy?: number | null;
   /** @nullable */
-  completedAt?: Date | null;
-  dueDate?: Date;
+  completedAt?: string | null;
+  dueDate?: string;
 }

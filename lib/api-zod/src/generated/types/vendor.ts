@@ -41,13 +41,13 @@ export interface Vendor {
   /** @nullable */
   profileImageUrl?: string | null;
   /** @nullable */
-  joinedAt?: Date | null;
+  joinedAt?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
-  contractStartDate?: Date | null;
+  contractStartDate?: string | null;
   /** @nullable */
-  contractEndDate?: Date | null;
+  contractEndDate?: string | null;
   /**
    * 누적된 평가의 평균 별점 (없으면 null)
    * @nullable
@@ -55,6 +55,6 @@ export interface Vendor {
   avgRating?: number | null;
   /** 누적 평가 건수 */
   reviewCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

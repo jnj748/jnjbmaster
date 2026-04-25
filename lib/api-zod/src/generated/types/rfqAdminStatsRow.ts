@@ -15,7 +15,7 @@ export interface RfqAdminStatsRow {
   /** @nullable */
   sigungu?: string | null;
   status: string;
-  createdAt: Date;
+  createdAt: string;
   matchedPartnerCount: number;
   quoteCount: number;
   creditsDebited: number;

@@ -14,5 +14,5 @@ export interface AiChatMessage {
   role: AiChatMessageRole;
   content: string;
   citations?: AiChatCitation[];
-  createdAt: Date;
+  createdAt: string;
 }

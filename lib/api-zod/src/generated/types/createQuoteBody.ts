@@ -18,7 +18,7 @@ export interface CreateQuoteBody {
   /** @nullable */
   estimatedDays?: number | null;
   /** @nullable */
-  availableDate?: Date | null;
+  availableDate?: string | null;
   /** @nullable */
   notes?: string | null;
   requiredDocsComplete?: boolean;

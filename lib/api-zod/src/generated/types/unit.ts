@@ -24,12 +24,12 @@ export interface Unit {
   status: UnitStatus;
   source: UnitSource;
   /** @nullable */
-  lastRegisterSyncedAt?: Date | null;
+  lastRegisterSyncedAt?: string | null;
   /** @nullable */
   mgmBldrgstPk?: string | null;
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

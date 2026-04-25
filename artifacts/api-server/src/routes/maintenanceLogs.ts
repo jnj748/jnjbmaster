@@ -56,7 +56,11 @@ router.post("/maintenance-logs", async (req, res): Promise<void> => {
   }
 
   const buildingId = await getUserBuildingId(req.user!.userId);
-  const [log] = await db.insert(maintenanceLogsTable).values({ ...parsed.data, buildingId }).returning();
+  // OpenAPI 의 date 컬럼은 문자열로 codegen 되어 drizzle 타입과 형식만 다르고 런타임 호환.
+  const [log] = await db
+    .insert(maintenanceLogsTable)
+    .values({ ...parsed.data, buildingId } as never)
+    .returning();
   res.status(201).json(GetMaintenanceLogResponse.parse(log));
 });
 

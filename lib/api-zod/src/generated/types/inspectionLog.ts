@@ -10,11 +10,11 @@ import type { InspectionLogResult } from "./inspectionLogResult";
 export interface InspectionLog {
   id: number;
   inspectionId: number;
-  inspectionDate: Date;
+  inspectionDate: string;
   result: InspectionLogResult;
   /** @nullable */
   memo?: string | null;
   /** @nullable */
   inspector?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

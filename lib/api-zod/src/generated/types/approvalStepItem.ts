@@ -20,6 +20,6 @@ export interface ApprovalStepItem {
   /** @nullable */
   signatureId?: number | null;
   /** @nullable */
-  processedAt?: Date | null;
-  createdAt: Date;
+  processedAt?: string | null;
+  createdAt: string;
 }

@@ -25,5 +25,5 @@ export interface InspectionPreset {
   subItems?: string | null;
   /** @nullable */
   seasonalNotes?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

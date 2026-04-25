@@ -14,14 +14,14 @@ export interface TenantCardToken {
   unitLabel: string;
   token: string;
   status: TenantCardTokenStatus;
-  expiresAt: Date;
+  expiresAt: string;
   /** @nullable */
-  submittedAt?: Date | null;
+  submittedAt?: string | null;
   /** @nullable */
-  approvedAt?: Date | null;
+  approvedAt?: string | null;
   /** @nullable */
   approvedBy?: string | null;
   /** @nullable */
   rejectionReason?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

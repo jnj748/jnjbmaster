@@ -22,9 +22,9 @@ export interface ActiveCampaign {
   ctaUrl?: string | null;
   /** @nullable */
   achievementText?: string | null;
-  startsAt: Date;
+  startsAt: string;
   /** @nullable */
-  endsAt?: Date | null;
+  endsAt?: string | null;
   maxImpressionsPerUser: number;
   impressionCount: number;
   isRead: boolean;

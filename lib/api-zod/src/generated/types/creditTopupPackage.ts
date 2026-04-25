@@ -16,6 +16,6 @@ export interface CreditTopupPackage {
   highlight?: string | null;
   sortOrder: number;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

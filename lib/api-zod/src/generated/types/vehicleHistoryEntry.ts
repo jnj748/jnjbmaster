@@ -15,5 +15,5 @@ export interface VehicleHistoryEntry {
   performedBy: string;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

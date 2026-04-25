@@ -22,9 +22,9 @@ export interface PlatformCampaign {
   /** @nullable */
   imageUrl?: string | null;
   channels: PlatformCampaignChannelsItem[];
-  startsAt: Date;
+  startsAt: string;
   /** @nullable */
-  endsAt?: Date | null;
+  endsAt?: string | null;
   recurrence: PlatformCampaignRecurrence;
   /** @nullable */
   recurrenceDays?: number[] | null;
@@ -41,7 +41,7 @@ export interface PlatformCampaign {
   createdBy?: number | null;
   /** @nullable */
   createdByName?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   stats?: PlatformCampaignStats;
 }

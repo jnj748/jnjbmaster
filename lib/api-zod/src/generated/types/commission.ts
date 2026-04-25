@@ -15,7 +15,7 @@ export interface Commission {
   commissionRate: number;
   commissionAmount: number;
   status: CommissionStatus;
-  matchedDate: Date;
+  matchedDate: string;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
@@ -25,15 +25,15 @@ export interface Commission {
   /** @nullable */
   category?: string | null;
   /** @nullable */
-  billedAt?: Date | null;
+  billedAt?: string | null;
   /** @nullable */
-  collectedAt?: Date | null;
+  collectedAt?: string | null;
   /** @nullable */
-  completedAt?: Date | null;
+  completedAt?: string | null;
   /** @nullable */
   invoiceNumber?: string | null;
   /** @nullable */
-  invoiceIssuedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  invoiceIssuedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

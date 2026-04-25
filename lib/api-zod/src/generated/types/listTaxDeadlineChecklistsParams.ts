@@ -8,5 +8,5 @@
 
 export type ListTaxDeadlineChecklistsParams = {
   taxScheduleId?: number;
-  dueDate?: Date;
+  dueDate?: string;
 };

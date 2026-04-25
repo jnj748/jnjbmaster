@@ -89,7 +89,7 @@ export default function Vehicles() {
   const { data: vehicles, isLoading } = useListVehicles(
     Object.keys(queryParams).length > 0 ? queryParams : undefined
   );
-  const { data: tenants } = useListTenants({ status: "active" as ListVehiclesParams["search"] });
+  const { data: tenants } = useListTenants({ status: "active" });
 
   function isUnverifiedTenant(tenantId?: number | null) {
     if (!tenantId || !tenants) return false;

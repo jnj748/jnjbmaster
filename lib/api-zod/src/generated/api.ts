@@ -20,7 +20,7 @@ export const HealthCheckResponse = zod.object({
 export const ListTasksQueryParams = zod.object({
   status: zod.enum(["pending", "in_progress", "completed"]).optional(),
   priority: zod.enum(["high", "medium", "low"]).optional(),
-  date: zod.date().optional(),
+  date: zod.coerce.string().date().optional(),
 });
 
 export const ListTasksResponseItem = zod.object({
@@ -36,10 +36,10 @@ export const ListTasksResponseItem = zod.object({
   ]),
   priority: zod.enum(["high", "medium", "low"]),
   status: zod.enum(["pending", "in_progress", "completed"]),
-  dueDate: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  dueDate: zod.string().date().nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListTasksResponse = zod.array(ListTasksResponseItem);
 
@@ -57,7 +57,7 @@ export const CreateTaskBody = zod.object({
     "other",
   ]),
   priority: zod.enum(["high", "medium", "low"]),
-  dueDate: zod.coerce.date().nullish(),
+  dueDate: zod.string().date().nullish(),
 });
 
 /**
@@ -80,10 +80,10 @@ export const GetTaskResponse = zod.object({
   ]),
   priority: zod.enum(["high", "medium", "low"]),
   status: zod.enum(["pending", "in_progress", "completed"]),
-  dueDate: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  dueDate: zod.string().date().nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -101,7 +101,7 @@ export const UpdateTaskBody = zod.object({
     .optional(),
   priority: zod.enum(["high", "medium", "low"]).optional(),
   status: zod.enum(["pending", "in_progress", "completed"]).optional(),
-  dueDate: zod.coerce.date().nullish(),
+  dueDate: zod.string().date().nullish(),
 });
 
 export const UpdateTaskResponse = zod.object({
@@ -117,10 +117,10 @@ export const UpdateTaskResponse = zod.object({
   ]),
   priority: zod.enum(["high", "medium", "low"]),
   status: zod.enum(["pending", "in_progress", "completed"]),
-  dueDate: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  dueDate: zod.string().date().nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -165,14 +165,14 @@ export const ListInspectionsResponseItem = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListInspectionsResponse = zod.array(ListInspectionsResponseItem);
 
@@ -206,8 +206,8 @@ export const CreateInspectionBody = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date(),
   notes: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number().optional(),
@@ -249,8 +249,8 @@ export const UpdateInspectionBody = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date().optional(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date().optional(),
   status: zod
     .enum(["upcoming", "overdue", "completed", "scheduled"])
     .optional(),
@@ -291,14 +291,14 @@ export const UpdateInspectionResponse = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -345,7 +345,7 @@ export const ListInspectionPresetsResponseItem = zod.object({
   recommendedMonths: zod.string().nullish(),
   subItems: zod.string().nullish(),
   seasonalNotes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListInspectionPresetsResponse = zod.array(
   ListInspectionPresetsResponseItem,
@@ -361,7 +361,8 @@ export const BulkRegisterInspectionsBody = zod.object({
     .describe(
       "Specific preset IDs to register (if empty, all presets for the category)",
     ),
-  baseDate: zod.coerce
+  baseDate: zod
+    .string()
     .date()
     .describe("Base date for calculating next due dates"),
 });
@@ -374,7 +375,7 @@ export const CompleteInspectionParams = zod.object({
 });
 
 export const CompleteInspectionBody = zod.object({
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   result: zod.enum(["good", "fair", "poor"]),
   memo: zod.string().nullish(),
   inspector: zod.string().nullish(),
@@ -412,14 +413,14 @@ export const CompleteInspectionResponse = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -432,11 +433,11 @@ export const ListInspectionLogsParams = zod.object({
 export const ListInspectionLogsResponseItem = zod.object({
   id: zod.number(),
   inspectionId: zod.number(),
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   result: zod.enum(["good", "fair", "poor"]),
   memo: zod.string().nullish(),
   inspector: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListInspectionLogsResponse = zod.array(
   ListInspectionLogsResponseItem,
@@ -452,7 +453,7 @@ export const GenerateInspectionAlertsResponse = zod.object({
     zod.object({
       inspectionId: zod.number(),
       name: zod.string(),
-      nextDueDate: zod.coerce.date(),
+      nextDueDate: zod.string().date(),
       draftId: zod.number().nullish(),
     }),
   ),
@@ -493,14 +494,14 @@ export const GetUpcomingInspectionsResponseItem = zod.object({
   intervalDays: zod.number().nullish(),
   fixedDay: zod.number().nullish(),
   recommendedMonths: zod.string().nullish(),
-  lastInspectionDate: zod.coerce.date().nullish(),
-  nextDueDate: zod.coerce.date(),
+  lastInspectionDate: zod.string().date().nullish(),
+  nextDueDate: zod.string().date(),
   status: zod.enum(["upcoming", "overdue", "completed", "scheduled"]),
   notes: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
   advanceAlertDays: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const GetUpcomingInspectionsResponse = zod.array(
   GetUpcomingInspectionsResponseItem,
@@ -518,7 +519,7 @@ export const TriggerAiMatchingResponse = zod.object({
       inspectionId: zod.number(),
       inspectionName: zod.string(),
       category: zod.string(),
-      nextDueDate: zod.coerce.date(),
+      nextDueDate: zod.string().date(),
       daysUntilDue: zod.number(),
       draftId: zod.number().nullish(),
       notificationId: zod.number().nullish(),
@@ -574,7 +575,7 @@ export const ListTaxSchedulesResponseItem = zod.object({
     "insurance",
     "other",
   ]),
-  dueDate: zod.coerce.date(),
+  dueDate: zod.string().date(),
   recurrence: zod.enum([
     "monthly",
     "quarterly",
@@ -583,8 +584,8 @@ export const ListTaxSchedulesResponseItem = zod.object({
     "one_time",
   ]),
   status: zod.enum(["pending", "completed", "overdue"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListTaxSchedulesResponse = zod.array(ListTaxSchedulesResponseItem);
 
@@ -601,7 +602,7 @@ export const CreateTaxScheduleBody = zod.object({
     "insurance",
     "other",
   ]),
-  dueDate: zod.coerce.date(),
+  dueDate: zod.string().date(),
   recurrence: zod.enum([
     "monthly",
     "quarterly",
@@ -624,7 +625,7 @@ export const UpdateTaxScheduleBody = zod.object({
   scheduleType: zod
     .enum(["withholding_tax", "vat", "property_tax", "insurance", "other"])
     .optional(),
-  dueDate: zod.coerce.date().optional(),
+  dueDate: zod.string().date().optional(),
   recurrence: zod
     .enum(["monthly", "quarterly", "biannual", "annual", "one_time"])
     .optional(),
@@ -642,7 +643,7 @@ export const UpdateTaxScheduleResponse = zod.object({
     "insurance",
     "other",
   ]),
-  dueDate: zod.coerce.date(),
+  dueDate: zod.string().date(),
   recurrence: zod.enum([
     "monthly",
     "quarterly",
@@ -651,8 +652,8 @@ export const UpdateTaxScheduleResponse = zod.object({
     "one_time",
   ]),
   status: zod.enum(["pending", "completed", "overdue"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -667,7 +668,7 @@ export const DeleteTaxScheduleParams = zod.object({
  */
 export const ListTaxDeadlineChecklistsQueryParams = zod.object({
   taxScheduleId: zod.coerce.number().optional(),
-  dueDate: zod.date().optional(),
+  dueDate: zod.coerce.string().date().optional(),
 });
 
 export const ListTaxDeadlineChecklistsResponseItem = zod.object({
@@ -677,10 +678,10 @@ export const ListTaxDeadlineChecklistsResponseItem = zod.object({
   description: zod.string().nullish(),
   isCompleted: zod.boolean(),
   completedBy: zod.number().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  dueDate: zod.coerce.date(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  completedAt: zod.string().datetime({}).nullish(),
+  dueDate: zod.string().date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListTaxDeadlineChecklistsResponse = zod.array(
   ListTaxDeadlineChecklistsResponseItem,
@@ -693,7 +694,7 @@ export const CreateTaxDeadlineChecklistBody = zod.object({
   taxScheduleId: zod.number(),
   itemName: zod.string(),
   description: zod.string().nullish(),
-  dueDate: zod.coerce.date(),
+  dueDate: zod.string().date(),
 });
 
 /**
@@ -708,8 +709,8 @@ export const UpdateTaxDeadlineChecklistBody = zod.object({
   description: zod.string().nullish(),
   isCompleted: zod.boolean().optional(),
   completedBy: zod.number().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  dueDate: zod.coerce.date().optional(),
+  completedAt: zod.string().datetime({}).nullish(),
+  dueDate: zod.string().date().optional(),
 });
 
 export const UpdateTaxDeadlineChecklistResponse = zod.object({
@@ -719,10 +720,10 @@ export const UpdateTaxDeadlineChecklistResponse = zod.object({
   description: zod.string().nullish(),
   isCompleted: zod.boolean(),
   completedBy: zod.number().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  dueDate: zod.coerce.date(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  completedAt: zod.string().datetime({}).nullish(),
+  dueDate: zod.string().date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -755,16 +756,16 @@ export const GetTodayAttendanceResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   userName: zod.string().optional(),
-  checkDate: zod.coerce.date(),
-  checkInTime: zod.coerce.date().nullish(),
-  checkOutTime: zod.coerce.date().nullish(),
+  checkDate: zod.string().date(),
+  checkInTime: zod.string().datetime({}).nullish(),
+  checkOutTime: zod.string().datetime({}).nullish(),
   checkType: zod.enum(["check_in", "check_out"]),
   status: zod.enum(["normal", "late", "early_leave", "absent"]),
   deviceType: zod.string().nullish(),
   ipAddress: zod.string().nullish(),
   userAgent: zod.string().nullish(),
   note: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetTodayAttendanceResponse = zod.array(
   GetTodayAttendanceResponseItem,
@@ -782,16 +783,16 @@ export const GetMyAttendanceResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   userName: zod.string().optional(),
-  checkDate: zod.coerce.date(),
-  checkInTime: zod.coerce.date().nullish(),
-  checkOutTime: zod.coerce.date().nullish(),
+  checkDate: zod.string().date(),
+  checkInTime: zod.string().datetime({}).nullish(),
+  checkOutTime: zod.string().datetime({}).nullish(),
   checkType: zod.enum(["check_in", "check_out"]),
   status: zod.enum(["normal", "late", "early_leave", "absent"]),
   deviceType: zod.string().nullish(),
   ipAddress: zod.string().nullish(),
   userAgent: zod.string().nullish(),
   note: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetMyAttendanceResponse = zod.array(GetMyAttendanceResponseItem);
 
@@ -881,10 +882,10 @@ export const ListVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
-  joinedAt: zod.coerce.date().nullish(),
+  joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -893,8 +894,8 @@ export const ListVendorsResponseItem = zod.object({
     .number()
     .default(listVendorsResponseReviewCountDefault)
     .describe("누적 평가 건수"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListVendorsResponse = zod.array(ListVendorsResponseItem);
 
@@ -938,8 +939,8 @@ export const CreateVendorBody = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
 });
 
 /**
@@ -985,8 +986,8 @@ export const UpdateVendorBody = zod.object({
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
 });
 
 export const updateVendorResponseReviewCountDefault = 0;
@@ -1025,10 +1026,10 @@ export const UpdateVendorResponse = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
-  joinedAt: zod.coerce.date().nullish(),
+  joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1037,8 +1038,8 @@ export const UpdateVendorResponse = zod.object({
     .number()
     .default(updateVendorResponseReviewCountDefault)
     .describe("누적 평가 건수"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -1091,10 +1092,10 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
-  joinedAt: zod.coerce.date().nullish(),
+  joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1103,8 +1104,8 @@ export const GetRecommendedVendorsResponseItem = zod.object({
     .number()
     .default(getRecommendedVendorsResponseReviewCountDefault)
     .describe("누적 평가 건수"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const GetRecommendedVendorsResponse = zod.array(
   GetRecommendedVendorsResponseItem,
@@ -1161,18 +1162,18 @@ export const ListCommissionsResponseItem = zod.object({
     "confirmed",
     "paid",
   ]),
-  matchedDate: zod.coerce.date(),
+  matchedDate: zod.string().date(),
   notes: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   quoteId: zod.number().nullish(),
   category: zod.string().nullish(),
-  billedAt: zod.coerce.date().nullish(),
-  collectedAt: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
+  billedAt: zod.string().datetime({}).nullish(),
+  collectedAt: zod.string().datetime({}).nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
   invoiceNumber: zod.string().nullish(),
-  invoiceIssuedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  invoiceIssuedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListCommissionsResponse = zod.array(ListCommissionsResponseItem);
 
@@ -1185,7 +1186,7 @@ export const CreateCommissionBody = zod.object({
   contractAmount: zod.number(),
   commissionRate: zod.number(),
   commissionAmount: zod.number(),
-  matchedDate: zod.coerce.date(),
+  matchedDate: zod.string().date(),
   notes: zod.string().nullish(),
 });
 
@@ -1227,18 +1228,18 @@ export const UpdateCommissionResponse = zod.object({
     "confirmed",
     "paid",
   ]),
-  matchedDate: zod.coerce.date(),
+  matchedDate: zod.string().date(),
   notes: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   quoteId: zod.number().nullish(),
   category: zod.string().nullish(),
-  billedAt: zod.coerce.date().nullish(),
-  collectedAt: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
+  billedAt: zod.string().datetime({}).nullish(),
+  collectedAt: zod.string().datetime({}).nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
   invoiceNumber: zod.string().nullish(),
-  invoiceIssuedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  invoiceIssuedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -1299,8 +1300,8 @@ export const ListRfqsResponseItem = zod.object({
     .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
@@ -1308,8 +1309,8 @@ export const ListRfqsResponseItem = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   expectedCreditCost: zod
     .number()
     .nullish()
@@ -1372,8 +1373,8 @@ export const CreateRfqBody = zod.object({
   description: zod.string().nullish(),
   buildingId: zod.number().nullish(),
   buildingName: zod.string(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date(),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
@@ -1400,7 +1401,7 @@ export const GetRfqAdminStatsResponse = zod.object({
       sido: zod.string().nullish(),
       sigungu: zod.string().nullish(),
       status: zod.string(),
-      createdAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
       matchedPartnerCount: zod.number(),
       quoteCount: zod.number(),
       creditsDebited: zod.number(),
@@ -1447,8 +1448,8 @@ export const GetRfqResponse = zod.object({
     .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
@@ -1456,8 +1457,8 @@ export const GetRfqResponse = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   expectedCreditCost: zod
     .number()
     .nullish()
@@ -1524,8 +1525,8 @@ export const UpdateRfqBody = zod.object({
     .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string().optional(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date().optional(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date().optional(),
   status: zod.enum(["open", "closed", "cancelled"]).optional(),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
@@ -1564,8 +1565,8 @@ export const UpdateRfqResponse = zod.object({
     .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
@@ -1573,8 +1574,8 @@ export const UpdateRfqResponse = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   expectedCreditCost: zod
     .number()
     .nullish()
@@ -1647,8 +1648,8 @@ export const ExpandRfqScopeResponse = zod.object({
     .nullish(),
   description: zod.string().nullish(),
   buildingName: zod.string(),
-  desiredDate: zod.coerce.date().nullish(),
-  deadline: zod.coerce.date(),
+  desiredDate: zod.string().date().nullish(),
+  deadline: zod.string().date(),
   status: zod.enum(["open", "closed", "cancelled"]),
   vendorIds: zod.string().nullish(),
   sido: zod.string().nullish(),
@@ -1656,8 +1657,8 @@ export const ExpandRfqScopeResponse = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   expectedCreditCost: zod
     .number()
     .nullish()
@@ -1728,10 +1729,10 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
-  joinedAt: zod.coerce.date().nullish(),
+  joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
-  contractStartDate: zod.coerce.date().nullish(),
-  contractEndDate: zod.coerce.date().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1740,8 +1741,8 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
     .number()
     .default(getRfqMatchedVendorsResponseReviewCountDefault)
     .describe("누적 평가 건수"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const GetRfqMatchedVendorsResponse = zod.array(
   GetRfqMatchedVendorsResponseItem,
@@ -1761,15 +1762,15 @@ export const ListAlertActionsResponseItem = zod.object({
   relatedEntityType: zod.string(),
   relatedEntityId: zod.number(),
   actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
-  completedDate: zod.coerce.date().nullish(),
-  nextCycleDate: zod.coerce.date().nullish(),
+  completedDate: zod.string().date().nullish(),
+  nextCycleDate: zod.string().date().nullish(),
   postponeDays: zod.number().nullish(),
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   notes: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListAlertActionsResponse = zod.array(ListAlertActionsResponseItem);
 
@@ -1781,8 +1782,8 @@ export const CreateAlertActionBody = zod.object({
   relatedEntityType: zod.string(),
   relatedEntityId: zod.number(),
   actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
-  completedDate: zod.coerce.date().nullish(),
-  nextCycleDate: zod.coerce.date().nullish(),
+  completedDate: zod.string().date().nullish(),
+  nextCycleDate: zod.string().date().nullish(),
   postponeDays: zod.number().nullish(),
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
@@ -1860,18 +1861,18 @@ export const ListQuotesResponseItem = zod.object({
   itemBreakdown: zod.string().nullish(),
   scope: zod.string().nullish(),
   estimatedDays: zod.number().nullish(),
-  availableDate: zod.coerce.date().nullish(),
+  availableDate: zod.string().date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
-  contractUploadedAt: zod.coerce.date().nullish(),
+  contractUploadedAt: zod.string().datetime({}).nullish(),
   requiredDocsComplete: zod
     .boolean()
     .default(listQuotesResponseRequiredDocsCompleteDefault),
-  firstViewedAt: zod.coerce.date().nullish(),
-  noViewRefundedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  firstViewedAt: zod.string().datetime({}).nullish(),
+  noViewRefundedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListQuotesResponse = zod.array(ListQuotesResponseItem);
 
@@ -1888,7 +1889,7 @@ export const CreateQuoteBody = zod.object({
   itemBreakdown: zod.string().nullish(),
   scope: zod.string().nullish(),
   estimatedDays: zod.number().nullish(),
-  availableDate: zod.coerce.date().nullish(),
+  availableDate: zod.string().date().nullish(),
   notes: zod.string().nullish(),
   requiredDocsComplete: zod
     .boolean()
@@ -1913,18 +1914,18 @@ export const GetQuoteResponse = zod.object({
   itemBreakdown: zod.string().nullish(),
   scope: zod.string().nullish(),
   estimatedDays: zod.number().nullish(),
-  availableDate: zod.coerce.date().nullish(),
+  availableDate: zod.string().date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
-  contractUploadedAt: zod.coerce.date().nullish(),
+  contractUploadedAt: zod.string().datetime({}).nullish(),
   requiredDocsComplete: zod
     .boolean()
     .default(getQuoteResponseRequiredDocsCompleteDefault),
-  firstViewedAt: zod.coerce.date().nullish(),
-  noViewRefundedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  firstViewedAt: zod.string().datetime({}).nullish(),
+  noViewRefundedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -1938,7 +1939,7 @@ export const UpdateQuoteBody = zod.object({
   status: zod.enum(["submitted", "accepted", "rejected"]).optional(),
   notes: zod.string().nullish(),
   contractFilePath: zod.string().nullish(),
-  contractUploadedAt: zod.coerce.date().nullish(),
+  contractUploadedAt: zod.string().datetime({}).nullish(),
 });
 
 export const updateQuoteResponseRequiredDocsCompleteDefault = false;
@@ -1952,18 +1953,18 @@ export const UpdateQuoteResponse = zod.object({
   itemBreakdown: zod.string().nullish(),
   scope: zod.string().nullish(),
   estimatedDays: zod.number().nullish(),
-  availableDate: zod.coerce.date().nullish(),
+  availableDate: zod.string().date().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["submitted", "accepted", "rejected"]),
   contractFilePath: zod.string().nullish(),
-  contractUploadedAt: zod.coerce.date().nullish(),
+  contractUploadedAt: zod.string().datetime({}).nullish(),
   requiredDocsComplete: zod
     .boolean()
     .default(updateQuoteResponseRequiredDocsCompleteDefault),
-  firstViewedAt: zod.coerce.date().nullish(),
-  noViewRefundedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  firstViewedAt: zod.string().datetime({}).nullish(),
+  noViewRefundedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -1982,13 +1983,13 @@ export const ListWorkReportsResponseItem = zod.object({
   vendorName: zod.string(),
   title: zod.string(),
   description: zod.string().nullish(),
-  completionDate: zod.coerce.date(),
+  completionDate: zod.string().date(),
   photoUrls: zod.string().nullish(),
   status: zod.enum(["submitted", "approved", "rejected"]),
   reviewNotes: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListWorkReportsResponse = zod.array(ListWorkReportsResponseItem);
 
@@ -2003,7 +2004,7 @@ export const CreateWorkReportBody = zod.object({
   contractId: zod.number().nullish(),
   title: zod.string(),
   description: zod.string().nullish(),
-  completionDate: zod.coerce.date(),
+  completionDate: zod.string().date(),
   photoUrls: zod.string().nullish(),
 });
 
@@ -2022,13 +2023,13 @@ export const GetWorkReportResponse = zod.object({
   vendorName: zod.string(),
   title: zod.string(),
   description: zod.string().nullish(),
-  completionDate: zod.coerce.date(),
+  completionDate: zod.string().date(),
   photoUrls: zod.string().nullish(),
   status: zod.enum(["submitted", "approved", "rejected"]),
   reviewNotes: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2052,13 +2053,13 @@ export const UpdateWorkReportResponse = zod.object({
   vendorName: zod.string(),
   title: zod.string(),
   description: zod.string().nullish(),
-  completionDate: zod.coerce.date(),
+  completionDate: zod.string().date(),
   photoUrls: zod.string().nullish(),
   status: zod.enum(["submitted", "approved", "rejected"]),
   reviewNotes: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2081,8 +2082,8 @@ export const GetWorkReportReviewResponse = zod.object({
         reviewerUserId: zod.number().nullish(),
         rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
         comment: zod.string().nullish(),
-        createdAt: zod.coerce.date(),
-        updatedAt: zod.coerce.date(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
       }),
       zod.null(),
     ])
@@ -2116,8 +2117,8 @@ export const ListVendorReviewsResponseItem = zod
     reviewerUserId: zod.number().nullish(),
     rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
     comment: zod.string().nullish(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   })
   .and(
     zod.object({
@@ -2165,8 +2166,8 @@ export const UpdateVendorReviewResponse = zod.object({
   reviewerUserId: zod.number().nullish(),
   rating: zod.number().describe("1.0 ~ 5.0 (0.5 단위)"),
   comment: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2188,10 +2189,10 @@ export const ListSettlementsResponseItem = zod.object({
   feeAmount: zod.number(),
   paymentAmount: zod.number(),
   status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
-  paidAt: zod.coerce.date().nullish(),
+  paidAt: zod.string().date().nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListSettlementsResponse = zod.array(ListSettlementsResponseItem);
 
@@ -2220,7 +2221,7 @@ export const UpdateSettlementParams = zod.object({
 
 export const UpdateSettlementBody = zod.object({
   status: zod.enum(["pending", "confirmed", "paid", "cancelled"]).optional(),
-  paidAt: zod.coerce.date().nullish(),
+  paidAt: zod.string().date().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -2235,10 +2236,10 @@ export const UpdateSettlementResponse = zod.object({
   feeAmount: zod.number(),
   paymentAmount: zod.number(),
   status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
-  paidAt: zod.coerce.date().nullish(),
+  paidAt: zod.string().date().nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2255,8 +2256,8 @@ export const ListDraftsResponseItem = zod.object({
   inspectionId: zod.number().nullish(),
   body: zod.string(),
   status: zod.enum(["draft", "confirmed"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListDraftsResponse = zod.array(ListDraftsResponseItem);
 
@@ -2278,8 +2279,8 @@ export const GetDraftResponse = zod.object({
   inspectionId: zod.number().nullish(),
   body: zod.string(),
   status: zod.enum(["draft", "confirmed"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2306,20 +2307,20 @@ export const UpdateDraftResponse = zod.object({
   inspectionId: zod.number().nullish(),
   body: zod.string(),
   status: zod.enum(["draft", "confirmed"]),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
  * @summary Get auto-generated weekly report
  */
 export const GetWeeklyReportQueryParams = zod.object({
-  weekStart: zod.date(),
+  weekStart: zod.coerce.string().date(),
 });
 
 export const GetWeeklyReportResponse = zod.object({
-  weekStart: zod.coerce.date(),
-  weekEnd: zod.coerce.date(),
+  weekStart: zod.string().date(),
+  weekEnd: zod.string().date(),
   totalTasks: zod.number(),
   completedTasks: zod.number(),
   pendingTasks: zod.number(),
@@ -2337,7 +2338,7 @@ export const GetWeeklyReportResponse = zod.object({
       id: zod.number(),
       name: zod.string(),
       category: zod.string(),
-      nextDueDate: zod.coerce.date(),
+      nextDueDate: zod.string().date(),
     }),
   ),
   complaintSummary: zod
@@ -2387,7 +2388,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
   relatedId: zod.number().nullish(),
   hasDraft: zod.boolean().optional(),
   actionStatus: zod.string().nullish(),
-  dueDate: zod.coerce.date().nullish(),
+  dueDate: zod.string().date().nullish(),
   penaltyInfo: zod.string().nullish(),
   inspectionType: zod
     .union([
@@ -2402,7 +2403,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
     .describe(
       "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
     ),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetDashboardAlertsResponse = zod.array(
   GetDashboardAlertsResponseItem,
@@ -2435,9 +2436,9 @@ export const ListApprovalsResponseItem = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListApprovalsResponse = zod.array(ListApprovalsResponseItem);
 
@@ -2482,9 +2483,9 @@ export const GetApprovalResponse = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2514,9 +2515,9 @@ export const ApproveApprovalResponse = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2550,9 +2551,9 @@ export const RejectApprovalResponse = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2591,9 +2592,9 @@ export const GetApprovalStatsResponse = zod.object({
       relatedDraftId: zod.number().nullish(),
       relatedInspectionId: zod.number().nullish(),
       rejectionReason: zod.string().nullish(),
-      approvedAt: zod.coerce.date().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      approvedAt: zod.string().datetime({}).nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -2615,8 +2616,8 @@ export const GetApprovalStepsResponseItem = zod.object({
   status: zod.enum(["pending", "approved", "rejected", "skipped"]),
   comment: zod.string().nullish(),
   signatureId: zod.number().nullish(),
-  processedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
+  processedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetApprovalStepsResponse = zod.array(GetApprovalStepsResponseItem);
 
@@ -2644,8 +2645,8 @@ export const ProcessApprovalStepResponse = zod.object({
   status: zod.enum(["pending", "approved", "rejected", "skipped"]),
   comment: zod.string().nullish(),
   signatureId: zod.number().nullish(),
-  processedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
+  processedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
 });
 
 /**
@@ -2738,9 +2739,9 @@ export const UpdateApprovalDraftResponse = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2791,9 +2792,9 @@ export const SubmitApprovalDraftResponse = zod.object({
   relatedDraftId: zod.number().nullish(),
   relatedInspectionId: zod.number().nullish(),
   rejectionReason: zod.string().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  approvedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2809,7 +2810,7 @@ export const GetApprovalRecipientsResponseItem = zod.object({
   userId: zod.number(),
   userName: zod.string(),
   type: zod.enum(["recipient", "cc"]),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetApprovalRecipientsResponse = zod.array(
   GetApprovalRecipientsResponseItem,
@@ -2824,8 +2825,8 @@ export const ListSignaturesResponseItem = zod.object({
   userName: zod.string(),
   signatureType: zod.enum(["text", "image"]),
   signatureData: zod.string(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListSignaturesResponse = zod.array(ListSignaturesResponseItem);
 
@@ -2866,8 +2867,8 @@ export const ListDocumentTemplatesResponseItem = zod.object({
   bodyTemplate: zod.string(),
   isSystem: zod.boolean(),
   sortOrder: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListDocumentTemplatesResponse = zod.array(
   ListDocumentTemplatesResponseItem,
@@ -2913,8 +2914,8 @@ export const GetDocumentTemplateResponse = zod.object({
   bodyTemplate: zod.string(),
   isSystem: zod.boolean(),
   sortOrder: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2954,8 +2955,8 @@ export const UpdateDocumentTemplateResponse = zod.object({
   bodyTemplate: zod.string(),
   isSystem: zod.boolean(),
   sortOrder: zod.number(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -2996,9 +2997,9 @@ export const ListDailyReportsResponseItem = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListDailyReportsResponse = zod.array(ListDailyReportsResponseItem);
 
@@ -3045,9 +3046,9 @@ export const GetDailyReportResponse = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3076,9 +3077,9 @@ export const SubmitDailyReportResponse = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3111,9 +3112,9 @@ export const ReviewDailyReportResponse = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3137,9 +3138,9 @@ export const ListWeeklySummaryReportsResponseItem = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListWeeklySummaryReportsResponse = zod.array(
   ListWeeklySummaryReportsResponseItem,
@@ -3174,9 +3175,9 @@ export const ForwardWeeklySummaryReportResponse = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3210,9 +3211,9 @@ export const ListMonthlySummaryReportsResponseItem = zod.object({
   reviewerId: zod.number().nullish(),
   reviewerName: zod.string().nullish(),
   reviewComment: zod.string().nullish(),
-  reviewedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  reviewedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListMonthlySummaryReportsResponse = zod.array(
   ListMonthlySummaryReportsResponseItem,
@@ -3266,7 +3267,7 @@ export const ImportUnitsFromRegisterResponse = zod.object({
       action: zod.enum(["create", "update", "skip"]),
     }),
   ),
-  lastSyncedAt: zod.coerce.date().nullish(),
+  lastSyncedAt: zod.string().datetime({}).nullish(),
 });
 
 /**
@@ -3279,7 +3280,7 @@ export const ListWarrantyPresetsResponseItem = zod.object({
   warrantyYears: zod.number(),
   description: zod.string().nullish(),
   legalBasis: zod.string().nullish(),
-  createdAt: zod.coerce.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
 });
 export const ListWarrantyPresetsResponse = zod.array(
   ListWarrantyPresetsResponseItem,
@@ -3299,15 +3300,15 @@ export const ListBuildingWarrantiesResponseItem = zod.object({
   tradeCategory: zod.string(),
   tradeName: zod.string(),
   warrantyYears: zod.number(),
-  startDate: zod.coerce.date(),
-  expiryDate: zod.coerce.date(),
+  startDate: zod.string().date(),
+  expiryDate: zod.string().date(),
   status: zod.enum(["active", "expiring_soon", "expired"]),
   contractorName: zod.string().nullish(),
   notes: zod.string().nullish(),
-  alertSent60: zod.coerce.date().nullish(),
-  alertSent30: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  alertSent60: zod.string().datetime({}).nullish(),
+  alertSent30: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListBuildingWarrantiesResponse = zod.array(
   ListBuildingWarrantiesResponseItem,
@@ -3321,7 +3322,7 @@ export const CreateBuildingWarrantiesParams = zod.object({
 });
 
 export const CreateBuildingWarrantiesBody = zod.object({
-  approvalDate: zod.coerce.date(),
+  approvalDate: zod.string().date(),
   presetIds: zod.array(zod.number()).optional(),
 });
 
@@ -3345,15 +3346,15 @@ export const UpdateBuildingWarrantyResponse = zod.object({
   tradeCategory: zod.string(),
   tradeName: zod.string(),
   warrantyYears: zod.number(),
-  startDate: zod.coerce.date(),
-  expiryDate: zod.coerce.date(),
+  startDate: zod.string().date(),
+  expiryDate: zod.string().date(),
   status: zod.enum(["active", "expiring_soon", "expired"]),
   contractorName: zod.string().nullish(),
   notes: zod.string().nullish(),
-  alertSent60: zod.coerce.date().nullish(),
-  alertSent30: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  alertSent60: zod.string().datetime({}).nullish(),
+  alertSent30: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -3370,15 +3371,15 @@ export const CheckWarrantyAlertsResponse = zod.object({
         tradeCategory: zod.string(),
         tradeName: zod.string(),
         warrantyYears: zod.number(),
-        startDate: zod.coerce.date(),
-        expiryDate: zod.coerce.date(),
+        startDate: zod.string().date(),
+        expiryDate: zod.string().date(),
         status: zod.enum(["active", "expiring_soon", "expired"]),
         contractorName: zod.string().nullish(),
         notes: zod.string().nullish(),
-        alertSent60: zod.coerce.date().nullish(),
-        alertSent30: zod.coerce.date().nullish(),
-        createdAt: zod.coerce.date().optional(),
-        updatedAt: zod.coerce.date().optional(),
+        alertSent60: zod.string().datetime({}).nullish(),
+        alertSent30: zod.string().datetime({}).nullish(),
+        createdAt: zod.string().datetime({}).optional(),
+        updatedAt: zod.string().datetime({}).optional(),
       }),
     )
     .optional(),
@@ -3410,8 +3411,8 @@ export const ListContractsResponseItem = zod.object({
   quoteId: zod.number().nullish(),
   approvalId: zod.number().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod.enum([
     "draft",
     "in_approval",
@@ -3423,10 +3424,10 @@ export const ListContractsResponseItem = zod.object({
   ]),
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
-  renewalAlertSent: zod.coerce.date().nullish(),
-  partnerAgreedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  renewalAlertSent: zod.string().datetime({}).nullish(),
+  partnerAgreedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListContractsResponse = zod.array(ListContractsResponseItem);
 
@@ -3444,8 +3445,8 @@ export const CreateContractBody = zod.object({
   quoteId: zod.number().nullish(),
   approvalId: zod.number().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod
     .enum([
       "draft",
@@ -3478,8 +3479,8 @@ export const GetContractResponse = zod.object({
     quoteId: zod.number().nullish(),
     approvalId: zod.number().nullish(),
     contractAmount: zod.number().nullish(),
-    startDate: zod.coerce.date().nullish(),
-    endDate: zod.coerce.date().nullish(),
+    startDate: zod.string().date().nullish(),
+    endDate: zod.string().date().nullish(),
     status: zod.enum([
       "draft",
       "in_approval",
@@ -3491,10 +3492,10 @@ export const GetContractResponse = zod.object({
     ]),
     isRecurring: zod.boolean(),
     notes: zod.string().nullish(),
-    renewalAlertSent: zod.coerce.date().nullish(),
-    partnerAgreedAt: zod.coerce.date().nullish(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    renewalAlertSent: zod.string().datetime({}).nullish(),
+    partnerAgreedAt: zod.string().datetime({}).nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
   documents: zod.array(
     zod.object({
@@ -3514,7 +3515,7 @@ export const GetContractResponse = zod.object({
       uploadedBy: zod.number().nullish(),
       uploadedByName: zod.string().nullish(),
       notes: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
     }),
   ),
   workReports: zod.array(
@@ -3526,13 +3527,13 @@ export const GetContractResponse = zod.object({
       vendorName: zod.string(),
       title: zod.string(),
       description: zod.string().nullish(),
-      completionDate: zod.coerce.date(),
+      completionDate: zod.string().date(),
       photoUrls: zod.string().nullish(),
       status: zod.enum(["submitted", "approved", "rejected"]),
       reviewNotes: zod.string().nullish(),
-      reviewedAt: zod.coerce.date().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      reviewedAt: zod.string().datetime({}).nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
   settlements: zod.array(
@@ -3547,10 +3548,10 @@ export const GetContractResponse = zod.object({
       feeAmount: zod.number(),
       paymentAmount: zod.number(),
       status: zod.enum(["pending", "confirmed", "paid", "cancelled"]),
-      paidAt: zod.coerce.date().nullish(),
+      paidAt: zod.string().date().nullish(),
       notes: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -3565,8 +3566,8 @@ export const UpdateContractBody = zod.object({
   category: zod.string().nullish(),
   title: zod.string().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod
     .union([
       zod.literal("draft"),
@@ -3595,8 +3596,8 @@ export const UpdateContractResponse = zod.object({
   quoteId: zod.number().nullish(),
   approvalId: zod.number().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod.enum([
     "draft",
     "in_approval",
@@ -3608,10 +3609,10 @@ export const UpdateContractResponse = zod.object({
   ]),
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
-  renewalAlertSent: zod.coerce.date().nullish(),
-  partnerAgreedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  renewalAlertSent: zod.string().datetime({}).nullish(),
+  partnerAgreedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3637,8 +3638,8 @@ export const TransitionContractStatusResponse = zod.object({
   quoteId: zod.number().nullish(),
   approvalId: zod.number().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod.enum([
     "draft",
     "in_approval",
@@ -3650,10 +3651,10 @@ export const TransitionContractStatusResponse = zod.object({
   ]),
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
-  renewalAlertSent: zod.coerce.date().nullish(),
-  partnerAgreedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  renewalAlertSent: zod.string().datetime({}).nullish(),
+  partnerAgreedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3680,7 +3681,7 @@ export const ListContractDocumentsResponseItem = zod.object({
   uploadedBy: zod.number().nullish(),
   uploadedByName: zod.string().nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListContractDocumentsResponse = zod.array(
   ListContractDocumentsResponseItem,
@@ -3726,8 +3727,8 @@ export const AgreeContractAsPartnerResponse = zod.object({
   quoteId: zod.number().nullish(),
   approvalId: zod.number().nullish(),
   contractAmount: zod.number().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   status: zod.enum([
     "draft",
     "in_approval",
@@ -3739,10 +3740,10 @@ export const AgreeContractAsPartnerResponse = zod.object({
   ]),
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
-  renewalAlertSent: zod.coerce.date().nullish(),
-  partnerAgreedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  renewalAlertSent: zod.string().datetime({}).nullish(),
+  partnerAgreedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -3755,8 +3756,8 @@ export const CreateContractFromQuoteParams = zod.object({
 export const CreateContractFromQuoteBody = zod.object({
   buildingId: zod.number().nullish(),
   buildingName: zod.string().nullish(),
-  startDate: zod.coerce.date().nullish(),
-  endDate: zod.coerce.date().nullish(),
+  startDate: zod.string().date().nullish(),
+  endDate: zod.string().date().nullish(),
   title: zod.string().nullish(),
   category: zod.string().nullish(),
   approvalSteps: zod
@@ -3788,8 +3789,8 @@ export const CheckContractRenewalAlertsResponse = zod.object({
       quoteId: zod.number().nullish(),
       approvalId: zod.number().nullish(),
       contractAmount: zod.number().nullish(),
-      startDate: zod.coerce.date().nullish(),
-      endDate: zod.coerce.date().nullish(),
+      startDate: zod.string().date().nullish(),
+      endDate: zod.string().date().nullish(),
       status: zod.enum([
         "draft",
         "in_approval",
@@ -3801,10 +3802,10 @@ export const CheckContractRenewalAlertsResponse = zod.object({
       ]),
       isRecurring: zod.boolean(),
       notes: zod.string().nullish(),
-      renewalAlertSent: zod.coerce.date().nullish(),
-      partnerAgreedAt: zod.coerce.date().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      renewalAlertSent: zod.string().datetime({}).nullish(),
+      partnerAgreedAt: zod.string().datetime({}).nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -3830,8 +3831,8 @@ export const PreviewContractOcrResponse = zod
     representativeName: zod.string().nullish(),
     category: zod.string().nullish(),
     title: zod.string().nullish(),
-    startDate: zod.coerce.date().nullish(),
-    endDate: zod.coerce.date().nullish(),
+    startDate: zod.string().date().nullish(),
+    endDate: zod.string().date().nullish(),
     contractAmount: zod.number().nullish(),
     isRecurring: zod.boolean().nullish(),
     fieldConfidence: zod.record(zod.string(), zod.number()),
@@ -3919,9 +3920,9 @@ export const ListTenantsResponseItem = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -3933,7 +3934,7 @@ export const ListTenantsResponseItem = zod.object({
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
@@ -3947,14 +3948,14 @@ export const ListTenantsResponseItem = zod.object({
   privacyRetentionConsent: zod.boolean(),
   guaranteeConsent: zod.boolean(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
-  verifiedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.string().datetime({}).nullish(),
   verifiedBy: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListTenantsResponse = zod.array(ListTenantsResponseItem);
 
@@ -3967,9 +3968,9 @@ export const CreateTenantBody = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -3980,7 +3981,7 @@ export const CreateTenantBody = zod.object({
   guarantorPhone: zod.string().nullish(),
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean().optional(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
@@ -3994,8 +3995,8 @@ export const CreateTenantBody = zod.object({
   privacyRetentionConsent: zod.boolean().optional(),
   guaranteeConsent: zod.boolean().optional(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod
     .enum(["unverified", "verified", "rejected"])
     .optional(),
@@ -4015,9 +4016,9 @@ export const GetTenantResponse = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -4029,7 +4030,7 @@ export const GetTenantResponse = zod.object({
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
@@ -4043,14 +4044,14 @@ export const GetTenantResponse = zod.object({
   privacyRetentionConsent: zod.boolean(),
   guaranteeConsent: zod.boolean(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
-  verifiedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.string().datetime({}).nullish(),
   verifiedBy: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4066,9 +4067,9 @@ export const UpdateTenantBody = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -4080,7 +4081,7 @@ export const UpdateTenantBody = zod.object({
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean().optional(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
@@ -4094,8 +4095,8 @@ export const UpdateTenantBody = zod.object({
   privacyRetentionConsent: zod.boolean().optional(),
   guaranteeConsent: zod.boolean().optional(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod
     .enum(["unverified", "verified", "rejected"])
     .optional(),
@@ -4108,9 +4109,9 @@ export const UpdateTenantResponse = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -4122,7 +4123,7 @@ export const UpdateTenantResponse = zod.object({
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
@@ -4136,14 +4137,14 @@ export const UpdateTenantResponse = zod.object({
   privacyRetentionConsent: zod.boolean(),
   guaranteeConsent: zod.boolean(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
-  verifiedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.string().datetime({}).nullish(),
   verifiedBy: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4168,12 +4169,12 @@ export const ListTenantCardTokensResponseItem = zod.object({
   unitLabel: zod.string(),
   token: zod.string().uuid(),
   status: zod.enum(["pending", "submitted", "approved", "rejected"]),
-  expiresAt: zod.coerce.date(),
-  submittedAt: zod.coerce.date().nullish(),
-  approvedAt: zod.coerce.date().nullish(),
+  expiresAt: zod.string().datetime({}),
+  submittedAt: zod.string().datetime({}).nullish(),
+  approvedAt: zod.string().datetime({}).nullish(),
   approvedBy: zod.string().nullish(),
   rejectionReason: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListTenantCardTokensResponse = zod.array(
   ListTenantCardTokensResponseItem,
@@ -4216,9 +4217,9 @@ export const VerifyTenantResponse = zod.object({
   residentId: zod.string().nullish(),
   phone: zod.string().nullish(),
   emergencyContact: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   email: zod.string().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
@@ -4230,7 +4231,7 @@ export const VerifyTenantResponse = zod.object({
   guarantorRelation: zod.string().nullish(),
   guarantorResidentId: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   contractDoc: zod.boolean(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
@@ -4244,14 +4245,14 @@ export const VerifyTenantResponse = zod.object({
   privacyRetentionConsent: zod.boolean(),
   guaranteeConsent: zod.boolean(),
   signatureName: zod.string().nullish(),
-  signatureDate: zod.coerce.date().nullish(),
-  billingStartDate: zod.coerce.date().nullish(),
+  signatureDate: zod.string().datetime({}).nullish(),
+  billingStartDate: zod.string().date().nullish(),
   verificationStatus: zod.enum(["unverified", "verified", "rejected"]),
-  verifiedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.string().datetime({}).nullish(),
   verifiedBy: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4269,7 +4270,7 @@ export const GetManagementContractTemplateResponse = zod.object({
   specialFundClause: zod.string(),
   privacyRetentionClause: zod.string(),
   additionalClauses: zod.object({}).passthrough().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 
 /**
@@ -4292,7 +4293,7 @@ export const UpsertManagementContractTemplateResponse = zod.object({
   specialFundClause: zod.string(),
   privacyRetentionClause: zod.string(),
   additionalClauses: zod.object({}).passthrough().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 
 /**
@@ -4315,7 +4316,7 @@ export const GetPublicTenantCardResponse = zod.object({
       specialFundClause: zod.string(),
       privacyRetentionClause: zod.string(),
       additionalClauses: zod.object({}).passthrough().nullish(),
-      createdAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
     })
     .optional(),
   specialFundEnabled: zod.boolean(),
@@ -4334,8 +4335,8 @@ export const SubmitPublicTenantCardBody = zod.object({
   phone: zod.string(),
   emergencyContact: zod.string().nullish(),
   email: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
   hasTv: zod.boolean().optional(),
   registeredAddress: zod.string().nullish(),
   companyName: zod.string().nullish(),
@@ -4418,13 +4419,13 @@ export const ListUnitsResponseItem = zod.object({
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
   source: zod.enum(["register", "manual", "csv"]),
-  lastRegisterSyncedAt: zod.coerce.date().nullish(),
+  lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
   mgmBldrgstPk: zod.string().nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListUnitsResponse = zod.array(ListUnitsResponseItem);
 
@@ -4514,13 +4515,13 @@ export const GetUnitResponse = zod
     notes: zod.string().nullish(),
     status: zod.enum(["vacant", "occupied", "maintenance"]),
     source: zod.enum(["register", "manual", "csv"]),
-    lastRegisterSyncedAt: zod.coerce.date().nullish(),
+    lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
     mgmBldrgstPk: zod.string().nullish(),
     tenantCount: zod.number().optional(),
     ownerCount: zod.number().optional(),
     vehicleCount: zod.number().optional(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   })
   .and(
     zod.object({
@@ -4533,9 +4534,9 @@ export const GetUnitResponse = zod
             residentId: zod.string().nullish(),
             phone: zod.string().nullish(),
             emergencyContact: zod.string().nullish(),
-            interiorStartDate: zod.coerce.date().nullish(),
-            moveInDate: zod.coerce.date().nullish(),
-            moveOutDate: zod.coerce.date().nullish(),
+            interiorStartDate: zod.string().date().nullish(),
+            moveInDate: zod.string().date().nullish(),
+            moveOutDate: zod.string().date().nullish(),
             email: zod.string().nullish(),
             companyName: zod.string().nullish(),
             businessNumber: zod.string().nullish(),
@@ -4547,7 +4548,7 @@ export const GetUnitResponse = zod
             guarantorRelation: zod.string().nullish(),
             guarantorResidentId: zod.string().nullish(),
             status: zod.enum(["active", "moved_out", "destroyed"]),
-            privacyConsentDate: zod.coerce.date().nullish(),
+            privacyConsentDate: zod.string().datetime({}).nullish(),
             contractDoc: zod.boolean(),
             businessRegDoc: zod.boolean(),
             idDoc: zod.boolean(),
@@ -4561,18 +4562,18 @@ export const GetUnitResponse = zod
             privacyRetentionConsent: zod.boolean(),
             guaranteeConsent: zod.boolean(),
             signatureName: zod.string().nullish(),
-            signatureDate: zod.coerce.date().nullish(),
-            billingStartDate: zod.coerce.date().nullish(),
+            signatureDate: zod.string().datetime({}).nullish(),
+            billingStartDate: zod.string().date().nullish(),
             verificationStatus: zod.enum([
               "unverified",
               "verified",
               "rejected",
             ]),
-            verifiedAt: zod.coerce.date().nullish(),
+            verifiedAt: zod.string().datetime({}).nullish(),
             verifiedBy: zod.string().nullish(),
-            createdAt: zod.coerce.date(),
-            dataDestructionDate: zod.coerce.date().nullish(),
-            updatedAt: zod.coerce.date(),
+            createdAt: zod.string().datetime({}),
+            dataDestructionDate: zod.string().date().nullish(),
+            updatedAt: zod.string().datetime({}),
           }),
         )
         .optional(),
@@ -4582,11 +4583,11 @@ export const GetUnitResponse = zod
             id: zod.number(),
             unit: zod.string(),
             ownerName: zod.string(),
-            birthDate: zod.coerce.date().nullish(),
+            birthDate: zod.string().date().nullish(),
             phone: zod.string().nullish(),
-            interiorStartDate: zod.coerce.date().nullish(),
-            moveInDate: zod.coerce.date().nullish(),
-            moveOutDate: zod.coerce.date().nullish(),
+            interiorStartDate: zod.string().date().nullish(),
+            moveInDate: zod.string().date().nullish(),
+            moveOutDate: zod.string().date().nullish(),
             companyName: zod.string().nullish(),
             businessNumber: zod.string().nullish(),
             email: zod.string().nullish(),
@@ -4596,13 +4597,13 @@ export const GetUnitResponse = zod
             hasTv: zod.boolean(),
             notes: zod.string().nullish(),
             status: zod.enum(["active", "moved_out", "destroyed"]),
-            privacyConsentDate: zod.coerce.date().nullish(),
+            privacyConsentDate: zod.string().datetime({}).nullish(),
             businessRegDoc: zod.boolean(),
             idDoc: zod.boolean(),
             propertyDoc: zod.boolean(),
-            createdAt: zod.coerce.date(),
-            dataDestructionDate: zod.coerce.date().nullish(),
-            updatedAt: zod.coerce.date(),
+            createdAt: zod.string().datetime({}),
+            dataDestructionDate: zod.string().date().nullish(),
+            updatedAt: zod.string().datetime({}),
           }),
         )
         .optional(),
@@ -4624,10 +4625,10 @@ export const GetUnitResponse = zod
             insuranceDoc: zod.boolean(),
             leaseDoc: zod.boolean(),
             status: zod.enum(["registered", "cancelled", "suspended"]),
-            cancelledAt: zod.coerce.date().nullish(),
+            cancelledAt: zod.string().datetime({}).nullish(),
             notes: zod.string().nullish(),
-            createdAt: zod.coerce.date(),
-            updatedAt: zod.coerce.date(),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
           }),
         )
         .optional(),
@@ -4662,13 +4663,13 @@ export const UpdateUnitResponse = zod.object({
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]),
   source: zod.enum(["register", "manual", "csv"]),
-  lastRegisterSyncedAt: zod.coerce.date().nullish(),
+  lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
   mgmBldrgstPk: zod.string().nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4691,11 +4692,11 @@ export const ListOwnersResponseItem = zod.object({
   id: zod.number(),
   unit: zod.string(),
   ownerName: zod.string(),
-  birthDate: zod.coerce.date().nullish(),
+  birthDate: zod.string().date().nullish(),
   phone: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -4705,13 +4706,13 @@ export const ListOwnersResponseItem = zod.object({
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListOwnersResponse = zod.array(ListOwnersResponseItem);
 
@@ -4721,11 +4722,11 @@ export const ListOwnersResponse = zod.array(ListOwnersResponseItem);
 export const CreateOwnerBody = zod.object({
   unit: zod.string(),
   ownerName: zod.string(),
-  birthDate: zod.coerce.date().nullish(),
+  birthDate: zod.string().date().nullish(),
   phone: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -4734,7 +4735,7 @@ export const CreateOwnerBody = zod.object({
   vehicleType: zod.string().nullish(),
   hasTv: zod.boolean().optional(),
   notes: zod.string().nullish(),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
   propertyDoc: zod.boolean().optional(),
@@ -4751,11 +4752,11 @@ export const GetOwnerResponse = zod.object({
   id: zod.number(),
   unit: zod.string(),
   ownerName: zod.string(),
-  birthDate: zod.coerce.date().nullish(),
+  birthDate: zod.string().date().nullish(),
   phone: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -4765,13 +4766,13 @@ export const GetOwnerResponse = zod.object({
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4784,11 +4785,11 @@ export const UpdateOwnerParams = zod.object({
 export const UpdateOwnerBody = zod.object({
   unit: zod.string().optional(),
   ownerName: zod.string().optional(),
-  birthDate: zod.coerce.date().nullish(),
+  birthDate: zod.string().date().nullish(),
   phone: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -4798,7 +4799,7 @@ export const UpdateOwnerBody = zod.object({
   hasTv: zod.boolean().optional(),
   notes: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]).optional(),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   businessRegDoc: zod.boolean().optional(),
   idDoc: zod.boolean().optional(),
   propertyDoc: zod.boolean().optional(),
@@ -4808,11 +4809,11 @@ export const UpdateOwnerResponse = zod.object({
   id: zod.number(),
   unit: zod.string(),
   ownerName: zod.string(),
-  birthDate: zod.coerce.date().nullish(),
+  birthDate: zod.string().date().nullish(),
   phone: zod.string().nullish(),
-  interiorStartDate: zod.coerce.date().nullish(),
-  moveInDate: zod.coerce.date().nullish(),
-  moveOutDate: zod.coerce.date().nullish(),
+  interiorStartDate: zod.string().date().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  moveOutDate: zod.string().date().nullish(),
   companyName: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -4822,13 +4823,13 @@ export const UpdateOwnerResponse = zod.object({
   hasTv: zod.boolean(),
   notes: zod.string().nullish(),
   status: zod.enum(["active", "moved_out", "destroyed"]),
-  privacyConsentDate: zod.coerce.date().nullish(),
+  privacyConsentDate: zod.string().datetime({}).nullish(),
   businessRegDoc: zod.boolean(),
   idDoc: zod.boolean(),
   propertyDoc: zod.boolean(),
-  createdAt: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date().nullish(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  dataDestructionDate: zod.string().date().nullish(),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4864,10 +4865,10 @@ export const ListVehiclesResponseItem = zod.object({
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
   status: zod.enum(["registered", "cancelled", "suspended"]),
-  cancelledAt: zod.coerce.date().nullish(),
+  cancelledAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListVehiclesResponse = zod.array(ListVehiclesResponseItem);
 
@@ -4914,10 +4915,10 @@ export const GetVehicleResponse = zod.object({
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
   status: zod.enum(["registered", "cancelled", "suspended"]),
-  cancelledAt: zod.coerce.date().nullish(),
+  cancelledAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -4960,10 +4961,10 @@ export const UpdateVehicleResponse = zod.object({
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
   status: zod.enum(["registered", "cancelled", "suspended"]),
-  cancelledAt: zod.coerce.date().nullish(),
+  cancelledAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5008,10 +5009,10 @@ export const CancelVehicleResponse = zod.object({
   insuranceDoc: zod.boolean(),
   leaseDoc: zod.boolean(),
   status: zod.enum(["registered", "cancelled", "suspended"]),
-  cancelledAt: zod.coerce.date().nullish(),
+  cancelledAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5041,7 +5042,7 @@ export const GetVehicleHistoryResponseItem = zod.object({
   unit: zod.string(),
   performedBy: zod.string(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const GetVehicleHistoryResponse = zod.array(
   GetVehicleHistoryResponseItem,
@@ -5063,8 +5064,8 @@ export const ListDestructionScheduleResponseItem = zod.object({
   entityId: zod.number(),
   unit: zod.string(),
   name: zod.string(),
-  moveOutDate: zod.coerce.date(),
-  dataDestructionDate: zod.coerce.date(),
+  moveOutDate: zod.string().date(),
+  dataDestructionDate: zod.string().date(),
   daysUntilDestruction: zod.number(),
   status: zod.string(),
 });
@@ -5105,10 +5106,10 @@ export const ListDestructionLogsResponseItem = zod.object({
   unit: zod.string(),
   originalName: zod.string(),
   destructionType: zod.string(),
-  processedAt: zod.coerce.date(),
+  processedAt: zod.string().datetime({}),
   processedBy: zod.string(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListDestructionLogsResponse = zod.array(
   ListDestructionLogsResponseItem,
@@ -5127,7 +5128,7 @@ export const ListNotificationsResponseItem = zod.object({
   isRead: zod.boolean(),
   relatedEntityType: zod.string().nullish(),
   relatedEntityId: zod.number().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListNotificationsResponse = zod.array(
   ListNotificationsResponseItem,
@@ -5157,7 +5158,7 @@ export const MarkNotificationReadResponse = zod.object({
   isRead: zod.boolean(),
   relatedEntityType: zod.string().nullish(),
   relatedEntityId: zod.number().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 
 /**
@@ -5188,15 +5189,15 @@ export const ListPlatformAnnouncementsResponseItem = zod.object({
       "hq_executive",
     ]),
   ),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
   recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListPlatformAnnouncementsResponse = zod.array(
   ListPlatformAnnouncementsResponseItem,
@@ -5218,8 +5219,8 @@ export const CreatePlatformAnnouncementBody = zod.object({
       "hq_executive",
     ]),
   ),
-  startsAt: zod.coerce.date().optional(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}).optional(),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
   recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean().optional(),
@@ -5247,8 +5248,8 @@ export const UpdatePlatformAnnouncementBody = zod.object({
       ]),
     )
     .optional(),
-  startsAt: zod.coerce.date().optional(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}).optional(),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
   recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean().optional(),
@@ -5268,15 +5269,15 @@ export const UpdatePlatformAnnouncementResponse = zod.object({
       "hq_executive",
     ]),
   ),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
   recurrenceDays: zod.array(zod.number()).nullish(),
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5320,8 +5321,8 @@ export const ListPlatformCampaignsResponseItem = zod.object({
   body: zod.string(),
   imageUrl: zod.string().nullish(),
   channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
   recurrenceDays: zod.array(zod.number()).nullish(),
   maxImpressionsPerUser: zod.number(),
@@ -5332,8 +5333,8 @@ export const ListPlatformCampaignsResponseItem = zod.object({
   isStopped: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   stats: zod
     .object({
       impressions: zod.number(),
@@ -5363,8 +5364,8 @@ export const CreatePlatformCampaignBody = zod.object({
   body: zod.string(),
   imageUrl: zod.string().nullish(),
   channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
-  startsAt: zod.coerce.date().optional(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}).optional(),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
   recurrenceDays: zod.array(zod.number()).nullish(),
   maxImpressionsPerUser: zod.number().optional(),
@@ -5395,8 +5396,8 @@ export const UpdatePlatformCampaignBody = zod.object({
   body: zod.string(),
   imageUrl: zod.string().nullish(),
   channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
-  startsAt: zod.coerce.date().optional(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}).optional(),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]).optional(),
   recurrenceDays: zod.array(zod.number()).nullish(),
   maxImpressionsPerUser: zod.number().optional(),
@@ -5421,8 +5422,8 @@ export const UpdatePlatformCampaignResponse = zod.object({
   body: zod.string(),
   imageUrl: zod.string().nullish(),
   channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
   recurrenceDays: zod.array(zod.number()).nullish(),
   maxImpressionsPerUser: zod.number(),
@@ -5433,8 +5434,8 @@ export const UpdatePlatformCampaignResponse = zod.object({
   isStopped: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   stats: zod
     .object({
       impressions: zod.number(),
@@ -5477,8 +5478,8 @@ export const StopPlatformCampaignResponse = zod.object({
   body: zod.string(),
   imageUrl: zod.string().nullish(),
   channels: zod.array(zod.enum(["modal", "banner", "bell", "push"])),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   recurrence: zod.enum(["none", "daily", "weekly", "monthly"]),
   recurrenceDays: zod.array(zod.number()).nullish(),
   maxImpressionsPerUser: zod.number(),
@@ -5489,8 +5490,8 @@ export const StopPlatformCampaignResponse = zod.object({
   isStopped: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   stats: zod
     .object({
       impressions: zod.number(),
@@ -5513,8 +5514,8 @@ export const ListActiveCampaignsResponseItem = zod.object({
   ctaLabel: zod.string().nullish(),
   ctaUrl: zod.string().nullish(),
   achievementText: zod.string().nullish(),
-  startsAt: zod.coerce.date(),
-  endsAt: zod.coerce.date().nullish(),
+  startsAt: zod.string().datetime({}),
+  endsAt: zod.string().datetime({}).nullish(),
   maxImpressionsPerUser: zod.number(),
   impressionCount: zod.number(),
   isRead: zod.boolean(),
@@ -5576,8 +5577,8 @@ export const ListPlatformKnowledgeDocsResponseItem = zod.object({
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListPlatformKnowledgeDocsResponse = zod.array(
   ListPlatformKnowledgeDocsResponseItem,
@@ -5630,8 +5631,8 @@ export const UpdatePlatformKnowledgeDocResponse = zod.object({
   isActive: zod.boolean(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5659,10 +5660,10 @@ export const ListDocumentChecklistsResponseItem = zod.object({
   entityId: zod.number(),
   documentName: zod.string(),
   isSubmitted: zod.boolean(),
-  submittedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListDocumentChecklistsResponse = zod.array(
   ListDocumentChecklistsResponseItem,
@@ -5685,10 +5686,10 @@ export const UpsertDocumentChecklistResponse = zod.object({
   entityId: zod.number(),
   documentName: zod.string(),
   isSubmitted: zod.boolean(),
-  submittedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5704,7 +5705,7 @@ export const GetRecentActivityResponseItem = zod.object({
     "commission_received",
   ]),
   description: zod.string(),
-  timestamp: zod.coerce.date(),
+  timestamp: zod.string().datetime({}),
 });
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
@@ -5774,14 +5775,14 @@ export const ListSafetyChecklistsResponseItem = zod.object({
     "other",
   ]),
   title: zod.string(),
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListSafetyChecklistsResponse = zod.array(
   ListSafetyChecklistsResponseItem,
@@ -5799,7 +5800,7 @@ export const CreateSafetyChecklistBody = zod.object({
     "other",
   ]),
   title: zod.string(),
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   inspector: zod.string(),
   notes: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
@@ -5833,7 +5834,7 @@ export const GetSafetyChecklistResponse = zod.object({
     "other",
   ]),
   title: zod.string(),
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
@@ -5847,11 +5848,11 @@ export const GetSafetyChecklistResponse = zod.object({
       checked: zod.boolean(),
       result: zod.string().nullish(),
       notes: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
     }),
   ),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5866,7 +5867,7 @@ export const UpdateSafetyChecklistBody = zod.object({
     .enum(["electrical", "fire_safety", "generator", "water_tank", "other"])
     .optional(),
   title: zod.string().optional(),
-  inspectionDate: zod.coerce.date().optional(),
+  inspectionDate: zod.string().date().optional(),
   inspector: zod.string().optional(),
   status: zod.enum(["pending", "completed", "issue_found"]).optional(),
   notes: zod.string().nullish(),
@@ -5884,14 +5885,14 @@ export const UpdateSafetyChecklistResponse = zod.object({
     "other",
   ]),
   title: zod.string(),
-  inspectionDate: zod.coerce.date(),
+  inspectionDate: zod.string().date(),
   inspector: zod.string(),
   status: zod.enum(["pending", "completed", "issue_found"]),
   notes: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -5935,7 +5936,7 @@ export const UpdateSafetyChecklistItemResponse = zod.object({
   checked: zod.boolean(),
   result: zod.string().nullish(),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 
 /**
@@ -5952,8 +5953,8 @@ export const ListMaintenanceLogsQueryParams = zod.object({
       "other",
     ])
     .optional(),
-  startDate: zod.date().optional(),
-  endDate: zod.date().optional(),
+  startDate: zod.coerce.string().date().optional(),
+  endDate: zod.coerce.string().date().optional(),
 });
 
 export const ListMaintenanceLogsResponseItem = zod.object({
@@ -5973,18 +5974,18 @@ export const ListMaintenanceLogsResponseItem = zod.object({
     "water_tank",
     "other",
   ]),
-  workDate: zod.coerce.date(),
+  workDate: zod.string().date(),
   worker: zod.string(),
   status: zod.enum(["completed", "in_progress", "pending"]),
   reportSent: zod.boolean(),
-  reportSentAt: zod.coerce.date().nullish(),
+  reportSentAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListMaintenanceLogsResponse = zod.array(
   ListMaintenanceLogsResponseItem,
@@ -6009,7 +6010,7 @@ export const CreateMaintenanceLogBody = zod.object({
     "water_tank",
     "other",
   ]),
-  workDate: zod.coerce.date().optional(),
+  workDate: zod.string().date().optional(),
   worker: zod.string().optional(),
   status: zod.enum(["completed", "in_progress", "pending"]).optional(),
   notes: zod.string().nullish(),
@@ -6041,18 +6042,18 @@ export const GetMaintenanceLogResponse = zod.object({
     "water_tank",
     "other",
   ]),
-  workDate: zod.coerce.date(),
+  workDate: zod.string().date(),
   worker: zod.string(),
   status: zod.enum(["completed", "in_progress", "pending"]),
   reportSent: zod.boolean(),
-  reportSentAt: zod.coerce.date().nullish(),
+  reportSentAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -6080,7 +6081,7 @@ export const UpdateMaintenanceLogBody = zod.object({
       "other",
     ])
     .optional(),
-  workDate: zod.coerce.date().optional(),
+  workDate: zod.string().date().optional(),
   worker: zod.string().optional(),
   status: zod.enum(["completed", "in_progress", "pending"]).optional(),
   notes: zod.string().nullish(),
@@ -6105,18 +6106,18 @@ export const UpdateMaintenanceLogResponse = zod.object({
     "water_tank",
     "other",
   ]),
-  workDate: zod.coerce.date(),
+  workDate: zod.string().date(),
   worker: zod.string(),
   status: zod.enum(["completed", "in_progress", "pending"]),
   reportSent: zod.boolean(),
-  reportSentAt: zod.coerce.date().nullish(),
+  reportSentAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -6150,18 +6151,18 @@ export const SendMaintenanceReportResponse = zod.object({
     "water_tank",
     "other",
   ]),
-  workDate: zod.coerce.date(),
+  workDate: zod.string().date(),
   worker: zod.string(),
   status: zod.enum(["completed", "in_progress", "pending"]),
   reportSent: zod.boolean(),
-  reportSentAt: zod.coerce.date().nullish(),
+  reportSentAt: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   sourceType: zod.string().nullish(),
   checklistItemId: zod.number().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -6176,7 +6177,7 @@ export const ListSafetyTrainingsQueryParams = zod.object({
 export const ListSafetyTrainingsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
-  trainingDate: zod.coerce.date(),
+  trainingDate: zod.string().date(),
   trainingMonth: zod.number(),
   trainingYear: zod.number(),
   trainer: zod.string(),
@@ -6186,8 +6187,8 @@ export const ListSafetyTrainingsResponseItem = zod.object({
   content: zod.string().nullish(),
   status: zod.enum(["scheduled", "completed", "cancelled"]),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListSafetyTrainingsResponse = zod.array(
   ListSafetyTrainingsResponseItem,
@@ -6198,7 +6199,7 @@ export const ListSafetyTrainingsResponse = zod.array(
  */
 export const CreateSafetyTrainingBody = zod.object({
   title: zod.string(),
-  trainingDate: zod.coerce.date(),
+  trainingDate: zod.string().date(),
   trainingMonth: zod.number(),
   trainingYear: zod.number(),
   trainer: zod.string(),
@@ -6219,7 +6220,7 @@ export const GetSafetyTrainingParams = zod.object({
 export const GetSafetyTrainingResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
-  trainingDate: zod.coerce.date(),
+  trainingDate: zod.string().date(),
   trainingMonth: zod.number(),
   trainingYear: zod.number(),
   trainer: zod.string(),
@@ -6229,8 +6230,8 @@ export const GetSafetyTrainingResponse = zod.object({
   content: zod.string().nullish(),
   status: zod.enum(["scheduled", "completed", "cancelled"]),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -6242,7 +6243,7 @@ export const UpdateSafetyTrainingParams = zod.object({
 
 export const UpdateSafetyTrainingBody = zod.object({
   title: zod.string().optional(),
-  trainingDate: zod.coerce.date().optional(),
+  trainingDate: zod.string().date().optional(),
   trainingMonth: zod.number().optional(),
   trainingYear: zod.number().optional(),
   trainer: zod.string().optional(),
@@ -6257,7 +6258,7 @@ export const UpdateSafetyTrainingBody = zod.object({
 export const UpdateSafetyTrainingResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
-  trainingDate: zod.coerce.date(),
+  trainingDate: zod.string().date(),
   trainingMonth: zod.number(),
   trainingYear: zod.number(),
   trainer: zod.string(),
@@ -6267,8 +6268,8 @@ export const UpdateSafetyTrainingResponse = zod.object({
   content: zod.string().nullish(),
   status: zod.enum(["scheduled", "completed", "cancelled"]),
   notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -6306,18 +6307,18 @@ export const GetFacilityDashboardResponse = zod.object({
         "water_tank",
         "other",
       ]),
-      workDate: zod.coerce.date(),
+      workDate: zod.string().date(),
       worker: zod.string(),
       status: zod.enum(["completed", "in_progress", "pending"]),
       reportSent: zod.boolean(),
-      reportSentAt: zod.coerce.date().nullish(),
+      reportSentAt: zod.string().datetime({}).nullish(),
       notes: zod.string().nullish(),
       sourceType: zod.string().nullish(),
       checklistItemId: zod.number().nullish(),
       closeUpPhotoUrl: zod.string().nullish(),
       widePhotoUrl: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
   trainingCompletionRate: zod.number(),
@@ -6334,7 +6335,7 @@ export const GetFacilityDashboardResponse = zod.object({
       ]),
       title: zod.string(),
       message: zod.string(),
-      dueDate: zod.coerce.date(),
+      dueDate: zod.string().date(),
       isOverdue: zod.boolean(),
     }),
   ),
@@ -6467,7 +6468,7 @@ export const GetFacilityScheduledAlertsResponseItem = zod.object({
   ]),
   title: zod.string(),
   message: zod.string(),
-  dueDate: zod.coerce.date(),
+  dueDate: zod.string().date(),
   isOverdue: zod.boolean(),
 });
 export const GetFacilityScheduledAlertsResponse = zod.array(
@@ -6487,7 +6488,7 @@ export const GetCalendarEventsQueryParams = zod.object({
 export const GetCalendarEventsResponseItem = zod.object({
   id: zod.string(),
   title: zod.string(),
-  date: zod.coerce.date(),
+  date: zod.string().date(),
   source: zod.enum(["accounting", "facility"]),
   originalType: zod.string(),
   status: zod.enum(["scheduled", "completed", "overdue"]),
@@ -6714,9 +6715,9 @@ export const RecordPaymentResponse = zod.object({
   paidAmount: zod.number(),
   isPaid: zod.boolean(),
   dueDate: zod.string(),
-  paidAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  paidAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7175,14 +7176,14 @@ export const ListDelinquenciesResponseItem = zod.object({
   totalOverdueAmount: zod.number(),
   actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
   status: zod.enum(["active", "resolved"]),
-  actionDate: zod.coerce.date(),
-  noticeDate: zod.coerce.date().nullish(),
-  suspensionDate: zod.coerce.date().nullish(),
-  resolvedDate: zod.coerce.date().nullish(),
+  actionDate: zod.string().datetime({}),
+  noticeDate: zod.string().datetime({}).nullish(),
+  suspensionDate: zod.string().datetime({}).nullish(),
+  resolvedDate: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   performedBy: zod.string(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListDelinquenciesResponse = zod.array(
   ListDelinquenciesResponseItem,
@@ -7215,14 +7216,14 @@ export const SendDelinquencyNoticeResponse = zod.object({
   totalOverdueAmount: zod.number(),
   actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
   status: zod.enum(["active", "resolved"]),
-  actionDate: zod.coerce.date(),
-  noticeDate: zod.coerce.date().nullish(),
-  suspensionDate: zod.coerce.date().nullish(),
-  resolvedDate: zod.coerce.date().nullish(),
+  actionDate: zod.string().datetime({}),
+  noticeDate: zod.string().datetime({}).nullish(),
+  suspensionDate: zod.string().datetime({}).nullish(),
+  resolvedDate: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   performedBy: zod.string(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7257,14 +7258,14 @@ export const ResolveDelinquencyResponse = zod.object({
   totalOverdueAmount: zod.number(),
   actionType: zod.enum(["detected", "notice_sent", "parking_suspended"]),
   status: zod.enum(["active", "resolved"]),
-  actionDate: zod.coerce.date(),
-  noticeDate: zod.coerce.date().nullish(),
-  suspensionDate: zod.coerce.date().nullish(),
-  resolvedDate: zod.coerce.date().nullish(),
+  actionDate: zod.string().datetime({}),
+  noticeDate: zod.string().datetime({}).nullish(),
+  suspensionDate: zod.string().datetime({}).nullish(),
+  resolvedDate: zod.string().datetime({}).nullish(),
   notes: zod.string().nullish(),
   performedBy: zod.string(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7280,8 +7281,8 @@ export const GetCreditWalletResponse = zod.object({
   balance: zod.number(),
   pointsBalance: zod.number(),
   creditsEnabled: zod.boolean().optional(),
-  createdAt: zod.coerce.date().optional(),
-  updatedAt: zod.coerce.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7321,7 +7322,7 @@ export const ListCreditLedgerResponseItem = zod.object({
   notes: zod.string().nullish(),
   actorId: zod.number().nullish(),
   actorName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListCreditLedgerResponse = zod.array(ListCreditLedgerResponseItem);
 
@@ -7373,7 +7374,7 @@ export const ListAdminCreditWalletsResponseItem = zod.object({
   category: zod.string(),
   balance: zod.number(),
   pointsBalance: zod.number(),
-  updatedAt: zod.coerce.date().nullish(),
+  updatedAt: zod.string().datetime({}).nullish(),
 });
 export const ListAdminCreditWalletsResponse = zod.array(
   ListAdminCreditWalletsResponseItem,
@@ -7395,7 +7396,7 @@ export const ListCreditCategoryPricingResponseItem = zod.object({
   premiumSurchargePercent: zod.number().nullish(),
   displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListCreditCategoryPricingResponse = zod.array(
   ListCreditCategoryPricingResponseItem,
@@ -7429,7 +7430,7 @@ export const UpsertCreditCategoryPricingResponse = zod.object({
   premiumSurchargePercent: zod.number().nullish(),
   displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7459,7 +7460,7 @@ export const ListQuoteTypePoliciesResponse = zod.object({
       key: zod.string(),
       value: zod.string().nullish(),
       description: zod.string().nullish(),
-      updatedAt: zod.coerce.date().nullish(),
+      updatedAt: zod.string().datetime({}).nullish(),
       updatedBy: zod.string().nullish(),
     }),
   ),
@@ -7477,7 +7478,7 @@ export const ListQuoteTypePoliciesResponse = zod.object({
       premiumSurchargePercent: zod.number().nullish(),
       displayNameKo: zod.string().nullish(),
       updatedBy: zod.string().nullish(),
-      updatedAt: zod.coerce.date().optional(),
+      updatedAt: zod.string().datetime({}).optional(),
     }),
   ),
 });
@@ -7507,7 +7508,7 @@ export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
   premiumSurchargePercent: zod.number().nullish(),
   displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7524,8 +7525,8 @@ export const ListCreditTopupPackagesResponse = zod.object({
       highlight: zod.string().nullish(),
       sortOrder: zod.number(),
       isActive: zod.boolean(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
   tossClientKey: zod.string(),
@@ -7550,9 +7551,9 @@ export const ListMyCreditTopupOrdersResponseItem = zod.object({
   failReason: zod.string().nullish(),
   ledgerCreditId: zod.number().nullish(),
   ledgerBonusId: zod.number().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-  paidAt: zod.coerce.date().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+  paidAt: zod.string().datetime({}).nullish(),
 });
 export const ListMyCreditTopupOrdersResponse = zod.array(
   ListMyCreditTopupOrdersResponseItem,
@@ -7594,9 +7595,9 @@ export const ConfirmCreditTopupOrderResponse = zod.object({
     failReason: zod.string().nullish(),
     ledgerCreditId: zod.number().nullish(),
     ledgerBonusId: zod.number().nullish(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
-    paidAt: zod.coerce.date().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+    paidAt: zod.string().datetime({}).nullish(),
   }),
   alreadyPaid: zod.boolean().optional(),
 });
@@ -7637,9 +7638,9 @@ export const FailCreditTopupOrderResponse = zod.object({
       failReason: zod.string().nullish(),
       ledgerCreditId: zod.number().nullish(),
       ledgerBonusId: zod.number().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
-      paidAt: zod.coerce.date().nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+      paidAt: zod.string().datetime({}).nullish(),
     })
     .optional(),
 });
@@ -7661,8 +7662,8 @@ export const ListBuildingNoticeTemplatesResponse = zod.object({
         .describe("JSON 직렬화된 string[]"),
       sortOrder: zod.number(),
       isActive: zod.boolean(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -7684,8 +7685,8 @@ export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
         .describe("JSON 직렬화된 string[]"),
       sortOrder: zod.number(),
       isActive: zod.boolean(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -7716,8 +7717,8 @@ export const CreateBuildingNoticeTemplateResponse = zod.object({
       .describe("JSON 직렬화된 string[]"),
     sortOrder: zod.number(),
     isActive: zod.boolean(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
 });
 
@@ -7751,8 +7752,8 @@ export const UpdateBuildingNoticeTemplateResponse = zod.object({
       .describe("JSON 직렬화된 string[]"),
     sortOrder: zod.number(),
     isActive: zod.boolean(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
 });
 
@@ -7779,8 +7780,8 @@ export const ListAdminCreditTopupPackagesResponseItem = zod.object({
   highlight: zod.string().nullish(),
   sortOrder: zod.number(),
   isActive: zod.boolean(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListAdminCreditTopupPackagesResponse = zod.array(
   ListAdminCreditTopupPackagesResponseItem,
@@ -7825,8 +7826,8 @@ export const UpdateCreditTopupPackageResponse = zod.object({
   highlight: zod.string().nullish(),
   sortOrder: zod.number(),
   isActive: zod.boolean(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -7867,9 +7868,9 @@ export const ListAdminCreditTopupOrdersResponseItem = zod
     failReason: zod.string().nullish(),
     ledgerCreditId: zod.number().nullish(),
     ledgerBonusId: zod.number().nullish(),
-    createdAt: zod.coerce.date(),
-    updatedAt: zod.coerce.date(),
-    paidAt: zod.coerce.date().nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+    paidAt: zod.string().datetime({}).nullish(),
   })
   .and(
     zod.object({
@@ -7889,7 +7890,7 @@ export const ListPlatformSettingsResponseItem = zod.object({
   value: zod.string(),
   description: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListPlatformSettingsResponse = zod.array(
   ListPlatformSettingsResponseItem,
@@ -7910,7 +7911,7 @@ export const UpsertPlatformSettingResponse = zod.object({
   value: zod.string(),
   description: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -7923,7 +7924,7 @@ export const ListCommissionRatesResponseItem = zod.object({
   fixedRate: zod.number(),
   slidingRules: zod.string().nullish(),
   description: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListCommissionRatesResponse = zod.array(
   ListCommissionRatesResponseItem,
@@ -7955,7 +7956,7 @@ export const UpsertCommissionRateResponse = zod.object({
   fixedRate: zod.number(),
   slidingRules: zod.string().nullish(),
   description: zod.string().nullish(),
-  updatedAt: zod.coerce.date().optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -8006,18 +8007,18 @@ export const GetCommissionPipelineResponse = zod.object({
         "confirmed",
         "paid",
       ]),
-      matchedDate: zod.coerce.date(),
+      matchedDate: zod.string().date(),
       notes: zod.string().nullish(),
       rfqId: zod.number().nullish(),
       quoteId: zod.number().nullish(),
       category: zod.string().nullish(),
-      billedAt: zod.coerce.date().nullish(),
-      collectedAt: zod.coerce.date().nullish(),
-      completedAt: zod.coerce.date().nullish(),
+      billedAt: zod.string().datetime({}).nullish(),
+      collectedAt: zod.string().datetime({}).nullish(),
+      completedAt: zod.string().datetime({}).nullish(),
       invoiceNumber: zod.string().nullish(),
-      invoiceIssuedAt: zod.coerce.date().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
+      invoiceIssuedAt: zod.string().datetime({}).nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
 });
@@ -8056,18 +8057,18 @@ export const TransitionCommissionResponse = zod.object({
     "confirmed",
     "paid",
   ]),
-  matchedDate: zod.coerce.date(),
+  matchedDate: zod.string().date(),
   notes: zod.string().nullish(),
   rfqId: zod.number().nullish(),
   quoteId: zod.number().nullish(),
   category: zod.string().nullish(),
-  billedAt: zod.coerce.date().nullish(),
-  collectedAt: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
+  billedAt: zod.string().datetime({}).nullish(),
+  collectedAt: zod.string().datetime({}).nullish(),
+  completedAt: zod.string().datetime({}).nullish(),
   invoiceNumber: zod.string().nullish(),
-  invoiceIssuedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  invoiceIssuedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -8085,7 +8086,7 @@ export const ListCommissionEventsResponseItem = zod.object({
   reason: zod.string().nullish(),
   actorId: zod.number().nullish(),
   actorName: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListCommissionEventsResponse = zod.array(
   ListCommissionEventsResponseItem,
@@ -8099,8 +8100,8 @@ export const ListAiSessionsResponseItem = zod.object({
   userId: zod.number(),
   buildingId: zod.number().nullish(),
   title: zod.string(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListAiSessionsResponse = zod.array(ListAiSessionsResponseItem);
 
@@ -8127,8 +8128,8 @@ export const RenameAiSessionResponse = zod.object({
   userId: zod.number(),
   buildingId: zod.number().nullish(),
   title: zod.string(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -8159,7 +8160,7 @@ export const ListAiMessagesResponseItem = zod.object({
       }),
     )
     .optional(),
-  createdAt: zod.coerce.date(),
+  createdAt: zod.string().datetime({}),
 });
 export const ListAiMessagesResponse = zod.array(ListAiMessagesResponseItem);
 

@@ -37,7 +37,7 @@ export interface Approval {
   /** @nullable */
   rejectionReason?: string | null;
   /** @nullable */
-  approvedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

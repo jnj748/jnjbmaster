@@ -27,5 +27,5 @@ export interface CreditLedgerEntry {
   actorId?: number | null;
   /** @nullable */
   actorName?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

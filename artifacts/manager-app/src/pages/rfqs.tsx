@@ -723,7 +723,10 @@ export default function Rfqs() {
       )}
 
       <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
-        <ResponsiveDialogContent className="max-w-4xl" />
+        <ResponsiveDialogContent className="max-w-4xl">
+          {/* 비교 패널은 별도 컴포넌트로 표시되므로 여기는 빈 컨테이너만 유지 */}
+          <></>
+        </ResponsiveDialogContent>
       </ResponsiveDialog>
 
       {rfqDocRfq && (

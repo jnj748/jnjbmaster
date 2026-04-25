@@ -13,7 +13,7 @@ export interface QuoteTypePolicyCommonEntry {
   /** @nullable */
   description?: string | null;
   /** @nullable */
-  updatedAt?: Date | null;
+  updatedAt?: string | null;
   /** @nullable */
   updatedBy?: string | null;
 }

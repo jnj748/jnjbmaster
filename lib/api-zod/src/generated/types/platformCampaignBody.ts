@@ -20,9 +20,9 @@ export interface PlatformCampaignBody {
   /** @nullable */
   imageUrl?: string | null;
   channels: PlatformCampaignBodyChannelsItem[];
-  startsAt?: Date;
+  startsAt?: string;
   /** @nullable */
-  endsAt?: Date | null;
+  endsAt?: string | null;
   recurrence?: PlatformCampaignBodyRecurrence;
   /** @nullable */
   recurrenceDays?: number[] | null;

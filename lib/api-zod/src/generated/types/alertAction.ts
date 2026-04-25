@@ -14,9 +14,9 @@ export interface AlertAction {
   relatedEntityId: number;
   actionType: AlertActionActionType;
   /** @nullable */
-  completedDate?: Date | null;
+  completedDate?: string | null;
   /** @nullable */
-  nextCycleDate?: Date | null;
+  nextCycleDate?: string | null;
   /** @nullable */
   postponeDays?: number | null;
   /** @nullable */
@@ -29,5 +29,5 @@ export interface AlertAction {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

@@ -13,9 +13,9 @@ export interface DataDestructionLog {
   unit: string;
   originalName: string;
   destructionType: string;
-  processedAt: Date;
+  processedAt: string;
   processedBy: string;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

@@ -16,14 +16,14 @@ export interface WorkReport {
   title: string;
   /** @nullable */
   description?: string | null;
-  completionDate: Date;
+  completionDate: string;
   /** @nullable */
   photoUrls?: string | null;
   status: WorkReportStatus;
   /** @nullable */
   reviewNotes?: string | null;
   /** @nullable */
-  reviewedAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -80,7 +80,7 @@ async function checkRecurring(buildingId: number, unitNumber: string, category: 
     .where(
       and(
         eq(complaintsTable.buildingId, buildingId),
-        eq(complaintsTable.category, category),
+        eq(complaintsTable.category, category as never),
         gte(complaintsTable.createdAt, sixMonthsAgo)
       )
     );
@@ -132,9 +132,10 @@ router.get("/complaints", async (req: Request, res: Response): Promise<void> => 
 
   const conditions = [];
   if (buildingId) conditions.push(eq(complaintsTable.buildingId, buildingId));
-  if (category) conditions.push(eq(complaintsTable.category, category));
-  if (status) conditions.push(eq(complaintsTable.status, status));
-  if (sensitivity) conditions.push(eq(complaintsTable.sensitivity, sensitivity));
+  // category/status/sensitivity 는 enum 컬럼이라 string 인자를 넘기려면 좁은 타입으로 단언한다.
+  if (category) conditions.push(eq(complaintsTable.category, category as never));
+  if (status) conditions.push(eq(complaintsTable.status, status as never));
+  if (sensitivity) conditions.push(eq(complaintsTable.sensitivity, sensitivity as never));
   if (isRecurring === "true") conditions.push(eq(complaintsTable.isRecurring, true));
   if (escalatedToHq === "true") conditions.push(eq(complaintsTable.escalatedToHq, true));
 

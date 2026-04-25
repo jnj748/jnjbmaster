@@ -12,6 +12,6 @@ export interface FacilityAlert {
   type: FacilityAlertType;
   title: string;
   message: string;
-  dueDate: Date;
+  dueDate: string;
   isOverdue: boolean;
 }

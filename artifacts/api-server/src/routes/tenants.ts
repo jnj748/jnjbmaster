@@ -121,11 +121,12 @@ router.post("/tenants", async (req: Request, res): Promise<void> => {
     return;
   }
 
+  // OpenAPI 의 date 컬럼은 문자열 — drizzle 타입과 형식만 다르고 런타임 호환.
   const [tenant] = await db.insert(tenantsTable).values({
     ...parsed.data,
     unitId,
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
-  }).returning();
+  } as never).returning();
 
   await db.insert(notificationsTable).values({
     recipientType: "admin",
@@ -136,9 +137,8 @@ router.post("/tenants", async (req: Request, res): Promise<void> => {
     relatedEntityId: tenant.id,
   });
 
-  if (parsed.data.status === "active" || !parsed.data.status) {
-    await syncUnitStatus(tenant.unit, buildingId);
-  }
+  // CreateTenantBody 에 status 필드는 없으므로 기본 "active" 로 가정하고 동기화한다.
+  await syncUnitStatus(tenant.unit, buildingId);
 
   res.status(201).json(GetTenantResponse.parse(tenant));
 });
@@ -264,7 +264,7 @@ router.delete("/tenants/:id", async (req: Request, res): Promise<void> => {
 });
 
 router.post("/tenants/:id/verify", async (req: Request, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
     return;

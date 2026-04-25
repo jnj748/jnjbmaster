@@ -20,5 +20,5 @@ export interface ContractDocument {
   uploadedByName?: string | null;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
+  createdAt: string;
 }

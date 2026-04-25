@@ -9,7 +9,7 @@
 export type GenerateAlertsResponseInspectionsItem = {
   inspectionId: number;
   name: string;
-  nextDueDate: Date;
+  nextDueDate: string;
   /** @nullable */
   draftId?: number | null;
 };

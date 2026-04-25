@@ -196,7 +196,7 @@ router.get("/fees/trend", async (req: Request, res: Response): Promise<void> => 
 
   const unitCount = units.length || 1;
   const now = new Date();
-  const trend = [];
+  const trend: { month: string; buildingAvg: number; kaptAvg: number }[] = [];
   for (let i = 23; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

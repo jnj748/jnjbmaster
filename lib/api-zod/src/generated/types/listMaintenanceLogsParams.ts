@@ -9,6 +9,6 @@ import type { ListMaintenanceLogsCategory } from "./listMaintenanceLogsCategory"
 
 export type ListMaintenanceLogsParams = {
   category?: ListMaintenanceLogsCategory;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
 };

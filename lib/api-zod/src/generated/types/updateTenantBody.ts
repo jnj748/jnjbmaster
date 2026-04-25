@@ -18,11 +18,11 @@ export interface UpdateTenantBody {
   /** @nullable */
   emergencyContact?: string | null;
   /** @nullable */
-  interiorStartDate?: Date | null;
+  interiorStartDate?: string | null;
   /** @nullable */
-  moveInDate?: Date | null;
+  moveInDate?: string | null;
   /** @nullable */
-  moveOutDate?: Date | null;
+  moveOutDate?: string | null;
   /** @nullable */
   email?: string | null;
   /** @nullable */
@@ -44,7 +44,7 @@ export interface UpdateTenantBody {
   guarantorResidentId?: string | null;
   status?: UpdateTenantBodyStatus;
   /** @nullable */
-  privacyConsentDate?: Date | null;
+  privacyConsentDate?: string | null;
   contractDoc?: boolean;
   businessRegDoc?: boolean;
   idDoc?: boolean;
@@ -64,8 +64,8 @@ export interface UpdateTenantBody {
   /** @nullable */
   signatureName?: string | null;
   /** @nullable */
-  signatureDate?: Date | null;
+  signatureDate?: string | null;
   /** @nullable */
-  billingStartDate?: Date | null;
+  billingStartDate?: string | null;
   verificationStatus?: UpdateTenantBodyVerificationStatus;
 }

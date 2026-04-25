@@ -15,9 +15,9 @@ export interface TaxSchedule {
   /** @nullable */
   description?: string | null;
   scheduleType: TaxScheduleScheduleType;
-  dueDate: Date;
+  dueDate: string;
   recurrence: TaxScheduleRecurrence;
   status: TaxScheduleStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

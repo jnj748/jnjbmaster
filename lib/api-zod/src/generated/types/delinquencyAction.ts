@@ -18,12 +18,12 @@ export interface DelinquencyAction {
   totalOverdueAmount: number;
   actionType: DelinquencyActionActionType;
   status: DelinquencyActionStatus;
-  actionDate: Date;
-  noticeDate?: Date | null;
-  suspensionDate?: Date | null;
-  resolvedDate?: Date | null;
+  actionDate: string;
+  noticeDate?: string | null;
+  suspensionDate?: string | null;
+  resolvedDate?: string | null;
   notes?: string | null;
   performedBy: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }

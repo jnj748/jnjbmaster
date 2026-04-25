@@ -16,9 +16,9 @@ export interface SubmitTenantCardBody {
   /** @nullable */
   email?: string | null;
   /** @nullable */
-  interiorStartDate?: Date | null;
+  interiorStartDate?: string | null;
   /** @nullable */
-  moveInDate?: Date | null;
+  moveInDate?: string | null;
   hasTv?: boolean;
   /** @nullable */
   registeredAddress?: string | null;

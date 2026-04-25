@@ -91,11 +91,12 @@ router.post("/owners", async (req: Request, res): Promise<void> => {
     return;
   }
 
+  // OpenAPI 의 date 컬럼은 문자열 — drizzle 타입과 형식만 다르고 런타임 호환.
   const [owner] = await db.insert(ownersTable).values({
     ...parsed.data,
     unitId,
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
-  }).returning();
+  } as never).returning();
 
   await db.insert(notificationsTable).values({
     recipientType: "admin",

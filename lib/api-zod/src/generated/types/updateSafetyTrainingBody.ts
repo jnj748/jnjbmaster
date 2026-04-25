@@ -9,7 +9,7 @@ import type { UpdateSafetyTrainingBodyStatus } from "./updateSafetyTrainingBodyS
 
 export interface UpdateSafetyTrainingBody {
   title?: string;
-  trainingDate?: Date;
+  trainingDate?: string;
   trainingMonth?: number;
   trainingYear?: number;
   trainer?: string;

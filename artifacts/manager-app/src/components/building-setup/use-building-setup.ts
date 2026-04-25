@@ -291,7 +291,7 @@ export function useBuildingSetup() {
     try {
       const inst = new window.daum.Postcode(buildPostcodeOptions());
       postcodeInstanceRef.current = inst;
-      (inst as { embed: (e: HTMLElement) => void }).embed(el);
+      (inst as unknown as { embed: (e: HTMLElement) => void }).embed(el);
     } catch (e) {
       toast({ title: "주소검색을 열 수 없습니다", description: String(e), variant: "destructive" });
       setPostcodeOpen(false);

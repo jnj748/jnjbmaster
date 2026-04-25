@@ -13,5 +13,5 @@ export interface AdminWalletRow {
   balance: number;
   pointsBalance: number;
   /** @nullable */
-  updatedAt?: Date | null;
+  updatedAt?: string | null;
 }

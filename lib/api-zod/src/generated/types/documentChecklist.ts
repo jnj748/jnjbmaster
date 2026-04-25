@@ -14,9 +14,9 @@ export interface DocumentChecklist {
   documentName: string;
   isSubmitted: boolean;
   /** @nullable */
-  submittedAt?: Date | null;
+  submittedAt?: string | null;
   /** @nullable */
   notes?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

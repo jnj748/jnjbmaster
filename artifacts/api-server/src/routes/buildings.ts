@@ -606,8 +606,15 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
       fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${qs}`).then(r => r.ok ? r.json() : null),
     ]);
 
-    const titleData = titleResult.status === "fulfilled" ? titleResult.value : null;
-    const recapData = recapResult.status === "fulfilled" ? recapResult.value : null;
+    // 외부 공공API 응답이라 unknown — 사용 필드만 좁게 단언한다.
+    type BldRgstResp = {
+      response?: {
+        header?: { resultCode?: string };
+        body?: { items?: { item?: unknown } };
+      };
+    };
+    const titleData = (titleResult.status === "fulfilled" ? titleResult.value : null) as BldRgstResp | null;
+    const recapData = (recapResult.status === "fulfilled" ? recapResult.value : null) as BldRgstResp | null;
 
     const titleItems = titleData?.response?.body?.items?.item;
     const recapItems = recapData?.response?.body?.items?.item;
@@ -703,9 +710,17 @@ async function fetchAreaInfoFromRegister(mgmBldrgstPk: string): Promise<AreaInfo
     });
     const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
 
-    const result = await fetch(
+    type BldExposResp = {
+      response?: {
+        body?: {
+          items?: { item?: unknown };
+          totalCount?: number;
+        };
+      };
+    };
+    const result = (await fetch(
       `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`,
-    ).then((r) => (r.ok ? r.json() : null));
+    ).then((r) => (r.ok ? r.json() : null))) as BldExposResp | null;
 
     const body = result?.response?.body;
     const items = body?.items?.item;
