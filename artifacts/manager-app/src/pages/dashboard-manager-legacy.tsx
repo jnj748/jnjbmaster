@@ -133,7 +133,8 @@ function getDdayLabel(dueDate: string | null): { label: string; days: number | n
   const due = new Date(dueDate);
   due.setHours(0, 0, 0, 0);
   const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return { label: `기한초과 +${Math.abs(diff)}일`, days: diff, isOverdue: true };
+  // [Task #379] 좁은 카드에서 우측 본문이 잘리지 않도록 단축. "기한초과 +N일" → "N일 지남".
+  if (diff < 0) return { label: `${Math.abs(diff)}일 지남`, days: diff, isOverdue: true };
   if (diff === 0) return { label: "D-Day", days: 0, isOverdue: false };
   return { label: `D-${diff}`, days: diff, isOverdue: false };
 }
