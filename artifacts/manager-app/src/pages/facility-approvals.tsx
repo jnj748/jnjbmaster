@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Check, X, RefreshCw, UserCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ type ReqRow = {
 
 export default function FacilityApprovalsPage() {
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const isAdmin = user?.role === "platform_admin" || user?.role === "hq_executive";
   const [rows, setRows] = useState<ReqRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,12 @@ export default function FacilityApprovalsPage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        alert(d.error ?? "승인에 실패했습니다");
+        // [Task #341] 시설담당자 1주소 1인 차단(409) 등 서버 에러를 토스트로 노출.
+        toast({
+          title: res.status === 409 ? "승인이 차단되었습니다" : "승인에 실패했습니다",
+          description: d.error ?? "잠시 후 다시 시도해 주세요.",
+          variant: "destructive",
+        });
         return;
       }
       await load();

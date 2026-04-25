@@ -211,34 +211,50 @@ function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string
   return v;
 }
 
-// [Task #227] 한 건물에 관리소장은 1명만 가입할 수 있다. 위저드/우회 모두를 막기 위해
-// 동일한 지번 주소(또는 동일 building.id)에 이미 다른 관리소장이 묶여 있는지 검사한다.
-const MANAGER_DUPLICATE_MESSAGE =
+// [Task #227/#341] 한 건물에는 관리소장·경리·시설담당자가 각 1명씩만 가입할 수 있다.
+// 위저드/우회 모두를 막기 위해 동일한 지번 주소(또는 동일 building.id)에
+// 동일 역할의 다른 활성 사용자가 묶여 있는지 검사한다. 모든 역할에 동일 안내 문구를 사용.
+export const BUILDING_DUPLICATE_MESSAGE =
   "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416";
+
+// [Task #227] 하위 호환을 위한 별칭. 동일 한국어 메시지.
+const MANAGER_DUPLICATE_MESSAGE = BUILDING_DUPLICATE_MESSAGE;
+
+// [Task #341] 1주소 1인 차단의 적용 대상 역할.
+export type DuplicateCheckRole = "manager" | "accountant" | "facility_staff";
+const DUPLICATE_CHECK_ROLES: readonly DuplicateCheckRole[] = ["manager", "accountant", "facility_staff"];
+
+export function isDuplicateCheckRole(v: unknown): v is DuplicateCheckRole {
+  return typeof v === "string" && (DUPLICATE_CHECK_ROLES as readonly string[]).includes(v);
+}
 
 function normalizeJibun(s: string | null | undefined): string {
   return String(s ?? "").trim().replace(/\s+/g, " ");
 }
 
-async function findExistingManagerForAddress(opts: {
+// [Task #341] Task #227 의 매니저 전용 검사를 역할 파라미터화한 일반화 헬퍼.
+// 본인 제외, approval_status='active' 만 대상, building.id 직접 일치 + 동일 지번 주소의
+// 다른 building.id 까지 보는 2중 조회 로직을 그대로 재사용한다.
+export async function findExistingActiveUserForAddress(opts: {
+  role: DuplicateCheckRole;
   addressJibun?: string | null;
   buildingId?: number | null;
   excludeUserId: number;
 }): Promise<boolean> {
   const jibun = normalizeJibun(opts.addressJibun);
-  // 1) 동일 building.id에 이미 다른 관리소장 사용자가 있는지
+  // 1) 동일 building.id에 이미 동일 역할의 다른 활성 사용자가 있는지
   if (opts.buildingId) {
     const rows = await db
       .select({ id: usersTable.id })
       .from(usersTable)
       .where(and(
         eq(usersTable.buildingId, opts.buildingId),
-        eq(usersTable.role, "manager"),
+        eq(usersTable.role, opts.role),
         eq(usersTable.approvalStatus, "active"),
       ));
     if (rows.some(r => r.id !== opts.excludeUserId)) return true;
   }
-  // 2) 동일 지번 주소를 가진 다른 building 행이 있는 경우, 그쪽에 묶인 매니저가 있는지
+  // 2) 동일 지번 주소를 가진 다른 building 행이 있는 경우, 그쪽에 묶인 동일 역할 활성 사용자가 있는지
   if (jibun) {
     const buildings = await db
       .select({ id: buildingsTable.id })
@@ -249,10 +265,10 @@ async function findExistingManagerForAddress(opts: {
       .filter(bid => !opts.buildingId || bid !== opts.buildingId);
     if (otherBuildingIds.length > 0) {
       const rows = await db
-        .select({ id: usersTable.id })
+        .select({ id: usersTable.id, buildingId: usersTable.buildingId })
         .from(usersTable)
         .where(and(
-          eq(usersTable.role, "manager"),
+          eq(usersTable.role, opts.role),
           eq(usersTable.approvalStatus, "active"),
         ));
       const buildingIdSet = new Set(otherBuildingIds);
@@ -264,26 +280,43 @@ async function findExistingManagerForAddress(opts: {
   return false;
 }
 
-// [Task #227] 위저드가 주소 선택 직후 빠르게 차단 안내를 띄울 수 있도록 사전 점검 엔드포인트.
+// [Task #227] 매니저 전용 호출부의 시그니처/동작 회귀를 막기 위한 얇은 래퍼.
+async function findExistingManagerForAddress(opts: {
+  addressJibun?: string | null;
+  buildingId?: number | null;
+  excludeUserId: number;
+}): Promise<boolean> {
+  return findExistingActiveUserForAddress({ ...opts, role: "manager" });
+}
+
+// [Task #227/#341] 위저드/승인 화면이 빠르게 차단 안내를 띄울 수 있도록 사전 점검 엔드포인트.
+//   - 기본 역할은 manager (Task #227 호환)
+//   - role 쿼리 파라미터로 accountant / facility_staff 도 검사 가능 (Task #341)
 router.get("/buildings/check-manager", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const addressJibun = typeof req.query.addressJibun === "string" ? req.query.addressJibun : "";
   const buildingIdRaw = typeof req.query.buildingId === "string" ? req.query.buildingId : "";
   const buildingId = buildingIdRaw ? parseInt(buildingIdRaw) : null;
+  const roleParam = typeof req.query.role === "string" ? req.query.role : "manager";
+  if (!isDuplicateCheckRole(roleParam)) {
+    res.status(400).json({ error: "role 값이 유효하지 않습니다." });
+    return;
+  }
   if (!addressJibun && !buildingId) {
     res.status(400).json({ error: "addressJibun 또는 buildingId가 필요합니다." });
     return;
   }
   try {
-    const exists = await findExistingManagerForAddress({
+    const exists = await findExistingActiveUserForAddress({
+      role: roleParam,
       addressJibun,
       buildingId: buildingId && Number.isFinite(buildingId) ? buildingId : null,
       excludeUserId: userId,
     });
-    res.json({ exists, message: exists ? MANAGER_DUPLICATE_MESSAGE : null });
+    res.json({ exists, message: exists ? BUILDING_DUPLICATE_MESSAGE : null });
   } catch (e) {
-    req.log.error({ err: e }, "Failed to check manager duplicate");
+    req.log.error({ err: e }, "Failed to check building duplicate");
     res.status(500).json({ error: "중복 검사에 실패했습니다." });
   }
 });
@@ -397,16 +430,18 @@ router.post("/buildings", async (req: Request, res: Response) => {
       return;
     }
 
-    // [Task #227] 관리소장 중복 가입 차단: 동일 지번 주소에 이미 다른 관리소장이 있다면 거절.
+    // [Task #227/#341] 관리소장·경리·시설담당자 중복 가입 차단: 동일 지번 주소에
+    // 이미 동일 역할의 활성 사용자가 있다면 거절.
     const requester = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-    if (requester?.role === "manager") {
-      const dup = await findExistingManagerForAddress({
+    if (requester && isDuplicateCheckRole(requester.role)) {
+      const dup = await findExistingActiveUserForAddress({
+        role: requester.role,
         addressJibun: typeof data.addressJibun === "string" ? data.addressJibun : null,
         buildingId: null,
         excludeUserId: userId,
       });
       if (dup) {
-        res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+        res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
         return;
       }
     }
@@ -490,16 +525,17 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
         return;
       }
     }
-    // [Task #227] 주소가 바뀌는 PUT 우회 시도 차단: 새 주소에 다른 매니저가 있으면 거절.
-    if (user.role === "manager") {
+    // [Task #227/#341] 주소가 바뀌는 PUT 우회 시도 차단: 새 주소에 동일 역할의 다른 활성 사용자가 있으면 거절.
+    if (isDuplicateCheckRole(user.role)) {
       const nextJibun = typeof data.addressJibun === "string" ? data.addressJibun : (existing?.addressJibun ?? null);
-      const dup = await findExistingManagerForAddress({
+      const dup = await findExistingActiveUserForAddress({
+        role: user.role,
         addressJibun: nextJibun,
         buildingId: id,
         excludeUserId: userId,
       });
       if (dup) {
-        res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+        res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
         return;
       }
     }
@@ -1189,16 +1225,17 @@ router.post("/buildings/:id/lock-address", async (req: Request, res: Response) =
   if (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role)) {
     res.status(403).json({ error: "이 건물을 잠글 권한이 없습니다" }); return;
   }
-  // [Task #227] 주소 잠금 시점에서도 최종 안전장치로 매니저 중복을 검사한다.
-  if (user.role === "manager") {
+  // [Task #227/#341] 주소 잠금 시점에서도 최종 안전장치로 동일 역할의 중복을 검사한다.
+  if (isDuplicateCheckRole(user.role)) {
     const existing = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
-    const dup = await findExistingManagerForAddress({
+    const dup = await findExistingActiveUserForAddress({
+      role: user.role,
       addressJibun: existing?.addressJibun ?? null,
       buildingId: id,
       excludeUserId: userId,
     });
     if (dup) {
-      res.status(409).json({ error: MANAGER_DUPLICATE_MESSAGE });
+      res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
       return;
     }
   }

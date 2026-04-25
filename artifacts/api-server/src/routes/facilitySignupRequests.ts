@@ -3,6 +3,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, facilityStaffSignupRequestsTable, usersTable, buildingsTable, notificationsTable } from "@workspace/db";
 import { authMiddleware, requireRole } from "../middlewares/auth";
 import { and, desc, eq } from "drizzle-orm";
+import { findExistingActiveUserForAddress, BUILDING_DUPLICATE_MESSAGE } from "./buildings";
 
 const router: IRouter = Router();
 
@@ -165,6 +166,30 @@ router.post("/facility-signup-requests/:id/approve", requireRole("manager", "pla
     ?? reqRowExisting.targetBuildingId;
   if (!finalBuildingId) {
     res.status(400).json({ error: "승인 시 건물을 지정해야 합니다 (buildingId)." });
+    return;
+  }
+
+  // [Task #341] 시설담당자도 한 건물에 1명만 활성화 가능. 승인 직전에 동일 건물/지번 주소에
+  // 이미 다른 활성 시설담당자가 있는지 확인. 있으면 승인 중단(409) — 신청 행은 pending 으로 유지하여
+  // 다른 건물로 재배치 또는 거절을 선택할 수 있게 한다.
+  const [targetBuilding] = await db.select({ addressJibun: buildingsTable.addressJibun })
+    .from(buildingsTable)
+    .where(eq(buildingsTable.id, finalBuildingId));
+  const dup = await findExistingActiveUserForAddress({
+    role: "facility_staff",
+    buildingId: finalBuildingId,
+    addressJibun: targetBuilding?.addressJibun ?? null,
+    excludeUserId: reqRowExisting.userId,
+  });
+  if (dup) {
+    // [Task #341] 409 사유를 신청 행 note에 저장한다. 관리소장이 본인 건물로 시도하는
+    // 일반 경로뿐 아니라, HQ/플랫폼이 명시적인 buildingId로 시도해 차단된 경우에도
+    // 신청자 화면(facility-pending)이 동일한 안내를 일관되게 보여줄 수 있게 한다.
+    // 상태는 pending 으로 유지하여 다른 건물 재배치 또는 거절을 선택할 수 있게 한다.
+    await db.update(facilityStaffSignupRequestsTable)
+      .set({ note: BUILDING_DUPLICATE_MESSAGE })
+      .where(eq(facilityStaffSignupRequestsTable.id, reqRowExisting.id));
+    res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
     return;
   }
 

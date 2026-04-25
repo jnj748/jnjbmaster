@@ -47,6 +47,8 @@ export default function AccountantWizardPage() {
   const [uploads, setUploads] = useState<Record<string, { name: string; uploading: boolean; saved: boolean }>>({});
   const [billPreview, setBillPreview] = useState<BillSummaryPreview | null>(null);
   const [billOcrLoading, setBillOcrLoading] = useState(false);
+  // [Task #341] 본인이 연결되려는 건물에 이미 다른 활성 경리가 있을 때 차단 안내.
+  const [dupMessage, setDupMessage] = useState<string | null>(null);
   const billFileRef = useRef<HTMLInputElement>(null);
   const billCameraRef = useRef<HTMLInputElement>(null);
 
@@ -54,9 +56,27 @@ export default function AccountantWizardPage() {
     if (!token) return;
     fetch(`${API_BASE}/buildings/my`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => {
+      .then(async (d) => {
         setBuilding(d.building);
         if (d.building?.areaBasis) setAreaBasis(d.building.areaBasis);
+        // [Task #341] 본인이 이미 연결된 건물이 있는 경우, 그 건물에 이미 다른 활성 경리가 있는지 사전 점검.
+        if (d.building?.id) {
+          try {
+            const params = new URLSearchParams({
+              role: "accountant",
+              buildingId: String(d.building.id),
+            });
+            const r = await fetch(`${API_BASE}/buildings/check-manager?${params}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j?.exists) {
+              setDupMessage(j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416");
+            } else {
+              setDupMessage(null);
+            }
+          } catch {/* 사전 점검 실패는 무시하고 서버단 검증으로 폴백 */}
+        }
       });
   }, [token]);
 
@@ -93,13 +113,17 @@ export default function AccountantWizardPage() {
 
   if (step === 1) {
     const hasBuilding = !!building?.id;
+    // [Task #341] 동일 건물에 이미 활성 경리가 있다면 다음 단계 진행 차단.
+    const blockedByDup = !!dupMessage;
     return (
       <WizardShell
         title="건물 주소 확인"
         subtitle="회계 자료가 적용될 건물을 확인하거나 주소로 조회합니다."
         currentStep={1}
         totalSteps={TOTAL_STEPS}
+        nextDisabled={blockedByDup}
         onNext={() => {
+          if (blockedByDup) return;
           if (hasBuilding) setStep(2);
           else setLocation("/onboarding?returnTo=/onboarding/accountant");
         }}
@@ -116,6 +140,16 @@ export default function AccountantWizardPage() {
               <div className="text-xs text-slate-500">대상 건물</div>
               <div className="mt-1 text-base font-semibold text-slate-900">{building.name || "(이름 미설정)"}</div>
               <div className="text-xs text-slate-600 mt-0.5">{building.addressFull || "(주소 미입력)"}</div>
+            </div>
+          )}
+          {/* [Task #341] 경리 1주소 1인 차단 안내 */}
+          {dupMessage && (
+            <div
+              role="alert"
+              data-testid="accountant-duplicate-notice"
+              className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 leading-relaxed"
+            >
+              {dupMessage}
             </div>
           )}
           <p className="text-xs text-slate-500">
