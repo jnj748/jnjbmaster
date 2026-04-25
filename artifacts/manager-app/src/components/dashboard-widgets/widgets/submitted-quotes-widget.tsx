@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, AlertCircle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+// [Task #388] 빈 상태에서 곧 도래하는 필수/제안 업무를 활용한 비교 견적 유도 카드.
+import EmptyQuoteRfqSuggestion from "@/components/dashboard-widgets/widgets/empty-quote-rfq-suggestion";
 
 // [Task #358] 모바일 첫 화면 "제출받은 견적서" 위젯.
 // - 매니저/회계가 보는 listQuotes 는 서버에서 본인 건물 RFQ 의 견적으로 자동 스코핑된다.
@@ -66,24 +68,30 @@ export default function SubmittedQuotesWidget({
           </CardContent>
         </Card>
       ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="py-5 px-3 flex flex-col items-center gap-2 text-center">
-            <Receipt className="w-6 h-6 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
-              제출받은 견적이 없습니다
-            </p>
-            <Link href="/rfqs">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                data-testid="submitted-quotes-create-rfq"
-              >
-                견적 요청하기
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        // [Task #388] 적합한 알림이 잡히면 비교 견적 유도 카드, 없으면 기존 빈 상태.
+        <EmptyQuoteRfqSuggestion
+          variant="widget"
+          fallback={
+            <Card>
+              <CardContent className="py-5 px-3 flex flex-col items-center gap-2 text-center">
+                <Receipt className="w-6 h-6 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  제출받은 견적이 없습니다
+                </p>
+                <Link href="/rfqs">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    data-testid="submitted-quotes-create-rfq"
+                  >
+                    견적 요청하기
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {items.map((q) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   useListRfqs,
   useCreateRfq,
@@ -60,6 +60,9 @@ import {
 } from "@workspace/shared/rfq-service-types";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
+// [Task #388] 견적 요청이 0건일 때, 곧 도래하는 필수/제안 업무를 활용한
+//   비교 견적 유도 카드를 노출한다. 적합한 알림이 없으면 기존 빈 상태 폴백.
+import EmptyQuoteRfqSuggestion from "@/components/dashboard-widgets/widgets/empty-quote-rfq-suggestion";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
@@ -162,6 +165,10 @@ export default function Rfqs() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 작성 다이얼로그를 자동으로 연다.
+  // [Task #388] 같은 /rfqs 페이지 안에서 빈 상태 추천 카드 → /rfqs?prefill=... 로
+  //   navigate 한 경우에도 effect 가 다시 실행되도록 wouter 의 useSearch 를 의존성에
+  //   포함시킨다. (페이지가 unmount/remount 되지 않으므로 [] 만으로는 트리거 안 됨)
+  const search = useSearch();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("prefill") !== "1") return;
@@ -191,8 +198,10 @@ export default function Rfqs() {
       (k) => url.searchParams.delete(k),
     );
     window.history.replaceState({}, "", url.toString());
+    // [Task #388] search 변경(같은 페이지 내 navigate) 도 트리거 — 한 번 실행 후
+    //   위에서 prefill 파라미터를 history 에서 제거하므로 다음 렌더에서 바로 early-return.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [search]);
 
   function resetForm() {
     setForm({
@@ -714,12 +723,18 @@ export default function Rfqs() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">견적 요청이 없습니다</p>
-          </CardContent>
-        </Card>
+        // [Task #388] 적합한 알림이 잡히면 비교 견적 유도 카드, 없으면 기존 빈 상태.
+        <EmptyQuoteRfqSuggestion
+          variant="rfqs-page"
+          fallback={
+            <Card>
+              <CardContent className="py-12 text-center">
+                <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground">견적 요청이 없습니다</p>
+              </CardContent>
+            </Card>
+          }
+        />
       )}
 
       <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
