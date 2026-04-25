@@ -67,6 +67,7 @@ import type {
   Contract,
   ContractDetail,
   ContractDocument,
+  ContractOcrPreview,
   ContractRenewalAlertResponse,
   CreateAiSessionBody,
   CreateAlertActionBody,
@@ -229,6 +230,7 @@ import type {
   PlatformCampaignBody,
   PlatformKnowledgeDoc,
   PlatformSetting,
+  PreviewContractOcrBody,
   PreviewCreditCostParams,
   ProcessApprovalStepBody,
   ProcessDestructions200,
@@ -11009,7 +11011,7 @@ export const useCreateContractFromQuote = <
 };
 
 /**
- * @summary Generate renewal alerts for contracts expiring within 30 days
+ * @summary Generate renewal alerts for contracts expiring within the configured threshold (75 days, Task
  */
 export const getCheckContractRenewalAlertsUrl = () => {
   return `/api/contracts/check-renewal-alerts`;
@@ -11070,7 +11072,7 @@ export type CheckContractRenewalAlertsMutationResult = NonNullable<
 export type CheckContractRenewalAlertsMutationError = ErrorType<unknown>;
 
 /**
- * @summary Generate renewal alerts for contracts expiring within 30 days
+ * @summary Generate renewal alerts for contracts expiring within the configured threshold (75 days, Task
  */
 export const useCheckContractRenewalAlerts = <
   TError = ErrorType<unknown>,
@@ -11090,6 +11092,98 @@ export const useCheckContractRenewalAlerts = <
   TContext
 > => {
   return useMutation(getCheckContractRenewalAlertsMutationOptions(options));
+};
+
+/**
+ * Task #369. Accepts an already-uploaded object path (object storage), runs OCR
+with Gemini 2.5 Flash, and returns vendor / business reg number / representative /
+period / amount / category / auto-renewal / title candidates with per-field
+confidence. The result is **not** stored — the caller reviews and saves via
+POST /contracts (+ POST /contracts/{id}/documents with docType=contract).
+
+ * @summary OCR a contract document (PDF/image) and return parsed fields without persisting
+ */
+export const getPreviewContractOcrUrl = () => {
+  return `/api/contracts/ocr-preview`;
+};
+
+export const previewContractOcr = async (
+  previewContractOcrBody: PreviewContractOcrBody,
+  options?: RequestInit,
+): Promise<ContractOcrPreview> => {
+  return customFetch<ContractOcrPreview>(getPreviewContractOcrUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(previewContractOcrBody),
+  });
+};
+
+export const getPreviewContractOcrMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewContractOcr>>,
+    TError,
+    { data: BodyType<PreviewContractOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewContractOcr>>,
+  TError,
+  { data: BodyType<PreviewContractOcrBody> },
+  TContext
+> => {
+  const mutationKey = ["previewContractOcr"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewContractOcr>>,
+    { data: BodyType<PreviewContractOcrBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewContractOcr(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewContractOcrMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewContractOcr>>
+>;
+export type PreviewContractOcrMutationBody = BodyType<PreviewContractOcrBody>;
+export type PreviewContractOcrMutationError = ErrorType<void>;
+
+/**
+ * @summary OCR a contract document (PDF/image) and return parsed fields without persisting
+ */
+export const usePreviewContractOcr = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewContractOcr>>,
+    TError,
+    { data: BodyType<PreviewContractOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewContractOcr>>,
+  TError,
+  { data: BodyType<PreviewContractOcrBody> },
+  TContext
+> => {
+  return useMutation(getPreviewContractOcrMutationOptions(options));
 };
 
 /**

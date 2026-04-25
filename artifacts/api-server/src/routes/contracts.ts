@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, lte, gte, isNotNull, type SQL } from "drizzle-orm";
+import { eq, and, desc, lte, gte, isNotNull, inArray, type SQL } from "drizzle-orm";
 import {
   db,
   contractsTable,
@@ -17,6 +17,14 @@ import {
 import { requireRole } from "../middlewares/auth";
 // [역할 라벨 SoT] 알림 본문 등 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
+// [Task #369] 갱신 알림 임계값(75일)·본문 포맷 단일 소스. 화면·서버 모두 같은 값.
+import {
+  CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS,
+  formatContractRenewalReviewMessage,
+} from "@workspace/shared/contract-renewal";
+import { runContractOcr } from "../lib/contractOcr";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 
@@ -153,12 +161,20 @@ router.get("/contracts/check-renewal-alerts", async (_req, res): Promise<void> =
 });
 
 router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_admin", "hq_executive", "accountant"), async (_req, res): Promise<void> => {
+  // [Task #369] 임계값을 만료 30일 → 75일(2개월 15일) 전으로 확대.
+  // 결재·재입찰 일정을 잡기에 30일은 너무 촉박했다. 상수는
+  // @workspace/shared/contract-renewal 단일 소스에서 import.
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const thirtyDays = new Date(today);
-  thirtyDays.setDate(thirtyDays.getDate() + 30);
-  const thirtyStr = thirtyDays.toISOString().split("T")[0];
+  const horizon = new Date(today);
+  horizon.setDate(horizon.getDate() + CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS);
+  const horizonStr = horizon.toISOString().split("T")[0];
 
+  // [Task #369 — code review] 갱신 임박 후보는 "현재 이행 중인" 활성 계약만으로
+  //   한정한다. draft / in_approval / renewal_due / completed / terminated 는
+  //   각각 (1) 아직 체결 전, (2) 결재 진행 중, (3) 이미 알림이 흘러간 상태,
+  //   (4)(5) 종결된 계약이라 다시 renewal_due 로 전이시킬 이유가 없다. 사후
+  //   continue 로 거르던 로직을 SQL 단계로 끌어올려 의도를 명확히 한다.
   const candidates = await db
     .select()
     .from(contractsTable)
@@ -166,7 +182,8 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
       and(
         isNotNull(contractsTable.endDate),
         gte(contractsTable.endDate, todayStr),
-        lte(contractsTable.endDate, thirtyStr),
+        lte(contractsTable.endDate, horizonStr),
+        inArray(contractsTable.status, ["active", "in_progress"]),
       ),
     );
 
@@ -174,14 +191,18 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
   const updated: (typeof contractsTable.$inferSelect)[] = [];
 
   for (const c of candidates) {
-    if (c.status === "terminated" || c.status === "completed") continue;
     if (c.renewalAlertSent) continue;
 
     await db.insert(notificationsTable).values({
       recipientType: "admin",
       notificationType: "contract_renewal_due",
-      title: `[계약 갱신] ${c.vendorName} 만료 임박`,
-      message: `${c.buildingName ?? "건물"} - ${c.title} 계약이 ${c.endDate}에 만료됩니다. 갱신 또는 재입찰을 검토하세요.`,
+      title: `[계약 갱신] ${c.vendorName} - ${c.title}`,
+      // [Task #369] 본문 포맷 통일:
+      //   "○○계약이 연장여부 검토해야 합니다. YYYY-MM-DD 기준으로 자동 연장됩니다"
+      message: formatContractRenewalReviewMessage({
+        title: c.title,
+        endDate: c.endDate ?? "",
+      }),
       relatedEntityType: "contract",
       relatedEntityId: c.id,
     });
@@ -198,6 +219,47 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
 
   res.json({ alertsGenerated, contracts: updated.map(serializeContract) });
 });
+
+// [Task #369] 계약서 OCR 미리보기. 업로드된 파일(PDF/이미지)에서 vendor/사업자번호/
+// 대표자/기간/금액/카테고리/자동갱신/제목 후보를 추출해 JSON+신뢰도로 반환만 한다.
+// DB에는 쓰지 않고, 사용자가 검토/수정 후 별도의 POST /contracts + POST
+// /contracts/:id/documents 호출로 저장한다. billOcr.ts 와 동일한 ACL/권한 패턴.
+router.post(
+  "/contracts/ocr-preview",
+  requireRole("manager", "platform_admin", "accountant"),
+  async (req, res): Promise<void> => {
+    const { objectPath, fileName } = req.body ?? {};
+    if (!objectPath || typeof objectPath !== "string") {
+      res.status(400).json({ error: "objectPath가 필요합니다" });
+      return;
+    }
+    try {
+      const storage = new ObjectStorageService();
+      const objectFile = await storage.getObjectEntityFile(objectPath);
+      const allowed = await storage.canAccessObjectEntity({
+        userId: req.user?.userId ? String(req.user.userId) : undefined,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!allowed) {
+        res.status(403).json({ error: "해당 파일에 접근할 권한이 없습니다" });
+        return;
+      }
+    } catch {
+      res.status(404).json({ error: "파일을 찾지 못했습니다" });
+      return;
+    }
+    try {
+      const result = await runContractOcr({ objectPath, fileName: fileName ?? null });
+      res.json(result);
+    } catch (err) {
+      req.log.error({ err, objectPath }, "contract ocr-preview failed");
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "OCR 처리 실패",
+      });
+    }
+  },
+);
 
 router.post("/contracts/from-quote/:quoteId", requireRole("manager", "platform_admin", "accountant"), async (req, res): Promise<void> => {
   const quoteId = Number(req.params.quoteId);

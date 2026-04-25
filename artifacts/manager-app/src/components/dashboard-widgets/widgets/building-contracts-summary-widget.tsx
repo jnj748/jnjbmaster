@@ -5,15 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, AlertCircle } from "lucide-react";
 import { useBuilding } from "@/contexts/building-context";
+// [Task #369] 만료 임박 임계값은 단일 소스(75일)에서 가져온다.
+//   서버 알림 잡 / contracts 페이지 배너 / 갱신 검토 위젯과 같은 값이 보장된다.
+import { CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS } from "@workspace/shared/contract-renewal";
 
 // [Task #358] 모바일 첫 화면용 "건물관련 계약현황" 한 줄 위젯.
 // - 현재 건물의 계약을 상태별로 압축해 한 줄 안에 보여준다.
 // - 진행중 = active / in_progress
 // - 결재대기 = draft / in_approval
-// - 만료임박 = renewal_due 또는 endDate 가 오늘부터 30일 이내인 active/in_progress
+// - 만료임박 = renewal_due 또는 endDate 가 오늘부터 75일(2개월 15일) 이내인 active/in_progress
 // - 표시할 만한 계약이 없으면 "등록된 계약이 없습니다" 안내가 같은 줄 자리에 노출.
 // - 줄 전체를 누르면 /contracts 로 이동.
-const EXPIRING_WINDOW_DAYS = 30;
 
 function isExpiringSoon(endDate: string | null | undefined): boolean {
   if (!endDate) return false;
@@ -23,7 +25,7 @@ function isExpiringSoon(endDate: string | null | undefined): boolean {
   end.setHours(0, 0, 0, 0);
   const diffMs = end.getTime() - today.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= EXPIRING_WINDOW_DAYS;
+  return diffDays >= 0 && diffDays <= CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
 }
 
 export default function BuildingContractsSummaryWidget() {

@@ -26,6 +26,10 @@ const WarrantyDdayWidget = lazy(
 const UnitsImportSuggestionWidget = lazy(
   () => import("./widgets/units-import-suggestion-widget"),
 );
+// [Task #369] 갱신 검토 필요 N건 — 만료 75일 이내 계약 카운터.
+const ContractRenewalReviewWidget = lazy(
+  () => import("./widgets/contract-renewal-review-widget"),
+);
 
 // Role-specific main wrappers (legacy page bodies)
 const ManagerMainWidget = lazy(
@@ -113,6 +117,12 @@ export const WIDGETS = {
     span: "full",
     label: "제안업무 · 호실 일괄 가져오기",
   },
+  "contract-renewal-review": {
+    key: "contract-renewal-review",
+    component: ContractRenewalReviewWidget,
+    span: "half",
+    label: "갱신 검토 필요 계약",
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 export type CatalogWidgetKey = keyof typeof WIDGETS;
@@ -124,6 +134,9 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: [
       "campaign-banner",
       "units-import-suggestion",
+      // [Task #369] 갱신 검토 필요 계약 위젯 — manager-main 위에 노출해서
+      //   소장이 매일 첫 화면에서 75일 이내 만료 계약을 인지하도록 한다.
+      "contract-renewal-review",
       "manager-main",
       "delinquency-summary",
       "building-info",
@@ -133,6 +146,8 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: [
       "campaign-banner",
       "building-info",
+      // [Task #369] 경리도 사이드바 "용역 계약" 진입과 함께 갱신 임박을 한 줄로 본다.
+      "contract-renewal-review",
       "pending-approvals",
       "delinquency-summary",
       "accountant-main",

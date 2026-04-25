@@ -3771,7 +3771,7 @@ export const CreateContractFromQuoteBody = zod.object({
 });
 
 /**
- * @summary Generate renewal alerts for contracts expiring within 30 days
+ * @summary Generate renewal alerts for contracts expiring within the configured threshold (75 days, Task
  */
 export const CheckContractRenewalAlertsResponse = zod.object({
   alertsGenerated: zod.number(),
@@ -3808,6 +3808,38 @@ export const CheckContractRenewalAlertsResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * Task #369. Accepts an already-uploaded object path (object storage), runs OCR
+with Gemini 2.5 Flash, and returns vendor / business reg number / representative /
+period / amount / category / auto-renewal / title candidates with per-field
+confidence. The result is **not** stored — the caller reviews and saves via
+POST /contracts (+ POST /contracts/{id}/documents with docType=contract).
+
+ * @summary OCR a contract document (PDF/image) and return parsed fields without persisting
+ */
+export const PreviewContractOcrBody = zod.object({
+  objectPath: zod.string(),
+  fileName: zod.string().nullish(),
+});
+
+export const PreviewContractOcrResponse = zod
+  .object({
+    vendorName: zod.string().nullish(),
+    businessRegNumber: zod.string().nullish(),
+    representativeName: zod.string().nullish(),
+    category: zod.string().nullish(),
+    title: zod.string().nullish(),
+    startDate: zod.coerce.date().nullish(),
+    endDate: zod.coerce.date().nullish(),
+    contractAmount: zod.number().nullish(),
+    isRecurring: zod.boolean().nullish(),
+    fieldConfidence: zod.record(zod.string(), zod.number()),
+    rawText: zod.string(),
+  })
+  .describe(
+    'Task #369. Per-field candidates extracted from a contract PDF\/image\nwith associated confidence (0~1). Unrecognized fields are returned\nas null and the UI marks low-confidence fields with \"확인 필요\".\n',
+  );
 
 /**
  * @summary Get seasonal maintenance task suggestions for current month

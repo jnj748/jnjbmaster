@@ -5323,6 +5323,37 @@ export interface ContractRenewalAlertResponse {
   contracts: Contract[];
 }
 
+export type ContractOcrPreviewFieldConfidence = { [key: string]: number };
+
+/**
+ * Task #369. Per-field candidates extracted from a contract PDF/image
+with associated confidence (0~1). Unrecognized fields are returned
+as null and the UI marks low-confidence fields with "확인 필요".
+
+ */
+export interface ContractOcrPreview {
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  /** @nullable */
+  contractAmount?: number | null;
+  /** @nullable */
+  isRecurring?: boolean | null;
+  fieldConfidence: ContractOcrPreviewFieldConfidence;
+  rawText: string;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -5526,6 +5557,12 @@ export type ListContractsParams = {
 
 export type TransitionContractStatusBody = {
   status: string;
+};
+
+export type PreviewContractOcrBody = {
+  objectPath: string;
+  /** @nullable */
+  fileName?: string | null;
 };
 
 export type GetSeasonalSuggestionsParams = {

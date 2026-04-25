@@ -486,10 +486,13 @@ export const ROUTES: RouteEntry[] = [
     labelOverrides: { hq_executive: "용역 계약" },
   },
   {
+    // [Task #369] 관리소장·경리도 사이드바 "파트너 마켓 > 용역 계약" 으로
+    //   진입할 수 있도록 노출 확대. 본사 라벨 오버라이드("계약 갱신")는 유지.
+    //   배치 위치: marketplace 그룹 내 "협력업체(/vendors)" 바로 아래.
     path: "/contracts", component: ContractsPage,
     label: "용역 계약", icon: FileText, group: "marketplace",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
-    sideMenu: ["hq_executive"],
+    sideMenu: ["manager", "platform_admin", "hq_executive", "accountant"],
     labelOverrides: { hq_executive: "계약 갱신" },
   },
 

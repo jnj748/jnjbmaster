@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
   useListContracts,
@@ -7,6 +7,9 @@ import {
   useTransitionContractStatus,
   useUploadContractDocument,
   useCheckContractRenewalAlerts,
+  useCreateContract,
+  usePreviewContractOcr,
+  useListVendors,
   getListContractsQueryKey,
   getGetContractQueryKey,
   type Contract,
@@ -15,9 +18,17 @@ import {
   type ListContractsParams,
   type WorkReport,
   type Settlement,
+  type ContractOcrPreview,
+  type Vendor,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
+import {
+  CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS,
+  CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL,
+  formatContractRenewalReviewMessage,
+} from "@workspace/shared/contract-renewal";
+import { useUpload } from "@workspace/object-storage-web";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +49,18 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Building2, Calendar, AlertCircle, Upload, RefreshCw } from "lucide-react";
+import {
+  FileText,
+  Building2,
+  Calendar,
+  AlertCircle,
+  Upload,
+  RefreshCw,
+  Plus,
+  CalendarClock,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -70,7 +92,42 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   other: "기타",
 };
 
+// [Task #369] 계약서 OCR 카테고리 옵션. contractOcr.ts ALLOWED_CATEGORIES 와 1:1 매핑.
+const OCR_CATEGORY_LABELS: Record<string, string> = {
+  elevator: "승강기",
+  cleaning: "청소",
+  security: "경비",
+  disinfection: "소독",
+  electric: "전기",
+  fire_safety: "소방",
+  hvac: "공조/냉난방",
+  landscaping: "조경",
+  facility: "시설관리/종합관리",
+  other: "기타",
+};
+
 const PRIVILEGED_ROLES = new Set(["manager", "platform_admin", "hq_executive", "accountant"]);
+// [Task #369] OCR 미리보기 / 신규 계약 등록 권한 (파트너·시설기사·본사 제외).
+const NEW_CONTRACT_ROLES = new Set(["manager", "platform_admin", "accountant"]);
+
+// [Task #369] 만료 임박 계약 판정 — 오늘부터 임계일(75일) 이하로 남은 active/in_progress
+//   또는 이미 renewal_due 로 전이된 계약을 모두 포함한다.
+function daysUntil(endDate: string | null | undefined): number | null {
+  if (!endDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function isExpiringContract(c: Contract): boolean {
+  if (c.status === "terminated" || c.status === "completed") return false;
+  if (c.status === "renewal_due") return true;
+  if (c.status !== "active" && c.status !== "in_progress") return false;
+  const d = daysUntil(c.endDate);
+  return d != null && d >= 0 && d <= CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
+}
 
 export default function ContractsPage() {
   const { user } = useAuth();
@@ -79,21 +136,30 @@ export default function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expiringOnly, setExpiringOnly] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
   const [location, setLocation] = useLocation();
 
   // [Task #335] /contracts?openContract={id} 딥링크 → 자동으로 상세 다이얼로그 오픈.
-  // RFQ 페이지에서 견적 수락 후 계약 페이지로 이동했을 때 즉시 5단계 트래커가 보이도록 한다.
+  // [Task #369] /contracts?expiring=1 딥링크(대시보드 "갱신 검토 필요 N건" 위젯에서 진입)
+  //   를 받으면 만료 임박 필터를 자동으로 켜고 페이지 상단 배너가 펼쳐진 상태로 보여준다.
   useEffect(() => {
     const search = window.location.search;
     if (!search) return;
     const sp = new URLSearchParams(search);
+    let mutated = false;
     const target = sp.get("openContract");
     if (target) {
       const id = Number(target);
-      if (!Number.isNaN(id)) {
-        setOpenId(id);
-      }
+      if (!Number.isNaN(id)) setOpenId(id);
       sp.delete("openContract");
+      mutated = true;
+    }
+    if (sp.get("expiring") === "1") {
+      setExpiringOnly(true);
+      sp.delete("expiring");
+      mutated = true;
+    }
+    if (mutated) {
       const remaining = sp.toString();
       const next = remaining ? `${location}?${remaining}` : location;
       setLocation(next, { replace: true });
@@ -102,13 +168,27 @@ export default function ContractsPage() {
 
   const params: ListContractsParams = {};
   if (statusFilter !== "all") params.status = statusFilter as ListContractsParams["status"];
-  if (expiringOnly) params.expiringWithinDays = 30;
+  // [Task #369] 만료 임박 기본 윈도우를 30일 → 75일(2개월 15일) 로 확대.
+  //   값은 @workspace/shared/contract-renewal 단일 소스에서 import.
+  if (expiringOnly) params.expiringWithinDays = CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
 
   const { data: contracts, isLoading } = useListContracts(params);
   const transitionMutation = useTransitionContractStatus();
   const renewalCheck = useCheckContractRenewalAlerts();
 
-  const canManage = user && PRIVILEGED_ROLES.has(user.role);
+  const canManage = !!user && PRIVILEGED_ROLES.has(user.role);
+  const canCreate = !!user && NEW_CONTRACT_ROLES.has(user.role);
+
+  // [Task #369] 페이지 상단 배너용으로 "만료 임박" 계약을 따로 추출.
+  //   필터(`expiringOnly`) 와 무관하게 항상 전체 목록 기준으로 계산하기 위해
+  //   별도 쿼리로 만료 임박만 한 번 더 받아온다(작은 N).
+  const { data: expiringList } = useListContracts(
+    { expiringWithinDays: CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS },
+  );
+  const expiringActive = useMemo(
+    () => (expiringList ?? []).filter(isExpiringContract),
+    [expiringList],
+  );
 
   async function handleRenewalCheck() {
     const r = await renewalCheck.mutateAsync();
@@ -130,20 +210,71 @@ export default function ContractsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold">파트너 계약 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
             품의 → 계약 → 이행 → 정산 → 갱신의 전체 생애주기를 관리합니다
           </p>
         </div>
-        {canManage && (
-          <Button variant="outline" onClick={handleRenewalCheck} disabled={renewalCheck.isPending}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            갱신 알림 확인
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <Button variant="outline" onClick={handleRenewalCheck} disabled={renewalCheck.isPending}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              갱신 알림 확인
+            </Button>
+          )}
+          {canCreate && (
+            <Button onClick={() => setNewOpen(true)} data-testid="button-new-contract">
+              <Plus className="w-4 h-4 mr-2" />
+              신규 계약
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* [Task #369] 만료 임박 배너 — 75일 이내 만료 예정 계약을 카드 리스트로 보여준다.
+          본문 포맷은 단일 소스(formatContractRenewalReviewMessage) 사용. */}
+      {expiringActive.length > 0 && (
+        <section data-testid="expiring-banner-section" className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-4 h-4 text-amber-700" />
+            <h2 className="text-sm font-semibold text-amber-900">
+              만료 {CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL} 이내 검토 필요 — {expiringActive.length}건
+            </h2>
+          </div>
+          <div className="grid gap-2">
+            {expiringActive.map((c) => {
+              const d = daysUntil(c.endDate);
+              return (
+                <Card
+                  key={c.id}
+                  className="border-amber-300 bg-amber-50/40 cursor-pointer hover-elevate"
+                  onClick={() => setOpenId(c.id)}
+                  data-testid={`expiring-banner-card-${c.id}`}
+                >
+                  <CardContent className="p-3 flex items-start gap-3">
+                    <AlertCircle className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">
+                        {formatContractRenewalReviewMessage({
+                          title: c.title,
+                          endDate: c.endDate ?? "-",
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {c.vendorName}
+                        {c.buildingName ? ` · ${c.buildingName}` : ""}
+                        {d != null ? ` · D-${d}` : ""}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-3 items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -156,8 +287,14 @@ export default function ContractsPage() {
           </SelectContent>
         </Select>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={expiringOnly} onChange={(e) => setExpiringOnly(e.target.checked)} className="w-4 h-4" />
-          만료 30일 이내만
+          <input
+            type="checkbox"
+            checked={expiringOnly}
+            onChange={(e) => setExpiringOnly(e.target.checked)}
+            className="w-4 h-4"
+            data-testid="checkbox-expiring-only"
+          />
+          만료 {CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL} 이내만
         </label>
       </div>
 
@@ -219,6 +356,18 @@ export default function ContractsPage() {
         onTransition={handleTransition}
         canManage={!!canManage}
       />
+
+      {canCreate && (
+        <NewContractDialog
+          open={newOpen}
+          onOpenChange={setNewOpen}
+          onCreated={(id) => {
+            queryClient.invalidateQueries({ queryKey: getListContractsQueryKey() });
+            setNewOpen(false);
+            setOpenId(id);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -244,7 +393,6 @@ function ContractDetailDialog({
     query: { enabled: !!contractId, queryKey: getGetContractQueryKey(contractId ?? 0) },
   });
   const upload = useUploadContractDocument();
-  const update = useUpdateContract();
 
   if (!contractId) return null;
 
@@ -434,6 +582,473 @@ function ContractDetailDialog({
             </div>
           </div>
         )}
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  );
+}
+
+// [Task #369] 신규 계약 등록 다이얼로그.
+//   - "계약서 업로드로 시작하기" 진입점에서 PDF/이미지를 올리면 OCR 미리보기를 호출하고
+//     vendor·사업자번호·기간·금액·카테고리·자동갱신·제목 후보를 폼에 자동 채운다.
+//   - 사용자가 모든 필드를 자유롭게 수정한 뒤 저장하면, 같은 흐름에서 계약 본문 +
+//     contract_documents(docType=contract, v1) 가 함께 만들어진다.
+//   - vendor 선택은 useListVendors 결과로 콤보박스를 제공하되, OCR 추출된 vendorName 이
+//     vendor 목록에 없으면 사용자가 직접 골라야 한다(자동매칭 시도, 실패 시 비워둠).
+//   - 신뢰도가 0.6 미만인 필드는 라벨 옆에 "확인 필요" 칩을 표시한다.
+type NewContractFormState = {
+  vendorId: number | null;
+  vendorName: string;
+  businessRegNumber: string;
+  representativeName: string;
+  category: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  contractAmount: string;
+  isRecurring: boolean;
+  ocrObjectPath: string | null;
+  ocrFileName: string | null;
+};
+
+const EMPTY_FORM: NewContractFormState = {
+  vendorId: null,
+  vendorName: "",
+  businessRegNumber: "",
+  representativeName: "",
+  category: "",
+  title: "",
+  startDate: "",
+  endDate: "",
+  contractAmount: "",
+  isRecurring: false,
+  ocrObjectPath: null,
+  ocrFileName: null,
+};
+
+const LOW_CONFIDENCE_THRESHOLD = 0.6;
+
+function ConfidenceMark({ confidence }: { confidence: number | undefined }) {
+  if (confidence == null || confidence >= LOW_CONFIDENCE_THRESHOLD) return null;
+  return (
+    <Badge variant="outline" className="ml-2 text-[10px] border-amber-400 text-amber-700">
+      확인 필요
+    </Badge>
+  );
+}
+
+function NewContractDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreated: (newContractId: number) => void;
+}) {
+  const { token } = useAuth();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFileNameRef = useRef<string | null>(null);
+  const [form, setForm] = useState<NewContractFormState>(EMPTY_FORM);
+  const [confidence, setConfidence] = useState<Record<string, number>>({});
+  const [ocrPending, setOcrPending] = useState(false);
+
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+
+  // 다이얼로그 닫힘 시 폼 초기화 — 다시 열었을 때 이전 OCR 결과가 남지 않도록.
+  useEffect(() => {
+    if (!open) {
+      setForm(EMPTY_FORM);
+      setConfidence({});
+      setOcrPending(false);
+      pendingFileNameRef.current = null;
+    }
+  }, [open]);
+
+  const { data: vendors } = useListVendors(undefined, {
+    query: { enabled: open, staleTime: 5 * 60 * 1000 },
+  });
+
+  const ocrPreview = usePreviewContractOcr();
+  const createContract = useCreateContract();
+  const uploadDoc = useUploadContractDocument();
+
+  const { uploadFile, isUploading, progress } = useUpload({
+    basePath: `${apiBase}/storage`,
+    authToken: token,
+    onSuccess: async (response) => {
+      setOcrPending(true);
+      try {
+        const result = await ocrPreview.mutateAsync({
+          data: { objectPath: response.objectPath, fileName: pendingFileNameRef.current ?? undefined },
+        });
+        applyOcr(result, response.objectPath, pendingFileNameRef.current);
+        toast({
+          title: "OCR 완료",
+          description: "추출된 값을 검토하고 저장해주세요.",
+        });
+      } catch (e) {
+        toast({
+          title: "OCR 실패",
+          description: e instanceof Error ? e.message : "OCR 처리 실패",
+          variant: "destructive",
+        });
+      } finally {
+        setOcrPending(false);
+      }
+    },
+    onError: (err) => {
+      toast({
+        title: "업로드 실패",
+        description: err instanceof Error ? err.message : "오류",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function applyOcr(result: ContractOcrPreview, objectPath: string, fileName: string | null) {
+    // OCR vendorName 으로 기존 vendor 매칭 시도(부분일치). 실패 시 vendorId 는 비워두고
+    // vendorName 만 채워서 사용자가 콤보박스에서 직접 선택하도록 한다.
+    const list = (vendors ?? []) as Vendor[];
+    const matched = result.vendorName
+      ? list.find(
+          (v) =>
+            v.name === result.vendorName ||
+            (result.vendorName && v.name.includes(result.vendorName)) ||
+            (result.vendorName && result.vendorName.includes(v.name)),
+        )
+      : undefined;
+
+    setForm({
+      vendorId: matched?.id ?? null,
+      vendorName: matched?.name ?? result.vendorName ?? "",
+      businessRegNumber:
+        result.businessRegNumber ?? matched?.businessRegNumber ?? "",
+      representativeName:
+        result.representativeName ?? matched?.representativeName ?? "",
+      category: result.category ?? "",
+      title: result.title ?? "",
+      startDate: result.startDate ?? "",
+      endDate: result.endDate ?? "",
+      contractAmount:
+        result.contractAmount != null ? String(result.contractAmount) : "",
+      isRecurring: result.isRecurring === true,
+      ocrObjectPath: objectPath,
+      ocrFileName: fileName,
+    });
+    setConfidence(result.fieldConfidence ?? {});
+  }
+
+  function pickFile() {
+    fileInputRef.current?.click();
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      toast({
+        title: "파일이 너무 큽니다",
+        description: "최대 10MB까지 가능합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+    pendingFileNameRef.current = f.name;
+    uploadFile(f);
+  }
+
+  function setField<K extends keyof NewContractFormState>(
+    key: K,
+    value: NewContractFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.vendorId || !form.vendorName) {
+      toast({ title: "협력업체를 선택해주세요", variant: "destructive" });
+      return;
+    }
+    if (!form.category) {
+      toast({ title: "카테고리를 선택해주세요", variant: "destructive" });
+      return;
+    }
+    if (!form.title.trim()) {
+      toast({ title: "계약 제목을 입력해주세요", variant: "destructive" });
+      return;
+    }
+
+    const amount = form.contractAmount ? Number(form.contractAmount) : null;
+    if (form.contractAmount && !Number.isFinite(amount)) {
+      toast({ title: "계약금액은 숫자여야 합니다", variant: "destructive" });
+      return;
+    }
+
+    const notesParts: string[] = [];
+    if (form.businessRegNumber)
+      notesParts.push(`사업자번호: ${form.businessRegNumber}`);
+    if (form.representativeName)
+      notesParts.push(`대표자: ${form.representativeName}`);
+
+    try {
+      const contract = await createContract.mutateAsync({
+        data: {
+          vendorId: form.vendorId,
+          vendorName: form.vendorName,
+          category: form.category,
+          title: form.title.trim(),
+          startDate: form.startDate || null,
+          endDate: form.endDate || null,
+          contractAmount: amount,
+          isRecurring: form.isRecurring,
+          notes: notesParts.length > 0 ? notesParts.join(" / ") : null,
+        },
+      });
+
+      // OCR 로 업로드된 원본 계약서가 있으면 contract_documents(v1) 로 함께 등록.
+      if (form.ocrObjectPath) {
+        try {
+          await uploadDoc.mutateAsync({
+            id: contract.id,
+            data: {
+              docType: "contract",
+              fileName: form.ocrFileName ?? "contract",
+              fileUrl: form.ocrObjectPath,
+              notes: "OCR 업로드 자동 등록",
+            },
+          });
+        } catch (e) {
+          // 본 계약은 생성됐지만 문서 첨부만 실패 — 사용자에게 안내하고 계속.
+          toast({
+            title: "계약은 등록됐으나 문서 첨부 실패",
+            description: e instanceof Error ? e.message : "문서 첨부 실패",
+            variant: "destructive",
+          });
+        }
+      }
+
+      toast({ title: "계약이 등록되었습니다" });
+      onCreated(contract.id);
+    } catch (e) {
+      toast({
+        title: "계약 등록 실패",
+        description: e instanceof Error ? e.message : "오류",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const busy = isUploading || ocrPending || createContract.isPending || uploadDoc.isPending;
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>신규 계약 등록</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
+
+        <div className="space-y-5">
+          {/* OCR 업로드 진입점 */}
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <p className="text-sm font-medium">계약서 업로드로 시작하기</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                계약서 PDF · JPG · PNG · HEIC (최대 10MB)를 올리면 업체명·사업자번호·기간·금액·카테고리·자동갱신
+                여부·제목 후보가 자동으로 채워집니다.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={onFileChange}
+                data-testid="input-ocr-file"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={pickFile}
+                disabled={busy}
+                className="gap-2"
+                data-testid="button-ocr-upload"
+              >
+                {isUploading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중 {progress}%</>
+                ) : ocrPending ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> OCR 분석 중...</>
+                ) : (
+                  <><Upload className="w-4 h-4" /> 계약서 업로드</>
+                )}
+              </Button>
+              {form.ocrObjectPath && (
+                <p className="text-xs text-emerald-700 flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> {form.ocrFileName ?? "계약서"} 첨부 예정
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 폼 (수동 입력 + OCR 자동입력 결과 검토/수정) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <Label>
+                협력업체<span className="text-destructive ml-0.5">*</span>
+                <ConfidenceMark confidence={confidence.vendorName} />
+              </Label>
+              <Select
+                value={form.vendorId != null ? String(form.vendorId) : ""}
+                onValueChange={(v) => {
+                  const id = Number(v);
+                  const picked = (vendors ?? []).find((x) => x.id === id);
+                  setForm((prev) => ({
+                    ...prev,
+                    vendorId: id,
+                    vendorName: picked?.name ?? prev.vendorName,
+                    businessRegNumber:
+                      picked?.businessRegNumber ?? prev.businessRegNumber,
+                    representativeName:
+                      picked?.representativeName ?? prev.representativeName,
+                  }));
+                }}
+              >
+                <SelectTrigger data-testid="select-vendor"><SelectValue placeholder="협력업체 선택" /></SelectTrigger>
+                <SelectContent>
+                  {(vendors ?? []).map((v) => (
+                    <SelectItem key={v.id} value={String(v.id)}>
+                      {v.name}
+                      {v.businessRegNumber ? ` (${v.businessRegNumber})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {form.vendorName && form.vendorId == null && (
+                <p className="text-xs text-amber-700 mt-1">
+                  OCR 추출 업체명: <span className="font-medium">{form.vendorName}</span> — 위 목록에서 매칭되는 협력업체를 선택해주세요.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label>
+                사업자번호
+                <ConfidenceMark confidence={confidence.businessRegNumber} />
+              </Label>
+              <Input
+                value={form.businessRegNumber}
+                onChange={(e) => setField("businessRegNumber", e.target.value)}
+                placeholder="123-45-67890"
+              />
+            </div>
+
+            <div>
+              <Label>
+                대표자명
+                <ConfidenceMark confidence={confidence.representativeName} />
+              </Label>
+              <Input
+                value={form.representativeName}
+                onChange={(e) => setField("representativeName", e.target.value)}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label>
+                계약 제목<span className="text-destructive ml-0.5">*</span>
+                <ConfidenceMark confidence={confidence.title} />
+              </Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setField("title", e.target.value)}
+                placeholder="○○빌딩 청소용역 계약서"
+                data-testid="input-title"
+              />
+            </div>
+
+            <div>
+              <Label>
+                카테고리<span className="text-destructive ml-0.5">*</span>
+                <ConfidenceMark confidence={confidence.category} />
+              </Label>
+              <Select value={form.category} onValueChange={(v) => setField("category", v)}>
+                <SelectTrigger data-testid="select-category"><SelectValue placeholder="카테고리 선택" /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(OCR_CATEGORY_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>
+                계약금액(원)
+                <ConfidenceMark confidence={confidence.contractAmount} />
+              </Label>
+              <Input
+                type="number"
+                value={form.contractAmount}
+                onChange={(e) => setField("contractAmount", e.target.value)}
+                placeholder="예: 12000000"
+              />
+            </div>
+
+            <div>
+              <Label>
+                계약 시작일
+                <ConfidenceMark confidence={confidence.startDate} />
+              </Label>
+              <Input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setField("startDate", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>
+                계약 종료일
+                <ConfidenceMark confidence={confidence.endDate} />
+              </Label>
+              <Input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => setField("endDate", e.target.value)}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.isRecurring}
+                  onChange={(e) => setField("isRecurring", e.target.checked)}
+                  className="w-4 h-4"
+                />
+                자동(자동연장) 갱신 조항이 있는 계약입니다
+                <ConfidenceMark confidence={confidence.isRecurring} />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+              취소
+            </Button>
+            <Button onClick={handleSave} disabled={busy} data-testid="button-save-contract">
+              {createContract.isPending || uploadDoc.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 저장 중</>
+              ) : (
+                "저장"
+              )}
+            </Button>
+          </div>
+        </div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
