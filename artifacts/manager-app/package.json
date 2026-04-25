@@ -9,7 +9,7 @@
     "check:viewport": "node scripts/check-viewport.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts"
+    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts src/lib/empty-quote-suggestion.test.ts"
   },
   "devDependencies": {
     "@radix-ui/react-accordion": "^1.2.4",
