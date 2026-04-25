@@ -79,7 +79,14 @@ export default function SocialSignup() {
 
   if (error && !pending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div
+        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        style={{
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md w-full mx-4">
           <h1 className="text-lg font-semibold text-slate-900 mb-2">가입 진행 불가</h1>
           <p className="text-sm text-slate-600 mb-6">{error}</p>
@@ -96,7 +103,14 @@ export default function SocialSignup() {
 
   if (!pending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div
+        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        style={{
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -180,20 +194,33 @@ export default function SocialSignup() {
     if (submit) submit(consentValue);
   }
 
+  // [Task #368] 인증 셸: dvh + safe-area + overflow-hidden 으로 페이지 스크롤바를
+  // 제거하고, 카드 내부(폼 필드 영역)만 스크롤되게 한다.
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-8">
-      <div className="w-full max-w-md px-6">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-          <h1 className="text-xl font-semibold text-slate-900 mb-1">소셜 회원가입</h1>
-          <p className="text-sm text-slate-500 mb-6">
-            {PROVIDER_LABEL[pending.provider]} 계정으로 {isPartner ? "파트너사" : "현장 관리"} 포털에 가입합니다.
-          </p>
+    <div
+      className="flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100"
+      style={{
+        height: "100dvh",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div className="flex-1 min-h-0 w-full max-w-md mx-auto px-4 py-3 flex flex-col">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+        >
+          <div className="shrink-0 px-5 pt-5 pb-3">
+            <h1 className="text-lg font-semibold text-slate-900 mb-1">소셜 회원가입</h1>
+            <p className="text-xs text-slate-500">
+              {PROVIDER_LABEL[pending.provider]} 계정으로 {isPartner ? "파트너사" : "현장 관리"} 포털에 가입합니다.
+            </p>
+            {error && (
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs leading-snug">{error}</div>
+            )}
+          </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">이름 *</label>
               <input
@@ -244,7 +271,9 @@ export default function SocialSignup() {
               onChange={setConsentValue}
               onDocsLoaded={setConsentDocs}
             />
+          </div>
 
+          <div className="shrink-0 px-5 pt-3 pb-4 border-t border-slate-100">
             <button
               type="submit"
               disabled={loading || !consentsOk}
@@ -252,8 +281,8 @@ export default function SocialSignup() {
             >
               {loading ? "처리 중..." : "가입 완료"}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
       <OptionalConsentRePromptDialog
         open={rePromptOpen}

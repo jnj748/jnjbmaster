@@ -37,9 +37,18 @@ export default function AuthCallback() {
     setError("인증 응답이 비어 있습니다.");
   }, [applyToken, setLocation]);
 
+  // [Task #368] 인증 셸 통일: dvh + safe-area + overflow-hidden 으로 페이지
+  // 스크롤바를 제거.
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div
+        className="flex items-center justify-center bg-slate-50 overflow-hidden"
+        style={{
+          height: "100dvh",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md w-full mx-4">
           <h1 className="text-lg font-semibold text-slate-900 mb-2">로그인 실패</h1>
           <p className="text-sm text-slate-600 mb-6">{error}</p>
@@ -55,7 +64,14 @@ export default function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div
+      className="flex items-center justify-center bg-slate-50 overflow-hidden"
+      style={{
+        height: "100dvh",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         <span className="text-sm text-slate-500">로그인 처리 중...</span>

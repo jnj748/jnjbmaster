@@ -35,38 +35,39 @@ export default function DevQuickLogin() {
     }
   };
 
+  // [Task #368] 인증 셸 풋터에 들어가도록 컴팩트화. 외부 마진/너비 제약을 제거해
+  // 부모(로그인 페이지)가 폭/위치를 통제한다.
   return (
-    <div className="mt-10 w-full max-w-2xl px-6">
-      <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="w-4 h-4 text-amber-600" />
-          <span className="text-sm font-semibold text-amber-700">
-            테스트 계정으로 빠른 로그인
-          </span>
-          <span className="text-xs text-amber-500 ml-auto">개발 환경 전용</span>
-        </div>
+    <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 px-3 py-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Zap className="w-3.5 h-3.5 text-amber-600" />
+        <span className="text-[11px] font-semibold text-amber-700">
+          테스트 빠른 로그인
+        </span>
+        <span className="text-[10px] text-amber-500 ml-auto">DEV</span>
+      </div>
 
-        {error && (
-          <div className="mb-3 p-2 rounded-lg bg-red-50 text-red-600 text-xs">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {TEST_ACCOUNTS.map((account) => (
-            <button
-              key={account.email}
-              onClick={() => handleQuickLogin(account)}
-              disabled={loading !== null}
-              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${account.color}`}
-            >
-              {loading === account.email ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : null}
-              {account.label}
-            </button>
-          ))}
+      {error && (
+        <div className="mb-1.5 px-2 py-1 rounded-md bg-red-50 text-red-600 text-[11px] leading-snug">
+          {error}
         </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {TEST_ACCOUNTS.map((account) => (
+          <button
+            key={account.email}
+            onClick={() => handleQuickLogin(account)}
+            disabled={loading !== null}
+            className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded-md text-[11px] font-medium transition-colors disabled:opacity-50 ${account.color}`}
+            style={{ minHeight: "32px" }}
+          >
+            {loading === account.email ? (
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+            ) : null}
+            <span className="truncate">{account.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

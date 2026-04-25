@@ -194,92 +194,112 @@ export default function Login() {
     if (submit) submit(consentValue);
   }
 
+  // [Task #368] 인증 셸: dvh + safe-area + overflow-hidden 으로 페이지 스크롤바를
+  // 제거하고, 카드 내부(폼 필드 영역)만 스크롤되게 한다. 액션 버튼은 항상 한
+  // 화면에 고정되어 보이도록 카드 하단에 배치한다.
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6 py-10 bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="w-full max-w-md px-6">
+    <div
+      className="flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100"
+      style={{
+        height: "100dvh",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      {/* 헤더: 뒤로가기 (포털별 페이지에서 통합 /login 으로 돌아가는 단축 경로) */}
+      <div className="shrink-0 w-full max-w-md mx-auto px-5 pt-3 pb-1">
         <button
           onClick={() => setLocation("/login")}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-8 transition-colors"
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           로그인으로 돌아가기
         </button>
+      </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isBuilding ? "bg-blue-50" : isHq ? "bg-indigo-50" : "bg-emerald-50"}`}>
-              {isBuilding ? (
-                <Building2 className="w-5 h-5 text-blue-600" />
-              ) : isHq ? (
-                <Shield className="w-5 h-5 text-indigo-600" />
-              ) : (
-                <Store className="w-5 h-5 text-emerald-600" />
-              )}
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">
-                {isRegister ? "회원가입" : "관리의달인"}
-              </h1>
-              <p className="text-sm text-slate-500">
-                건물관리 AI자동화 솔루션
-              </p>
-            </div>
-          </div>
-
-          {isBuilding && (
-            <div className="mb-4 p-2.5 rounded-lg bg-blue-50 text-blue-700 text-xs">
-              집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
-            </div>
-          )}
-
-          {isHq && (
-            <div className="mb-4 p-2.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs">
-              본사 · 플랫폼 전용 포털
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* 소셜 로그인은 당분간 숨김 (네이버/카카오/구글) */}
-          {false && !isHq && providers.length > 0 && (
-            <div className="mb-5 space-y-2">
-              {providers.map((p) => {
-                const startUrl = `${API_BASE}/auth/oauth/${p.provider}/init?portalType=${portalType}`;
-                return (
-                  <a
-                    key={p.provider}
-                    href={p.enabled ? startUrl : undefined}
-                    aria-disabled={!p.enabled}
-                    className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border text-sm font-medium transition-colors ${PROVIDER_STYLE[p.provider]} ${!p.enabled ? "opacity-40 pointer-events-none" : ""}`}
-                    title={!p.enabled ? "관리자가 해당 공급자를 아직 구성하지 않았습니다" : undefined}
-                  >
-                    <ProviderIcon provider={p.provider} />
-                    {PROVIDER_LABEL[p.provider]}
-                  </a>
-                );
-              })}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] text-slate-400">또는 이메일로</span>
-                <div className="h-px flex-1 bg-slate-200" />
+      {/* 본문: 카드 (flex-1, 내부 스크롤) */}
+      <div className="flex-1 min-h-0 w-full max-w-md mx-auto px-4 pt-3 pb-2 flex flex-col">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+        >
+          {/* 카드 상단: 제목·뱃지·에러·단계표시 (고정) */}
+          <div className="shrink-0 px-5 pt-5 pb-3">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isBuilding ? "bg-blue-50" : isHq ? "bg-indigo-50" : "bg-emerald-50"}`}>
+                {isBuilding ? (
+                  <Building2 className="w-5 h-5 text-blue-600" />
+                ) : isHq ? (
+                  <Shield className="w-5 h-5 text-indigo-600" />
+                ) : (
+                  <Store className="w-5 h-5 text-emerald-600" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-slate-900 leading-tight">
+                  {isRegister ? "회원가입" : "관리의달인"}
+                </h1>
+                <p className="text-xs text-slate-500 leading-tight">
+                  건물관리 AI자동화 솔루션
+                </p>
               </div>
             </div>
-          )}
 
-          {/* [Task #178] 회원가입 단계 표시 (1/2 → 2/2) */}
-          {isRegister && (
-            <div className="mb-3 flex items-center gap-2 text-[11px] text-slate-500">
-              <span className={signupStep === "account" ? "font-semibold text-slate-700" : ""}>1. 계정</span>
-              <span>›</span>
-              <span className={signupStep === "consent" ? "font-semibold text-slate-700" : ""}>2. 약관 동의</span>
-            </div>
-          )}
+            {isBuilding && (
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-[11px] leading-snug">
+                집합건물 관리 (공동주택관리법 비적용, 150세대 미만)
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+            {isHq && (
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] leading-snug">
+                본사 · 플랫폼 전용 포털
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs leading-snug">
+                {error}
+              </div>
+            )}
+
+            {isRegister && (
+              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                <span className={signupStep === "account" ? "font-semibold text-slate-700" : ""}>1. 계정</span>
+                <span>›</span>
+                <span className={signupStep === "consent" ? "font-semibold text-slate-700" : ""}>2. 약관 동의</span>
+              </div>
+            )}
+          </div>
+
+          {/* 카드 본문: 입력 필드 (스크롤 영역) */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-3">
+            {/* 소셜 로그인은 당분간 숨김 (네이버/카카오/구글) */}
+            {false && !isHq && providers.length > 0 && (
+              <div className="space-y-2">
+                {providers.map((p) => {
+                  const startUrl = `${API_BASE}/auth/oauth/${p.provider}/init?portalType=${portalType}`;
+                  return (
+                    <a
+                      key={p.provider}
+                      href={p.enabled ? startUrl : undefined}
+                      aria-disabled={!p.enabled}
+                      className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border text-sm font-medium transition-colors ${PROVIDER_STYLE[p.provider]} ${!p.enabled ? "opacity-40 pointer-events-none" : ""}`}
+                      title={!p.enabled ? "관리자가 해당 공급자를 아직 구성하지 않았습니다" : undefined}
+                    >
+                      <ProviderIcon provider={p.provider} />
+                      {PROVIDER_LABEL[p.provider]}
+                    </a>
+                  );
+                })}
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-[11px] text-slate-400">또는 이메일로</span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+              </div>
+            )}
+
             {/* 1단계: 계정 정보 (또는 로그인 모드) */}
             {(!isRegister || signupStep === "account") && (
               <>
@@ -392,7 +412,19 @@ export default function Login() {
               </>
             )}
 
-            {/* 액션 버튼: 단계별 라벨 분기 */}
+            {/* 로그인 모드의 통신판매중개자 안내 (스크롤 영역에 함께 배치) */}
+            {!isRegister && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-800 leading-snug">
+                (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
+                <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
+                회원가입 시 이용약관·개인정보처리방침{role === "partner" || portalType === "partner" ? "·파트너 이용약관" : ""}에
+                대한 동의 절차가 진행되며, 동의 이력은 별도로 기록·보관됩니다.
+              </div>
+            )}
+          </div>
+
+          {/* 카드 하단: 액션 버튼 + 회원가입/로그인 토글 (고정) */}
+          <div className="shrink-0 px-5 pt-3 pb-4 border-t border-slate-100 space-y-2">
             <div className="flex gap-2">
               {isRegister && signupStep === "consent" && (
                 <button
@@ -423,39 +455,35 @@ export default function Login() {
                       : "회원가입 완료"}
               </button>
             </div>
-          </form>
 
-          {!isHq && (
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => {
-                  setIsRegister(!isRegister);
-                  setSignupStep("account");
-                  setError("");
-                }}
-                className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                {isRegister ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
-              </button>
-            </div>
-          )}
-
-          {!isRegister && (
-            <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
-              (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
-              <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
-              회원가입 시 이용약관·개인정보처리방침{role === "partner" || portalType === "partner" ? "·파트너 이용약관" : ""}에
-              대한 동의 절차가 진행되며, 동의 이력은 별도로 기록·보관됩니다.
-            </div>
-          )}
-        </div>
-
+            {!isHq && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(!isRegister);
+                    setSignupStep("account");
+                    setError("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  {isRegister ? "이미 계정이 있으신가요? 로그인" : "계정이 없으신가요? 회원가입"}
+                </button>
+              </div>
+            )}
+          </div>
+        </form>
       </div>
+
+      {/* 푸터: 개발 환경 빠른 로그인 */}
       {DevQuickLogin && (
-        <Suspense fallback={null}>
-          <DevQuickLogin />
-        </Suspense>
+        <div className="shrink-0 w-full max-w-md mx-auto px-4 pb-3">
+          <Suspense fallback={null}>
+            <DevQuickLogin />
+          </Suspense>
+        </div>
       )}
+
       <OptionalConsentRePromptDialog
         open={rePromptOpen}
         onConfirm={handleRePromptConfirm}
