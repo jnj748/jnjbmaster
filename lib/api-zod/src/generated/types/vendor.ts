@@ -39,6 +39,8 @@ export interface Vendor {
   /** @nullable */
   sigungu?: string | null;
   /** @nullable */
+  profileImageUrl?: string | null;
+  /** @nullable */
   joinedAt?: Date | null;
   /** @nullable */
   contractBuildingName?: string | null;

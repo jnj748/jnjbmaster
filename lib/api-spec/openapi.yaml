@@ -6327,6 +6327,8 @@ components:
           type: ["string", "null"]
         sigungu:
           type: ["string", "null"]
+        profileImageUrl:
+          type: ["string", "null"]
         joinedAt:
           type: ["string", "null"]
           format: date-time
@@ -6439,6 +6441,8 @@ components:
         sido:
           type: ["string", "null"]
         sigungu:
+          type: ["string", "null"]
+        profileImageUrl:
           type: ["string", "null"]
         contractBuildingName:
           type: ["string", "null"]

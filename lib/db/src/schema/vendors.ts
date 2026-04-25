@@ -20,6 +20,7 @@ export const vendorsTable = pgTable("vendors", {
   subCategories: text("sub_categories"),
   sido: text("sido"),
   sigungu: text("sigungu"),
+  profileImageUrl: text("profile_image_url"),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
   contractBuildingName: text("contract_building_name"),
   contractStartDate: date("contract_start_date"),

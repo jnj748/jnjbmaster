@@ -532,6 +532,8 @@ export interface Vendor {
   /** @nullable */
   sigungu?: string | null;
   /** @nullable */
+  profileImageUrl?: string | null;
+  /** @nullable */
   joinedAt?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
@@ -665,6 +667,8 @@ export interface UpdateVendorBody {
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */

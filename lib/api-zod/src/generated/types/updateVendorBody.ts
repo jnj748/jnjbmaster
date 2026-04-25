@@ -38,6 +38,8 @@ export interface UpdateVendorBody {
   /** @nullable */
   sigungu?: string | null;
   /** @nullable */
+  profileImageUrl?: string | null;
+  /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
   contractStartDate?: Date | null;
