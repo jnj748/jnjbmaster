@@ -343,12 +343,36 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
       ? rawTitle.trim()
       : buildRfqAutoTitle(incoming.category, serviceType);
 
+  // [Task #335] 매니저가 작성하는 RFQ 는 본인이 속한 buildingId 로 강제로 스코프한다.
+  // 클라이언트가 임의의 buildingId 를 보내도 무시 (브로큰 액세스 컨트롤 방지).
+  // platform_admin / hq_executive 는 다른 건물에 RFQ 를 만들 수 있으므로 클라이언트 값을 허용.
+  let scopedBuildingId: number | null = null;
+  let userBuildingId: number | null = null;
+  if (req.user?.userId) {
+    const [u] = await db
+      .select({ buildingId: usersTable.buildingId })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.userId));
+    userBuildingId = u?.buildingId ?? null;
+  }
+  const role = req.user?.role;
+  if (role === "platform_admin" || role === "hq_executive") {
+    scopedBuildingId = incoming.buildingId ?? userBuildingId;
+  } else {
+    if (incoming.buildingId != null && userBuildingId != null && incoming.buildingId !== userBuildingId) {
+      res.status(403).json({ error: "본인 건물의 RFQ만 생성할 수 있습니다" });
+      return;
+    }
+    scopedBuildingId = userBuildingId;
+  }
+
   const data = {
     ...incoming,
     serviceType,
     title,
     deadline: toIsoDate(incoming.deadline)!,
     desiredDate: toIsoDate(incoming.desiredDate),
+    buildingId: scopedBuildingId,
   };
 
   if (data.sido && data.sigungu && !data.geoScope) {

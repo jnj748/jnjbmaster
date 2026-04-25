@@ -35,6 +35,8 @@ export interface Contract {
   notes?: string | null;
   /** @nullable */
   renewalAlertSent?: Date | null;
+  /** @nullable */
+  partnerAgreedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -30,6 +30,7 @@ export const contractsTable = pgTable("contracts", {
   isRecurring: boolean("is_recurring").notNull().default(false),
   notes: text("notes"),
   renewalAlertSent: timestamp("renewal_alert_sent", { withTimezone: true }),
+  partnerAgreedAt: timestamp("partner_agreed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

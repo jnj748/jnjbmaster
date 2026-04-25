@@ -16,6 +16,8 @@ export interface CreateRfqBody {
   serviceType?: CreateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  buildingId?: number | null;
   buildingName: string;
   /** @nullable */
   desiredDate?: Date | null;

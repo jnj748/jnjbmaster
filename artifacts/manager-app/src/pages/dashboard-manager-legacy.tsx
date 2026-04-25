@@ -290,7 +290,8 @@ function AlertSection({
                     (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
                     alert.type === "data_destruction" ||
                     alert.type === "task_template_mandatory" ||
-                    alert.type === "task_template_suggested";
+                    alert.type === "task_template_suggested" ||
+                    alert.type === "quote_received";
                   return (
                     <div
                       key={alert.id}
@@ -705,6 +706,16 @@ export default function Dashboard() {
       }
       const isOwner = alert.title.includes("소유자");
       navigate(isOwner ? `/units?tab=owners&openOwner=${alert.relatedId}` : `/tenants?openTenant=${alert.relatedId}`);
+      return;
+    }
+
+    // [Task #335] 견적 도착 카드 클릭 → /rfqs?openQuote={quoteId} 로 딥링크.
+    if (alert.type === "quote_received") {
+      if (!alert.relatedId) {
+        toast({ title: "견적 정보를 찾을 수 없습니다", description: alert.title });
+        return;
+      }
+      navigate(`/rfqs?openQuote=${alert.relatedId}`);
       return;
     }
 

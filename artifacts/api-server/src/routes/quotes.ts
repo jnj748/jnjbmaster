@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ne } from "drizzle-orm";
 import {
   db,
   quotesTable,
@@ -44,6 +44,17 @@ async function getPartnerVendorId(userId: number | undefined): Promise<number | 
   return u?.vendorId ?? null;
 }
 
+// [Task #335] 매니저(및 회계)는 본인 건물의 RFQ 에서 발생한 견적만 다룰 수 있다.
+// platform_admin / hq_executive 는 전체 건물 가시성 유지. 파트너는 vendor 소유로 별도 가드.
+async function getUserBuildingId(userId: number | undefined): Promise<number | null> {
+  if (!userId) return null;
+  const [u] = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId));
+  return u?.buildingId ?? null;
+}
+function isBuildingScopedRole(role: string | undefined): boolean {
+  return role === "manager" || role === "accountant";
+}
+
 router.get("/quotes", async (req, res): Promise<void> => {
   const params = ListQuotesQueryParams.safeParse(req.query);
   const conditions = [];
@@ -67,11 +78,28 @@ router.get("/quotes", async (req, res): Promise<void> => {
     conditions.push(eq(quotesTable.vendorId, vId));
   }
 
-  const quotes = await db
-    .select()
-    .from(quotesTable)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(quotesTable.createdAt));
+  // [Task #335] 매니저/회계는 본인 건물의 RFQ 에서 발생한 견적만 본다.
+  let quotes;
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBId = await getUserBuildingId(req.user?.userId);
+    if (userBId == null) {
+      res.json([]);
+      return;
+    }
+    const rows = await db
+      .select({ quote: quotesTable })
+      .from(quotesTable)
+      .innerJoin(rfqsTable, eq(quotesTable.rfqId, rfqsTable.id))
+      .where(and(...conditions, eq(rfqsTable.buildingId, userBId)))
+      .orderBy(desc(quotesTable.createdAt));
+    quotes = rows.map((r) => r.quote);
+  } else {
+    quotes = await db
+      .select()
+      .from(quotesTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(quotesTable.createdAt));
+  }
 
   res.json(ListQuotesResponse.parse(quotes));
 });
@@ -97,6 +125,16 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
     const vId = await getPartnerVendorId(req.user.userId);
     if (vId !== quote.vendorId) {
       res.status(403).json({ error: "본인 업체 견적만 조회할 수 있습니다" });
+      return;
+    }
+  }
+
+  // [Task #335] 매니저/회계는 자기 건물 RFQ 의 견적만 조회 가능 (IDOR 차단).
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBId = await getUserBuildingId(req.user?.userId);
+    const [rfq] = await db.select({ buildingId: rfqsTable.buildingId }).from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
+    if (userBId == null || rfq?.buildingId == null || rfq.buildingId !== userBId) {
+      res.status(403).json({ error: "본인 건물 RFQ 의 견적만 조회할 수 있습니다" });
       return;
     }
   }
@@ -246,6 +284,20 @@ router.post("/quotes", async (req, res): Promise<void> => {
 
       const [inserted] = await tx.insert(quotesTable).values(body).returning();
 
+      // [Task #335] 견적 도착 알림: 해당 RFQ 가 속한 건물의 매니저들에게 인앱 알림 전송.
+      // 대시보드의 quote_received 알림은 dashboard.ts 에서 별도로 집계되며, 이 알림은
+      // 알림센터(/notifications) 노출 및 푸시 채널을 위한 것이다.
+      if (rfq.buildingId) {
+        await tx.insert(notificationsTable).values({
+          recipientType: `manager:${rfq.buildingId}`,
+          notificationType: "quote_received",
+          title: "견적 도착, 확인하세요",
+          message: `${vendor.name} 업체가 [${rfq.title}] 공고에 견적을 제출했습니다. 견적을 확인하고 채택 여부를 결정해주세요.`,
+          relatedEntityType: "quote",
+          relatedEntityId: inserted.id,
+        });
+      }
+
       if (creditsOn && cost) {
         await postLedger(
           {
@@ -333,6 +385,17 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     }
   }
 
+  // [Task #335] 매니저/회계는 자기 건물 RFQ 의 견적만 수정/수락 가능 (IDOR 차단).
+  // 타 건물 견적을 accepted/rejected 로 바꾸거나 RFQ 를 awarded 로 마감하는 것을 막는다.
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBId = await getUserBuildingId(req.user?.userId);
+    const [rfq] = await db.select({ buildingId: rfqsTable.buildingId }).from(rfqsTable).where(eq(rfqsTable.id, prev.rfqId));
+    if (userBId == null || rfq?.buildingId == null || rfq.buildingId !== userBId) {
+      res.status(403).json({ error: "본인 건물 RFQ 의 견적만 수정할 수 있습니다" });
+      return;
+    }
+  }
+
   const [quote] = await db
     .update(quotesTable)
     .set(parsed.data)
@@ -379,6 +442,25 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     });
   }
 
+  // [Task #335] 견적 채택 시 동일 RFQ 의 다른 submitted 견적은 자동으로 rejected 처리하고
+  // RFQ 자체도 awarded 상태로 마감해, 매니저 대시보드의 "견적 도착" 잔여 알림이 즉시 사라지게 한다.
+  if (prev.status !== "accepted" && quote.status === "accepted") {
+    await db
+      .update(quotesTable)
+      .set({ status: "rejected" })
+      .where(
+        and(
+          eq(quotesTable.rfqId, quote.rfqId),
+          ne(quotesTable.id, quote.id),
+          eq(quotesTable.status, "submitted"),
+        ),
+      );
+    await db
+      .update(rfqsTable)
+      .set({ status: "awarded" })
+      .where(eq(rfqsTable.id, quote.rfqId));
+  }
+
   // Auto-create contract draft when quote transitions to accepted (Task #65)
   if (prev.status !== "accepted" && quote.status === "accepted") {
     const existing = await db.select().from(contractsTable).where(eq(contractsTable.quoteId, quote.id));
@@ -412,6 +494,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
       const [contract] = await db
         .insert(contractsTable)
         .values({
+          buildingId: rfq?.buildingId ?? null,
           buildingName: rfq?.buildingName ?? null,
           vendorId: quote.vendorId,
           vendorName: quote.vendorName,
@@ -432,6 +515,17 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
         notificationType: "contract_auto_created",
         title: "[계약] 견적 채택 → 품의·계약 자동 생성",
         message: `${quote.vendorName} 견적 채택으로 업체선정 품의(#${approval.id})와 계약(#${contract.id})이 생성되었습니다. 결재선을 추가해 상신하세요.`,
+        relatedEntityType: "contract",
+        relatedEntityId: contract.id,
+      });
+
+      // [Task #335] 파트너에게 계약 초안 도착 알림. 파트너는 알림 클릭 후
+      // /vendor-portal?openContract={id} 딥링크로 진입해 "계약 내용에 동의" 한다.
+      await db.insert(notificationsTable).values({
+        recipientType: `vendor:${quote.vendorId}`,
+        notificationType: "contract_draft_ready",
+        title: "[계약] 견적이 채택되어 계약 초안이 생성되었습니다",
+        message: `[${rfq?.title ?? "RFQ"}] 견적이 채택되었습니다. 계약 내용을 확인하고 동의해주세요.`,
         relatedEntityType: "contract",
         relatedEntityId: contract.id,
       });

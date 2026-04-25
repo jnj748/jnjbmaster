@@ -1340,6 +1340,7 @@ export const CreateRfqBody = zod.object({
     ])
     .nullish(),
   description: zod.string().nullish(),
+  buildingId: zod.number().nullish(),
   buildingName: zod.string(),
   desiredDate: zod.coerce.date().nullish(),
   deadline: zod.coerce.date(),
@@ -2230,6 +2231,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "warranty_expiry",
     "vendor_recommendation",
     "data_destruction",
+    "quote_received",
   ]),
   title: zod.string(),
   message: zod.string(),
@@ -3209,6 +3211,10 @@ export const ListContractsQueryParams = zod.object({
   vendorId: zod.coerce.number().optional(),
   buildingId: zod.coerce.number().optional(),
   expiringWithinDays: zod.coerce.number().optional(),
+  quoteId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter by source quote id (Task"),
 });
 
 export const ListContractsResponseItem = zod.object({
@@ -3237,6 +3243,7 @@ export const ListContractsResponseItem = zod.object({
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
   renewalAlertSent: zod.coerce.date().nullish(),
+  partnerAgreedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3304,6 +3311,7 @@ export const GetContractResponse = zod.object({
     isRecurring: zod.boolean(),
     notes: zod.string().nullish(),
     renewalAlertSent: zod.coerce.date().nullish(),
+    partnerAgreedAt: zod.coerce.date().nullish(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   }),
@@ -3420,6 +3428,7 @@ export const UpdateContractResponse = zod.object({
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
   renewalAlertSent: zod.coerce.date().nullish(),
+  partnerAgreedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3461,6 +3470,7 @@ export const TransitionContractStatusResponse = zod.object({
   isRecurring: zod.boolean(),
   notes: zod.string().nullish(),
   renewalAlertSent: zod.coerce.date().nullish(),
+  partnerAgreedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3514,6 +3524,44 @@ export const UploadContractDocumentBody = zod.object({
   fileName: zod.string(),
   fileUrl: zod.string(),
   notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Partner agrees to contract terms (records partnerAgreedAt)
+ */
+export const AgreeContractAsPartnerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AgreeContractAsPartnerResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number().nullish(),
+  buildingName: zod.string().nullish(),
+  vendorId: zod.number(),
+  vendorName: zod.string(),
+  category: zod.string(),
+  title: zod.string(),
+  rfqId: zod.number().nullish(),
+  quoteId: zod.number().nullish(),
+  approvalId: zod.number().nullish(),
+  contractAmount: zod.number().nullish(),
+  startDate: zod.coerce.date().nullish(),
+  endDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "draft",
+    "in_approval",
+    "active",
+    "in_progress",
+    "completed",
+    "terminated",
+    "renewal_due",
+  ]),
+  isRecurring: zod.boolean(),
+  notes: zod.string().nullish(),
+  renewalAlertSent: zod.coerce.date().nullish(),
+  partnerAgreedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 /**
@@ -3573,6 +3621,7 @@ export const CheckContractRenewalAlertsResponse = zod.object({
       isRecurring: zod.boolean(),
       notes: zod.string().nullish(),
       renewalAlertSent: zod.coerce.date().nullish(),
+      partnerAgreedAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),

@@ -56,7 +56,7 @@ import creditsRouter from "./credits";
 import buildingNoticeTemplatesRouter from "./buildingNoticeTemplates";
 import platformSettingsRouter from "./platformSettings";
 import roleMenuOverridesRouter from "./roleMenuOverrides";
-import contractsRouter from "./contracts";
+import contractsRouter, { partnerContractsRouter } from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
 import onboardingRouter from "./onboarding";
 import vendorCategoriesRouter from "./vendorCategories";
@@ -104,6 +104,11 @@ router.use(usageAnalyticsRouter);
 // [Task #284] vendorCategoriesRouter는 partner 위저드에서 접근해야 하므로
 // 파트너 역할을 차단하는 buildingRouter(buildingOnly) 보다 먼저 마운트한다.
 router.use(vendorCategoriesRouter);
+// [Task #335] quotesRouter는 자체적으로 manager/partner 권한을 검증하므로
+// 파트너가 견적을 제출할 수 있도록 buildingRouter(파트너 차단) 앞에 마운트한다.
+router.use(quotesRouter);
+// [Task #335] 파트너의 "계약 내용에 동의" 인앱 액션은 buildingRouter 차단 전에 매핑한다.
+router.use(partnerContractsRouter);
 
 const buildingRouter: IRouter = Router();
 const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
@@ -113,7 +118,6 @@ buildingRouter.use(approvalsRouter);
 buildingRouter.use(tasksRouter);
 buildingRouter.use(inspectionsRouter);
 buildingRouter.use(taxSchedulesRouter);
-buildingRouter.use(quotesRouter);
 buildingRouter.use(workReportsRouter);
 buildingRouter.use(settlementsRouter);
 buildingRouter.use(draftsRouter);

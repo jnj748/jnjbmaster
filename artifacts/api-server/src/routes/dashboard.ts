@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, isNotNull, desc, sql, lt } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable, complaintsTable } from "@workspace/db";
+import { eq, and, lte, gte, isNotNull, isNull, desc, sql, lt, inArray, ne } from "drizzle-orm";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable, complaintsTable, quotesTable } from "@workspace/db";
 import { LEGAL_PRESETS } from "./inspections";
 import {
   GetDashboardSummaryResponse,
@@ -529,6 +529,57 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       penaltyInfo: a.penaltyInfo,
       inspectionType: a.classification === "legal" ? "legal" : null,
       createdAt: a.createdAt,
+    });
+  }
+
+  // [Task #335] 견적 도착 알림: 해당 건물의 RFQ 에 제출된 미열람(submitted) 견적을
+  // 필수업무현황 카드로 노출한다. 매니저가 견적을 한번이라도 보면(firstViewedAt 세팅)
+  // 카드는 자동으로 사라진다. severity / dueDate 는 RFQ 마감일 기준으로 산출해
+  // 마감 임박일수록 빨간 신호등이 되도록 한다. platform_admin / hq_executive 는 전체 가시성 유지.
+  const pendingQuotes = await db
+    .select({
+      quoteId: quotesTable.id,
+      vendorName: quotesTable.vendorName,
+      submittedAt: quotesTable.createdAt,
+      rfqTitle: rfqsTable.title,
+      rfqStatus: rfqsTable.status,
+      rfqBuildingId: rfqsTable.buildingId,
+      rfqDeadline: rfqsTable.deadline,
+    })
+    .from(quotesTable)
+    .innerJoin(rfqsTable, eq(quotesTable.rfqId, rfqsTable.id))
+    .where(
+      and(
+        eq(quotesTable.status, "submitted"),
+        isNull(quotesTable.firstViewedAt),
+        eq(rfqsTable.status, "open"),
+        // [Task #335] 만료된 RFQ 의 견적 카드는 자동 정리 (auto-close 잡 지연 시에도 잔류 방지).
+        gte(rfqsTable.deadline, today),
+        ...(restrictByBuilding ? [eq(rfqsTable.buildingId, scopedBuildingId!)] : []),
+      ),
+    );
+
+  for (const q of pendingQuotes) {
+    // RFQ 마감일까지 남은 일수 → 신호등 색. 마감일이 비어 있으면 즉시 액션 필요로 간주(critical).
+    const deadlineStr = q.rfqDeadline ?? today;
+    const deadlineDate = new Date(deadlineStr);
+    const daysLeft = Math.floor(
+      (deadlineDate.getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const severity: "critical" | "warning" | "info" =
+      daysLeft <= 1 ? "critical" : daysLeft <= 3 ? "warning" : "info";
+    alerts.push({
+      id: alertId++,
+      type: "quote_received",
+      title: "견적 도착, 확인하세요",
+      message: `[${q.rfqTitle}] ${q.vendorName} 업체가 견적을 제출했습니다. 즉시 확인 후 채택 여부를 결정해주세요.`,
+      severity,
+      relatedId: q.quoteId,
+      hasDraft: false,
+      actionStatus: null,
+      dueDate: deadlineStr,
+      penaltyInfo: null,
+      createdAt: q.submittedAt?.toISOString() ?? new Date().toISOString(),
     });
   }
 

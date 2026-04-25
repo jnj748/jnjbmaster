@@ -10357,6 +10357,90 @@ export const useUploadContractDocument = <
 };
 
 /**
+ * @summary Partner agrees to contract terms (records partnerAgreedAt)
+ */
+export const getAgreeContractAsPartnerUrl = (id: number) => {
+  return `/api/contracts/${id}/agree`;
+};
+
+export const agreeContractAsPartner = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Contract> => {
+  return customFetch<Contract>(getAgreeContractAsPartnerUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAgreeContractAsPartnerMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agreeContractAsPartner>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof agreeContractAsPartner>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["agreeContractAsPartner"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof agreeContractAsPartner>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return agreeContractAsPartner(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AgreeContractAsPartnerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof agreeContractAsPartner>>
+>;
+
+export type AgreeContractAsPartnerMutationError = ErrorType<void>;
+
+/**
+ * @summary Partner agrees to contract terms (records partnerAgreedAt)
+ */
+export const useAgreeContractAsPartner = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agreeContractAsPartner>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof agreeContractAsPartner>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAgreeContractAsPartnerMutationOptions(options));
+};
+
+/**
  * @summary Create selection approval and pending contract from accepted quote
  */
 export const getCreateContractFromQuoteUrl = (quoteId: number) => {

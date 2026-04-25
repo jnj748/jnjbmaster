@@ -11,4 +11,8 @@ export type ListContractsParams = {
   vendorId?: number;
   buildingId?: number;
   expiringWithinDays?: number;
+  /**
+   * Filter by source quote id (Task
+   */
+  quoteId?: number;
 };

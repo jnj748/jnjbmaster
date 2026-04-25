@@ -18,6 +18,19 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+// [Task #335] Partner 가 buildingRouter(파트너 차단)에 막히지 않고 호출할 수 있도록
+// 별도의 라우터를 export 하여 routes/index.ts 에서 최상단에 마운트한다.
+export const partnerContractsRouter: IRouter = Router();
+
+// 매니저/HQ/회계 등 비-파트너 사용자가 /contracts 를 호출할 때, 이 라우터는 통째로 패스해
+// 뒤에 마운트된 매니저용 contractsRouter 가 처리하도록 한다. (라우팅 우선순위 회귀 방지)
+partnerContractsRouter.use((req, _res, next) => {
+  if ((req.user as { role?: string } | undefined)?.role !== "partner") {
+    return next("router");
+  }
+  next();
+});
+
 const VALID_STATUSES = [
   "draft",
   "in_approval",
@@ -60,6 +73,7 @@ function serializeContract(c: typeof contractsTable.$inferSelect) {
   return {
     ...c,
     renewalAlertSent: c.renewalAlertSent?.toISOString() ?? null,
+    partnerAgreedAt: c.partnerAgreedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -73,13 +87,16 @@ function serializeDocument(d: typeof contractDocumentsTable.$inferSelect) {
 }
 
 router.get("/contracts", async (req, res): Promise<void> => {
-  const { status, vendorId, buildingId, expiringWithinDays } = req.query;
+  const { status, vendorId, buildingId, expiringWithinDays, quoteId } = req.query;
   const conditions: SQL[] = [];
   if (typeof status === "string" && VALID_STATUSES.includes(status as ContractStatus)) {
     conditions.push(eq(contractsTable.status, status as ContractStatus));
   }
   if (vendorId) conditions.push(eq(contractsTable.vendorId, Number(vendorId)));
   if (buildingId) conditions.push(eq(contractsTable.buildingId, Number(buildingId)));
+  // [Task #335] 견적 채택 직후 매니저 RFQ 페이지가 단일 quoteId 로 자동 생성된 계약을
+  // 즉시 찾기 위한 필터. 클라이언트가 전체 목록을 스캔하는 비효율을 제거한다.
+  if (quoteId) conditions.push(eq(contractsTable.quoteId, Number(quoteId)));
 
   let rows = await db
     .select()
@@ -355,6 +372,113 @@ router.post("/contracts/:id/transition", requireRole("manager", "platform_admin"
     return;
   }
   const [row] = await db.update(contractsTable).set({ status: target }).where(eq(contractsTable.id, id)).returning();
+  res.json(serializeContract(row));
+});
+
+// [Task #335] 파트너가 자신이 소속된 vendor 의 계약만 조회할 수 있는 read endpoint.
+// vendorId 파라미터가 본인 vendor 와 일치하지 않으면 403, 미지정이면 본인 vendor 로 강제.
+async function getPartnerVendorIdOrFail(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<number | null> {
+  const user = req.user!;
+  const [u] = await db.select({ vendorId: usersTable.vendorId }).from(usersTable).where(eq(usersTable.id, user.userId));
+  const partnerVendorId = u?.vendorId ?? null;
+  if (!partnerVendorId) {
+    res.status(403).json({ error: "연결된 업체가 없습니다" });
+    return null;
+  }
+  return partnerVendorId;
+}
+
+partnerContractsRouter.get("/contracts", requireRole("partner"), async (req, res): Promise<void> => {
+  const partnerVendorId = await getPartnerVendorIdOrFail(req, res);
+  if (partnerVendorId == null) return;
+
+  const requestedVendorId = req.query.vendorId != null ? Number(req.query.vendorId) : partnerVendorId;
+  if (requestedVendorId !== partnerVendorId) {
+    res.status(403).json({ error: "본인 업체의 계약만 조회할 수 있습니다" });
+    return;
+  }
+
+  const conditions: SQL[] = [eq(contractsTable.vendorId, partnerVendorId)];
+  const status = req.query.status;
+  if (typeof status === "string" && VALID_STATUSES.includes(status as ContractStatus)) {
+    conditions.push(eq(contractsTable.status, status as ContractStatus));
+  }
+  const rows = await db
+    .select()
+    .from(contractsTable)
+    .where(and(...conditions))
+    .orderBy(desc(contractsTable.createdAt));
+  res.json(rows.map(serializeContract));
+});
+
+partnerContractsRouter.get("/contracts/:id", requireRole("partner"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const partnerVendorId = await getPartnerVendorIdOrFail(req, res);
+  if (partnerVendorId == null) return;
+
+  const [row] = await db.select().from(contractsTable).where(eq(contractsTable.id, id));
+  if (!row) {
+    res.status(404).json({ error: "Contract not found" });
+    return;
+  }
+  if (row.vendorId !== partnerVendorId) {
+    res.status(403).json({ error: "본인 업체의 계약만 조회할 수 있습니다" });
+    return;
+  }
+  res.json(serializeContract(row));
+});
+
+// [Task #335] 파트너가 계약 내용에 동의하는 인앱 액션. 외부 매직 URL 없이 vendor portal 안에서만 호출된다.
+// partnerContractsRouter 에 등록해 buildingRouter 의 파트너 차단을 우회한다.
+partnerContractsRouter.post("/contracts/:id/agree", requireRole("partner"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const user = req.user!;
+  const [u] = await db.select().from(usersTable).where(eq(usersTable.id, user.userId));
+  const partnerVendorId = u?.vendorId ?? null;
+  if (!partnerVendorId) {
+    res.status(403).json({ error: "연결된 업체가 없습니다" });
+    return;
+  }
+  const [existing] = await db.select().from(contractsTable).where(eq(contractsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Contract not found" });
+    return;
+  }
+  if (existing.vendorId !== partnerVendorId) {
+    res.status(403).json({ error: "본인 업체의 계약만 동의할 수 있습니다" });
+    return;
+  }
+  if (existing.partnerAgreedAt) {
+    res.json(serializeContract(existing));
+    return;
+  }
+  const [row] = await db
+    .update(contractsTable)
+    .set({ partnerAgreedAt: new Date() })
+    .where(eq(contractsTable.id, id))
+    .returning();
+
+  // 매니저(건물 단위)에게 인앱 알림. 건물 ID 가 없으면 hq 로 폴백.
+  await db.insert(notificationsTable).values({
+    recipientType: row.buildingId ? `manager:${row.buildingId}` : "hq",
+    notificationType: "contract_partner_agreed",
+    title: "[계약] 파트너가 계약 내용에 동의했습니다",
+    message: `${row.vendorName} - ${row.title}: 파트너가 계약 내용에 동의했습니다. 본사 결재를 진행해주세요.`,
+    relatedEntityType: "contract",
+    relatedEntityId: row.id,
+  });
+
   res.json(serializeContract(row));
 });
 

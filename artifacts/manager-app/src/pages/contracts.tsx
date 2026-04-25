@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import {
   useListContracts,
   useGetContract,
@@ -77,6 +78,26 @@ export default function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expiringOnly, setExpiringOnly] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [location, setLocation] = useLocation();
+
+  // [Task #335] /contracts?openContract={id} 딥링크 → 자동으로 상세 다이얼로그 오픈.
+  // RFQ 페이지에서 견적 수락 후 계약 페이지로 이동했을 때 즉시 5단계 트래커가 보이도록 한다.
+  useEffect(() => {
+    const search = window.location.search;
+    if (!search) return;
+    const sp = new URLSearchParams(search);
+    const target = sp.get("openContract");
+    if (target) {
+      const id = Number(target);
+      if (!Number.isNaN(id)) {
+        setOpenId(id);
+      }
+      sp.delete("openContract");
+      const remaining = sp.toString();
+      const next = remaining ? `${location}?${remaining}` : location;
+      setLocation(next, { replace: true });
+    }
+  }, [location, setLocation]);
 
   const params: ListContractsParams = {};
   if (statusFilter !== "all") params.status = statusFilter as ListContractsParams["status"];
@@ -273,6 +294,41 @@ function ContractDetailDialog({
                 </p>
               )}
               {c.notes && <p className="text-xs mt-2">{c.notes}</p>}
+            </div>
+
+            {/* [Task #335] 계약 진행 단계 추적기 — 견적 도착부터 계약 활성화까지 5단계.
+                견적도착·견적수락 단계는 계약이 존재한다는 사실 자체가 완료의 증거이며,
+                파트너동의는 partnerAgreedAt 컬럼, 본사결재는 status 가 in_approval/draft 를
+                벗어났는지, 계약활성화는 status === "active" 로 판정한다. */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-2">진행 단계</p>
+              <ol className="flex flex-wrap items-center gap-2 text-xs">
+                {(() => {
+                  const partnerAgreed = !!c.partnerAgreedAt;
+                  const hqApproved = c.status === "active" || c.status === "terminated";
+                  const activated = c.status === "active";
+                  const stages: Array<{ key: string; label: string; done: boolean }> = [
+                    { key: "quote_received", label: "견적 도착", done: true },
+                    { key: "quote_accepted", label: "견적 수락", done: true },
+                    { key: "partner_agreed", label: "파트너 동의", done: partnerAgreed },
+                    { key: "hq_approved", label: "본사 결재", done: hqApproved },
+                    { key: "activated", label: "계약 활성화", done: activated },
+                  ];
+                  return stages.map((s, i) => (
+                    <li key={s.key} className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+                          s.done ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className={s.done ? "font-medium" : "text-muted-foreground"}>{s.label}</span>
+                      {i < 4 && <span className="text-muted-foreground">→</span>}
+                    </li>
+                  ));
+                })()}
+              </ol>
             </div>
 
             {canManage && (

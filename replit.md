@@ -12,6 +12,33 @@
 - Do not make changes to files related to authentication unless explicitly requested.
 - **파일럿 운영 중 (v1 미선언)**: 모든 결정/옵션 선택에서 가장 보수적인 안을 우선. v1 정식 출시 선언 전까지 유지.
 
+## 견적 도착 알림 → 계약 체결 흐름 (Task #335, 2026-04-25)
+- **목표**: 파트너가 견적을 제출 → 매니저 대시보드 "필수업무현황" 빨간 신호등 카드("견적 도착, 확인하세요") → 클릭 시 `/rfqs?openQuote={id}` 로 이동해 견적 패널 자동 오픈 → "수락하고 계약 진행" CTA → 기존 결재/계약 자동 생성 → 파트너 vendor portal 에 알림 → 파트너가 "계약 내용에 동의" → 5단계 트래커(견적도착·견적수락·파트너동의·본사결재·계약활성화). 모두 인앱 딥링크.
+- **DB 스키마**: `contracts.partner_agreed_at TIMESTAMPTZ` 추가 (`lib/db/drizzle/0017_task335_partner_agreed.sql`).
+- **OpenAPI**: `Alert.type` enum 에 `quote_received` 추가, `Contract.partnerAgreedAt` 필드, 신규 `POST /contracts/{id}/agree` (operationId `agreeContractAsPartner`).
+- **API**:
+  - `POST /quotes`: 제출 시 `manager:{rfq.buildingId}` 에 `quote_received` 알림 삽입.
+  - `PATCH /quotes/:id` (accepted): 자동 생성 contract 에 `buildingId` 세팅, `vendor:{vendorId}` 에 `contract_draft_ready` 알림.
+  - `GET /dashboard/alerts`: rfqs+quotes 조인하여 `firstViewedAt IS NULL` 인 submitted 견적을 건물 단위(`manager:{buildingId}`) `quote_received` 알림으로 노출 (severity=critical, dueDate=오늘).
+  - `POST /contracts/:id/agree` (partner only): 본인 vendor 일치/멱등 처리 후 `partnerAgreedAt` 갱신, `manager:{buildingId}` 에 `contract_partner_agreed` 알림.
+- **프론트**:
+  - `dashboard-manager-legacy.tsx`: `quote_received` 핸들러 → `/rfqs?openQuote={id}` 라우팅.
+  - `rfqs.tsx`: `?openQuote=` 쿼리 파라미터 처리, `useGetQuote` 로 firstViewedAt 자동 기록, 비교 패널 자동 오픈, 대시보드 알림 invalidate. 채택 CTA 라벨 "채택" → "수락하고 계약 진행".
+  - `contracts.tsx ContractDetailDialog`: 5단계 트래커 표시 (견적도착·견적수락·파트너동의·본사결재·계약활성화).
+  - `vendor-portal.tsx`: `?openContract=` 쿼리 파라미터 → 견적 탭으로 전환 + `ResponsiveDialog` 로 계약 상세 + "계약 내용에 동의" 버튼(`useAgreeContractAsPartner`).
+- **라우팅 보정**: 기존 `quotesRouter`/`contractsRouter` 가 `buildingRouter`(파트너 차단) 하위에 마운트되어 파트너 호출이 항상 403 이었음. 다음을 `buildingRouter` 앞 최상단에 마운트해 해결:
+  - `quotesRouter` (자체 `requireRole("manager","platform_admin","accountant","partner")` 보유) — `buildingRouter` 내 중복 마운트 제거.
+  - `partnerContractsRouter` (신규, `routes/contracts.ts` 에서 named export). 라우터 진입 시 `req.user.role !== "partner"` 면 `next("router")` 로 통째로 패스해, 매니저/HQ 의 `/contracts` 호출이 회귀 없이 뒤의 매니저용 `contractsRouter` 로 흐르게 한다.
+    - `GET /contracts` (partner only) — vendorId 가 본인 vendor 와 일치하지 않으면 403, 미지정이면 본인 vendor 로 강제.
+    - `GET /contracts/:id` (partner only) — vendor 소유 검증, 타사 계약 조회 시 403.
+    - `POST /contracts/:id/agree` (partner only) — vendor 일치 검증, 멱등 처리.
+- **수락 → 계약 자동 이동**: 매니저가 "수락하고 계약 진행" 클릭 시 `rfqs.tsx::handleAcceptQuote` 가 PATCH 후 `listContracts()` 로 자동 생성된 계약을 찾아 `/contracts?openContract={id}` 로 이동. 계약 페이지가 자동으로 다이얼로그를 열고 5단계 트래커가 노출된다.
+- **타입 안전성**: CreateRfqBody 스키마에 `buildingId` 필드 추가(orval 재생성). `routes/rfqs.ts` 에서 `data: any`/`(incoming as any).buildingId` 캐스트 제거하고 정규 타입으로 처리.
+- **신호등 색상 동적화**: `dashboard.ts` quote_received 알림의 severity / dueDate 를 RFQ 마감일 기준으로 산출 (≤1일=critical, ≤3일=warning, 그 외 info). 마감일 없으면 critical 폴백.
+- **버그 수정**: 매니저가 작성하는 RFQ 의 `buildingId` 가 비어 있던 문제를 `routes/rfqs.ts` POST 핸들러에서 본인 `users.buildingId` 로 자동 보강. 견적 알림이 정상적으로 건물 단위 매니저에게 도달하도록 함.
+- **DB 보정**: `buildings.register_data jsonb` 컬럼이 스키마에는 있으나 DB 에 누락되어 견적 제출 시 500. `ALTER TABLE buildings ADD COLUMN IF NOT EXISTS register_data jsonb` 적용.
+- **검증 (curl + executeSql)**: 파트너 견적 제출 → manager:1 알림/대시보드 critical 카드 노출 → 매니저 PATCH accept → contract.building_id=1, vendor:1 알림 → 파트너 agree → contract.partner_agreed_at 세팅, manager:1 알림. 멱등 호출 200, 비파트너 호출 403 확인.
+
 ## 관리소장 첫 시작 자동화 (Task #106, 2026-04-18 — Phase 1)
 - **법령 임계치 정정**: `domain/statutory.ts` 기계설비유지관리자 등급 임계치 — 특급 30000→60000, 고급 20000→30000 (시행규칙 별표1 정합). 더 엄격→완화 방향이라 안전성 위배 없음.
 - **신규 컬럼**: `users.onboarding_preference` (varchar(16) NULL/'started'/'browsing'). 첫 로그인 모달 선택값 영구 저장.

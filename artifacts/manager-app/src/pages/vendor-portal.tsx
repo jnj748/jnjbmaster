@@ -8,6 +8,9 @@ import {
   useCreateWorkReport,
   useListSettlements,
   useListVendors,
+  useListContracts,
+  useAgreeContractAsPartner,
+  getListContractsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
@@ -24,6 +27,16 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VendorDashboard, type PortalTab } from "@/components/vendor-portal/vendor-dashboard";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+} from "@/components/ui/responsive-dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2 } from "lucide-react";
 
 const VendorRfqList = lazy(() => import("@/components/vendor-portal/vendor-rfq-list").then((m) => ({ default: m.VendorRfqList })));
 const VendorQuoteList = lazy(() => import("@/components/vendor-portal/vendor-quote-list").then((m) => ({ default: m.VendorQuoteList })));
@@ -73,6 +86,43 @@ export default function VendorPortal() {
 
   const createQuoteMutation = useCreateQuote();
   const createReportMutation = useCreateWorkReport();
+
+  // [Task #335] 파트너 계약 동의 흐름:
+  //  1) /vendor-portal?openContract={id} 딥링크로 진입 → quotes 탭 + 동의 다이얼로그
+  //  2) "계약 내용에 동의" 클릭 → POST /contracts/:id/agree → 매니저에게 인앱 알림.
+  const { data: myContracts } = useListContracts(
+    vendorId ? { vendorId } : undefined,
+    { query: { enabled: !!vendorId } },
+  );
+  const [openContractId, setOpenContractId] = useState<number | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const c = url.searchParams.get("openContract");
+    if (c) {
+      const id = Number(c);
+      if (!Number.isNaN(id)) {
+        setOpenContractId(id);
+        setActiveTab("quotes");
+      }
+      url.searchParams.delete("openContract");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [location]);
+  const openContract = (myContracts ?? []).find((x) => x.id === openContractId) ?? null;
+  const agreeMutation = useAgreeContractAsPartner();
+  async function handleAgree() {
+    if (!openContractId) return;
+    try {
+      await agreeMutation.mutateAsync({ id: openContractId });
+      toast({ title: "계약 내용에 동의했습니다", description: "본사 결재 후 계약이 활성화됩니다." });
+      queryClient.invalidateQueries({ queryKey: getListContractsQueryKey(vendorId ? { vendorId } : undefined) });
+      setOpenContractId(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "잠시 후 다시 시도해주세요.";
+      toast({ title: "동의 처리 실패", description: msg, variant: "destructive" });
+    }
+  }
 
   const myRfqs = allRfqs || [];
 
@@ -183,6 +233,85 @@ export default function VendorPortal() {
           <VendorSettlements settlements={mySettlements || []} />
         </Suspense>
       )}
+
+      {/* [Task #335] 파트너 계약 동의 다이얼로그. openContractId 가 설정되면 열린다. */}
+      <ResponsiveDialog open={openContractId !== null} onOpenChange={(o) => { if (!o) setOpenContractId(null); }}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>계약 내용 확인 및 동의</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              관리단과 직접 체결되는 계약입니다. 계약 내용을 확인하고 동의해주세요.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          {!openContract ? (
+            <Skeleton className="h-32" />
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{openContract.title}</span>
+                <Badge variant="outline">{openContract.category}</Badge>
+              </div>
+              {openContract.buildingName && (
+                <p className="text-muted-foreground">건물: {openContract.buildingName}</p>
+              )}
+              {openContract.contractAmount != null && (
+                <p>계약금액: {Math.round(openContract.contractAmount).toLocaleString()}원</p>
+              )}
+              {openContract.notes && (
+                <p className="text-xs text-muted-foreground bg-muted/40 p-2 rounded">{openContract.notes}</p>
+              )}
+
+              {/* [Task #335] 매니저 contracts.tsx 와 동일한 5단계 트래커.
+                  파트너도 자기 계약의 현재 단계를 동일하게 인식하도록 노출한다. */}
+              <div className="border-t pt-3">
+                <p className="text-xs font-medium mb-2 text-muted-foreground">진행 단계</p>
+                <ol className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {(() => {
+                    const partnerAgreed = !!openContract.partnerAgreedAt;
+                    const hqApproved = openContract.status === "active" || openContract.status === "terminated";
+                    const activated = openContract.status === "active";
+                    const stages: Array<{ key: string; label: string; done: boolean }> = [
+                      { key: "quote_received", label: "견적 도착", done: true },
+                      { key: "quote_accepted", label: "견적 수락", done: true },
+                      { key: "partner_agreed", label: "파트너 동의", done: partnerAgreed },
+                      { key: "hq_approved", label: "본사 결재", done: hqApproved },
+                      { key: "activated", label: "계약 활성화", done: activated },
+                    ];
+                    return stages.map((s, i) => (
+                      <li key={s.key} className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold ${
+                            s.done ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className={s.done ? "font-medium" : "text-muted-foreground"}>{s.label}</span>
+                        {i < 4 && <span className="text-muted-foreground">→</span>}
+                      </li>
+                    ));
+                  })()}
+                </ol>
+              </div>
+
+              {openContract.partnerAgreedAt ? (
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                  이미 동의 완료한 계약입니다.
+                </div>
+              ) : (
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="ghost" onClick={() => setOpenContractId(null)}>닫기</Button>
+                  <Button onClick={handleAgree} disabled={agreeMutation.isPending}>
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    {agreeMutation.isPending ? "처리 중..." : "계약 내용에 동의"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

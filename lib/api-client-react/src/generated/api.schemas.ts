@@ -964,6 +964,8 @@ export interface CreateRfqBody {
   serviceType?: CreateRfqBodyServiceType;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  buildingId?: number | null;
   buildingName: string;
   /** @nullable */
   desiredDate?: string | null;
@@ -1355,6 +1357,7 @@ export const AlertType = {
   warranty_expiry: "warranty_expiry",
   vendor_recommendation: "vendor_recommendation",
   data_destruction: "data_destruction",
+  quote_received: "quote_received",
 } as const;
 
 export type AlertSeverity = (typeof AlertSeverity)[keyof typeof AlertSeverity];
@@ -5028,6 +5031,8 @@ export interface Contract {
   notes?: string | null;
   /** @nullable */
   renewalAlertSent?: string | null;
+  /** @nullable */
+  partnerAgreedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -5386,6 +5391,10 @@ export type ListContractsParams = {
   vendorId?: number;
   buildingId?: number;
   expiringWithinDays?: number;
+  /**
+   * Filter by source quote id (Task
+   */
+  quoteId?: number;
 };
 
 export type TransitionContractStatusBody = {

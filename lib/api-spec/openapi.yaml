@@ -2324,6 +2324,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: quoteId
+          in: query
+          schema:
+            type: integer
+          description: Filter by source quote id (Task #335 — accept→navigate efficient lookup)
       responses:
         "200":
           description: Contract list
@@ -2463,6 +2468,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContractDocument"
+
+  /contracts/{id}/agree:
+    post:
+      operationId: agreeContractAsPartner
+      tags: [contracts]
+      summary: Partner agrees to contract terms (records partnerAgreedAt)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agreed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+        "403":
+          description: Not the contract's vendor
+        "404":
+          description: Not found
 
   /contracts/from-quote/{quoteId}:
     post:
@@ -6719,6 +6747,10 @@ components:
           enum: [breakdown, defect, replacement, inspection, other, null]
         description:
           type: ["string", "null"]
+        # [Task #335] 매니저는 본인이 속한 건물 외 다른 건물로 RFQ 를 만들 수 없으므로
+        # 클라이언트에서 buildingId 를 보내지 않으면 서버가 본인의 buildingId 로 자동 보강한다.
+        buildingId:
+          type: ["integer", "null"]
         buildingName:
           type: string
         desiredDate:
@@ -7259,7 +7291,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [inspection_due, tax_due, task_overdue, task_followup, task_template_mandatory, task_template_suggested, warranty_expiry, vendor_recommendation, data_destruction]
+          enum: [inspection_due, tax_due, task_overdue, task_followup, task_template_mandatory, task_template_suggested, warranty_expiry, vendor_recommendation, data_destruction, quote_received]
         title:
           type: string
         message:
@@ -12276,6 +12308,9 @@ components:
         notes:
           type: ["string", "null"]
         renewalAlertSent:
+          type: ["string", "null"]
+          format: date-time
+        partnerAgreedAt:
           type: ["string", "null"]
           format: date-time
         createdAt:

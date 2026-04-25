@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import {
   useListRfqs,
   useCreateRfq,
@@ -8,6 +9,8 @@ import {
   useListQuotes,
   useUpdateQuote,
   useExpandRfqScope,
+  useGetQuote,
+  listContracts,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
 } from "@workspace/api-client-react";
@@ -87,6 +90,7 @@ export default function Rfqs() {
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { token } = useAuth();
   const { building } = useBuilding();
   const queryClient = useQueryClient();
@@ -106,6 +110,32 @@ export default function Rfqs() {
   const deleteMutation = useDeleteRfq();
   const updateQuoteMutation = useUpdateQuote();
   const expandScopeMutation = useExpandRfqScope();
+
+  // [Task #335] /rfqs?openQuote={id} 딥링크 처리.
+  // 1) 견적 상세를 조회해 firstViewedAt 을 자동 세팅(서버측 quotes.ts:104) → 대시보드 알림 자동 소거.
+  // 2) 해당 견적이 속한 RFQ 의 비교 패널을 열어 매니저가 바로 채택 결정을 내릴 수 있게 한다.
+  const [openQuoteId, setOpenQuoteId] = useState<number | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get("openQuote");
+    if (q) {
+      const id = Number(q);
+      if (!Number.isNaN(id)) setOpenQuoteId(id);
+      url.searchParams.delete("openQuote");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+  const { data: openedQuote } = useGetQuote(openQuoteId ?? 0, {
+    query: { enabled: openQuoteId !== null && openQuoteId > 0 },
+  });
+  useEffect(() => {
+    if (openedQuote && openedQuote.rfqId) {
+      setCompareRfqId(openedQuote.rfqId);
+      // 대시보드 알림 카드 즉시 갱신을 위해 alerts 쿼리도 invalidate.
+      queryClient.invalidateQueries({ queryKey: ["/dashboard/alerts"] });
+      setOpenQuoteId(null);
+    }
+  }, [openedQuote, queryClient]);
 
   function getDefaultDeadline(): string {
     // 오늘 + 1일을 YYYY-MM-DD 로 반환.
@@ -271,6 +301,20 @@ export default function Rfqs() {
     }
     await updateQuoteMutation.mutateAsync({ id: quoteId, data: { status: "accepted" } });
     queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
+
+    // [Task #335] 채택 직후 자동 생성된 계약 초안 페이지로 이동해 결재선·계약 진행을 바로 이어간다.
+    // listContracts 의 quoteId 필터로 단건 조회 (전체 스캔 회피).
+    try {
+      const contracts = await listContracts({ quoteId });
+      const created = contracts[0];
+      if (created) {
+        toast({ title: "견적이 채택되었습니다", description: "자동 생성된 계약 초안으로 이동합니다." });
+        setLocation(`/contracts?openContract=${created.id}`);
+        return;
+      }
+    } catch {
+      // 계약 목록 조회 실패 시 토스트만 띄우고 현재 화면 유지.
+    }
     toast({ title: "견적이 채택되었습니다" });
   }
 
@@ -626,9 +670,11 @@ export default function Rfqs() {
                                 <td className="p-2 text-center">
                                   {q.status === "submitted" && (
                                     <div className="flex gap-1 justify-center">
+                                      {/* [Task #335] 견적 채택은 곧바로 업체선정 품의·계약을 자동 생성하므로
+                                          CTA 문구를 "수락하고 계약 진행" 으로 명시한다. */}
                                       <Button size="sm" variant="outline" onClick={() => handleAcceptQuote(q.id)}>
                                         <CheckCircle className="w-3 h-3 mr-1" />
-                                        채택
+                                        수락하고 계약 진행
                                       </Button>
                                       <Button size="sm" variant="ghost" onClick={() => handleRejectQuote(q.id)}>
                                         <XCircle className="w-3 h-3" />

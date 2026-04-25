@@ -18,4 +18,5 @@ export const AlertType = {
   warranty_expiry: "warranty_expiry",
   vendor_recommendation: "vendor_recommendation",
   data_destruction: "data_destruction",
+  quote_received: "quote_received",
 } as const;
