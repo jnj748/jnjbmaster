@@ -30,6 +30,16 @@ export interface Alert {
    */
   inspectionType?: AlertInspectionType;
   /**
+   * [Task #413] inspection_due 알림에서 점검 주기(개월). AlertActionDialog 가 다음 점검 예정일 자동 계산 시 사용. 시간(intervalDays) 가 우선이고, 없으면 cycleMonths, 둘 다 없으면 6개월.
+   * @nullable
+   */
+  cycleMonths?: number | null;
+  /**
+   * [Task #413] inspection_due 알림에서 점검 주기(일). cycleMonths 보다 우선해서 다음 점검 예정일 계산에 사용된다.
+   * @nullable
+   */
+  intervalDays?: number | null;
+  /**
    * [Task #393] task template 알림(task_template_mandatory/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.
    * @nullable
    */

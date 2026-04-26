@@ -19107,6 +19107,158 @@ export function useGetFacilityScheduledAlerts<
 }
 
 /**
+ * @summary Get all upcoming mandatory facility tasks for the user's building
+ */
+export const getGetFacilityMandatoryTasksUrl = () => {
+  return `/api/facility/mandatory-tasks`;
+};
+
+export const getFacilityMandatoryTasks = async (
+  options?: RequestInit,
+): Promise<Alert[]> => {
+  return customFetch<Alert[]>(getGetFacilityMandatoryTasksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilityMandatoryTasksQueryKey = () => {
+  return [`/api/facility/mandatory-tasks`] as const;
+};
+
+export const getGetFacilityMandatoryTasksQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityMandatoryTasks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityMandatoryTasks>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilityMandatoryTasksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityMandatoryTasks>>
+  > = ({ signal }) => getFacilityMandatoryTasks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityMandatoryTasks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityMandatoryTasksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityMandatoryTasks>>
+>;
+export type GetFacilityMandatoryTasksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all upcoming mandatory facility tasks for the user's building
+ */
+
+export function useGetFacilityMandatoryTasks<
+  TData = Awaited<ReturnType<typeof getFacilityMandatoryTasks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityMandatoryTasks>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilityMandatoryTasksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all upcoming suggested facility tasks for the user's building
+ */
+export const getGetFacilitySuggestedTasksUrl = () => {
+  return `/api/facility/suggested-tasks`;
+};
+
+export const getFacilitySuggestedTasks = async (
+  options?: RequestInit,
+): Promise<Alert[]> => {
+  return customFetch<Alert[]>(getGetFacilitySuggestedTasksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFacilitySuggestedTasksQueryKey = () => {
+  return [`/api/facility/suggested-tasks`] as const;
+};
+
+export const getGetFacilitySuggestedTasksQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilitySuggestedTasks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilitySuggestedTasks>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilitySuggestedTasksQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilitySuggestedTasks>>
+  > = ({ signal }) => getFacilitySuggestedTasks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilitySuggestedTasks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilitySuggestedTasksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilitySuggestedTasks>>
+>;
+export type GetFacilitySuggestedTasksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all upcoming suggested facility tasks for the user's building
+ */
+
+export function useGetFacilitySuggestedTasks<
+  TData = Awaited<ReturnType<typeof getFacilitySuggestedTasks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilitySuggestedTasks>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFacilitySuggestedTasksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get calendar events for a given month
  */
 export const getGetCalendarEventsUrl = (params: GetCalendarEventsParams) => {

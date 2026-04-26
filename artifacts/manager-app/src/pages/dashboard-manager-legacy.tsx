@@ -7,37 +7,23 @@ import {
   useListTenants,
   useListVehicles,
   useGetUnitsSummary,
-  useCreateAlertAction,
   useCreateRfq,
-  useListBuildingNoticeTemplates,
-  type BuildingNoticeTemplate,
   // [Task #142] useGetDelinquencySummary, useListApprovals 는 공유 위젯
   // (delinquency-summary-widget / pending-approvals-widget)으로 분리되어
   // 이 페이지에서는 더 이상 사용하지 않는다.
   // [Task #358] 모바일 KPI 4종(연체 세대 등)은 제거되어 더 이상 매니저 대시보드에서
   // useGetDelinquencySummary 를 직접 호출하지 않는다.
-  getGetDashboardAlertsQueryKey,
   getListRfqsQueryKey,
-  type CreateRfqBody,
-  type CreateRfqBodyCategory,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 // [Task #142] formatDate 는 추출된 pending-approvals-widget 에서 사용.
+// [Task #413] Input/Label/Textarea/Select* 는 추출된 알림 처리 다이얼로그에서만
+//   사용됐으므로 임포트 제거.
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, useLocation } from "wouter";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -61,8 +47,6 @@ import {
   ListChecks,
   Wrench,
   Send,
-  CheckCircle,
-  CalendarClock,
   FileText,
   Building2,
   Trash2,
@@ -70,11 +54,18 @@ import {
   FolderOpen,
   BarChart3,
 } from "lucide-react";
-import { PhotoUploadField } from "@/components/photo-upload-field";
 // [Task #256] 5색 카테고리 팔레트 단일 출처 — 화면별 하드코딩 색 클래스 대신 사용
 import { CATEGORY_ICON_CLASS, CATEGORY_BG_CLASS } from "@/lib/category-colors";
-import { CompletionNotice } from "@/components/completion-notice";
-import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
+// [Task #413] 알림 처리 다이얼로그(처리완료/연기/견적요청) 와 그 결과로 띄우는
+//   CompletionNotice / RfqRequestDocument 는 alert-action-dialog 로 추출되어
+//   시설관리 "필수업무"/"제안업무" 페이지와 공유한다.
+import { AlertActionDialog } from "@/components/alert-action-dialog";
+import {
+  type DashboardAlert,
+  ACTIONABLE_ALERT_TYPES,
+  ALERT_FALLBACK_ROUTES,
+  getDdayLabel,
+} from "@/lib/alert-utils";
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
 // 위젯 카탈로그를 통해 렌더링된다.
 import { Printer } from "lucide-react";
@@ -128,50 +119,9 @@ function StatCard({
   return content;
 }
 
-function getDdayLabel(dueDate: string | null): { label: string; days: number | null; isOverdue: boolean } {
-  if (!dueDate) return { label: "기한없음", days: null, isOverdue: false };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate);
-  due.setHours(0, 0, 0, 0);
-  const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  // [Task #379] 좁은 카드에서 우측 본문이 잘리지 않도록 단축. "기한초과 +N일" → "N일 지남".
-  if (diff < 0) return { label: `${Math.abs(diff)}일 지남`, days: diff, isOverdue: true };
-  if (diff === 0) return { label: "D-Day", days: 0, isOverdue: false };
-  return { label: `D-${diff}`, days: diff, isOverdue: false };
-}
-
-type AlertActionTab = "complete" | "postpone" | "rfq";
-
-const ACTIONABLE_ALERT_TYPES = ["inspection_due", "tax_due", "task_overdue", "task_followup", "warranty_expiry"] as const;
-
-const ALERT_FALLBACK_ROUTES: Record<string, string> = {
-  inspection_due: "/inspections",
-  tax_due: "/tax-schedules",
-  task_overdue: "/tasks",
-  task_followup: "/tasks",
-  warranty_expiry: "/settings?tab=building",
-};
-
-interface DashboardAlert {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  severity: string;
-  relatedId?: number | null;
-  hasDraft?: boolean;
-  actionStatus?: string | null;
-  dueDate?: string | null;
-  penaltyInfo?: string | null;
-  inspectionType?: string | null;
-  cycleMonths?: number | null;
-  intervalDays?: number | null;
-  // [Task #393] task template 알림에 미리 연결된 공고문 템플릿 ID. 값이 있으면
-  //   알림 처리 다이얼로그에 "공고문 작성" CTA 가 노출되어 /notices/templates?templateId=N 으로 이동.
-  noticeTemplateId?: number | null;
-  createdAt: string;
-}
+// [Task #413] 알림 헬퍼/타입은 lib/alert-utils 로 추출되어 시설관리 "필수업무"/
+//   "제안업무" 페이지와 공유한다. (회귀 방지: 시그니처/동작 동일 유지)
+// (DashboardAlert / getDdayLabel / ACTIONABLE_ALERT_TYPES / ALERT_FALLBACK_ROUTES)
 
 // [Task #184 → #331] Renders one alert section (필수업무현황/제안업무현황).
 // - Always pads to PAGE_SIZE (2) slots so layout height stays constant
@@ -649,95 +599,16 @@ export default function Dashboard() {
   // delinquencySummary 를 직접 호출하지 않는다. 연체 정보는 delinquency-summary-widget
   // 에서 그대로 노출된다.
 
+  // [Task #413] 알림 처리 다이얼로그(처리완료/연기/견적요청) 의 폼 상태·핸들러는
+  //   AlertActionDialog 로 이전. 이 페이지는 selectedAlert 만 관리하면 된다.
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
-  const [actionTab, setActionTab] = useState<AlertActionTab>("complete");
-  const [completeDate, setCompleteDate] = useState(new Date().toISOString().split("T")[0]);
-  const [nextCycleDate, setNextCycleDate] = useState("");
-  const [postponeDays, setPostponeDays] = useState("7");
-  const [postponeReason, setPostponeReason] = useState("");
-  const [actionNotes, setActionNotes] = useState("");
-  const [rfqTitle, setRfqTitle] = useState("");
-  const [rfqDeadline, setRfqDeadline] = useState("");
-  const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
-  const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
-  const [rfqCloseUpPhotoUrl, setRfqCloseUpPhotoUrl] = useState<string | null>(null);
-  const [rfqWidePhotoUrl, setRfqWidePhotoUrl] = useState<string | null>(null);
-  const [showCompletionNotice, setShowCompletionNotice] = useState(false);
-  const [completionNoticeData, setCompletionNoticeData] = useState<{
-    alertTitle: string; alertMessage: string; completedDate: string;
-    notes: string | null; closeUpPhotoUrl: string | null; widePhotoUrl: string | null;
-    // [Task #389] 공고문 게시 제안업무에서 진입한 경우 템플릿 본문을 그대로 양식 본문으로 채운다.
-    templateBody?: string;
-    initialDocKind?: "notice" | "report" | "draft";
-  } | null>(null);
-  const [showRfqDocument, setShowRfqDocument] = useState(false);
-  const [rfqDocumentData, setRfqDocumentData] = useState<RfqDocumentData | null>(null);
-  const [delayReason, setDelayReason] = useState("");
-  const [delayReasonDetail, setDelayReasonDetail] = useState("");
-
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const createActionMutation = useCreateAlertAction();
-  const createRfqMutation = useCreateRfq();
-
-  function openAlertAction(alert: DashboardAlert) {
-    setSelectedAlert(alert);
-    setActionTab("complete");
-    const todayStr = new Date().toISOString().split("T")[0];
-    setCompleteDate(todayStr);
-    setPostponeDays("7");
-    setPostponeReason("");
-    setActionNotes("");
-    setRfqTitle(alert.title);
-    const twoWeeks = new Date();
-    twoWeeks.setDate(twoWeeks.getDate() + 14);
-    setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
-    let prefilledNextCycle = "";
-    if (alert.type === "inspection_due") {
-      const base = new Date(todayStr);
-      if (alert.cycleMonths) {
-        base.setMonth(base.getMonth() + alert.cycleMonths);
-      } else if (alert.intervalDays) {
-        base.setDate(base.getDate() + alert.intervalDays);
-      } else {
-        base.setMonth(base.getMonth() + 6);
-      }
-      prefilledNextCycle = base.toISOString().split("T")[0];
-    }
-    setNextCycleDate(prefilledNextCycle);
-    setCloseUpPhotoUrl(null);
-    setWidePhotoUrl(null);
-    setRfqCloseUpPhotoUrl(null);
-    setRfqWidePhotoUrl(null);
-    setDelayReason("");
-    setDelayReasonDetail("");
-  }
-
-  function getEntityType(alertType: string): string {
-    switch (alertType) {
-      case "inspection_due": return "inspection";
-      case "tax_due": return "tax";
-      case "task_overdue": return "task";
-      case "task_followup": return "task";
-      case "warranty_expiry": return "warranty";
-      case "task_template_mandatory": return "task_template";
-      case "task_template_suggested": return "task_template";
-      // [Task #389] 공고문 게시 제안업무: alertActions.relatedEntityType.
-      case "notice_posting": return "building_notice_template";
-      default: return "task";
-    }
-  }
-
-  // [Task #389] 공고문 템플릿 목록 — notice_posting 알림에서 templateId → bodyHtml 조회용.
-  const { data: noticeTemplatesData } = useListBuildingNoticeTemplates();
-  const noticeTemplates: BuildingNoticeTemplate[] = noticeTemplatesData?.templates ?? [];
-
   const [, navigate] = useLocation();
 
   function handleAlertClick(alert: DashboardAlert) {
     if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
       if (alert.relatedId) {
-        openAlertAction(alert);
+        setSelectedAlert(alert);
         return;
       }
       const fallback = ALERT_FALLBACK_ROUTES[alert.type];
@@ -774,7 +645,7 @@ export default function Dashboard() {
         toast({ title: "처리할 항목 정보를 찾을 수 없습니다", description: alert.title });
         return;
       }
-      openAlertAction(alert);
+      setSelectedAlert(alert);
       return;
     }
 
@@ -784,7 +655,7 @@ export default function Dashboard() {
         toast({ title: "공고문 템플릿 정보를 찾을 수 없습니다", description: alert.title });
         return;
       }
-      openAlertAction(alert);
+      setSelectedAlert(alert);
       return;
     }
 
@@ -792,165 +663,6 @@ export default function Dashboard() {
       title: "이 항목은 별도 처리 화면이 없습니다",
       description: alert.title,
     });
-  }
-
-  async function handleComplete() {
-    if (!selectedAlert) return;
-    if (!completeDate) {
-      toast({ title: "완료일을 입력해주세요", variant: "destructive" });
-      return;
-    }
-    const isOverdue = selectedAlert.dueDate && getDdayLabel(selectedAlert.dueDate).isOverdue;
-    if (isOverdue && !delayReason) {
-      toast({ title: "기한 초과 항목입니다. 지연 사유를 선택해주세요", variant: "destructive" });
-      return;
-    }
-    if (isOverdue && delayReason === "기타" && !delayReasonDetail.trim()) {
-      toast({ title: "지연 사유의 상세 내용을 입력해주세요", variant: "destructive" });
-      return;
-    }
-    await createActionMutation.mutateAsync({
-      data: {
-        alertType: selectedAlert.type,
-        relatedEntityType: getEntityType(selectedAlert.type),
-        relatedEntityId: selectedAlert.relatedId!,
-        actionType: "completed",
-        completedDate: completeDate || null,
-        nextCycleDate: nextCycleDate || null,
-        notes: actionNotes || null,
-        closeUpPhotoUrl: closeUpPhotoUrl || null,
-        widePhotoUrl: widePhotoUrl || null,
-        delayReason: isOverdue && delayReason ? delayReason : null,
-        delayReasonDetail: isOverdue && delayReasonDetail ? delayReasonDetail : null,
-      },
-    });
-    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
-    toast({ title: "처리 완료되었습니다" });
-    // [Task #389] 공고문 게시 제안업무 처리완료시 템플릿 본문 → 양식 본문으로 미리 채워 노출.
-    let templateBody: string | undefined;
-    let initialDocKind: "notice" | "report" | "draft" | undefined;
-    if (selectedAlert.type === "notice_posting" && selectedAlert.relatedId) {
-      const tpl = noticeTemplates.find((t) => t.id === selectedAlert.relatedId);
-      if (tpl) {
-        // bodyHtml 의 placeholder ({{buildingName}} 등) 와 태그를 정리한 plaintext.
-        const replaced = tpl.bodyHtml
-          .replace(/\{\{buildingName\}\}/g, building?.name ?? "")
-          .replace(/\{\{addressFull\}\}/g, building?.addressFull ?? "")
-          .replace(/\{\{managementOfficePhone\}\}/g, building?.managementOfficePhone ?? "")
-          // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
-          .replace(/\{\{feeInquiryPhone\}\}/g, building?.feeInquiryPhone ?? "")
-          .replace(/\{\{facilitySafetyPhone\}\}/g, building?.facilitySafetyPhone ?? "")
-          .replace(/\{\{date\}\}/g, completeDate)
-          .replace(/\{\{customA\}\}/g, "")
-          .replace(/\{\{customB\}\}/g, "")
-          .replace(/\{\{customC\}\}/g, "");
-        const text = replaced
-          .replace(/<br\s*\/?\s*>/gi, "\n")
-          .replace(/<\/p>/gi, "\n\n")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
-        templateBody = text;
-        initialDocKind = tpl.requiresReport ? "report" : "notice";
-      }
-    }
-    setCompletionNoticeData({
-      alertTitle: selectedAlert.title,
-      alertMessage: selectedAlert.message,
-      completedDate: completeDate,
-      notes: actionNotes || null,
-      closeUpPhotoUrl,
-      widePhotoUrl,
-      templateBody,
-      initialDocKind,
-    });
-    setSelectedAlert(null);
-    setShowCompletionNotice(true);
-  }
-
-  async function handlePostpone() {
-    if (!selectedAlert) return;
-    if (!postponeDays) {
-      toast({ title: "연기 일수를 선택해주세요", variant: "destructive" });
-      return;
-    }
-    if (!postponeReason) {
-      toast({ title: "연기 사유를 선택해주세요", variant: "destructive" });
-      return;
-    }
-    await createActionMutation.mutateAsync({
-      data: {
-        alertType: selectedAlert.type,
-        relatedEntityType: getEntityType(selectedAlert.type),
-        relatedEntityId: selectedAlert.relatedId!,
-        actionType: "postponed",
-        postponeDays: parseInt(postponeDays) || null,
-        postponeReason: postponeReason || null,
-        notes: actionNotes || null,
-      },
-    });
-    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
-    toast({ title: "일정이 연기되었습니다" });
-    setSelectedAlert(null);
-  }
-
-  async function handleRfqRequest() {
-    if (!selectedAlert) return;
-    if (!rfqTitle.trim()) {
-      toast({ title: "견적 요청 제목을 입력해주세요", variant: "destructive" });
-      return;
-    }
-    if (!rfqDeadline) {
-      toast({ title: "견적 마감일을 선택해주세요", variant: "destructive" });
-      return;
-    }
-    const catMap: Record<string, string> = {
-      inspection_due: "elevator",
-    };
-
-    const rfqData: CreateRfqBody = {
-      title: rfqTitle,
-      category: (catMap[selectedAlert.type] || "other") as CreateRfqBodyCategory,
-      buildingName: building?.name || "관리 건물",
-      deadline: rfqDeadline,
-      description: `${selectedAlert.title} - ${selectedAlert.message}`,
-      sido: building?.sido || null,
-      sigungu: building?.sigungu || null,
-      geoScope: building?.sido
-        ? (building?.sigungu ? "sigungu" : "sido")
-        : null,
-      closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
-      widePhotoUrl: rfqWidePhotoUrl || null,
-    };
-    const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData });
-
-    await createActionMutation.mutateAsync({
-      data: {
-        alertType: selectedAlert.type,
-        relatedEntityType: getEntityType(selectedAlert.type),
-        relatedEntityId: selectedAlert.relatedId!,
-        actionType: "rfq_requested",
-        rfqId: createdRfq?.id ?? null,
-        notes: `견적 요청 생성: ${rfqTitle}`,
-        closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
-        widePhotoUrl: rfqWidePhotoUrl || null,
-      },
-    });
-
-    queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
-    toast({ title: "견적 요청이 생성되었습니다" });
-    setRfqDocumentData({
-      ...rfqData,
-      title: rfqData.title ?? "",
-      createdAt: new Date().toISOString(),
-    });
-    setSelectedAlert(null);
-    setShowRfqDocument(true);
   }
 
   if (summaryLoading) {
@@ -1268,263 +980,15 @@ export default function Dashboard() {
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      <ResponsiveDialog open={!!selectedAlert} onOpenChange={(o) => { if (!o) setSelectedAlert(null); }}>
-        <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>알림 처리</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-
-          {selectedAlert && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
-                <p className="font-medium">{selectedAlert.title}</p>
-                <p className="text-muted-foreground text-xs">{selectedAlert.message}</p>
-              </div>
-
-              {/* [Task #393] task template 알림에 공고문 템플릿이 미리 연결돼 있으면
-                   "공고문 작성" CTA 를 노출. 클릭 시 /notices/templates?templateId=N 으로 이동하면
-                   manager-notice-templates 페이지가 자동으로 미리보기 다이얼로그를 띄운다.
-                   다이얼로그는 닫고(추후 처리완료/연기 흐름과 분리) prefill 진입한다. */}
-              {(selectedAlert.type === "task_template_mandatory" ||
-                selectedAlert.type === "task_template_suggested") &&
-                selectedAlert.noticeTemplateId != null && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    data-testid="btn-open-notice-template"
-                    onClick={() => {
-                      const id = selectedAlert.noticeTemplateId;
-                      setSelectedAlert(null);
-                      navigate(`/notices/templates?templateId=${id}`);
-                    }}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    공고문 작성
-                  </Button>
-                )}
-
-              <div className="flex gap-1 border-b">
-                {[
-                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle },
-                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock },
-                  ...(["inspection_due", "task_overdue", "warranty_expiry"].includes(selectedAlert.type) ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActionTab(tab.key)}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      actionTab === tab.key
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {actionTab === "complete" && (() => {
-                const isOverdue = selectedAlert.dueDate && getDdayLabel(selectedAlert.dueDate).isOverdue;
-                return (
-                <div className="space-y-3">
-                  {isOverdue && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-                      <p className="text-sm font-semibold text-red-800 flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4" />
-                        기한 초과 항목 — 지연 사유를 기록해주세요
-                      </p>
-                      {selectedAlert.penaltyInfo && (
-                        <p className="text-xs text-red-600">⚠ {selectedAlert.penaltyInfo}</p>
-                      )}
-                      <div>
-                        <Label className="text-xs">지연 사유</Label>
-                        <Select value={delayReason || undefined} onValueChange={setDelayReason}>
-                          <SelectTrigger><SelectValue placeholder="사유 선택" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="업체 일정 미확보">업체 일정 미확보</SelectItem>
-                            <SelectItem value="예산 미확보">예산 미확보</SelectItem>
-                            <SelectItem value="우천/기상 악화">우천/기상 악화</SelectItem>
-                            <SelectItem value="자재 미입고">자재 미입고</SelectItem>
-                            <SelectItem value="관리주체 일정 미조율">관리주체 일정 미조율</SelectItem>
-                            <SelectItem value="코로나/감염병 대응">코로나/감염병 대응</SelectItem>
-                            <SelectItem value="인력 부족">인력 부족</SelectItem>
-                            <SelectItem value="기타">기타</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {delayReason === "기타" && (
-                        <div>
-                          <Label className="text-xs">상세 사유</Label>
-                          <Input
-                            value={delayReasonDetail}
-                            onChange={(e) => setDelayReasonDetail(e.target.value)}
-                            placeholder="구체적인 지연 사유를 입력하세요"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div>
-                    <Label>완료일</Label>
-                    <Input
-                      type="date"
-                      value={completeDate}
-                      onChange={(e) => setCompleteDate(e.target.value)}
-                    />
-                  </div>
-                  {selectedAlert.type === "inspection_due" && (
-                    <div>
-                      <Label>다음 점검 예정일</Label>
-                      <Input
-                        type="date"
-                        value={nextCycleDate}
-                        onChange={(e) => setNextCycleDate(e.target.value)}
-                      />
-                      <p className="text-xs mt-1">
-                        다음 주기가 자동입력 되었습니다. <span className="text-blue-600 font-medium">입력</span>
-                      </p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <PhotoUploadField label="근경 사진" value={closeUpPhotoUrl} onChange={setCloseUpPhotoUrl} />
-                    <PhotoUploadField label="원경 사진" value={widePhotoUrl} onChange={setWidePhotoUrl} />
-                  </div>
-                  <div>
-                    <Label>비고</Label>
-                    <Textarea
-                      value={actionNotes}
-                      onChange={(e) => setActionNotes(e.target.value)}
-                      placeholder="처리 내용을 기록하세요"
-                    />
-                  </div>
-                  <Button className="w-full" onClick={handleComplete} disabled={createActionMutation.isPending}>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    {createActionMutation.isPending ? "처리 중..." : "처리완료"}
-                  </Button>
-                </div>
-                );
-              })()}
-
-              {actionTab === "postpone" && (
-                <div className="space-y-3">
-                  <div>
-                    <Label>연기 일수</Label>
-                    <Select value={postponeDays} onValueChange={setPostponeDays}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3일</SelectItem>
-                        <SelectItem value="7">7일 (1주)</SelectItem>
-                        <SelectItem value="14">14일 (2주)</SelectItem>
-                        <SelectItem value="30">30일 (1개월)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>연기 사유</Label>
-                    <Select value={postponeReason} onValueChange={setPostponeReason}>
-                      <SelectTrigger><SelectValue placeholder="사유 선택" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="업체 일정 조율 중">업체 일정 조율 중</SelectItem>
-                        <SelectItem value="예산 확보 대기">예산 확보 대기</SelectItem>
-                        <SelectItem value="우천/기상 악화">우천/기상 악화</SelectItem>
-                        <SelectItem value="자재 입고 대기">자재 입고 대기</SelectItem>
-                        <SelectItem value="기타">기타</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>비고</Label>
-                    <Textarea
-                      value={actionNotes}
-                      onChange={(e) => setActionNotes(e.target.value)}
-                      placeholder="연기 관련 상세 내용"
-                    />
-                  </div>
-                  <Button className="w-full" variant="secondary" onClick={handlePostpone} disabled={createActionMutation.isPending}>
-                    <CalendarClock className="w-4 h-4 mr-2" />
-                    {createActionMutation.isPending ? "처리 중..." : "일정 연기"}
-                  </Button>
-                </div>
-              )}
-
-              {actionTab === "rfq" && (
-                <div className="space-y-3">
-                  <div>
-                    <Label>견적 요청 제목</Label>
-                    <Input
-                      value={rfqTitle}
-                      onChange={(e) => setRfqTitle(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>견적 마감일</Label>
-                    <Input
-                      type="date"
-                      value={rfqDeadline}
-                      onChange={(e) => setRfqDeadline(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <PhotoUploadField label="근경 사진" value={rfqCloseUpPhotoUrl} onChange={setRfqCloseUpPhotoUrl} />
-                    <PhotoUploadField label="원경 사진" value={rfqWidePhotoUrl} onChange={setRfqWidePhotoUrl} />
-                  </div>
-                  <div>
-                    <Label>비고</Label>
-                    <Textarea
-                      value={actionNotes}
-                      onChange={(e) => setActionNotes(e.target.value)}
-                      placeholder="견적 요청 시 참고사항"
-                    />
-                  </div>
-                  <Button className="w-full" variant="default" onClick={handleRfqRequest} disabled={createActionMutation.isPending || createRfqMutation.isPending}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    {createActionMutation.isPending || createRfqMutation.isPending ? "처리 중..." : "견적 요청 생성"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-
-      {completionNoticeData && (
-        <CompletionNotice
-          // [Task #389] 매번 새 alert 로 열 때 CompletionNotice 내부 state(docKind/
-          //   본문)가 이전 인스턴스 값으로 남아 requiresReport 기본값이 무시되는 회귀를
-          //   막기 위해 alertTitle+initialDocKind 기준으로 강제 remount.
-          key={`cn:${completionNoticeData.alertTitle}:${completionNoticeData.initialDocKind ?? "notice"}`}
-          open={showCompletionNotice}
-          onOpenChange={setShowCompletionNotice}
-          alertTitle={completionNoticeData.alertTitle}
-          alertMessage={completionNoticeData.alertMessage}
-          completedDate={completionNoticeData.completedDate}
-          notes={completionNoticeData.notes}
-          closeUpPhotoUrl={completionNoticeData.closeUpPhotoUrl}
-          widePhotoUrl={completionNoticeData.widePhotoUrl}
-          buildingName={building?.name}
-          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
-          logoUrl={building?.logoUrl ?? null}
-          authorName={user?.name ?? null}
-          initialDocKind={completionNoticeData.initialDocKind ?? "notice"}
-          initialBodies={
-            completionNoticeData.templateBody
-              ? { [completionNoticeData.initialDocKind ?? "notice"]: completionNoticeData.templateBody }
-              : undefined
-          }
-        />
-      )}
-
-      {rfqDocumentData && (
-        <RfqRequestDocument
-          open={showRfqDocument}
-          onOpenChange={setShowRfqDocument}
-          rfq={rfqDocumentData}
-          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
-          logoUrl={building?.logoUrl ?? null}
-        />
-      )}
+      {/* [Task #413] 알림 처리 다이얼로그(처리완료/연기/견적요청) + CompletionNotice +
+            RfqRequestDocument 는 AlertActionDialog 컴포넌트로 추출. 시설관리 "필수업무"/
+            "제안업무" 페이지가 동일 컴포넌트를 재사용한다. */}
+      <AlertActionDialog
+        alert={selectedAlert}
+        onClose={() => setSelectedAlert(null)}
+        building={building}
+        user={user}
+      />
 
       <SeasonalSuggestionsCard />
 

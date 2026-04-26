@@ -9,6 +9,8 @@ import {
   FileText,
   ClipboardList,
   ClipboardCheck,
+  // [Task #413] 시설관리 → 필수업무 페이지 사이드바 아이콘.
+  AlertTriangle,
   Users,
   User,
   UserCheck,
@@ -59,6 +61,10 @@ const Tenants = lazy(() => import("@/pages/tenants"));
 const Vehicles = lazy(() => import("@/pages/vehicles"));
 const Users_ = lazy(() => import("@/pages/users"));
 const FacilityDashboard = lazy(() => import("@/pages/facility-dashboard"));
+// [Task #413] 시설관리 → 필수업무 / 제안업무 — 사용자 건물의 모든 임박/초과 업무를
+//   60일 컷오프 없이 노출하는 전용 페이지.
+const FacilityMandatoryTasks = lazy(() => import("@/pages/facility-mandatory-tasks"));
+const FacilitySuggestedTasks = lazy(() => import("@/pages/facility-suggested-tasks"));
 const SafetyChecklists = lazy(() => import("@/pages/safety-checklists"));
 const MaintenanceLogs = lazy(() => import("@/pages/maintenance-logs"));
 const SafetyTraining = lazy(() => import("@/pages/safety-training"));
@@ -287,6 +293,27 @@ export const ROUTES: RouteEntry[] = [
     bottomNav: ["facility_staff", "hq_executive"],
     bottomLabel: "점검",
     labelOverrides: { hq_executive: "점검보고서" },
+  },
+  // [Task #413] 사용자 건물의 모든 필수/제안 업무를 60일 컷오프 없이 보여주는 전용 페이지.
+  //   매니저/시설담당자/플랫폼 관리자가 사이드바·하단탭에서 진입한다.
+  //   하단탭은 facility_staff 본업 화면이라 표시(매니저는 사이드바에서만 노출).
+  {
+    path: "/facility/mandatory-tasks", component: FacilityMandatoryTasks,
+    label: "필수업무", icon: AlertTriangle, group: "facility",
+    access: ["manager", "platform_admin", "facility_staff"],
+    sideMenu: ["manager", "facility_staff", "platform_admin"],
+    bottomNav: ["facility_staff"],
+    bottomLabel: "필수업무",
+    bottomOrder: 11,
+  },
+  {
+    path: "/facility/suggested-tasks", component: FacilitySuggestedTasks,
+    label: "제안업무", icon: Sparkles, group: "facility",
+    access: ["manager", "platform_admin", "facility_staff"],
+    sideMenu: ["manager", "facility_staff", "platform_admin"],
+    bottomNav: ["facility_staff"],
+    bottomLabel: "제안업무",
+    bottomOrder: 12,
   },
   {
     path: "/safety-checklists", component: SafetyChecklists,

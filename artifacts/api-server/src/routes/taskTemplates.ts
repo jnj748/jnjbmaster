@@ -439,6 +439,10 @@ export interface TemplateAlertContext {
   // [Task #305] 자격 기준(eligibility) 매칭용 빌딩 속성 스냅샷.
   //   주입되지 않은 경우 resolveActiveTemplateAlerts 가 buildingId 로 자동 조회한다.
   buildingAttrs?: BuildingEligibilityAttrs | null;
+  // [Task #413] 시설관리 "필수업무"/"제안업무" 페이지에서 60일 advanceAlertDays
+  //   윈도우를 풀고 모든 예정 템플릿을 노출하기 위한 오버라이드. 기본(undefined)은
+  //   템플릿 자체의 advanceAlertDays 사용.
+  windowDaysOverride?: number | null;
 }
 
 // [Task #305] eligibility 평가에 사용하는 빌딩 속성. numeric 컬럼은 string|number 로
@@ -592,7 +596,10 @@ export async function resolveActiveTemplateAlerts(
     );
     if (!due) continue;
     const alertWindowStart = new Date(due);
-    alertWindowStart.setDate(alertWindowStart.getDate() - t.advanceAlertDays);
+    // [Task #413] 시설관리 페이지에서는 windowDaysOverride 로 advanceAlertDays 윈도우를 풀어
+    //   모든 예정 템플릿을 노출한다. (대시보드는 undefined 로 기본 동작 유지)
+    const windowDays = ctx.windowDaysOverride ?? t.advanceAlertDays;
+    alertWindowStart.setDate(alertWindowStart.getDate() - windowDays);
     if (today < alertWindowStart) continue;
 
     const tplCategory = t.category as "mandatory" | "suggested";

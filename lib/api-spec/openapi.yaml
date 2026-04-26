@@ -4773,6 +4773,40 @@ paths:
                 items:
                   $ref: "#/components/schemas/FacilityAlert"
 
+  # [Task #413] 시설관리 그룹의 "필수업무" / "제안업무" 전용 알림 목록.
+  #   /dashboard/alerts 와 동일한 소스(점검·세무·기한초과·후속조치·하자담보·자료파기·
+  #   업무 템플릿·공고문 게시) 를 사용하지만, 60일 윈도우를 풀어 모든 예정 업무를
+  #   반환한다. 클라이언트에서 마감일/검색/유형 필터를 적용한다.
+  /facility/mandatory-tasks:
+    get:
+      operationId: getFacilityMandatoryTasks
+      tags: [safetyChecklists]
+      summary: Get all upcoming mandatory facility tasks for the user's building
+      responses:
+        "200":
+          description: Mandatory task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /facility/suggested-tasks:
+    get:
+      operationId: getFacilitySuggestedTasks
+      tags: [safetyChecklists]
+      summary: Get all upcoming suggested facility tasks for the user's building
+      responses:
+        "200":
+          description: Suggested task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
   # ── Calendar (일정) ──────────────────────────────────────────
   /calendar/events:
     get:
@@ -7594,6 +7628,12 @@ components:
           type: ["string", "null"]
           enum: [legal, self_regular, biweekly, seasonal, administrative, null]
           description: "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts."
+        cycleMonths:
+          type: ["integer", "null"]
+          description: "[Task #413] inspection_due 알림에서 점검 주기(개월). AlertActionDialog 가 다음 점검 예정일 자동 계산 시 사용. 시간(intervalDays) 가 우선이고, 없으면 cycleMonths, 둘 다 없으면 6개월."
+        intervalDays:
+          type: ["integer", "null"]
+          description: "[Task #413] inspection_due 알림에서 점검 주기(일). cycleMonths 보다 우선해서 다음 점검 예정일 계산에 사용된다."
         noticeTemplateId:
           type: ["integer", "null"]
           description: "[Task #393] task template 알림(task_template_mandatory/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다."

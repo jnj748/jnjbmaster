@@ -2404,6 +2404,18 @@ export const GetDashboardAlertsResponseItem = zod.object({
     .describe(
       "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
     ),
+  cycleMonths: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(개월). AlertActionDialog 가 다음 점검 예정일 자동 계산 시 사용. 시간(intervalDays) 가 우선이고, 없으면 cycleMonths, 둘 다 없으면 6개월.",
+    ),
+  intervalDays: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(일). cycleMonths 보다 우선해서 다음 점검 예정일 계산에 사용된다.",
+    ),
   noticeTemplateId: zod
     .number()
     .nullish()
@@ -6480,6 +6492,132 @@ export const GetFacilityScheduledAlertsResponseItem = zod.object({
 });
 export const GetFacilityScheduledAlertsResponse = zod.array(
   GetFacilityScheduledAlertsResponseItem,
+);
+
+/**
+ * @summary Get all upcoming mandatory facility tasks for the user's building
+ */
+export const GetFacilityMandatoryTasksResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.enum([
+    "inspection_due",
+    "tax_due",
+    "task_overdue",
+    "task_followup",
+    "task_template_mandatory",
+    "task_template_suggested",
+    "warranty_expiry",
+    "vendor_recommendation",
+    "data_destruction",
+    "quote_received",
+    "notice_posting",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  severity: zod.enum(["critical", "warning", "info"]),
+  relatedId: zod.number().nullish(),
+  hasDraft: zod.boolean().optional(),
+  actionStatus: zod.string().nullish(),
+  dueDate: zod.string().date().nullish(),
+  penaltyInfo: zod.string().nullish(),
+  inspectionType: zod
+    .union([
+      zod.literal("legal"),
+      zod.literal("self_regular"),
+      zod.literal("biweekly"),
+      zod.literal("seasonal"),
+      zod.literal("administrative"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
+    ),
+  cycleMonths: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(개월). AlertActionDialog 가 다음 점검 예정일 자동 계산 시 사용. 시간(intervalDays) 가 우선이고, 없으면 cycleMonths, 둘 다 없으면 6개월.",
+    ),
+  intervalDays: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(일). cycleMonths 보다 우선해서 다음 점검 예정일 계산에 사용된다.",
+    ),
+  noticeTemplateId: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
+    ),
+  createdAt: zod.string().datetime({}),
+});
+export const GetFacilityMandatoryTasksResponse = zod.array(
+  GetFacilityMandatoryTasksResponseItem,
+);
+
+/**
+ * @summary Get all upcoming suggested facility tasks for the user's building
+ */
+export const GetFacilitySuggestedTasksResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.enum([
+    "inspection_due",
+    "tax_due",
+    "task_overdue",
+    "task_followup",
+    "task_template_mandatory",
+    "task_template_suggested",
+    "warranty_expiry",
+    "vendor_recommendation",
+    "data_destruction",
+    "quote_received",
+    "notice_posting",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  severity: zod.enum(["critical", "warning", "info"]),
+  relatedId: zod.number().nullish(),
+  hasDraft: zod.boolean().optional(),
+  actionStatus: zod.string().nullish(),
+  dueDate: zod.string().date().nullish(),
+  penaltyInfo: zod.string().nullish(),
+  inspectionType: zod
+    .union([
+      zod.literal("legal"),
+      zod.literal("self_regular"),
+      zod.literal("biweekly"),
+      zod.literal("seasonal"),
+      zod.literal("administrative"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
+    ),
+  cycleMonths: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(개월). AlertActionDialog 가 다음 점검 예정일 자동 계산 시 사용. 시간(intervalDays) 가 우선이고, 없으면 cycleMonths, 둘 다 없으면 6개월.",
+    ),
+  intervalDays: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #413] inspection_due 알림에서 점검 주기(일). cycleMonths 보다 우선해서 다음 점검 예정일 계산에 사용된다.",
+    ),
+  noticeTemplateId: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
+    ),
+  createdAt: zod.string().datetime({}),
+});
+export const GetFacilitySuggestedTasksResponse = zod.array(
+  GetFacilitySuggestedTasksResponseItem,
 );
 
 /**
