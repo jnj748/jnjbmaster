@@ -266,9 +266,11 @@ export default function Login() {
       }}
     >
       {/* 헤더: 뒤로가기 (포털별 페이지에서 통합 /login 으로 돌아가는 단축 경로).
-          통합 /login 진입 시에는 돌아갈 곳이 없으므로 숨긴다. */}
+          통합 /login 진입 시에는 돌아갈 곳이 없으므로 숨긴다.
+          데스크톱에서는 아래 본문 그리드와 동일한 최대 너비(max-w-screen-xl)로 묶어
+          좌측이 어긋나지 않도록 정렬한다. */}
       {showBackButton && (
-        <div className="shrink-0 w-full max-w-md md:max-w-none mx-auto px-5 md:px-8 pt-3 pb-1 md:pt-5">
+        <div className="shrink-0 w-full max-w-md md:max-w-screen-xl mx-auto px-5 md:px-8 pt-3 pb-1 md:pt-5">
           <button
             onClick={() => setLocation("/login")}
             className="flex items-center gap-1 text-sm text-white/75 hover:text-white transition-colors"
@@ -280,8 +282,11 @@ export default function Login() {
       )}
 
       {/* 좌·우 분할 본문: 모바일 단일 칼럼(브랜드 패널 → 카드) / 데스크톱 2 컬럼 그리드.
-          데스크톱에선 좌측 6 / 우측 6 비율로 두고, 큰 화면(lg+)에선 좌측에 약간 더 폭을 준다. */}
-      <div className="flex-1 min-h-0 md:flex-none md:flex-1 w-full md:grid md:grid-cols-12 md:gap-6 md:items-stretch md:px-8">
+          데스크톱에선 좌측 6 / 우측 6 비율로 두고, 큰 화면(lg+)에선 좌측에 약간 더 폭을 준다.
+          [Task #466] 와이드 모니터에서 콘텐츠가 양 끝까지 늘어지지 않도록 최대 너비
+          (max-w-screen-xl)와 좌우 자동 마진(mx-auto)으로 화면 가로 중앙에 모은다.
+          배경 그라데이션은 바깥 div에 그대로 두어 전체 화면을 덮는다. */}
+      <div className="flex-1 min-h-0 md:flex-none md:flex-1 w-full md:max-w-screen-xl md:mx-auto md:grid md:grid-cols-12 md:gap-6 md:items-stretch md:px-8">
         {/* 좌측 브랜드 패널 — 데스크톱: 항상 표시(6/12) / 모바일: 회원가입 진입 시
             세로 스크롤 폭증을 막기 위해 숨긴다. 그 외 로그인 모드에서는 카드 위에 컴팩트로 노출. */}
         <div
