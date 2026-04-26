@@ -38,6 +38,27 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // [Task #413] 시트 스와이프-다운 닫기용 터치 좌표 추적.
+  const swipeStartYRef = useRef<number | null>(null);
+  const swipeDeltaRef = useRef<number>(0);
+
+  function handleSheetTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    swipeStartYRef.current = e.touches[0]?.clientY ?? null;
+    swipeDeltaRef.current = 0;
+  }
+  function handleSheetTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    const start = swipeStartYRef.current;
+    if (start == null) return;
+    const y = e.touches[0]?.clientY ?? start;
+    swipeDeltaRef.current = y - start;
+  }
+  function handleSheetTouchEnd() {
+    if (swipeDeltaRef.current > 60) {
+      setPickerOpen(false);
+    }
+    swipeStartYRef.current = null;
+    swipeDeltaRef.current = 0;
+  }
   const { token } = useAuth();
   const { toast } = useToast();
   const BASE = import.meta.env.BASE_URL ?? "/";
@@ -172,7 +193,19 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
       )}
 
       <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl pt-3"
+          hideClose
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+        >
+          {/* 스와이프-다운 핸들(시각적 어포던스). 영역외 터치/스와이프-다운/취소 버튼으로 닫힌다. */}
+          <div
+            aria-hidden
+            className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-slate-300"
+          />
           <SheetHeader>
             <SheetTitle className="text-left">사진 추가</SheetTitle>
           </SheetHeader>
