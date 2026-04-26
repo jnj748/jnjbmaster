@@ -561,6 +561,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone]);
 
+  // [Task #405] 온보딩(/onboarding/*) 화면은 자체 풀스크린 Shell 을 사용한다.
+  //   상단 모바일 헤더, 좌측 사이드바, 하단 BottomTab 이 위저드 위에 그려져
+  //   hero(시작하기) 영역을 가리는 회귀를 막기 위해, onboarding 경로에서는
+  //   chrome 을 일체 렌더하지 않고 children 만 그대로 반환한다.
+  //   useAuth/useEffect/useMemo 등 모든 hook 호출 이후에 분기하므로 hook 순서는 유지된다.
+  if (location.startsWith("/onboarding")) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       <style>{`
