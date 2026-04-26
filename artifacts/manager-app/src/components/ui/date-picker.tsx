@@ -19,6 +19,8 @@ export interface DatePickerProps {
   max?: string
 }
 
+const YEAR_SPAN = 5
+
 function parseISODate(value?: string): Date | undefined {
   if (!value) return undefined
   const d = parse(value, "yyyy-MM-dd", new Date())
@@ -44,6 +46,19 @@ export function DatePicker({
   const minDate = parseISODate(min)
   const maxDate = parseISODate(max)
 
+  const today = new Date()
+  const baseYear = (selected ?? today).getFullYear()
+  let fromYear = minDate ? minDate.getFullYear() : baseYear - YEAR_SPAN
+  let toYear = maxDate ? maxDate.getFullYear() : baseYear + YEAR_SPAN
+  // Clamp inverted ranges (e.g. only `max` set and it pre-dates today): the
+  // explicit bound wins; the unbounded side collapses onto it so the year
+  // dropdown never lists fewer than 1 year.
+  if (fromYear > toYear) {
+    if (minDate && !maxDate) toYear = fromYear
+    else if (maxDate && !minDate) fromYear = toYear
+    else fromYear = toYear = Math.min(fromYear, toYear)
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -67,6 +82,10 @@ export function DatePicker({
           mode="single"
           selected={selected}
           defaultMonth={selected}
+          fromYear={fromYear}
+          toYear={toYear}
+          fromDate={minDate}
+          toDate={maxDate}
           onSelect={(d) => {
             if (d) {
               onChange?.(toISODate(d))
