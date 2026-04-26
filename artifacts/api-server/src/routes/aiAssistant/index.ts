@@ -11,7 +11,9 @@ import { ai } from "@workspace/integrations-gemini-ai";
 import { requireRole } from "../../middlewares/auth";
 import {
   buildBuildingContext,
+  buildBuildingFacts,
   buildSystemPrompt,
+  summarizeRegisterData,
   GENERAL_NOTICE_LABEL,
   GENERAL_NOTICE_LINE,
   INSUFFICIENT_INFO_PREFIX,
@@ -118,6 +120,8 @@ export const __test = {
   stripEnglishKeyParens,
   ParenSanitizer,
   buildSystemPrompt,
+  buildBuildingFacts,
+  summarizeRegisterData,
   GENERAL_NOTICE_LABEL,
   GENERAL_NOTICE_LINE,
   INSUFFICIENT_INFO_PREFIX,
