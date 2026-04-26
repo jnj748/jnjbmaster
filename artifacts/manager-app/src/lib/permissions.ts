@@ -790,6 +790,8 @@ function platformAdminSidebar(): NavSection[] {
       items: [
         { path: "/platform-consents", label: "약관 관리", icon: FileText },
         { path: "/platform-announcements", label: `${SHARED_ROLE_LABELS.hq_executive} 알림(공지·캠페인)`, icon: Megaphone },
+        // [Task #415] 플랫폼 관리자 사이드바에 공지문 템플릿 관리 진입점 노출.
+        { path: "/platform/notice-templates", label: "공지문 템플릿 관리", icon: FileText },
         { path: "/platform-knowledge-docs", label: "AI 공통 자료", icon: BookOpen },
         { path: "/settings/task-templates", label: "업무 템플릿", icon: ClipboardList },
       ],
