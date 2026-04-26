@@ -742,25 +742,29 @@ function Shell({
   children: React.ReactNode;
 }) {
   const percent = Math.round(((stepIdx + 1) / total) * 100);
+  // [Task #403] 헤더가 세로 공간을 너무 차지한다는 사용자 피드백.
+  //   - hideProgress=true(인트로) 에서는 빈 "관리의달인 시작하기" 라벨이 한 줄을
+  //     통째로 차지했었다 → 라벨 제거, X 만 우측 정렬해 단일 행 헤더로 축소.
+  //   - hideProgress=false 에서는 진행 막대를 X 옆에 합쳐 한 행으로 노출,
+  //     상하 패딩도 줄여 hero 가 잘리지 않도록 한다.
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-md min-h-screen flex flex-col bg-white">
-        <div className="px-4 pt-4 pb-3 border-b border-slate-100 sticky top-0 bg-white z-10">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-slate-400">
-              {hideProgress ? "관리의달인 시작하기" : ""}
-            </span>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="닫기">
+        <div className="px-4 py-2 border-b border-slate-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-3">
+            {!hideProgress ? (
+              <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-600 transition-all" style={{ width: `${percent}%` }} />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
+            <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600 p-1 -m-1" aria-label="닫기">
               <X className="w-4 h-4" />
             </button>
           </div>
-          {!hideProgress && (
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-600 transition-all" style={{ width: `${percent}%` }} />
-            </div>
-          )}
         </div>
-        <div className="flex-1 px-4 py-5">{children}</div>
+        <div className="flex-1 px-4 py-3">{children}</div>
       </div>
     </div>
   );
@@ -813,18 +817,21 @@ function NavBar({
 /* ───────────────────────── 단계: 인트로 ───────────────────────── */
 
 function IntroStep({ onStart }: { onStart: () => void }) {
+  // [Task #403] 시니어 가독성을 위해 본문 폰트는 유지하면서 hero 의 상단 여백,
+  //   sparkles 아이콘 박스, 카드 그리드/시작 버튼 사이 간격만 좁혀 한 화면에
+  //   카드 3장 + 시작 버튼이 들어오도록 한다.
   return (
-    <div className="flex flex-col items-center text-center pt-6">
-      <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
-        <Sparkles className="w-8 h-8 text-blue-600" />
+    <div className="flex flex-col items-center text-center">
+      <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-2">
+        <Sparkles className="w-6 h-6 text-blue-600" />
       </div>
       <h1 className="text-xl font-bold text-slate-900">관리의달인이 도와드릴게요</h1>
-      <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+      <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
         매일 쓰는 보고서·공고문·기안서를 AI가 자동으로 작성해 드려요.<br/>
         주소만 알려주시면, 건축물대장에서 정보를 자동으로 가져옵니다.
       </p>
 
-      <div className="grid grid-cols-1 gap-3 w-full mt-6">
+      <div className="grid grid-cols-1 gap-2 w-full mt-4">
         <FeatureCard icon={<FileText className="w-5 h-5 text-blue-600" />} title="관리문서 자동생성" desc="공고문, 보고서, 기안서 등 모든 서류가 자동으로 생성되요" />
         <FeatureCard icon={<Megaphone className="w-5 h-5 text-emerald-600" />} title="보고서 자동생성" desc="일일, 주간, 월간 보고서가 자동으로 생성되요" />
         <FeatureCard icon={<ScrollText className="w-5 h-5 text-purple-600" />} title="법정점검검사 알림" desc="필수 법정점검과 검사를 주기에 맞춰 자동으로 알려줘요" />
@@ -833,11 +840,11 @@ function IntroStep({ onStart }: { onStart: () => void }) {
       <button
         type="button"
         onClick={onStart}
-        className="mt-7 w-full h-12 inline-flex items-center justify-center gap-1 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
+        className="mt-4 w-full h-12 inline-flex items-center justify-center gap-1 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl"
       >
         시작하기 <ChevronRight className="w-4 h-4" />
       </button>
-      <p className="text-[11px] text-slate-400 mt-2">약 1분이면 끝나요. 모르는 건 비워두셔도 됩니다.</p>
+      <p className="text-[11px] text-slate-400 mt-1.5">약 1분이면 끝나요. 모르는 건 비워두셔도 됩니다.</p>
     </div>
   );
 }
