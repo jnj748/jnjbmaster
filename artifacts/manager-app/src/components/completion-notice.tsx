@@ -416,30 +416,36 @@ export function CompletionNotice({
               onClick={handleShare}
               disabled={sharing}
               data-testid="btn-share"
-              className="w-full"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
             >
-              <Share2 className="w-4 h-4 mr-2" />
-              {sharing ? "공유 중..." : "외부 공유"}
+              <Share2 />
+              <span className="min-w-0 truncate">
+                {sharing ? "공유 중..." : "외부 공유"}
+              </span>
             </Button>
             <Button
               variant="outline"
               onClick={handleDownloadImage}
               disabled={exporting}
               data-testid="btn-save-image"
-              className="w-full"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
             >
-              <Download className="w-4 h-4 mr-2" />
-              {exporting ? "저장 중..." : "이미지 저장"}
+              <Download />
+              <span className="min-w-0 truncate">
+                {exporting ? "저장 중..." : "이미지 저장"}
+              </span>
             </Button>
             <Button
               variant="outline"
               onClick={handleDownloadDoc}
               disabled={exportingDoc}
               data-testid="btn-save-doc"
-              className="w-full"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
             >
-              <FileText className="w-4 h-4 mr-2" />
-              {exportingDoc ? "저장 중..." : "문서로 저장"}
+              <FileText />
+              <span className="min-w-0 truncate">
+                {exportingDoc ? "저장 중..." : "문서로 저장"}
+              </span>
             </Button>
           </div>
         </div>
