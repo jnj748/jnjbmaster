@@ -47,11 +47,33 @@ const reviewAggSq = db.$with("review_agg").as(
     .groupBy(vendorReviewsTable.vendorId),
 );
 
-// 단건 vendor 응답에 avgRating·reviewCount 를 채운다.
-// 모든 vendor-반환 엔드포인트가 동일한 응답 모델을 갖도록 보장한다.
-async function enrichVendorAggregates<T extends { id: number }>(
-  vendor: T,
-): Promise<T & { avgRating: number | null; reviewCount: number }> {
+// [Task #436] vendor 행을 응답으로 내보내는 모든 지점이 통과해야 하는 직렬화 헬퍼.
+//   drizzle 의 timestamp 컬럼은 JS Date 객체를 돌려주는데 응답 Zod 스키마
+//   (ListVendorsResponseItem / UpdateVendorResponse / GetRecommendedVendorsResponseItem)
+//   는 createdAt / updatedAt / joinedAt 을 ISO 문자열로 기대한다. 누락 시
+//   `*.parse(vendor)` 가 throw → 클라이언트는 500 만 받고 같은 다이얼로그 재시도로
+//   동일 vendor 가 중복 생성되는 사이드이펙트가 발생한다.
+//   `routes/contracts.ts:serializeContract` 와 같은 패턴을 vendor 에도 적용해
+//   POST /vendors, PATCH /vendors/:id, POST /vendors/register, GET /vendors,
+//   GET /vendors/recommend, GET/PATCH /me/vendor 모두 동일 헬퍼를 통과시킨다.
+function serializeVendor<T extends typeof vendorsTable.$inferSelect>(
+  v: T,
+): Omit<T, "joinedAt" | "createdAt" | "updatedAt"> & {
+  joinedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+} {
+  return {
+    ...v,
+    joinedAt: v.joinedAt ? v.joinedAt.toISOString() : null,
+    createdAt: v.createdAt.toISOString(),
+    updatedAt: v.updatedAt.toISOString(),
+  };
+}
+
+// 단건 vendor 응답에 avgRating·reviewCount 를 채우고 timestamp 를 ISO 문자열로
+// 직렬화한다. 모든 vendor-반환 엔드포인트가 동일한 응답 모델을 갖도록 보장한다.
+async function enrichVendorAggregates(vendor: typeof vendorsTable.$inferSelect) {
   const [agg] = await db
     .select({
       avgRating: sql<number | null>`avg(${vendorReviewsTable.rating})`.mapWith(Number),
@@ -61,7 +83,7 @@ async function enrichVendorAggregates<T extends { id: number }>(
     .where(eq(vendorReviewsTable.vendorId, vendor.id));
   const reviewCount = agg?.reviewCount ?? 0;
   return {
-    ...vendor,
+    ...serializeVendor(vendor),
     avgRating: reviewCount > 0 ? (agg?.avgRating ?? null) : null,
     reviewCount,
   };
@@ -116,14 +138,11 @@ router.get("/vendors", requireVendorReader, async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(vendorsTable.name);
 
-  // [Task #416] Zod 응답 스키마는 createdAt/updatedAt/joinedAt 을 ISO 문자열로 기대.
-  //   drizzle 의 timestamp 컬럼은 Date 객체를 돌려주므로 parse 직전에 직렬화한다.
-  //   (Task #339 에서 `enriched` 매핑이 추가된 이후 누적된 직렬화 누락을 동시에 해소.)
+  // [Task #436] timestamp 직렬화는 serializeVendor 헬퍼로 일원화 — 응답 모델은
+  //   ISO 문자열을 기대한다. (Task #339 에서 `enriched` 매핑이 추가된 이후 누적된
+  //   직렬화 누락을 동시에 해소.)
   const enriched = vendors.map((row) => ({
-    ...row.vendor,
-    joinedAt: row.vendor.joinedAt ? row.vendor.joinedAt.toISOString() : null,
-    createdAt: row.vendor.createdAt.toISOString(),
-    updatedAt: row.vendor.updatedAt.toISOString(),
+    ...serializeVendor(row.vendor),
     avgRating: row.avgRating ?? null,
     reviewCount: row.reviewCount ?? 0,
   }));
@@ -139,7 +158,15 @@ router.post("/vendors", requireVendorWriter, async (req, res): Promise<void> => 
   }
 
   const [vendor] = await db.insert(vendorsTable).values(parsed.data).returning();
-  res.status(201).json(UpdateVendorResponse.parse(vendor));
+  // [Task #436] timestamp 직렬화 포함. avgRating/reviewCount 는 신규 vendor 라
+  //   집계 자체가 비어 있어 별도 조회 없이 기본값으로 채운다.
+  res.status(201).json(
+    UpdateVendorResponse.parse({
+      ...serializeVendor(vendor),
+      avgRating: null,
+      reviewCount: 0,
+    }),
+  );
 });
 
 router.patch("/vendors/:id", requireVendorWriter, async (req, res): Promise<void> => {
@@ -166,7 +193,8 @@ router.patch("/vendors/:id", requireVendorWriter, async (req, res): Promise<void
     return;
   }
 
-  res.json(UpdateVendorResponse.parse(vendor));
+  // [Task #436] timestamp 직렬화 + 누적 평가 집계 포함.
+  res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
 
 router.delete("/vendors/:id", requireVendorWriter, async (req, res): Promise<void> => {
@@ -217,8 +245,9 @@ router.get("/vendors/recommend", requireVendorWriter, async (req, res): Promise<
     )
     .orderBy(desc(vendorsTable.rating));
 
+  // [Task #436] timestamp 직렬화 + 평가 집계 통합.
   const enriched = vendors.map((row) => ({
-    ...row.vendor,
+    ...serializeVendor(row.vendor),
     avgRating: row.avgRating ?? null,
     reviewCount: row.reviewCount ?? 0,
   }));
@@ -286,7 +315,9 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
     vendorRow = inserted;
     await db.update(usersTable).set({ vendorId: vendorRow.id }).where(eq(usersTable.id, userId));
   }
-  res.status(200).json({ vendor: vendorRow });
+  // [Task #436] 응답 모델은 Zod 검증을 거치지 않지만 클라이언트가 ISO 문자열을
+  //   기대하므로 다른 vendor 응답과 동일한 직렬화를 적용해 일관성을 유지한다.
+  res.status(200).json({ vendor: vendorRow ? serializeVendor(vendorRow) : vendorRow });
 });
 
 // [Task #290] partner 자기 업체 전용 엔드포인트.
@@ -362,7 +393,14 @@ router.post("/vendors/register", requireVendorWriter, async (req, res): Promise<
     })
     .returning();
 
-  res.status(201).json(UpdateVendorResponse.parse(vendor));
+  // [Task #436] timestamp 직렬화 + 평가 집계 기본값 채워서 응답 통일.
+  res.status(201).json(
+    UpdateVendorResponse.parse({
+      ...serializeVendor(vendor),
+      avgRating: null,
+      reviewCount: 0,
+    }),
+  );
 });
 
 export default router;
