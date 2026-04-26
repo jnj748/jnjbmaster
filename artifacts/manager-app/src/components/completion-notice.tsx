@@ -511,13 +511,6 @@ function NoticeBody(props: {
   } = props;
   return (
     <>
-      <div className="flex justify-end mb-3">
-        <div className="border border-black text-xs">
-          <div className="px-3 py-1 border-b border-black text-center font-medium">게시기간</div>
-          <div className="px-3 py-1 text-center">{postingPeriod}</div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b-2 border-black pb-4">
         <div className="flex items-center justify-start">
           {logoUrl ? (
@@ -531,7 +524,12 @@ function NoticeBody(props: {
         <h1 className="text-3xl font-bold tracking-[0.4em] text-center" style={{ whiteSpace: "nowrap" }}>
           공 고 문
         </h1>
-        <div />
+        <div className="flex items-center justify-end">
+          <div className="border border-black text-xs">
+            <div className="px-3 py-1 border-b border-black text-center font-medium">게시기간</div>
+            <div className="px-3 py-1 text-center">{postingPeriod}</div>
+          </div>
+        </div>
       </div>
 
       <table className="w-full text-xs border-collapse mt-3">
