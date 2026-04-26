@@ -11,6 +11,7 @@ import {
   resolveConsentRole,
   type ConsentDocument,
 } from "@/components/consent-section";
+import { LoginBrandPanel } from "@/components/login-brand-panel";
 
 const DevQuickLogin = import.meta.env.DEV
   ? lazy(() => import("@/components/dev-quick-login"))
@@ -249,27 +250,56 @@ export default function Login() {
   // - 모바일: dvh + overflow-hidden 으로 페이지 스크롤바를 제거하고 카드 내부만 스크롤(앱 느낌).
   // - 데스크톱(md+): 셸을 해제(min-h-screen + 자동 높이 + 화면 중앙 정렬)하고 카드는 콘텐츠 높이로
   //   자연스럽게 줄어들도록 한다. 시니어 이용자 가시성을 위해 폰트와 여백을 한 단계 확대한다.
+  // [Task #444] 좌·우 분할 + 브랜드 컬러 풀스크린 배경:
+  // - 데스크톱(md+): 좌측 브랜드 패널 + 우측 로그인 카드의 2 컬럼 그리드.
+  // - 모바일(< md): 기존처럼 단일 칼럼(상단 브랜드 패널 → 하단 로그인 카드)으로 스택.
+  // - 회원가입 모드에서는 모바일 브랜드 패널을 컴팩트하게 축약해 폼 스크롤이 길어지지 않게 한다.
+  // 배경은 브랜드 컬러(짙은 네이비 → 보라) 그라데이션. 카드 내부는 기존 슬레이트 톤을 유지하므로
+  // 어두운 배경 위에서도 본문 텍스트의 가독성/대비가 유지된다.
+  const showBackButton = !!portalTypeParam;
   return (
     <div
-      className="flex flex-col overflow-hidden md:overflow-visible md:justify-center h-[100dvh] md:h-auto md:min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"
+      className="flex flex-col overflow-hidden md:overflow-visible md:justify-stretch h-[100dvh] md:h-auto md:min-h-screen bg-gradient-to-br from-[hsl(212,72%,12%)] via-[hsl(232,70%,22%)] to-[hsl(258,72%,32%)]"
       style={{
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      {/* 헤더: 뒤로가기 (포털별 페이지에서 통합 /login 으로 돌아가는 단축 경로) */}
-      <div className="shrink-0 w-full max-w-md mx-auto px-5 pt-3 pb-1 md:pt-6">
-        <button
-          onClick={() => setLocation("/login")}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          로그인으로 돌아가기
-        </button>
-      </div>
+      {/* 헤더: 뒤로가기 (포털별 페이지에서 통합 /login 으로 돌아가는 단축 경로).
+          통합 /login 진입 시에는 돌아갈 곳이 없으므로 숨긴다. */}
+      {showBackButton && (
+        <div className="shrink-0 w-full max-w-md md:max-w-none mx-auto px-5 md:px-8 pt-3 pb-1 md:pt-5">
+          <button
+            onClick={() => setLocation("/login")}
+            className="flex items-center gap-1 text-sm text-white/75 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            로그인으로 돌아가기
+          </button>
+        </div>
+      )}
 
-      {/* 본문: 카드 (모바일 flex-1 + 내부 스크롤, 데스크톱은 콘텐츠 높이) */}
-      <div className="flex-1 min-h-0 md:flex-none w-full max-w-md mx-auto px-4 pt-3 pb-2 md:py-4 flex flex-col">
+      {/* 좌·우 분할 본문: 모바일 단일 칼럼(브랜드 패널 → 카드) / 데스크톱 2 컬럼 그리드.
+          데스크톱에선 좌측 6 / 우측 6 비율로 두고, 큰 화면(lg+)에선 좌측에 약간 더 폭을 준다. */}
+      <div className="flex-1 min-h-0 md:flex-none md:flex-1 w-full md:grid md:grid-cols-12 md:gap-6 md:items-stretch md:px-8">
+        {/* 좌측 브랜드 패널 — 데스크톱: 항상 표시(6/12) / 모바일: 회원가입 진입 시
+            세로 스크롤 폭증을 막기 위해 숨긴다. 그 외 로그인 모드에서는 카드 위에 컴팩트로 노출. */}
+        <div
+          className={`${isRegister ? "hidden md:flex" : "flex"} md:col-span-6 lg:col-span-7 md:items-center`}
+        >
+          {/* 모바일에서는 항상 컴팩트 톤으로 짧게(정렬·크기 모두 축소). */}
+          <div className="w-full">
+            <div className="md:hidden">
+              <LoginBrandPanel compact />
+            </div>
+            <div className="hidden md:block w-full">
+              <LoginBrandPanel />
+            </div>
+          </div>
+        </div>
+
+        {/* 우측 로그인 카드 영역 */}
+        <div className="flex-1 min-h-0 md:flex-none md:col-span-6 lg:col-span-5 w-full max-w-md md:max-w-lg mx-auto px-4 pt-3 pb-2 md:py-6 flex flex-col md:justify-center">
         <form
           onSubmit={handleSubmit}
           className="flex-1 min-h-0 md:flex-none h-full md:h-auto flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
@@ -289,13 +319,15 @@ export default function Login() {
               <div>
                 <h1
                   className={`text-lg md:text-xl font-semibold leading-tight ${
-                    isRegister ? "text-slate-900" : "text-violet-600"
+                    isRegister ? "text-slate-900" : "text-slate-900"
                   }`}
                 >
-                  {isRegister ? "회원가입" : "관리의달인"}
+                  {/* [Task #444] 좌측 브랜드 패널과의 중복을 피하기 위해
+                      카드 타이틀은 화면 의도(로그인/회원가입)만 간결히 노출. */}
+                  {isRegister ? "회원가입" : "로그인"}
                 </h1>
                 <p className="text-sm text-slate-500 leading-tight">
-                  건물관리 AI자동화 솔루션
+                  {isHq ? "본사 · 플랫폼 전용 포털" : "이메일·비밀번호로 로그인하세요"}
                 </p>
               </div>
             </div>
@@ -524,9 +556,11 @@ export default function Login() {
             )}
           </div>
         </form>
+        </div>
       </div>
 
-      {/* [Task #403] PWA 새 보라 로고 안내 (기존 설치자만 일시적으로 노출) */}
+      {/* [Task #403] PWA 새 보라 로고 안내 (기존 설치자만 일시적으로 노출).
+          어두운 브랜드 배경 위에서도 노란/보라 박스가 또렷하게 보이도록 컴포넌트 자체 톤을 유지한다. */}
       <PwaIconRefreshNotice />
 
       {/* 푸터: 개발 환경 빠른 로그인 */}
