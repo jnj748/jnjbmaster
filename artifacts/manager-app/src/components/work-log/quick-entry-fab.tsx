@@ -74,6 +74,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
   const [status, setStatus] = useState<Status>("occurred");
   const [memo, setMemo] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpDetection, setFollowUpDetection] = useState<FollowUpDetection | null>(null);
@@ -84,6 +85,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
     alertMessage: string;
     completedDate: string;
     photoUrl: string | null;
+    widePhotoUrl: string | null;
   } | null>(null);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
@@ -94,6 +96,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
     setStatus("occurred");
     setMemo("");
     setPhotoUrl(null);
+    setWidePhotoUrl(null);
   }
 
   async function submit() {
@@ -132,6 +135,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
           alertMessage: trimmed,
           completedDate: today,
           photoUrl: photoUrl ?? null,
+          widePhotoUrl: widePhotoUrl ?? null,
         });
         setCompletionOpen(true);
       } else {
@@ -258,7 +262,22 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
               />
             </div>
 
-            <PhotoUploadField label="사진 (선택)" value={photoUrl} onChange={setPhotoUrl} />
+            <div className="grid grid-cols-2 gap-3">
+              <PhotoUploadField
+                label="근경 (선택)"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+                compact
+                testId="fab-photo-close"
+              />
+              <PhotoUploadField
+                label="원경 (선택)"
+                value={widePhotoUrl}
+                onChange={setWidePhotoUrl}
+                compact
+                testId="fab-photo-wide"
+              />
+            </div>
 
             <Button onClick={submit} disabled={submitting} className="w-full" data-testid="fab-submit">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -287,7 +306,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
           completedDate={completionData.completedDate}
           notes={null}
           closeUpPhotoUrl={completionData.photoUrl}
-          widePhotoUrl={null}
+          widePhotoUrl={completionData.widePhotoUrl}
           buildingName={building?.name}
           officeContact={
             building?.managementOfficePhone

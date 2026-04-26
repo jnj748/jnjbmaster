@@ -24,12 +24,17 @@ interface PhotoUploadFieldProps {
    * specific upload fields.
    */
   testId?: string;
+  /**
+   * [Task #412] true 면 미리보기와 트리거 버튼 모두 작은 정사각 썸네일로 렌더링한다.
+   * 모바일 ‘업무기록’ 다이얼로그처럼 좁은 공간에 사진 입력을 2개 나란히 배치할 때 사용.
+   */
+  compact?: boolean;
 }
 
 const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-export function PhotoUploadField({ label, value, onChange, testId }: PhotoUploadFieldProps) {
+export function PhotoUploadField({ label, value, onChange, testId, compact = false }: PhotoUploadFieldProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -99,7 +104,11 @@ export function PhotoUploadField({ label, value, onChange, testId }: PhotoUpload
           <AuthImage
             src={value}
             alt={label}
-            className="w-full max-w-[200px] h-auto rounded-lg border object-cover"
+            className={
+              compact
+                ? "w-24 h-24 rounded-lg border object-cover"
+                : "w-full max-w-[200px] h-auto rounded-lg border object-cover"
+            }
           />
           <button
             type="button"
@@ -138,20 +147,24 @@ export function PhotoUploadField({ label, value, onChange, testId }: PhotoUpload
             type="button"
             variant="outline"
             size="sm"
-            className="w-full h-20 flex flex-col gap-1 border-dashed"
+            className={
+              compact
+                ? "w-24 h-24 flex flex-col gap-1 border-dashed p-0"
+                : "w-full h-20 flex flex-col gap-1 border-dashed"
+            }
             onClick={() => setPickerOpen(true)}
             disabled={isUploading}
             data-testid={testId ? `${testId}-trigger` : undefined}
           >
             {isUploading ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className={compact ? "w-4 h-4 animate-spin" : "w-5 h-5 animate-spin"} />
                 <span className="text-xs">{progress}%</span>
               </>
             ) : (
               <>
-                <Camera className="w-5 h-5" />
-                <span className="text-xs">촬영 또는 선택</span>
+                <Camera className={compact ? "w-4 h-4" : "w-5 h-5"} />
+                <span className="text-[11px] leading-tight">촬영 또는 선택</span>
               </>
             )}
           </Button>
