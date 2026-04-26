@@ -296,6 +296,7 @@ export * from "./managementContractTemplate";
 export * from "./managementContractTemplateAdditionalClauses";
 export * from "./markAnnouncementRead200";
 export * from "./markCampaignRead200";
+export * from "./memoOcrResult";
 export * from "./meterCsvUploadBody";
 export * from "./meterCsvUploadBodyMeterType";
 export * from "./meterCsvUploadBodyRowsItem";

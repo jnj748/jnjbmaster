@@ -66,6 +66,7 @@ import accountingInitialFilesRouter from "./accountingInitialFiles";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
 import workLogsRouter from "./workLogs";
+import memoOcrRouter from "./memoOcr";
 import taskTemplatesRouter from "./taskTemplates";
 import usageAnalyticsRouter from "./usageAnalytics";
 
@@ -161,6 +162,7 @@ buildingRouter.use(contractsRouter);
 buildingRouter.use(onboardingRouter);
 buildingRouter.use(buildingRecordsRouter);
 buildingRouter.use(workLogsRouter);
+buildingRouter.use(memoOcrRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);

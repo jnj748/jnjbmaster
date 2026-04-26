@@ -43,6 +43,7 @@ import {
   FileText,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+import { MemoInputFooter } from "@/components/memo-input-footer";
 import { CompletionNotice } from "@/components/completion-notice";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { useToast } from "@/hooks/use-toast";
@@ -441,11 +442,20 @@ export function AlertActionDialog({
                     <PhotoUploadField label="원경 사진" value={widePhotoUrl} onChange={setWidePhotoUrl} />
                   </div>
                   <div>
-                    <Label>비고</Label>
+                    <Label>메모</Label>
                     <Textarea
                       value={actionNotes}
                       onChange={(e) => setActionNotes(e.target.value)}
                       placeholder="처리 내용을 기록하세요"
+                      data-testid="alert-complete-memo"
+                    />
+                    <MemoInputFooter
+                      testId="alert-complete-memo"
+                      onInsert={(text) =>
+                        setActionNotes((prev) =>
+                          prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text,
+                        )
+                      }
                     />
                   </div>
                   <Button className="w-full" onClick={handleComplete} disabled={createActionMutation.isPending}>
@@ -484,11 +494,20 @@ export function AlertActionDialog({
                     </Select>
                   </div>
                   <div>
-                    <Label>비고</Label>
+                    <Label>메모</Label>
                     <Textarea
                       value={actionNotes}
                       onChange={(e) => setActionNotes(e.target.value)}
                       placeholder="연기 관련 상세 내용"
+                      data-testid="alert-postpone-memo"
+                    />
+                    <MemoInputFooter
+                      testId="alert-postpone-memo"
+                      onInsert={(text) =>
+                        setActionNotes((prev) =>
+                          prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text,
+                        )
+                      }
                     />
                   </div>
                   <Button className="w-full" variant="secondary" onClick={handlePostpone} disabled={createActionMutation.isPending}>
@@ -520,11 +539,20 @@ export function AlertActionDialog({
                     <PhotoUploadField label="원경 사진" value={rfqWidePhotoUrl} onChange={setRfqWidePhotoUrl} />
                   </div>
                   <div>
-                    <Label>비고</Label>
+                    <Label>메모</Label>
                     <Textarea
                       value={actionNotes}
                       onChange={(e) => setActionNotes(e.target.value)}
                       placeholder="견적 요청 시 참고사항"
+                      data-testid="alert-rfq-memo"
+                    />
+                    <MemoInputFooter
+                      testId="alert-rfq-memo"
+                      onInsert={(text) =>
+                        setActionNotes((prev) =>
+                          prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text,
+                        )
+                      }
                     />
                   </div>
                   <Button className="w-full" variant="default" onClick={handleRfqRequest} disabled={createActionMutation.isPending || createRfqMutation.isPending}>

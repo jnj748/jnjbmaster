@@ -218,6 +218,7 @@ import type {
   ManagementContractTemplate,
   MarkAnnouncementRead200,
   MarkCampaignRead200,
+  MemoOcrResult,
   MeterCsvUploadBody,
   MeterCsvUploadResponse,
   MeterReading,
@@ -246,6 +247,7 @@ import type {
   ReviewReportBody,
   Rfq,
   RfqAdminStatsResponse,
+  RunMemoOcrBody,
   RunVehicleInspection200,
   SafetyChecklist,
   SafetyChecklistDetail,
@@ -11092,6 +11094,98 @@ export const useCheckContractRenewalAlerts = <
   TContext
 > => {
   return useMutation(getCheckContractRenewalAlertsMutationOptions(options));
+};
+
+/**
+ * Task #465. Accepts an already-uploaded object path (PDF/JPEG/PNG/WEBP/HEIC),
+runs Gemini 2.5 Flash with a Korean handwriting-friendly prompt, and returns
+the extracted plain text. The result is **not** stored — the caller previews
+and appends to the memo field. Used by the alert-action and quick-entry
+memo "메모 AI입력" buttons.
+
+ * @summary OCR a handwritten/printed memo photo and return extracted plain text
+ */
+export const getRunMemoOcrUrl = () => {
+  return `/api/memos/ocr`;
+};
+
+export const runMemoOcr = async (
+  runMemoOcrBody: RunMemoOcrBody,
+  options?: RequestInit,
+): Promise<MemoOcrResult> => {
+  return customFetch<MemoOcrResult>(getRunMemoOcrUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(runMemoOcrBody),
+  });
+};
+
+export const getRunMemoOcrMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runMemoOcr>>,
+    TError,
+    { data: BodyType<RunMemoOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runMemoOcr>>,
+  TError,
+  { data: BodyType<RunMemoOcrBody> },
+  TContext
+> => {
+  const mutationKey = ["runMemoOcr"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runMemoOcr>>,
+    { data: BodyType<RunMemoOcrBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runMemoOcr(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunMemoOcrMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runMemoOcr>>
+>;
+export type RunMemoOcrMutationBody = BodyType<RunMemoOcrBody>;
+export type RunMemoOcrMutationError = ErrorType<void>;
+
+/**
+ * @summary OCR a handwritten/printed memo photo and return extracted plain text
+ */
+export const useRunMemoOcr = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runMemoOcr>>,
+    TError,
+    { data: BodyType<RunMemoOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runMemoOcr>>,
+  TError,
+  { data: BodyType<RunMemoOcrBody> },
+  TContext
+> => {
+  return useMutation(getRunMemoOcrMutationOptions(options));
 };
 
 /**

@@ -3830,6 +3830,28 @@ export const CheckContractRenewalAlertsResponse = zod.object({
 });
 
 /**
+ * Task #465. Accepts an already-uploaded object path (PDF/JPEG/PNG/WEBP/HEIC),
+runs Gemini 2.5 Flash with a Korean handwriting-friendly prompt, and returns
+the extracted plain text. The result is **not** stored — the caller previews
+and appends to the memo field. Used by the alert-action and quick-entry
+memo "메모 AI입력" buttons.
+
+ * @summary OCR a handwritten/printed memo photo and return extracted plain text
+ */
+export const RunMemoOcrBody = zod.object({
+  objectPath: zod.string(),
+  fileName: zod.string().nullish(),
+});
+
+export const RunMemoOcrResponse = zod
+  .object({
+    text: zod.string(),
+  })
+  .describe(
+    "Task #465. Plain text extracted from a handwritten\/printed memo photo\nby Gemini OCR. The caller appends `text` to the existing memo (no DB write).\n",
+  );
+
+/**
  * Task #369. Accepts an already-uploaded object path (object storage), runs OCR
 with Gemini 2.5 Flash, and returns vendor / business reg number / representative /
 period / amount / category / auto-renewal / title candidates with per-field

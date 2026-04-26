@@ -2663,6 +2663,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContractRenewalAlertResponse"
 
+  /memos/ocr:
+    post:
+      operationId: runMemoOcr
+      tags: [memos]
+      summary: OCR a handwritten/printed memo photo and return extracted plain text
+      description: |
+        Task #465. Accepts an already-uploaded object path (PDF/JPEG/PNG/WEBP/HEIC),
+        runs Gemini 2.5 Flash with a Korean handwriting-friendly prompt, and returns
+        the extracted plain text. The result is **not** stored — the caller previews
+        and appends to the memo field. Used by the alert-action and quick-entry
+        memo "메모 AI입력" buttons.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                objectPath:
+                  type: string
+                fileName:
+                  type: ["string", "null"]
+              required: [objectPath]
+      responses:
+        "200":
+          description: Extracted memo text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoOcrResult"
+        "400":
+          description: Missing or invalid objectPath
+        "403":
+          description: No access to the uploaded object
+        "404":
+          description: Object not found
+        "500":
+          description: OCR failed
+
   /contracts/ocr-preview:
     post:
       operationId: previewContractOcr
@@ -12943,6 +12982,17 @@ components:
       required:
         - alertsGenerated
         - contracts
+
+    MemoOcrResult:
+      type: object
+      description: |
+        Task #465. Plain text extracted from a handwritten/printed memo photo
+        by Gemini OCR. The caller appends `text` to the existing memo (no DB write).
+      properties:
+        text:
+          type: string
+      required:
+        - text
 
     ContractOcrPreview:
       type: object

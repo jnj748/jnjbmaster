@@ -5393,6 +5393,15 @@ export interface ContractRenewalAlertResponse {
   contracts: Contract[];
 }
 
+/**
+ * Task #465. Plain text extracted from a handwritten/printed memo photo
+by Gemini OCR. The caller appends `text` to the existing memo (no DB write).
+
+ */
+export interface MemoOcrResult {
+  text: string;
+}
+
 export type ContractOcrPreviewFieldConfidence = { [key: string]: number };
 
 /**
@@ -5627,6 +5636,12 @@ export type ListContractsParams = {
 
 export type TransitionContractStatusBody = {
   status: string;
+};
+
+export type RunMemoOcrBody = {
+  objectPath: string;
+  /** @nullable */
+  fileName?: string | null;
 };
 
 export type PreviewContractOcrBody = {

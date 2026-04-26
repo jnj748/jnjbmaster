@@ -1,0 +1,276 @@
+// [Task #465] 메모 AI입력 — 카메라/사진첩에서 메모 사진을 골라 OCR 한 뒤
+// 결과를 미리보기/편집 후 호출측 onInsert 콜백으로 전달한다.
+//
+// 사용 흐름:
+//   1) 사용자가 "메모 AI입력" 버튼을 누르면 카메라/앨범 선택 시트가 열린다
+//      (PhotoUploadField 의 시트 패턴을 그대로 재사용).
+//   2) 파일 선택 → 오브젝트 스토리지로 업로드 → POST /memos/ocr 로 OCR.
+//   3) 인식 결과를 텍스트영역으로 보여주고, "메모에 추가"를 누르면
+//      onInsert(text) 콜백으로 호출측이 기존 메모 끝에 줄바꿈으로 이어 붙인다
+//      (VoiceInputDialog 와 같은 누적 UX).
+//
+// 어떤 입력 수단(타이핑/음성/AI입력)을 쓰든 결과가 같은 메모 state 한 곳에
+// 누적되도록, 본 컴포넌트는 메모 state 자체는 들고 있지 않고 콜백만 호출한다.
+
+import { useRef, useState } from "react";
+import { Camera, ImagePlus, Loader2, Sparkles } from "lucide-react";
+import { useUpload } from "@workspace/object-storage-web";
+import { useRunMemoOcr } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+interface MemoAiInputButtonProps {
+  onInsert: (text: string) => void;
+  /**
+   * data-testid 접두사. 버튼/시트 항목/다이얼로그에 일관된 testid 가 붙는다.
+   * 예) "fab-memo-ai" → fab-memo-ai-trigger / fab-memo-ai-confirm 등.
+   */
+  testId?: string;
+  /** "메모 AI입력" 버튼에 적용할 추가 클래스 (예: 너비 조정). */
+  className?: string;
+}
+
+export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputButtonProps) {
+  const { token } = useAuth();
+  const { toast } = useToast();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [resultText, setResultText] = useState("");
+  const [pendingFileName, setPendingFileName] = useState<string | null>(null);
+
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+
+  const ocrMutation = useRunMemoOcr();
+
+  const { uploadFile, isUploading } = useUpload({
+    basePath: `${apiBase}/storage`,
+    authToken: token,
+    onSuccess: async (response) => {
+      try {
+        const result = await ocrMutation.mutateAsync({
+          data: {
+            objectPath: response.objectPath,
+            fileName: pendingFileName ?? undefined,
+          },
+        });
+        const text = (result.text ?? "").trim();
+        if (!text) {
+          toast({
+            title: "인식된 메모가 없습니다",
+            description: "사진에서 글자를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setResultText(text);
+        setPreviewOpen(true);
+      } catch (err) {
+        toast({
+          title: "메모 AI입력 실패",
+          description: err instanceof Error ? err.message : "OCR 처리 중 오류가 발생했습니다",
+          variant: "destructive",
+        });
+      } finally {
+        setPendingFileName(null);
+      }
+    },
+    onError: (err) => {
+      toast({
+        title: "사진 업로드 실패",
+        description: err instanceof Error ? err.message : "다시 시도해주세요",
+        variant: "destructive",
+      });
+      setPendingFileName(null);
+    },
+  });
+
+  const busy = isUploading || ocrMutation.isPending;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast({
+        title: "사진 용량이 너무 큽니다",
+        description: `최대 ${MAX_FILE_SIZE_MB}MB까지 업로드할 수 있습니다.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setPendingFileName(file.name);
+    uploadFile(file);
+  }
+
+  function pickCamera() {
+    setPickerOpen(false);
+    setTimeout(() => cameraInputRef.current?.click(), 50);
+  }
+
+  function pickGallery() {
+    setPickerOpen(false);
+    setTimeout(() => galleryInputRef.current?.click(), 50);
+  }
+
+  function handleConfirm() {
+    const text = resultText.trim();
+    if (text.length > 0) {
+      onInsert(text);
+    }
+    setPreviewOpen(false);
+    setResultText("");
+  }
+
+  return (
+    <>
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+        data-testid={testId ? `${testId}-camera-input` : undefined}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        onChange={handleFileChange}
+        className="hidden"
+        data-testid={testId ? `${testId}-gallery-input` : undefined}
+      />
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={className}
+        onClick={() => setPickerOpen(true)}
+        disabled={busy}
+        data-testid={testId ? `${testId}-trigger` : "memo-ai-input-trigger"}
+        aria-label="메모 AI입력"
+      >
+        {busy ? (
+          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+        ) : (
+          <Sparkles className="w-4 h-4 mr-1" />
+        )}
+        {busy ? "인식 중..." : "메모 AI입력"}
+      </Button>
+
+      <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl pt-3" hideClose>
+          <div
+            aria-hidden
+            className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-slate-300"
+          />
+          <SheetHeader>
+            <SheetTitle className="text-left">메모 사진 선택</SheetTitle>
+          </SheetHeader>
+          <p className="px-1 pt-1 text-xs text-muted-foreground">
+            손글씨·인쇄·포스트잇 메모 사진을 올리면 글자만 추출해 메모란에 넣어드려요.
+          </p>
+          <div className="grid gap-2 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-14 justify-start gap-3 text-base"
+              onClick={pickCamera}
+              data-testid={testId ? `${testId}-pick-camera` : "memo-ai-input-pick-camera"}
+            >
+              <Camera className="w-5 h-5" />
+              촬영
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-14 justify-start gap-3 text-base"
+              onClick={pickGallery}
+              data-testid={testId ? `${testId}-pick-gallery` : "memo-ai-input-pick-gallery"}
+            >
+              <ImagePlus className="w-5 h-5" />
+              앨범에서 선택
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full h-12"
+              onClick={() => setPickerOpen(false)}
+            >
+              취소
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(v) => {
+          setPreviewOpen(v);
+          if (!v) setResultText("");
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          data-testid={testId ? `${testId}-preview-dialog` : "memo-ai-input-preview"}
+        >
+          <DialogHeader>
+            <DialogTitle>메모 AI입력 — 인식 결과</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">
+              인식된 텍스트 (직접 수정 가능)
+            </label>
+            <Textarea
+              value={resultText}
+              onChange={(e) => setResultText(e.target.value)}
+              rows={6}
+              placeholder="인식된 메모가 여기에 표시됩니다"
+              data-testid={testId ? `${testId}-edit-text` : "memo-ai-input-edit"}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setPreviewOpen(false)}
+              data-testid={testId ? `${testId}-cancel` : "memo-ai-input-cancel"}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={resultText.trim().length === 0}
+              data-testid={testId ? `${testId}-confirm` : "memo-ai-input-confirm"}
+            >
+              메모에 추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
