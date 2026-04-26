@@ -729,7 +729,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
                       <td className="border border-gray-400 p-2 text-center">
                         {status === "ok" ? "이상 없음" : "특이사항"}
                       </td>
-                      <td className="border border-gray-400 p-2 whitespace-pre-line">{memo || "-"}</td>
+                      <td className="border border-gray-400 p-2 whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{memo || "-"}</td>
                     </tr>
                   );
                 })}
@@ -765,7 +765,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
                 {report.entries.map((e) => (
                   <tr key={e.id} className="break-inside-avoid align-middle">
                     <td className="border border-gray-400 p-2 align-middle">{CATEGORY_LABEL[e.category]}</td>
-                    <td className="border border-gray-400 p-2 whitespace-pre-line break-words align-middle">{e.memo}</td>
+                    <td className="border border-gray-400 p-2 whitespace-pre-line break-words align-middle text-justify" style={{ textJustify: "inter-word" }}>{e.memo}</td>
                     <td className="border border-gray-400 p-1 text-center align-middle">
                       <div
                         className={`mx-auto w-[180px] print:w-[85mm] aspect-video overflow-hidden rounded border bg-gray-50 ${
@@ -1104,7 +1104,7 @@ function WeeklyA4ReportBody({ report }: { report: WeeklyReport }) {
       </table>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 주간 요약</p>
-      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3" data-testid="weekly-text-summary">
+      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3 text-justify" style={{ textJustify: "inter-word" }} data-testid="weekly-text-summary">
         {report.textSummary || "기록 없음"}
       </div>
 
@@ -1348,7 +1348,7 @@ function MonthlyA4ReportBody({ report }: { report: MonthlyReport }) {
       </table>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 월간 요약</p>
-      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3" data-testid="monthly-text-summary">
+      <div className="text-[14px] leading-7 whitespace-pre-line border border-gray-300 rounded p-3 text-justify" style={{ textJustify: "inter-word" }} data-testid="monthly-text-summary">
         {report.textSummary || "기록 없음"}
       </div>
 
@@ -1373,7 +1373,7 @@ function MonthlyA4ReportBody({ report }: { report: MonthlyReport }) {
                 <td className="border border-gray-400 p-2 text-center">{w.totalJournals}일</td>
                 <td className="border border-gray-400 p-2 text-center">{w.totalEntries}건</td>
                 <td className="border border-gray-400 p-2 text-center">{w.issues}건</td>
-                <td className="border border-gray-400 p-2 whitespace-pre-line">{w.textSummary || "-"}</td>
+                <td className="border border-gray-400 p-2 whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{w.textSummary || "-"}</td>
               </tr>
             ))}
           </tbody>

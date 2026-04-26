@@ -558,7 +558,7 @@ function NoticeBody(props: {
       </div>
 
       <div className="text-[15px] leading-8 px-2">
-        <p className="whitespace-pre-line">{body}</p>
+        <p className="whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{body}</p>
       </div>
 
       <div className="mt-6 rounded border border-gray-300 px-4 py-3 text-sm space-y-1.5 bg-gray-50">
@@ -575,7 +575,7 @@ function NoticeBody(props: {
       {notesText && (
         <div className="mt-4 text-sm">
           <p className="font-semibold mb-1">■ 비고</p>
-          <p className="whitespace-pre-line">{notesText}</p>
+          <p className="whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{notesText}</p>
         </div>
       )}
 
@@ -646,12 +646,12 @@ function ReportBody(props: {
       </table>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 보고 내용</p>
-      <div className="text-[15px] leading-7 whitespace-pre-line">{body}</div>
+      <div className="text-[15px] leading-7 whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{body}</div>
 
       {notesText && (
         <>
           <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 특이사항 / 조치 의견</p>
-          <div className="text-sm border border-gray-300 rounded p-3 whitespace-pre-line leading-6">{notesText}</div>
+          <div className="text-sm border border-gray-300 rounded p-3 whitespace-pre-line leading-6 text-justify" style={{ textJustify: "inter-word" }}>{notesText}</div>
         </>
       )}
 
@@ -720,12 +720,12 @@ function DraftBody(props: {
       </p>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 주요 내용</p>
-      <div className="text-[15px] leading-7 whitespace-pre-line">{body}</div>
+      <div className="text-[15px] leading-7 whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{body}</div>
 
       {notesText && (
         <>
           <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">3. 특이사항</p>
-          <div className="text-sm border border-gray-300 rounded p-3 whitespace-pre-line leading-6">{notesText}</div>
+          <div className="text-sm border border-gray-300 rounded p-3 whitespace-pre-line leading-6 text-justify" style={{ textJustify: "inter-word" }}>{notesText}</div>
         </>
       )}
 
