@@ -66,6 +66,7 @@ import {
   ACTIONABLE_ALERT_TYPES,
   ALERT_FALLBACK_ROUTES,
   getDdayLabel,
+  getTestTaskCardOverride,
 } from "@/lib/alert-utils";
 // [Task #142] BuildingInfoCard 는 building-info-widget 으로 추출되어
 // 위젯 카탈로그를 통해 렌더링된다.
@@ -313,12 +314,34 @@ function AlertSection({
                         <p className="text-sm font-medium truncate">{alert.title}</p>
                         {/* [Task #380] 필수업무 섹션은 둘째 줄을 "미처리시 과태료 발생" 고정 문구로
                             노출해 법정 의무 업무라는 점을 시니어 사용자에게 분명히 전달한다.
-                            제안업무 섹션은 기존처럼 alert.message 를 그대로 보여준다. */}
-                        {sectionKind === "mandatory" ? (
-                          <p className="text-xs text-red-600 font-medium truncate">미처리시 과태료 발생</p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
-                        )}
+                            제안업무 섹션은 기존처럼 alert.message 를 그대로 보여준다.
+                            [Task #437] (테스트업무) 정화조 청소·소방점검 카드는 온보딩
+                            가이드 문구로 대체. 정화조는 1줄, 소방점검은 2줄. */}
+                        {(() => {
+                          const test = getTestTaskCardOverride(alert);
+                          if (test) {
+                            return (
+                              <div
+                                className="text-xs text-blue-600 font-medium leading-snug"
+                                data-testid={`test-task-guide-${test.kind}`}
+                              >
+                                {test.secondLines.map((line, i) => (
+                                  <span key={i} className="block truncate">{line}</span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          if (sectionKind === "mandatory") {
+                            return (
+                              <p className="text-xs text-red-600 font-medium truncate">
+                                미처리시 과태료 발생
+                              </p>
+                            );
+                          }
+                          return (
+                            <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                          );
+                        })()}
                         {/* 빨간색(7일 이내/초과) 카드의 추가 penaltyInfo 라인은 기존대로 동작.
                             mandatory 섹션에서는 둘째 줄 고정 문구와 의미가 중복될 수 있어
                             penaltyInfo 가 별도 정보(예: 과태료 금액)일 때만 의미가 있다. */}
@@ -618,6 +641,15 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
 
   function handleAlertClick(alert: DashboardAlert) {
+    // [Task #437] (테스트업무) 소방점검 카드는 처리 모달 대신 호실 관리 화면으로
+    //   이동시켜 신규 매니저가 호실 데이터 구성 동선을 자연스럽게 익히도록 한다.
+    //   정화조 청소 카드는 navigateTo 가 없으므로 기존 처리 모달이 그대로 열린다.
+    const testOverride = getTestTaskCardOverride(alert);
+    if (testOverride?.navigateTo) {
+      navigate(testOverride.navigateTo);
+      return;
+    }
+
     if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
       if (alert.relatedId) {
         setSelectedAlert(alert);

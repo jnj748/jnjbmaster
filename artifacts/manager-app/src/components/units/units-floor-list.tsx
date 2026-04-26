@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Edit, Eye, Layers, Trash2 } from "lucide-react";
+import { Building2, DownloadCloud, Edit, Eye, Layers, Trash2 } from "lucide-react";
 import type { Unit } from "@workspace/api-client-react";
 
 interface Props {
@@ -21,6 +21,13 @@ interface Props {
   onView: (id: number) => void;
   onEdit: (unit: Unit) => void;
   onDelete: (id: number) => void;
+  // [Task #437] 호실이 한 번도 등록된 적 없는 경우에만 "대장 동기화" 진입점을
+  //   빈 상태 안에 노출한다. totalUnits 는 필터와 무관한 전체 등록 호실 수
+  //   (useGetUnitsSummary().total) 이며, 정확히 0 일 때만 버튼을 보여 준다.
+  //   summary 가 아직 로드되지 않아 undefined 인 경우엔 노출하지 않아 깜빡임을
+  //   방지한다(필터 결과가 0이지만 호실은 존재하는 케이스 오노출 방지).
+  totalUnits?: number;
+  onSyncFromRegister?: () => void;
 }
 
 export function UnitsFloorList({
@@ -31,6 +38,8 @@ export function UnitsFloorList({
   onView,
   onEdit,
   onDelete,
+  totalUnits,
+  onSyncFromRegister,
 }: Props) {
   if (isLoading) {
     return (
@@ -41,6 +50,11 @@ export function UnitsFloorList({
   }
 
   if (!units || units.length === 0) {
+    // [Task #437] 한 번도 호실이 등록된 적 없는 첫 진입 상태에서는 안내 문구
+    //   영역 안에 "대장 동기화" 버튼을 함께 노출해, 시니어 사용자가 곧바로
+    //   가져오기 흐름으로 진입할 수 있도록 한다. 필터 결과가 0건인 경우(이미
+    //   호실이 등록되어 있음)에는 버튼을 숨겨 혼란을 방지한다.
+    const showSyncCta = totalUnits === 0 && !!onSyncFromRegister;
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -49,6 +63,17 @@ export function UnitsFloorList({
           <p className="text-sm text-muted-foreground">
             호실을 개별 추가하거나, CSV 업로드 또는 자동 생성으로 일괄 등록하세요
           </p>
+          {showSyncCta && (
+            <Button
+              size="lg"
+              className="mt-5"
+              onClick={onSyncFromRegister}
+              data-testid="btn-empty-units-sync-from-register"
+            >
+              <DownloadCloud className="w-5 h-5 mr-2" />
+              대장 동기화로 가져오기
+            </Button>
+          )}
         </CardContent>
       </Card>
     );

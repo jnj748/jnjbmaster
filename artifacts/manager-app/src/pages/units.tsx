@@ -39,7 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, DownloadCloud } from "lucide-react";
+import { Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
@@ -343,15 +343,10 @@ export default function UnitsPage() {
             onSubmit={handleSubmit}
           />
 
-          {/* [Task #348] 건축물대장 → 호실 일괄 가져오기 바로가기. */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/settings/building?tab=units-import")}
-          >
-            <DownloadCloud className="w-4 h-4 mr-1" />
-            대장 동기화
-          </Button>
+          {/* [Task #437] 헤더 우측의 "대장 동기화" 진입점은 제거. 첫 등록 동선은
+              아래 빈 상태 컴포넌트의 "대장 동기화" 버튼으로 단일화하고, 호실이
+              등록된 이후 재동기화는 건물정보 수정 메뉴(/settings/building?tab=
+              units-import)에서만 진행한다. */}
         </div>
       </div>
 
@@ -386,6 +381,13 @@ export default function UnitsPage() {
         onView={(id) => setDetailUnitId(id)}
         onEdit={(unit) => openEdit(unit)}
         onDelete={(id) => handleDelete(id)}
+        // [Task #437] 호실 0건 빈 상태에서 노출되는 "대장 동기화" 버튼 동작.
+        //   아직 한 번도 호실이 등록되지 않은 경우(summary.total === 0) 에만
+        //   버튼이 보이도록 totalUnits 도 함께 전달한다. summary 가 아직 로드
+        //   되지 않은 사이에 일시적으로 버튼이 잘못 노출되는 깜빡임을 막기 위해
+        //   기본값(?? 0)을 부여하지 않고 undefined 그대로 내려보낸다.
+        totalUnits={summary?.total}
+        onSyncFromRegister={() => navigate("/settings/building?tab=units-import")}
       />
 
       <UnitDetailDialog

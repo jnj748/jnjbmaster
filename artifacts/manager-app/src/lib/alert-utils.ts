@@ -77,3 +77,43 @@ export function getTrafficColor(dueDate: string | null): "red" | "yellow" | "gre
   if (dday.days !== null && dday.days < 30) return "yellow";
   return "green";
 }
+
+// [Task #437] (테스트업무) 시드 카드의 둘째 줄 안내·클릭 동작 오버라이드.
+//   - 신규 매니저가 첫 화면에서 "직접 한번 눌러보세요" 형태로 자연스럽게 사용
+//     흐름을 익히도록 단순 경고 문구 대신 행동 유도 카피로 바꾼다.
+//   - 정화조 청소 카드: 한 줄 안내, 클릭 시 기존 처리 모달 열기.
+//   - 소방점검 카드: 두 줄 안내, 클릭 시 호실 관리(/units) 로 이동(모달 미표시).
+//   - 식별은 alert.title 접두 일치로 한다 (서버 시드명과 동일).
+export type TestTaskCardKind = "septic" | "fire";
+
+export interface TestTaskCardOverride {
+  kind: TestTaskCardKind;
+  // 둘째 줄 문구 — 1줄 또는 2줄. 화면에서 줄바꿈 처리한다.
+  secondLines: string[];
+  // 지정 시 카드 클릭은 처리 모달 대신 해당 경로로 네비게이트.
+  navigateTo?: string;
+}
+
+const SEPTIC_TITLE_PREFIX = "(테스트업무) 정화조 청소";
+const FIRE_TITLE_PREFIX = "(테스트업무) 소방점검";
+
+export function getTestTaskCardOverride(alert: { title: string }): TestTaskCardOverride | null {
+  const t = alert.title ?? "";
+  if (t.startsWith(SEPTIC_TITLE_PREFIX)) {
+    return {
+      kind: "septic",
+      secondLines: ["여기를 눌러 테스트 업무를 완료처리해보세요"],
+    };
+  }
+  if (t.startsWith(FIRE_TITLE_PREFIX)) {
+    return {
+      kind: "fire",
+      secondLines: [
+        "호실 데이터 구성하기",
+        "여기를 눌러 호실별 면적정보를 가져오세요",
+      ],
+      navigateTo: "/units",
+    };
+  }
+  return null;
+}
