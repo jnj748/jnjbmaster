@@ -13,6 +13,26 @@ import { useToast } from "@/hooks/use-toast";
 
 const MAX_SECONDS = 60;
 
+// 두 텍스트를 합칠 때 a 의 꼬리와 b 의 머리가 겹치는 부분을 제거한다.
+// 예) a="녹음 잘 되는지", b="녹음 잘 되는지 확인하고 싶음"
+//   → "녹음 잘 되는지 확인하고 싶음"
+// 일부 모바일 인식 엔진이 같은 문장의 점진적 final 결과를 두 번 보고하는 경우의 안전망.
+function mergeWithoutOverlap(a: string, b: string): string {
+  const left = (a ?? "").trim();
+  const right = (b ?? "").trim();
+  if (!left) return right;
+  if (!right) return left;
+  // b 가 a 의 꼬리 어딘가에서 시작하면 그 위치 이후만 붙인다.
+  const max = Math.min(left.length, right.length);
+  for (let n = max; n > 0; n--) {
+    if (left.endsWith(right.slice(0, n))) {
+      const tail = right.slice(n).trimStart();
+      return tail ? left + (left.endsWith(" ") ? "" : " ") + tail : left;
+    }
+  }
+  return left + (left.endsWith(" ") ? "" : " ") + right;
+}
+
 type SpeechRecognitionLike = {
   lang: string;
   continuous: boolean;
@@ -55,7 +75,12 @@ export function VoiceInputDialog({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const shouldRestartRef = useRef(false);
+  // 전체 누적 텍스트 (committed + 현재 세션 final 의 합).
   const finalTextRef = useRef("");
+  // 이전 세션들에서 이미 확정된 텍스트. 새 세션이 시작되면 baseline 이 된다.
+  const committedTextRef = useRef("");
+  // 현재 세션에서 누적된 final 텍스트 (onresult 마다 통째로 재구성).
+  const sessionFinalRef = useRef("");
   const stoppedByUserRef = useRef(false);
 
   const stopTimer = useCallback(() => {
@@ -80,7 +105,17 @@ export function VoiceInputDialog({
       stopTimer();
       setRecording(false);
       setInterimText("");
-      const merged = (finalTextRef.current + "").trim();
+      // 마지막 세션의 final 도 committed 로 합쳐서 최종 텍스트 확정.
+      if (sessionFinalRef.current) {
+        committedTextRef.current = mergeWithoutOverlap(
+          committedTextRef.current,
+          sessionFinalRef.current,
+        );
+        sessionFinalRef.current = "";
+      }
+      finalTextRef.current = committedTextRef.current;
+      const merged = finalTextRef.current.trim();
+      setFinalText(merged);
       setEditText((prev) => (merged.length > 0 ? merged : prev));
       if (opts?.auto) {
         toast({ title: "최대 60초에 도달하여 자동 종료되었습니다" });
@@ -113,33 +148,34 @@ export function VoiceInputDialog({
     rec.continuous = true;
     rec.interimResults = true;
 
-    // [중복방지] 일부 브라우저(특히 모바일 Chrome)는 event.resultIndex 를 매 이벤트마다
-    // 0 으로 보내거나, 이미 isFinal 처리된 결과를 후속 이벤트에서도 다시 포함시킨다.
-    // 결과적으로 같은 문장이 finalTextRef 에 반복 추가되어 "같은 말이 여러 번 입력"되는 현상이 발생한다.
-    // 세션 내에서 이미 final 로 처리한 인덱스를 Set 으로 추적해 한 번만 누적한다.
-    // 세션이 재시작되면(onend → rec.start) 결과 배열이 초기화되므로 Set 도 함께 비운다.
-    const processedFinalIndices = new Set<number>();
-
+    // [중복방지] 모바일 Chrome 등은 같은 문장을 여러 final 결과로 반복 보고하거나,
+    // continuous 모드에서도 짧은 무음마다 세션을 자체 종료/재시작하면서 results 를 리셋한다.
+    // → 이벤트마다 인덱스 누적 방식이 아니라, "현재 세션의 final 들을 처음부터 다시 합쳐서"
+    //   sessionFinal 로 통째 재구성한다. 그러면 같은 i 에 대해 두 번 add 되는 일이 원천 차단된다.
+    // → 세션 종료(onend) 시점에만 sessionFinal 을 committed 에 합치고, 재시작하면 sessionFinal=""에서 시작.
     rec.onresult = (event: any) => {
+      let sessionFinal = "";
       let interim = "";
       for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript: string = result[0]?.transcript ?? "";
         if (result.isFinal) {
-          if (!processedFinalIndices.has(i)) {
-            processedFinalIndices.add(i);
-            const cleaned = transcript.trim();
-            if (cleaned.length > 0) {
-              const sep =
-                finalTextRef.current && !finalTextRef.current.endsWith(" ") ? " " : "";
-              finalTextRef.current = finalTextRef.current + sep + cleaned;
-              setFinalText(finalTextRef.current);
-            }
+          const cleaned = transcript.trim();
+          if (cleaned.length > 0) {
+            sessionFinal = sessionFinal
+              ? mergeWithoutOverlap(sessionFinal, cleaned)
+              : cleaned;
           }
         } else {
           interim += transcript;
         }
       }
+      sessionFinalRef.current = sessionFinal;
+      const merged = sessionFinal
+        ? mergeWithoutOverlap(committedTextRef.current, sessionFinal)
+        : committedTextRef.current;
+      finalTextRef.current = merged;
+      setFinalText(merged);
       setInterimText(interim);
     };
 
@@ -161,11 +197,21 @@ export function VoiceInputDialog({
     };
 
     rec.onend = () => {
+      // 세션 종료 시점에만 sessionFinal 을 committed 에 합친다.
+      // 이 시점 이후 새 세션이 시작되면 results 가 0 부터 리셋되므로
+      // sessionFinal 을 비워야 같은 텍스트가 두 번 누적되지 않는다.
+      if (sessionFinalRef.current) {
+        committedTextRef.current = mergeWithoutOverlap(
+          committedTextRef.current,
+          sessionFinalRef.current,
+        );
+        sessionFinalRef.current = "";
+        finalTextRef.current = committedTextRef.current;
+        setFinalText(committedTextRef.current);
+      }
       // 사용자가 종료하지 않았고 60초 미만이면 자동 재시작 (continuous 모드 보강)
       if (shouldRestartRef.current && !stoppedByUserRef.current) {
         try {
-          // 새 세션은 결과 배열이 0부터 다시 시작하므로 인덱스 추적도 초기화한다.
-          processedFinalIndices.clear();
           rec.start();
           return;
         } catch (err) {
@@ -177,6 +223,9 @@ export function VoiceInputDialog({
     };
 
     recognitionRef.current = rec;
+    // 사용자가 [시작]을 다시 누르면 직전 commit 텍스트를 baseline 으로 이어쓰기 한다.
+    committedTextRef.current = finalText;
+    sessionFinalRef.current = "";
     finalTextRef.current = finalText;
     stoppedByUserRef.current = false;
     shouldRestartRef.current = true;
@@ -209,6 +258,8 @@ export function VoiceInputDialog({
       setSupported(!!getSpeechRecognitionCtor());
       setFinalText("");
       finalTextRef.current = "";
+      committedTextRef.current = "";
+      sessionFinalRef.current = "";
       setInterimText("");
       setEditText("");
       setElapsed(0);
