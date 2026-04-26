@@ -85,6 +85,9 @@ interface BuildingState {
   elevatorCount: string;
   parkingSpaces: string;
   logoUrl: string | null;
+  // [Task #406] 위저드 건물명 입력 단계에서 함께 받는 관리사무소 대표 전화번호.
+  // 표제부에는 없는 직접 입력 항목. 빈 문자열 허용(선택).
+  managementOfficePhone: string;
   // [Task #328] 표제부/총괄표제부 응답 원본. 위저드 lookup-register 응답에서
   // raw 를 받아 두었다가 건물 저장 payload 에 함께 보내 buildings.register_data 에 보관한다.
   registerData?: {
@@ -127,6 +130,7 @@ const EMPTY: BuildingState = {
   elevatorCount: "",
   parkingSpaces: "",
   logoUrl: null,
+  managementOfficePhone: "",
   registerData: null,
 };
 
@@ -231,6 +235,9 @@ export default function ManagerWizardPage() {
       elevatorCount: b.elevatorCount != null ? String(b.elevatorCount) : prev.elevatorCount,
       parkingSpaces: b.parkingSpaces != null ? String(b.parkingSpaces) : prev.parkingSpaces,
       logoUrl: (b.logoUrl as string) ?? prev.logoUrl,
+      // [Task #406] 위저드 재진입 시 기 입력된 관리사무소 전화번호를 그대로 보여준다.
+      managementOfficePhone:
+        (b.managementOfficePhone as string) ?? prev.managementOfficePhone ?? "",
       // [Task #328] 기존 building_register_data 를 보존한다. lookup-register 를 다시
       // 실행하지 않은 채 위저드를 저장해도 raw 응답이 사라지지 않도록 한다.
       registerData:
@@ -468,26 +475,33 @@ export default function ManagerWizardPage() {
     return true;
   }
 
-  // [Task #340] 사용자가 입력한 건물명(buildings.name)을 즉시 PUT 으로 갱신한다.
-  //   - trim 후 빈 문자열이면 안내 토스트 후 false 반환(다음 단계로 진행하지 않음).
-  //   - 서버 저장 실패 시도 토스트 후 false 반환.
-  //   - 성공 시 로컬 building.name state 도 동기화.
-  async function saveBuildingName(rawName: string): Promise<boolean> {
+  // [Task #340/#406] 사용자가 입력한 건물명(buildings.name)과 관리사무소 전화번호
+  //   (buildings.management_office_phone)를 한 번의 PUT 으로 함께 갱신한다.
+  //   - 건물명: trim 후 빈 문자열이면 안내 토스트 후 false 반환(다음 단계로 진행하지 않음).
+  //   - 전화번호: 선택 항목. 빈 문자열이면 PUT 페이로드에서 빼지 않고 빈 문자열로
+  //     보내어 사용자가 명시적으로 지운 경우도 반영되도록 한다.
+  //   - 서버 저장 실패 시 토스트 후 false 반환.
+  //   - 성공 시 로컬 building.name / managementOfficePhone state 도 동기화.
+  async function saveBuildingNameAndPhone(
+    rawName: string,
+    rawPhone: string,
+  ): Promise<boolean> {
     const name = rawName.trim();
+    const phone = rawPhone.trim();
     if (!name) {
       toast({ title: "건물명을 입력해 주세요.", variant: "destructive" });
       return false;
     }
     if (!building.id) {
       // 이론상 info 단계에서 이미 저장돼 있어야 한다. 안전망으로 state만 갱신.
-      setBuilding((p) => ({ ...p, name }));
+      setBuilding((p) => ({ ...p, name, managementOfficePhone: phone }));
       return true;
     }
     try {
       const res = await fetch(`${API_BASE}/buildings/${building.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, managementOfficePhone: phone }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -497,7 +511,7 @@ export default function ManagerWizardPage() {
         });
         return false;
       }
-      setBuilding((p) => ({ ...p, name }));
+      setBuilding((p) => ({ ...p, name, managementOfficePhone: phone }));
       return true;
     } catch (e) {
       toast({
@@ -673,11 +687,12 @@ export default function ManagerWizardPage() {
       {step === "name" && (
         <BuildingNameStep
           initialName={building.name}
+          initialPhone={building.managementOfficePhone}
           busy={busy}
           onPrev={goPrev}
-          onSubmit={async (val) => {
+          onSubmit={async (vals) => {
             setBusy(true);
-            const ok = await saveBuildingName(val);
+            const ok = await saveBuildingNameAndPhone(vals.name, vals.managementOfficePhone);
             setBusy(false);
             if (ok) goNext();
           }}
@@ -1048,22 +1063,30 @@ function InfoStep({
 // 시 마지막 저장값을 기본값으로 보여 준다.
 function BuildingNameStep({
   initialName,
+  initialPhone,
   onPrev,
   onSubmit,
   busy,
 }: {
   initialName: string;
+  initialPhone: string;
   onPrev: () => void;
-  onSubmit: (value: string) => void | Promise<void>;
+  onSubmit: (vals: { name: string; managementOfficePhone: string }) => void | Promise<void>;
   busy?: boolean;
 }) {
   const [name, setName] = useState(initialName ?? "");
+  // [Task #406] 관리사무소 대표 전화번호. 선택 입력. 위저드 재진입 시 기존 값 표시.
+  const [phone, setPhone] = useState(initialPhone ?? "");
   // 위저드 재진입/자동조회 결과 갱신 시 외부에서 들어온 initialName 을 따라간다.
   useEffect(() => {
     setName(initialName ?? "");
   }, [initialName]);
-  const trimmed = name.trim();
-  const disabled = trimmed.length === 0;
+  useEffect(() => {
+    setPhone(initialPhone ?? "");
+  }, [initialPhone]);
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+  const disabled = trimmedName.length === 0;
   return (
     <div>
       <h2 className="text-lg font-bold text-slate-900">실제 사용할 건물명을 입력해 주세요</h2>
@@ -1092,10 +1115,31 @@ function BuildingNameStep({
         </p>
       </div>
 
+      {/* [Task #406] 관리사무소 대표 전화번호 — 선택 입력. 공고문/안내문/문서 발송 등에서 활용. */}
+      <div className="mt-4">
+        <label htmlFor="building-phone-input" className="text-xs text-slate-600">
+          관리사무소 전화번호 <span className="text-slate-400">(선택)</span>
+        </label>
+        <input
+          id="building-phone-input"
+          data-testid="building-phone-input"
+          type="tel"
+          inputMode="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="예) 02-1234-5678"
+          maxLength={20}
+          className="mt-1 w-full h-12 px-3 border border-slate-300 rounded-xl text-sm bg-white"
+        />
+        <p className="text-[11px] text-slate-400 mt-2">
+          입주민 안내문·공고문·견적 요청서 등에서 대표 연락처로 사용됩니다. 나중에 설정에서 바꿀 수 있어요.
+        </p>
+      </div>
+
       <NavBar
         onPrev={onPrev}
-        onNext={() => onSubmit(trimmed)}
-        nextLabel="이 이름으로 저장"
+        onNext={() => onSubmit({ name: trimmedName, managementOfficePhone: trimmedPhone })}
+        nextLabel="저장하고 다음"
         nextDisabled={disabled}
         busy={busy}
       />
