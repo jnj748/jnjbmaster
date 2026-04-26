@@ -296,9 +296,29 @@ function DraftDocument({ input, authorFallback }: { input: OfficialDocumentInput
   const author = input.authorName || authorFallback || "";
   return (
     <div className="space-y-3">
-      <h2 className="text-2xl font-bold tracking-wide text-center border-b-2 border-black pb-3">
-        기 안 서
-      </h2>
+      <div className="flex items-stretch gap-4 border-b-2 border-black pb-3">
+        <h2 className="flex-1 self-center text-2xl font-bold tracking-wide">
+          기 안 서
+        </h2>
+        <table className="border border-gray-500 text-center text-xs table-fixed w-64 shrink-0">
+          <thead>
+            <tr>
+              <th className="border border-gray-500 bg-gray-100 py-1 w-1/4">결재</th>
+              <th className="border border-gray-500 py-1 w-1/4">담당</th>
+              <th className="border border-gray-500 py-1 w-1/4">검토</th>
+              <th className="border border-gray-500 py-1 w-1/4">승인</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border border-gray-500 py-6 bg-gray-50">서명</td>
+              <td className="border border-gray-500 py-6"></td>
+              <td className="border border-gray-500 py-6"></td>
+              <td className="border border-gray-500 py-6"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm pt-2">
         <div className="flex"><span className="font-semibold w-20">기안일</span><span>{formatKoreanDate(input.date)}</span></div>
         <div className="flex"><span className="font-semibold w-20">기안자</span><span>{author}</span></div>
@@ -307,25 +327,6 @@ function DraftDocument({ input, authorFallback }: { input: OfficialDocumentInput
         )}
         <div className="flex col-span-2"><span className="font-semibold w-20">제목</span><span className="font-semibold">{input.title}</span></div>
       </div>
-
-      <table className="w-full border border-gray-500 text-center text-xs mt-2">
-        <thead>
-          <tr>
-            <th className="border border-gray-500 bg-gray-100 w-20 py-1">결재</th>
-            <th className="border border-gray-500 py-1">담당</th>
-            <th className="border border-gray-500 py-1">검토</th>
-            <th className="border border-gray-500 py-1">승인</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="border border-gray-500 py-6 bg-gray-50">서명</td>
-            <td className="border border-gray-500 py-6"></td>
-            <td className="border border-gray-500 py-6"></td>
-            <td className="border border-gray-500 py-6"></td>
-          </tr>
-        </tbody>
-      </table>
 
       <SectionTitle>1. 기안 사유</SectionTitle>
       <p className="text-sm leading-7">
