@@ -261,28 +261,29 @@ export default function Rfqs() {
     : autoDescription;
 
   const photosReady = !!closeUpPhotoUrl && !!widePhotoUrl;
-  const canSubmit = !!form.category && !!form.serviceType && photosReady && buildingReady;
+
+  // [Task #449] 버튼이 잠겨 보이는 사유를 사용자가 즉시 알 수 있도록, 부족한
+  //   필수 항목 목록을 만들어 버튼 상단에 한 줄로 안내하고, onClick 시점에도
+  //   동일 목록을 토스트로 보여준다. 항목 순서는 폼 표시 순서를 따라간다.
+  const missingItems: string[] = [];
+  if (!buildingReady) missingItems.push("건물 정보");
+  if (!form.category) missingItems.push("시설분야");
+  if (!form.serviceType) missingItems.push("용역종류");
+  if (!widePhotoUrl) missingItems.push("원경 사진");
+  if (!closeUpPhotoUrl) missingItems.push("근경 사진");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!buildingReady) {
+    // [Task #449] disabled 로 두면 onClick/submit 자체가 발화되지 않아 사용자가
+    //   "왜 안 눌리지?" 라는 상태에 빠진다. 버튼은 항상 활성화된 상태로 두고,
+    //   여기서 부족한 항목을 한 번에 토스트로 안내한다. (개별 항목별 early-return
+    //   은 missingItems 가 모두 커버하므로 단일 검증 경로로 통일.)
+    if (missingItems.length > 0) {
       toast({
-        title: "건물 정보가 필요합니다",
-        description: "현재 선택된 건물의 주소가 비어 있어 견적을 요청할 수 없습니다. 건물 정보를 먼저 등록해주세요.",
+        title: "아직 입력하지 않은 항목이 있어요",
+        description: `${missingItems.join(", ")}을(를) 입력해주세요.`,
         variant: "destructive",
       });
-      return;
-    }
-    if (!form.category) {
-      toast({ title: "시설분야를 선택하세요", variant: "destructive" });
-      return;
-    }
-    if (!form.serviceType) {
-      toast({ title: "용역종류를 선택하세요", variant: "destructive" });
-      return;
-    }
-    if (!photosReady) {
-      toast({ title: "근경/원경 사진은 필수입니다", variant: "destructive" });
       return;
     }
 
@@ -531,8 +532,18 @@ export default function Rfqs() {
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={!canSubmit} data-testid="rfq-submit">
-                견적 요청 생성
+              {/* [Task #449] 버튼은 항상 활성화 상태로 두고, 부족한 항목은 onClick 시점에
+                  토스트로 안내한다. 잠금 사유는 버튼 위에 한 줄 안내로도 노출. */}
+              {missingItems.length > 0 && (
+                <p
+                  className="text-xs text-muted-foreground"
+                  data-testid="rfq-missing-hint"
+                >
+                  남은 필수 항목: {missingItems.join(", ")}
+                </p>
+              )}
+              <Button type="submit" className="w-full" data-testid="rfq-submit">
+                파트너사 비교견적받기
               </Button>
             </form>
           </ResponsiveDialogContent>
