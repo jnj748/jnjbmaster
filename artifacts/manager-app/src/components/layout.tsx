@@ -805,7 +805,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <button
                   key={item.path}
                   type="button"
-                  onClick={() => setQuickEntryOpen(true)}
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setQuickEntryOpen(true);
+                  }}
                   data-testid="bottom-nav-quick-entry"
                   aria-label="업무기록"
                   className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
@@ -827,10 +830,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             // 하단 네비게이션은 무색(중립) 처리 — 활성 탭만 foreground 로 강조.
             return (
               <Link key={navKey} href={navHref}>
-                <button className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
-                  isActive ? "font-semibold text-foreground" : "text-muted-foreground"
-                )}>
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors",
+                    isActive ? "font-semibold text-foreground" : "text-muted-foreground"
+                  )}
+                >
                   <item.icon className="w-5 h-5" />
                   <span className="text-[10px] font-medium">
                     {item.label}
