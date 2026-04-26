@@ -1,20 +1,42 @@
+export interface DownloadElementAsPngOptions {
+  /**
+   * [Task #474] PNG 캡처 시점에만 `export-compact` 클래스를 추가하여
+   * 본문 폰트를 한 단계 줄이고 짧은 라벨 셀의 줄바꿈을 막는다.
+   * 캡처 종료(성공/실패 무관) 후 반드시 원복된다.
+   * 화면 미리보기·인쇄·공유(PDF/텍스트) 경로에는 영향이 없다.
+   */
+  compact?: boolean;
+}
+
 export async function downloadElementAsPng(
   element: HTMLElement,
   filename: string,
+  options: DownloadElementAsPngOptions = {},
 ): Promise<void> {
   const { toPng } = await import("html-to-image");
-  // cacheBust=true 는 blob: URL 에 ?cacheBust=... 쿼리를 붙여 깨뜨리므로 사용하지 않는다.
-  const dataUrl = await toPng(element, {
-    cacheBust: false,
-    backgroundColor: "#ffffff",
-    pixelRatio: 2,
-  });
-  const link = document.createElement("a");
-  link.download = filename.endsWith(".png") ? filename : `${filename}.png`;
-  link.href = dataUrl;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const compact = options.compact === true;
+  const hadCompact = compact && element.classList.contains("export-compact");
+  if (compact && !hadCompact) {
+    element.classList.add("export-compact");
+  }
+  try {
+    // cacheBust=true 는 blob: URL 에 ?cacheBust=... 쿼리를 붙여 깨뜨리므로 사용하지 않는다.
+    const dataUrl = await toPng(element, {
+      cacheBust: false,
+      backgroundColor: "#ffffff",
+      pixelRatio: 2,
+    });
+    const link = document.createElement("a");
+    link.download = filename.endsWith(".png") ? filename : `${filename}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    if (compact && !hadCompact) {
+      element.classList.remove("export-compact");
+    }
+  }
 }
 
 /**

@@ -232,6 +232,54 @@
 }
 
 /*
+ * [Task #474] PNG 캡처 전용 "컴팩트" 모드.
+ * - 화면 미리보기, 인쇄(@media print), PDF/텍스트 공유에는 영향 없음.
+ *   → `.export-compact` 클래스가 캡처 직전 추가되고 직후 제거되며,
+ *     이 규칙들은 화면(@media screen 등) 컨텍스트에서만 의미가 있다.
+ *   → @media print 블록은 .a4-document 만 대상으로 별도 폰트(11pt)를 강제하므로
+ *     본 규칙들은 인쇄 출력에 영향을 주지 않는다.
+ * - 본문 폰트를 한 단계 줄여(대략 14px → 12px) 같은 폭에서 더 적은 줄로
+ *   표시되게 한다. 소제목/헤더/캡션은 비례 축소.
+ * - 표의 짧은 라벨/상태/숫자/일자/주차 셀은 줄바꿈되지 않도록 nowrap.
+ *   메모/요약/주요 메모 같이 긴 본문 셀(`whitespace-pre-line`,
+ *   `break-words`, 또는 <ul>/<li> 를 포함한 셀)은 nowrap 대상에서 제외하여
+ *   기존처럼 자연스럽게 줄바꿈된다.
+ * - 표 컬럼 폭/그리드 레이아웃/패딩/사진 셀 크기는 변경하지 않는다.
+ * - 모바일 관리소장 모드(body[data-role="manager"])의 .text-sm 등
+ *   상향 규칙도 본 규칙이 더 높은 특정도(class 3개)로 덮어쓴다.
+ */
+.a4-document.export-compact { font-size: 12px; }
+.a4-document.export-compact .text-2xl { font-size: 20px; line-height: 1.2; }
+.a4-document.export-compact .text-base { font-size: 13px; line-height: 1.5; }
+.a4-document.export-compact .text-sm   { font-size: 12px; line-height: 1.4; }
+.a4-document.export-compact .text-xs   { font-size: 11px; line-height: 1.35; }
+.a4-document.export-compact .text-\[15px\] { font-size: 13px; line-height: 1.4; }
+.a4-document.export-compact .text-\[14px\] { font-size: 12px; line-height: 1.55; }
+.a4-document.export-compact .text-\[11px\] { font-size: 10px; line-height: 1.3; }
+
+/* 표 셀 기본은 nowrap (짧은 라벨/상태/숫자/일자/주차/구분/건수 칸) */
+.a4-document.export-compact table th,
+.a4-document.export-compact table td {
+  white-space: nowrap;
+}
+/* 본문 셀은 기존대로 줄바꿈을 허용 */
+.a4-document.export-compact table td.whitespace-pre-line {
+  white-space: pre-line;
+}
+.a4-document.export-compact table td.whitespace-normal {
+  white-space: normal;
+}
+.a4-document.export-compact table td.break-words {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.a4-document.export-compact table td:has(ul),
+.a4-document.export-compact table td:has(li) {
+  white-space: normal;
+}
+
+/*
  * 페이지 헤더 안전망
  * 한글 제목(h1.text-2xl)이 좁은 화면에서 액션 버튼에 밀려 글자별로
  * 세로로 쌓이는 현상을 방지. 모든 메뉴 화면의 표준 헤더 패턴

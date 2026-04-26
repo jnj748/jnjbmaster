@@ -645,7 +645,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPng(ref.current, safeFilename(`일일일지_${report.date}`));
+        await downloadElementAsPng(ref.current, safeFilename(`일일일지_${report.date}`), { compact: true });
       });
       toast({ title: "이미지 저장 완료" });
     } catch (e) {
@@ -804,7 +804,8 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
               <tr>
                 <td className="border border-gray-400 p-2 font-semibold">완료</td>
                 <td className="border border-gray-400 p-2 text-center">{report.statutory.completed.length}</td>
-                <td className="border border-gray-400 p-2">
+                {/* [Task #474] 내역(쉼표 구분 긴 텍스트)은 compact 모드에서도 줄바꿈 유지. */}
+                <td className="border border-gray-400 p-2 whitespace-normal break-words">
                   {report.statutory.completed.length === 0
                     ? "-"
                     : report.statutory.completed.map((c) => c.name).join(", ")}
@@ -813,7 +814,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
               <tr>
                 <td className="border border-gray-400 p-2 font-semibold">미완료</td>
                 <td className="border border-gray-400 p-2 text-center">{report.statutory.postponed.length}</td>
-                <td className="border border-gray-400 p-2">
+                <td className="border border-gray-400 p-2 whitespace-normal break-words">
                   {report.statutory.postponed.length === 0
                     ? "-"
                     : report.statutory.postponed.map((p) => p.name).join(", ")}
@@ -822,7 +823,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
               <tr>
                 <td className="border border-gray-400 p-2 font-semibold">기안</td>
                 <td className="border border-gray-400 p-2 text-center">{report.statutory.drafted.length}</td>
-                <td className="border border-gray-400 p-2">
+                <td className="border border-gray-400 p-2 whitespace-normal break-words">
                   {report.statutory.drafted.length === 0
                     ? "-"
                     : report.statutory.drafted.map((d) => d.title).join(", ")}
@@ -1008,7 +1009,7 @@ function WeeklyTab() {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPng(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`));
+        await downloadElementAsPng(ref.current, safeFilename(`주간일지_${data.weekStart}_${data.weekEnd}`), { compact: true });
       });
       toast({ title: "이미지 저장 완료" });
     } catch (e) {
@@ -1243,7 +1244,7 @@ function MonthlyTab() {
     try {
       await withReadyDoc(frameRef, async () => {
         if (!ref.current) return;
-        await downloadElementAsPng(ref.current, safeFilename(`월간일지_${data.month}`));
+        await downloadElementAsPng(ref.current, safeFilename(`월간일지_${data.month}`), { compact: true });
       });
       toast({ title: "이미지 저장 완료" });
     } catch (e) {
