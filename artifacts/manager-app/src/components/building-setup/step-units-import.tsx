@@ -65,8 +65,10 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
         <CardContent>
           <Alert variant="destructive">
             <AlertCircle className="w-4 h-4" />
+            {/* [Task #427] 잠긴 주소에서도 식별자만 다시 받을 수 있는 동선이 생겼으므로,
+                사용자가 정확히 어디서 무엇을 눌러야 하는지 한 줄로 안내한다. */}
             <AlertDescription>
-              건축물대장 식별자가 비어 있습니다. 위 주소 카드에서 건축물대장을 먼저 조회해 주세요.
+              건축물대장 식별자가 비어 있습니다. 위 ‘건물 주소’ 카드에서 [건축물대장 다시 조회] 버튼을 눌러 주세요.
             </AlertDescription>
           </Alert>
         </CardContent>

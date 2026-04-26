@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, Loader2, MapPin, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, MapPin, RefreshCw, Search } from "lucide-react";
 import type { RefObject } from "react";
 import type { BuildingData } from "./types";
 
@@ -12,6 +12,8 @@ interface Props {
   registerPreview: Record<string, unknown> | null;
   areaInfo: { floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[];
   openKakaoPostcode: () => void;
+  // [Task #427] ‘건축물대장 다시 조회’ 전용 진입점. 주소 잠금은 유지한 채 식별자만 재조회.
+  openRelookupPostcode: () => void;
   postcodeOpen: boolean;
   setPostcodeOpen: (v: boolean) => void;
   postcodeContainerRef: RefObject<HTMLDivElement | null>;
@@ -24,6 +26,7 @@ export function StepAddress({
   registerPreview,
   areaInfo,
   openKakaoPostcode,
+  openRelookupPostcode,
   postcodeOpen,
   setPostcodeOpen,
   postcodeContainerRef,
@@ -31,6 +34,9 @@ export function StepAddress({
   // [Task #412] 1건물 1유저 원칙에 따라 이미 등록된 주소는 표시 전용으로 잠그고
   // ‘주소 다시 검색’ 버튼을 노출하지 않는다. 신규(주소 미입력) 흐름만 검색 버튼을 노출.
   const hasAddress = Boolean(building.addressFull);
+  // [Task #427] 주소는 저장돼 있으나 건축물대장 식별자(mgmBldrgstPk)가 비어 있는
+  // 기존 건물에 한해 ‘건축물대장 다시 조회’ 동선을 노출한다.
+  const needsRegisterPkRelookup = hasAddress && !building.buildingRegisterPk;
   return (
     <>
       <Card>
@@ -59,6 +65,36 @@ export function StepAddress({
                   {building.zipCode && (
                     <p className="text-xs text-green-700 mt-0.5">우편번호 {building.zipCode}</p>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* [Task #427] 주소는 저장돼 있으나 건축물대장 식별자가 비어 있는 기존 건물.
+              주소 변경 정책은 그대로 두고, 카카오 주소검색을 다시 열어 같은 주소로
+              ‘건축물대장만 재조회’할 수 있도록 안내한다. */}
+          {needsRegisterPkRelookup && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <p className="font-medium text-amber-900">건축물대장 식별자가 없습니다</p>
+                  <p className="text-sm text-amber-800">
+                    주소가 잠긴 상태로 저장된 기존 건물입니다. 호실정보 불러오기를 사용하려면
+                    같은 주소로 건축물대장을 다시 조회해 식별자를 채워 주세요.
+                    주소·우편번호 등은 변경되지 않고, 식별자와 표제부 정보만 갱신됩니다.
+                  </p>
+                  <Button
+                    onClick={openRelookupPostcode}
+                    disabled={!postcodeLoaded || lookingUp}
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-400 text-amber-900 hover:bg-amber-100"
+                    data-testid="button-relookup-register"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    건축물대장 다시 조회
+                  </Button>
                 </div>
               </div>
             </div>

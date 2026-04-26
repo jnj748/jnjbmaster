@@ -265,6 +265,11 @@ export function useBuildingSetup() {
   const [postcodeOpen, setPostcodeOpen] = useState(false);
   const postcodeContainerRef = useRef<HTMLDivElement | null>(null);
   const postcodeInstanceRef = useRef<unknown>(null);
+  // [Task #427] 식별자 재조회 모드. true 일 때 카카오 주소검색으로 같은 주소를 다시 골라도
+  //   주소 관련 필드(addressFull/addressJibun/zipCode/sido/sigungu/dong/name)와 건물 기본
+  //   정보(연면적/층수/세대수 등)는 덮어쓰지 않고, buildingRegisterPk/registerData/전유부
+  //   면적 정보만 갱신한다.
+  const relookupModeRef = useRef(false);
 
   function buildPostcodeOptions() {
     return {
@@ -282,6 +287,17 @@ export function useBuildingSetup() {
       toast({ title: "주소검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
       return;
     }
+    relookupModeRef.current = false;
+    setPostcodeOpen(true);
+  }
+
+  // [Task #427] ‘건축물대장 다시 조회’ 버튼 전용 진입점. 주소는 그대로 두고 식별자만 채운다.
+  function openRelookupPostcode() {
+    if (!window.daum?.Postcode) {
+      toast({ title: "주소검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
+      return;
+    }
+    relookupModeRef.current = true;
     setPostcodeOpen(true);
   }
 
@@ -304,16 +320,19 @@ export function useBuildingSetup() {
   }, [postcodeOpen, postcodeLoaded]);
 
   function handlePostcodeComplete(data: DaumPostcodeResult) {
-        setBuilding((prev) => ({
-          ...prev,
-          addressFull: data.roadAddress || data.address,
-          addressJibun: data.jibunAddress || "",
-          zipCode: data.zonecode || "",
-          sido: data.sido || prev.sido,
-          sigungu: data.sigungu || prev.sigungu,
-          dong: data.bname || prev.dong,
-          name: data.buildingName || prev.name,
-        }));
+        // [Task #427] 식별자 재조회 모드에서는 주소 관련 필드를 절대 덮어쓰지 않는다.
+        if (!relookupModeRef.current) {
+          setBuilding((prev) => ({
+            ...prev,
+            addressFull: data.roadAddress || data.address,
+            addressJibun: data.jibunAddress || "",
+            zipCode: data.zonecode || "",
+            sido: data.sido || prev.sido,
+            sigungu: data.sigungu || prev.sigungu,
+            dong: data.bname || prev.dong,
+            name: data.buildingName || prev.name,
+          }));
+        }
 
         const bcode = data.bcode || "";
         const sigunguCd = bcode.substring(0, 5);
@@ -328,6 +347,7 @@ export function useBuildingSetup() {
           lookupBuildingRegister(sigunguCd, bjdongCd, bun, ji);
         } else {
           toast({ title: "주소에서 건축물대장 조회코드를 추출할 수 없습니다. 건물 정보를 직접 입력해주세요." });
+          relookupModeRef.current = false;
         }
   }
 
@@ -353,49 +373,73 @@ export function useBuildingSetup() {
             }
           : null;
         setRegisterPreview(d);
-        setBuilding((prev) => ({
-          ...prev,
-          name: d.buildingName || prev.name,
-          addressFull: d.newPlatPlc || prev.addressFull,
-          addressJibun: d.platPlc || prev.addressJibun,
-          totalUnits: d.totalUnits ? String(d.totalUnits) : prev.totalUnits,
-          totalFloors: d.totalFloors ? String(d.totalFloors) : prev.totalFloors,
-          basementFloors: d.basementFloors ? String(d.basementFloors) : prev.basementFloors,
-          totalArea: d.totalArea || prev.totalArea,
-          buildingUsage: d.mainPurpose || prev.buildingUsage,
-          structureType: d.structureType || prev.structureType,
-          completionDate: d.completionDate
-            ? `${d.completionDate.substring(0, 4)}-${d.completionDate.substring(4, 6)}-${d.completionDate.substring(6, 8)}`
-            : prev.completionDate,
-          elevatorCount: d.elevatorCount ? String(d.elevatorCount) : prev.elevatorCount,
-          parkingSpaces: d.parkingCount ? String(d.parkingCount) : prev.parkingSpaces,
-          landArea: d.landArea || prev.landArea,
-          buildingArea: d.buildingArea || prev.buildingArea,
-          buildingCoverageRatio: d.buildingCoverageRatio || prev.buildingCoverageRatio,
-          floorAreaRatio: d.floorAreaRatio || prev.floorAreaRatio,
-          registerData: nextRegisterData ?? prev.registerData ?? null,
-          // [Task #348] 대장 조회 직후 mgmBldrgstPk 를 위저드 상태에 즉시 반영해야
-          // "호실 일괄 가져오기" 단계 게이트가 정확히 풀린다.
-          buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
-        }));
+        // [Task #427] 식별자 재조회 모드에서는 주소·건물 기본 정보를 덮어쓰지 않고,
+        //   buildingRegisterPk + registerData 만 갱신한다(전유부 면적은 아래 lookupAreaInfo).
+        const isRelookup = relookupModeRef.current;
+        setBuilding((prev) => {
+          if (isRelookup) {
+            return {
+              ...prev,
+              registerData: nextRegisterData ?? prev.registerData ?? null,
+              buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
+            };
+          }
+          return {
+            ...prev,
+            name: d.buildingName || prev.name,
+            addressFull: d.newPlatPlc || prev.addressFull,
+            addressJibun: d.platPlc || prev.addressJibun,
+            totalUnits: d.totalUnits ? String(d.totalUnits) : prev.totalUnits,
+            totalFloors: d.totalFloors ? String(d.totalFloors) : prev.totalFloors,
+            basementFloors: d.basementFloors ? String(d.basementFloors) : prev.basementFloors,
+            totalArea: d.totalArea || prev.totalArea,
+            buildingUsage: d.mainPurpose || prev.buildingUsage,
+            structureType: d.structureType || prev.structureType,
+            completionDate: d.completionDate
+              ? `${d.completionDate.substring(0, 4)}-${d.completionDate.substring(4, 6)}-${d.completionDate.substring(6, 8)}`
+              : prev.completionDate,
+            elevatorCount: d.elevatorCount ? String(d.elevatorCount) : prev.elevatorCount,
+            parkingSpaces: d.parkingCount ? String(d.parkingCount) : prev.parkingSpaces,
+            landArea: d.landArea || prev.landArea,
+            buildingArea: d.buildingArea || prev.buildingArea,
+            buildingCoverageRatio: d.buildingCoverageRatio || prev.buildingCoverageRatio,
+            floorAreaRatio: d.floorAreaRatio || prev.floorAreaRatio,
+            registerData: nextRegisterData ?? prev.registerData ?? null,
+            // [Task #348] 대장 조회 직후 mgmBldrgstPk 를 위저드 상태에 즉시 반영해야
+            // "호실 일괄 가져오기" 단계 게이트가 정확히 풀린다.
+            buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
+          };
+        });
 
-        toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
+        if (isRelookup) {
+          if (d.mgmBldrgstPk) {
+            toast({ title: "건축물대장 식별자를 가져왔습니다. 변경 내용을 저장하려면 아래 ‘건물 정보 저장’을 눌러주세요." });
+          } else {
+            toast({ title: "건축물대장 식별자를 찾지 못했습니다. 다시 시도해 주세요.", variant: "destructive" });
+          }
+        } else {
+          toast({ title: "건축물대장 정보를 불러왔습니다 (총괄표제부 + 표제부)" });
+        }
 
         if (d.mgmBldrgstPk) {
           lookupAreaInfo(d.mgmBldrgstPk);
         }
 
-        calculateSafety({
-          totalArea: d.totalArea || "0",
-          totalFloors: String(d.totalFloors || 0),
-          basementFloors: String(d.basementFloors || 0),
-          totalUnits: String(d.totalUnits || 0),
-          elevatorCount: String(d.elevatorCount || 0),
-          buildingUsage: d.mainPurpose || "",
-          electricCapacityKw: "0",
-          gasUsageMonthly: "0",
-          hasGas: "true",
-        });
+        // [Task #427] 재조회 모드에서는 건물 기본 정보를 건드리지 않으므로 안전관리 분석을
+        //   다시 돌릴 필요가 없다(이전 저장값으로 산정된 결과를 그대로 유지).
+        if (!isRelookup) {
+          calculateSafety({
+            totalArea: d.totalArea || "0",
+            totalFloors: String(d.totalFloors || 0),
+            basementFloors: String(d.basementFloors || 0),
+            totalUnits: String(d.totalUnits || 0),
+            elevatorCount: String(d.elevatorCount || 0),
+            buildingUsage: d.mainPurpose || "",
+            electricCapacityKw: "0",
+            gasUsageMonthly: "0",
+            hasGas: "true",
+          });
+        }
       } else {
         toast({ title: "해당 주소의 건축물대장 정보를 찾을 수 없습니다. 건물 정보를 직접 입력해주세요.", variant: "destructive" });
       }
@@ -403,6 +447,8 @@ export function useBuildingSetup() {
       toast({ title: "건축물대장 조회 중 오류가 발생했습니다", variant: "destructive" });
     } finally {
       setLookingUp(false);
+      // [Task #427] 한 번의 재조회가 끝나면 모드를 초기화해, 이후 신규 흐름에서 영향이 없게 한다.
+      relookupModeRef.current = false;
     }
   }
 
@@ -635,6 +681,8 @@ export function useBuildingSetup() {
     removeTask,
     updateTaskDate,
     openKakaoPostcode,
+    // [Task #427] 식별자 재조회 진입점.
+    openRelookupPostcode,
     postcodeOpen,
     setPostcodeOpen,
     postcodeContainerRef,

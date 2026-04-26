@@ -519,9 +519,12 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       return;
     }
     // [Task #132] 주소 잠금: platform_admin이 아니면 주소 관련 필드 변경 차단.
+    // [Task #427] 단, 건축물대장 식별자(buildingRegisterPk)와 표제부 원본(registerData)은
+    //   잠긴 주소에서도 ‘건축물대장 다시 조회’ 동선으로 채워 넣을 수 있어야 하므로
+    //   주소 잠금 검사 대상에서 제외한다(주소 자체는 그대로 잠긴 채 유지).
     const existing = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
     if (existing?.addressLocked && user.role !== "platform_admin") {
-      const addressFields = ["addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode", "buildingRegisterPk"];
+      const addressFields = ["addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode"];
       const attemptedAddressEdit = addressFields.some(f => data[f] !== undefined && data[f] !== existing[f as keyof typeof existing]);
       if (attemptedAddressEdit) {
         res.status(423).json({ error: "건물 주소는 잠겨 있어 변경할 수 없습니다. 변경이 필요한 경우 1800-0416으로 연락해 주세요." });

@@ -15,6 +15,8 @@ interface Props {
   registerPreview: Record<string, unknown> | null;
   areaInfo: { floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[];
   openKakaoPostcode: () => void;
+  // [Task #427] 잠긴 주소에서도 식별자만 다시 받기 위한 진입점.
+  openRelookupPostcode: () => void;
   postcodeOpen: boolean;
   setPostcodeOpen: (v: boolean) => void;
   postcodeContainerRef: RefObject<HTMLDivElement | null>;
@@ -36,6 +38,7 @@ export function StepAddressInfo(props: Props) {
         registerPreview={props.registerPreview}
         areaInfo={props.areaInfo}
         openKakaoPostcode={props.openKakaoPostcode}
+        openRelookupPostcode={props.openRelookupPostcode}
         postcodeOpen={props.postcodeOpen}
         setPostcodeOpen={props.setPostcodeOpen}
         postcodeContainerRef={props.postcodeContainerRef}
