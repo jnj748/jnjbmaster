@@ -583,16 +583,59 @@ export default function ManagerWizardPage() {
   }
 
   // ── 화면 렌더 ──
-  // [Task #268] X 버튼으로 강제 종료할 때, 건물이 이미 저장된 적이 있으면
-  // 멱등 시드를 한 번 트리거해 (테스트업무) 4건을 채워 두고 대시보드로 이동한다.
-  // 저장 전이라면 그냥 대시보드로 가고, 다음 위저드 진입 후 첫 건물 저장 시점에 시드된다.
+  // [Task #404] X(닫기) 동작을 두 갈래로 분기한다.
+  //   A) building.id 가 아직 없는 경우(주소 검색 전): 어떤 변경도 만들지 않고
+  //      `/` 로 이동한다. ManagerOnboardingRedirect 가 다음 진입 시 자동으로
+  //      `/onboarding/manager` 로 강제하므로, 주소 없이 대시보드로 들어가는
+  //      경로가 생기지 않는다.
+  //   B) building.id 가 이미 있는 경우(주소 입력 + 건물 저장 완료): 사용자가
+  //      "주소 입력 후 꺼지면 건물명은 API에서, 점검일은 사용승인일 기준으로
+  //      자동 생성하고 위저드 마친 것으로" 라고 요청한 동작을 그대로 수행한다.
+  //      - 건물명: lookup-register 응답으로 buildings.name 에 이미 저장됨(추가 작업 없음)
+  //      - 점검일 4종: useFallbackCompletionDate=true 로 사용승인일 기준 산정
+  //      - finalize 와 동일하게 lock-address + preference=started + 시드 + 캐시 무효화
   async function closeWizard() {
-    if (building.id) {
-      // [Task #278] X 닫기 경로에서도 시드 + 대시보드 캐시 무효화를 한 번 더
-      // 보장한다. 비차단이지만 대시보드 진입 직후 두 섹션이 즉시 채워지도록 한다.
-      await seedTestInspectionsAndInvalidate("closeWizard");
+    if (!building.id) {
+      setLocation("/");
+      return;
     }
-    setLocation("/");
+    setBusy(true);
+    try {
+      // [Task #404] 점검 대상은 sequence(연면적 1만㎡ 조건 포함)와 동일 기준으로 제한.
+      //   - 1만㎡ 미만 건물은 기계설비(ins-mech) 미포함을 그대로 유지해 일반 진행 흐름과
+      //     동일한 결과(법정 점검 3종)가 나오도록 한다.
+      const inspectionDates: Record<string, Record<string, string>> = {};
+      for (const key of Object.keys(INS_DEFS)) {
+        if (!sequence.includes(key as StepKey)) continue;
+        const def = INS_DEFS[key];
+        if (!inspectionDates[def.category]) inspectionDates[def.category] = {};
+        inspectionDates[def.category][def.name] = "";
+      }
+      // [Task #404] 자동 점검 생성이 실패하면 위저드 종료 처리(preference=started)
+      //   를 하지 않는다. 사용자에게 토스트로 알리고 위저드 화면에 머물러 재시도할 수 있게 한다.
+      const autoRes = await fetch(`${API_BASE}/buildings/auto-schedule-inspections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          buildingId: building.id,
+          inspectionDates,
+          useFallbackCompletionDate: true,
+        }),
+      }).catch(() => null);
+      if (!autoRes || !autoRes.ok) {
+        toast({ title: "법정 점검 일정 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.", variant: "destructive" });
+        return;
+      }
+      await setPreference("started").catch(() => {});
+      await fetch(`${API_BASE}/buildings/${building.id}/lock-address`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+      await seedTestInspectionsAndInvalidate("closeWizard-auto");
+      setLocation("/");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
