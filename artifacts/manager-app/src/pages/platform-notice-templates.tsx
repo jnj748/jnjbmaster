@@ -56,7 +56,7 @@ function blank(): FormState {
     category: "일반",
     icon: "📄",
     bodyHtml:
-      `<div style="font-family: 'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;">\n  <h2>{{buildingName}} 안내문</h2>\n  <p>본문을 작성하세요. 사용 가능한 토큰: {{buildingName}}, {{addressFull}}, {{managementOfficePhone}}, {{date}}, {{customA}}, {{customB}}, {{customC}}.</p>\n</div>`,
+      `<div style="font-family: 'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;">\n  <h2>{{buildingName}} 안내문</h2>\n  <p>본문을 작성하세요. 사용 가능한 토큰: {{buildingName}}, {{addressFull}}, {{managementOfficePhone}}, {{feeInquiryPhone}}, {{facilitySafetyPhone}}, {{date}}, {{customA}}, {{customB}}, {{customC}}.</p>\n</div>`,
     customFieldLabelsCsv: "",
     sortOrder: 100,
     isActive: true,
@@ -321,7 +321,12 @@ export default function PlatformNoticeTemplatesPage() {
                 data-testid="input-template-body"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                토큰: {"{{buildingName}} {{addressFull}} {{managementOfficePhone}} {{date}} {{customA}} {{customB}} {{customC}}"}
+                토큰: {"{{buildingName}} {{addressFull}} {{managementOfficePhone}} {{feeInquiryPhone}} {{facilitySafetyPhone}} {{date}} {{customA}} {{customB}} {{customC}}"}
+              </p>
+              {/* [Task #399] 신규 토큰 안내 — 관리비 문의/시설 방재실 전화번호. */}
+              <p className="text-[11px] text-slate-500 mt-1">
+                <b>{"{{feeInquiryPhone}}"}</b> 관리비문의 전화번호 · <b>{"{{facilitySafetyPhone}}"}</b> 시설방재실 전화번호
+                (건물정보 수정 화면에서 입력한 값으로 치환됩니다)
               </p>
             </div>
             <div className="flex items-center gap-2">

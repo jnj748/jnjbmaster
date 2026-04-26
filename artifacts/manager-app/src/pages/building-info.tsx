@@ -166,6 +166,13 @@ export default function BuildingInfo() {
             {!!b.managementOfficePhone && (
               <InfoRow label="관리사무소 전화" value={String(b.managementOfficePhone)} />
             )}
+            {/* [Task #399] 추가 연락처 2종 — 값이 있을 때만 노출 */}
+            {!!b.feeInquiryPhone && (
+              <InfoRow label="관리비문의 전화" value={String(b.feeInquiryPhone)} />
+            )}
+            {!!b.facilitySafetyPhone && (
+              <InfoRow label="시설방재실 전화" value={String(b.facilitySafetyPhone)} />
+            )}
             {!!b.managementOfficeFax && (
               <InfoRow label="관리사무소 팩스" value={String(b.managementOfficeFax)} />
             )}

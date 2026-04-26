@@ -837,6 +837,9 @@ export default function Dashboard() {
           .replace(/\{\{buildingName\}\}/g, building?.name ?? "")
           .replace(/\{\{addressFull\}\}/g, building?.addressFull ?? "")
           .replace(/\{\{managementOfficePhone\}\}/g, building?.managementOfficePhone ?? "")
+          // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
+          .replace(/\{\{feeInquiryPhone\}\}/g, building?.feeInquiryPhone ?? "")
+          .replace(/\{\{facilitySafetyPhone\}\}/g, building?.facilitySafetyPhone ?? "")
           .replace(/\{\{date\}\}/g, completeDate)
           .replace(/\{\{customA\}\}/g, "")
           .replace(/\{\{customB\}\}/g, "")

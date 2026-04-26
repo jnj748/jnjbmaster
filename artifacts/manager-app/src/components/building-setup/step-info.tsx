@@ -302,23 +302,49 @@ export function StepInfo({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4">
-            <div>
-              <Label>관리사무소 전화</Label>
-              <Input
-                value={building.managementOfficePhone}
-                onChange={(e) => handleFieldChange("managementOfficePhone", e.target.value)}
-                placeholder="02-000-0000"
-              />
+          {/* [Task #399] 입주민 안내·공지에 사용되는 건물 연락처 4종 */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">입주민 안내용 연락처</Label>
+            <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4">
+              <div>
+                <Label>관리사무소 전화번호</Label>
+                <Input
+                  value={building.managementOfficePhone}
+                  onChange={(e) => handleFieldChange("managementOfficePhone", e.target.value)}
+                  placeholder="02-000-0000"
+                  data-testid="input-management-office-phone"
+                />
+              </div>
+              <div>
+                <Label>관리비문의 전화번호</Label>
+                <Input
+                  value={building.feeInquiryPhone}
+                  onChange={(e) => handleFieldChange("feeInquiryPhone", e.target.value)}
+                  placeholder="02-000-0000"
+                  data-testid="input-fee-inquiry-phone"
+                />
+              </div>
+              <div>
+                <Label>시설방재실 전화번호</Label>
+                <Input
+                  value={building.facilitySafetyPhone}
+                  onChange={(e) => handleFieldChange("facilitySafetyPhone", e.target.value)}
+                  placeholder="02-000-0000"
+                  data-testid="input-facility-safety-phone"
+                />
+              </div>
+              <div>
+                <Label>관리사무소 팩스</Label>
+                <Input
+                  value={building.managementOfficeFax}
+                  onChange={(e) => handleFieldChange("managementOfficeFax", e.target.value)}
+                  placeholder="02-000-0000"
+                />
+              </div>
             </div>
-            <div>
-              <Label>관리사무소 팩스</Label>
-              <Input
-                value={building.managementOfficeFax}
-                onChange={(e) => handleFieldChange("managementOfficeFax", e.target.value)}
-                placeholder="02-000-0000"
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              위 번호는 자동 공지문·안내문에 사용됩니다(관리소장 개인 연락처 아님).
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-6">

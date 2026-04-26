@@ -162,6 +162,8 @@ const BUILDING_TEXT_FIELDS = [
   "addressFull", "addressJibun", "sido", "sigungu", "dong", "zipCode",
   "buildingUsage", "structureType", "completionDate", "buildingRegisterPk",
   "safetyManagerType", "managementOfficePhone", "managementOfficeFax",
+  // [Task #399] 입주민 안내·공지에서 사용하는 추가 연락처 2종(관리비문의/시설방재실).
+  "feeInquiryPhone", "facilitySafetyPhone",
   "logoUrl", "approvalDate", "areaBasis",
 ] as const;
 const BUILDING_NUMERIC_FIELDS = [

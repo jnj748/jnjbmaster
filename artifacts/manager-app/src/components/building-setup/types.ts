@@ -21,6 +21,9 @@ export interface BuildingData {
   hasSepticTank: boolean;
   managementOfficePhone: string;
   managementOfficeFax: string;
+  // [Task #399] 입주민 안내용 추가 연락처 (관리비문의/시설방재실).
+  feeInquiryPhone: string;
+  facilitySafetyPhone: string;
   logoUrl: string | null;
   landArea: string;
   buildingArea: string;

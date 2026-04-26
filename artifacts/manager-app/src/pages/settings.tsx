@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { useBuilding } from "@/contexts/building-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -649,14 +648,14 @@ function SocialAccountsCard() {
 
 function ProfileSettings() {
   const { token, user, setUser, logout } = useAuth();
-  const { building } = useBuilding();
   const { toast } = useToast();
 
-  const derivedName = building?.name ? `${building.name} 관리사무소` : "";
-  const [name, setName] = useState(user?.name || derivedName);
+  // [Task #399] 관리소장 본인 정보(개인정보)이며 자동 생성 공고문/공지에는
+  //   사용되지 않는다. 과거에는 이름이 비어 있으면 "<건물명> 관리사무소" 로
+  //   자동 채워 넣었는데, 이름과 건물명이 섞여 표시되는 문제가 있어 제거했다.
+  const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [saving, setSaving] = useState(false);
-  const prevDerivedRef = useRef(derivedName);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -665,22 +664,10 @@ function ProfileSettings() {
 
   useEffect(() => {
     if (user) {
-      setName(user.name || derivedName);
+      setName(user.name || "");
       setPhone(user.phone || "");
     }
-    // intentionally not depending on derivedName — initial sync only on user change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  // Auto-update name when building name changes, but only if the user hasn't
-  // customized it (i.e., the field is empty or still matches the previous derived value).
-  useEffect(() => {
-    setName((prev) => {
-      const wasDerived = !prev || prev === prevDerivedRef.current;
-      prevDerivedRef.current = derivedName;
-      return wasDerived ? derivedName : prev;
-    });
-  }, [derivedName]);
 
   async function handleSaveProfile() {
     if (!name.trim()) {
@@ -771,6 +758,15 @@ function ProfileSettings() {
           <CardDescription>이름과 연락처를 수정할 수 있습니다</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* [Task #399] 관리소장 본인 정보(개인정보)임을 명시. 자동 생성 공고문/공지에는
+              건물 정보(건물명·관리사무소 전화 등)가 사용되며 아래 값은 사용되지 않는다. */}
+          <p
+            className="text-xs leading-relaxed text-muted-foreground bg-amber-50 border border-amber-200 rounded-md px-3 py-2"
+            data-testid="text-personal-info-notice"
+          >
+            관리소장 본인 정보(개인정보)이며 자동 생성 문서·공지에는 사용되지 않습니다.
+            입주민 안내에 노출되는 건물 연락처는 <b>건물정보 수정</b> 화면에서 설정해 주세요.
+          </p>
           <div className="grid grid-cols-1 desktop:grid-cols-2 gap-4">
             <div>
               <Label className="flex items-center gap-1.5">
@@ -790,6 +786,7 @@ function ProfileSettings() {
                 onChange={e => setName(e.target.value)}
                 placeholder="이름을 입력하세요"
                 className="mt-1"
+                data-testid="input-profile-name"
               />
             </div>
             <div>

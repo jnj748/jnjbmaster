@@ -148,6 +148,13 @@
       "when": 1777800000000,
       "tag": "0020_task389_notice_template_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777900000000,
+      "tag": "0021_task399_building_contact_phones",
+      "breakpoints": true
     }
   ]
 }

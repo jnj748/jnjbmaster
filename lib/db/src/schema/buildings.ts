@@ -69,6 +69,10 @@ export const buildingsTable = pgTable("buildings", {
   floorAreaRatio: numeric("floor_area_ratio"),
   managementOfficePhone: text("management_office_phone"),
   managementOfficeFax: text("management_office_fax"),
+  // [Task #399] 입주민 안내·공지문에서 사용할 추가 연락처. 관리사무소 메인 번호와 분리해
+  // 관리비 문의 전용 회선과 시설/방재실(엘리베이터·화재 등) 전용 회선을 노출한다.
+  feeInquiryPhone: text("fee_inquiry_phone"),
+  facilitySafetyPhone: text("facility_safety_phone"),
   logoUrl: text("logo_url"),
   electricCapacityKw: numeric("electric_capacity_kw"),
   gasUsageMonthly: numeric("gas_usage_monthly"),

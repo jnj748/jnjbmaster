@@ -17,6 +17,9 @@ interface BuildingInfo {
   totalArea: number | null;
   elevatorCount: number | null;
   managementOfficePhone: string | null;
+  // [Task #399] 입주민 안내·공지 토큰용 추가 연락처.
+  feeInquiryPhone: string | null;
+  facilitySafetyPhone: string | null;
   logoUrl: string | null;
   // Optional extended fields surfaced by /buildings/overview and shown in
   // BuildingInfoCard. These may be undefined when the context loader returns

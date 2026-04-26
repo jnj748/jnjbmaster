@@ -189,6 +189,9 @@ function PreviewDialog({
     buildingName: building?.name ?? "",
     addressFull: building?.addressFull ?? "",
     managementOfficePhone: building?.managementOfficePhone ?? "",
+    // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
+    feeInquiryPhone: building?.feeInquiryPhone ?? "",
+    facilitySafetyPhone: building?.facilitySafetyPhone ?? "",
     date,
     customA,
     customB,
