@@ -16,6 +16,9 @@ interface Props {
   setPostcodeOpen: (v: boolean) => void;
   postcodeContainerRef: RefObject<HTMLDivElement | null>;
   setActiveStep: (n: number) => void;
+  // [Task #411] 주소 검색과 건물 정보 입력이 한 화면에 통합되면 다음 단계로 이동하는
+  // 보조 버튼이 필요 없다. true 면 하단 네비게이션 버튼 두 개를 숨긴다.
+  hideNavButtons?: boolean;
 }
 
 export function StepAddress({
@@ -29,6 +32,7 @@ export function StepAddress({
   setPostcodeOpen,
   postcodeContainerRef,
   setActiveStep,
+  hideNavButtons = false,
 }: Props) {
   return (
     <>
@@ -176,17 +180,19 @@ export function StepAddress({
             </Card>
           )}
 
-          {building.addressFull && (
+          {!hideNavButtons && building.addressFull && (
             <Button className="w-full" onClick={() => setActiveStep(1)}>
               다음: 건물 정보 확인 및 수정 →
             </Button>
           )}
 
-          <div className="text-center">
-            <Button variant="ghost" size="sm" onClick={() => setActiveStep(1)}>
-              직접 입력하기 →
-            </Button>
-          </div>
+          {!hideNavButtons && (
+            <div className="text-center">
+              <Button variant="ghost" size="sm" onClick={() => setActiveStep(1)}>
+                직접 입력하기 →
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

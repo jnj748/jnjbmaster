@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building, Calendar, DownloadCloud, Image as ImageIcon, MapPin } from "lucide-react";
-import { StepAddress } from "@/components/building-setup/step-address";
-import { StepInfo } from "@/components/building-setup/step-info";
+import { Calendar, DownloadCloud, Image as ImageIcon, MapPin } from "lucide-react";
+import { StepAddressInfo } from "@/components/building-setup/step-address-info";
 import { StepLogo } from "@/components/building-setup/step-logo";
 import { StepTasks } from "@/components/building-setup/step-tasks";
 import { StepUnitsImport } from "@/components/building-setup/step-units-import";
@@ -37,15 +36,15 @@ export default function BuildingSetup() {
   const setup = useBuildingSetup();
   const [location] = useLocation();
 
-  // [Task #348] 대시보드 제안업무 카드 등에서 ?tab=units-import 로 진입하면
-  // 호실 일괄 가져오기 단계(인덱스 4)로 자동 이동한다. 5번째 핀(파일은 항상 렌더)
-  // 의 인덱스가 4이므로 existingId 로딩 여부와 무관하게 즉시 점프한다.
+  // [Task #348/#411] 대시보드 제안업무 카드 등에서 ?tab=units-import 로 진입하면
+  // 호실 일괄 가져오기 단계로 자동 이동한다. [Task #411] 에서 주소+건물정보 통합으로
+  // 단계가 5→4로 줄어 인덱스가 4→3 으로 보정됐다.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (setup.loading) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("tab") === "units-import") {
-      setup.setActiveStep(4);
+      setup.setActiveStep(3);
     }
   }, [location, setup.loading, setup.setActiveStep]);
 
@@ -58,11 +57,12 @@ export default function BuildingSetup() {
     );
   }
 
-  // [Task #348] "호실 일괄 가져오기" 5번째 단계는 항상 노출한다. 건물 저장 전이면
+  // [Task #348/#411] "호실 일괄 가져오기" 4번째 단계는 항상 노출한다. 건물 저장 전이면
   // 단계 본문이 안내 메시지를 띄우므로 별도 가드는 불필요.
+  // [Task #411] 기존 5단계(주소 / 건물 정보 / 로고 / 법정업무 / 호실)에서 주소+건물 정보를
+  // 한 화면에 통합해 4단계로 줄였다.
   const steps = [
-    { label: "주소 검색", icon: MapPin },
-    { label: "건물 정보 입력", icon: Building },
+    { label: "주소 검색·건물 정보 입력", icon: MapPin },
     { label: "로고 등록", icon: ImageIcon },
     { label: "법정업무 선택", icon: Calendar },
     { label: "호실 일괄 가져오기", icon: DownloadCloud },
@@ -94,9 +94,12 @@ export default function BuildingSetup() {
         ))}
       </div>
 
+      {/* [Task #411] 0번째 통합 단계: 주소 검색 + 건물 정보 입력을 한 화면에 표시 */}
       {setup.activeStep === 0 && (
-        <StepAddress
+        <StepAddressInfo
           building={setup.building}
+          setBuilding={setup.setBuilding}
+          handleFieldChange={setup.handleFieldChange}
           postcodeLoaded={setup.postcodeLoaded}
           lookingUp={setup.lookingUp}
           registerPreview={setup.registerPreview}
@@ -106,14 +109,6 @@ export default function BuildingSetup() {
           setPostcodeOpen={setup.setPostcodeOpen}
           postcodeContainerRef={setup.postcodeContainerRef}
           setActiveStep={setup.setActiveStep}
-        />
-      )}
-
-      {setup.activeStep === 1 && (
-        <StepInfo
-          building={setup.building}
-          setBuilding={setup.setBuilding}
-          handleFieldChange={setup.handleFieldChange}
           safetyResult={setup.safetyResult}
           calculatingSafety={setup.calculatingSafety}
           calculateSafety={setup.calculateSafety}
@@ -124,7 +119,7 @@ export default function BuildingSetup() {
         />
       )}
 
-      {setup.activeStep === 2 && (
+      {setup.activeStep === 1 && (
         <StepLogo
           building={setup.building}
           setBuilding={setup.setBuilding}
@@ -132,11 +127,11 @@ export default function BuildingSetup() {
           existingId={setup.existingId}
           saveBuilding={setup.saveBuilding}
           setActiveStep={setup.setActiveStep}
-          nextStepIndex={3}
+          nextStepIndex={2}
         />
       )}
 
-      {setup.activeStep === 3 && (
+      {setup.activeStep === 2 && (
         <>
           <StepTasks
             searchRef={setup.searchRef}
@@ -174,7 +169,7 @@ export default function BuildingSetup() {
         </>
       )}
 
-      {setup.activeStep === 4 && (
+      {setup.activeStep === 3 && (
         <StepUnitsImport
           existingId={setup.existingId}
           hasRegisterPk={Boolean(setup.building.buildingRegisterPk)}

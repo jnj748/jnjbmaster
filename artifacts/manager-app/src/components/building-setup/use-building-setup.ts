@@ -519,7 +519,9 @@ export function useBuildingSetup() {
       if (body.building) {
         setExistingId(body.building.id);
         toast({ title: "건물 정보가 저장되었습니다" });
-        setActiveStep(2);
+        // [Task #411] 주소+건물 정보 통합으로 단계가 5→4로 줄면서
+        // 다음 단계(로고 등록)의 인덱스가 2→1 로 보정됐다.
+        setActiveStep(1);
         const params = new URLSearchParams(window.location.search);
         const returnTo = params.get("returnTo");
         if (returnTo && returnTo.startsWith("/onboarding/")) {
