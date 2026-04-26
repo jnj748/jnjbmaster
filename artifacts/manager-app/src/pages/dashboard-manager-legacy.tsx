@@ -1011,9 +1011,9 @@ export default function Dashboard() {
     return false;
   });
 
-  // [Task #358 → #397] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 / 입주율)
-  // 묶음은 다른 섹션과 정보가 중복되어 제거했다. 같은 자리에 "건물관련 계약현황"
-  // 한 줄과 "파트너사 비교 견적" 위젯을 배치한다.
+  // [Task #358 → #397] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 /
+  // 입주율) 묶음은 다른 섹션과 정보가 중복되어 제거했다. 같은 자리에 "건물관련
+  // 계약현황" 한 줄과 "파트너사 비교 견적" 위젯을 배치한다.
 
   return (
     <>
@@ -1022,7 +1022,7 @@ export default function Dashboard() {
           1) 필수업무
           2) 제안업무
           3) 오늘 업무일지 자동 작성하기 (TodayWorkLogEntry)
-          4) 제출받은 견적서 (SubmittedQuotesWidget)
+          4) 파트너사 비교 견적 (SubmittedQuotesWidget)
           5) (이어서 shell.tsx 가 연체세대 현황 위젯을 바로 렌더)
 
           "건물관련 계약현황" 한 줄은 registry 의 manager 레이아웃을 통해
