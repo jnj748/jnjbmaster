@@ -26,8 +26,8 @@ const WarrantyDdayWidget = lazy(
 const UnitsImportSuggestionWidget = lazy(
   () => import("./widgets/units-import-suggestion-widget"),
 );
-// [Task #369 → 병합] "건물관련 계약현황" 한 줄 위젯이 갱신 검토(만료 75일 이내) 카운터를
-//   흡수했다. 갱신 검토 N>0 이면 amber 강조 + 클릭 시 만료 임박만 펼쳐 진입한다.
+// [Task #450] "건물관련 계약현황" 카운터 위젯을 "우리 건물 계약업체 연락망" 단일 진입 버튼으로 교체.
+//   레지스트리 키는 기존 ROLE_LAYOUTS 호환을 위해 유지하고, 라벨/용도만 새 의미로 정리.
 const BuildingContractsSummaryWidget = lazy(
   () => import("./widgets/building-contracts-summary-widget"),
 );
@@ -122,7 +122,7 @@ export const WIDGETS = {
     key: "building-contracts-summary",
     component: BuildingContractsSummaryWidget,
     span: "full",
-    label: "건물관련 계약현황",
+    label: "우리 건물 계약업체 연락망",
   },
 } as const satisfies Record<string, WidgetDefinition>;
 
@@ -135,8 +135,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: [
       "campaign-banner",
       "units-import-suggestion",
-      // [Task #369 → 병합] "건물관련 계약현황" 한 줄 위젯이 갱신 검토(만료 75일 이내)를
-      //   흡수했다. manager-main 위에 노출해 소장이 첫 화면에서 만료 임박을 즉시 인지한다.
+      // [Task #450] "우리 건물 계약업체 연락망" 진입 버튼. 협력업체 주소록으로 한 번에 이동한다.
       "building-contracts-summary",
       "manager-main",
       "delinquency-summary",
@@ -147,7 +146,7 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: [
       "campaign-banner",
       "building-info",
-      // [Task #369 → 병합] 경리도 사이드바 "용역 계약" 진입과 함께 갱신 임박을 한 줄로 본다.
+      // [Task #450] 경리도 협력업체 주소록 진입 버튼을 상단에 노출.
       "building-contracts-summary",
       "pending-approvals",
       "delinquency-summary",
