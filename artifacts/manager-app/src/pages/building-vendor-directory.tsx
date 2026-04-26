@@ -66,6 +66,7 @@ import {
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import {
@@ -587,8 +588,129 @@ function VendorDirectoryCard({
 
 // ─── Add dialog ────────────────────────────────────────────────────────────────
 
+// 업체명 자동완성 콤보박스. 사용자가 입력하면 기존 vendor 목록에서 부분일치 항목을 추천한다.
+// - 추천을 고르면 onPickExisting(vendor) → 기존 정보를 폼에 채우고 vendorId 가 잡힌다.
+// - 추천에 없는 새 이름을 입력하고 그대로 저장하면 신규 vendor 로 등록된다.
+function VendorNameCombobox({
+  value,
+  onChange,
+  onPickExisting,
+  vendors,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onPickExisting: (vendor: Vendor) => void;
+  vendors: Vendor[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const matches = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    const list = q
+      ? vendors.filter((v) => v.name.toLowerCase().includes(q))
+      : vendors;
+    return list.slice(0, 8);
+  }, [value, vendors]);
+
+  // 외부 클릭 시 드롭다운 닫기.
+  useEffect(() => {
+    if (!open) return;
+    function onDocPointerDown(e: PointerEvent) {
+      const el = containerRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [value]);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      setOpen(true);
+      return;
+    }
+    if (!open || matches.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => (h + 1) % matches.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => (h - 1 + matches.length) % matches.length);
+    } else if (e.key === "Enter") {
+      const picked = matches[highlight];
+      if (picked) {
+        e.preventDefault();
+        onPickExisting(picked);
+        setOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder="업체명을 입력하면 기존 목록에서 추천됩니다"
+        autoComplete="off"
+        data-testid="input-vendor-name"
+      />
+      {open && matches.length > 0 && (
+        <ul
+          role="listbox"
+          className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md"
+          data-testid="vendor-suggestions"
+        >
+          {matches.map((v, idx) => (
+            <li key={v.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={idx === highlight}
+                className={cn(
+                  "w-full rounded px-2 py-1.5 text-left hover:bg-accent",
+                  idx === highlight && "bg-accent",
+                )}
+                // mousedown 이 input blur 보다 먼저 발생하므로, blur 로 인한 닫힘을 막는다.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onPickExisting(v);
+                  setOpen(false);
+                }}
+                data-testid={`vendor-suggestion-${v.id}`}
+              >
+                <div className="font-medium">{v.name}</div>
+                {v.businessRegNumber ? (
+                  <div className="text-[11px] text-muted-foreground">
+                    {v.businessRegNumber}
+                  </div>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 type AddFormState = {
-  mode: "existing" | "new";
+  // vendorId 가 set 이면 기존 vendor 에 계약만 추가, null 이면 신규 vendor 등록.
+  // 사용자는 더 이상 모드를 선택하지 않고, 업체명 자동완성에서 제안을 골랐는지 여부로 결정된다.
   vendorId: number | null;
   vendorName: string;
   category: string;
@@ -606,7 +728,6 @@ type AddFormState = {
 };
 
 const EMPTY_ADD: AddFormState = {
-  mode: "existing",
   vendorId: null,
   vendorName: "",
   category: "building_maintenance",
@@ -653,28 +774,56 @@ function AddVendorContractDialog({
     setForm((p) => ({ ...p, [k]: v }));
   }
 
-  function pickExistingVendor(idStr: string) {
-    const id = Number(idStr);
-    const picked = existingVendors.find((v) => v.id === id);
+  function pickExistingVendor(picked: Vendor) {
     setForm((p) => ({
       ...p,
-      vendorId: id,
-      vendorName: picked?.name ?? "",
-      category: picked?.category ?? p.category,
-      businessRegNumber: picked?.businessRegNumber ?? "",
-      representativeName: picked?.representativeName ?? "",
-      contactName: picked?.contactName ?? "",
-      phone: picked?.phone ?? "",
-      email: picked?.email ?? "",
+      vendorId: picked.id,
+      vendorName: picked.name,
+      category: picked.category ?? p.category,
+      businessRegNumber: picked.businessRegNumber ?? "",
+      representativeName: picked.representativeName ?? "",
+      contactName: picked.contactName ?? "",
+      phone: picked.phone ?? "",
+      email: picked.email ?? "",
     }));
   }
 
+  // 자동완성 입력창에서 사용자가 직접 텍스트를 변경하면 vendorId 를 적절히 동기화한다.
+  // - 입력값이 기존 업체명과 정확히 일치(대소문자/공백 무시)하면 자동으로 그 업체와 묶고 필드를 채운다.
+  // - 일치하지 않으면 기존에 묶여있던 vendorId 는 해제하여 신규 업체로 등록되도록 한다.
+  function handleVendorNameChange(next: string) {
+    const normalized = next.trim().toLowerCase();
+    const exactMatch =
+      normalized.length > 0
+        ? existingVendors.find((v) => (v.name ?? "").trim().toLowerCase() === normalized)
+        : undefined;
+
+    setForm((p) => {
+      if (exactMatch) {
+        if (p.vendorId === exactMatch.id) {
+          return { ...p, vendorName: next };
+        }
+        return {
+          ...p,
+          vendorName: next,
+          vendorId: exactMatch.id,
+          category: exactMatch.category ?? p.category,
+          businessRegNumber: exactMatch.businessRegNumber ?? p.businessRegNumber,
+          representativeName: exactMatch.representativeName ?? p.representativeName,
+          contactName: exactMatch.contactName ?? p.contactName,
+          phone: exactMatch.phone ?? p.phone,
+          email: exactMatch.email ?? p.email,
+        };
+      }
+      if (p.vendorId != null) {
+        return { ...p, vendorName: next, vendorId: null };
+      }
+      return { ...p, vendorName: next };
+    });
+  }
+
   async function handleSave() {
-    if (form.mode === "existing" && !form.vendorId) {
-      toast({ title: "협력업체를 선택해주세요", variant: "destructive" });
-      return;
-    }
-    if (form.mode === "new" && !form.vendorName.trim()) {
+    if (!form.vendorName.trim()) {
       toast({ title: "업체명을 입력해주세요", variant: "destructive" });
       return;
     }
@@ -689,11 +838,25 @@ function AddVendorContractDialog({
 
     try {
       let vendorId = form.vendorId;
-      let vendorName = form.vendorName;
+      let vendorName = form.vendorName.trim();
 
-      if (form.mode === "new") {
+      // 안전망: 입력값이 기존 업체명과 정확히 일치하는데 vendorId 가 비어 있으면
+      // 자동완성을 거치지 않고 직접 입력한 경우이므로 기존 업체와 묶어 중복 생성을 방지한다.
+      if (vendorId == null) {
+        const normalized = vendorName.toLowerCase();
+        const exactMatch = existingVendors.find(
+          (v) => (v.name ?? "").trim().toLowerCase() === normalized,
+        );
+        if (exactMatch) {
+          vendorId = exactMatch.id;
+          vendorName = exactMatch.name;
+        }
+      }
+
+      // vendorId 가 없으면 신규 협력업체 등록 후 그 id 로 계약을 만든다.
+      if (vendorId == null) {
         const newVendorBody: CreateVendorBody = {
-          name: form.vendorName.trim(),
+          name: vendorName,
           category: form.category as CreateVendorBodyCategory,
           type: "contracted",
           contactName: form.contactName || form.representativeName || null,
@@ -767,99 +930,72 @@ function AddVendorContractDialog({
         </ResponsiveDialogHeader>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-3 text-sm">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={form.mode === "existing"}
-                onChange={() => setField("mode", "existing")}
-                data-testid="radio-mode-existing"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <Label>업체명*</Label>
+              <VendorNameCombobox
+                value={form.vendorName}
+                onChange={handleVendorNameChange}
+                onPickExisting={pickExistingVendor}
+                vendors={existingVendors}
               />
-              기존 업체에 계약 추가
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={form.mode === "new"}
-                onChange={() => setField("mode", "new")}
-                data-testid="radio-mode-new"
-              />
-              신규 업체 등록
-            </label>
-          </div>
-
-          {form.mode === "existing" ? (
+              {form.vendorId != null ? (
+                <p
+                  className="mt-1 text-[11px] text-muted-foreground"
+                  data-testid="text-vendor-match-existing"
+                >
+                  기존 협력업체 정보가 자동 채워졌어요. 편집하면 새 업체로 등록됩니다.
+                </p>
+              ) : form.vendorName.trim() ? (
+                <p
+                  className="mt-1 text-[11px] text-muted-foreground"
+                  data-testid="text-vendor-match-new"
+                >
+                  같은 이름의 기존 업체가 없으면 신규 협력업체로 등록됩니다.
+                </p>
+              ) : null}
+            </div>
             <div>
-              <Label>협력업체</Label>
-              <Select
-                value={form.vendorId != null ? String(form.vendorId) : ""}
-                onValueChange={pickExistingVendor}
-              >
-                <SelectTrigger data-testid="select-existing-vendor">
-                  <SelectValue placeholder="목록에서 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {existingVendors.map((v) => (
-                    <SelectItem key={v.id} value={String(v.id)}>
-                      {v.name}
-                      {v.businessRegNumber ? ` (${v.businessRegNumber})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>사업자번호</Label>
+              <BusinessNumberInput
+                value={form.businessRegNumber}
+                onChange={(e) => setField("businessRegNumber", e.target.value)}
+                placeholder="123-45-67890"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2">
-                <Label>업체명*</Label>
-                <Input
-                  value={form.vendorName}
-                  onChange={(e) => setField("vendorName", e.target.value)}
-                  data-testid="input-new-vendor-name"
-                />
-              </div>
-              <div>
-                <Label>사업자번호</Label>
-                <BusinessNumberInput
-                  value={form.businessRegNumber}
-                  onChange={(e) => setField("businessRegNumber", e.target.value)}
-                  placeholder="123-45-67890"
-                />
-              </div>
-              <div>
-                <Label>대표자명</Label>
-                <Input
-                  value={form.representativeName}
-                  onChange={(e) => setField("representativeName", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>담당자 이름</Label>
-                <Input
-                  value={form.contactName}
-                  onChange={(e) => setField("contactName", e.target.value)}
-                  placeholder="현장 담당자"
-                  data-testid="input-new-contact-name"
-                />
-              </div>
-              <div>
-                <Label>연락처</Label>
-                <PhoneInput
-                  value={form.phone}
-                  onChange={(e) => setField("phone", e.target.value)}
-                  placeholder="02-1234-5678"
-                />
-              </div>
-              <div>
-                <Label>이메일</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setField("email", e.target.value)}
-                />
-              </div>
+            <div>
+              <Label>대표자명</Label>
+              <Input
+                value={form.representativeName}
+                onChange={(e) => setField("representativeName", e.target.value)}
+              />
             </div>
-          )}
+            <div>
+              <Label>담당자 이름</Label>
+              <Input
+                value={form.contactName}
+                onChange={(e) => setField("contactName", e.target.value)}
+                placeholder="현장 담당자"
+                data-testid="input-new-contact-name"
+              />
+            </div>
+            <div>
+              <Label>연락처</Label>
+              <PhoneInput
+                value={form.phone}
+                onChange={(e) => setField("phone", e.target.value)}
+                placeholder="02-1234-5678"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>이메일</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setField("email", e.target.value)}
+              />
+            </div>
+          </div>
 
           <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
