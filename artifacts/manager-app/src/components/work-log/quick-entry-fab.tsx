@@ -150,6 +150,9 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
             id: created.id ?? `tmp-${Date.now()}`,
             title: trimmed.slice(0, 80),
             occurredAt: today,
+            // [Task #407] 후속조치 → "파트너사 견적 받기" 진입 시 RFQ 사진 칸에 자동 연동.
+            closeUpPhotoUrl: photoUrl,
+            widePhotoUrl: widePhotoUrl,
           });
           setFollowUpDetection(detection);
           setFollowUpOpen(true);

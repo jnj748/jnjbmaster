@@ -158,11 +158,14 @@ export default function Rfqs() {
     category: "" as string,
     serviceType: "" as RfqServiceType | "",
     description: "",
-    desiredDate: "",
+    descriptionManuallyEdited: false,
     deadline: getDefaultDeadline(),
-    vendorIds: [] as string[],
   });
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // [Task #407] 후속조치 → 견적요청 진입 시 상세 설명을 "분야: X / 용역종류: Y" 한 줄로
+  //   자동 채운다. 사용자가 분야·용역종류를 바꾸면 본문도 따라 갱신되도록 별도 플래그로 추적.
+  //   직접 모달을 연 경우(prefill 아님)는 false → 빈 상태 그대로 둔다.
+  const [autoDescribeFromMeta, setAutoDescribeFromMeta] = useState(false);
 
   // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 작성 다이얼로그를 자동으로 연다.
   // [Task #388] 같은 /rfqs 페이지 안에서 빈 상태 추천 카드 → /rfqs?prefill=... 로
@@ -174,29 +177,40 @@ export default function Rfqs() {
     if (params.get("prefill") !== "1") return;
     const validCategories = categoryOptions.map((c) => c.value);
     const incomingCategory = params.get("category") ?? "";
-    const sourceType = params.get("sourceType") ?? "";
-    const sourceId = params.get("sourceId") ?? "";
-    const sourceDate = params.get("sourceDate") ?? "";
-    const keywords = params.get("keywords") ?? "";
-    const body = params.get("body") ?? "";
-    const footer = sourceType
-      ? `\n\n──────────\n[자동 제안] 출처: ${sourceType} #${sourceId} (${sourceDate})` +
-        (keywords ? `\n감지 키워드: ${keywords}` : "")
-      : "";
+    // [Task #407] 후속조치 진입 시에도 출처/감지 키워드/원문/건물 정보 등은 더 이상
+    //   본문에 노출하지 않는다. 본문은 분야/용역종류로부터 자동 한 줄만 채운다.
     setForm((prev) => ({
       ...prev,
       title: params.get("title") ?? prev.title,
       titleManuallyEdited: !!params.get("title"),
-      description: body + footer,
+      description: "",
+      descriptionManuallyEdited: false,
       category: validCategories.includes(incomingCategory) ? incomingCategory : prev.category,
     }));
-    if (body || footer) setAdvancedOpen(true);
+    setAutoDescribeFromMeta(true);
+    // [Task #407] 후속조치에서 끌고 온 근경/원경 사진 URL 을 미리 사진 칸에 채운다.
+    //   있는 쪽만 채워지고 없는 쪽은 기존 업로드 UI 그대로 유지.
+    const closePhoto = params.get("closeUpPhoto");
+    const widePhoto = params.get("widePhoto");
+    if (closePhoto) setCloseUpPhotoUrl(closePhoto);
+    if (widePhoto) setWidePhotoUrl(widePhoto);
+    // 후속조치로 진입 시 자동 채워진 본문이 사용자에게 보이도록 추가 옵션 영역을 펼친다.
+    setAdvancedOpen(true);
     setDialogOpen(true);
     // 한 번만 적용되도록 쿼리 정리.
     const url = new URL(window.location.href);
-    ["prefill", "title", "body", "category", "keywords", "sourceType", "sourceId", "sourceDate"].forEach(
-      (k) => url.searchParams.delete(k),
-    );
+    [
+      "prefill",
+      "title",
+      "body",
+      "category",
+      "keywords",
+      "sourceType",
+      "sourceId",
+      "sourceDate",
+      "closeUpPhoto",
+      "widePhoto",
+    ].forEach((k) => url.searchParams.delete(k));
     window.history.replaceState({}, "", url.toString());
     // [Task #388] search 변경(같은 페이지 내 navigate) 도 트리거 — 한 번 실행 후
     //   위에서 prefill 파라미터를 history 에서 제거하므로 다음 렌더에서 바로 early-return.
@@ -210,13 +224,13 @@ export default function Rfqs() {
       category: "",
       serviceType: "",
       description: "",
-      desiredDate: "",
+      descriptionManuallyEdited: false,
       deadline: getDefaultDeadline(),
-      vendorIds: [],
     });
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);
     setAdvancedOpen(false);
+    setAutoDescribeFromMeta(false);
   }
 
   // 건물 컨텍스트의 주소가 매칭에 사용된다 (사용자에게는 노출하지 않음).
@@ -230,6 +244,21 @@ export default function Rfqs() {
   const effectiveTitle = form.titleManuallyEdited && form.title.trim().length > 0
     ? form.title
     : autoTitle;
+
+  // [Task #407] 후속조치 진입 시 자동으로 채울 본문은 "분야: X / 용역종류: Y" 한 줄.
+  //   분야/용역종류가 아직 비었으면 빈 문자열로 둔다 (placeholder 가 안내).
+  const autoDescription = (() => {
+    if (!autoDescribeFromMeta) return "";
+    const catLabel = form.category
+      ? categoryOptions.find((o) => o.value === form.category)?.label || form.category
+      : "";
+    const stLabel = form.serviceType ? RFQ_SERVICE_TYPE_LABELS[form.serviceType] : "";
+    if (!catLabel && !stLabel) return "";
+    return `분야: ${catLabel || "-"} / 용역종류: ${stLabel || "-"}`;
+  })();
+  const effectiveDescription = form.descriptionManuallyEdited
+    ? form.description
+    : autoDescription;
 
   const photosReady = !!closeUpPhotoUrl && !!widePhotoUrl;
   const canSubmit = !!form.category && !!form.serviceType && photosReady && buildingReady;
@@ -261,11 +290,13 @@ export default function Rfqs() {
       title: effectiveTitle,
       category: form.category,
       serviceType: form.serviceType,
-      description: form.description || null,
+      description: effectiveDescription || null,
       buildingName,
-      desiredDate: form.desiredDate || null,
+      // [Task #407] 폼에서 희망일·추가 발송 업체 입력을 제거. 항상 null 로 보낸다.
+      //   서버 스키마(`api-server/src/routes/rfqs.ts`)는 변경 없이 그대로 유지.
+      desiredDate: null,
       deadline: form.deadline,
-      vendorIds: form.vendorIds.length > 0 ? form.vendorIds.join(",") : null,
+      vendorIds: null,
       sido: buildingSido || null,
       sigungu: buildingSigungu || null,
       geoScope: buildingSigungu ? "sigungu" : buildingSido ? "sido" : null,
@@ -356,8 +387,8 @@ export default function Rfqs() {
     }
   };
 
-  const platformVendors = vendors?.filter((v) => v.type === "platform") || [];
   // [Task #339] 견적 비교에서 업체별 누적 별점·건수를 빠르게 조회하기 위한 맵.
+  // [Task #407] 폼에서 "추가 발송 업체" 선택 목록이 제거되어 platformVendors 는 더 이상 사용되지 않음.
   const vendorById = new Map<number, Vendor>((vendors || []).map((v) => [v.id, v]));
 
   return (
@@ -424,22 +455,23 @@ export default function Rfqs() {
                 <p className="text-sm font-medium mb-3">
                   현장 사진 <span className="text-destructive">*</span>
                 </p>
+                {/* [Task #407] 좌측 원경 → 우측 근경 순서로 표시 (이전: 근경-원경). */}
                 <div className="grid grid-cols-2 gap-4">
-                  <PhotoUploadField
-                    label="근경 사진 *"
-                    value={closeUpPhotoUrl}
-                    onChange={setCloseUpPhotoUrl}
-                    testId="rfq-photo-close-up"
-                  />
                   <PhotoUploadField
                     label="원경 사진 *"
                     value={widePhotoUrl}
                     onChange={setWidePhotoUrl}
                     testId="rfq-photo-wide"
                   />
+                  <PhotoUploadField
+                    label="근경 사진 *"
+                    value={closeUpPhotoUrl}
+                    onChange={setCloseUpPhotoUrl}
+                    testId="rfq-photo-close-up"
+                  />
                 </div>
                 {!photosReady && (
-                  <p className="text-xs text-destructive mt-2">근경/원경 사진은 필수입니다.</p>
+                  <p className="text-xs text-destructive mt-2">원경/근경 사진은 필수입니다.</p>
                 )}
               </div>
 
@@ -455,6 +487,7 @@ export default function Rfqs() {
               )}
 
               <div className="border-t pt-3">
+                {/* [Task #407] 추가 옵션은 제목 수정·상세 설명만 노출. 희망일·마감일·추가 발송 업체는 제거됨. */}
                 <button
                   type="button"
                   onClick={() => setAdvancedOpen((v) => !v)}
@@ -462,7 +495,7 @@ export default function Rfqs() {
                   data-testid="rfq-advanced-toggle"
                 >
                   {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  추가 옵션 (제목 수정·상세 설명·희망일·마감일·발송 업체 추가)
+                  추가 옵션 (제목 수정·상세 설명)
                 </button>
 
                 {advancedOpen && (
@@ -477,58 +510,22 @@ export default function Rfqs() {
                         placeholder={autoTitle}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>희망일</Label>
-                        <Input
-                          type="date"
-                          value={form.desiredDate}
-                          onChange={(e) => setForm({ ...form, desiredDate: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>마감일</Label>
-                        <Input
-                          type="date"
-                          value={form.deadline}
-                          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-                        />
-                      </div>
-                    </div>
                     <div>
                       <Label>상세 설명</Label>
+                      {/* [Task #407] 본문 영역 높이를 약 1.5배(60px → 90px)로 확대. */}
                       <Textarea
-                        value={form.description}
-                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        value={effectiveDescription}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            description: e.target.value,
+                            descriptionManuallyEdited: true,
+                          })
+                        }
                         placeholder="작업 내용, 특이사항 등을 기재해주세요"
+                        className="min-h-[90px]"
+                        data-testid="rfq-description"
                       />
-                    </div>
-                    <div>
-                      <Label>추가 발송 업체 (복수 선택 가능)</Label>
-                      <div className="mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
-                        {platformVendors.length > 0 ? platformVendors.map((v) => (
-                          <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
-                            <input
-                              type="checkbox"
-                              checked={form.vendorIds.includes(v.id.toString())}
-                              onChange={(e) => {
-                                const vid = v.id.toString();
-                                setForm({
-                                  ...form,
-                                  vendorIds: e.target.checked
-                                    ? [...form.vendorIds, vid]
-                                    : form.vendorIds.filter((id) => id !== vid),
-                                });
-                              }}
-                              className="w-4 h-4"
-                            />
-                            {v.name} - {categoryLabel(v.category)}
-                            {v.sido && <span className="text-xs text-muted-foreground ml-1">({v.sido})</span>}
-                          </label>
-                        )) : (
-                          <p className="text-xs text-muted-foreground p-2">등록된 플랫폼 업체가 없습니다</p>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )}

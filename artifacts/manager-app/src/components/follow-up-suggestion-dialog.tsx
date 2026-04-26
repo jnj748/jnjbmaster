@@ -23,6 +23,7 @@ import {
   type FollowUpSource,
   SOURCE_TYPE_LABEL,
 } from "@/lib/follow-up-detection";
+import { buildPrefillQuery } from "@/lib/follow-up-prefill";
 import { FollowUpScheduleTaskDialog } from "@/components/follow-up-schedule-task-dialog";
 import { CompletionNotice } from "@/components/completion-notice";
 import { useBuilding } from "@/contexts/building-context";
@@ -47,41 +48,6 @@ interface Props {
   source: FollowUpSource | null;
   detection: FollowUpDetection | null;
   onClose: () => void;
-}
-
-function buildPrefilledBody(source: FollowUpSource, detection: FollowUpDetection | null): string {
-  const lines: string[] = [];
-  lines.push(`[자동 제안] ${source.title}`);
-  lines.push("");
-  if (detection) {
-    lines.push(`감지 키워드: ${detection.matched.map((m) => m.keyword).join(", ")}`);
-    lines.push(`원문: ${detection.snippet}`);
-    lines.push("");
-  }
-  lines.push(`출처: ${SOURCE_TYPE_LABEL[source.type]} #${source.id} (${source.occurredAt})`);
-  lines.push("");
-  lines.push("아래에 후속 조치 내용을 작성해주세요.");
-  return lines.join("\n");
-}
-
-// [Task #404] 기안서(approval) 분기 제거 — 후속조치 다이얼로그에서는 더 이상
-//   /approvals/create 로 이동하지 않으므로 RFQ 한 가지 분기만 남는다.
-function buildRfqPrefillQuery(
-  source: FollowUpSource,
-  detection: FollowUpDetection | null,
-): string {
-  const params = new URLSearchParams();
-  params.set("prefill", "1");
-  params.set("title", source.title);
-  params.set("body", buildPrefilledBody(source, detection));
-  if (detection) {
-    params.set("category", detection.recommendedRfqCategory);
-    params.set("keywords", detection.matched.map((m) => m.keyword).join(","));
-  }
-  params.set("sourceType", source.type);
-  params.set("sourceId", String(source.id));
-  params.set("sourceDate", source.occurredAt);
-  return params.toString();
 }
 
 // [Task #404] 후속조치 → 문서 작성(공고문/보고서/기안서) 모달 진입 시,
@@ -137,6 +103,7 @@ function buildFollowUpDocBodies(
   return { notice, report, draft };
 }
 
+
 export function FollowUpSuggestionDialog({ open, source, detection, onClose }: Props) {
   const [, navigate] = useLocation();
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -186,7 +153,7 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
   function handleRfq() {
     if (!source) return;
     dismissFollowUpSource(source);
-    const qs = buildRfqPrefillQuery(source, detection);
+    const qs = buildPrefillQuery(source, detection, "rfq");
     onClose();
     navigate(`/rfqs?${qs}`);
   }

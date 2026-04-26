@@ -129,6 +129,16 @@ export interface FollowUpSource {
   title: string;
   /** 발생일 (ISO YYYY-MM-DD). */
   occurredAt: string;
+  /**
+   * [Task #407] 원본에 첨부된 근경 사진 URL (있을 때만).
+   * 후속조치 → "파트너사 견적 받기" 진입 시 RFQ 모달의 근경 사진 칸에 자동으로 채워진다.
+   */
+  closeUpPhotoUrl?: string | null;
+  /**
+   * [Task #407] 원본에 첨부된 원경 사진 URL (있을 때만).
+   * 후속조치 → "파트너사 견적 받기" 진입 시 RFQ 모달의 원경 사진 칸에 자동으로 채워진다.
+   */
+  widePhotoUrl?: string | null;
 }
 
 export const SOURCE_TYPE_LABEL: Record<FollowUpSource["type"], string> = {
