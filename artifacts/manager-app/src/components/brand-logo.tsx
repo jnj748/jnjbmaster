@@ -1,20 +1,19 @@
 import type { CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 
 // 브랜드 로고: "관리의달인" + 빌딩 아이콘.
-//   - "관리의" 는 currentColor 를 따라가도록 해 배경에 맞춰 자동 대비.
-//     · 밝은 배경 → 부모에서 text-slate-900(검정) 상속
-//     · 어두운 배경 → 부모에서 text-white(흰색) 상속
-//   - "달인" 은 항상 브랜드 틸 컬러로 강조.
-//   - 빌딩 아이콘도 항상 브랜드 틸.
-//   - height 픽셀만 받고 가로는 자동(viewBox 비율 유지).
+//   [Task #414] 보라(브랜드 액센트) 통일 + 자동 대비.
+//     · 텍스트와 빌딩 아이콘 모두 `currentColor` 를 따라간다.
+//     · 컴포넌트 기본 색은 브랜드 보라(text-violet-600 ≒ hsl(243 100% 68%) 액센트 계열).
+//     · 사이드바 등 어두운 배경에서는 caller 가 className 으로 `text-white` 를 넘기면
+//       바로 흰색 로고로 자동 대비된다.
+//   [Task #414] 종전의 틸(민트) 강조는 제거. 로고 전체가 한 가지 톤으로 가독성↑.
 export interface BrandLogoProps {
   height?: number; // px
   className?: string;
   style?: CSSProperties;
   ariaLabel?: string;
 }
-
-const BRAND_TEAL = "#14b8a6"; // teal-500
 
 export function BrandLogo({
   height = 32,
@@ -32,42 +31,44 @@ export function BrandLogo({
       height={height}
       viewBox="0 0 240 64"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      // 기본 보라 톤. caller 가 className 에서 text-white 등으로 덮어쓰면
+      // tailwind-merge(cn) 가 충돌 클래스(text-*)를 결정적으로 마지막 값으로 해소한다.
+      className={cn("text-violet-600", className)}
       style={style}
     >
-      {/* 빌딩 아이콘 */}
-      <g fill={BRAND_TEAL}>
-        {/* 본체 */}
-        <rect x="6"  y="14" width="22" height="42" rx="2" />
-        <rect x="30" y="22" width="14" height="34" rx="2" />
-        {/* 창문 (어둡게 비워서 윤곽 표현) */}
-        <g fill="#ffffff" opacity="0.95">
-          <rect x="10" y="20" width="4" height="4" />
-          <rect x="18" y="20" width="4" height="4" />
-          <rect x="10" y="28" width="4" height="4" />
-          <rect x="18" y="28" width="4" height="4" />
-          <rect x="10" y="36" width="4" height="4" />
-          <rect x="18" y="36" width="4" height="4" />
-          <rect x="34" y="28" width="3" height="3" />
-          <rect x="39" y="28" width="3" height="3" />
-          <rect x="34" y="35" width="3" height="3" />
-          <rect x="39" y="35" width="3" height="3" />
-          <rect x="34" y="42" width="3" height="3" />
-          <rect x="39" y="42" width="3" height="3" />
-        </g>
+      {/* 빌딩 아이콘 — 외곽선만 currentColor 로 채우고, 창문은 배경(흰색/어두움)이
+          비치도록 비워서 단색 톤과도 잘 어울리게 한다. */}
+      <g fill="currentColor">
+        {/* 본체(라운드 모서리) */}
+        <rect x="6"  y="14" width="22" height="42" rx="3" />
+        <rect x="30" y="22" width="14" height="34" rx="3" />
       </g>
-      {/* 텍스트: "관리의" (진한 슬레이트) + " 달인" (브랜드 틸) */}
+      {/* 창문은 배경을 비우는 방식 대신 살짝 투명한 currentColor 로 음각 표현한다.
+          배경이 흰색이든 어두움이든 항상 부드럽게 보이도록 opacity 를 사용. */}
+      <g fill="#ffffff" opacity="0.92">
+        <rect x="10" y="20" width="4" height="4" rx="0.8" />
+        <rect x="18" y="20" width="4" height="4" rx="0.8" />
+        <rect x="10" y="28" width="4" height="4" rx="0.8" />
+        <rect x="18" y="28" width="4" height="4" rx="0.8" />
+        <rect x="10" y="36" width="4" height="4" rx="0.8" />
+        <rect x="18" y="36" width="4" height="4" rx="0.8" />
+        <rect x="34" y="28" width="3" height="3" rx="0.6" />
+        <rect x="39" y="28" width="3" height="3" rx="0.6" />
+        <rect x="34" y="35" width="3" height="3" rx="0.6" />
+        <rect x="39" y="35" width="3" height="3" rx="0.6" />
+        <rect x="34" y="42" width="3" height="3" rx="0.6" />
+        <rect x="39" y="42" width="3" height="3" rx="0.6" />
+      </g>
+      {/* 워드마크: "관리의달인" 전체가 currentColor — 한 톤으로 깔끔하게. */}
       <text
         x="56"
         y="44"
+        fill="currentColor"
         fontFamily='-apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif'
         fontSize="30"
         fontWeight={800}
         letterSpacing="-0.5"
-      >
-        <tspan fill="currentColor">관리의</tspan>
-        <tspan fill={BRAND_TEAL} dx="6">달인</tspan>
-      </text>
+      >관리의달인</text>
     </svg>
   );
 }

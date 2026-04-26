@@ -105,7 +105,7 @@ function SidebarContent({ navLinks, user, logout, base, isPartner }: {
   return (
     <>
       <div className="p-4 border-b border-sidebar-border shrink-0">
-        <Link href="/"><BrandLogo height={36} /></Link>
+        <Link href="/"><BrandLogo height={36} className="text-white" /></Link>
       </div>
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">{navLinks}</nav>
       <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">

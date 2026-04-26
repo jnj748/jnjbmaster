@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 관리의달인 maskable 아이콘 — full-bleed 보라 + 흰색 빌딩 마크가 80% safe-zone 안쪽에 있다. -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgFull" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7c7af6"/>
+      <stop offset="1" stop-color="#4f4cdc"/>
+    </linearGradient>
+  </defs>
+  <!-- full-bleed 배경(라운드 없음). Android 런처가 자체 마스크를 씌운다. -->
+  <rect width="512" height="512" fill="url(#bgFull)"/>
+  <!-- 빌딩 마크: 중앙에 220x220 박스로 배치 (safe-zone 80% 안쪽). -->
+  <g transform="translate(146 146)" fill="#ffffff">
+    <rect x="0"   y="0"  width="110" height="220" rx="14"/>
+    <rect x="124" y="48" width="92"  height="172" rx="14"/>
+  </g>
+  <g transform="translate(146 146)" fill="#4f4cdc">
+    <rect x="18" y="26" width="20" height="20" rx="3"/>
+    <rect x="48" y="26" width="20" height="20" rx="3"/>
+    <rect x="78" y="26" width="20" height="20" rx="3"/>
+    <rect x="18" y="60" width="20" height="20" rx="3"/>
+    <rect x="48" y="60" width="20" height="20" rx="3"/>
+    <rect x="78" y="60" width="20" height="20" rx="3"/>
+    <rect x="18" y="94" width="20" height="20" rx="3"/>
+    <rect x="48" y="94" width="20" height="20" rx="3"/>
+    <rect x="78" y="94" width="20" height="20" rx="3"/>
+    <rect x="18" y="128" width="20" height="20" rx="3"/>
+    <rect x="48" y="128" width="20" height="20" rx="3"/>
+    <rect x="78" y="128" width="20" height="20" rx="3"/>
+    <rect x="18" y="162" width="20" height="20" rx="3"/>
+    <rect x="48" y="162" width="20" height="20" rx="3"/>
+    <rect x="78" y="162" width="20" height="20" rx="3"/>
+    <rect x="142" y="72"  width="18" height="18" rx="3"/>
+    <rect x="172" y="72"  width="18" height="18" rx="3"/>
+    <rect x="142" y="104" width="18" height="18" rx="3"/>
+    <rect x="172" y="104" width="18" height="18" rx="3"/>
+    <rect x="142" y="136" width="18" height="18" rx="3"/>
+    <rect x="172" y="136" width="18" height="18" rx="3"/>
+    <rect x="142" y="168" width="18" height="18" rx="3"/>
+    <rect x="172" y="168" width="18" height="18" rx="3"/>
+  </g>
+</svg>

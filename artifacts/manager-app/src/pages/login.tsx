@@ -236,7 +236,11 @@ export default function Login() {
                 )}
               </div>
               <div>
-                <h1 className="text-lg md:text-xl font-semibold text-slate-900 leading-tight">
+                <h1
+                  className={`text-lg md:text-xl font-semibold leading-tight ${
+                    isRegister ? "text-slate-900" : "text-violet-600"
+                  }`}
+                >
                   {isRegister ? "회원가입" : "관리의달인"}
                 </h1>
                 <p className="text-sm text-slate-500 leading-tight">
