@@ -443,6 +443,12 @@ export interface TemplateAlertContext {
   //   윈도우를 풀고 모든 예정 템플릿을 노출하기 위한 오버라이드. 기본(undefined)은
   //   템플릿 자체의 advanceAlertDays 사용.
   windowDaysOverride?: number | null;
+  // [Task #473] 대시보드 필수·제안업무 카드는 "30일 안내 문구·신호등 임계치"
+  //   기준으로 노출되어야 한다. 템플릿마다 정의된 advanceAlertDays(7·14·21일 등)가
+  //   30일보다 짧으면 D-13/D-18 같은 항목이 누락되므로, 효과적인 윈도우를
+  //   max(템플릿 advanceAlertDays, minWindowDays) 로 끌어올린다. windowDaysOverride
+  //   가 지정되면 그 값이 우선한다.
+  minWindowDays?: number | null;
 }
 
 // [Task #305] eligibility 평가에 사용하는 빌딩 속성. numeric 컬럼은 string|number 로
@@ -598,7 +604,13 @@ export async function resolveActiveTemplateAlerts(
     const alertWindowStart = new Date(due);
     // [Task #413] 시설관리 페이지에서는 windowDaysOverride 로 advanceAlertDays 윈도우를 풀어
     //   모든 예정 템플릿을 노출한다. (대시보드는 undefined 로 기본 동작 유지)
-    const windowDays = ctx.windowDaysOverride ?? t.advanceAlertDays;
+    // [Task #473] 대시보드는 minWindowDays(=30) 를 전달해, advanceAlertDays 가 30일보다
+    //   짧은 템플릿(자체점검·전기 월차점검 등)도 30일 윈도우에 들어오면 노출되도록 한다.
+    //   advanceAlertDays 가 30일보다 큰 템플릿(60·90·120·180일짜리 anchored 하자/장기 점검 등)은
+    //   기존대로 자기 윈도우를 유지한다.
+    const minWindow = ctx.minWindowDays ?? 0;
+    const windowDays =
+      ctx.windowDaysOverride ?? Math.max(t.advanceAlertDays, minWindow);
     alertWindowStart.setDate(alertWindowStart.getDate() - windowDays);
     if (today < alertWindowStart) continue;
 

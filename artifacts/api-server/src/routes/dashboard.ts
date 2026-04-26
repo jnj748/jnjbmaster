@@ -536,10 +536,19 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       .where(eq(usersTable.id, userId));
     userBuildingId = u?.buildingId ?? null;
   }
+  // [Task #473] 대시보드 카드의 안내 문구·신호등 임계치는 모두 "30일" 기준이므로
+  //   템플릿별 advanceAlertDays(7·14·21일짜리)에 막혀 D-13/D-18 같은 항목이 누락되지 않도록
+  //   minWindowDays=30 으로 끌어올린다. advanceAlertDays 가 30일보다 큰 템플릿은
+  //   기존대로 자기 윈도우를 유지한다.
   const templateAlerts = await resolveActiveTemplateAlerts(
     new Date().toISOString(),
     alertId + 1000,
-    { userId, buildingId: userBuildingId, userRole: req.user?.role ?? null },
+    {
+      userId,
+      buildingId: userBuildingId,
+      userRole: req.user?.role ?? null,
+      minWindowDays: 30,
+    },
   );
   for (const a of templateAlerts) {
     alerts.push({
