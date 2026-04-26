@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { SplashScreen } from "@/components/splash-screen";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { BuildingProvider } from "@/contexts/building-context";
 import { OnboardingProvider, useOnboarding } from "@/contexts/onboarding-context";
@@ -218,14 +219,7 @@ function AppRouter() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-slate-500">로딩 중...</span>
-        </div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) {
