@@ -53,6 +53,7 @@ import {
   NotebookPen,
   FolderOpen,
   BarChart3,
+  ChevronRight,
 } from "lucide-react";
 // [Task #256] 5색 카테고리 팔레트 단일 출처 — 화면별 하드코딩 색 클래스 대신 사용
 import { CATEGORY_ICON_CLASS, CATEGORY_BG_CLASS } from "@/lib/category-colors";
@@ -191,12 +192,23 @@ function AlertSection({
           <span className="text-xs font-normal text-muted-foreground truncate min-w-0">
             {description}
           </span>
-          {alerts.length > 0 && (
-            <span className="text-xs font-normal text-muted-foreground shrink-0">
-              총 {alerts.length}건
-            </span>
-          )}
         </h2>
+        {/* [Task #429] 헤더 우측 "총 N건" 텍스트를 "모두보기" 링크로 대체.
+            mandatory → /facility/mandatory-tasks, suggested → /facility/suggested-tasks.
+            알림이 0건이어도 항상 표시해 전체 목록 진입을 보장한다.
+            카드 클릭(처리 모달 열기)과 영역이 분리되도록 헤더 내부에서만 동작한다. */}
+        <Link
+          href={
+            sectionKind === "mandatory"
+              ? "/facility/mandatory-tasks"
+              : "/facility/suggested-tasks"
+          }
+          className="shrink-0 inline-flex items-center gap-0.5 text-xs font-normal text-muted-foreground hover:text-foreground hover:underline px-2 py-1 -mr-2 rounded-md"
+          data-testid={`link-view-all-${sectionKind === "mandatory" ? "mandatory" : "suggested"}`}
+        >
+          모두보기
+          <ChevronRight className="w-3 h-3" />
+        </Link>
       </div>
       {loading ? (
         <div className="space-y-2">
