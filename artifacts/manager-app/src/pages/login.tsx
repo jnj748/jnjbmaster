@@ -21,6 +21,55 @@ const CONSENT_VERSION = "1.0";
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
+// [Task #403] PWA 새 보라 로고 안내.
+//   기존에 설치한 사용자에겐 옛 검은 타원 로고가 캐시되어 보일 수 있어, 한 번
+//   재설치(홈 화면에서 삭제 후 다시 추가)해 달라는 짧은 안내를 노출한다.
+//   - 한 번 닫으면 다시 띄우지 않는다(localStorage).
+//   - 본 안내는 신규 설치자 입장에선 굳이 보일 필요가 없으므로, 출시 후 수 주가
+//     지난 시점부터는 자동으로 사라지도록 만료일을 둔다.
+const PWA_ICON_NOTICE_KEY = "pwaIconRefreshNoticeV2Dismissed";
+const PWA_ICON_NOTICE_EXPIRES_AT = new Date("2026-06-15T00:00:00Z").getTime();
+
+function PwaIconRefreshNotice() {
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (Date.now() > PWA_ICON_NOTICE_EXPIRES_AT) return;
+    try {
+      if (window.localStorage.getItem(PWA_ICON_NOTICE_KEY) === "1") return;
+    } catch {
+      // localStorage 차단 환경(시크릿모드 등)에서는 그냥 한 번 노출.
+    }
+    setHidden(false);
+  }, []);
+  if (hidden) return null;
+  return (
+    <div className="mx-auto w-full max-w-md px-5 pb-2">
+      <div className="flex items-start gap-2 rounded-md border border-violet-100 bg-violet-50 px-2.5 py-1.5 text-[11px] leading-snug text-violet-700">
+        <span className="flex-1">
+          홈 화면 아이콘이 옛 검은 로고로 보이면, 한 번만 홈 화면에서 삭제 후
+          다시 추가해 주세요. 새 보라 로고로 바뀝니다.
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              window.localStorage.setItem(PWA_ICON_NOTICE_KEY, "1");
+            } catch {
+              // ignore
+            }
+            setHidden(true);
+          }}
+          className="shrink-0 px-1.5 py-0.5 -my-0.5 rounded hover:bg-violet-100 text-violet-600"
+          aria-label="안내 닫기"
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type SocialProvider = "naver" | "kakao" | "google";
 
 interface ProviderInfo {
@@ -472,6 +521,9 @@ export default function Login() {
           </div>
         </form>
       </div>
+
+      {/* [Task #403] PWA 새 보라 로고 안내 (기존 설치자만 일시적으로 노출) */}
+      <PwaIconRefreshNotice />
 
       {/* 푸터: 개발 환경 빠른 로그인 */}
       {DevQuickLogin && (

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 관리의달인 앱 아이콘 — 보라(#5b58f0 ≒ hsl(243 100% 68%)) 라운드 정사각 + 흰색 빌딩 마크. -->
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7c7af6"/>
+      <stop offset="1" stop-color="#4f4cdc"/>
+    </linearGradient>
+  </defs>
+  <!-- 라운드 정사각 배경(iOS 마스킹 친화적 라운드, Android maskable safe zone 안쪽 80%에 마크 배치). -->
+  <rect width="180" height="180" rx="40" fill="url(#bg)"/>
+  <!-- 빌딩 마크 (안전 영역 내부 ≈ 96x96 박스에 배치). -->
+  <g transform="translate(38 36)" fill="#ffffff">
+    <rect x="0"  y="0"  width="50" height="96" rx="6"/>
+    <rect x="56" y="22" width="40" height="74" rx="6"/>
+  </g>
+  <!-- 창문(보라 배경이 비치도록 진한 보라로 음각). -->
+  <g transform="translate(38 36)" fill="#4f4cdc">
+    <rect x="8"  y="12" width="9" height="9" rx="1.5"/>
+    <rect x="22" y="12" width="9" height="9" rx="1.5"/>
+    <rect x="36" y="12" width="9" height="9" rx="1.5"/>
+    <rect x="8"  y="28" width="9" height="9" rx="1.5"/>
+    <rect x="22" y="28" width="9" height="9" rx="1.5"/>
+    <rect x="36" y="28" width="9" height="9" rx="1.5"/>
+    <rect x="8"  y="44" width="9" height="9" rx="1.5"/>
+    <rect x="22" y="44" width="9" height="9" rx="1.5"/>
+    <rect x="36" y="44" width="9" height="9" rx="1.5"/>
+    <rect x="8"  y="60" width="9" height="9" rx="1.5"/>
+    <rect x="22" y="60" width="9" height="9" rx="1.5"/>
+    <rect x="36" y="60" width="9" height="9" rx="1.5"/>
+    <rect x="64" y="32" width="8" height="8" rx="1.5"/>
+    <rect x="78" y="32" width="8" height="8" rx="1.5"/>
+    <rect x="64" y="46" width="8" height="8" rx="1.5"/>
+    <rect x="78" y="46" width="8" height="8" rx="1.5"/>
+    <rect x="64" y="60" width="8" height="8" rx="1.5"/>
+    <rect x="78" y="60" width="8" height="8" rx="1.5"/>
+    <rect x="64" y="74" width="8" height="8" rx="1.5"/>
+    <rect x="78" y="74" width="8" height="8" rx="1.5"/>
+  </g>
+</svg>
