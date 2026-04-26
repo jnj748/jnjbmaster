@@ -27,6 +27,11 @@ interface BuildingInfo {
   buildingUsage?: string | null;
   basementFloors?: number | null;
   completionDate?: string | null;
+  // [Task #469] 호실관리 빈 상태에서 바로 호실정보 불러오기 다이얼로그를 열기
+  // 위해 건축물대장 식별자 유무를 컨텍스트에서 알 수 있어야 한다.
+  // /buildings/my 응답은 이미 buildings 행 전체를 그대로 돌려주므로 별도 호출 없이
+  // 그대로 노출만 하면 된다.
+  buildingRegisterPk?: string | null;
 }
 
 interface BuildingContextType {

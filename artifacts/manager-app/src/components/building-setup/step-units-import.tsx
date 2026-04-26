@@ -20,6 +20,12 @@ import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 interface Props {
   existingId: number | null;
   hasRegisterPk: boolean;
+  // [Task #469] 호실관리 페이지의 모달에서도 동일 컴포넌트를 재사용한다.
+  // 확정 적용이 성공한 직후 호출되어 다이얼로그를 닫는 등 후속 처리를 위임할 수 있다.
+  onApplied?: (res: ImportUnitsFromRegisterResponse) => void;
+  // [Task #469] 사전 조건이 미충족(건물 미선택/식별자 없음)일 때 노출할
+  // 보조 액션. 다이얼로그 진입점에서는 "건물 설정으로 이동" 버튼으로 사용한다.
+  onGoToBuildingSettings?: () => void;
 }
 
 const ACTION_BADGE: Record<ImportUnitPreviewItem["action"], { label: string; cls: string }> = {
@@ -28,7 +34,7 @@ const ACTION_BADGE: Record<ImportUnitPreviewItem["action"], { label: string; cls
   skip: { label: "유지", cls: "bg-slate-100 text-slate-600" },
 };
 
-export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
+export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBuildingSettings }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [preview, setPreview] = useState<ImportUnitsFromRegisterResponse | null>(null);
@@ -44,13 +50,22 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
         <CardHeader>
           <CardTitle className="text-lg">호실정보 불러오기</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Alert>
             <AlertCircle className="w-4 h-4" />
             <AlertDescription>
               위 ‘건물 정보 저장’ 을 먼저 완료해 주세요.
             </AlertDescription>
           </Alert>
+          {/* [Task #469] 다이얼로그 진입점에서는 사용자가 곧바로 건물 설정으로
+              이동할 수 있도록 보조 버튼을 노출한다. */}
+          {onGoToBuildingSettings && (
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={onGoToBuildingSettings} data-testid="btn-units-import-go-settings">
+                건물 설정으로 이동
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -62,7 +77,7 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
         <CardHeader>
           <CardTitle className="text-lg">호실정보 불러오기</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Alert variant="destructive">
             <AlertCircle className="w-4 h-4" />
             {/* [Task #427] 잠긴 주소에서도 식별자만 다시 받을 수 있는 동선이 생겼으므로,
@@ -71,6 +86,13 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
               건축물대장 식별자가 비어 있습니다. 위 ‘건물 주소’ 카드에서 [건축물대장 다시 조회] 버튼을 눌러 주세요.
             </AlertDescription>
           </Alert>
+          {onGoToBuildingSettings && (
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={onGoToBuildingSettings} data-testid="btn-units-import-go-settings">
+                건물 설정으로 이동
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -101,6 +123,9 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
         title: "가져오기 완료",
         description: `신규 ${res.created} · 갱신 ${res.updated} · 유지 ${res.skipped}`,
       });
+      // [Task #469] 호실관리 다이얼로그처럼 외부 컨테이너가 있을 때
+      // 확정 적용 결과를 알리고 자동으로 닫히도록 한다.
+      onApplied?.(res);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "호실 일괄 가져오기에 실패했습니다.";
       toast({ title: "오류", description: msg, variant: "destructive" });

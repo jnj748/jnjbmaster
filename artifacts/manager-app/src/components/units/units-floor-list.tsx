@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, DownloadCloud, Edit, Eye, Layers, Trash2 } from "lucide-react";
+import { Building2, Edit, Eye, Layers, Sparkles, Trash2 } from "lucide-react";
 import type { Unit } from "@workspace/api-client-react";
 
 interface Props {
@@ -58,22 +58,26 @@ export function UnitsFloorList({
     return (
       <Card>
         <CardContent className="py-12 text-center">
+          {/* [Task #469] 시니어 사용자가 첫 화면에서 곧바로 인지할 수 있도록
+              "AI 호실데이터 로딩하기" 버튼을 빈 상태 아이콘과 안내 문구 위쪽에
+              먼저 노출한다. testid 는 기존 동작(자동화/검증)과의 호환을 위해
+              그대로 유지한다. */}
+          {showSyncCta && (
+            <Button
+              size="lg"
+              className="mb-6"
+              onClick={onSyncFromRegister}
+              data-testid="btn-empty-units-sync-from-register"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              AI 호실데이터 로딩하기
+            </Button>
+          )}
           <Building2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground mb-4">등록된 호실이 없습니다</p>
           <p className="text-sm text-muted-foreground">
             호실을 개별 추가하거나, CSV 업로드 또는 자동 생성으로 일괄 등록하세요
           </p>
-          {showSyncCta && (
-            <Button
-              size="lg"
-              className="mt-5"
-              onClick={onSyncFromRegister}
-              data-testid="btn-empty-units-sync-from-register"
-            >
-              <DownloadCloud className="w-5 h-5 mr-2" />
-              대장 동기화로 가져오기
-            </Button>
-          )}
         </CardContent>
       </Card>
     );

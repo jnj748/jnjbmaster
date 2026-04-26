@@ -40,7 +40,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
-import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
 import { GenerateDialog, type GenForm } from "@/components/units/generate-dialog";
@@ -48,6 +47,7 @@ import { UnitFormDialog, type UnitFormState } from "@/components/units/unit-form
 import { UnitDetailDialog } from "@/components/units/unit-detail-dialog";
 import { UnitsSummaryCards } from "@/components/units/units-summary-cards";
 import { UnitsFloorList } from "@/components/units/units-floor-list";
+import { UnitsImportDialog } from "@/components/units/units-import-dialog";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
@@ -66,13 +66,14 @@ const emptyForm: UnitFormState = {
 };
 
 export default function UnitsPage() {
-  const [, navigate] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Unit | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  // [Task #469] 빈 상태에서 페이지 이동 없이 호실 가져오기 마법사를 모달로 띄운다.
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detailUnitId, setDetailUnitId] = useState<number | null>(null);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
@@ -381,13 +382,19 @@ export default function UnitsPage() {
         onView={(id) => setDetailUnitId(id)}
         onEdit={(unit) => openEdit(unit)}
         onDelete={(id) => handleDelete(id)}
-        // [Task #437] 호실 0건 빈 상태에서 노출되는 "대장 동기화" 버튼 동작.
+        // [Task #437] 호실 0건 빈 상태에서 노출되는 "AI 호실데이터 로딩하기" 버튼.
         //   아직 한 번도 호실이 등록되지 않은 경우(summary.total === 0) 에만
         //   버튼이 보이도록 totalUnits 도 함께 전달한다. summary 가 아직 로드
         //   되지 않은 사이에 일시적으로 버튼이 잘못 노출되는 깜빡임을 막기 위해
         //   기본값(?? 0)을 부여하지 않고 undefined 그대로 내려보낸다.
         totalUnits={summary?.total}
-        onSyncFromRegister={() => navigate("/settings/building?tab=units-import")}
+        // [Task #469] 페이지 이동 대신 모달 다이얼로그로 호실 가져오기 마법사를 띄운다.
+        onSyncFromRegister={() => setImportDialogOpen(true)}
+      />
+
+      <UnitsImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
       />
 
       <UnitDetailDialog
