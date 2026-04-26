@@ -576,15 +576,30 @@ export default function ManagerWizardPage() {
   }
 
   // ── 완료: preference=started + 주소 잠금 ──
+  // [Task #410] setPreference 실패 시 silent swallow → 대시보드 이동 → 다시 위저드로
+  // 튕기는 무한 루프를 차단한다. preference 저장이 실패하면 사용자에게 알리고
+  // 위저드에 머무른 채 다시 시도할 수 있게 한다.
   async function finalize() {
     setBusy(true);
     try {
-      await setPreference("started").catch(() => {});
+      try {
+        await setPreference("started");
+      } catch (e) {
+        console.error("[finalize] setPreference failed", e);
+        toast({
+          title: "마지막 저장에 실패했어요. 잠시 후 ‘완료’를 다시 눌러 주세요.",
+          description: e instanceof Error ? e.message : undefined,
+          variant: "destructive",
+        });
+        return; // 위저드에 머무른다 — 대시보드로 이동하지 않음.
+      }
       if (building.id) {
         await fetch(`${API_BASE}/buildings/${building.id}/lock-address`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+        }).catch((e) => {
+          console.error("[finalize] lock-address failed", e);
+        });
         // [Task #268/#278] 정상 완료 경로에서도 (테스트업무) 4건 누락이 없는지 한 번 더
         // 멱등 보장 + 대시보드 캐시 무효화. 첫 POST /buildings 에서 이미 시드돼 있으면
         // 추가 insert 없음. 새로고침 없이도 즉시 두 섹션이 채워진다.
@@ -640,11 +655,25 @@ export default function ManagerWizardPage() {
         toast({ title: "법정 점검 일정 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.", variant: "destructive" });
         return;
       }
-      await setPreference("started").catch(() => {});
+      // [Task #410] finalize() 와 동일한 무한 루프 방지: setPreference 가 실패하면
+      // 토스트로 알리고 위저드에 머무른다(setLocation 호출 안 함).
+      try {
+        await setPreference("started");
+      } catch (e) {
+        console.error("[closeWizard] setPreference failed", e);
+        toast({
+          title: "마지막 저장에 실패했어요. 잠시 후 닫기를 다시 눌러 주세요.",
+          description: e instanceof Error ? e.message : undefined,
+          variant: "destructive",
+        });
+        return;
+      }
       await fetch(`${API_BASE}/buildings/${building.id}/lock-address`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      }).catch((e) => {
+        console.error("[closeWizard] lock-address failed", e);
+      });
       await seedTestInspectionsAndInvalidate("closeWizard-auto");
       setLocation("/");
     } finally {
