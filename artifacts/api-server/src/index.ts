@@ -11,6 +11,7 @@ import { seedPartnerBm } from "./seed-partner-bm";
 import { seedVendorCategories } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
+import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -126,6 +127,16 @@ app.listen(port, async (err) => {
     logger.info("Unit ID backfill completed");
   } catch (e) {
     logger.warn({ err: e }, "Failed to backfill unit IDs");
+  }
+
+  // [Task #411] 사용승인일 baseline 으로 셋업된 inspections 의 nextDueDate 를
+  //   매 주기 정상 이행 가정으로 walk-forward 보정. 조건부(=오래 지난 항목)만
+  //   업데이트하므로 재실행해도 같은 행을 다시 변경하지 않는다(idempotent).
+  try {
+    const dryRun = process.env["INSPECTION_BACKFILL_DRY_RUN"] === "1";
+    await backfillInspectionNextDueDates({ dryRun });
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to backfill inspection next due dates");
   }
 
   try {

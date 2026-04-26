@@ -200,6 +200,47 @@ export function computeNextDueDate(
 }
 
 /**
+ * [Task #411] inspections 테이블 같은 단순 cycle-months 모델에서 baseline 일자
+ *  이후의 가장 가까운 미래 발생일을 walk-forward 방식으로 산출한다.
+ *
+ *  사용예시:
+ *   - auto-schedule-inspections 의 일반/폴백/건축물 정기점검 분기
+ *   - 사용승인일 기준으로 셋업된 기존 inspections 행의 1회성 백필
+ *
+ *  계산 규칙:
+ *   - cursor = baseline + cycleMonths 부터 시작.
+ *   - cursor 가 today 보다 과거인 동안 cycleMonths 단위로 전진.
+ *   - 한 번이라도 today 이상이면 그 cursor 가 정답.
+ *   - cycleMonths <= 0 이면 baseline 자체를 today 기준으로 보정해 반환한다
+ *     (의미가 모호하므로 호출측에서 가급적 양수 보장).
+ *   - baseline 이 today 이후이면 baseline + cycleMonths 가 정답이 된다
+ *     (즉, 항상 한 번은 cycle 을 더해 다음 회차를 표시).
+ */
+export function walkForwardNextDue(
+  baseline: Date | string,
+  cycleMonths: number,
+  today: Date = new Date(),
+): string {
+  const safeCycle = Math.max(1, Math.floor(cycleMonths || 0));
+  const today0 = startOfDay(today);
+  const baseDate = typeof baseline === "string" ? new Date(baseline) : new Date(baseline);
+  const cursor = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  cursor.setMonth(cursor.getMonth() + safeCycle);
+  // 과거이면 cycle 단위로 한 번에 점프. 단순 루프로도 충분히 빠르지만
+  // 수십 년 baseline + 짧은 cycle (예: 6개월) 조합에서 수백 회 반복을 피하기 위해
+  // 차이를 한 번 계산해서 한 번에 점프한 뒤, 마지막 정렬만 루프로 보정한다.
+  if (cursor < today0) {
+    const monthsBehind =
+      (today0.getFullYear() - cursor.getFullYear()) * 12 +
+      (today0.getMonth() - cursor.getMonth());
+    const jumps = Math.ceil(monthsBehind / safeCycle);
+    if (jumps > 0) cursor.setMonth(cursor.getMonth() + jumps * safeCycle);
+    while (cursor < today0) cursor.setMonth(cursor.getMonth() + safeCycle);
+  }
+  return `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+}
+
+/**
  * [Task #297] 표제부 사용승인일을 기준으로 "지금까지 정상 수행해 왔다"고 가정해
  *  다음 실행 예정일을 산출한다. 온보딩 마법사에서 "다음 주기 시작일을 잘 모르겠음"
  *  분기에 사용된다.

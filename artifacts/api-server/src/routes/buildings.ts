@@ -4,8 +4,7 @@ import { eq, and, lte, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 // [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
-import { computeNextDueDateFromBaseline } from "../lib/taskTemplateCycle";
-import type { TaskTemplate } from "@workspace/db";
+import { walkForwardNextDue } from "../lib/taskTemplateCycle";
 import {
   LEGAL_PRESETS,
   ELECTRICAL_RESIDENT_KW,
@@ -1264,36 +1263,27 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
         if (!lastDate) continue;
 
         const cycleMonths = getCyclemonthsForCategory(category, presetName);
-        // [Task #174] 건축물 정기점검 폴백: 준공 + 5년/10년이 첫 회차이며,
+        // [Task #174/#411] 건축물 정기점검 폴백: 준공 + 5년/10년이 첫 회차이며,
         // 그 이후로는 정상 주기(36개월)로 굴려서 현재 시점 이후의 다음 회차를 산정한다.
         let nextDueDate: string;
+        const now = new Date();
         if (isProvisional && category === "building_safety") {
           const firstMonths = totalAreaNum >= 10000 ? 120 : 60;
-          let candidate = calculateNextDue(lastDate, firstMonths);
-          const now = new Date();
-          // 이미 지난 1차 회차라면 cycleMonths(36개월) 단위로 미래 시점까지 진행.
-          while (new Date(candidate) < now) {
-            candidate = calculateNextDue(candidate, cycleMonths);
-          }
-          nextDueDate = candidate;
+          const firstDue = calculateNextDue(lastDate, firstMonths);
+          // 1차 회차가 아직 미래면 그 일자, 이미 과거면 cycleMonths(36개월) 단위로 walk-forward.
+          nextDueDate = new Date(firstDue) >= now
+            ? firstDue
+            : walkForwardNextDue(firstDue, cycleMonths, now);
         } else if (isProvisional && fallbackBaseline) {
-          // [Task #297] 폴백 분기: 표제부 사용승인일을 baseline 으로
-          //   computeNextDueDateFromBaseline 으로 다음 실행일을 계산한다.
-          //   주기는 cycleMonths 를 monthly 의 intervalValue 로 모델링.
-          const synth = {
-            frequencyType: "monthly",
-            intervalValue: cycleMonths,
-            fixedMonth: null,
-            fixedDay: null,
-            startDate: null,
-            weekdays: null,
-            dayOfMonth: null,
-            yearInterval: null,
-          } as unknown as TaskTemplate;
-          const due = computeNextDueDateFromBaseline(synth, fallbackBaseline, new Date());
-          nextDueDate = (due ?? new Date()).toISOString().slice(0, 10);
+          // [Task #297/#411] 폴백 분기: 표제부 사용승인일을 baseline 으로
+          //   walk-forward 해 다음 실행일을 계산한다(매 주기 정상 이행 가정).
+          nextDueDate = walkForwardNextDue(fallbackBaseline, cycleMonths, now);
         } else {
-          nextDueDate = calculateNextDue(lastDate, cycleMonths);
+          // [Task #411] 일반 분기: 사용자가 입력한 lastDate 가 너무 오래되어
+          //   lastDate + cycleMonths 가 이미 과거라면 walk-forward 해 다음 회차를
+          //   미래로 보정한다. 마지막 점검일 자체는 walk-forward 하지 않으므로
+          //   사용자가 별도로 점검을 입력하면 그 시점부터 정상 주기로 진행된다.
+          nextDueDate = walkForwardNextDue(lastDate, cycleMonths, now);
         }
 
         const [inspection] = await db.insert(inspectionsTable).values({

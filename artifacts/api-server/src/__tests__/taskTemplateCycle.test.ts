@@ -4,6 +4,7 @@ import type { TaskTemplate } from "@workspace/db";
 import {
   computeNextDueDate,
   computeNextDueDateFromBaseline,
+  walkForwardNextDue,
 } from "../lib/taskTemplateCycle.js";
 
 function tpl(overrides: Partial<TaskTemplate>): TaskTemplate {
@@ -298,5 +299,56 @@ describe("computeNextDueDateFromBaseline (사용승인일 기반)", () => {
       ),
       null,
     );
+  });
+});
+
+// [Task #411]
+describe("walkForwardNextDue (사용승인일 baseline + cycleMonths)", () => {
+  it("annual cycle (12mo) from 2010-03-15 lands on next anniversary on/after today", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const next = walkForwardNextDue("2010-03-15", 12, today);
+    // 2010-03-15 + 17 years = 2027-03-15 (since 2026-03-15 is in the past)
+    assert.equal(next, "2027-03-15");
+  });
+
+  it("3-year cycle from 2008-06-10 lands on next valid 3y multiple in the future", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const next = walkForwardNextDue("2008-06-10", 36, today);
+    // baseline + 18y = 2026-06-10 (>= today) → answer = 2026-06-10
+    assert.equal(next, "2026-06-10");
+  });
+
+  it("6-month cycle from very old baseline 1990-01-15 lands on a future 6mo step", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const next = walkForwardNextDue("1990-01-15", 6, today);
+    // 1990-01-15 + 6mo×N until >= 2026-04-22.
+    //   1990-01 + 6mo×73 = 2026-07-15. (72 → 2026-01-15 past, 73 → 2026-07-15 future)
+    assert.equal(next, "2026-07-15");
+  });
+
+  it("baseline already in future returns baseline + 1 cycle (next occurrence)", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const next = walkForwardNextDue("2026-08-01", 12, today);
+    assert.equal(next, "2027-08-01");
+  });
+
+  it("baseline equal to today rolls to next cycle, not today", () => {
+    const today = new Date(2026, 3, 22);
+    const next = walkForwardNextDue("2026-04-22", 12, today);
+    assert.equal(next, "2027-04-22");
+  });
+
+  it("treats zero/negative cycleMonths as 1 month (defensive)", () => {
+    const today = new Date(2026, 3, 22);
+    const next = walkForwardNextDue("2026-04-10", 0, today);
+    // 2026-04-10 + 1mo = 2026-05-10 (>= today) → 2026-05-10
+    assert.equal(next, "2026-05-10");
+  });
+
+  it("string baseline ('2015-12-31') with annual cycle handles year-end correctly", () => {
+    const today = new Date(2026, 3, 22);
+    const next = walkForwardNextDue("2015-12-31", 12, today);
+    // 2015-12-31 + 11y = 2026-12-31 (>= today)
+    assert.equal(next, "2026-12-31");
   });
 });
