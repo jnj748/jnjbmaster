@@ -24,8 +24,11 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import {
-  CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS,
-  CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL,
+  RENEWAL_REVIEW_WINDOW_START_DAYS,
+  RENEWAL_REVIEW_WINDOW_END_DAYS,
+  RENEWAL_REVIEW_WINDOW_LABEL,
+  isContractInRenewalReviewWindow,
+  daysUntilDate,
   formatContractRenewalReviewMessage,
 } from "@workspace/shared/contract-renewal";
 import { useUpload } from "@workspace/object-storage-web";
@@ -110,24 +113,15 @@ const PRIVILEGED_ROLES = new Set(["manager", "platform_admin", "hq_executive", "
 // [Task #369] OCR 미리보기 / 신규 계약 등록 권한 (파트너·시설기사·본사 제외).
 const NEW_CONTRACT_ROLES = new Set(["manager", "platform_admin", "accountant"]);
 
-// [Task #369] 만료 임박 계약 판정 — 오늘부터 임계일(75일) 이하로 남은 active/in_progress
-//   또는 이미 renewal_due 로 전이된 계약을 모두 포함한다.
-function daysUntil(endDate: string | null | undefined): number | null {
-  if (!endDate) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
-  return Math.round((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
+// [Task #416] 만료 임박 계약 판정 — 단일 공유 헬퍼.
+//   서버 알림 잡(/contracts/check-renewal-alerts) 과 같은 기준:
+//     상태 ∈ {active, in_progress, renewal_due} AND endDate ∈ (60, 90] 일 윈도우.
+//   draft/in_approval 은 체결 전이라 검토 대상 아님. completed/terminated 는 종결.
+//   서버 잡이 status="renewal_due" 로 한 번 전이시킨 계약도 60일 이하로 진입하면
+//   윈도우에서 자동으로 빠진다(별도 결재 트랙으로 이동).
+const daysUntil = daysUntilDate;
 
-function isExpiringContract(c: Contract): boolean {
-  if (c.status === "terminated" || c.status === "completed") return false;
-  if (c.status === "renewal_due") return true;
-  if (c.status !== "active" && c.status !== "in_progress") return false;
-  const d = daysUntil(c.endDate);
-  return d != null && d >= 0 && d <= CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
-}
+const isExpiringContract = isContractInRenewalReviewWindow;
 
 export default function ContractsPage() {
   const { user } = useAuth();
@@ -170,9 +164,19 @@ export default function ContractsPage() {
   if (statusFilter !== "all") params.status = statusFilter as ListContractsParams["status"];
   // [Task #369] 만료 임박 기본 윈도우를 30일 → 75일(2개월 15일) 로 확대.
   //   값은 @workspace/shared/contract-renewal 단일 소스에서 import.
-  if (expiringOnly) params.expiringWithinDays = CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
+  // [Task #416] 만료 임박 필터의 검색 범위는 윈도우 시작(만료 90일 전) 기준으로 한 번 받아서
+  //   클라이언트에서 isRenewalReviewActive(60일 초과) 로 한 번 더 좁힌다.
+  if (expiringOnly) params.expiringWithinDays = RENEWAL_REVIEW_WINDOW_START_DAYS;
 
-  const { data: contracts, isLoading } = useListContracts(params);
+  const { data: contractsRaw, isLoading } = useListContracts(params);
+  // [Task #416] expiringOnly 가 켜지면 서버에서 90일 이내(=윈도우 시작일)로 한 번 자르고,
+  //   여기서 다시 isContractInRenewalReviewWindow 로 (60, 90] 구간 + 후보 status 만 남긴다.
+  //   서버는 60일 미만도 후보로 포함해 응답하므로 클라이언트 가시성을 단일 SoT 헬퍼로 좁힌다.
+  const contracts = useMemo(() => {
+    if (!contractsRaw) return contractsRaw;
+    if (!expiringOnly) return contractsRaw;
+    return contractsRaw.filter(isContractInRenewalReviewWindow);
+  }, [contractsRaw, expiringOnly]);
   const transitionMutation = useTransitionContractStatus();
   const renewalCheck = useCheckContractRenewalAlerts();
 
@@ -183,7 +187,7 @@ export default function ContractsPage() {
   //   필터(`expiringOnly`) 와 무관하게 항상 전체 목록 기준으로 계산하기 위해
   //   별도 쿼리로 만료 임박만 한 번 더 받아온다(작은 N).
   const { data: expiringList } = useListContracts(
-    { expiringWithinDays: CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS },
+    { expiringWithinDays: RENEWAL_REVIEW_WINDOW_START_DAYS },
   );
   const expiringActive = useMemo(
     () => (expiringList ?? []).filter(isExpiringContract),
@@ -240,7 +244,7 @@ export default function ContractsPage() {
           <div className="flex items-center gap-2">
             <CalendarClock className="w-4 h-4 text-amber-700" />
             <h2 className="text-sm font-semibold text-amber-900">
-              만료 {CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL} 이내 검토 필요 — {expiringActive.length}건
+              {RENEWAL_REVIEW_WINDOW_LABEL} 검토 필요 — {expiringActive.length}건
             </h2>
           </div>
           <div className="grid gap-2">
@@ -294,7 +298,7 @@ export default function ContractsPage() {
             className="w-4 h-4"
             data-testid="checkbox-expiring-only"
           />
-          만료 {CONTRACT_RENEWAL_ALERT_THRESHOLD_LABEL} 이내만
+          {RENEWAL_REVIEW_WINDOW_LABEL}만 (검토 윈도우)
         </label>
       </div>
 

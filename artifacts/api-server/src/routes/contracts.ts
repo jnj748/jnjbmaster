@@ -19,7 +19,8 @@ import { requireRole } from "../middlewares/auth";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 // [Task #369] 갱신 알림 임계값(75일)·본문 포맷 단일 소스. 화면·서버 모두 같은 값.
 import {
-  CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS,
+  RENEWAL_REVIEW_WINDOW_START_DAYS,
+  RENEWAL_REVIEW_WINDOW_END_DAYS,
   formatContractRenewalReviewMessage,
 } from "@workspace/shared/contract-renewal";
 import { runContractOcr } from "../lib/contractOcr";
@@ -78,6 +79,36 @@ export async function transitionContractStatus(
 }
 
 const PRIVILEGED_ROLES = new Set(["manager", "platform_admin", "hq_executive", "accountant"]);
+const DOC_READER_ROLES = new Set([
+  "manager",
+  "platform_admin",
+  "hq_executive",
+  "accountant",
+  "facility_staff",
+]);
+
+// [Task #416 — code review #5] facility_staff 가 다른 건물의 계약/문서를 임의 ID 로
+// 들춰보지 못하도록, 계약의 buildingId 가 사용자의 buildingId 와 같은지 강제한다.
+// 다른 역할(manager/accountant/hq_executive/platform_admin) 은 본 헬퍼로는 통과시키고
+// 기존 권한 체계(role check) 에 맡긴다.
+async function assertContractInUserScope(
+  user: { userId: number; role: string },
+  contract: { buildingId: number | null },
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  if (user.role !== "facility_staff") return { ok: true };
+  const [u] = await db
+    .select({ buildingId: usersTable.buildingId })
+    .from(usersTable)
+    .where(eq(usersTable.id, user.userId));
+  const userBuildingId = u?.buildingId ?? null;
+  if (!userBuildingId) {
+    return { ok: false, status: 403, error: "소속 건물이 지정되지 않았습니다" };
+  }
+  if (contract.buildingId !== userBuildingId) {
+    return { ok: false, status: 403, error: "본인 건물의 계약만 조회할 수 있습니다" };
+  }
+  return { ok: true };
+}
 
 function serializeContract(c: typeof contractsTable.$inferSelect) {
   return {
@@ -107,6 +138,27 @@ router.get("/contracts", async (req, res): Promise<void> => {
   // [Task #335] 견적 채택 직후 매니저 RFQ 페이지가 단일 quoteId 로 자동 생성된 계약을
   // 즉시 찾기 위한 필터. 클라이언트가 전체 목록을 스캔하는 비효율을 제거한다.
   if (quoteId) conditions.push(eq(contractsTable.quoteId, Number(quoteId)));
+
+  // [Task #416 — code review #7] facility_staff 가 buildingId 쿼리를 변조하거나
+  // 미지정 호출로 다른 건물 계약을 열거하지 못하도록, 서버 단에서 본인
+  // buildingId 로 강제 필터링한다. 본인 건물이 없으면 빈 배열 반환.
+  const user = req.user!;
+  if (user.role === "facility_staff") {
+    const [u] = await db
+      .select({ buildingId: usersTable.buildingId })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.userId));
+    const userBuildingId = u?.buildingId ?? null;
+    if (!userBuildingId) {
+      res.json([]);
+      return;
+    }
+    if (buildingId && Number(buildingId) !== userBuildingId) {
+      res.status(403).json({ error: "본인 건물의 계약만 조회할 수 있습니다" });
+      return;
+    }
+    conditions.push(eq(contractsTable.buildingId, userBuildingId));
+  }
 
   let rows = await db
     .select()
@@ -161,14 +213,18 @@ router.get("/contracts/check-renewal-alerts", async (_req, res): Promise<void> =
 });
 
 router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_admin", "hq_executive", "accountant"), async (_req, res): Promise<void> => {
-  // [Task #369] 임계값을 만료 30일 → 75일(2개월 15일) 전으로 확대.
-  // 결재·재입찰 일정을 잡기에 30일은 너무 촉박했다. 상수는
-  // @workspace/shared/contract-renewal 단일 소스에서 import.
+  // [Task #416] 만료 30일 → 75일 단일 임계값 → 90일~60일 "검토 윈도우" 로 전환.
+  //   - 윈도우 시작(만료 90일 전) ~ 윈도우 종료(만료 60일 전) 안에 들어온 활성 계약만
+  //     알림 대상으로 한정한다. 60일 이내는 별도 트랙(촉박 결재) 으로 다루므로 검토 알림에서 제외.
+  //   - 상수는 @workspace/shared/contract-renewal 단일 소스에서 import.
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const horizon = new Date(today);
-  horizon.setDate(horizon.getDate() + CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS);
-  const horizonStr = horizon.toISOString().split("T")[0];
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() + RENEWAL_REVIEW_WINDOW_END_DAYS + 1); // 60일 초과 = 61일 이상
+  const windowStartStr = windowStart.toISOString().split("T")[0];
+  const windowEnd = new Date(today);
+  windowEnd.setDate(windowEnd.getDate() + RENEWAL_REVIEW_WINDOW_START_DAYS);
+  const windowEndStr = windowEnd.toISOString().split("T")[0];
 
   // [Task #369 — code review] 갱신 임박 후보는 "현재 이행 중인" 활성 계약만으로
   //   한정한다. draft / in_approval / renewal_due / completed / terminated 는
@@ -182,7 +238,8 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
       and(
         isNotNull(contractsTable.endDate),
         gte(contractsTable.endDate, todayStr),
-        lte(contractsTable.endDate, horizonStr),
+        gte(contractsTable.endDate, windowStartStr),
+        lte(contractsTable.endDate, windowEndStr),
         inArray(contractsTable.status, ["active", "in_progress"]),
       ),
     );
@@ -365,7 +422,12 @@ router.get("/contracts/:id", async (req, res): Promise<void> => {
     return;
   }
   const user = req.user!;
-  const canSeeDocs = PRIVILEGED_ROLES.has(user.role);
+  const scope = await assertContractInUserScope(user, contract);
+  if (!scope.ok) {
+    res.status(scope.status).json({ error: scope.error });
+    return;
+  }
+  const canSeeDocs = DOC_READER_ROLES.has(user.role);
 
   const documents = canSeeDocs
     ? await db.select().from(contractDocumentsTable).where(eq(contractDocumentsTable.contractId, id)).orderBy(desc(contractDocumentsTable.createdAt))
@@ -549,8 +611,20 @@ partnerContractsRouter.post("/contracts/:id/agree", requireRole("partner"), asyn
 router.get("/contracts/:id/documents", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
-  if (!PRIVILEGED_ROLES.has(user.role)) {
-    res.status(403).json({ error: "권한이 없습니다 (소장 이상만 열람 가능)" });
+  if (!DOC_READER_ROLES.has(user.role)) {
+    res.status(403).json({ error: "권한이 없습니다" });
+    return;
+  }
+  // [Task #416 — code review #5] facility_staff 의 임의 contractId 조회를 막기 위해
+  // 먼저 계약을 들고 와 buildingId 스코프를 확인한다. 다른 역할은 헬퍼가 ok 로 통과시킨다.
+  const [contract] = await db.select().from(contractsTable).where(eq(contractsTable.id, id));
+  if (!contract) {
+    res.status(404).json({ error: "Contract not found" });
+    return;
+  }
+  const scope = await assertContractInUserScope(user, contract);
+  if (!scope.ok) {
+    res.status(scope.status).json({ error: scope.error });
     return;
   }
   const docs = await db.select().from(contractDocumentsTable).where(eq(contractDocumentsTable.contractId, id)).orderBy(desc(contractDocumentsTable.createdAt));

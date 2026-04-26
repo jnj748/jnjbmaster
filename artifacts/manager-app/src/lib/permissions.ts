@@ -85,6 +85,8 @@ const SettingsPage = lazy(() => import("@/pages/settings"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const VotingPage = lazy(() => import("@/pages/voting"));
 const ContractsPage = lazy(() => import("@/pages/contracts"));
+// [Task #416] 협력업체 주소록 — 현재 건물 기준 vendor+contract 카드 화면.
+const BuildingVendorDirectoryPage = lazy(() => import("@/pages/building-vendor-directory"));
 const Units = lazy(() => import("@/pages/units"));
 const AiAssistant = lazy(() => import("@/pages/ai-assistant"));
 const ErpPhase1 = lazy(() => import("@/pages/erp/phase-1-metering"));
@@ -178,8 +180,16 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   //   전부 제거하고, "보고/마켓플레이스/설정" 3 그룹만 사용한다. 통합 대시보드
   //   ("/")는 ROOT_DASHBOARDS 로 항상 진입 가능하므로 영향 없음.
   platform_admin: ["marketplace", "reports", "settings"],
-  accountant: ["dashboard", "accounting", "reports", "residents"],
-  facility_staff: ["dashboard", "facility"],
+  // [Task #416] 경리도 marketplace 그룹의 "협력업체 주소록"(/building/vendor-directory)
+  //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
+  //   기존 marketplace 항목들 중 access 가 accountant 를 포함하는 것만 자동 노출되며,
+  //   주소록 항목은 access 에 accountant 가 포함되어 있어 사이드바에 보인다.
+  accountant: ["dashboard", "accounting", "reports", "residents", "marketplace"],
+  // [Task #416] 시설기사도 marketplace 그룹의 "협력업체 주소록"(/building/vendor-directory)
+  //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
+  //   같은 그룹의 다른 항목(견적/계약 등)은 access 가 facility_staff 를 포함하지 않으므로
+  //   사이드바에 자동으로 나타나지 않는다 — 주소록 항목만 보인다.
+  facility_staff: ["dashboard", "facility", "marketplace"],
   hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
 };
@@ -521,6 +531,14 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["manager", "platform_admin", "hq_executive", "accountant"],
     labelOverrides: { hq_executive: "계약 갱신" },
+  },
+  {
+    // [Task #416] 협력업체 주소록 — 현재 건물 기준 업체·계약 카드 + 계약연장검토 배너.
+    //   시설기사도 진입 가능(읽기 전용 + tel: 통화). marketplace 그룹.
+    path: "/building/vendor-directory", component: BuildingVendorDirectoryPage,
+    label: "협력업체 주소록", icon: Building2, group: "marketplace",
+    access: ["manager", "platform_admin", "accountant", "facility_staff"],
+    sideMenu: ["manager", "platform_admin", "accountant", "facility_staff"],
   },
 
   // ── Settings group ──────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { db, vendorsTable, usersTable, platformConsentsTable, vendorReviewsTable } from "@workspace/db";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { db, vendorsTable, usersTable, platformConsentsTable, vendorReviewsTable, contractsTable } from "@workspace/db";
 import {
   ListVendorsQueryParams,
   ListVendorsResponse,
@@ -17,7 +17,23 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
-router.use("/vendors", requireRole("manager", "platform_admin", "hq_executive", "accountant"));
+// [Task #416] 시설기사(facility_staff)는 협력업체 주소록을 읽기/통화용으로만 본다.
+//   따라서 /vendors GET 계열은 reader 권한, 쓰기/등록은 writer 권한으로 분리한다.
+const VENDOR_READER_ROLES = [
+  "manager",
+  "platform_admin",
+  "hq_executive",
+  "accountant",
+  "facility_staff",
+] as const;
+const VENDOR_WRITER_ROLES = [
+  "manager",
+  "platform_admin",
+  "hq_executive",
+  "accountant",
+] as const;
+const requireVendorReader = requireRole(...VENDOR_READER_ROLES);
+const requireVendorWriter = requireRole(...VENDOR_WRITER_ROLES);
 
 // [Task #339] 평가 평균/건수 집계용 서브쿼리.
 const reviewAggSq = db.$with("review_agg").as(
@@ -51,7 +67,7 @@ async function enrichVendorAggregates<T extends { id: number }>(
   };
 }
 
-router.get("/vendors", async (req, res): Promise<void> => {
+router.get("/vendors", requireVendorReader, async (req, res): Promise<void> => {
   const params = ListVendorsQueryParams.safeParse(req.query);
   const conditions = [];
 
@@ -61,6 +77,31 @@ router.get("/vendors", async (req, res): Promise<void> => {
 
   if (params.success && params.data.type) {
     conditions.push(eq(vendorsTable.type, params.data.type));
+  }
+
+  // [Task #416] facility_staff 는 platform-wide 협력업체 풀을 다 보지 않고
+  //   본인 소속 건물의 계약과 연결된 vendor 만 본다(최소 권한). 그 외 reader 역할
+  //   (manager/accountant/hq_executive/platform_admin)은 종전대로 전체 조회.
+  if (req.user?.role === "facility_staff") {
+    const [me] = await db
+      .select({ buildingId: usersTable.buildingId })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.userId));
+    const buildingId = me?.buildingId ?? null;
+    if (buildingId == null) {
+      res.json([]);
+      return;
+    }
+    const ids = await db
+      .selectDistinct({ vendorId: contractsTable.vendorId })
+      .from(contractsTable)
+      .where(eq(contractsTable.buildingId, buildingId));
+    const vendorIds = ids.map((r) => r.vendorId);
+    if (vendorIds.length === 0) {
+      res.json([]);
+      return;
+    }
+    conditions.push(inArray(vendorsTable.id, vendorIds));
   }
 
   const vendors = await db
@@ -75,8 +116,14 @@ router.get("/vendors", async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(vendorsTable.name);
 
+  // [Task #416] Zod 응답 스키마는 createdAt/updatedAt/joinedAt 을 ISO 문자열로 기대.
+  //   drizzle 의 timestamp 컬럼은 Date 객체를 돌려주므로 parse 직전에 직렬화한다.
+  //   (Task #339 에서 `enriched` 매핑이 추가된 이후 누적된 직렬화 누락을 동시에 해소.)
   const enriched = vendors.map((row) => ({
     ...row.vendor,
+    joinedAt: row.vendor.joinedAt ? row.vendor.joinedAt.toISOString() : null,
+    createdAt: row.vendor.createdAt.toISOString(),
+    updatedAt: row.vendor.updatedAt.toISOString(),
     avgRating: row.avgRating ?? null,
     reviewCount: row.reviewCount ?? 0,
   }));
@@ -84,7 +131,7 @@ router.get("/vendors", async (req, res): Promise<void> => {
   res.json(ListVendorsResponse.parse(enriched));
 });
 
-router.post("/vendors", async (req, res): Promise<void> => {
+router.post("/vendors", requireVendorWriter, async (req, res): Promise<void> => {
   const parsed = CreateVendorBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -95,7 +142,7 @@ router.post("/vendors", async (req, res): Promise<void> => {
   res.status(201).json(UpdateVendorResponse.parse(vendor));
 });
 
-router.patch("/vendors/:id", async (req, res): Promise<void> => {
+router.patch("/vendors/:id", requireVendorWriter, async (req, res): Promise<void> => {
   const params = UpdateVendorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -122,7 +169,7 @@ router.patch("/vendors/:id", async (req, res): Promise<void> => {
   res.json(UpdateVendorResponse.parse(vendor));
 });
 
-router.delete("/vendors/:id", async (req, res): Promise<void> => {
+router.delete("/vendors/:id", requireVendorWriter, async (req, res): Promise<void> => {
   const params = DeleteVendorParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -142,7 +189,10 @@ router.delete("/vendors/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.get("/vendors/recommend", async (req, res): Promise<void> => {
+// [Task #416] /vendors/recommend 는 RFQ 신규 발의 시 카테고리별 추천 풀을 platform 전체에서
+//   조회하는 경로다. 시설기사(facility_staff)는 RFQ 를 직접 발의하지 않으므로 추천 풀에 접근할
+//   필요가 없고, 최소 권한 원칙에 따라 writer 권한(=발의 가능 역할)만 호출 가능하도록 제한한다.
+router.get("/vendors/recommend", requireVendorWriter, async (req, res): Promise<void> => {
   const params = GetRecommendedVendorsQueryParams.safeParse(req.query);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -176,6 +226,8 @@ router.get("/vendors/recommend", async (req, res): Promise<void> => {
 });
 
 // [Task #132] 파트너사 위저드 완료. 회사 + 사업자등록증 + 분야 저장 후 user.vendorId 연결.
+//   onboarding 은 partner 본인이 호출하는 경로라 vendor-writer 가 아니라 본문 내부에서
+//   role==='partner' 만 허용하는 자체 체크를 사용한다 (아래 내부 체크 참조).
 router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
@@ -293,7 +345,7 @@ router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> =>
   res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
 
-router.post("/vendors/register", async (req, res): Promise<void> => {
+router.post("/vendors/register", requireVendorWriter, async (req, res): Promise<void> => {
   const parsed = RegisterPlatformVendorBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

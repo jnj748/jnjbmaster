@@ -5,29 +5,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, AlertCircle } from "lucide-react";
 import { useBuilding } from "@/contexts/building-context";
-// [Task #369] 만료 임박 임계값은 단일 소스(75일)에서 가져온다.
-//   서버 알림 잡 / contracts 페이지 배너 / 갱신 검토 위젯과 같은 값이 보장된다.
-import { CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS } from "@workspace/shared/contract-renewal";
+// [Task #416] 갱신 검토 윈도우(만료 90일 전 ~ 60일 전) 단일 헬퍼.
+//   서버 알림 잡 / contracts 페이지 배너 / 협력업체 주소록 페이지와 같은 윈도우가 보장된다.
+import { isContractInRenewalReviewWindow } from "@workspace/shared/contract-renewal";
 
 // [Task #358 → 갱신 검토 위젯 병합] 건물관련 계약현황 한 줄 위젯.
 // - 현재 건물의 계약을 상태별로 압축해 한 줄 안에 보여준다.
 // - 진행중 = active / in_progress
 // - 결재대기 = draft / in_approval
-// - 갱신 검토 = renewal_due 또는 endDate 가 오늘부터 75일(2개월 15일) 이내인 active/in_progress
+// - 갱신 검토 = endDate 가 만료 90~60일 윈도우 안에 들어온 계약(상태 무관, terminated/
+//   completed 만 제외). 60일 이하로 진입하면 자동으로 윈도우에서 빠진다 → 별도 결재 트랙.
+//   서버 잡이 한 번 status 를 renewal_due 로 전이시켜도 윈도우가 진실 소스다.
 // - 갱신 검토가 1건 이상이면 amber 로 강조되고 클릭 시 /contracts?expiring=1 로 이동(만료 임박만 펼침).
 // - 갱신 검토가 0건이면 일반 /contracts 로 이동.
 // - 표시할 만한 계약이 없으면 "등록된 계약이 없습니다" 안내가 같은 줄 자리에 노출.
-
-function isExpiringSoon(endDate: string | null | undefined): boolean {
-  if (!endDate) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
-  const diffMs = end.getTime() - today.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= CONTRACT_RENEWAL_ALERT_THRESHOLD_DAYS;
-}
 
 export default function BuildingContractsSummaryWidget() {
   const { building } = useBuilding();
@@ -45,14 +36,15 @@ export default function BuildingContractsSummaryWidget() {
     let expiring = 0;
     for (const c of list) {
       const s = c.status;
+      if (s === "terminated" || s === "completed") continue;
       if (s === "active" || s === "in_progress") {
         active += 1;
-        if (isExpiringSoon(c.endDate)) expiring += 1;
       } else if (s === "draft" || s === "in_approval") {
         pending += 1;
-      } else if (s === "renewal_due") {
-        expiring += 1;
       }
+      // [Task #416] 검토 윈도우 카운트는 공유 헬퍼로 일원화 — 상태(active/in_progress/
+      // renewal_due) + endDate 윈도우(90~60일) 양쪽을 만족하는 계약만.
+      if (isContractInRenewalReviewWindow(c)) expiring += 1;
     }
     return { active, pending, expiring, total: list.length };
   }, [data]);
