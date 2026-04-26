@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Search } from "lucide-react";
 import { ROLE_LABELS, PORTAL_LABELS, type AppRole } from "@workspace/shared/role-labels";
 
 interface UserRecord {
@@ -14,6 +14,12 @@ interface UserRecord {
   createdAt: string;
   // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리.
   disabledCategories?: string[];
+  // [Task #428] 사용자 관리 화면에 표시할 매핑된 건물 정보 + 사용자 본인 시/군 정보.
+  buildingId?: number | null;
+  buildingName?: string | null;
+  buildingAddress?: string | null;
+  buildingSido?: string | null;
+  buildingSigungu?: string | null;
 }
 
 // [카테고리 메뉴 제어] 플랫폼이 켜고 끌 수 있는 카테고리 목록.
@@ -49,6 +55,58 @@ function readRoleFilterFromUrl(): string {
   return VALID_ROLE_FILTERS.has(r) ? r : "";
 }
 
+// [Task #428] 포털 유형 필터(?portal=) — 백엔드 portal_type 과 동일한 키 집합.
+const VALID_PORTAL_FILTERS = new Set(["building", "partner", "hq"]);
+function readPortalFilterFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const v = params.get("portal") ?? "";
+  return VALID_PORTAL_FILTERS.has(v) ? v : "";
+}
+
+// [Task #428] 검색어(?q=) — 디바운스 후 URL 동기화. 초기값은 URL 에서 읽는다.
+function readQueryFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("q") ?? "";
+}
+
+// [Task #428] 중복 가입 의심 임시 필터(?duplicateKey=) — 같은 건물·주소를
+//   공유하는 사용자만 노출하기 위한 토글성 필터.
+function readDuplicateKeyFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("duplicateKey") ?? "";
+}
+
+// [Task #428] 중복 감지 키 — buildingId 가 있으면 그것을, 없으면 정규화한
+//   주소 문자열(건물 주소 우선, 없으면 본인 시/도 + 시/군/구)을 사용.
+//   두 값 모두 없는 사용자는 중복 카운트에서 제외(키가 빈 문자열).
+function buildDuplicateKey(u: UserRecord): string {
+  if (u.buildingId != null) return `b:${u.buildingId}`;
+  const addr = (u.buildingAddress ?? "").trim();
+  if (addr) return `a:${addr.toLowerCase().replace(/\s+/g, " ")}`;
+  const sido = (u.buildingSido ?? "").trim();
+  const sigungu = (u.buildingSigungu ?? "").trim();
+  const composed = [sido, sigungu].filter(Boolean).join(" ").toLowerCase();
+  return composed ? `r:${composed.replace(/\s+/g, " ")}` : "";
+}
+
+// [Task #428] 사용자 1명의 검색 대상 문자열 — 이름·이메일·전화·건물명·주소.
+function buildSearchHaystack(u: UserRecord): string {
+  return [
+    u.name,
+    u.email,
+    u.phone ?? "",
+    u.buildingName ?? "",
+    u.buildingAddress ?? "",
+    u.buildingSido ?? "",
+    u.buildingSigungu ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
 export default function Users() {
   const { token, user: currentUser } = useAuth();
   const isPlatformAdmin = currentUser?.role === "platform_admin";
@@ -61,9 +119,43 @@ export default function Users() {
   //   wouter 의 useLocation 은 search 변경을 트리거하지 않으므로 location 변경마다 동기화.
   const [location] = useLocation();
   const [roleFilter, setRoleFilter] = useState<string>(() => readRoleFilterFromUrl());
-  useEffect(() => {
+  // [Task #428] 포털 유형 필터 / 검색어 / 중복 임시 필터 — URL 과 양방향 동기화.
+  const [portalFilter, setPortalFilter] = useState<string>(() => readPortalFilterFromUrl());
+  const [searchInput, setSearchInput] = useState<string>(() => readQueryFromUrl());
+  const [searchQuery, setSearchQuery] = useState<string>(() => readQueryFromUrl());
+  const [duplicateKey, setDuplicateKey] = useState<string>(() => readDuplicateKeyFromUrl());
+  // [Task #428] location 변경(라우트 이동) + popstate(브라우저 뒤로/앞으로) 양쪽에서
+  //   URL → 필터 상태로 재동기화. wouter 의 useLocation 은 search 변경만으로는
+  //   재발화하지 않으므로 popstate 도 함께 구독해 ?q=, ?portal= 등 변경을 따라간다.
+  const syncFromUrl = () => {
     setRoleFilter(readRoleFilterFromUrl());
+    setPortalFilter(readPortalFilterFromUrl());
+    const q = readQueryFromUrl();
+    setSearchInput(q);
+    setSearchQuery(q);
+    setDuplicateKey(readDuplicateKeyFromUrl());
+  };
+  useEffect(() => {
+    syncFromUrl();
   }, [location]);
+  useEffect(() => {
+    const handler = () => syncFromUrl();
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  // [Task #428] 검색 입력 디바운스(250ms) 후 ?q= 쿼리에 동기화.
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setSearchQuery(searchInput);
+      const url = new URL(window.location.href);
+      const trimmed = searchInput.trim();
+      if (trimmed) url.searchParams.set("q", trimmed);
+      else url.searchParams.delete("q");
+      window.history.replaceState({}, "", url);
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const API_BASE = `${BASE}api`;
@@ -99,13 +191,71 @@ export default function Users() {
     }
   };
 
-  // [Task #267] 역할 필터 적용된 목록.
+  // [Task #428] 중복 키 → 카운트 맵. 한 번 만들고 행마다 배지 표시 여부에 사용.
   //   훅은 early return 위에서 호출되어야 한다(React Rules of Hooks).
-  const filteredUsers = useMemo(
-    () => (roleFilter ? users.filter((u) => u.role === roleFilter) : users),
-    [users, roleFilter],
-  );
+  const duplicateCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const u of users) {
+      const key = buildDuplicateKey(u);
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [users]);
+
+  // [Task #267 + Task #428] 역할 + 포털 + 검색어 + 중복키 필터 (모두 AND 결합).
+  const filteredUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return users.filter((u) => {
+      if (roleFilter && u.role !== roleFilter) return false;
+      if (portalFilter && u.portalType !== portalFilter) return false;
+      if (duplicateKey && buildDuplicateKey(u) !== duplicateKey) return false;
+      if (q && !buildSearchHaystack(u).includes(q)) return false;
+      return true;
+    });
+  }, [users, roleFilter, portalFilter, duplicateKey, searchQuery]);
   const filterRoleLabel = roleFilter ? roleLabels[roleFilter] ?? roleFilter : "";
+  const filterPortalLabel = portalFilter ? portalLabels[portalFilter] ?? portalFilter : "";
+
+  // [Task #428] 결과 건수 요약 라벨 — 적용된 조건들을 모두 반영해 한 줄로 표시.
+  const summaryParts: string[] = [];
+  if (filterPortalLabel) summaryParts.push(filterPortalLabel);
+  if (filterRoleLabel) summaryParts.push(filterRoleLabel);
+  if (searchQuery.trim()) summaryParts.push(`'${searchQuery.trim()}'`);
+  if (duplicateKey) summaryParts.push("중복 가입 의심");
+  const summaryText = summaryParts.length
+    ? `${summaryParts.join(" · ")} ${filteredUsers.length}명`
+    : `전체 ${filteredUsers.length}명`;
+  const hasAnyFilter = !!(roleFilter || portalFilter || searchQuery.trim() || duplicateKey);
+
+  // [Task #428] 포털 필터 셀렉트 변경 시 URL 동기화 헬퍼.
+  const updatePortalFilter = (v: string) => {
+    setPortalFilter(v);
+    const url = new URL(window.location.href);
+    if (v) url.searchParams.set("portal", v);
+    else url.searchParams.delete("portal");
+    window.history.replaceState({}, "", url);
+  };
+
+  // [Task #428] 중복 의심 뱃지 토글 — 같은 키를 두 번 클릭하면 해제.
+  const toggleDuplicateKey = (key: string) => {
+    const next = duplicateKey === key ? "" : key;
+    setDuplicateKey(next);
+    const url = new URL(window.location.href);
+    if (next) url.searchParams.set("duplicateKey", next);
+    else url.searchParams.delete("duplicateKey");
+    window.history.replaceState({}, "", url);
+  };
+
+  const clearDuplicateKey = () => toggleDuplicateKey(duplicateKey);
+
+  // [Task #428] 행에 보여줄 주소 문자열 — 건물 주소 우선, 없으면 본인 시/군 보조.
+  const formatAddress = (u: UserRecord): string => {
+    const addr = (u.buildingAddress ?? "").trim();
+    if (addr) return addr;
+    const parts = [u.buildingSido, u.buildingSigungu].filter(Boolean) as string[];
+    return parts.length ? parts.join(" ") : "-";
+  };
 
   if (loading) {
     return (
@@ -134,8 +284,37 @@ export default function Users() {
         </button>
       </div>
 
-      {/* [Task #267] 역할별 필터 — ?role= 쿼리 또는 셀렉트로 변경. */}
+      {/* [Task #267 + Task #428] 상단 도구막 — 검색·포털 유형·역할 필터 + 결과 건수 요약. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
+        {/* [Task #428] 검색 입력창 — 이름·이메일·전화·건물명·주소 부분 일치. */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="이름·이메일·전화·건물·주소 검색"
+            className="pl-8 pr-2.5 py-1.5 border border-slate-300 rounded-lg text-sm bg-white w-64 max-w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            data-testid="users-search-input"
+          />
+        </div>
+
+        {/* [Task #428] 포털 유형 필터 — 전체 / 건물관리 / 파트너사 / 본사. */}
+        <label htmlFor="portal-filter" className="text-sm text-slate-600">유형:</label>
+        <select
+          id="portal-filter"
+          value={portalFilter}
+          onChange={(e) => updatePortalFilter(e.target.value)}
+          className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
+          data-testid="portal-filter-select"
+        >
+          <option value="">전체</option>
+          <option value="building">{portalLabels.building}</option>
+          <option value="partner">{portalLabels.partner}</option>
+          <option value="hq">{portalLabels.hq}</option>
+        </select>
+
+        {/* [Task #267] 역할별 필터. */}
         <label htmlFor="role-filter" className="text-sm text-slate-600">역할:</label>
         <select
           id="role-filter"
@@ -156,10 +335,43 @@ export default function Users() {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        {roleFilter && (
-          <span className="text-xs text-slate-500" data-testid="role-filter-summary">
-            {filterRoleLabel} {filteredUsers.length}명
-          </span>
+
+        {/* [Task #428] 결과 건수 요약 — 적용된 필터·검색을 모두 반영. */}
+        <span className="text-xs text-slate-500 ml-auto" data-testid="users-filter-summary">
+          {summaryText}
+        </span>
+
+        {/* [Task #428] 중복 임시 필터가 적용 중이면 해제 버튼을 노출. */}
+        {duplicateKey && (
+          <button
+            type="button"
+            onClick={clearDuplicateKey}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200"
+            data-testid="duplicate-filter-clear"
+          >
+            중복 의심 필터 해제
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        {hasAnyFilter && !duplicateKey && (
+          <button
+            type="button"
+            onClick={() => {
+              setRoleFilter("");
+              updatePortalFilter("");
+              // [Task #428] 검색은 디바운스 없이 즉시 비워 화면이 바로 갱신되도록 한다.
+              setSearchInput("");
+              setSearchQuery("");
+              const url = new URL(window.location.href);
+              url.searchParams.delete("role");
+              url.searchParams.delete("q");
+              window.history.replaceState({}, "", url);
+            }}
+            className="text-xs text-slate-500 hover:text-slate-700 underline"
+            data-testid="users-filter-clear"
+          >
+            필터 초기화
+          </button>
         )}
       </div>
 
@@ -168,7 +380,13 @@ export default function Users() {
       )}
 
       <div className="desktop:hidden space-y-2">
-        {filteredUsers.map((user) => (
+        {filteredUsers.map((user) => {
+          // [Task #428] 모바일 카드에 건물명·주소 + 중복 가입 의심 뱃지 노출.
+          const dupKey = buildDuplicateKey(user);
+          const isDup = !!dupKey && (duplicateCounts.get(dupKey) ?? 0) > 1;
+          const buildingName = (user.buildingName ?? "").trim() || "-";
+          const address = formatAddress(user);
+          return (
           <div key={user.id} className="bg-white rounded-xl border border-slate-200 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -177,9 +395,20 @@ export default function Users() {
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                     {roleLabels[user.role] || user.role}
                   </span>
+                  {isDup && (
+                    <button
+                      type="button"
+                      onClick={() => toggleDuplicateKey(dupKey)}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200"
+                      data-testid={`duplicate-badge-${user.id}`}
+                    >
+                      중복 가입 의심
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 truncate mt-1">{user.email}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{portalLabels[user.portalType] || user.portalType} · {user.phone || "전화 미등록"}</p>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">건물 {buildingName} · 주소 {address}</p>
                 <p className="text-xs text-slate-400 mt-0.5">가입 {new Date(user.createdAt).toLocaleDateString("ko-KR")}</p>
               </div>
               <div className="flex gap-1 shrink-0">
@@ -200,30 +429,49 @@ export default function Users() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         {filteredUsers.length === 0 && (
           <div className="bg-white rounded-xl border border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-            {roleFilter ? `${filterRoleLabel} 역할 사용자가 없습니다` : "등록된 사용자가 없습니다"}
+            {hasAnyFilter ? "조건에 맞는 사용자가 없습니다" : "등록된 사용자가 없습니다"}
           </div>
         )}
       </div>
 
       <div className="hidden desktop:block bg-white rounded-xl border border-slate-200 overflow-hidden">
        <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px]">
+        <table className="w-full min-w-[860px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">이름</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">이메일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">역할</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">포털</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">건물명</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">주소</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">전화번호</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">가입일</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">관리</th>
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
+            {filteredUsers.map((user) => {
+              // [Task #428] 데스크톱 표 — 건물명·주소 컬럼 + 중복 가입 뱃지.
+              const dupKey = buildDuplicateKey(user);
+              const isDup = !!dupKey && (duplicateCounts.get(dupKey) ?? 0) > 1;
+              const buildingName = (user.buildingName ?? "").trim() || "-";
+              const address = formatAddress(user);
+              const dupBadge = isDup ? (
+                <button
+                  type="button"
+                  onClick={() => toggleDuplicateKey(dupKey)}
+                  className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 hover:bg-amber-200"
+                  data-testid={`duplicate-badge-${user.id}`}
+                >
+                  중복 가입 의심
+                </button>
+              ) : null;
+              return (
               <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-3 text-sm font-medium text-slate-900">{user.name}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">{user.email}</td>
@@ -233,6 +481,14 @@ export default function Users() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{portalLabels[user.portalType] || user.portalType}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">
+                  <span>{buildingName}</span>
+                  {buildingName !== "-" && dupBadge}
+                </td>
+                <td className="px-4 py-3 text-sm text-slate-600">
+                  <span>{address}</span>
+                  {buildingName === "-" && dupBadge}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-600">{user.phone || "-"}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {new Date(user.createdAt).toLocaleDateString("ko-KR")}
@@ -257,11 +513,12 @@ export default function Users() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {filteredUsers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">
-                  {roleFilter ? `${filterRoleLabel} 역할 사용자가 없습니다` : "등록된 사용자가 없습니다"}
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-500">
+                  {hasAnyFilter ? "조건에 맞는 사용자가 없습니다" : "등록된 사용자가 없습니다"}
                 </td>
               </tr>
             )}

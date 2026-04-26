@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, buildingsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { randomInt } from "crypto";
 // [역할 라벨 SoT] 사용자에게 보이는 한국어 역할 라벨은 단일 소스에서 가져온다.
@@ -41,6 +41,9 @@ function parseDisabledCategories(value: string | null | undefined): string[] {
 
 router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), async (_req, res): Promise<void> => {
   try {
+    // [Task #428] 사용자 목록에 매핑된 건물의 이름·주소를 함께 노출해
+    //   같은 사람이 중복 가입했는지 한눈에 확인할 수 있도록 한다.
+    //   buildings 와 left join 으로 한 번에 조회.
     const rows = await db
       .select({
         id: usersTable.id,
@@ -53,8 +56,15 @@ router.get("/users", requireRole("manager", "platform_admin", "hq_executive"), a
         disabledCategories: usersTable.disabledCategories,
         // [Task #267] 플랫폼 역할 현황 페이지에서 "활성 건물 수" 집계용.
         buildingId: usersTable.buildingId,
+        // [Task #428] 사용자 본인 입력 시/도·시/군/구 (건물 매핑이 없을 때 보조 표기).
+        buildingSido: usersTable.buildingSido,
+        buildingSigungu: usersTable.buildingSigungu,
+        // [Task #428] 매핑된 건물의 이름·전체주소 — 중복 가입 점검용.
+        buildingName: buildingsTable.name,
+        buildingAddress: buildingsTable.addressFull,
       })
       .from(usersTable)
+      .leftJoin(buildingsTable, eq(usersTable.buildingId, buildingsTable.id))
       .orderBy(usersTable.createdAt);
 
     res.json(rows.map((u) => ({ ...u, disabledCategories: parseDisabledCategories(u.disabledCategories) })));
