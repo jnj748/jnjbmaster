@@ -86,9 +86,9 @@ import {
   MobileOnly,
   DesktopOnly,
 } from "@/components/dashboard-widgets/mobile-compact";
-// [Task #358] 모바일 첫 화면에 추가되는 두 위젯.
+// [Task #358 → #397] 모바일 첫 화면에 추가되는 두 위젯.
 //  - 건물관련 계약현황 한 줄
-//  - 제출받은 견적서 카드 리스트
+//  - 파트너사 비교 견적 카드 리스트
 import SubmittedQuotesWidget from "@/components/dashboard-widgets/widgets/submitted-quotes-widget";
 
 function StatCard({
@@ -1011,9 +1011,9 @@ export default function Dashboard() {
     return false;
   });
 
-  // [Task #358] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 / 입주율)
+  // [Task #358 → #397] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 / 입주율)
   // 묶음은 다른 섹션과 정보가 중복되어 제거했다. 같은 자리에 "건물관련 계약현황"
-  // 한 줄과 "제출받은 견적서" 위젯을 배치한다.
+  // 한 줄과 "파트너사 비교 견적" 위젯을 배치한다.
 
   return (
     <>

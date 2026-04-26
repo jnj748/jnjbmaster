@@ -48,6 +48,49 @@ export default function EmptyQuoteRfqSuggestion({ fallback, variant }: Props) {
   const dDayBadgeVariant: "destructive" | "secondary" =
     candidate.daysLeft != null && candidate.daysLeft <= 7 ? "destructive" : "secondary";
 
+  // [Task #397] 모바일 첫 화면 위젯(variant === "widget") 에서는 TodayWorkLogEntry 와
+  //   동일한 컴팩트 가로 레이아웃으로 노출한다. /rfqs 페이지 등 다른 호출부는 기존
+  //   세로 레이아웃을 유지해 페이지 본문 빈 상태에서의 시각적 강조를 그대로 둔다.
+  if (variant === "widget") {
+    return (
+      <Card data-testid={`empty-quote-rfq-suggestion-${variant}`}>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3 py-1 px-1">
+            <span className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </span>
+            <span className="flex flex-col min-w-0 flex-1">
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs font-semibold truncate">
+                  곧{" "}
+                  <span className="text-primary">{candidate.alert.title}</span>
+                </span>
+                <Badge
+                  variant={dDayBadgeVariant}
+                  className="text-[10px] h-4 px-1.5 shrink-0"
+                  data-testid={`empty-quote-rfq-suggestion-${variant}-dday`}
+                >
+                  {candidate.dDayLabel}
+                </Badge>
+              </span>
+              <span className="text-[11px] font-medium leading-snug text-muted-foreground truncate">
+                비교 견적 받아보시겠어요?
+              </span>
+            </span>
+            <Button
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={handleClick}
+              data-testid={`empty-quote-rfq-suggestion-${variant}-cta`}
+            >
+              요청
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card data-testid={`empty-quote-rfq-suggestion-${variant}`}>
       <CardContent className="py-5 px-4 flex flex-col items-center gap-3 text-center">
