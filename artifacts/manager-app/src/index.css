@@ -90,35 +90,36 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 210 20% 98%;
-  --foreground: 215 25% 15%;
-  --border: 214 20% 88%;
+  /* [Task #395] Prismatic Pay 디자인 시스템 토큰 (A안: 컬러·그림자만, 레이아웃·폰트·spacing 보존) */
+  --background: 0 0% 100%;
+  --foreground: 212 72% 15%;
+  --border: 213 27% 91%;
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 15%;
-  --card-border: 214 20% 90%;
-  --sidebar: 215 30% 18%;
-  --sidebar-foreground: 210 15% 90%;
-  --sidebar-border: 215 25% 25%;
-  --sidebar-primary: 199 89% 48%;
+  --card-foreground: 212 72% 15%;
+  --card-border: 213 27% 91%;
+  --sidebar: 212 72% 15%;
+  --sidebar-foreground: 210 17% 98%;
+  --sidebar-border: 212 60% 25%;
+  --sidebar-primary: 243 100% 68%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 25% 25%;
-  --sidebar-accent-foreground: 210 15% 90%;
-  --sidebar-ring: 199 89% 48%;
+  --sidebar-accent: 212 50% 22%;
+  --sidebar-accent-foreground: 210 17% 98%;
+  --sidebar-ring: 243 100% 68%;
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 15%;
-  --popover-border: 214 20% 88%;
-  --primary: 215 30% 22%;
+  --popover-foreground: 212 72% 15%;
+  --popover-border: 213 27% 91%;
+  --primary: 212 72% 15%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 16% 93%;
-  --secondary-foreground: 215 25% 25%;
-  --muted: 210 16% 95%;
-  --muted-foreground: 215 15% 50%;
-  --accent: 199 89% 48%;
+  --secondary: 210 33% 98%;
+  --secondary-foreground: 212 72% 15%;
+  --muted: 210 33% 98%;
+  --muted-foreground: 215 23% 33%;
+  --accent: 243 100% 68%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
+  --destructive: 351 76% 49%;
   --destructive-foreground: 0 0% 100%;
-  --input: 214 20% 88%;
-  --ring: 199 89% 48%;
+  --input: 213 27% 91%;
+  --ring: 243 100% 68%;
   --chart-1: 199 89% 48%;
   --chart-2: 168 70% 42%;
   --chart-3: 32 95% 55%;
@@ -129,16 +130,25 @@
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: .625rem;
+  /* [Task #395] Prismatic Pay Level 1/2/3 elevation 매핑 (sm=Level1, md=Level2, lg=Level3) */
   --shadow-2xs: 0 1px 2px 0 rgba(0,0,0,0.03);
-  --shadow-xs: 0 1px 2px 0 rgba(0,0,0,0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.06);
-  --shadow: 0 1px 3px 0 rgba(0,0,0,0.08), 0 1px 2px -1px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.07);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -4px rgba(0,0,0,0.07);
-  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.07), 0 8px 10px -6px rgba(0,0,0,0.07);
+  --shadow-xs: 0 1px 2px 0 rgba(0,0,0,0.06);
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow: 0 2px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 12px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 20px 40px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.04);
   --shadow-2xl: 0 25px 50px -12px rgba(0,0,0,0.15);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* [Task #395] Prismatic Pay 부속 색 — 자동 참조 없음. 후속 컴포넌트에서 var(--brand-*) 로 사용 가능. */
+  --brand-purple-hover: 243 100% 73%;   /* #7A73FF */
+  --brand-success: 120 58% 44%;         /* #30B130 */
+  --brand-warning: 44 100% 50%;         /* #FFBB00 */
+  --brand-text-secondary: 215 23% 33%;  /* #425466 */
+  --brand-neutral: 217 12% 47%;         /* #697386 */
+  --brand-surface: 210 33% 98%;         /* #F6F9FC */
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);

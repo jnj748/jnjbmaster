@@ -12,3 +12,9 @@ id = "-F6fNFbrrteDvrmpBq1sy"
 uri = "file://dist/work-log-standalone-prompt.md"
 type = "text"
 title = "이식형 업무일지 생성 프롬프트 (다른 Replit 프로젝트에 붙여넣기)"
+
+[[outputs]]
+id = "v3vSaG4r12R9W4Zu4PDQX"
+uri = "file://screenshots/prismatic-after-login.jpg"
+type = "image"
+title = "Prismatic Pay 토큰 적용 후 — 매니저앱 로그인 화면"
