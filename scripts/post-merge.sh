@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
-# drizzle-kit 가 "고유 제약을 추가합니다, 테이블을 truncate 할까요?" 같은
-# 인터랙티브 프롬프트를 띄울 때, 후속머지 환경은 stdin 이 닫혀 있어 EOF 로
-# 그대로 hang 한다. yes 로 빈 줄(= Enter)을 무한 입력해 항상 첫 번째(기본,
-# "No, add the constraint without truncating") 선택지가 채택되게 한다.
-yes "" | pnpm --filter db push --force
+# 주의: drizzle-kit 가 일부 마이그레이션 시 인터랙티브 프롬프트를 띄울 수 있다.
+# 후속머지 환경은 stdin 이 /dev/null 이라 drizzle-kit 가 TTY 부재를 감지해
+# 기본값(첫 번째 선택지, e.g. "No, add the constraint without truncating")으로
+# 자동 진행한다. 다만 해당 fallback 까지 약 15~18초 걸리므로 타임아웃은 60초로
+# 넉넉히 잡는다(.replit 의 [postMerge] timeoutMs).
+pnpm --filter db push --force
