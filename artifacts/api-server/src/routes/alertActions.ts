@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, alertActionsTable, inspectionsTable, inspectionLogsTable, tasksTable, taxSchedulesTable } from "@workspace/db";
+import { db, alertActionsTable, inspectionsTable, inspectionLogsTable, tasksTable, taxSchedulesTable, buildingNoticeTemplatesTable, usersTable } from "@workspace/db";
 import {
   ListAlertActionsQueryParams,
   ListAlertActionsResponse,
@@ -68,7 +68,12 @@ router.post("/alert-actions", requireRole(
     const isTemplateAlert =
       (data.alertType === "task_template_mandatory" || data.alertType === "task_template_suggested") &&
       data.relatedEntityType === "task_template";
-    if (!isTemplateAlert) {
+    // [Task #389] notice_posting 은 매니저뿐 아니라 같은 건물의 회계/시설/본부장도
+    //   대시보드에서 보게 되므로 처리완료 권한도 동일 building 역할군에 허용한다.
+    //   relatedEntityType=building_notice_template 으로 한정해 IDOR 방지.
+    const isNoticePostingAlert =
+      data.alertType === "notice_posting" && data.relatedEntityType === "building_notice_template";
+    if (!isTemplateAlert && !isNoticePostingAlert) {
       res.status(403).json({ error: "해당 알림을 처리할 권한이 없습니다." });
       return;
     }
@@ -133,6 +138,75 @@ router.post("/alert-actions", requireRole(
       .update(taxSchedulesTable)
       .set({ status: "completed" })
       .where(eq(taxSchedulesTable.id, data.relatedEntityId));
+  }
+
+  // [Task #389] 공고문 게시 자동알림 처리완료 — 동일 occurrence 가 다시 노출되지
+  //   않도록 actedOnDueDate 를 occurrence(템플릿 스케줄로 계산한 다음 게시일) 로
+  //   강제한다. dashboard.ts/scheduler 의 멱등 키가 actedOnDueDate >= occurrence
+  //   비교로 동작하므로 클라이언트가 보낸 completedDate(=오늘)에만 의존하면 D-N
+  //   처리시 같은 회차가 반복 노출된다.
+  if (data.relatedEntityType === "building_notice_template") {
+    const [tpl] = await db
+      .select()
+      .from(buildingNoticeTemplatesTable)
+      .where(eq(buildingNoticeTemplatesTable.id, data.relatedEntityId));
+    let buildingId: number | null = null;
+    if (req.user?.userId) {
+      const [u] = await db
+        .select({ buildingId: usersTable.buildingId })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.user.userId));
+      buildingId = u?.buildingId ?? null;
+    }
+    if (tpl && tpl.scheduleType && tpl.scheduleType !== "none") {
+      const cfg = (tpl.scheduleConfig as Record<string, unknown> | null) ?? null;
+      const todayStr = new Date().toISOString().split("T")[0];
+      const today = new Date(todayStr);
+      const pad2 = (n: number): string => (n < 10 ? `0${n}` : `${n}`);
+      const ymd = (d: Date): string =>
+        `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      let occ: string | null = null;
+      if (tpl.scheduleType === "yearly") {
+        const m = Number(cfg?.month);
+        const d = Number(cfg?.day);
+        if (Number.isFinite(m) && Number.isFinite(d)) {
+          let candidate = new Date(today.getFullYear(), m - 1, d);
+          if (ymd(candidate) < todayStr) {
+            candidate = new Date(today.getFullYear() + 1, m - 1, d);
+          }
+          occ = ymd(candidate);
+        }
+      } else if (tpl.scheduleType === "monthly") {
+        const d = Number(cfg?.day);
+        if (Number.isFinite(d)) {
+          let candidate = new Date(today.getFullYear(), today.getMonth(), d);
+          if (ymd(candidate) < todayStr) {
+            candidate = new Date(today.getFullYear(), today.getMonth() + 1, d);
+          }
+          occ = ymd(candidate);
+        }
+      } else if (tpl.scheduleType === "before_inspection" && buildingId !== null) {
+        const inspectionName = typeof cfg?.inspectionName === "string" ? cfg.inspectionName : null;
+        if (inspectionName) {
+          const matched = await db
+            .select()
+            .from(inspectionsTable)
+            .where(
+              and(
+                eq(inspectionsTable.buildingId, buildingId),
+                eq(inspectionsTable.name, inspectionName),
+              ),
+            );
+          const upcoming = matched
+            .filter((i) => i.nextDueDate >= todayStr)
+            .sort((a, b) => (a.nextDueDate < b.nextDueDate ? -1 : 1));
+          if (upcoming.length > 0) occ = upcoming[0].nextDueDate;
+        }
+      }
+      if (occ) {
+        actedOnDueDate = occ;
+      }
+    }
   }
 
   if (data.actionType === "postponed" && data.postponeDays) {
@@ -213,7 +287,16 @@ router.post("/alert-actions", requireRole(
     })
     .returning();
 
-  res.status(201).json(ListAlertActionsResponseItem.parse(action));
+  // [Task #389] drizzle 의 .returning() 은 createdAt 을 Date 로 돌려주는데 응답
+  //   스키마(zod.string().datetime)는 ISO 문자열을 요구한다. 직렬화하지 않으면
+  //   처리완료/연기 시 클라이언트에 500 이 돌아와 매니저 처리완료 흐름이 끊긴다.
+  res.status(201).json(
+    ListAlertActionsResponseItem.parse({
+      ...action,
+      createdAt:
+        action.createdAt instanceof Date ? action.createdAt.toISOString() : action.createdAt,
+    }),
+  );
 });
 
 export default router;

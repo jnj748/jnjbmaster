@@ -30,6 +30,8 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 // [Task #323] platform_admin 전용 — 공지문 템플릿 관리.
 //   매니저가 사용하는 모든 템플릿(불조심/분리수거 등)을 여기서 추가/수정/삭제한다.
 
+type ScheduleType = "none" | "yearly" | "monthly" | "before_inspection";
+
 interface FormState {
   id?: number;
   title: string;
@@ -39,6 +41,13 @@ interface FormState {
   customFieldLabelsCsv: string; // 사용자에게는 콤마로 입력받는다 (예: "기간,장소").
   sortOrder: number;
   isActive: boolean;
+  // [Task #389] 정기 게시 자동알림 설정.
+  scheduleType: ScheduleType;
+  scheduleMonth: string; // yearly: 1-12
+  scheduleDay: string; // yearly/monthly: 1-31
+  scheduleInspectionName: string; // before_inspection
+  leadDays: number;
+  requiresReport: boolean;
 }
 
 function blank(): FormState {
@@ -51,7 +60,40 @@ function blank(): FormState {
     customFieldLabelsCsv: "",
     sortOrder: 100,
     isActive: true,
+    scheduleType: "none",
+    scheduleMonth: "",
+    scheduleDay: "",
+    scheduleInspectionName: "",
+    leadDays: 7,
+    requiresReport: false,
   };
+}
+
+// [Task #389] 다음 게시 예정일 미리보기 — dashboard.ts/scheduler 와 동일한 occurrence
+//   계산을 클라이언트에서 수행해 본사 관리자가 저장 전에 결과를 확인할 수 있게 한다.
+function pad2(n: number): string { return n < 10 ? `0${n}` : `${n}`; }
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function previewNextOccurrence(form: Pick<FormState, "scheduleType" | "scheduleMonth" | "scheduleDay" | "scheduleInspectionName">): string | null {
+  const todayStr = ymd(new Date());
+  const today = new Date(todayStr);
+  if (form.scheduleType === "yearly") {
+    const m = Number(form.scheduleMonth);
+    const d = Number(form.scheduleDay);
+    if (!Number.isFinite(m) || m < 1 || m > 12 || !Number.isFinite(d) || d < 1 || d > 31) return null;
+    let candidate = new Date(today.getFullYear(), m - 1, d);
+    if (ymd(candidate) < todayStr) candidate = new Date(today.getFullYear() + 1, m - 1, d);
+    return ymd(candidate);
+  }
+  if (form.scheduleType === "monthly") {
+    const d = Number(form.scheduleDay);
+    if (!Number.isFinite(d) || d < 1 || d > 31) return null;
+    let candidate = new Date(today.getFullYear(), today.getMonth(), d);
+    if (ymd(candidate) < todayStr) candidate = new Date(today.getFullYear(), today.getMonth() + 1, d);
+    return ymd(candidate);
+  }
+  return null; // before_inspection 은 건물별 inspections 조회가 필요해 미리보기 불가.
 }
 
 function parseLabels(json: string | null | undefined): string[] {
@@ -79,6 +121,7 @@ export default function PlatformNoticeTemplatesPage() {
   }
 
   function startEdit(t: BuildingNoticeTemplate) {
+    const cfg = (t.scheduleConfig as Record<string, unknown> | null) ?? null;
     setForm({
       id: t.id,
       title: t.title,
@@ -88,6 +131,12 @@ export default function PlatformNoticeTemplatesPage() {
       customFieldLabelsCsv: parseLabels(t.customFieldLabels).join(","),
       sortOrder: t.sortOrder,
       isActive: t.isActive,
+      scheduleType: ((t.scheduleType as ScheduleType) ?? "none"),
+      scheduleMonth: cfg?.month != null ? String(cfg.month) : "",
+      scheduleDay: cfg?.day != null ? String(cfg.day) : "",
+      scheduleInspectionName: typeof cfg?.inspectionName === "string" ? cfg.inspectionName : "",
+      leadDays: t.leadDays ?? 7,
+      requiresReport: !!t.requiresReport,
     });
     setOpen(true);
   }
@@ -99,6 +148,34 @@ export default function PlatformNoticeTemplatesPage() {
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
+      // [Task #389] scheduleType 별로 필요한 필드만 직렬화.
+      let scheduleConfig: Record<string, unknown> | null = null;
+      if (form.scheduleType === "yearly") {
+        const m = Number(form.scheduleMonth);
+        const d = Number(form.scheduleDay);
+        if (!Number.isFinite(m) || m < 1 || m > 12 || !Number.isFinite(d) || d < 1 || d > 31) {
+          toast({ title: "월/일을 올바르게 입력해주세요", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        scheduleConfig = { month: m, day: d };
+      } else if (form.scheduleType === "monthly") {
+        const d = Number(form.scheduleDay);
+        if (!Number.isFinite(d) || d < 1 || d > 31) {
+          toast({ title: "일(day)을 올바르게 입력해주세요", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        scheduleConfig = { day: d };
+      } else if (form.scheduleType === "before_inspection") {
+        const name = form.scheduleInspectionName.trim();
+        if (!name) {
+          toast({ title: "점검명을 입력해주세요", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        scheduleConfig = { inspectionName: name };
+      }
       const body: UpsertBuildingNoticeTemplateBody = {
         title: form.title,
         category: form.category || "일반",
@@ -107,6 +184,10 @@ export default function PlatformNoticeTemplatesPage() {
         customFieldLabels: labels.length > 0 ? labels : null,
         sortOrder: Number(form.sortOrder) || 100,
         isActive: form.isActive,
+        scheduleType: form.scheduleType,
+        scheduleConfig,
+        leadDays: Number(form.leadDays) || 0,
+        requiresReport: form.requiresReport,
       };
       if (form.id) {
         await updateBuildingNoticeTemplate(form.id, body);
@@ -246,6 +327,114 @@ export default function PlatformNoticeTemplatesPage() {
             <div className="flex items-center gap-2">
               <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
               <Label>활성화</Label>
+            </div>
+
+            {/* [Task #389] 정기 게시 자동알림 설정 */}
+            <div className="border-t pt-3 mt-2 space-y-3">
+              <Label className="text-sm font-semibold">정기 게시 자동알림</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">스케줄 종류</Label>
+                  <select
+                    className="w-full h-9 border rounded-md px-2 text-sm bg-background"
+                    value={form.scheduleType}
+                    onChange={(e) => setForm({ ...form, scheduleType: e.target.value as ScheduleType })}
+                    data-testid="select-template-schedule-type"
+                  >
+                    <option value="none">없음 (수동)</option>
+                    <option value="yearly">매년 동일일</option>
+                    <option value="monthly">매월 동일일</option>
+                    <option value="before_inspection">법정 점검 N일 전</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">매니저 D-N (며칠 전부터 노출)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={form.leadDays}
+                    onChange={(e) => setForm({ ...form, leadDays: Number(e.target.value) })}
+                    data-testid="input-template-lead-days"
+                  />
+                </div>
+              </div>
+              {form.scheduleType === "yearly" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">월 (1-12)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={form.scheduleMonth}
+                      onChange={(e) => setForm({ ...form, scheduleMonth: e.target.value })}
+                      data-testid="input-template-schedule-month"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">일 (1-31)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={form.scheduleDay}
+                      onChange={(e) => setForm({ ...form, scheduleDay: e.target.value })}
+                      data-testid="input-template-schedule-day-yearly"
+                    />
+                  </div>
+                </div>
+              )}
+              {form.scheduleType === "monthly" && (
+                <div>
+                  <Label className="text-xs">일 (1-31)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={form.scheduleDay}
+                    onChange={(e) => setForm({ ...form, scheduleDay: e.target.value })}
+                    data-testid="input-template-schedule-day-monthly"
+                  />
+                </div>
+              )}
+              {form.scheduleType === "before_inspection" && (
+                <div>
+                  <Label className="text-xs">점검명 (inspections.name 과 동일)</Label>
+                  <Input
+                    value={form.scheduleInspectionName}
+                    onChange={(e) => setForm({ ...form, scheduleInspectionName: e.target.value })}
+                    placeholder="예: 소방시설 작동기능점검"
+                    data-testid="input-template-schedule-inspection"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    각 건물 inspections 테이블의 동명 점검 nextDueDate 가 D-Day 가 됩니다.
+                  </p>
+                </div>
+              )}
+              {form.scheduleType !== "none" && (
+                <div
+                  className="text-[12px] bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-slate-700"
+                  data-testid="text-template-next-occurrence-preview"
+                >
+                  {form.scheduleType === "before_inspection"
+                    ? "다음 게시 예정일은 각 건물의 동일 점검 일정에 따라 자동 계산됩니다."
+                    : (() => {
+                        const next = previewNextOccurrence(form);
+                        return next
+                          ? `다음 게시 예정일: ${next} (D-${form.leadDays}일 전부터 매니저 대시보드에 노출)`
+                          : "월/일을 입력하면 다음 게시 예정일이 표시됩니다.";
+                      })()}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.requiresReport}
+                  onCheckedChange={(v) => setForm({ ...form, requiresReport: v })}
+                  data-testid="switch-template-requires-report"
+                />
+                <Label className="text-xs">처리완료시 보고서 양식으로 열기 (체크 안 하면 입주민 공지문)</Label>
+              </div>
             </div>
           </div>
           <ResponsiveDialogFooter>

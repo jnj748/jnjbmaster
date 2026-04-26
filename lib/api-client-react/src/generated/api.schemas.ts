@@ -1421,6 +1421,7 @@ export const AlertType = {
   vendor_recommendation: "vendor_recommendation",
   data_destruction: "data_destruction",
   quote_received: "quote_received",
+  notice_posting: "notice_posting",
 } as const;
 
 export type AlertSeverity = (typeof AlertSeverity)[keyof typeof AlertSeverity];
@@ -4797,6 +4798,27 @@ export interface AdjustCreditsBody {
   notes: string;
 }
 
+/**
+ * [Task #389] 정기 게시 자동알림 스케줄 종류
+ */
+export type BuildingNoticeTemplateScheduleType =
+  (typeof BuildingNoticeTemplateScheduleType)[keyof typeof BuildingNoticeTemplateScheduleType];
+
+export const BuildingNoticeTemplateScheduleType = {
+  none: "none",
+  yearly: "yearly",
+  monthly: "monthly",
+  before_inspection: "before_inspection",
+} as const;
+
+/**
+ * yearly={month,day} | monthly={day} | before_inspection={inspectionName}
+ * @nullable
+ */
+export type BuildingNoticeTemplateScheduleConfig = {
+  [key: string]: unknown;
+} | null;
+
 export interface BuildingNoticeTemplate {
   id: number;
   title: string;
@@ -4811,9 +4833,37 @@ export interface BuildingNoticeTemplate {
   customFieldLabels?: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** [Task #389] 정기 게시 자동알림 스케줄 종류 */
+  scheduleType: BuildingNoticeTemplateScheduleType;
+  /**
+   * yearly={month,day} | monthly={day} | before_inspection={inspectionName}
+   * @nullable
+   */
+  scheduleConfig?: BuildingNoticeTemplateScheduleConfig;
+  /** 발생일 N일 전부터 매니저 대시보드 제안업무에 노출 */
+  leadDays: number;
+  /** true 면 처리완료 시 기본 양식이 보고서로 열린다 */
+  requiresReport: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export type UpsertBuildingNoticeTemplateBodyScheduleType =
+  (typeof UpsertBuildingNoticeTemplateBodyScheduleType)[keyof typeof UpsertBuildingNoticeTemplateBodyScheduleType];
+
+export const UpsertBuildingNoticeTemplateBodyScheduleType = {
+  none: "none",
+  yearly: "yearly",
+  monthly: "monthly",
+  before_inspection: "before_inspection",
+} as const;
+
+/**
+ * @nullable
+ */
+export type UpsertBuildingNoticeTemplateBodyScheduleConfig = {
+  [key: string]: unknown;
+} | null;
 
 export interface UpsertBuildingNoticeTemplateBody {
   title: string;
@@ -4825,6 +4875,11 @@ export interface UpsertBuildingNoticeTemplateBody {
   customFieldLabels?: string[] | null;
   sortOrder?: number;
   isActive?: boolean;
+  scheduleType?: UpsertBuildingNoticeTemplateBodyScheduleType;
+  /** @nullable */
+  scheduleConfig?: UpsertBuildingNoticeTemplateBodyScheduleConfig;
+  leadDays?: number;
+  requiresReport?: boolean;
 }
 
 export interface CreditTopupPackage {

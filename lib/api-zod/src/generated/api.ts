@@ -2381,6 +2381,7 @@ export const GetDashboardAlertsResponseItem = zod.object({
     "vendor_recommendation",
     "data_destruction",
     "quote_received",
+    "notice_posting",
   ]),
   title: zod.string(),
   message: zod.string(),
@@ -7668,6 +7669,21 @@ export const ListBuildingNoticeTemplatesResponse = zod.object({
         .describe("JSON 직렬화된 string[]"),
       sortOrder: zod.number(),
       isActive: zod.boolean(),
+      scheduleType: zod
+        .enum(["none", "yearly", "monthly", "before_inspection"])
+        .describe("[Task #389] 정기 게시 자동알림 스케줄 종류"),
+      scheduleConfig: zod
+        .record(zod.string(), zod.unknown())
+        .nullish()
+        .describe(
+          "yearly={month,day} | monthly={day} | before_inspection={inspectionName}",
+        ),
+      leadDays: zod
+        .number()
+        .describe("발생일 N일 전부터 매니저 대시보드 제안업무에 노출"),
+      requiresReport: zod
+        .boolean()
+        .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -7691,6 +7707,21 @@ export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
         .describe("JSON 직렬화된 string[]"),
       sortOrder: zod.number(),
       isActive: zod.boolean(),
+      scheduleType: zod
+        .enum(["none", "yearly", "monthly", "before_inspection"])
+        .describe("[Task #389] 정기 게시 자동알림 스케줄 종류"),
+      scheduleConfig: zod
+        .record(zod.string(), zod.unknown())
+        .nullish()
+        .describe(
+          "yearly={month,day} | monthly={day} | before_inspection={inspectionName}",
+        ),
+      leadDays: zod
+        .number()
+        .describe("발생일 N일 전부터 매니저 대시보드 제안업무에 노출"),
+      requiresReport: zod
+        .boolean()
+        .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -7708,6 +7739,12 @@ export const CreateBuildingNoticeTemplateBody = zod.object({
   customFieldLabels: zod.array(zod.string()).nullish(),
   sortOrder: zod.number().optional(),
   isActive: zod.boolean().optional(),
+  scheduleType: zod
+    .enum(["none", "yearly", "monthly", "before_inspection"])
+    .optional(),
+  scheduleConfig: zod.record(zod.string(), zod.unknown()).nullish(),
+  leadDays: zod.number().optional(),
+  requiresReport: zod.boolean().optional(),
 });
 
 export const CreateBuildingNoticeTemplateResponse = zod.object({
@@ -7723,6 +7760,21 @@ export const CreateBuildingNoticeTemplateResponse = zod.object({
       .describe("JSON 직렬화된 string[]"),
     sortOrder: zod.number(),
     isActive: zod.boolean(),
+    scheduleType: zod
+      .enum(["none", "yearly", "monthly", "before_inspection"])
+      .describe("[Task #389] 정기 게시 자동알림 스케줄 종류"),
+    scheduleConfig: zod
+      .record(zod.string(), zod.unknown())
+      .nullish()
+      .describe(
+        "yearly={month,day} | monthly={day} | before_inspection={inspectionName}",
+      ),
+    leadDays: zod
+      .number()
+      .describe("발생일 N일 전부터 매니저 대시보드 제안업무에 노출"),
+    requiresReport: zod
+      .boolean()
+      .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -7743,6 +7795,12 @@ export const UpdateBuildingNoticeTemplateBody = zod.object({
   customFieldLabels: zod.array(zod.string()).nullish(),
   sortOrder: zod.number().optional(),
   isActive: zod.boolean().optional(),
+  scheduleType: zod
+    .enum(["none", "yearly", "monthly", "before_inspection"])
+    .optional(),
+  scheduleConfig: zod.record(zod.string(), zod.unknown()).nullish(),
+  leadDays: zod.number().optional(),
+  requiresReport: zod.boolean().optional(),
 });
 
 export const UpdateBuildingNoticeTemplateResponse = zod.object({
@@ -7758,6 +7816,21 @@ export const UpdateBuildingNoticeTemplateResponse = zod.object({
       .describe("JSON 직렬화된 string[]"),
     sortOrder: zod.number(),
     isActive: zod.boolean(),
+    scheduleType: zod
+      .enum(["none", "yearly", "monthly", "before_inspection"])
+      .describe("[Task #389] 정기 게시 자동알림 스케줄 종류"),
+    scheduleConfig: zod
+      .record(zod.string(), zod.unknown())
+      .nullish()
+      .describe(
+        "yearly={month,day} | monthly={day} | before_inspection={inspectionName}",
+      ),
+    leadDays: zod
+      .number()
+      .describe("발생일 N일 전부터 매니저 대시보드 제안업무에 노출"),
+    requiresReport: zod
+      .boolean()
+      .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),

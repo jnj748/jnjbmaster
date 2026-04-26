@@ -19,4 +19,5 @@ export const AlertType = {
   vendor_recommendation: "vendor_recommendation",
   data_destruction: "data_destruction",
   quote_received: "quote_received",
+  notice_posting: "notice_posting",
 } as const;

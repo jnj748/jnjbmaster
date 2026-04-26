@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, isNull, desc, sql, lt, inArray, ne } from "drizzle-orm";
-import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable, complaintsTable, quotesTable } from "@workspace/db";
+import { db, tasksTable, inspectionsTable, taxSchedulesTable, commissionsTable, draftsTable, tenantsTable, ownersTable, alertActionsTable, vendorsTable, rfqsTable, unitsTable, attendanceTable, notificationsTable, usersTable, seasonalMaintenancePresetsTable, buildingWarrantiesTable, buildingsTable, complaintsTable, quotesTable, buildingNoticeTemplatesTable } from "@workspace/db";
 import { LEGAL_PRESETS } from "./inspections";
 import {
   GetDashboardSummaryResponse,
@@ -206,9 +206,31 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     .from(alertActionsTable)
     .orderBy(desc(alertActionsTable.createdAt));
 
+  // [Task #389] notice_posting 은 템플릿(=공용)이 모든 건물에 공유되므로
+  //   relatedEntityId(=templateId) 만으로 키를 잡으면 다른 건물 매니저가 처리한
+  //   액션이 우리 건물 알림까지 막아 cross-tenant 결함을 만든다. 행동을 건물 범위로
+  //   분리하기 위해 action.userId 를 buildingId 로 매핑해 키에 포함한다.
+  const actionUserIds = Array.from(
+    new Set(recentActions.map((a) => a.userId).filter((id): id is number => typeof id === "number")),
+  );
+  const userBuildingMap = new Map<number, number | null>();
+  if (actionUserIds.length > 0) {
+    const usersForActions = await db
+      .select({ id: usersTable.id, buildingId: usersTable.buildingId })
+      .from(usersTable)
+      .where(inArray(usersTable.id, actionUserIds));
+    for (const u of usersForActions) {
+      userBuildingMap.set(u.id, u.buildingId ?? null);
+    }
+  }
+
   const actionMap = new Map<string, typeof recentActions[0]>();
   for (const action of recentActions) {
-    const key = `${action.alertType}:${action.relatedEntityId}`;
+    let key = `${action.alertType}:${action.relatedEntityId}`;
+    if (action.alertType === "notice_posting") {
+      const bId = action.userId != null ? userBuildingMap.get(action.userId) ?? null : null;
+      key = `${action.alertType}:${action.relatedEntityId}:${bId ?? "none"}`;
+    }
     if (!actionMap.has(key)) {
       actionMap.set(key, action);
     }
@@ -588,6 +610,110 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       penaltyInfo: null,
       createdAt: q.submittedAt?.toISOString() ?? new Date().toISOString(),
     });
+  }
+
+  // [Task #389] 공고문 게시 제안업무 — 정기 게시 스케줄이 설정된 활성 템플릿을
+  // 현재 사용자의 buildingId 기준으로 평가해 leadDays 안에 들어왔으면 제안업무로 노출.
+  //   - yearly: scheduleConfig = { month, day }
+  //   - monthly: scheduleConfig = { day }
+  //   - before_inspection: scheduleConfig = { inspectionName }
+  // 노출 윈도우: today >= occurrence - leadDays && today <= occurrence (당일 포함).
+  // 처리 추적은 alertActions(alertType="notice_posting", relatedEntityId=templateId,
+  // actedOnDueDate=occurrenceISO) 로 동일 occurrence 기준 멱등성을 보장한다.
+  // platform_admin / hq_executive 처럼 buildingId 가 비어 있는 사용자는 표시하지 않음.
+  if (userBuildingId) {
+    const scheduledTemplates = await db
+      .select()
+      .from(buildingNoticeTemplatesTable)
+      .where(eq(buildingNoticeTemplatesTable.isActive, true));
+
+    const buildingInspections = await db
+      .select()
+      .from(inspectionsTable)
+      .where(eq(inspectionsTable.buildingId, userBuildingId));
+
+    function pad2(n: number): string {
+      return n < 10 ? `0${n}` : `${n}`;
+    }
+    function ymd(d: Date): string {
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    }
+    function nextYearlyOccurrence(month: number, day: number, todayStr: string): string {
+      const t = new Date(todayStr);
+      let candidate = new Date(t.getFullYear(), month - 1, day);
+      if (ymd(candidate) < todayStr) {
+        candidate = new Date(t.getFullYear() + 1, month - 1, day);
+      }
+      return ymd(candidate);
+    }
+    function nextMonthlyOccurrence(day: number, todayStr: string): string {
+      const t = new Date(todayStr);
+      let candidate = new Date(t.getFullYear(), t.getMonth(), day);
+      if (ymd(candidate) < todayStr) {
+        candidate = new Date(t.getFullYear(), t.getMonth() + 1, day);
+      }
+      return ymd(candidate);
+    }
+
+    for (const tpl of scheduledTemplates) {
+      if (!tpl.scheduleType || tpl.scheduleType === "none") continue;
+      const cfg = (tpl.scheduleConfig as Record<string, unknown> | null) ?? null;
+      let occurrence: string | null = null;
+      if (tpl.scheduleType === "yearly") {
+        const month = Number(cfg?.month);
+        const day = Number(cfg?.day);
+        if (!Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12 || day < 1 || day > 31) continue;
+        occurrence = nextYearlyOccurrence(month, day, today);
+      } else if (tpl.scheduleType === "monthly") {
+        const day = Number(cfg?.day);
+        if (!Number.isFinite(day) || day < 1 || day > 31) continue;
+        occurrence = nextMonthlyOccurrence(day, today);
+      } else if (tpl.scheduleType === "before_inspection") {
+        const inspectionName = typeof cfg?.inspectionName === "string" ? cfg.inspectionName : null;
+        if (!inspectionName) continue;
+        // 동명 점검이 여러 개인 경우 가장 빠른 nextDueDate 사용.
+        const matched = buildingInspections
+          .filter((i) => i.name === inspectionName && i.nextDueDate >= today)
+          .sort((a, b) => (a.nextDueDate < b.nextDueDate ? -1 : 1));
+        if (matched.length === 0) continue;
+        occurrence = matched[0].nextDueDate;
+      }
+      if (!occurrence) continue;
+
+      const leadDays = tpl.leadDays ?? 7;
+      const occMs = new Date(occurrence).getTime();
+      const todayMs = new Date(today).getTime();
+      const daysUntil = Math.ceil((occMs - todayMs) / (1000 * 60 * 60 * 24));
+      if (daysUntil > leadDays || daysUntil < 0) continue;
+
+      // 동일 occurrence 가 이미 처리되었으면 스킵.
+      // [Task #389] 같은 템플릿이라도 건물별로 액션을 분리해 cross-building 충돌 방지.
+      const action = actionMap.get(`notice_posting:${tpl.id}:${userBuildingId}`);
+      if (action) {
+        if (action.actedOnDueDate && action.actedOnDueDate >= occurrence) continue;
+        if (action.actionType === "completed" && action.completedDate && action.completedDate >= occurrence) continue;
+        if (action.actionType === "postponed" && action.postponeDays) {
+          const actionDate = new Date(action.createdAt);
+          const suppressUntil = new Date(actionDate.getTime() + action.postponeDays * 24 * 60 * 60 * 1000);
+          if (new Date(today) < suppressUntil) continue;
+        }
+      }
+
+      const dLabel = daysUntil === 0 ? " [D-Day]" : ` [D-${daysUntil}]`;
+      alerts.push({
+        id: alertId++,
+        type: "notice_posting",
+        title: `${tpl.title} 게시 예정${dLabel}`,
+        message: `${occurrence}까지 「${tpl.title}」 공지문을 입주민에게 게시해야 합니다. 처리완료를 누르면 본문이 채워진 양식이 열립니다.`,
+        severity: daysUntil <= 1 ? "critical" : daysUntil <= 3 ? "warning" : "info",
+        relatedId: tpl.id,
+        hasDraft: false,
+        actionStatus: action?.actionType || null,
+        dueDate: occurrence,
+        penaltyInfo: null,
+        createdAt: new Date().toISOString(),
+      });
+    }
   }
 
   res.json(GetDashboardAlertsResponse.parse(alerts));

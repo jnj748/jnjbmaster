@@ -7571,7 +7571,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [inspection_due, tax_due, task_overdue, task_followup, task_template_mandatory, task_template_suggested, warranty_expiry, vendor_recommendation, data_destruction, quote_received]
+          enum: [inspection_due, tax_due, task_overdue, task_followup, task_template_mandatory, task_template_suggested, warranty_expiry, vendor_recommendation, data_destruction, quote_received, notice_posting]
         title:
           type: string
         message:
@@ -12110,6 +12110,20 @@ components:
           type: integer
         isActive:
           type: boolean
+        scheduleType:
+          type: string
+          enum: [none, yearly, monthly, before_inspection]
+          description: "[Task #389] 정기 게시 자동알림 스케줄 종류"
+        scheduleConfig:
+          type: ["object", "null"]
+          description: "yearly={month,day} | monthly={day} | before_inspection={inspectionName}"
+          additionalProperties: true
+        leadDays:
+          type: integer
+          description: "발생일 N일 전부터 매니저 대시보드 제안업무에 노출"
+        requiresReport:
+          type: boolean
+          description: "true 면 처리완료 시 기본 양식이 보고서로 열린다"
         createdAt:
           type: string
           format: date-time
@@ -12123,6 +12137,9 @@ components:
         - bodyHtml
         - sortOrder
         - isActive
+        - scheduleType
+        - leadDays
+        - requiresReport
         - createdAt
         - updatedAt
 
@@ -12144,6 +12161,16 @@ components:
         sortOrder:
           type: integer
         isActive:
+          type: boolean
+        scheduleType:
+          type: string
+          enum: [none, yearly, monthly, before_inspection]
+        scheduleConfig:
+          type: ["object", "null"]
+          additionalProperties: true
+        leadDays:
+          type: integer
+        requiresReport:
           type: boolean
       required:
         - title

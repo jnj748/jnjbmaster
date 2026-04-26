@@ -9,6 +9,8 @@ import {
   useGetUnitsSummary,
   useCreateAlertAction,
   useCreateRfq,
+  useListBuildingNoticeTemplates,
+  type BuildingNoticeTemplate,
   // [Task #142] useGetDelinquencySummary, useListApprovals 는 공유 위젯
   // (delinquency-summary-widget / pending-approvals-widget)으로 분리되어
   // 이 페이지에서는 더 이상 사용하지 않는다.
@@ -305,7 +307,9 @@ function AlertSection({
                     alert.type === "data_destruction" ||
                     alert.type === "task_template_mandatory" ||
                     alert.type === "task_template_suggested" ||
-                    alert.type === "quote_received";
+                    alert.type === "quote_received" ||
+                    // [Task #389] 공고문 게시 제안업무 — 클릭 시 액션 모달 오픈.
+                    alert.type === "notice_posting";
                   return (
                     <div
                       key={alert.id}
@@ -662,6 +666,9 @@ export default function Dashboard() {
   const [completionNoticeData, setCompletionNoticeData] = useState<{
     alertTitle: string; alertMessage: string; completedDate: string;
     notes: string | null; closeUpPhotoUrl: string | null; widePhotoUrl: string | null;
+    // [Task #389] 공고문 게시 제안업무에서 진입한 경우 템플릿 본문을 그대로 양식 본문으로 채운다.
+    templateBody?: string;
+    initialDocKind?: "notice" | "report" | "draft";
   } | null>(null);
   const [showRfqDocument, setShowRfqDocument] = useState(false);
   const [rfqDocumentData, setRfqDocumentData] = useState<RfqDocumentData | null>(null);
@@ -715,9 +722,15 @@ export default function Dashboard() {
       case "warranty_expiry": return "warranty";
       case "task_template_mandatory": return "task_template";
       case "task_template_suggested": return "task_template";
+      // [Task #389] 공고문 게시 제안업무: alertActions.relatedEntityType.
+      case "notice_posting": return "building_notice_template";
       default: return "task";
     }
   }
+
+  // [Task #389] 공고문 템플릿 목록 — notice_posting 알림에서 templateId → bodyHtml 조회용.
+  const { data: noticeTemplatesData } = useListBuildingNoticeTemplates();
+  const noticeTemplates: BuildingNoticeTemplate[] = noticeTemplatesData?.templates ?? [];
 
   const [, navigate] = useLocation();
 
@@ -765,6 +778,16 @@ export default function Dashboard() {
       return;
     }
 
+    // [Task #389] 공고문 게시 제안업무: 동일한 액션 모달을 열어 처리완료 → 양식 출력으로 이어진다.
+    if (alert.type === "notice_posting") {
+      if (!alert.relatedId) {
+        toast({ title: "공고문 템플릿 정보를 찾을 수 없습니다", description: alert.title });
+        return;
+      }
+      openAlertAction(alert);
+      return;
+    }
+
     toast({
       title: "이 항목은 별도 처리 화면이 없습니다",
       description: alert.title,
@@ -803,6 +826,35 @@ export default function Dashboard() {
     });
     queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
     toast({ title: "처리 완료되었습니다" });
+    // [Task #389] 공고문 게시 제안업무 처리완료시 템플릿 본문 → 양식 본문으로 미리 채워 노출.
+    let templateBody: string | undefined;
+    let initialDocKind: "notice" | "report" | "draft" | undefined;
+    if (selectedAlert.type === "notice_posting" && selectedAlert.relatedId) {
+      const tpl = noticeTemplates.find((t) => t.id === selectedAlert.relatedId);
+      if (tpl) {
+        // bodyHtml 의 placeholder ({{buildingName}} 등) 와 태그를 정리한 plaintext.
+        const replaced = tpl.bodyHtml
+          .replace(/\{\{buildingName\}\}/g, building?.name ?? "")
+          .replace(/\{\{addressFull\}\}/g, building?.addressFull ?? "")
+          .replace(/\{\{managementOfficePhone\}\}/g, building?.managementOfficePhone ?? "")
+          .replace(/\{\{date\}\}/g, completeDate)
+          .replace(/\{\{customA\}\}/g, "")
+          .replace(/\{\{customB\}\}/g, "")
+          .replace(/\{\{customC\}\}/g, "");
+        const text = replaced
+          .replace(/<br\s*\/?\s*>/gi, "\n")
+          .replace(/<\/p>/gi, "\n\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        templateBody = text;
+        initialDocKind = tpl.requiresReport ? "report" : "notice";
+      }
+    }
     setCompletionNoticeData({
       alertTitle: selectedAlert.title,
       alertMessage: selectedAlert.message,
@@ -810,6 +862,8 @@ export default function Dashboard() {
       notes: actionNotes || null,
       closeUpPhotoUrl,
       widePhotoUrl,
+      templateBody,
+      initialDocKind,
     });
     setSelectedAlert(null);
     setShowCompletionNotice(true);
@@ -947,6 +1001,8 @@ export default function Dashboard() {
   });
   const proposedAlerts = alertList.filter((a) => {
     if (a.type === "task_template_suggested") return true;
+    // [Task #389] 공고문 게시 자동알림은 제안업무 섹션에 노출.
+    if (a.type === "notice_posting") return true;
     if (a.type === "inspection_due") {
       return (
         !!a.inspectionType && PROPOSED_INSPECTION_TYPES.has(a.inspectionType)
@@ -1432,6 +1488,10 @@ export default function Dashboard() {
 
       {completionNoticeData && (
         <CompletionNotice
+          // [Task #389] 매번 새 alert 로 열 때 CompletionNotice 내부 state(docKind/
+          //   본문)가 이전 인스턴스 값으로 남아 requiresReport 기본값이 무시되는 회귀를
+          //   막기 위해 alertTitle+initialDocKind 기준으로 강제 remount.
+          key={`cn:${completionNoticeData.alertTitle}:${completionNoticeData.initialDocKind ?? "notice"}`}
           open={showCompletionNotice}
           onOpenChange={setShowCompletionNotice}
           alertTitle={completionNoticeData.alertTitle}
@@ -1444,6 +1504,12 @@ export default function Dashboard() {
           officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
           logoUrl={building?.logoUrl ?? null}
           authorName={user?.name ?? null}
+          initialDocKind={completionNoticeData.initialDocKind ?? "notice"}
+          initialBodies={
+            completionNoticeData.templateBody
+              ? { [completionNoticeData.initialDocKind ?? "notice"]: completionNoticeData.templateBody }
+              : undefined
+          }
         />
       )}
 

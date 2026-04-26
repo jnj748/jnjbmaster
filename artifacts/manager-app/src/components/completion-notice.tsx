@@ -97,6 +97,9 @@ interface CompletionNoticeProps {
   sealUrl?: string | null;
   authorName?: string | null;
   initialDocKind?: DocKind;
+  // [Task #389] 공지문 템플릿 본문(plaintext) 으로 기본 양식 본문을 덮어쓴다.
+  //   notice/report/draft 키별로 부분 지정 가능. 키가 비면 기본 본문을 그대로 사용.
+  initialBodies?: Partial<Record<DocKind, string>>;
 }
 
 export function CompletionNotice({
@@ -114,6 +117,7 @@ export function CompletionNotice({
   sealUrl = null,
   authorName = null,
   initialDocKind = "notice",
+  initialBodies,
 }: CompletionNoticeProps) {
   const { toast } = useToast();
   const documentRef = useRef<HTMLDivElement>(null);
@@ -128,19 +132,22 @@ export function CompletionNotice({
   const defaultBodies = useMemo<Record<DocKind, string>>(
     () => ({
       notice:
-        `안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n` +
-        `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
-        `${cleanAlertMessage}\n\n` +
-        `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`,
+        initialBodies?.notice ??
+        (`안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n` +
+          `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
+          `${cleanAlertMessage}\n\n` +
+          `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`),
       report:
-        `${buildingName} ${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
-        `${cleanAlertMessage}`,
+        initialBodies?.report ??
+        (`${buildingName} ${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
+          `${cleanAlertMessage}`),
       draft:
-        `처리 항목: ${cleanAlertTitle}\n` +
-        `완료 일자: ${formatNoticeDate(completedDate)}\n` +
-        `업무 결과: ${cleanAlertMessage}`,
+        initialBodies?.draft ??
+        (`처리 항목: ${cleanAlertTitle}\n` +
+          `완료 일자: ${formatNoticeDate(completedDate)}\n` +
+          `업무 결과: ${cleanAlertMessage}`),
     }),
-    [buildingName, cleanAlertTitle, cleanAlertMessage, completedDate],
+    [buildingName, cleanAlertTitle, cleanAlertMessage, completedDate, initialBodies],
   );
   const [editedBodies, setEditedBodies] = useState<Partial<Record<DocKind, string>>>({});
   const body = editedBodies[docKind] ?? defaultBodies[docKind];

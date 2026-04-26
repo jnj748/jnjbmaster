@@ -5,6 +5,8 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BuildingNoticeTemplateScheduleConfig } from "./buildingNoticeTemplateScheduleConfig";
+import type { BuildingNoticeTemplateScheduleType } from "./buildingNoticeTemplateScheduleType";
 
 export interface BuildingNoticeTemplate {
   id: number;
@@ -20,6 +22,17 @@ export interface BuildingNoticeTemplate {
   customFieldLabels?: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** [Task #389] 정기 게시 자동알림 스케줄 종류 */
+  scheduleType: BuildingNoticeTemplateScheduleType;
+  /**
+   * yearly={month,day} | monthly={day} | before_inspection={inspectionName}
+   * @nullable
+   */
+  scheduleConfig?: BuildingNoticeTemplateScheduleConfig;
+  /** 발생일 N일 전부터 매니저 대시보드 제안업무에 노출 */
+  leadDays: number;
+  /** true 면 처리완료 시 기본 양식이 보고서로 열린다 */
+  requiresReport: boolean;
   createdAt: string;
   updatedAt: string;
 }

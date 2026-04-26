@@ -5,6 +5,8 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpsertBuildingNoticeTemplateBodyScheduleConfig } from "./upsertBuildingNoticeTemplateBodyScheduleConfig";
+import type { UpsertBuildingNoticeTemplateBodyScheduleType } from "./upsertBuildingNoticeTemplateBodyScheduleType";
 
 export interface UpsertBuildingNoticeTemplateBody {
   title: string;
@@ -16,4 +18,9 @@ export interface UpsertBuildingNoticeTemplateBody {
   customFieldLabels?: string[] | null;
   sortOrder?: number;
   isActive?: boolean;
+  scheduleType?: UpsertBuildingNoticeTemplateBodyScheduleType;
+  /** @nullable */
+  scheduleConfig?: UpsertBuildingNoticeTemplateBodyScheduleConfig;
+  leadDays?: number;
+  requiresReport?: boolean;
 }

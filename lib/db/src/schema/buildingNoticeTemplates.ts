@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,17 @@ import { z } from "zod/v4";
 //   bodyHtml 안의 placeholder 토큰:
 //     {{buildingName}}, {{addressFull}}, {{managementOfficePhone}}, {{date}},
 //     {{customA}}, {{customB}}, {{customC}}  (사용자 입력)
+//
+// [Task #389] 정기 게시 스케줄.
+//   scheduleType:
+//     - "none": 자동 알림 없음(기존 동작).
+//     - "yearly": scheduleConfig = { month: 1-12, day: 1-31 } 매년 동일일.
+//     - "monthly": scheduleConfig = { day: 1-31 } 매월 동일일.
+//     - "before_inspection": scheduleConfig = { inspectionName: string }.
+//        해당 점검명 inspections.nextDueDate 를 앵커로 leadDays 일 이전 알림.
+//   leadDays: 발생일 기준 며칠 전부터 매니저 대시보드 "제안업무"에 노출.
+//   requiresReport: true 이면 처리완료 시 CompletionNotice 의 기본 양식이
+//     "보고서"(report) 로 열린다 (예: 입주민 공지 + 보고서 의무 게시).
 export const buildingNoticeTemplatesTable = pgTable("building_notice_templates", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -21,6 +32,11 @@ export const buildingNoticeTemplatesTable = pgTable("building_notice_templates",
   customFieldLabels: text("custom_field_labels"),
   sortOrder: integer("sort_order").notNull().default(100),
   isActive: boolean("is_active").notNull().default(true),
+  // [Task #389] 정기 게시 스케줄 (none/yearly/monthly/before_inspection).
+  scheduleType: text("schedule_type").notNull().default("none"),
+  scheduleConfig: jsonb("schedule_config"),
+  leadDays: integer("lead_days").notNull().default(7),
+  requiresReport: boolean("requires_report").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
