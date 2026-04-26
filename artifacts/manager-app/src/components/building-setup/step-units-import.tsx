@@ -36,25 +36,41 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
 
   const importMutation = useImportUnitsFromRegister();
 
+  // [Task #412] 단일 화면 구조에서는 항상 카드 헤더(섹션 제목)를 노출해
+  // ?tab=units-import 진입 시 스크롤 대상이 안정적으로 잡히도록 한다.
   if (!existingId) {
     return (
-      <Alert>
-        <AlertCircle className="w-4 h-4" />
-        <AlertDescription>
-          먼저 앞 단계에서 건물 정보를 저장해 주세요.
-        </AlertDescription>
-      </Alert>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">호실정보 불러오기</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertCircle className="w-4 h-4" />
+            <AlertDescription>
+              위 ‘건물 정보 저장’ 을 먼저 완료해 주세요.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!hasRegisterPk) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="w-4 h-4" />
-        <AlertDescription>
-          건축물대장 식별자(mgmBldrgstPk)가 비어 있습니다. 1단계에서 주소로 건축물대장을 먼저 조회해 주세요.
-        </AlertDescription>
-      </Alert>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">호실정보 불러오기</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="w-4 h-4" />
+            <AlertDescription>
+              건축물대장 식별자가 비어 있습니다. 위 주소 카드에서 건축물대장을 먼저 조회해 주세요.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -93,7 +109,7 @@ export function StepUnitsImport({ existingId, hasRegisterPk }: Props) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">건축물대장 호실 일괄 가져오기</CardTitle>
+          <CardTitle className="text-lg">호실정보 불러오기</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">

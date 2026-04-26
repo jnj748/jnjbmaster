@@ -33,7 +33,7 @@ export default function UnitsImportSuggestionWidget() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Sparkles className="w-4 h-4 text-emerald-600" />
-          제안업무 · 호실 일괄 가져오기
+          제안업무 · 호실정보 불러오기
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -15,10 +15,6 @@ interface Props {
   postcodeOpen: boolean;
   setPostcodeOpen: (v: boolean) => void;
   postcodeContainerRef: RefObject<HTMLDivElement | null>;
-  setActiveStep: (n: number) => void;
-  // [Task #411] 주소 검색과 건물 정보 입력이 한 화면에 통합되면 다음 단계로 이동하는
-  // 보조 버튼이 필요 없다. true 면 하단 네비게이션 버튼 두 개를 숨긴다.
-  hideNavButtons?: boolean;
 }
 
 export function StepAddress({
@@ -31,53 +27,54 @@ export function StepAddress({
   postcodeOpen,
   setPostcodeOpen,
   postcodeContainerRef,
-  setActiveStep,
-  hideNavButtons = false,
 }: Props) {
+  // [Task #412] 1건물 1유저 원칙에 따라 이미 등록된 주소는 표시 전용으로 잠그고
+  // ‘주소 다시 검색’ 버튼을 노출하지 않는다. 신규(주소 미입력) 흐름만 검색 버튼을 노출.
+  const hasAddress = Boolean(building.addressFull);
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5" />
-            주소 검색
+            건물 주소
           </CardTitle>
           <CardDescription>
-            주소를 검색하면 건축물대장(총괄표제부 + 표제부) 정보가 자동으로 불러와집니다.
+            {hasAddress
+              ? "이 건물의 주소는 회계·법무 문서 일관성을 위해 변경할 수 없습니다."
+              : "주소를 검색하면 건축물대장(총괄표제부 + 표제부) 정보가 자동으로 불러와집니다."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {building.addressFull && (
+          {hasAddress && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-green-900">선택된 주소</p>
+                  <p className="font-medium text-green-900">등록된 주소</p>
                   <p className="text-sm text-green-800 mt-1">{building.addressFull}</p>
                   {building.addressJibun && (
                     <p className="text-xs text-green-700 mt-0.5">(지번) {building.addressJibun}</p>
                   )}
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {building.sido && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.sido}</span>}
-                    {building.sigungu && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.sigungu}</span>}
-                    {building.dong && <span className="inline-flex items-center rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{building.dong}</span>}
-                    {building.zipCode && <span className="inline-flex items-center rounded-md border border-green-300 px-2 py-0.5 text-xs font-medium text-green-700">{building.zipCode}</span>}
-                  </div>
+                  {building.zipCode && (
+                    <p className="text-xs text-green-700 mt-0.5">우편번호 {building.zipCode}</p>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          <Button
-            onClick={openKakaoPostcode}
-            disabled={!postcodeLoaded}
-            className="w-full"
-            size="lg"
-            variant={building.addressFull ? "outline" : "default"}
-          >
-            <MapPin className="w-4 h-4 mr-2" />
-            {building.addressFull ? "주소 다시 검색" : "주소 검색하기"}
-          </Button>
+          {!hasAddress && (
+            <Button
+              onClick={openKakaoPostcode}
+              disabled={!postcodeLoaded}
+              className="w-full"
+              size="lg"
+            >
+              <MapPin className="w-4 h-4 mr-2" />
+              주소 검색하기
+            </Button>
+          )}
 
           {lookingUp && (
             <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
@@ -178,20 +175,6 @@ export function StepAddress({
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {!hideNavButtons && building.addressFull && (
-            <Button className="w-full" onClick={() => setActiveStep(1)}>
-              다음: 건물 정보 확인 및 수정 →
-            </Button>
-          )}
-
-          {!hideNavButtons && (
-            <div className="text-center">
-              <Button variant="ghost" size="sm" onClick={() => setActiveStep(1)}>
-                직접 입력하기 →
-              </Button>
-            </div>
           )}
         </CardContent>
       </Card>

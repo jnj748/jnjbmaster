@@ -5,25 +5,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Building,
   Save,
   Loader2,
   Shield,
   AlertTriangle,
   CheckCircle2,
-  Info,
 } from "lucide-react";
-import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
-import { PhotoUploadField } from "@/components/photo-upload-field";
 import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/page-constants/building-setup";
-import type { BuildingData, SafetyResult, SelectedTask } from "./types";
+import type { BuildingData, SafetyResult } from "./types";
 
 interface Props {
   building: BuildingData;
@@ -32,7 +22,6 @@ interface Props {
   safetyResult: SafetyResult | null;
   calculatingSafety: boolean;
   calculateSafety: (input: Record<string, string>) => void;
-  selectedTasks: SelectedTask[];
   saving: boolean;
   existingId: number | null;
   saveBuilding: () => void;
@@ -40,12 +29,10 @@ interface Props {
 
 export function StepInfo({
   building,
-  setBuilding,
   handleFieldChange,
   safetyResult,
   calculatingSafety,
   calculateSafety,
-  selectedTasks,
   saving,
   existingId,
   saveBuilding,
@@ -102,42 +89,8 @@ export function StepInfo({
               />
             </div>
           </div>
-
-          <div className="grid grid-cols-2 desktop:grid-cols-3 gap-4">
-            <div>
-              <Label>시/도</Label>
-              <Select value={building.sido || undefined} onValueChange={(v) => {
-                handleFieldChange("sido", v);
-                handleFieldChange("sigungu", "");
-              }}>
-                <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
-                <SelectContent>
-                  {sidoList.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>시/군/구</Label>
-              <Select value={building.sigungu || undefined} onValueChange={(v) => handleFieldChange("sigungu", v)}>
-                <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
-                <SelectContent>
-                  {(building.sido ? getSigunguList(building.sido) : []).map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>동/읍/면</Label>
-              <Input
-                value={building.dong}
-                onChange={(e) => handleFieldChange("dong", e.target.value)}
-                placeholder="동/읍/면"
-              />
-            </div>
-          </div>
+          {/* [Task #412] 시/도, 시/군/구, 동/읍/면 드롭다운 UI 제거.
+              주소 검색 결과로 자동 세팅되는 값은 building 상태와 저장 페이로드에 그대로 보존된다. */}
         </CardContent>
       </Card>
 
@@ -461,18 +414,8 @@ export function StepInfo({
           )}
         </div>
       )}
-
-      {safetyResult && selectedTasks.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-sm text-blue-800">
-            <Info className="w-4 h-4" />
-            <span className="font-medium">
-              {selectedTasks.length}건의 법정업무가 준비되었습니다.
-              건물 저장 후 "법정업무 선택" 단계에서 확인하세요.
-            </span>
-          </div>
-        </div>
-      )}
+      {/* [Task #412] "법정업무 선택" 탭 제거에 따라 선택된 법정업무 안내 박스도 제거.
+          관련 자동 추가 로직은 use-building-setup.ts에 그대로 보존되어 백엔드 스케줄에 반영. */}
 
       <Button
         onClick={saveBuilding}

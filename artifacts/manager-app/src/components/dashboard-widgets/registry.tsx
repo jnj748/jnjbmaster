@@ -116,7 +116,7 @@ export const WIDGETS = {
     key: "units-import-suggestion",
     component: UnitsImportSuggestionWidget,
     span: "full",
-    label: "제안업무 · 호실 일괄 가져오기",
+    label: "제안업무 · 호실정보 불러오기",
   },
   "building-contracts-summary": {
     key: "building-contracts-summary",

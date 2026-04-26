@@ -519,9 +519,7 @@ export function useBuildingSetup() {
       if (body.building) {
         setExistingId(body.building.id);
         toast({ title: "건물 정보가 저장되었습니다" });
-        // [Task #411] 주소+건물 정보 통합으로 단계가 5→4로 줄면서
-        // 다음 단계(로고 등록)의 인덱스가 2→1 로 보정됐다.
-        setActiveStep(1);
+        // [Task #412] 단일 화면 구조에서는 단계 이동이 없으므로 setActiveStep 호출 제거.
         const params = new URLSearchParams(window.location.search);
         const returnTo = params.get("returnTo");
         if (returnTo && returnTo.startsWith("/onboarding/")) {
