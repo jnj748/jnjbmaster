@@ -152,6 +152,11 @@ export const taskTemplatesTable = pgTable("task_templates", {
   advanceAlertDays: integer("advance_alert_days").notNull().default(7),
   isActive: boolean("is_active").notNull().default(true),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  // [Task #393] 알림 발생 시 매니저가 작성·배포할 공고문(building_notice_templates) 후보를 미리 연결.
+  //   값이 있으면 모바일 대시보드 알림 처리 다이얼로그에 "공고문 작성" CTA 가 노출되어
+  //   /notices/templates?templateId=N 으로 prefill 진입한다. NULL 이면 기존 자동 알림 동작만 유지.
+  //   FK 제약 없이 정수 ID 만 보관해 공고문 템플릿이 삭제되더라도 task template 행은 유지된다(클라이언트에서 fallback 처리).
+  noticeTemplateId: integer("notice_template_id"),
   createdBy: integer("created_by"),
   createdByName: text("created_by_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

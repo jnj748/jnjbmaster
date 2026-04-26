@@ -165,6 +165,9 @@ interface DashboardAlert {
   inspectionType?: string | null;
   cycleMonths?: number | null;
   intervalDays?: number | null;
+  // [Task #393] task template 알림에 미리 연결된 공고문 템플릿 ID. 값이 있으면
+  //   알림 처리 다이얼로그에 "공고문 작성" CTA 가 노출되어 /notices/templates?templateId=N 으로 이동.
+  noticeTemplateId?: number | null;
   createdAt: string;
 }
 
@@ -1218,6 +1221,29 @@ export default function Dashboard() {
                 <p className="font-medium">{selectedAlert.title}</p>
                 <p className="text-muted-foreground text-xs">{selectedAlert.message}</p>
               </div>
+
+              {/* [Task #393] task template 알림에 공고문 템플릿이 미리 연결돼 있으면
+                   "공고문 작성" CTA 를 노출. 클릭 시 /notices/templates?templateId=N 으로 이동하면
+                   manager-notice-templates 페이지가 자동으로 미리보기 다이얼로그를 띄운다.
+                   다이얼로그는 닫고(추후 처리완료/연기 흐름과 분리) prefill 진입한다. */}
+              {(selectedAlert.type === "task_template_mandatory" ||
+                selectedAlert.type === "task_template_suggested") &&
+                selectedAlert.noticeTemplateId != null && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    data-testid="btn-open-notice-template"
+                    onClick={() => {
+                      const id = selectedAlert.noticeTemplateId;
+                      setSelectedAlert(null);
+                      navigate(`/notices/templates?templateId=${id}`);
+                    }}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    공고문 작성
+                  </Button>
+                )}
 
               <div className="flex gap-1 border-b">
                 {[

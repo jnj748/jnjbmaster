@@ -80,6 +80,9 @@ const CreateBody = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
   // [Task #283] 역할별 템플릿 노출 대상. NULL/빈배열이면 전체 공통.
   targetRoles: z.array(z.string()).nullable().optional(),
+  // [Task #393] 알림 발생 시 매니저가 작성·배포할 공고문 템플릿(building_notice_templates) 후보 ID.
+  //   null/미지정 → 기존 자동 알림만 노출(공고문 작성 CTA 미노출). 양수 → 알림 다이얼로그에 CTA 추가.
+  noticeTemplateId: z.number().int().positive().nullable().optional(),
 });
 
 // [Task #302] frequencyType 별 필수 보조값 검증 (defense-in-depth).
@@ -243,6 +246,9 @@ router.post(
         isActive: d.isActive ?? true,
         metadata: d.metadata ?? {},
         targetRoles: d.targetRoles ?? null,
+        // [Task #393] 알림 처리 다이얼로그에서 매니저가 한 번에 공고문을 작성할 수 있도록
+        //   본 task template 과 연결된 공고문 템플릿 ID 를 보관. NULL 이면 기존 동작 유지.
+        noticeTemplateId: d.noticeTemplateId ?? null,
         createdBy: userId ?? null,
         createdByName: author?.name ?? null,
       } as never)
@@ -417,6 +423,9 @@ export interface ResolvedTemplateAlert {
   iconName: string | null;
   color: string | null;
   priority: number;
+  // [Task #393] 알림 처리 다이얼로그에서 매니저가 한 번에 공고문을 작성할 수 있도록
+  //   해당 task template 에 미리 연결된 공고문 템플릿 ID. 없으면 null.
+  noticeTemplateId: number | null;
 }
 
 export interface TemplateAlertContext {
@@ -648,6 +657,9 @@ export async function resolveActiveTemplateAlerts(
       iconName: t.iconName,
       color: t.color,
       priority: t.priority,
+      // [Task #393] 클라이언트(매니저앱) 알림 처리 다이얼로그가 "공고문 작성" CTA 표시 여부를
+      //   결정할 수 있도록 그대로 흘려보낸다.
+      noticeTemplateId: (t as { noticeTemplateId?: number | null }).noticeTemplateId ?? null,
     });
   }
 

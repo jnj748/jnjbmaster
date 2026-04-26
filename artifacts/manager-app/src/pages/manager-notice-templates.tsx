@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useListBuildingNoticeTemplates } from "@workspace/api-client-react";
 import type { BuildingNoticeTemplate } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +72,33 @@ export default function ManagerNoticeTemplatesPage() {
   const [activeCategory, setActiveCategory] = useState("전체");
   const filtered = templates.filter((t) => activeCategory === "전체" || t.category === activeCategory);
   const [selected, setSelected] = useState<BuildingNoticeTemplate | null>(null);
+
+  // [Task #393] 매니저 대시보드 알림 처리 다이얼로그의 "공고문 작성" CTA 에서
+  //   /notices/templates?templateId=N 으로 진입한 경우, 목록 로드 후 일치하는 템플릿을
+  //   자동 선택해 미리보기 다이얼로그를 띄운다. 일치 항목이 없으면 그냥 목록만 표시.
+  //   한 번만 자동 진입하도록 가드 ref 사용.
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (typeof window === "undefined") return;
+    if (templates.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("templateId");
+    if (!raw) {
+      autoOpenedRef.current = true;
+      return;
+    }
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) {
+      autoOpenedRef.current = true;
+      return;
+    }
+    const match = templates.find((t) => t.id === id);
+    if (match) {
+      setSelected(match);
+    }
+    autoOpenedRef.current = true;
+  }, [templates]);
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-4 max-w-5xl">

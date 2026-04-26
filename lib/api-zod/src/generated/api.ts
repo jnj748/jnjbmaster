@@ -2403,6 +2403,12 @@ export const GetDashboardAlertsResponseItem = zod.object({
     .describe(
       "For inspection_due alerts, the underlying inspection's classification. Null for non-inspection alerts.",
     ),
+  noticeTemplateId: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
+    ),
   createdAt: zod.string().datetime({}),
 });
 export const GetDashboardAlertsResponse = zod.array(

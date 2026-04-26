@@ -194,6 +194,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     inspectionType?: string | null;
     cycleMonths?: number | null;
     intervalDays?: number | null;
+    // [Task #393] task template 알림에 미리 연결된 공고문 템플릿 ID. NULL/누락이면 CTA 미노출.
+    noticeTemplateId?: number | null;
     createdAt: string;
   }> = [];
 
@@ -531,6 +533,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       penaltyInfo: a.penaltyInfo,
       inspectionType: a.classification === "legal" ? "legal" : null,
       createdAt: a.createdAt,
+      // [Task #393] task template 에 연결된 공고문 템플릿 ID 가 있으면 알림 응답에도 흘려보낸다.
+      //   매니저앱 알림 처리 다이얼로그가 본 값을 기준으로 "공고문 작성" CTA 노출 여부를 결정한다.
+      noticeTemplateId: a.noticeTemplateId,
     });
   }
 

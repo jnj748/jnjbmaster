@@ -32,6 +32,8 @@ import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { Plus, Pencil, Trash2, AlertCircle, Check, X } from "lucide-react";
+// [Task #393] 알림과 함께 띄울 공고문 템플릿 후보 드롭다운에 사용.
+import { useListBuildingNoticeTemplates } from "@workspace/api-client-react";
 
 type Frequency =
   | "one_time"
@@ -97,6 +99,8 @@ interface TaskTemplate {
   createdBy: number | null;
   createdByName: string | null;
   targetRoles?: string[] | null;
+  // [Task #393] 알림 발생 시 매니저가 작성·배포할 공고문 템플릿 ID. NULL = 미연결(기존 자동 알림만).
+  noticeTemplateId: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -242,7 +246,56 @@ function emptyDraft(defaultRole?: string): DraftType {
     isActive: true,
     metadata: {},
     targetRoles: defaultRole ? [defaultRole] : [],
+    // [Task #393] 신규 입력 시 미연결로 시작. 폼에서 선택해 연결 가능.
+    noticeTemplateId: null,
   };
+}
+
+// [Task #393] 알림과 함께 띄울 공고문 템플릿 후보 선택 드롭다운.
+//   - 신규/편집 폼 양쪽에서 공유.
+//   - "연결 안 함" 시 noticeTemplateId 를 null 로 저장 (기존 자동 알림만 노출).
+//   - 한 번 로드한 목록은 useListBuildingNoticeTemplates 캐시(공통 훅)에 의존.
+function NoticeTemplateLink({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void;
+}) {
+  const { data, isLoading } = useListBuildingNoticeTemplates();
+  const list = data?.templates ?? [];
+  const selectValue = value == null ? "__none__" : String(value);
+  return (
+    <div data-testid="form-notice-template-link">
+      <Label>알림 시 띄울 공고문</Label>
+      <p className="text-[11px] text-muted-foreground mb-1.5">
+        알림이 뜨면 매니저에게 함께 보여줄 공고문 템플릿을 선택하세요.
+        선택하지 않으면 기존 자동 알림만 표시됩니다.
+      </p>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => onChange(v === "__none__" ? null : Number(v))}
+        disabled={isLoading}
+      >
+        <SelectTrigger className="w-full" data-testid="select-notice-template">
+          <SelectValue placeholder={isLoading ? "불러오는 중..." : "연결 안 함(기본)"} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__" data-testid="option-notice-none">연결 안 함(기본)</SelectItem>
+          {list.map((t) => (
+            <SelectItem
+              key={t.id}
+              value={String(t.id)}
+              data-testid={`option-notice-${t.id}`}
+            >
+              {(t.icon ? `${t.icon} ` : "") + t.title}
+              {t.category ? ` · ${t.category}` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 // [Task #297] 반복주기 텍스트를 사람이 읽기 좋은 형태로 표시.
@@ -434,6 +487,8 @@ export default function TaskTemplatesPage() {
       isActive: t.isActive,
       metadata: t.metadata,
       targetRoles: t.targetRoles ?? [],
+      // [Task #393] 기존 행은 NULL 가능. 폼에서 변경 시 PATCH 로 함께 전송.
+      noticeTemplateId: t.noticeTemplateId ?? null,
     });
   }
 
@@ -1547,6 +1602,16 @@ export default function TaskTemplatesPage() {
                   <Label>활성</Label>
                 </div>
               </div>
+
+              {/* [Task #393] 알림 처리 다이얼로그에서 함께 띄울 공고문 템플릿 후보 선택.
+                   - "연결 안 함(기본)" = 기존 자동 알림만 노출.
+                   - 특정 템플릿 선택 시 모바일 대시보드 알림 다이얼로그에 "공고문 작성" CTA 노출,
+                     클릭 시 /notices/templates?templateId=N 으로 prefill 진입.
+                   필수업무/제안업무 모든 카테고리에서 동일하게 노출된다(점검업무도 향후 제안업무로 편입 예정). */}
+              <NoticeTemplateLink
+                value={draft.noticeTemplateId ?? null}
+                onChange={(v) => setDraft({ ...draft, noticeTemplateId: v })}
+              />
 
               {/* [Task #283] 노출 대상 역할 (미선택 = 전체 공통). */}
               <div>
