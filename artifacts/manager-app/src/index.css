@@ -218,7 +218,7 @@
 
 @page {
   size: A4;
-  margin: 15mm;
+  margin: 0;
 }
 
 .a4-document {
@@ -326,11 +326,14 @@ h1, h2, h3, h4 {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    padding: 40px;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 15mm;
     background: white !important;
     color: black !important;
     font-size: 14pt;
+    box-shadow: none !important;
   }
 
   .print\:hidden {
