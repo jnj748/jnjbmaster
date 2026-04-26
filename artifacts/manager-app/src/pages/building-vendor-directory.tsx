@@ -45,6 +45,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
+import { formatPhoneNumber, formatBusinessNumber, phoneToTelHref } from "@/lib/format-korean";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -512,7 +515,7 @@ function VendorDirectoryCard({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              사업자 {vendor.businessRegNumber ?? "-"} · 대표 {vendor.representativeName ?? "-"}
+              사업자 {vendor.businessRegNumber ? formatBusinessNumber(vendor.businessRegNumber) : "-"} · 대표 {vendor.representativeName ?? "-"}
               {vendor.contactName && (
                 <>
                   {" "}· 담당자{" "}
@@ -538,12 +541,12 @@ function VendorDirectoryCard({
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {vendor.phone ? (
             <a
-              href={`tel:${vendor.phone}`}
+              href={phoneToTelHref(vendor.phone)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded border hover-elevate text-primary"
               data-testid={`vendor-tel-${vendor.id}`}
             >
               <Phone className="w-3.5 h-3.5" />
-              {vendor.phone}
+              {formatPhoneNumber(vendor.phone)}
             </a>
           ) : (
             <span className="text-xs text-muted-foreground">연락처 없음</span>
@@ -817,7 +820,7 @@ function AddVendorContractDialog({
               </div>
               <div>
                 <Label>사업자번호</Label>
-                <Input
+                <BusinessNumberInput
                   value={form.businessRegNumber}
                   onChange={(e) => setField("businessRegNumber", e.target.value)}
                   placeholder="123-45-67890"
@@ -841,7 +844,7 @@ function AddVendorContractDialog({
               </div>
               <div>
                 <Label>연락처</Label>
-                <Input
+                <PhoneInput
                   value={form.phone}
                   onChange={(e) => setField("phone", e.target.value)}
                   placeholder="02-1234-5678"
@@ -1117,7 +1120,7 @@ function EditVendorContractDialog({
             </div>
             <div>
               <Label>사업자번호</Label>
-              <Input
+              <BusinessNumberInput
                 value={form.businessRegNumber}
                 onChange={(e) => setField("businessRegNumber", e.target.value)}
               />
@@ -1140,7 +1143,7 @@ function EditVendorContractDialog({
             </div>
             <div>
               <Label>연락처</Label>
-              <Input
+              <PhoneInput
                 value={form.phone}
                 onChange={(e) => setField("phone", e.target.value)}
                 data-testid="edit-input-phone"

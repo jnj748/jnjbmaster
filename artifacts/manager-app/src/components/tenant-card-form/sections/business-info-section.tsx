@@ -1,4 +1,6 @@
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Briefcase } from "lucide-react";
@@ -25,7 +27,7 @@ export function BusinessInfoSection({ form, setForm }: Props) {
               <Input value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
             </Field>
             <Field label="사업자등록번호">
-              <Input value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
+              <BusinessNumberInput value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
             </Field>
             <div className="border-t pt-3 mt-3">
               <p className="text-sm font-medium mb-2">법인 대표자(연대보증인) 정보</p>
@@ -40,7 +42,7 @@ export function BusinessInfoSection({ form, setForm }: Props) {
                   <Input value={form.guarantorResidentId} onChange={(e) => setForm({ ...form, guarantorResidentId: e.target.value })} placeholder="000000-0000000" />
                 </Field>
                 <Field label="대표자 연락처">
-                  <Input type="tel" inputMode="tel" value={form.guarantorPhone} onChange={(e) => setForm({ ...form, guarantorPhone: e.target.value })} />
+                  <PhoneInput value={form.guarantorPhone} onChange={(e) => setForm({ ...form, guarantorPhone: e.target.value })} placeholder="010-0000-0000" />
                 </Field>
                 <Field label="관계">
                   <Input value={form.guarantorRelation} onChange={(e) => setForm({ ...form, guarantorRelation: e.target.value })} placeholder="대표이사" />

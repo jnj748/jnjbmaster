@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { CheckCircle, Download, Edit, Eye, Loader2, Trash2 } from "lucide-react";
 import type { Tenant } from "@workspace/api-client-react";
+import { formatPhoneNumber } from "@/lib/format-korean";
 
 interface Props {
   tenants: Tenant[];
@@ -56,7 +57,7 @@ export function TenantTable({
                   <TableRow key={tenant.id}>
                     <TableCell className="font-medium">{tenant.unit}</TableCell>
                     <TableCell>{tenant.tenantName}</TableCell>
-                    <TableCell className="text-muted-foreground">{tenant.phone || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">{tenant.phone ? formatPhoneNumber(tenant.phone) : "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{tenant.moveInDate || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={tenant.status === "active" ? "default" : tenant.status === "destroyed" ? "destructive" : "secondary"}>
@@ -113,7 +114,7 @@ export function TenantTable({
                     </Badge>
                     {getVerificationBadge(tenant.verificationStatus)}
                   </div>
-                  {tenant.phone && <p className="text-xs text-muted-foreground mt-1">{tenant.phone}</p>}
+                  {tenant.phone && <p className="text-xs text-muted-foreground mt-1">{formatPhoneNumber(tenant.phone)}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <Button variant="ghost" size="icon" className="h-11 w-11" onClick={(e) => { e.stopPropagation(); onEdit(tenant); }}>

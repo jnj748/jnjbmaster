@@ -5,6 +5,8 @@ import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -558,11 +560,10 @@ export default function PartnerVendorProfile() {
               </div>
               <div>
                 <Label>연락처</Label>
-                <Input
-                  type="tel"
-                  inputMode="tel"
+                <PhoneInput
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="010-0000-0000"
                 />
               </div>
             </div>
@@ -728,7 +729,7 @@ export default function PartnerVendorProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>사업자등록번호</Label>
-                  <Input
+                  <BusinessNumberInput
                     value={form.businessRegNumber}
                     onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })}
                   />

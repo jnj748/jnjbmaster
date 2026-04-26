@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatPhoneNumberPartial } from "@/lib/format-korean";
 import {
   getGetDashboardAlertsQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -1155,9 +1156,9 @@ function BuildingNameStep({
           type="tel"
           inputMode="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
           placeholder="예) 02-1234-5678"
-          maxLength={20}
+          maxLength={14}
           className="mt-1 w-full h-12 px-3 border border-slate-300 rounded-xl text-sm bg-white"
         />
         <p className="text-[11px] text-slate-400 mt-2">

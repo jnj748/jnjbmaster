@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { User } from "lucide-react";
@@ -23,10 +24,10 @@ export function PersonalInfoSection({ form, setForm }: Props) {
           <p className="text-[11px] text-muted-foreground mt-1">뒷자리 포함 전체를 입력해 주세요</p>
         </Field>
         <Field label="휴대폰 *" required>
-          <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" required />
+          <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" required />
         </Field>
         <Field label="비상연락처">
-          <Input type="tel" inputMode="tel" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
+          <PhoneInput value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} placeholder="010-0000-0000" />
         </Field>
         <Field label="이메일">
           <Input type="email" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />

@@ -16,6 +16,8 @@ const DevQuickLogin = import.meta.env.DEV
   ? lazy(() => import("@/components/dev-quick-login"))
   : null;
 
+import { formatPhoneNumberPartial } from "@/lib/format-korean";
+
 const CONSENT_VERSION = "1.0";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -431,11 +433,13 @@ export default function Login() {
                     <input
                       type="tel"
                       inputMode="tel"
+                      autoComplete="tel"
+                      maxLength={14}
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
                       required
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="전화번호를 입력하세요"
+                      placeholder="010-0000-0000"
                     />
                   </div>
                 )}

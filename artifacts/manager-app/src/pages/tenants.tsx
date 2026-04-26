@@ -22,6 +22,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBuilding } from "@/contexts/building-context";
+import { formatPhoneNumber, formatBusinessNumber } from "@/lib/format-korean";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -252,21 +253,21 @@ export default function Tenants() {
       `호실: ${tenant.unit}`,
       `입주자명: ${tenant.tenantName}`,
       `주민등록번호: ${tenant.residentId || "-"}`,
-      `휴대폰: ${tenant.phone || "-"}`,
-      `비상연락처: ${tenant.emergencyContact || "-"}`,
+      `휴대폰: ${tenant.phone ? formatPhoneNumber(tenant.phone) : "-"}`,
+      `비상연락처: ${tenant.emergencyContact ? formatPhoneNumber(tenant.emergencyContact) : "-"}`,
       `인테리어 개시일: ${tenant.interiorStartDate || "-"}`,
       `입주일: ${tenant.moveInDate || "-"}`,
       `퇴거일: ${tenant.moveOutDate || "-"}`,
       `이메일: ${tenant.email || "-"}`,
       `상호명(법인): ${tenant.companyName || "-"}`,
-      `사업자등록번호: ${tenant.businessNumber || "-"}`,
+      `사업자등록번호: ${tenant.businessNumber ? formatBusinessNumber(tenant.businessNumber) : "-"}`,
       `TV소유: ${tenant.hasTv ? "예" : "아니오"}`,
       `주민등록주소: ${tenant.registeredAddress || "-"}`,
       `관리비 부과 시작일: ${tenant.billingStartDate || "-"}`,
       ``,
       `[법인 연대보증인]`,
       `보증인명: ${tenant.guarantorName || "-"}`,
-      `보증인 연락처: ${tenant.guarantorPhone || "-"}`,
+      `보증인 연락처: ${tenant.guarantorPhone ? formatPhoneNumber(tenant.guarantorPhone) : "-"}`,
       `관계: ${tenant.guarantorRelation || "-"}`,
       ``,
       `[관리계약 동의 내역]`,

@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLocation } from "wouter";
 import { Plus, Pencil, Trash2, X, Search } from "lucide-react";
 import { ROLE_LABELS, PORTAL_LABELS, type AppRole } from "@workspace/shared/role-labels";
+import { formatPhoneNumber, formatPhoneNumberPartial } from "@/lib/format-korean";
 
 interface UserRecord {
   id: number;
@@ -407,7 +408,7 @@ export default function Users() {
                   )}
                 </div>
                 <p className="text-xs text-slate-600 truncate mt-1">{user.email}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{portalLabels[user.portalType] || user.portalType} · {user.phone || "전화 미등록"}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{portalLabels[user.portalType] || user.portalType} · {user.phone ? formatPhoneNumber(user.phone) : "전화 미등록"}</p>
                 <p className="text-xs text-slate-500 mt-0.5 truncate">건물 {buildingName} · 주소 {address}</p>
                 <p className="text-xs text-slate-400 mt-0.5">가입 {new Date(user.createdAt).toLocaleDateString("ko-KR")}</p>
               </div>
@@ -489,7 +490,7 @@ export default function Users() {
                   <span>{address}</span>
                   {buildingName === "-" && dupBadge}
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{user.phone || "-"}</td>
+                <td className="px-4 py-3 text-sm text-slate-600">{user.phone ? formatPhoneNumber(user.phone) : "-"}</td>
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {new Date(user.createdAt).toLocaleDateString("ko-KR")}
                 </td>
@@ -768,8 +769,12 @@ function UserModal({
             <label className="block text-sm font-medium text-slate-700 mb-1">전화번호 (선택)</label>
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={14}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
+              placeholder="010-0000-0000"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>

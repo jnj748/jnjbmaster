@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { Shield } from "lucide-react";
+import { formatPhoneNumberPartial } from "@/lib/format-korean";
 import {
   ConsentSection,
   OptionalConsentRePromptDialog,
@@ -251,8 +252,11 @@ export default function SocialSignup() {
               <label className="block text-sm font-medium text-slate-700 mb-1">전화번호 (선택)</label>
               <input
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={14}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 placeholder="010-0000-0000"
               />

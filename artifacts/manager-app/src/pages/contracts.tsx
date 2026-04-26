@@ -36,6 +36,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
+import { formatBusinessNumber } from "@/lib/format-korean";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -727,8 +729,9 @@ function NewContractDialog({
     setForm({
       vendorId: matched?.id ?? null,
       vendorName: matched?.name ?? result.vendorName ?? "",
-      businessRegNumber:
+      businessRegNumber: formatBusinessNumber(
         result.businessRegNumber ?? matched?.businessRegNumber ?? "",
+      ),
       representativeName:
         result.representativeName ?? matched?.representativeName ?? "",
       category: result.category ?? "",
@@ -943,7 +946,7 @@ function NewContractDialog({
                 사업자번호
                 <ConfidenceMark confidence={confidence.businessRegNumber} />
               </Label>
-              <Input
+              <BusinessNumberInput
                 value={form.businessRegNumber}
                 onChange={(e) => setField("businessRegNumber", e.target.value)}
                 placeholder="123-45-67890"

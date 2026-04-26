@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -83,13 +85,13 @@ export function TenantFormDialog({
             </div>
             <div>
               <Label>휴대폰</Label>
-              <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+              <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>비상연락처</Label>
-              <Input type="tel" inputMode="tel" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
+              <PhoneInput value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} placeholder="010-0000-0000" />
             </div>
             <div>
               <Label>이메일</Label>
@@ -117,7 +119,7 @@ export function TenantFormDialog({
             </div>
             <div>
               <Label>사업자등록번호</Label>
-              <Input value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
+              <BusinessNumberInput value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
             </div>
           </div>
           <div>
@@ -137,7 +139,7 @@ export function TenantFormDialog({
               </div>
               <div>
                 <Label>연락처</Label>
-                <Input value={form.guarantorPhone} onChange={(e) => setForm({ ...form, guarantorPhone: e.target.value })} />
+                <PhoneInput value={form.guarantorPhone} onChange={(e) => setForm({ ...form, guarantorPhone: e.target.value })} placeholder="010-0000-0000" />
               </div>
               <div>
                 <Label>관계</Label>

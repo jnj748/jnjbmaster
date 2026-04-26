@@ -15,6 +15,7 @@ import {
   getMissingRequired,
   type ConsentDocument,
 } from "@/components/consent-section";
+import { formatBusinessNumber, formatPhoneNumberPartial } from "@/lib/format-korean";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -42,12 +43,6 @@ interface DraftState {
 const TOTAL_STEPS = 4;
 
 // 형식 검증 유틸 ────────────────────────────────────────────
-function formatBusinessNumber(input: string): string {
-  const digits = input.replace(/\D/g, "").slice(0, 10);
-  if (digits.length < 4) return digits;
-  if (digits.length < 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
-}
 function isValidBusinessNumber(value: string): boolean {
   return /^\d{3}-\d{2}-\d{5}$/.test(value);
 }
@@ -375,7 +370,7 @@ export default function PartnerWizardPage() {
             label="대표 연락처"
             required
             value={contactPhone}
-            onChange={setContactPhone}
+            onChange={(v) => setContactPhone(formatPhoneNumberPartial(v))}
             onBlur={() => setTouched((t) => ({ ...t, contactPhone: true }))}
             placeholder="02-0000-0000"
             inputMode="tel"

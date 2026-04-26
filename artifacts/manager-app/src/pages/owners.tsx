@@ -12,7 +12,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
 import { Label } from "@/components/ui/label";
+import { formatPhoneNumber, formatBusinessNumber } from "@/lib/format-korean";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -193,12 +196,12 @@ export default function Owners() {
       `호실: ${owner.unit}`,
       `소유자명: ${owner.ownerName}`,
       `생년월일: ${owner.birthDate || "-"}`,
-      `휴대폰: ${owner.phone || "-"}`,
+      `휴대폰: ${owner.phone ? formatPhoneNumber(owner.phone) : "-"}`,
       `인테리어 개시일: ${owner.interiorStartDate || "-"}`,
       `입주일: ${owner.moveInDate || "-"}`,
       `퇴거일: ${owner.moveOutDate || "-"}`,
       `상호명(법인): ${owner.companyName || "-"}`,
-      `사업자등록번호: ${owner.businessNumber || "-"}`,
+      `사업자등록번호: ${owner.businessNumber ? formatBusinessNumber(owner.businessNumber) : "-"}`,
       `이메일: ${owner.email || "-"}`,
       `주민등록주소: ${owner.registeredAddress || "-"}`,
       `차량번호: ${owner.vehicleNumber || "-"}`,
@@ -263,7 +266,7 @@ export default function Owners() {
                 </div>
                 <div>
                   <Label>휴대폰</Label>
-                  <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+                  <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -287,7 +290,7 @@ export default function Owners() {
                 </div>
                 <div>
                   <Label>사업자등록번호</Label>
-                  <Input value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
+                  <BusinessNumberInput value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })} />
                 </div>
               </div>
               <div>
@@ -399,7 +402,7 @@ export default function Owners() {
                     <TableRow key={owner.id}>
                       <TableCell className="font-medium">{owner.unit}</TableCell>
                       <TableCell>{owner.ownerName}</TableCell>
-                      <TableCell className="text-muted-foreground">{owner.phone || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{owner.phone ? formatPhoneNumber(owner.phone) : "-"}</TableCell>
                       <TableCell className="text-muted-foreground">{owner.moveInDate || "-"}</TableCell>
                       <TableCell>
                         <Badge variant={owner.status === "active" ? "default" : owner.status === "destroyed" ? "destructive" : "secondary"}>
@@ -450,7 +453,7 @@ export default function Owners() {
                   </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground space-y-0.5">
-                  {owner.phone && <p>{owner.phone}</p>}
+                  {owner.phone && <p>{formatPhoneNumber(owner.phone)}</p>}
                   {owner.moveInDate && <p>입주일: {owner.moveInDate}</p>}
                 </div>
                 {(owner.businessRegDoc || owner.idDoc || owner.propertyDoc) && (
@@ -499,12 +502,12 @@ export default function Owners() {
                 <div><span className="text-muted-foreground">호실:</span> <span className="font-medium">{detailDialog.unit}</span></div>
                 <div><span className="text-muted-foreground">소유자명:</span> <span className="font-medium">{detailDialog.ownerName}</span></div>
                 <div><span className="text-muted-foreground">생년월일:</span> {detailDialog.birthDate || "-"}</div>
-                <div><span className="text-muted-foreground">휴대폰:</span> {detailDialog.phone || "-"}</div>
+                <div><span className="text-muted-foreground">휴대폰:</span> {detailDialog.phone ? formatPhoneNumber(detailDialog.phone) : "-"}</div>
                 <div><span className="text-muted-foreground">인테리어 개시일:</span> {detailDialog.interiorStartDate || "-"}</div>
                 <div><span className="text-muted-foreground">입주일:</span> {detailDialog.moveInDate || "-"}</div>
                 <div><span className="text-muted-foreground">퇴거일:</span> {detailDialog.moveOutDate || "-"}</div>
                 <div><span className="text-muted-foreground">상호명:</span> {detailDialog.companyName || "-"}</div>
-                <div><span className="text-muted-foreground">사업자등록번호:</span> {detailDialog.businessNumber || "-"}</div>
+                <div><span className="text-muted-foreground">사업자등록번호:</span> {detailDialog.businessNumber ? formatBusinessNumber(detailDialog.businessNumber) : "-"}</div>
                 <div><span className="text-muted-foreground">이메일:</span> {detailDialog.email || "-"}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">주민등록주소:</span> {detailDialog.registeredAddress || "-"}</div>
                 <div><span className="text-muted-foreground">차량번호:</span> {detailDialog.vehicleNumber || "-"}</div>

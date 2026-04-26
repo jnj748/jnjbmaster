@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { WizardShell } from "@/components/wizard/wizard-shell";
+import { formatPhoneNumberPartial } from "@/lib/format-korean";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -68,8 +69,11 @@ export default function FacilityWizardPage() {
           <label className="block text-xs font-medium text-slate-700 mb-1">연락처</label>
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={14}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
             placeholder="010-0000-0000"
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           />

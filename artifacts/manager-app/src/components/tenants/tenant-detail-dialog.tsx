@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, ShieldAlert, Download, Loader2 } from "lucide-react";
 import { DocLink } from "@/components/tenants/doc-link";
 import type { Tenant } from "@workspace/api-client-react";
+import { formatPhoneNumber, formatBusinessNumber } from "@/lib/format-korean";
 
 interface Props {
   tenant: Tenant | null;
@@ -40,15 +41,15 @@ export function TenantDetailDialog({
               <div><span className="text-muted-foreground">호실:</span> <span className="font-medium">{tenant.unit}</span></div>
               <div><span className="text-muted-foreground">입주자명:</span> <span className="font-medium">{tenant.tenantName}</span></div>
               <div><span className="text-muted-foreground">주민등록번호:</span> {tenant.residentId || "-"}</div>
-              <div><span className="text-muted-foreground">휴대폰:</span> {tenant.phone || "-"}</div>
-              <div><span className="text-muted-foreground">비상연락처:</span> {tenant.emergencyContact || "-"}</div>
+              <div><span className="text-muted-foreground">휴대폰:</span> {tenant.phone ? formatPhoneNumber(tenant.phone) : "-"}</div>
+              <div><span className="text-muted-foreground">비상연락처:</span> {tenant.emergencyContact ? formatPhoneNumber(tenant.emergencyContact) : "-"}</div>
               <div><span className="text-muted-foreground">이메일:</span> {tenant.email || "-"}</div>
               <div><span className="text-muted-foreground">인테리어 개시일:</span> {tenant.interiorStartDate || "-"}</div>
               <div><span className="text-muted-foreground">입주일:</span> {tenant.moveInDate || "-"}</div>
               <div><span className="text-muted-foreground">퇴거일:</span> {tenant.moveOutDate || "-"}</div>
               <div><span className="text-muted-foreground">관리비 부과 시작일:</span> <span className="font-medium text-primary">{tenant.billingStartDate || "-"}</span></div>
               <div><span className="text-muted-foreground">상호명:</span> {tenant.companyName || "-"}</div>
-              <div><span className="text-muted-foreground">사업자등록번호:</span> {tenant.businessNumber || "-"}</div>
+              <div><span className="text-muted-foreground">사업자등록번호:</span> {tenant.businessNumber ? formatBusinessNumber(tenant.businessNumber) : "-"}</div>
               <div><span className="text-muted-foreground">TV소유:</span> {tenant.hasTv ? "예" : "아니오"}</div>
               <div className="col-span-2"><span className="text-muted-foreground">주민등록주소:</span> {tenant.registeredAddress || "-"}</div>
             </div>
@@ -56,7 +57,7 @@ export function TenantDetailDialog({
               <p className="text-sm font-medium mb-2">법인 연대보증인</p>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div><span className="text-muted-foreground">보증인명:</span> {tenant.guarantorName || "-"}</div>
-                <div><span className="text-muted-foreground">연락처:</span> {tenant.guarantorPhone || "-"}</div>
+                <div><span className="text-muted-foreground">연락처:</span> {tenant.guarantorPhone ? formatPhoneNumber(tenant.guarantorPhone) : "-"}</div>
                 <div><span className="text-muted-foreground">관계:</span> {tenant.guarantorRelation || "-"}</div>
               </div>
             </div>

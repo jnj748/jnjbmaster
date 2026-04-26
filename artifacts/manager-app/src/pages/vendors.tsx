@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { BusinessNumberInput } from "@/components/ui/business-number-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin, MessageSquareText } from "lucide-react";
+import { formatPhoneNumber, formatBusinessNumber } from "@/lib/format-korean";
 import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { useToast } from "@/hooks/use-toast";
 import { koreanDistricts, sidoList, getSigunguList } from "@workspace/shared/korean-districts";
@@ -233,7 +236,7 @@ export default function Vendors() {
                 </div>
                 <div>
                   <Label>전화번호</Label>
-                  <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <PhoneInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
                 </div>
               </div>
               <div>
@@ -319,7 +322,7 @@ export default function Vendors() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>사업자등록번호</Label>
-                      <Input value={form.businessRegNumber} onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })} />
+                      <BusinessNumberInput value={form.businessRegNumber} onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })} />
                     </div>
                     <div>
                       <Label>대표자명</Label>
@@ -445,7 +448,7 @@ export default function Vendors() {
                   {vendor.contactName && <p>{vendor.contactName}</p>}
                   {vendor.phone && (
                     <p className="flex items-center gap-1.5">
-                      <Phone className="w-3 h-3" /> {vendor.phone}
+                      <Phone className="w-3 h-3" /> {formatPhoneNumber(vendor.phone)}
                     </p>
                   )}
                   {vendor.email && (
@@ -482,7 +485,7 @@ export default function Vendors() {
                     <p className="text-xs">계약: {vendor.contractStartDate} ~ {vendor.contractEndDate || "진행중"}</p>
                   )}
                   {activeTab === "platform" && vendor.businessRegNumber && (
-                    <p className="text-xs mt-2">사업자번호: {vendor.businessRegNumber}</p>
+                    <p className="text-xs mt-2">사업자번호: {formatBusinessNumber(vendor.businessRegNumber)}</p>
                   )}
                   {activeTab === "platform" && vendor.serviceArea && (
                     <p className="text-xs">서비스 지역: {vendor.serviceArea}</p>
