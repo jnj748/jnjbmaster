@@ -29,12 +29,17 @@ interface PhotoUploadFieldProps {
    * 모바일 ‘업무기록’ 다이얼로그처럼 좁은 공간에 사진 입력을 2개 나란히 배치할 때 사용.
    */
   compact?: boolean;
+  /**
+   * [Task #458] true 면 사진 트리거(촬영/선택)와 삭제(X) 버튼을 비활성화해 읽기 전용으로 표시한다.
+   * 건물정보 수정 화면처럼 편집 가드가 있는 화면에서, 편집 모드가 아닐 때 사용한다.
+   */
+  disabled?: boolean;
 }
 
 const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-export function PhotoUploadField({ label, value, onChange, testId, compact = false }: PhotoUploadFieldProps) {
+export function PhotoUploadField({ label, value, onChange, testId, compact = false, disabled = false }: PhotoUploadFieldProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -135,7 +140,8 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
             type="button"
             onClick={handleRemove}
             aria-label="삭제"
-            className="absolute -top-1.5 -right-1.5 w-7 h-7 flex items-center justify-center bg-transparent p-0"
+            disabled={disabled}
+            className="absolute -top-1.5 -right-1.5 w-7 h-7 flex items-center justify-center bg-transparent p-0 disabled:opacity-40 disabled:cursor-not-allowed"
             data-testid={testId ? `${testId}-remove` : undefined}
           >
             <span className="flex items-center justify-center w-4 h-4 rounded-full bg-destructive text-destructive-foreground shadow-sm">
@@ -174,7 +180,7 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
                 : "w-full h-20 flex flex-col gap-1 border-dashed"
             }
             onClick={() => setPickerOpen(true)}
-            disabled={isUploading}
+            disabled={isUploading || disabled}
             data-testid={testId ? `${testId}-trigger` : undefined}
           >
             {isUploading ? (

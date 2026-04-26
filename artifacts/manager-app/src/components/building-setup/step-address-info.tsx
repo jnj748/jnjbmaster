@@ -26,6 +26,10 @@ interface Props {
   saving: boolean;
   existingId: number | null;
   saveBuilding: () => void;
+  // [Task #458] 편집 가드 prop — 진입 시 false(읽기 전용).
+  isEditing: boolean;
+  enterEditMode: () => void;
+  cancelEdit: () => void;
 }
 
 export function StepAddressInfo(props: Props) {
@@ -53,6 +57,9 @@ export function StepAddressInfo(props: Props) {
         saving={props.saving}
         existingId={props.existingId}
         saveBuilding={props.saveBuilding}
+        isEditing={props.isEditing}
+        enterEditMode={props.enterEditMode}
+        cancelEdit={props.cancelEdit}
       />
     </div>
   );

@@ -7,11 +7,13 @@ import type { BuildingData } from "./types";
 interface Props {
   building: BuildingData;
   setBuilding: React.Dispatch<React.SetStateAction<BuildingData>>;
+  // [Task #458] 편집 모드가 아닐 때는 로고 업로드/삭제도 비활성화한다.
+  isEditing?: boolean;
 }
 
 // [Task #412] 단일 화면 구조에서 ‘다음/건너뛰기’ 단계 이동 버튼은 더 이상 사용하지 않는다.
 // 로고 변경은 이 카드 아래의 ‘건물 정보 저장’ 버튼을 통해 다른 필드와 함께 한 번에 저장된다.
-export function StepLogo({ building, setBuilding }: Props) {
+export function StepLogo({ building, setBuilding, isEditing = true }: Props) {
   const buildingName = building.name?.trim() || "OO아파트";
   const hasLogo = !!building.logoUrl;
 
@@ -33,6 +35,7 @@ export function StepLogo({ building, setBuilding }: Props) {
           label="로고 이미지 (PNG · JPG, 정사각형 또는 가로형 권장)"
           value={building.logoUrl}
           onChange={(url) => setBuilding((prev) => ({ ...prev, logoUrl: url }))}
+          disabled={!isEditing}
         />
 
         <div className="rounded-lg border bg-muted/30 p-3">

@@ -75,7 +75,18 @@ export function useBuildingSetup() {
   const [lookingUp, setLookingUp] = useState(false);
   const [building, setBuilding] = useState<BuildingData>(EMPTY_BUILDING);
   const [existingId, setExistingId] = useState<number | null>(null);
+  // [Task #458] 건물정보 수정 화면의 편집 가드.
+  //   - 기본 false (읽기 전용) — 진입 시 모든 입력이 비활성화돼 실수로 값이 바뀌지 않게 한다.
+  //   - 사용자가 ‘수정하기’ 버튼을 눌러야 true 가 되어 입력이 풀린다.
+  //   - lastSavedBuildingRef 는 ‘취소’ 시 되돌릴 마지막 저장 상태(=서버에서 마지막으로 받은 값
+  //     또는 가장 최근 저장 직전의 building 스냅샷)를 보관한다.
+  const [isEditing, setIsEditing] = useState(false);
+  const lastSavedBuildingRef = useRef<BuildingData>(EMPTY_BUILDING);
   const [safetyResult, setSafetyResult] = useState<SafetyResult | null>(null);
+  // [Task #458] 편집 진입 시 안전관리자 분석 결과를 함께 스냅샷하여, 취소 시 폼과 함께 되돌린다.
+  //   (편집 도중 다시 분석을 돌려 결과가 바뀌었을 수 있는데, 취소가 폼 값을 되돌리므로
+  //   분석 결과도 같이 되돌리지 않으면 화면 상태가 어긋나 보인다.)
+  const lastSavedSafetyResultRef = useRef<SafetyResult | null>(null);
   const [calculatingSafety, setCalculatingSafety] = useState(false);
   const [inspectionDates, setInspectionDates] = useState<InspectionDates>({});
   const [schedulingInspections, setSchedulingInspections] = useState(false);
@@ -202,7 +213,7 @@ export function useBuildingSetup() {
       const data = await res.json();
       if (data.building) {
         setExistingId(data.building.id);
-        setBuilding({
+        const next: BuildingData = {
           name: data.building.name || "",
           addressFull: data.building.addressFull || "",
           addressJibun: data.building.addressJibun || "",
@@ -239,7 +250,16 @@ export function useBuildingSetup() {
           // 재저장 시 누락되지 않도록 한다(재조회를 하지 않은 경우 보존).
           registerData: data.building.registerData || null,
           buildingRegisterPk: data.building.buildingRegisterPk || null,
-        });
+        };
+        setBuilding(next);
+        // [Task #458] 폼이 새 데이터로 초기화될 때마다 마지막 저장 스냅샷을 갱신하고
+        //   편집 모드를 강제로 종료한다. 건물 컨텍스트 변경 등으로 폼이 다시 채워질 때도
+        //   읽기 전용 상태로 시작해야 한다.
+        lastSavedBuildingRef.current = next;
+        // 새 데이터 로드 직후에는 안전관리자 분석 결과도 새로 계산되므로 기준 스냅샷을 비워둔다
+        // (calculateSafety 가 끝나면 fetchBuilding 재호출 없이도 자연스럽게 갱신된다).
+        lastSavedSafetyResultRef.current = null;
+        setIsEditing(false);
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
             totalArea: data.building.totalArea || "0",
@@ -565,6 +585,10 @@ export function useBuildingSetup() {
       if (body.building) {
         setExistingId(body.building.id);
         toast({ title: "건물 정보가 저장되었습니다" });
+        // [Task #458] 저장 성공 시 마지막 저장 스냅샷을 현재 폼 값으로 갱신하고
+        //   편집 모드를 종료해 다시 읽기 전용 상태로 돌아가게 한다.
+        lastSavedBuildingRef.current = building;
+        setIsEditing(false);
         // [Task #412] 단일 화면 구조에서는 단계 이동이 없으므로 setActiveStep 호출 제거.
         const params = new URLSearchParams(window.location.search);
         const returnTo = params.get("returnTo");
@@ -644,6 +668,23 @@ export function useBuildingSetup() {
     setBuilding((prev) => ({ ...prev, [field]: value }));
   }
 
+  // [Task #458] ‘수정하기’ 버튼 진입점. 현재 폼 값과 안전관리자 분석 결과를 cancel 시 되돌릴
+  //   스냅샷으로 함께 보관하고 편집 모드로 전환한다.
+  function enterEditMode() {
+    lastSavedBuildingRef.current = building;
+    lastSavedSafetyResultRef.current = safetyResult;
+    setIsEditing(true);
+  }
+
+  // [Task #458] ‘취소’ 버튼 — 마지막 저장 스냅샷으로 폼과 안전관리자 분석 결과를 함께 되돌리고
+  //   읽기 전용으로 돌아간다. (편집 도중 안전관리자 분석을 다시 돌렸더라도 폼이 되돌아가므로
+  //   분석 카드도 같이 되돌려야 화면 상태가 일관된다.)
+  function cancelEdit() {
+    setBuilding(lastSavedBuildingRef.current);
+    setSafetyResult(lastSavedSafetyResultRef.current);
+    setIsEditing(false);
+  }
+
   return {
     token,
     loading,
@@ -690,5 +731,9 @@ export function useBuildingSetup() {
     saveBuilding,
     scheduleInspections,
     handleFieldChange,
+    // [Task #458] 편집 가드 외부 노출.
+    isEditing,
+    enterEditMode,
+    cancelEdit,
   };
 }

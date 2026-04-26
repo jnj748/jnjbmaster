@@ -36,7 +36,9 @@ interface PresentationProps {
  */
 export function BuildingInfoCardView({
   data,
-  detailHref = "/building-info",
+  // [Task #458] 대시보드 ‘건물 정보’ 카드의 ‘자세히’ 버튼은 설정의 건물정보 수정 화면으로 이동.
+  // 기존 `/building-info` 는 일부 사용자에게 “건물 현황을 불러올 수 없습니다” 에러로 보였다.
+  detailHref = "/settings?tab=building",
   className,
 }: PresentationProps) {
   const address = data.addressFull || data.addressJibun || null;

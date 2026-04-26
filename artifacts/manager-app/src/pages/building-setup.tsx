@@ -79,6 +79,7 @@ export default function BuildingSetup() {
       </div>
 
       {/* [Task #412] 주소(읽기 전용 또는 신규 검색) + 건물 기본 정보 */}
+      {/* [Task #458] 편집 가드 prop 전달 — 진입 시 모든 입력은 읽기 전용. */}
       <StepAddressInfo
         building={setup.building}
         setBuilding={setup.setBuilding}
@@ -98,12 +99,17 @@ export default function BuildingSetup() {
         saving={setup.saving}
         existingId={setup.existingId}
         saveBuilding={setup.saveBuilding}
+        isEditing={setup.isEditing}
+        enterEditMode={setup.enterEditMode}
+        cancelEdit={setup.cancelEdit}
       />
 
       {/* [Task #412] 로고 등록 섹션 */}
+      {/* [Task #458] 로고 업로드도 편집 모드에서만 변경 가능. */}
       <StepLogo
         building={setup.building}
         setBuilding={setup.setBuilding}
+        isEditing={setup.isEditing}
       />
 
       {/* [Task #412] 호실정보 불러오기 섹션 — ?tab=units-import 로 진입 시 스크롤 대상 */}

@@ -11,6 +11,8 @@ import {
   Shield,
   AlertTriangle,
   CheckCircle2,
+  Pencil,
+  X,
 } from "lucide-react";
 import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/page-constants/building-setup";
 import type { BuildingData, SafetyResult } from "./types";
@@ -25,6 +27,10 @@ interface Props {
   saving: boolean;
   existingId: number | null;
   saveBuilding: () => void;
+  // [Task #458] 편집 가드 prop. isEditing=false 면 모든 입력이 비활성화된다.
+  isEditing: boolean;
+  enterEditMode: () => void;
+  cancelEdit: () => void;
 }
 
 export function StepInfo({
@@ -36,7 +42,13 @@ export function StepInfo({
   saving,
   existingId,
   saveBuilding,
+  isEditing,
+  enterEditMode,
+  cancelEdit,
 }: Props) {
+  // [Task #458] 읽기 전용일 때 모든 입력 필드를 비활성화한다.
+  //   - 도로명 주소처럼 별도 잠금 정책이 있는 필드는 (잠금 || 읽기전용) OR 결합으로 가드.
+  const readOnly = !isEditing;
   return (
     <>
       <Card>
@@ -61,6 +73,7 @@ export function StepInfo({
                 value={building.name}
                 onChange={(e) => handleFieldChange("name", e.target.value)}
                 placeholder="예: OO아파트"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -69,7 +82,7 @@ export function StepInfo({
                 value={building.addressFull}
                 onChange={(e) => handleFieldChange("addressFull", e.target.value)}
                 placeholder="도로명 주소"
-                disabled={building.addressLocked}
+                disabled={readOnly || building.addressLocked}
               />
             </div>
             <div>
@@ -78,6 +91,7 @@ export function StepInfo({
                 value={building.addressJibun}
                 onChange={(e) => handleFieldChange("addressJibun", e.target.value)}
                 placeholder="지번 주소"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -86,6 +100,7 @@ export function StepInfo({
                 value={building.zipCode}
                 onChange={(e) => handleFieldChange("zipCode", e.target.value)}
                 placeholder="우편번호"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -96,7 +111,22 @@ export function StepInfo({
 
       <Card>
         <CardHeader>
-          <CardTitle>건물 상세 정보</CardTitle>
+          {/* [Task #458] 카드 제목 옆 ‘수정하기’ 버튼. 누르면 페이지 전체 입력 필드가 풀린다. */}
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>건물 상세 정보</CardTitle>
+            {!isEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={enterEditMode}
+                data-testid="button-edit-building-info"
+              >
+                <Pencil className="w-4 h-4 mr-1.5" />
+                수정하기
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 desktop:grid-cols-4 gap-4">
@@ -107,6 +137,7 @@ export function StepInfo({
                 value={building.totalUnits}
                 onChange={(e) => handleFieldChange("totalUnits", e.target.value)}
                 placeholder="세대수"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -116,6 +147,7 @@ export function StepInfo({
                 value={building.totalFloors}
                 onChange={(e) => handleFieldChange("totalFloors", e.target.value)}
                 placeholder="지상 층수"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -125,6 +157,7 @@ export function StepInfo({
                 value={building.basementFloors}
                 onChange={(e) => handleFieldChange("basementFloors", e.target.value)}
                 placeholder="지하 층수"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -134,6 +167,7 @@ export function StepInfo({
                 value={building.totalArea}
                 onChange={(e) => handleFieldChange("totalArea", e.target.value)}
                 placeholder="연면적"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -146,6 +180,7 @@ export function StepInfo({
                 value={building.landArea}
                 onChange={(e) => handleFieldChange("landArea", e.target.value)}
                 placeholder="대지면적"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -155,6 +190,7 @@ export function StepInfo({
                 value={building.buildingArea}
                 onChange={(e) => handleFieldChange("buildingArea", e.target.value)}
                 placeholder="건축면적"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -165,6 +201,7 @@ export function StepInfo({
                 value={building.buildingCoverageRatio}
                 onChange={(e) => handleFieldChange("buildingCoverageRatio", e.target.value)}
                 placeholder="건폐율"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -175,6 +212,7 @@ export function StepInfo({
                 value={building.floorAreaRatio}
                 onChange={(e) => handleFieldChange("floorAreaRatio", e.target.value)}
                 placeholder="용적률"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -186,6 +224,7 @@ export function StepInfo({
                 value={building.buildingUsage}
                 onChange={(e) => handleFieldChange("buildingUsage", e.target.value)}
                 placeholder="예: 아파트, 오피스텔"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -194,6 +233,7 @@ export function StepInfo({
                 value={building.structureType}
                 onChange={(e) => handleFieldChange("structureType", e.target.value)}
                 placeholder="예: 철근콘크리트"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -202,6 +242,7 @@ export function StepInfo({
                 type="date"
                 value={building.completionDate}
                 onChange={(e) => handleFieldChange("completionDate", e.target.value)}
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -210,6 +251,7 @@ export function StepInfo({
                 type="date"
                 value={building.approvalDate}
                 onChange={(e) => handleFieldChange("approvalDate", e.target.value)}
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -219,6 +261,7 @@ export function StepInfo({
                 value={building.elevatorCount}
                 onChange={(e) => handleFieldChange("elevatorCount", e.target.value)}
                 placeholder="승강기 수"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -231,6 +274,7 @@ export function StepInfo({
                 value={building.parkingSpaces}
                 onChange={(e) => handleFieldChange("parkingSpaces", e.target.value)}
                 placeholder="주차 대수"
+                disabled={readOnly}
               />
             </div>
             <div>
@@ -240,6 +284,7 @@ export function StepInfo({
                 value={building.electricCapacityKw}
                 onChange={(e) => handleFieldChange("electricCapacityKw", e.target.value)}
                 placeholder="예: 75, 300, 1000"
+                disabled={readOnly}
               />
               <p className="text-xs text-muted-foreground mt-1">75kW 이상 시 전기안전관리자 선임</p>
             </div>
@@ -250,6 +295,7 @@ export function StepInfo({
                 value={building.gasUsageMonthly}
                 onChange={(e) => handleFieldChange("gasUsageMonthly", e.target.value)}
                 placeholder="예: 500, 2000"
+                disabled={readOnly}
               />
               <p className="text-xs text-muted-foreground mt-1">2,000㎥/월 이상 시 가스안전관리자 선임</p>
             </div>
@@ -266,6 +312,7 @@ export function StepInfo({
                   onChange={(e) => handleFieldChange("managementOfficePhone", e.target.value)}
                   placeholder="02-000-0000"
                   data-testid="input-management-office-phone"
+                  disabled={readOnly}
                 />
               </div>
               <div>
@@ -275,6 +322,7 @@ export function StepInfo({
                   onChange={(e) => handleFieldChange("feeInquiryPhone", e.target.value)}
                   placeholder="02-000-0000"
                   data-testid="input-fee-inquiry-phone"
+                  disabled={readOnly}
                 />
               </div>
               <div>
@@ -284,6 +332,7 @@ export function StepInfo({
                   onChange={(e) => handleFieldChange("facilitySafetyPhone", e.target.value)}
                   placeholder="02-000-0000"
                   data-testid="input-facility-safety-phone"
+                  disabled={readOnly}
                 />
               </div>
               <div>
@@ -292,6 +341,7 @@ export function StepInfo({
                   value={building.managementOfficeFax}
                   onChange={(e) => handleFieldChange("managementOfficeFax", e.target.value)}
                   placeholder="02-000-0000"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -305,6 +355,7 @@ export function StepInfo({
               <Switch
                 checked={building.hasPlayground}
                 onCheckedChange={(v) => handleFieldChange("hasPlayground", v)}
+                disabled={readOnly}
               />
               <Label className="text-sm">어린이 놀이터</Label>
             </div>
@@ -312,6 +363,7 @@ export function StepInfo({
               <Switch
                 checked={building.hasGas}
                 onCheckedChange={(v) => handleFieldChange("hasGas", v)}
+                disabled={readOnly}
               />
               <Label className="text-sm">도시가스</Label>
             </div>
@@ -319,6 +371,7 @@ export function StepInfo({
               <Switch
                 checked={building.hasSepticTank}
                 onCheckedChange={(v) => handleFieldChange("hasSepticTank", v)}
+                disabled={readOnly}
               />
               <Label className="text-sm">정화조</Label>
             </div>
@@ -417,20 +470,40 @@ export function StepInfo({
       {/* [Task #412] "법정업무 선택" 탭 제거에 따라 선택된 법정업무 안내 박스도 제거.
           관련 자동 추가 로직은 use-building-setup.ts에 그대로 보존되어 백엔드 스케줄에 반영. */}
 
-      <Button
-        onClick={saveBuilding}
-        disabled={saving || !building.name}
-        className="w-full"
-        size="lg"
-      >
-        {saving ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" />저장 중...</>
-        ) : (
-          <><Save className="w-4 h-4 mr-2" />{existingId ? "건물 정보 수정" : "건물 정보 저장"}</>
-        )}
-      </Button>
+      {/* [Task #458] 편집 모드일 때만 저장/취소 버튼을 노출한다.
+          - 저장 성공 시 hook 이 isEditing 을 false 로 되돌리며 ‘수정하기’ 버튼이 다시 보인다.
+          - 취소 시 마지막 저장 스냅샷으로 되돌리고 읽기 전용으로 복귀한다. */}
+      {isEditing && (
+        <div className="flex flex-col-reverse desktop:flex-row gap-2">
+          <Button
+            type="button"
+            onClick={cancelEdit}
+            disabled={saving}
+            variant="outline"
+            className="desktop:w-32"
+            size="lg"
+            data-testid="button-cancel-edit-building-info"
+          >
+            <X className="w-4 h-4 mr-2" />
+            취소
+          </Button>
+          <Button
+            onClick={saveBuilding}
+            disabled={saving || !building.name}
+            className="flex-1"
+            size="lg"
+            data-testid="button-save-building-info"
+          >
+            {saving ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />저장 중...</>
+            ) : (
+              <><Save className="w-4 h-4 mr-2" />{existingId ? "건물 정보 수정" : "건물 정보 저장"}</>
+            )}
+          </Button>
+        </div>
+      )}
       {/* [Task #160] 주소 잠금 상태에서 저장 버튼 인근에 보조 안내 표시 */}
-      {existingId && building.addressLocked && (
+      {isEditing && existingId && building.addressLocked && (
         <p className="mt-2 text-xs text-amber-700 text-center">
           🔒 주소 외 정보만 수정 가능 (변경 필요 시 1800-0416)
         </p>
