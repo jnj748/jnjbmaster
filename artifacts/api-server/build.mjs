@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -13,6 +13,23 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
+
+  // [Task #454] 런타임 마이그레이션 러너가 부팅 시 읽을 .sql 파일을 번들 옆에
+  // 복사해 둔다. autoscale 운영 배포에서도 lib/db/drizzle 디렉터리가 함께
+  // 배포되긴 하지만, dist 옆에 두면 working directory / 모노레포 레이아웃이
+  // 바뀌어도 항상 찾을 수 있어 안전하다.
+  const migrationsSrc = path.resolve(artifactDir, "..", "..", "lib", "db", "drizzle");
+  const migrationsDest = path.resolve(distDir, "migrations");
+  await mkdir(migrationsDest, { recursive: true });
+  await cp(migrationsSrc, migrationsDest, {
+    recursive: true,
+    filter: (source) => {
+      const base = path.basename(source);
+      // .sql 파일과 디렉터리 자체만 복사 (meta/ 등 drizzle-kit 내부 파일은 제외).
+      if (base === path.basename(migrationsSrc)) return true;
+      return base.endsWith(".sql");
+    },
+  });
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],

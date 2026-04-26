@@ -40,6 +40,15 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 **Database:**
 - PostgreSQL serves as the primary database, managed by Drizzle ORM.
 - The database schema supports a wide range of modules including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, approvals, and various reporting and checklist functionalities.
+- **Schema migration policy ([Task #454])**: 개발 DB 는 `scripts/post-merge.sh` 가 머지 직후 `pnpm --filter db push --force` 로 동기화하고, **운영(autoscale) DB 는 api-server 가 부팅할 때 `artifacts/api-server/src/lib/runMigrations.ts` 의 `runMigrations()` 가 `lib/db/drizzle/*.sql` 신규 파일을 자동 적용**한다. `_app_migrations` 테이블이 적용 이력을 추적하며, 신규 환경에서 첫 부팅이면 BASELINE_FILES 목록을 도장만 찍고 스킵한다. 새 마이그레이션 SQL 은 반드시 `IF NOT EXISTS` / `ON CONFLICT DO NOTHING` 등 멱등 패턴으로 작성해야 한다(같은 파일이 dev 에서는 push --force 로 이미 반영된 상태에서 운영 부팅 시 한 번 더 실행되기 때문). 빌드 시 `build.mjs` 가 SQL 파일을 `dist/migrations/` 로 복사한다.
+  - **운영 가드레일**:
+    - 마이그레이션은 `app.listen` **이전**에 실행되며 실패 시 `process.exit(1)` 로 즉시 부팅을 중단한다(stale schema 로 트래픽 수신 방지).
+    - 동시 인스턴스 부팅은 `pg_advisory_lock(4540001)` 로 직렬화되므로 다중 instance autoscale 에서도 안전.
+    - 베이스라인 도장(첫 부팅 BASELINE_FILES INSERT)은 단일 트랜잭션. 도중 실패 시 전부 롤백되어 부분-stamped 상태가 남지 않는다.
+  - **장애/복구 절차**:
+    1) 부팅이 "Failed to run database migrations" 로 깨지면 prod DB 에 직접 `SELECT * FROM "_app_migrations" ORDER BY filename;` 으로 어디까지 적용됐는지 확인.
+    2) 문제 파일이 멱등이 아니거나 스키마와 충돌하면 임시로 `INSERT INTO "_app_migrations"(filename) VALUES('0XXX_xxx.sql')` 로 수동 도장 후 재배포.
+    3) BASELINE_FILES 목록을 수정해야 할 만큼 운영 스키마가 더 드리프트되어 있다면, 재현용 SQL 을 별도 0XXX 파일로 추가하는 편이 안전(BASELINE_FILES 자체는 손대지 않음).
 
 **Core Features & Design Patterns:**
 - **Modular Monorepo:** The codebase is organized into `api-server`, `web`, `db`, and `api-spec` packages.

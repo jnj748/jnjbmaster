@@ -12,6 +12,7 @@ import { seedVendorCategories } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
+import { runMigrations } from "./lib/runMigrations";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -93,95 +94,118 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, async (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
+async function bootstrap() {
+  // [Task #454] 포트 바인딩 **이전에** 마이그레이션을 먼저 적용한다.
+  //   - listen 후에 돌리면 짧은 시간 동안 트래픽이 옛 스키마로 흘러들어가
+  //     readiness 가 잘못 OK 로 보일 수 있다 (코드리뷰 #1 지적).
+  //   - 실패하면 process.exit(1) 로 빠르게 깨져 autoscale rolling restart 가
+  //     잘못된 인스턴스를 띄우지 않게 한다.
+  try {
+    const result = await runMigrations();
+    logger.info(
+      { applied: result.applied, baselined: result.baselined, skipped: result.skipped },
+      "Database migrations checked",
+    );
+  } catch (e) {
+    logger.error({ err: e }, "Failed to run database migrations — aborting boot");
     process.exit(1);
   }
 
-  logger.info({ port }, "Server listening");
+  app.listen(port, async (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
 
-  try {
-    await migrateLegacyUsers();
-    logger.info("Legacy user roles migrated");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to migrate legacy user roles");
-  }
+    logger.info({ port }, "Server listening");
 
-  try {
-    await seedDocumentTemplates();
-    logger.info("Document templates seeded");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed document templates");
-  }
+    try {
+      await migrateLegacyUsers();
+      logger.info("Legacy user roles migrated");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to migrate legacy user roles");
+    }
 
-  try {
-    await seedTaskTemplates();
-    logger.info("Task templates seeded");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed task templates");
-  }
+    try {
+      await seedDocumentTemplates();
+      logger.info("Document templates seeded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed document templates");
+    }
 
-  try {
-    await backfillUnitIds();
-    logger.info("Unit ID backfill completed");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to backfill unit IDs");
-  }
+    try {
+      await seedTaskTemplates();
+      logger.info("Task templates seeded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed task templates");
+    }
 
-  // [Task #411] 사용승인일 baseline 으로 셋업된 inspections 의 nextDueDate 를
-  //   매 주기 정상 이행 가정으로 walk-forward 보정. 조건부(=오래 지난 항목)만
-  //   업데이트하므로 재실행해도 같은 행을 다시 변경하지 않는다(idempotent).
-  try {
-    const dryRun = process.env["INSPECTION_BACKFILL_DRY_RUN"] === "1";
-    await backfillInspectionNextDueDates({ dryRun });
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to backfill inspection next due dates");
-  }
+    try {
+      await backfillUnitIds();
+      logger.info("Unit ID backfill completed");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to backfill unit IDs");
+    }
 
-  try {
-    await seedTestUsers();
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed test users");
-  }
+    // [Task #411] 사용승인일 baseline 으로 셋업된 inspections 의 nextDueDate 를
+    //   매 주기 정상 이행 가정으로 walk-forward 보정. 조건부(=오래 지난 항목)만
+    //   업데이트하므로 재실행해도 같은 행을 다시 변경하지 않는다(idempotent).
+    try {
+      const dryRun = process.env["INSPECTION_BACKFILL_DRY_RUN"] === "1";
+      await backfillInspectionNextDueDates({ dryRun });
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to backfill inspection next due dates");
+    }
 
-  try {
-    await seedPlatformAdmins();
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed platform admins");
-  }
+    try {
+      await seedTestUsers();
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed test users");
+    }
 
-  // [Task #298] credit_category_pricing 에 추가된 정책 컬럼이 시드보다 먼저 ALTER 되어야 한다.
-  try {
-    await ensureRfqMatchSchema();
-    logger.info("RFQ match / regional pricing schema ensured");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to ensure RFQ match schema");
-  }
+    try {
+      await seedPlatformAdmins();
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed platform admins");
+    }
 
-  try {
-    await seedPartnerBm();
-    logger.info("Partner BM defaults seeded");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed partner BM defaults");
-  }
+    // [Task #298] credit_category_pricing 에 추가된 정책 컬럼이 시드보다 먼저 ALTER 되어야 한다.
+    try {
+      await ensureRfqMatchSchema();
+      logger.info("RFQ match / regional pricing schema ensured");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to ensure RFQ match schema");
+    }
 
-  try {
-    await seedVendorCategories();
-    logger.info("Vendor categories seeded");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed vendor categories");
-  }
+    try {
+      await seedPartnerBm();
+      logger.info("Partner BM defaults seeded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed partner BM defaults");
+    }
 
-  try {
-    await ensureConsentSchema();
-    await seedConsentDocuments();
-    logger.info("Consent documents seeded");
-  } catch (e) {
-    logger.warn({ err: e }, "Failed to seed consent documents");
-  }
+    try {
+      await seedVendorCategories();
+      logger.info("Vendor categories seeded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed vendor categories");
+    }
 
-  startScheduler();
+    try {
+      await ensureConsentSchema();
+      await seedConsentDocuments();
+      logger.info("Consent documents seeded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to seed consent documents");
+    }
+
+    startScheduler();
+  });
+}
+
+bootstrap().catch((err) => {
+  logger.error({ err }, "Bootstrap failed");
+  process.exit(1);
 });
 
 process.on("SIGTERM", () => {
