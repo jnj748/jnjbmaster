@@ -15,7 +15,10 @@ paths = [ "/manager-mode-promo/" ]
 localPort = 19753
 
 [services.development]
-run = "pnpm --filter @workspace/manager-mode-promo run dev"
+# [Task #493] 평소 자동 가동 비활성화 — 데크 편집·미리보기 시에만 수동으로 켠다.
+# 다시 켜려면 이 run 명령을 'pnpm --filter @workspace/manager-mode-promo run dev' 로 되돌리고 워크플로 재시작.
+# 또는 사용자가 ai 에게 "홍보 데크 켜줘" 요청.
+run = "echo '[관리의달인] manager-mode-promo 자동 가동 비활성화 (Task #493). 슬라이드 편집·미리보기 시에만 수동으로 켜세요.'"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/manager-mode-promo", "run", "build" ]
