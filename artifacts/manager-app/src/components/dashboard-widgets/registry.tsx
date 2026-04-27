@@ -33,8 +33,11 @@ const BuildingContractsSummaryWidget = lazy(
 );
 
 // Role-specific main wrappers (legacy page bodies)
+// [Task #495] manager-main 은 페이지 파일이 아니라 dashboard-widgets/widgets/
+//   manager-main-widget.tsx 에서 직접 합성된다. 하위 5개 시각 컴포넌트는 같은
+//   디렉터리의 *-widget 파일들로 분리되어 있다.
 const ManagerMainWidget = lazy(
-  () => import("@/pages/dashboard-manager-legacy"),
+  () => import("./widgets/manager-main-widget"),
 );
 const HqMainWidget = lazy(() => import("@/pages/hq-dashboard"));
 const AccountantMainWidget = lazy(() => import("@/pages/accountant-dashboard"));
