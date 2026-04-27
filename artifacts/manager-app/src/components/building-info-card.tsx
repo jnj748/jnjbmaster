@@ -38,7 +38,8 @@ export function BuildingInfoCardView({
   data,
   // [Task #458] 대시보드 ‘건물 정보’ 카드의 ‘자세히’ 버튼은 설정의 건물정보 수정 화면으로 이동.
   // 기존 `/building-info` 는 일부 사용자에게 “건물 현황을 불러올 수 없습니다” 에러로 보였다.
-  detailHref = "/settings?tab=building",
+  // [Task #485] 단독 페이지 분리 후 진입점은 /settings/building.
+  detailHref = "/settings/building",
   className,
 }: PresentationProps) {
   const address = data.addressFull || data.addressJibun || null;
@@ -205,7 +206,7 @@ export function BuildingInfoCard({ className }: { className?: string }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">건물 정보 미등록</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                <Link href="/settings?tab=building">
+                <Link href="/settings/building">
                   <span className="text-primary hover:underline cursor-pointer">
                     건물 정보를 등록
                   </span>

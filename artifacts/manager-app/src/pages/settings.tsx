@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { Redirect, useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Settings as SettingsIcon,
-  Building,
   User,
   Save,
   Loader2,
@@ -15,7 +14,6 @@ import {
   Phone,
   Mail,
   CheckCircle2,
-  Coins,
   Link2,
   Unlink,
   LogOut,
@@ -44,66 +42,43 @@ const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
 const BuildingSetup = lazy(() => import("@/pages/building-setup"));
 
+// [Task #485] 설정 화면은 라우트 1개당 단독 페이지 1개만 렌더한다.
+//   /settings/profile  → 내정보 수정
+//   /settings/building → 건물정보 수정 (manager / platform_admin)
+//   /settings/platform → 플랫폼 BM (platform_admin / hq_executive)
+//   탭바·activeTab 상태는 제거됐다. 권한이 없는 라우트로 직접 진입하면
+//   접근 가능한 기본 화면(/settings/profile)으로 안전하게 리다이렉트한다.
 export default function SettingsPage() {
   const { user } = useAuth();
+  const [location] = useLocation();
+  // [Task #485] 파트너는 ROUTES.access 에서 /settings/* 가 모두 제외되어
+  //   사이드/드로어 메뉴에 노출되지 않는다. 다만 App.tsx 의 안전 fallback
+  //   라우트가 모든 역할에서 SettingsPage 를 마운트하므로, 직접 URL 진입을
+  //   막기 위해 이 컴포넌트 차원에서 한 번 더 차단한다.
+  if (user?.role === "partner") return <Redirect to="/" />;
+
   const canEditBuilding = user?.role === "manager" || user?.role === "platform_admin";
   const canEditPlatform = user?.role === "platform_admin" || user?.role === "hq_executive";
-  // [Task #141] /building-setup 라우트 폐지 후 진입점은 /settings?tab=building.
-  const initialTab = (() => {
-    if (typeof window === "undefined") return "profile" as const;
-    // [메뉴 분리] /settings/profile · /settings/building 경로로도 탭을 결정.
-    const path = window.location.pathname;
-    if (path.endsWith("/settings/building") && canEditBuilding) return "building" as const;
-    if (path.endsWith("/settings/profile")) return "profile" as const;
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "building" && canEditBuilding) return "building" as const;
-    if (t === "platform" && canEditPlatform) return "platform" as const;
-    return "profile" as const;
-  })();
-  const [activeTab, setActiveTab] = useState<"building" | "profile" | "platform">(initialTab);
 
-  const tabs = [
-    { key: "profile" as const, label: "내정보 수정", icon: User },
-    ...(canEditBuilding ? [{ key: "building" as const, label: "건물정보 수정", icon: Building }] : []),
-    ...(canEditPlatform ? [{ key: "platform" as const, label: "플랫폼 BM", icon: Coins }] : []),
-  ];
+  // 정규화 — wouter 의 location 은 base 가 제거된 값이므로 그대로 사용.
+  const path = location.split("?")[0].split("#")[0];
 
-  return (
-    <div className="space-y-6 pb-24">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <SettingsIcon className="w-6 h-6" />
-          설정
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">내정보 및 건물정보를 관리합니다</p>
-      </div>
+  if (path === "/settings/building") {
+    if (!canEditBuilding) return <Redirect to="/settings/profile" />;
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+        <BuildingSetup />
+      </Suspense>
+    );
+  }
 
-      <div className="flex gap-1 border-b">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+  if (path === "/settings/platform") {
+    if (!canEditPlatform) return <Redirect to="/settings/profile" />;
+    return <PlatformSettings />;
+  }
 
-      {activeTab === "profile" && <ProfileSettings />}
-      {activeTab === "building" && (
-        <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-          <BuildingSetup />
-        </Suspense>
-      )}
-      {activeTab === "platform" && <PlatformSettings />}
-    </div>
-  );
+  // 기본: /settings/profile (또는 알 수 없는 /settings/* 진입).
+  return <ProfileSettings />;
 }
 
 function PlatformSettings() {

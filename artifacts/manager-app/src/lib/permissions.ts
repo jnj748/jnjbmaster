@@ -639,15 +639,9 @@ export const ROUTES: RouteEntry[] = [
     label: "업무 템플릿 관리", icon: ClipboardList, group: "settings",
     access: ["platform_admin"],
   },
-  {
-    path: "/settings", component: SettingsPage,
-    label: "설정", icon: Settings, group: "settings",
-    access: ["manager", "platform_admin", "hq_executive", "accountant", "facility_staff"],
-    // [메뉴 분리] /settings 루트는 사이드바에서 숨기고, 하위 메뉴 두 개로 분리한다.
-    //   - /settings/profile  → 내정보 수정
-    //   - /settings/building → 건물정보 수정 (manager / platform_admin)
-    sideMenu: [],
-  },
+  // [Task #485] /settings 루트는 App.tsx 의 정적 리다이렉트가 처리한다
+  //   (레거시 ?tab=building / ?tab=platform 쿼리도 함께 흡수). ROUTES 에는
+  //   하위 단독 페이지 3 개만 등록한다.
   {
     path: "/settings/profile", component: SettingsPage,
     label: "내정보 수정", icon: User, group: "settings",
@@ -659,6 +653,19 @@ export const ROUTES: RouteEntry[] = [
     label: "건물정보 수정", icon: Building, group: "settings",
     access: ["manager", "platform_admin"],
     sideMenu: ["manager", "platform_admin"],
+  },
+  {
+    // [Task #485] 플랫폼 BM (수익화 정책·크레딧·수수료) 단독 페이지.
+    //   기존 /settings 의 "플랫폼 BM" 탭을 분리해 별도 라우트·메뉴로 노출한다.
+    //   사이드바 노출은 두 곳에서 결정되므로 변경 시 양쪽을 함께 업데이트해야 한다:
+    //     1) hq_executive: 여기 `sideMenu` 로 일반 사이드바에 추가
+    //     2) platform_admin: `platformAdminSidebar()` 의 "설정" 그룹에서 직접 push
+    //   (platform_admin 사이드바는 기능별로 큐레이션되므로 ROUTES 의 sideMenu 가
+    //   아니라 별도 함수에서 구성하는 것이 본 코드베이스의 기존 패턴이다.)
+    path: "/settings/platform", component: SettingsPage,
+    label: "플랫폼 BM", icon: Coins, group: "settings",
+    access: ["platform_admin", "hq_executive"],
+    sideMenu: ["hq_executive"],
   },
   // [플랫폼 메뉴 정비] 역할×메뉴 활성/비활성 그리드. 플랫폼 전용.
   //   사이드바 노출은 platformAdminSidebar() 가 직접 추가하므로 여기서는 hidden.
@@ -857,6 +864,8 @@ function platformAdminSidebar(): NavSection[] {
         { path: "/settings/menu-overrides", label: "유저유형별 메뉴 활성화", icon: Settings },
         { path: "/settings/profile", label: "내정보 수정", icon: User },
         { path: "/settings/building", label: "건물정보 수정", icon: Building },
+        // [Task #485] 플랫폼 BM 은 별도 단독 페이지로 분리.
+        { path: "/settings/platform", label: "플랫폼 BM", icon: Coins },
       ],
     },
   ];

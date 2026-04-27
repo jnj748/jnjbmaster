@@ -73,7 +73,7 @@ export default function PlatformQuoteCreditPoliciesPage() {
         </CardHeader>
         <CardContent className="text-sm space-y-1">
           <p>
-            <Link href="/settings?tab=platform" className="text-primary underline">
+            <Link href="/settings/platform" className="text-primary underline">
               플랫폼 BM 설정 (지역별 단가표 / 수수료율)
             </Link>
             <span className="text-muted-foreground"> — 시도/시군구 단위 단가는 기존 화면에서 관리합니다.</span>

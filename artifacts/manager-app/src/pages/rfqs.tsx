@@ -427,14 +427,15 @@ export default function Rfqs() {
                     현재 선택된 건물 정보가 비어 있어 견적 요청을 생성할 수 없습니다. 건물 정보(이름·주소)를 먼저 등록해주세요.
                   </p>
                   {/* [Task #475] 건물 설정으로 한 번에 이동할 수 있는 우회 동선.
-                       주소 카드(#address-info) 로 즉시 스크롤되도록 hash 를 함께 보낸다. */}
+                       주소 카드(#address-info) 로 즉시 스크롤되도록 hash 를 함께 보낸다.
+                       [Task #485] 단독 페이지 분리 후 진입점은 /settings/building. */}
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => {
                       setDialogOpen(false);
-                      setLocation("/building-setup#address-info");
+                      setLocation("/settings/building#address-info");
                     }}
                     className="border-amber-400 text-amber-900 hover:bg-amber-100"
                     data-testid="rfq-go-to-building-setup"

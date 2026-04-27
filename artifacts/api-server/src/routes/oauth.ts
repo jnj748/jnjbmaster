@@ -164,7 +164,8 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
       .from(userSocialAccountsTable)
       .where(and(eq(userSocialAccountsTable.provider, provider), eq(userSocialAccountsTable.providerUserId, profile.providerUserId)));
     if (existing && existing.userId !== state.linkUserId) {
-      res.redirect(frontendUrl(`/settings#error=already_linked_to_other_account`));
+      // [Task #485] 내정보 수정 단독 페이지로 이동.
+      res.redirect(frontendUrl(`/settings/profile#error=already_linked_to_other_account`));
       return;
     }
     if (!existing) {
@@ -176,7 +177,7 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
         displayName: profile.name,
       }).onConflictDoNothing();
     }
-    res.redirect(frontendUrl(`/settings#linked=${provider}`));
+    res.redirect(frontendUrl(`/settings/profile#linked=${provider}`));
     return;
   }
 

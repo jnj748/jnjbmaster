@@ -11,7 +11,8 @@
 //   /onboarding, /tenant-card/* (외부 토큰), /__layout-check (DEV 전용)
 //   /settings 는 Gate1 완료 전에는 차단(요구사항: 모든 라우트 → /onboarding 강제).
 //   [Task #141] /building-setup 라우트 폐지 — 온보딩 위저드(/onboarding/manager) 또는
-//   설정 화면 건물정보 탭(/settings?tab=building)으로 일원화.
+//   설정 화면의 건물정보 수정으로 일원화.
+//   [Task #485] 설정의 건물정보 수정은 단독 페이지(/settings/building)로 분리됨.
 
 import { useEffect } from "react";
 import { useLocation } from "wouter";

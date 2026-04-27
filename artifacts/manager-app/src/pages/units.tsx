@@ -347,7 +347,8 @@ export default function UnitsPage() {
           {/* [Task #437] 헤더 우측의 "대장 동기화" 진입점은 제거. 첫 등록 동선은
               아래 빈 상태 컴포넌트의 "대장 동기화" 버튼으로 단일화하고, 호실이
               등록된 이후 재동기화는 건물정보 수정 메뉴(/settings/building?tab=
-              units-import)에서만 진행한다. */}
+              units-import)에서만 진행한다.
+              [Task #485] 단독 페이지 분리 후에도 동일 경로 유지. */}
         </div>
       </div>
 

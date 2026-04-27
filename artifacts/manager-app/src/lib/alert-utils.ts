@@ -37,7 +37,7 @@ export const ALERT_FALLBACK_ROUTES: Record<string, string> = {
   tax_due: "/tax-schedules",
   task_overdue: "/tasks",
   task_followup: "/tasks",
-  warranty_expiry: "/settings?tab=building",
+  warranty_expiry: "/settings/building",
 };
 
 // alert.type → alertActions.relatedEntityType 변환.

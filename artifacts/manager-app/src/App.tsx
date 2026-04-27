@@ -40,6 +40,9 @@ const PartnerWizardPage = lazy(() => import("@/pages/onboarding/partner-wizard")
 const FacilityPendingPage = lazy(() => import("@/pages/onboarding/facility-pending"));
 const DocumentPreviewPage = lazy(() => import("@/pages/document-preview"));
 const RecentDocumentsPage = lazy(() => import("@/pages/recent-documents"));
+// [Task #485] 권한 부족으로 routes.map 에 마운트되지 않은 /settings/* 진입을
+//   전역 catch-all 보다 먼저 잡아 SettingsPage 의 안전 리다이렉트로 흘려보낸다.
+const SettingsPageLazy = lazy(() => import("@/pages/settings"));
 // 레이아웃 진단 페이지는 개발 환경에서만 번들에 포함합니다.
 const LayoutCheck = import.meta.env.DEV
   ? lazy(() => import("@/pages/layout-check"))
@@ -66,6 +69,37 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// [Task #485] 레거시 /settings(?tab=...) 진입을 새 단독 페이지로 흡수.
+//   - ?tab=building → /settings/building
+//   - ?tab=platform → /settings/platform
+//   - 그 외/없음   → /settings/profile
+//   기존 북마크 호환을 위해 ?tab 외의 쿼리와 #해시(예: OAuth 콜백 #linked=...)는
+//   그대로 새 경로에 보존한다.
+function preserveSearchAndHash(targetPath: string, dropParams: string[] = []): string {
+  if (typeof window === "undefined") return targetPath;
+  const search = new URLSearchParams(window.location.search);
+  for (const k of dropParams) search.delete(k);
+  const qs = search.toString();
+  const hash = window.location.hash || "";
+  return `${targetPath}${qs ? `?${qs}` : ""}${hash}`;
+}
+
+function SettingsRootRedirect() {
+  const search =
+    typeof window !== "undefined" ? window.location.search : "";
+  const tab = new URLSearchParams(search).get("tab");
+  if (tab === "building") return <Redirect to={preserveSearchAndHash("/settings/building", ["tab"])} />;
+  if (tab === "platform") return <Redirect to={preserveSearchAndHash("/settings/platform", ["tab"])} />;
+  return <Redirect to={preserveSearchAndHash("/settings/profile", ["tab"])} />;
+}
+
+// [Task #485] /building-setup 레거시 북마크는 /settings/building 으로 흡수하되
+//   딥링크 동작 보존을 위해 쿼리(예: ?tab=units-import)와 해시(예: #address-info)는
+//   그대로 신규 경로에 전달한다.
+function BuildingSetupRedirect() {
+  return <Redirect to={preserveSearchAndHash("/settings/building")} />;
+}
 
 // [Task #174] 신규 관리소장은 OnboardingModal/`/onboarding` 진행 카드 대신
 // 새로운 모바일 위저드(`/onboarding/manager`)로 직행한다. 레거시 면제 계정은 영향 없음.
@@ -176,8 +210,15 @@ function AuthenticatedRoutes() {
                 )}
                 <Route path="/tenant-card/:token" component={TenantCardForm} />
                 {/* [Task #141] 폐지된 라우트의 레거시 북마크는 흡수된 화면(또는 탭)으로 안내. */}
+                {/* [Task #485] /building-setup 은 새 단독 페이지(/settings/building)로 직행.
+                    쿼리(예: ?tab=units-import)·해시(예: #address-info)는 보존. */}
                 <Route path="/building-setup">
-                  <Redirect to="/settings?tab=building" />
+                  <BuildingSetupRedirect />
+                </Route>
+                {/* [Task #485] /settings 루트와 레거시 ?tab=building / ?tab=platform 쿼리는
+                    새 단독 페이지로 흡수한다. (북마크·외부 링크 호환) */}
+                <Route path="/settings">
+                  <SettingsRootRedirect />
                 </Route>
                 <Route path="/owners">
                   <Redirect to="/units?tab=owners" />
@@ -200,6 +241,16 @@ function AuthenticatedRoutes() {
                   const Component = enabled ? r.component : FeatureUnavailablePage;
                   return <Route key={r.path} path={r.path} component={Component} />;
                 })}
+                {/* [Task #485] 권한이 없어 routes.map 에서 마운트되지 않은 설정
+                    하위 페이지(/settings/building, /settings/platform)에 직접
+                    진입한 경우, 전역 catch-all 로 빠져 "/" 로 튕기는 대신 SettingsPage
+                    가 권한 검사 후 /settings/profile 로 안전하게 안내하도록 한다.
+                    routes.map 의 정상 마운트가 우선이고, 이 catch 는 마지막 fallback.
+                    예: 경리/시설기사가 /settings/building 으로 진입,
+                        매니저가 /settings/platform 으로 진입. */}
+                <Route path="/settings/profile" component={SettingsPageLazy} />
+                <Route path="/settings/building" component={SettingsPageLazy} />
+                <Route path="/settings/platform" component={SettingsPageLazy} />
                 <Route>
                   <Redirect to="/" />
                 </Route>

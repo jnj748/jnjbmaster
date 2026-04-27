@@ -117,7 +117,7 @@ function SidebarContent({ navLinks, user, logout, base, isPartner }: {
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {!isPartner && (
-                <Link href="/settings">
+                <Link href="/settings/profile">
                   <button className="p-1.5 text-sidebar-foreground/50 hover:text-white rounded transition-colors" title="설정">
                     <Settings className="w-4 h-4" />
                   </button>
