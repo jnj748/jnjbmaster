@@ -1,0 +1,82 @@
+[
+  {
+    "id": "01a8b6d2-0c8c-4a01-9b54-1f7c0a52b001",
+    "position": 1,
+    "filepath": "src/pages/slides/Cover.tsx",
+    "title": "표지",
+    "description": "관리의달인 · 관리소장 모드 표지 슬라이드",
+    "speakerNotes": ""
+  },
+  {
+    "id": "8a9d3a72-46a2-4b5b-9d74-2f9d2a1e3a02",
+    "position": 2,
+    "filepath": "src/pages/slides/PainPoints.tsx",
+    "title": "문제 제기",
+    "description": "기존 관리소장 업무의 4가지 페인포인트",
+    "speakerNotes": ""
+  },
+  {
+    "id": "ba1f6e08-7c83-4e1d-9a72-3f4a8b1d4c03",
+    "position": 3,
+    "filepath": "src/pages/slides/SolutionOverview.tsx",
+    "title": "솔루션 개요",
+    "description": "5대 서비스 한 화면 요약",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c2e74a51-8d6f-4d2a-bc8b-5a6b9c2e5d04",
+    "position": 4,
+    "filepath": "src/pages/slides/Service1.tsx",
+    "title": "서비스 1 · 건물정보 AI 분석",
+    "description": "건물정보 데이터 AI 분석 서비스 상세",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d3f85b62-9e7a-4f3b-cd9c-6b7c0d3f6e05",
+    "position": 5,
+    "filepath": "src/pages/slides/Service2.tsx",
+    "title": "서비스 2 · 법정업무 자동알림",
+    "description": "법정 필수업무·추천 업무 자동알림 처리",
+    "speakerNotes": ""
+  },
+  {
+    "id": "e4096c73-af8b-4a4c-de0d-7c8d1e4a7f06",
+    "position": 6,
+    "filepath": "src/pages/slides/Service3.tsx",
+    "title": "서비스 3 · 사진 한 장 업무 완료",
+    "description": "사진만 찍으면 업무기록·처리 완료",
+    "speakerNotes": ""
+  },
+  {
+    "id": "f5107d84-b09c-4b5d-ef1e-8d9e2f5b8a07",
+    "position": 7,
+    "filepath": "src/pages/slides/Service4.tsx",
+    "title": "서비스 4 · 보고서 자동작성",
+    "description": "공고문·보고서·기안서·업무일지 자동작성",
+    "speakerNotes": ""
+  },
+  {
+    "id": "06218e95-c1ad-4c6e-f02f-9e0f3a6c9b08",
+    "position": 8,
+    "filepath": "src/pages/slides/Service5.tsx",
+    "title": "서비스 5 · 파트너사 비교견적",
+    "description": "동일 기준 다중 견적 비교와 적정가 추천",
+    "speakerNotes": ""
+  },
+  {
+    "id": "17329fa6-d2be-4d7f-013a-af1a4b7daa09",
+    "position": 9,
+    "filepath": "src/pages/slides/Impact.tsx",
+    "title": "도입 효과",
+    "description": "도입 후 기대 가치 4종 (예시 목표치)",
+    "speakerNotes": ""
+  },
+  {
+    "id": "2843a0b7-e3cf-4e8a-124b-b02b5c8ebb10",
+    "position": 10,
+    "filepath": "src/pages/slides/Closing.tsx",
+    "title": "마무리 · CTA",
+    "description": "도입 문의 안내와 클로징 메시지",
+    "speakerNotes": ""
+  }
+]

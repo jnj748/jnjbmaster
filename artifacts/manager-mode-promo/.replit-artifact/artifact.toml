@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/manager-mode-promo/"
+title = "관리소장 모드 홍보 데크"
+version = "1.0.0"
+id = "artifacts/manager-mode-promo"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/manager-mode-promo/" ]
+localPort = 19753
+
+[services.development]
+run = "pnpm --filter @workspace/manager-mode-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manager-mode-promo", "run", "build" ]
+publicDir = "artifacts/manager-mode-promo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19753"
+BASE_PATH = "/manager-mode-promo/"
