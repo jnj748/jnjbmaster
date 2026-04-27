@@ -95,6 +95,10 @@ interface BuildingState {
     title?: Record<string, unknown> | null;
     recap?: Record<string, unknown> | null;
   } | null;
+  // [Task #489] 건축물대장 관리PK(mgmBldrgstPk). 위저드에서 lookup-register 응답으로 받은
+  // 값을 슬롯에 보존했다가 POST/PUT 페이로드에 그대로 실어 buildings.building_register_pk
+  // 컬럼을 NULL 이 아닌 상태로 저장한다. 호실 일괄 가져오기 게이트와 백엔드 매칭에 사용.
+  buildingRegisterPk?: string | null;
 }
 
 interface SafetyField {
@@ -133,6 +137,8 @@ const EMPTY: BuildingState = {
   logoUrl: null,
   managementOfficePhone: "",
   registerData: null,
+  // [Task #489] 신규 위저드 진입 시 식별자는 비어 있다.
+  buildingRegisterPk: null,
 };
 
 const INS_DEFS: Record<string, { category: string; name: string; title: string; help: string }> = {
@@ -174,6 +180,11 @@ export default function ManagerWizardPage() {
       // 사용자가 대시보드로 이동하자마자 (테스트업무) 4건이 즉시 보이게 한다.
       void queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      // [Task #489] BuildingProvider 캐시(`["building","my", userId]`) 도 함께 무효화한다.
+      //   위저드에서 막 저장한 건물명/시도·시군구/식별자가 즉시 RFQ 다이얼로그·다른
+      //   화면에 반영되도록 보장(stale 캐시 때문에 "남은 필수 항목: 건물 정보" 가
+      //   표기되는 회귀를 차단). userId 가 무엇이든 prefix 매칭으로 한 번에 처리.
+      void queryClient.invalidateQueries({ queryKey: ["building", "my"] });
     }
   }
 
@@ -197,22 +208,59 @@ export default function ManagerWizardPage() {
 
   // ── 부팅: 다음 우편번호 SDK + 기존 건물 로드 ──
   useEffect(() => {
+    // [Task #489] use-building-setup 와 동일하게 "스크립트 태그 존재"가 아니라
+    //   "window.daum.Postcode 가 실제로 정의됐는지" 를 확인한 뒤 게이트를 푼다.
+    //   기존 코드는 위저드 → 건물설정 → 위저드 재진입 등의 시나리오에서 SDK 가
+    //   아직 준비되지 않은 채 ready=true 가 되면서 .open() 호출 시 토스트 안내가
+    //   잘못 노출되는 회귀를 야기했다. 폴링은 100ms × 최대 100회(약 10초)로 상한을
+    //   두어 네트워크/CSP/광고차단으로 SDK 가 영영 안 뜨는 환경에서 무한 타이머가
+    //   돌지 않도록 한다.
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
+    const ensureReady = () => {
+      if (cancelled) return;
+      const w = window as Window & { daum?: { Postcode?: unknown } };
+      if (w.daum?.Postcode) {
+        setPostcodeReady(true);
+        return;
+      }
+      attempts += 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        toast({
+          title: "주소검색 모듈을 불러오지 못했습니다. 네트워크를 확인 후 새로고침해 주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      window.setTimeout(ensureReady, 100);
+    };
     if (!document.getElementById("daum-postcode-script")) {
       const s = document.createElement("script");
       s.id = "daum-postcode-script";
       s.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      s.onload = () => setPostcodeReady(true);
+      s.onload = ensureReady;
+      s.onerror = () => {
+        if (cancelled) return;
+        toast({
+          title: "주소검색 모듈을 불러오지 못했습니다. 네트워크를 확인해 주세요.",
+          variant: "destructive",
+        });
+      };
       document.head.appendChild(s);
     } else {
-      setPostcodeReady(true);
+      ensureReady();
     }
-    if (!token) return;
+    if (!token) return () => { cancelled = true; };
     fetch(`${API_BASE}/buildings/my`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => {
         if (d.building) hydrateBuilding(d.building);
       })
       .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   function hydrateBuilding(b: Record<string, unknown>) {
@@ -243,6 +291,11 @@ export default function ManagerWizardPage() {
       // 실행하지 않은 채 위저드를 저장해도 raw 응답이 사라지지 않도록 한다.
       registerData:
         (b.registerData as BuildingState["registerData"]) ?? prev.registerData ?? null,
+      // [Task #489] 기존 건물 재진입 시 서버에서 받은 mgmBldrgstPk 를 위저드 상태에
+      // 복원한다. 서버 응답이 비었더라도 위저드에서 새로 받은 값이 있다면 보존한다
+      // (use-building-setup 의 동일 위치 머지 규칙과 동일).
+      buildingRegisterPk:
+        (b.buildingRegisterPk as string | null) ?? prev.buildingRegisterPk ?? null,
     }));
   }
 
@@ -357,6 +410,12 @@ export default function ManagerWizardPage() {
             elevatorCount: x.elevatorCount ? String(x.elevatorCount) : merged.elevatorCount,
             parkingSpaces: x.parkingCount ? String(x.parkingCount) : merged.parkingSpaces,
             registerData: nextRegisterData ?? merged.registerData ?? null,
+            // [Task #489] 건축물대장 관리PK(mgmBldrgstPk) 를 위저드 상태에 즉시 반영해
+            // 이후 POST/PUT 페이로드에 함께 실려 buildings.building_register_pk 컬럼이
+            // NULL 로 남지 않도록 한다. 빈 응답이 오면 기존 값을 보존한다.
+            buildingRegisterPk: x.mgmBldrgstPk
+              ? String(x.mgmBldrgstPk)
+              : merged.buildingRegisterPk ?? null,
           };
         }
       }
@@ -402,6 +461,10 @@ export default function ManagerWizardPage() {
         safetyManagerType: safetyJson?.safetyManagerType ?? null,
         // [Task #328] 표제부/총괄표제부 응답 원본을 함께 전송해 buildings.register_data 컬럼에 저장한다.
         registerData: merged.registerData ?? null,
+        // [Task #489] mgmBldrgstPk 영속화. 서버 BUILDING_TEXT_FIELDS 화이트리스트가
+        // 이미 buildingRegisterPk 를 허용하므로 페이로드에 함께 실어 보내면
+        // POST/PUT 어느 경로로 끝내든 buildings.building_register_pk 컬럼이 채워진다.
+        buildingRegisterPk: merged.buildingRegisterPk ?? null,
       };
       const method = merged.id ? "PUT" : "POST";
       const url = merged.id ? `${API_BASE}/buildings/${merged.id}` : `${API_BASE}/buildings`;
@@ -423,6 +486,15 @@ export default function ManagerWizardPage() {
         return;
       }
       merged.id = saveJson.building.id;
+      // [Task #489] 저장 응답으로 받은 building 행에서 식별자/주소·시도/시군구·이름 등
+      // 을 위저드 상태로 되돌려 채워, 이후 단계(name/PUT, finalize/closeWizard)에서
+      // 누락 없이 사용할 수 있게 한다(특히 building_register_pk).
+      const saved = saveJson.building as Record<string, unknown>;
+      merged.buildingRegisterPk =
+        (saved.buildingRegisterPk as string | null) ?? merged.buildingRegisterPk ?? null;
+      merged.name = (saved.name as string) || merged.name;
+      merged.sido = (saved.sido as string) ?? merged.sido;
+      merged.sigungu = (saved.sigungu as string) ?? merged.sigungu;
       setBuilding(merged);
       // [Task #278] 건물 정보 저장 성공 직후 (POST/PUT 무관) 멱등 시드 보장.
       // finalize/closeWizard 의 다중 안전망은 그대로 두고, 저장→다음 단계 사이의
@@ -513,6 +585,9 @@ export default function ManagerWizardPage() {
         return false;
       }
       setBuilding((p) => ({ ...p, name, managementOfficePhone: phone }));
+      // [Task #489] 이름이 막 저장됐으니 BuildingProvider 캐시도 즉시 무효화한다.
+      //   RFQ 다이얼로그의 buildingReady 체크가 stale 캐시(=빈 이름)로 막히지 않게 한다.
+      void queryClient.invalidateQueries({ queryKey: ["building", "my"] });
       return true;
     } catch (e) {
       toast({

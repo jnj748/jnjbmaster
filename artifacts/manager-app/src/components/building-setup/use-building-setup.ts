@@ -114,15 +114,54 @@ export function useBuildingSetup() {
   useEffect(() => {
     fetchBuilding();
     fetchPresets();
-    if (!document.getElementById("daum-postcode-script")) {
+    // [Task #489] 카카오 우편번호 SDK 로딩 게이트.
+    //   기존 코드는 "스크립트 태그가 DOM 에 존재"하기만 하면 즉시 postcodeLoaded=true 로
+    //   바꿔, `window.daum.Postcode` 가 아직 정의되지 않은 시점에 임베드 effect 가 한 번
+    //   실행 후 빈 컨테이너로 닫혀 버리는 회귀를 만들었다(주소 다시 조회 다이얼로그가
+    //   빈 화면으로 뜨는 원인). 스크립트 객체와 SDK 준비 여부를 분리해서, SDK 가 실제로
+    //   준비된 시점에만 게이트를 풀도록 폴링한다. 폴링은 100ms × 최대 100회(약 10초)로
+    //   상한을 두고, 그 시점까지도 SDK 가 안 떠 있으면 토스트로 안내한 뒤 폴링을 종료한다
+    //   (네트워크/CSP/광고차단으로 스크립트 자체가 막히는 환경에서 무한 타이머 방지).
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
+    const ensureLoaded = () => {
+      if (cancelled) return;
+      const w = window as Window & { daum?: { Postcode?: unknown } };
+      if (w.daum?.Postcode) {
+        setPostcodeLoaded(true);
+        return;
+      }
+      attempts += 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        toast({
+          title: "주소검색 모듈을 불러오지 못했습니다. 네트워크를 확인 후 새로고침해 주세요.",
+          variant: "destructive",
+        });
+        return;
+      }
+      window.setTimeout(ensureLoaded, 100);
+    };
+    const existing = document.getElementById("daum-postcode-script") as HTMLScriptElement | null;
+    if (!existing) {
       const script = document.createElement("script");
       script.id = "daum-postcode-script";
       script.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      script.onload = () => setPostcodeLoaded(true);
+      script.onload = ensureLoaded;
+      script.onerror = () => {
+        if (cancelled) return;
+        toast({
+          title: "주소검색 모듈을 불러오지 못했습니다. 네트워크를 확인해 주세요.",
+          variant: "destructive",
+        });
+      };
       document.head.appendChild(script);
     } else {
-      setPostcodeLoaded(true);
+      ensureLoaded();
     }
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -322,20 +361,46 @@ export function useBuildingSetup() {
   }
 
   // 다이얼로그가 열리고 컨테이너가 렌더되면 해당 div 안에 임베드한다.
+  // [Task #489] SDK(`window.daum.Postcode`) 또는 컨테이너 ref 가 아직 준비되지 않은
+  //   시점에 effect 가 한 번만 실행되면 빈 화면으로 그대로 닫혀 버리는 회귀가 있었다.
+  //   ref/SDK 가 준비될 때까지 짧은 간격으로 재시도해 임베드를 보장한다.
   useEffect(() => {
     if (!postcodeOpen) return;
-    if (!window.daum?.Postcode) return;
-    const el = postcodeContainerRef.current;
-    if (!el) return;
-    el.innerHTML = "";
-    try {
-      const inst = new window.daum.Postcode(buildPostcodeOptions());
-      postcodeInstanceRef.current = inst;
-      (inst as unknown as { embed: (e: HTMLElement) => void }).embed(el);
-    } catch (e) {
-      toast({ title: "주소검색을 열 수 없습니다", description: String(e), variant: "destructive" });
-      setPostcodeOpen(false);
-    }
+    let cancelled = false;
+    let timer: number | null = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100; // 100 × 100ms = 10s 상한.
+    const tryEmbed = () => {
+      if (cancelled) return;
+      const el = postcodeContainerRef.current;
+      if (!el || !window.daum?.Postcode) {
+        attempts += 1;
+        if (attempts >= MAX_ATTEMPTS) {
+          toast({
+            title: "주소검색을 열 수 없습니다. 네트워크를 확인 후 다시 시도해 주세요.",
+            variant: "destructive",
+          });
+          setPostcodeOpen(false);
+          return;
+        }
+        timer = window.setTimeout(tryEmbed, 100);
+        return;
+      }
+      el.innerHTML = "";
+      try {
+        const inst = new window.daum.Postcode(buildPostcodeOptions());
+        postcodeInstanceRef.current = inst;
+        (inst as unknown as { embed: (e: HTMLElement) => void }).embed(el);
+      } catch (e) {
+        toast({ title: "주소검색을 열 수 없습니다", description: String(e), variant: "destructive" });
+        setPostcodeOpen(false);
+      }
+    };
+    tryEmbed();
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postcodeOpen, postcodeLoaded]);
 
