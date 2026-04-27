@@ -162,6 +162,13 @@
       "when": 1778000000000,
       "tag": "0022_task436_vendor_contract_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1778100000000,
+      "tag": "0025_task488_notice_templates_v2",
+      "breakpoints": true
     }
   ]
 }
