@@ -24,15 +24,8 @@ import {
   useListVehicles,
   useGetUnitsSummary,
 } from "@workspace/api-client-react";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link, useLocation } from "wouter";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
@@ -43,11 +36,8 @@ import {
   ListChecks,
   FileText,
   Building2,
-  Trash2,
-  FolderOpen,
   Car,
 } from "lucide-react";
-import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
 import { AlertActionDialog } from "@/components/alert-action-dialog";
 import {
   type DashboardAlert,
@@ -66,6 +56,8 @@ import { AlertSection } from "./alert-section-widget";
 import { TodayWorkLogEntry } from "./today-work-log-entry-widget";
 import { FeesSummaryWidget } from "./fees-summary-widget";
 import { SeasonalSuggestionsCard } from "./seasonal-suggestions-widget";
+import { DataDestructionSection } from "./data-destruction-section";
+import { DocumentsLinkPair } from "./documents-link-pair";
 
 export default function ManagerMainWidget() {
   const { user } = useAuth();
@@ -75,7 +67,6 @@ export default function ManagerMainWidget() {
   // 에 포함되어 내려오므로 별도 fetch 가 필요하지 않다. (single source of truth)
   const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
   const { data: analytics } = useGetDashboardAnalytics({ query: { staleTime: 5 * 60 * 1000 } });
-  const [showDestructionDialog, setShowDestructionDialog] = useState(false);
   const summaryReady = !summaryLoading && !!summary;
   const { data: tenants } = useListTenants({ status: "active" }, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
   const { data: vehicles } = useListVehicles(undefined, { query: { enabled: summaryReady, staleTime: 5 * 60 * 1000 } });
@@ -279,46 +270,8 @@ export default function ManagerMainWidget() {
 
           <TodayWorkLogEntry />
 
-          {/* [Task #250] 문서 산출물 진입(최근 문서함) + 처리 내역 진입을 한 묶음으로 그룹핑. */}
-          <div className="space-y-2 sm:space-y-2.5">
-            <Link href="/recent-documents">
-              <button
-                type="button"
-                data-testid="btn-recent-documents"
-                className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
-              >
-                <span className="flex items-center gap-3 min-w-0">
-                  <FolderOpen className={`w-5 h-5 ${CATEGORY_ICON_CLASS.system} shrink-0`} />
-                  <span className="flex flex-col min-w-0">
-                    <span className="font-medium text-sm leading-tight">최근 문서함</span>
-                    <span className="text-[11px] sm:text-xs text-muted-foreground leading-snug truncate">
-                      기안·견적·공고·일지 보고서·외부 업로드
-                    </span>
-                  </span>
-                </span>
-                <span className="text-xs text-muted-foreground shrink-0">열기 →</span>
-              </button>
-            </Link>
-
-            <Link href="/work-log?tab=activity">
-              <button
-                type="button"
-                data-testid="btn-activity-log"
-                className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
-              >
-                <span className="flex items-center gap-3 min-w-0">
-                  <ListChecks className={`w-5 h-5 ${CATEGORY_ICON_CLASS.reports} shrink-0`} />
-                  <span className="flex flex-col min-w-0">
-                    <span className="font-medium text-sm leading-tight">처리 내역</span>
-                    <span className="text-[11px] sm:text-xs text-muted-foreground leading-snug truncate">
-                      메모·처리완료·일지를 시간순으로
-                    </span>
-                  </span>
-                </span>
-                <span className="text-xs text-muted-foreground shrink-0">열기 →</span>
-              </button>
-            </Link>
-          </div>
+          {/* [Task #250] 문서 산출물 진입(최근 문서함) + 처리 내역 진입 묶음. */}
+          <DocumentsLinkPair />
 
           {/* [Task #246] 관리비 요약 위젯. */}
           <div className="pt-2">
@@ -375,62 +328,10 @@ export default function ManagerMainWidget() {
             />
           </div>
 
-          {analytics && analytics.dataDestructionCount > 0 && (
-            <div className="bg-card border border-red-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                  <span className="text-sm text-red-800 font-medium">
-                    개인정보 파기 대상: {analytics.dataDestructionCount}건
-                  </span>
-                  <Badge variant="destructive" className="text-[10px] h-5">{analytics.dataDestructionCount}</Badge>
-                </div>
-                <button
-                  onClick={() => setShowDestructionDialog(true)}
-                  className="text-sm text-red-600 hover:underline font-medium"
-                >
-                  처리하기 →
-                </button>
-              </div>
-              <p className="text-xs text-red-700 ml-6 mt-1">
-                퇴거 후 개인정보 보유기간이 만료된 데이터가 있습니다. 개인정보보호법에 따라 즉시 파기 절차를 진행해 주세요.
-              </p>
-            </div>
-          )}
-
-          <ResponsiveDialog open={showDestructionDialog} onOpenChange={setShowDestructionDialog}>
-            <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <ResponsiveDialogHeader>
-                <ResponsiveDialogTitle className="flex items-center gap-2">
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                  개인정보 파기 대상 목록
-                </ResponsiveDialogTitle>
-              </ResponsiveDialogHeader>
-              <div className="space-y-3">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800 space-y-1">
-                  <p className="font-medium">파기 절차 안내</p>
-                  <p>1. 아래 대상자의 개인정보 파기 여부를 확인합니다.</p>
-                  <p>2. 관리규약 및 개인정보보호법에 따라 파기 대장을 작성합니다.</p>
-                  <p>3. 전자적 파일은 복구 불가능하게 삭제하고, 종이 서류는 파쇄 처리합니다.</p>
-                  <p>4. 파기 완료 후 파기 기록을 남기고 관리사무소장 확인을 받습니다.</p>
-                </div>
-                {analytics?.dataDestructionTargets.map((target) => (
-                  <div key={`${target.type}-${target.id}`} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium">{target.name} ({target.unit}호)</p>
-                      <p className="text-xs text-muted-foreground">
-                        {target.type === "tenant" ? "임차인" : "소유자"} · 퇴거일: {target.moveOutDate || "-"} · 파기기한: {target.destructionDate}
-                      </p>
-                    </div>
-                    <Badge variant="destructive" className="text-[10px]">파기 필요</Badge>
-                  </div>
-                ))}
-                {(!analytics?.dataDestructionTargets || analytics.dataDestructionTargets.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4">파기 대상이 없습니다</p>
-                )}
-              </div>
-            </ResponsiveDialogContent>
-          </ResponsiveDialog>
+          <DataDestructionSection
+            count={analytics?.dataDestructionCount ?? 0}
+            targets={analytics?.dataDestructionTargets ?? null}
+          />
 
           {/* [Task #413] 알림 처리 다이얼로그 — AlertActionDialog 로 추출됨. */}
           <AlertActionDialog
