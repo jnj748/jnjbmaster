@@ -169,6 +169,13 @@
       "when": 1778100000000,
       "tag": "0025_task488_notice_templates_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778200000000,
+      "tag": "0026_username_signup",
+      "breakpoints": true
     }
   ]
 }

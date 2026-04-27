@@ -5,7 +5,9 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, userId: number, userEmail: string): Promise<void> {
+// [Username 가입] userIdentifier 는 username ?? email 폴백 결과(없으면 빈 문자열).
+// 신규(아이디) 가입자는 email 이 NULL 이므로 호출부에서 username 우선 폴백.
+async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, userId: number, userIdentifier: string): Promise<void> {
   const reportDate = new Date(row.reportDate);
   const dayOfWeek = reportDate.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -53,7 +55,7 @@ async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, use
       totalDailyReports: 1,
       dailyReportIds: String(row.id),
       authorId: managerUser?.id ?? userId,
-      authorName: managerUser?.name ?? userEmail,
+      authorName: managerUser?.name ?? userIdentifier,
       status: "draft",
     });
   }
@@ -120,7 +122,7 @@ router.post("/daily-reports", async (req, res): Promise<void> => {
     .select({ name: usersTable.name })
     .from(usersTable)
     .where(eq(usersTable.id, user.userId))
-    .then((rows) => rows[0]?.name ?? user.email);
+    .then((rows) => rows[0]?.name ?? user.username ?? user.email ?? `사용자#${user.userId}`);
 
   const [row] = await db
     .insert(dailyReportsTable)
@@ -145,7 +147,7 @@ router.post("/daily-reports", async (req, res): Promise<void> => {
     relatedEntityId: row.id,
   });
 
-  await linkDailyToWeekly(row, user.userId, user.email);
+  await linkDailyToWeekly(row, user.userId, user.username ?? user.email ?? `사용자#${user.userId}`);
 
   res.status(201).json(serializeDaily(row));
 });
@@ -208,7 +210,7 @@ router.post("/daily-reports/:id/submit", async (req, res): Promise<void> => {
     relatedEntityId: row.id,
   });
 
-  await linkDailyToWeekly(row, user.userId, user.email);
+  await linkDailyToWeekly(row, user.userId, user.username ?? user.email ?? `사용자#${user.userId}`);
 
   res.json(serializeDaily(row));
 });
@@ -222,7 +224,7 @@ router.post("/daily-reports/:id/review", requireRole("manager", "platform_admin"
     .select({ name: usersTable.name })
     .from(usersTable)
     .where(eq(usersTable.id, user.userId))
-    .then((rows) => rows[0]?.name ?? user.email);
+    .then((rows) => rows[0]?.name ?? user.username ?? user.email ?? `사용자#${user.userId}`);
 
   const [row] = await db
     .update(dailyReportsTable)
@@ -269,7 +271,7 @@ router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"),
     .select({ name: usersTable.name })
     .from(usersTable)
     .where(eq(usersTable.id, user.userId))
-    .then((rows) => rows[0]?.name ?? user.email);
+    .then((rows) => rows[0]?.name ?? user.username ?? user.email ?? `사용자#${user.userId}`);
 
   const dailyReports = await db.select().from(dailyReportsTable);
   const weekDailyReports = dailyReports.filter(
@@ -435,7 +437,7 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
   }
 
   const userRow = await db.select().from(usersTable).where(eq(usersTable.id, user.userId)).then(r => r[0]);
-  const userName = userRow?.name ?? user.email;
+  const userName = userRow?.name ?? user.username ?? user.email ?? `사용자#${user.userId}`;
   const buildingId = userRow?.buildingId ?? null;
 
   if (!buildingId) {

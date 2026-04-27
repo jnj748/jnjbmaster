@@ -11,7 +11,13 @@ export const userApprovalStatuses = ["active", "pending", "rejected"] as const;
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  // [Username 가입] 신규 가입은 이메일이 아닌 username 으로 받는다.
+  //   - 기존(이메일) 가입자/소셜 가입자는 email 이 채워지고 username 은 NULL.
+  //   - 신규 가입자는 username 이 채워지고 email 은 NULL.
+  //   - 둘 다 unique. PG 의 UNIQUE 는 다중 NULL 을 허용하므로 둘 다 nullable
+  //     이어도 식별자 충돌 없이 안전하다. 마이그레이션 0026 참고.
+  email: text("email").unique(),
+  username: text("username").unique(),
   passwordHash: text("password_hash"),
   name: text("name").notNull(),
   role: text("role", { enum: userRoles }).notNull(),

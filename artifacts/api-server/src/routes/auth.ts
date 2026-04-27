@@ -1,21 +1,38 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { db, usersTable, platformConsentsTable, platformConsentTypes, facilityStaffSignupRequestsTable, buildingsTable, userRoles, portalTypes } from "@workspace/db";
 import { resolveTargetsAndNotify } from "./facilitySignupRequests";
 import { signToken, authMiddleware } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+// [Username 가입] 아이디 규칙: 영문 소문자로 시작, 영문 소문자 + 숫자, 4~20자.
+//   서버에서도 다시 검증해 클라이언트 우회/구버전 클라이언트로부터 보호한다.
+const USERNAME_RE = /^[a-z][a-z0-9]{3,19}$/;
+// 시스템에서 예약해 사용하는 식별자(자동 로그인 등). 가입을 막는다.
+const RESERVED_USERNAMES = new Set(["auto", "admin", "root", "system", "manager"]);
+
 router.post("/auth/register", async (req, res): Promise<void> => {
   // [Task #132] 통합 가입: role/portalType은 옵션. 미지정 시 placeholder('manager'/'building')로 생성하고
   // role_selected=false 로 설정하여 /onboarding/role-select 에서 확정한다.
-  const { email, password, name, phone, consents } = req.body;
+  // [Username 가입] 회원가입은 이메일 대신 아이디(username)를 받는다. 기존 이메일
+  // 가입자/소셜 가입자는 영향이 없다(스키마 양쪽 컬럼 모두 nullable + unique).
+  const { username: rawUsername, password, name, phone, consents } = req.body ?? {};
   const requestedRole: string | undefined = req.body?.role;
   const requestedPortal: string | undefined = req.body?.portalType;
 
-  if (!email || !password || !name) {
+  const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
+  if (!username || !password || !name) {
     res.status(400).json({ error: "필수 항목을 모두 입력해주세요" });
+    return;
+  }
+  if (!USERNAME_RE.test(username)) {
+    res.status(400).json({ error: "아이디는 영문 소문자로 시작하고, 영문 소문자·숫자 4~20자여야 합니다" });
+    return;
+  }
+  if (RESERVED_USERNAMES.has(username)) {
+    res.status(400).json({ error: "사용할 수 없는 아이디입니다" });
     return;
   }
 
@@ -64,9 +81,15 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     roleSelected = true;
   }
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  // [Username 가입] username 중복 검사. 신규 가입은 email 컬럼을 비우므로
+  // email 충돌은 발생하지 않지만, 만일을 대비해 username 과 동일 문자열이
+  // 이메일 컬럼에 들어 있을 경우(예: 이전 자동 시드)도 함께 막는다.
+  const existing = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.username, username), eq(usersTable.email, username)));
   if (existing.length > 0) {
-    res.status(409).json({ error: "이미 등록된 이메일입니다" });
+    res.status(409).json({ error: "이미 사용 중인 아이디입니다" });
     return;
   }
 
@@ -124,7 +147,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   try {
     const result = await db.transaction(async (tx) => {
       const [createdUser] = await tx.insert(usersTable).values({
-        email,
+        // [Username 가입] email 은 NULL, username 만 채운다.
+        email: null,
+        username,
         passwordHash,
         name,
         role: role as typeof userRoles[number],
@@ -182,6 +207,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const token = signToken({
     userId: user.id,
     email: user.email,
+    username: user.username,
     role: user.role,
     portalType: user.portalType,
   });
@@ -191,6 +217,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     user: {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       role: user.role,
       phone: user.phone,
@@ -258,6 +285,7 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
     const newToken = signToken({
       userId: updatedUser.id,
       email: updatedUser.email,
+      username: updatedUser.username,
       role: updatedUser.role,
       portalType: updatedUser.portalType,
     });
@@ -267,6 +295,7 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
+        username: updatedUser.username,
         name: updatedUser.name,
         role: updatedUser.role,
         phone: updatedUser.phone,
@@ -284,16 +313,38 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
 
 router.post("/auth/login", async (req, res): Promise<void> => {
   // [Task #132] 통합 로그인: portalType 미지정 허용. 지정 시 hq 포털만 별도 검증.
-  const { email, password, portalType } = req.body;
+  // [Username 가입] 식별자(아이디 또는 이메일) 1개로 로그인. 키 이름은
+  // identifier / username / email 중 어느 것이라도 받는다(클라이언트별 호환).
+  // 매칭은 username 컬럼과 email 컬럼 양쪽을 OR 로 조회한다 — 신규 가입자는
+  // username, 기존(이메일) 가입자는 email 한 곳에만 값이 있어 충돌이 없다.
+  const body = req.body ?? {};
+  const rawIdentifier: unknown = body.identifier ?? body.username ?? body.email;
+  const password: unknown = body.password;
+  const portalType: string | undefined = body.portalType;
 
-  if (!email || !password) {
-    res.status(400).json({ error: "이메일과 비밀번호를 입력해주세요" });
+  const identifier = typeof rawIdentifier === "string" ? rawIdentifier.trim() : "";
+  if (!identifier || typeof password !== "string" || password.length === 0) {
+    res.status(400).json({ error: "아이디와 비밀번호를 입력해주세요" });
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  // 이메일은 대소문자 구분 없이 보관되는 케이스가 일반적이므로 두 형식
+  // 모두로 조회한다(소문자 정규화 + 원문). username 도 소문자 규칙이라
+  // 소문자 정규화로 통일.
+  const ident = identifier;
+  const identLower = identifier.toLowerCase();
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(
+      or(
+        eq(usersTable.username, identLower),
+        eq(usersTable.email, ident),
+        eq(usersTable.email, identLower),
+      ),
+    );
   if (!user) {
-    res.status(401).json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" });
+    res.status(401).json({ error: "아이디 또는 비밀번호가 올바르지 않습니다" });
     return;
   }
 
@@ -314,13 +365,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
-    res.status(401).json({ error: "이메일 또는 비밀번호가 올바르지 않습니다" });
+    res.status(401).json({ error: "아이디 또는 비밀번호가 올바르지 않습니다" });
     return;
   }
 
   const token = signToken({
     userId: user.id,
     email: user.email,
+    username: user.username,
     role: user.role,
     portalType: user.portalType,
   });
@@ -330,6 +382,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     user: {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       role: user.role,
       phone: user.phone,
@@ -341,6 +394,29 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       approvalStatus: user.approvalStatus,
     },
   });
+});
+
+// [Username 가입] 회원가입 폼에서 실시간 중복확인. 형식 검증 + 예약어 + DB 조회.
+router.get("/auth/check-username", async (req, res): Promise<void> => {
+  const raw = typeof req.query.username === "string" ? req.query.username : "";
+  const username = raw.trim().toLowerCase();
+  if (!username) {
+    res.status(400).json({ error: "아이디를 입력해주세요" });
+    return;
+  }
+  if (!USERNAME_RE.test(username)) {
+    res.json({ available: false, reason: "format" });
+    return;
+  }
+  if (RESERVED_USERNAMES.has(username)) {
+    res.json({ available: false, reason: "reserved" });
+    return;
+  }
+  const rows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(eq(usersTable.username, username), eq(usersTable.email, username)));
+  res.json({ available: rows.length === 0, reason: rows.length === 0 ? null : "taken" });
 });
 
 router.post("/auth/auto-login", async (_req, res): Promise<void> => {
@@ -361,6 +437,7 @@ router.post("/auth/auto-login", async (_req, res): Promise<void> => {
   const token = signToken({
     userId: user.id,
     email: user.email,
+    username: user.username,
     role: user.role,
     portalType: user.portalType,
   });
@@ -370,6 +447,7 @@ router.post("/auth/auto-login", async (_req, res): Promise<void> => {
     user: {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       role: user.role,
       phone: user.phone,
@@ -390,6 +468,7 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
     user: {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       role: user.role,
       phone: user.phone,
@@ -438,6 +517,7 @@ router.put("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       user: {
         id: updated.id,
         email: updated.email,
+        username: updated.username,
         name: updated.name,
         phone: updated.phone,
       },

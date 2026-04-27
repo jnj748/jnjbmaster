@@ -14,7 +14,12 @@ const EFFECTIVE_JWT_SECRET = JWT_SECRET || "dev-jwt-secret-change-in-production"
 
 export interface AuthPayload {
   userId: number;
-  email: string;
+  // [Username 가입] 신규 가입자는 email 이 NULL 이고 username 만 있다.
+  // 기존(이메일) 가입자는 email 이 채워지고 username 이 NULL.
+  // 둘 중 어느 쪽으로 가입했든 토큰에는 둘 다 실어 두고 호출부에서 표시용으로
+  // username ?? email ?? `사용자#${userId}` 순으로 폴백한다.
+  email: string | null;
+  username?: string | null;
   role: string;
   portalType: string;
 }

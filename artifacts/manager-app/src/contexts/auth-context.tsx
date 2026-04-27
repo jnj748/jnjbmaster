@@ -2,7 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 
 export interface AuthUser {
   id: number;
-  email: string;
+  // [Username 가입] 신규 가입자는 email 이 NULL, 기존(이메일) 가입자는 username
+  // 이 NULL. 표시용으로는 username ?? email ?? `사용자#${id}` 순으로 폴백한다.
+  email: string | null;
+  username?: string | null;
   name: string;
   role: "manager" | "partner" | "platform_admin" | "hq_executive" | "accountant" | "facility_staff";
   phone: string | null;
@@ -23,7 +26,9 @@ interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string, portalType?: string) => Promise<void>;
+  // [Username 가입] identifier 는 신규 가입자의 아이디 또는 기존 가입자의 이메일.
+  // 서버는 두 컬럼을 OR 조회로 매칭한다.
+  login: (identifier: string, password: string, portalType?: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
@@ -32,7 +37,8 @@ interface AuthContextType {
 }
 
 interface RegisterData {
-  email: string;
+  // [Username 가입] 신규 가입은 username 으로 받는다.
+  username: string;
   password: string;
   name: string;
   // [Task #132] 통합 가입에서는 role/portalType 미지정 가능. 이후 /onboarding/role-select 에서 확정.
@@ -86,11 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, [token, logout]);
 
-  const login = async (email: string, password: string, portalType: string) => {
+  const login = async (identifier: string, password: string, portalType?: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, portalType }),
+      // [Username 가입] 서버는 identifier / username / email 어느 키든 받는다.
+      // 신규 가입은 아이디, 기존 사용자는 이메일을 그대로 입력해 같은 칸에서 모두 동작.
+      body: JSON.stringify({ identifier, password, portalType }),
     });
 
     if (!res.ok) {

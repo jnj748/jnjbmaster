@@ -120,9 +120,14 @@ export default function Login() {
   const { login, register } = useAuth();
   const [, setLocation] = useLocation();
   const [isRegister, setIsRegister] = useState(false);
-  // [Task #178] 회원가입을 2단계로 분리: account(이름/이메일/비번/전화) → consent(약관 동의)
+  // [Task #178] 회원가입을 2단계로 분리: account(이름/아이디/비번/전화) → consent(약관 동의)
   const [signupStep, setSignupStep] = useState<"account" | "consent">("account");
-  const [email, setEmail] = useState("");
+  // [Username 가입] 신규 가입은 아이디(username)로, 로그인은 같은 입력란에 신규는 아이디·기존은 이메일을 받는다.
+  // 입력 변수 1개로 두 모드 모두를 다룬다(서버는 OR 매칭).
+  const [identifier, setIdentifier] = useState("");
+  // 회원가입 모드의 아이디 중복확인 결과: null=미확인 / true=사용가능 / false=불가
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameCheckMsg, setUsernameCheckMsg] = useState<string>("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -134,6 +139,42 @@ export default function Login() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+
+  // [Username 가입] 회원가입 모드에서 아이디 입력값이 바뀌면 디바운스 후 중복확인.
+  useEffect(() => {
+    if (!isRegister) {
+      setUsernameAvailable(null);
+      setUsernameCheckMsg("");
+      return;
+    }
+    const value = identifier.trim().toLowerCase();
+    if (!value) {
+      setUsernameAvailable(null);
+      setUsernameCheckMsg("");
+      return;
+    }
+    if (!/^[a-z][a-z0-9]{3,19}$/.test(value)) {
+      setUsernameAvailable(false);
+      setUsernameCheckMsg("영문 소문자로 시작, 영문 소문자·숫자 4~20자");
+      return;
+    }
+    let cancelled = false;
+    const handle = window.setTimeout(() => {
+      fetch(`${API_BASE}/auth/check-username?username=${encodeURIComponent(value)}`)
+        .then((r) => r.ok ? r.json() : { available: false })
+        .then((d) => {
+          if (cancelled) return;
+          setUsernameAvailable(!!d.available);
+          setUsernameCheckMsg(d.available ? "사용할 수 있는 아이디입니다" : (d.reason === "reserved" ? "사용할 수 없는 아이디입니다" : "이미 사용 중인 아이디입니다"));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setUsernameAvailable(null);
+          setUsernameCheckMsg("");
+        });
+    }, 350);
+    return () => { cancelled = true; window.clearTimeout(handle); };
+  }, [identifier, isRegister]);
 
   // [Task #133] Consent state: dynamic per-role docs, decisions stored as a map.
   const [consentDocs, setConsentDocs] = useState<ConsentDocument[]>([]);
@@ -175,7 +216,7 @@ export default function Login() {
         const decisions = buildDecisions(consentDocs, finalValue);
         const unified = !portalTypeParam;
         await register({
-          email,
+          username: identifier.trim().toLowerCase(),
           password,
           name,
           role: unified ? undefined : role,
@@ -184,7 +225,7 @@ export default function Login() {
           consents: { decisions, version: CONSENT_VERSION },
         });
       } else {
-        await login(email, password, portalTypeParam ? (portalType as "building" | "partner" | "hq") : undefined);
+        await login(identifier.trim(), password, portalTypeParam ? (portalType as "building" | "partner" | "hq") : undefined);
       }
       setLocation(isRegister ? "/onboarding/role-select" : "/");
     } catch (err) {
@@ -201,7 +242,10 @@ export default function Login() {
     // [Task #178] 회원가입 1단계(account): 계정 정보 검증 후 약관 단계로 이동.
     if (isRegister && signupStep === "account") {
       if (!name.trim()) { setError("이름을 입력해 주세요"); return; }
-      if (!email.trim()) { setError("이메일을 입력해 주세요"); return; }
+      const id = identifier.trim().toLowerCase();
+      if (!id) { setError("아이디를 입력해 주세요"); return; }
+      if (!/^[a-z][a-z0-9]{3,19}$/.test(id)) { setError("아이디는 영문 소문자로 시작, 영문 소문자·숫자 4~20자여야 합니다"); return; }
+      if (usernameAvailable === false) { setError(usernameCheckMsg || "사용할 수 없는 아이디입니다"); return; }
       if (password.length < 6) { setError("비밀번호는 6자 이상이어야 합니다"); return; }
       if (!passwordsMatch) { setError("비밀번호와 비밀번호 확인이 일치하지 않습니다"); return; }
       if (!phoneOk) { setError("전화번호를 입력해 주세요"); return; }
@@ -332,7 +376,7 @@ export default function Login() {
                   {isRegister ? "회원가입" : "로그인"}
                 </h1>
                 <p className="text-sm text-slate-500 leading-tight">
-                  {isHq ? "본사 · 플랫폼 전용 포털" : "이메일·비밀번호로 로그인하세요"}
+                  {isHq ? "본사 · 플랫폼 전용 포털" : "아이디·비밀번호로 로그인하세요"}
                 </p>
               </div>
             </div>
@@ -404,15 +448,29 @@ export default function Login() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">아이디</label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(isRegister ? e.target.value.toLowerCase() : e.target.value)}
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete={isRegister ? "username" : "username"}
+                    inputMode={isRegister ? "text" : "email"}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    placeholder="이메일을 입력하세요"
+                    placeholder={isRegister ? "영문 소문자·숫자 4~20자" : "아이디를 입력하세요"}
+                    data-testid="input-identifier"
                   />
+                  {/* 회원가입 모드: 아이디 형식·중복 안내 */}
+                  {isRegister && identifier.trim().length > 0 && (
+                    <p
+                      className={`mt-1 text-xs ${usernameAvailable === true ? "text-emerald-600" : usernameAvailable === false ? "text-red-600" : "text-slate-500"}`}
+                      data-testid="text-username-status"
+                    >
+                      {usernameCheckMsg || "아이디 확인 중..."}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -507,6 +565,8 @@ export default function Login() {
                 <strong> 통신판매중개자</strong>이며, 통신판매의 당사자가 아닙니다.
                 회원가입 시 이용약관·개인정보처리방침{role === "partner" || portalType === "partner" ? "·파트너 이용약관" : ""}에
                 대한 동의 절차가 진행되며, 동의 이력은 별도로 기록·보관됩니다.
+                <br />
+                <span className="text-amber-700/80">기존 이메일로 가입하신 회원은 같은 칸에 이메일을 입력해 로그인할 수 있습니다.</span>
               </div>
             )}
           </div>
