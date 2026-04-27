@@ -21,7 +21,7 @@
   - 개발 의사결정이 아닌 일반 대화·확인·진행 보고에는 적용하지 않는다.
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
-## 개발 속도·비용 절감 운영 원칙 (Task #493)
+## 개발 속도·비용 절감 운영 원칙
 - **테스트 정책 (위험도 차등)**:
   - **시각 확인만으로 충분한 변경(스크린샷 1장)**: 색·문구·라벨·아이콘·텍스트 위치·카드/위젯 순서·여백·폰트 크기·CSS print 외 시각 스타일 변경. e2e 테스트를 돌리지 않는다.
   - **e2e 테스트 필수 변경**: DB 스키마/마이그레이션·인증/세션·권한(RBAC)·결제/PG·인쇄(@media print)·관리비·연체·검침 등 **계산 로직**·외부 API(건축물대장·카카오·네이버 등)·다중 화면에 걸친 데이터 흐름·신규 엔드포인트.
@@ -30,13 +30,12 @@
 - **Plan vs Build 사용 기준**:
   - **Build 직접**(Plan 건너뜀): 한 줄·라벨·색·위치·순서 변경, 기존 컴포넌트의 props 추가 같은 단순 수정. 영향 범위가 1개 화면·1개 역할 안에서 끝나는 작업.
   - **Plan 모드 의무**: 여러 역할·여러 화면에 동시 영향(공통 라벨·권한·메뉴·사이드바), DB 스키마/마이그레이션, OpenAPI 스키마 변경, 신규 기능, 거대 파일 분리 같은 리팩터링.
-- **거대 파일 가이드 (1,000줄 룰)**: 단일 파일이 1,000줄을 넘으면 후속 변경의 컨텍스트 비용이 5배 이상으로 늘어난다. 해당 파일을 수정할 기회가 생길 때 도메인/탭 단위로 분리해 둔다(현 시점 분리 후보: `pages/work-log.tsx`·`pages/dashboard-manager-legacy.tsx`·`routes/buildings.ts` 등 — Task #494~#496 에서 분리 진행).
+- **거대 파일 가이드 (1,000줄 룰)**: 단일 파일이 1,000줄을 넘으면 후속 변경의 컨텍스트 비용이 5배 이상으로 늘어난다. 해당 파일을 수정할 기회가 생길 때 도메인/탭 단위로 분리해 둔다(현 시점 분리 후보: `pages/work-log.tsx`·`pages/dashboard-manager-legacy.tsx`·`routes/buildings.ts`).
 
-## 워크플로 운영 정책 (Task #493)
-- 세션 시작 시 자동으로 가동되는 워크플로는 **api-server·manager-app 두 개만**. 나머지 보조 아티팩트는 작업할 때만 수동으로 시작한다.
-  - `mockup-sandbox` (디자인 탐색·UI 프로토타입용 Vite 프리뷰): 캔버스에서 컴포넌트 변형을 비교할 때만 시작.
-  - `manager-mode-promo` (관리소장 모드 홍보 슬라이드 데크): 데크를 편집·미리보기 할 때만 시작.
-- 두 보조 워크플로가 필요해지면 사용자가 "mockup-sandbox 켜줘" / "홍보 데크 띄워줘" 처럼 요청하거나, 직접 `pnpm --filter @workspace/<slug> run dev` 로 실행할 수 있다. 평소엔 메모리/CPU 부담을 줄여 manager-app HMR 속도를 끌어올린다.
+## 보조 워크플로 운영 원칙
+- 평소 작업의 메인 워크플로는 **api-server·manager-app 두 개**다.
+- `mockup-sandbox` 와 `manager-mode-promo` 는 platform 이 아티팩트와 함께 자동으로 등록·시작하지만(현재 platform 정책상 자동 시작 자체를 끄는 옵션은 노출돼 있지 않다), **활용하는 시점이 아닌 한 두 워크플로는 stopped/finished 상태로 둔다**. 시작 직후 사용 의도가 없다면 ai 가 굳이 살려두지 않는다.
+- 다시 켜야 할 때: 사용자가 "mockup-sandbox 켜줘" / "홍보 데크 띄워줘" 라고 요청 → 해당 워크플로 재시작(`pnpm --filter @workspace/<slug> run dev`). 어떤 toml 도 손대지 않는다.
 
 ## System Architecture
 The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 and TypeScript 5.9.

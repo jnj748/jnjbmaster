@@ -14,7 +14,4 @@ PORT = "8081"
 BASE_PATH = "/__mockup"
 
 [services.development]
-# [Task #493] 평소 자동 가동 비활성화 — 수동으로 켤 때만 실행한다.
-# 다시 켜려면 이 run 명령을 'pnpm --filter @workspace/mockup-sandbox run dev' 로 되돌리고 워크플로 재시작.
-# 또는 사용자가 ai 에게 "mockup-sandbox 켜줘" 요청.
-run = "echo '[관리의달인] mockup-sandbox 자동 가동 비활성화 (Task #493). 캔버스에서 컴포넌트 변형이 필요할 때만 수동으로 켜세요.'"
+run = "pnpm --filter @workspace/mockup-sandbox run dev"
