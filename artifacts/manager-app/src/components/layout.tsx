@@ -589,6 +589,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         .layout-mobile-header { display: flex; }
         .layout-desktop-header { display: none; }
         .layout-bottom-nav { display: flex; }
+        .layout-desktop-fab { display: none; }
         .layout-content-area { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
         /* [Task #327] 6 역할 대시보드 모바일/데스크탑 분기용 헬퍼 클래스.
@@ -642,6 +643,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           .layout-mobile-header { display: none; }
           .layout-desktop-header { display: flex; }
           .layout-bottom-nav { display: none; }
+          .layout-desktop-fab { display: inline-flex; }
           .layout-content-area { padding-bottom: 0; }
         }
       `}</style>
@@ -787,13 +789,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* [네비 정비] 우하단 플로팅 메모 버튼은 제거. 업무기록은 하단 네비 가운데 + 버튼이 띄운다. */}
+      {/* [네비 정비] 모바일은 하단 네비 가운데 + 버튼이 업무기록 다이얼로그를 띄운다.
+          데스크톱(≥900px) 은 하단 네비가 숨겨지므로, 같은 기능을 우하단 플로팅
+          배너 버튼(layout-desktop-fab) 으로 노출한다. 역할에 업무기록 항목이 없으면
+          렌더링하지 않는다(파트너 등). */}
       <CampaignModalHost />
       <QuickEntryDialog
         open={quickEntryOpen}
         onOpenChange={setQuickEntryOpen}
         onCreated={() => queryClient.invalidateQueries({ queryKey: ["work-logs"] })}
       />
+      {(() => {
+        const quickEntryItem = bottomNavItems.find((it) => it.path === "/__quick_entry");
+        if (!quickEntryItem) return null;
+        const Icon = quickEntryItem.icon;
+        return (
+          <button
+            type="button"
+            onClick={() => setQuickEntryOpen(true)}
+            data-testid="desktop-fab-quick-entry"
+            aria-label="업무기록"
+            className="layout-desktop-fab fixed right-6 bottom-6 z-40 flex-col items-center justify-center gap-0.5 rounded-2xl bg-primary text-primary-foreground shadow-xl hover:opacity-95 active:scale-95 transition px-4 py-3"
+          >
+            <Icon className="w-7 h-7" />
+            <span className="text-xs font-semibold leading-tight mt-0.5">업무기록</span>
+          </button>
+        );
+      })()}
 
       <nav className="layout-bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-background border-t items-center justify-around"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
