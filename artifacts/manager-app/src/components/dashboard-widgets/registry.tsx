@@ -134,12 +134,14 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   manager: {
     widgets: [
       "campaign-banner",
-      "units-import-suggestion",
       // [Task #450] "우리 건물 계약업체 연락망" 진입 버튼. 협력업체 주소록으로 한 번에 이동한다.
       "building-contracts-summary",
       "manager-main",
       "delinquency-summary",
       "building-info",
+      // [관리소장 요청] "호실정보 불러오기" 제안 카드는 최상단이 아니라
+      //   대시보드 맨 아래(보조 영역)로 내려, 매일 보는 종합 현황을 먼저 보여준다.
+      "units-import-suggestion",
     ],
   },
   accountant: {
