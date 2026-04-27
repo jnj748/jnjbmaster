@@ -32,6 +32,7 @@ import {
   formatContractRenewalReviewMessage,
 } from "@workspace/shared/contract-renewal";
 import { useUpload } from "@workspace/object-storage-web";
+import { OcrProgressBar } from "@/components/ocr-progress-bar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -658,6 +659,8 @@ function NewContractDialog({
   const [form, setForm] = useState<NewContractFormState>(EMPTY_FORM);
   const [confidence, setConfidence] = useState<Record<string, number>>({});
   const [ocrPending, setOcrPending] = useState(false);
+  // [Task #472] 가로 진행바를 실패 시 즉시 숨기기 위한 신호.
+  const [ocrFailed, setOcrFailed] = useState(false);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -685,6 +688,7 @@ function NewContractDialog({
     authToken: token,
     onSuccess: async (response) => {
       setOcrPending(true);
+      setOcrFailed(false);
       try {
         const result = await ocrPreview.mutateAsync({
           data: { objectPath: response.objectPath, fileName: pendingFileNameRef.current ?? undefined },
@@ -695,6 +699,7 @@ function NewContractDialog({
           description: "추출된 값을 검토하고 저장해주세요.",
         });
       } catch (e) {
+        setOcrFailed(true);
         toast({
           title: "OCR 실패",
           description: e instanceof Error ? e.message : "OCR 처리 실패",
@@ -705,6 +710,7 @@ function NewContractDialog({
       }
     },
     onError: (err) => {
+      setOcrFailed(true);
       toast({
         title: "업로드 실패",
         description: err instanceof Error ? err.message : "오류",
@@ -764,6 +770,7 @@ function NewContractDialog({
       return;
     }
     pendingFileNameRef.current = f.name;
+    setOcrFailed(false);
     uploadFile(f);
   }
 
@@ -800,6 +807,8 @@ function NewContractDialog({
     if (form.representativeName)
       notesParts.push(`대표자: ${form.representativeName}`);
 
+    // 직전 실패로 isError 가 켜져 있을 수 있으므로 새 시도 전에 리셋.
+    setOcrFailed(false);
     try {
       const contract = await createContract.mutateAsync({
         data: {
@@ -840,6 +849,8 @@ function NewContractDialog({
       toast({ title: "계약이 등록되었습니다" });
       onCreated(contract.id);
     } catch (e) {
+      // 저장 단계 실패 — 가로바를 100% 깜빡임 없이 즉시 숨긴다.
+      setOcrFailed(true);
       toast({
         title: "계약 등록 실패",
         description: e instanceof Error ? e.message : "오류",
@@ -885,14 +896,22 @@ function NewContractDialog({
                 className="gap-2"
                 data-testid="button-ocr-upload"
               >
-                {isUploading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중 {progress}%</>
-                ) : ocrPending ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> OCR 분석 중...</>
+                {(isUploading || ocrPending) ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> 인식 중...</>
                 ) : (
                   <><Upload className="w-4 h-4" /> 계약서 업로드</>
                 )}
               </Button>
+              <OcrProgressBar
+                isUploading={isUploading}
+                uploadProgress={progress}
+                isOcrPending={ocrPending}
+                isSaving={createContract.isPending || uploadDoc.isPending}
+                savingLabel="계약 저장 중"
+                isError={ocrFailed}
+                className="pt-1"
+                testId="contract-ocr-progress"
+              />
               {form.ocrObjectPath && (
                 <p className="text-xs text-emerald-700 flex items-center gap-1">
                   <FileText className="w-3 h-3" /> {form.ocrFileName ?? "계약서"} 첨부 예정

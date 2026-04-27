@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle, Camera } from "lucide-react";
+import { OcrProgressBar } from "@/components/ocr-progress-bar";
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -56,6 +57,8 @@ export default function BillsPage() {
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [ocrPending, setOcrPending] = useState(false);
+  // [Task #472] 가로 진행바를 실패 시 즉시 숨기기 위한 신호.
+  const [ocrFailed, setOcrFailed] = useState(false);
   const [editing, setEditing] = useState<BillSummary | null>(null);
   const pendingFileNameRef = useRef<string | null>(null);
 
@@ -80,6 +83,7 @@ export default function BillsPage() {
     authToken: token,
     onSuccess: async (response) => {
       setOcrPending(true);
+      setOcrFailed(false);
       try {
         const res = await fetch(`${apiBase}/fees/bill-ocr`, {
           method: "POST",
@@ -91,6 +95,9 @@ export default function BillsPage() {
           throw new Error(errBody.error || "OCR 실패");
         }
         if (res.status === 202) {
+          // 원본은 보관됐지만 OCR 자체는 실패 — 가로바를 100% 깜빡임 없이
+          // 즉시 숨기고 토스트로만 안내한다.
+          setOcrFailed(true);
           const body = await res.json().catch(() => ({}));
           toast({
             title: "OCR 인식 실패 — 다시 시도해 주세요",
@@ -105,6 +112,7 @@ export default function BillsPage() {
         await load();
         setEditing(saved);
       } catch (e) {
+        setOcrFailed(true);
         toast({ title: "OCR 실패", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
         await load();
       } finally {
@@ -112,6 +120,7 @@ export default function BillsPage() {
       }
     },
     onError: (err) => {
+      setOcrFailed(true);
       toast({ title: "업로드 실패", description: err instanceof Error ? err.message : "오류", variant: "destructive" });
     },
   });
@@ -126,6 +135,7 @@ export default function BillsPage() {
       return;
     }
     pendingFileNameRef.current = f.name;
+    setOcrFailed(false);
     uploadFile(f);
   }
 
@@ -173,11 +183,21 @@ export default function BillsPage() {
               variant="outline"
               className="gap-2"
             >
-              {isUploading ? <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중 {progress}%</> :
-                ocrPending ? <><Loader2 className="w-4 h-4 animate-spin" /> OCR 분석 중...</> :
-                <><Upload className="w-4 h-4" /> 갤러리 / 파일</>}
+              {(isUploading || ocrPending) ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> 인식 중...</>
+              ) : (
+                <><Upload className="w-4 h-4" /> 갤러리 / 파일</>
+              )}
             </Button>
           </div>
+          <OcrProgressBar
+            isUploading={isUploading}
+            uploadProgress={progress}
+            isOcrPending={ocrPending}
+            isError={ocrFailed}
+            className="mt-3"
+            testId="bills-ocr-progress"
+          />
         </CardContent>
       </Card>
 

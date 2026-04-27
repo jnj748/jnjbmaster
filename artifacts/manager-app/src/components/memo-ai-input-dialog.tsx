@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { OcrProgressBar } from "@/components/ocr-progress-bar";
+import { cn } from "@/lib/utils";
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -57,13 +59,15 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
   const [previewOpen, setPreviewOpen] = useState(false);
   const [resultText, setResultText] = useState("");
   const [pendingFileName, setPendingFileName] = useState<string | null>(null);
+  // [Task #472] 가로 진행바를 실패 시 즉시 숨기기 위한 신호.
+  const [ocrError, setOcrError] = useState(false);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
   const ocrMutation = useRunMemoOcr();
 
-  const { uploadFile, isUploading } = useUpload({
+  const { uploadFile, isUploading, progress } = useUpload({
     basePath: `${apiBase}/storage`,
     authToken: token,
     onSuccess: async (response) => {
@@ -76,6 +80,8 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
         });
         const text = (result.text ?? "").trim();
         if (!text) {
+          // 빈 결과는 사용자 입장에서 "실패" — 가로바도 즉시 숨긴다.
+          setOcrError(true);
           toast({
             title: "인식된 메모가 없습니다",
             description: "사진에서 글자를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.",
@@ -86,6 +92,7 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
         setResultText(text);
         setPreviewOpen(true);
       } catch (err) {
+        setOcrError(true);
         toast({
           title: "메모 AI입력 실패",
           description: err instanceof Error ? err.message : "OCR 처리 중 오류가 발생했습니다",
@@ -96,6 +103,7 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
       }
     },
     onError: (err) => {
+      setOcrError(true);
       toast({
         title: "사진 업로드 실패",
         description: err instanceof Error ? err.message : "다시 시도해주세요",
@@ -120,6 +128,7 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
       return;
     }
     setPendingFileName(file.name);
+    setOcrError(false);
     uploadFile(file);
   }
 
@@ -162,23 +171,32 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
         data-testid={testId ? `${testId}-gallery-input` : undefined}
       />
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={className}
-        onClick={() => setPickerOpen(true)}
-        disabled={busy}
-        data-testid={testId ? `${testId}-trigger` : "memo-ai-input-trigger"}
-        aria-label="메모 AI입력"
-      >
-        {busy ? (
-          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-        ) : (
-          <Sparkles className="w-4 h-4 mr-1" />
-        )}
-        {busy ? "인식 중..." : "메모 AI입력"}
-      </Button>
+      <div className={cn("flex flex-col gap-1", className)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setPickerOpen(true)}
+          disabled={busy}
+          data-testid={testId ? `${testId}-trigger` : "memo-ai-input-trigger"}
+          aria-label="메모 AI입력"
+        >
+          {busy ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Sparkles className="w-4 h-4 mr-1" />
+          )}
+          {busy ? "인식 중..." : "메모 AI입력"}
+        </Button>
+        <OcrProgressBar
+          isUploading={isUploading}
+          uploadProgress={progress}
+          isOcrPending={ocrMutation.isPending}
+          isError={ocrError}
+          testId={testId ? `${testId}-progress` : "memo-ai-input-progress"}
+        />
+      </div>
 
       <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl pt-3" hideClose>

@@ -5,6 +5,7 @@ import { Loader2, Upload, FileText, CheckCircle2, Sparkles, Camera } from "lucid
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { WizardShell } from "@/components/wizard/wizard-shell";
+import { OcrProgressBar } from "@/components/ocr-progress-bar";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -46,7 +47,14 @@ export default function AccountantWizardPage() {
   const [err, setErr] = useState("");
   const [uploads, setUploads] = useState<Record<string, { name: string; uploading: boolean; saved: boolean }>>({});
   const [billPreview, setBillPreview] = useState<BillSummaryPreview | null>(null);
-  const [billOcrLoading, setBillOcrLoading] = useState(false);
+  // [Task #472] OCR 진행도 가로바를 위한 단계별 진행 상태.
+  // useUpload 의 (isUploading, progress, isOcrPending) 패턴과 동일하게 흘려준다.
+  const [billUploadProgress, setBillUploadProgress] = useState(0);
+  const [billUploading, setBillUploading] = useState(false);
+  const [billOcrPending, setBillOcrPending] = useState(false);
+  // [Task #472] 가로 진행바를 실패 시 즉시 숨기기 위한 신호.
+  const [billOcrFailed, setBillOcrFailed] = useState(false);
+  const billOcrLoading = billUploading || billOcrPending;
   // [Task #341] 본인이 연결되려는 건물에 이미 다른 활성 경리가 있을 때 차단 안내.
   const [dupMessage, setDupMessage] = useState<string | null>(null);
   const billFileRef = useRef<HTMLInputElement>(null);
@@ -166,28 +174,44 @@ export default function AccountantWizardPage() {
       toast({ title: "파일이 너무 큽니다", description: "최대 10MB까지 업로드 가능합니다.", variant: "destructive" });
       return;
     }
-    setBillOcrLoading(true);
+    // [Task #472] useUpload 와 동일한 0→30→80→100 단계로 직접 갱신해
+    // OcrProgressBar 가 같은 가로바를 그릴 수 있게 한다.
+    // 가로바가 0% 부터 채워지도록 시작 시 progress 를 0 으로 초기화한 뒤
+    // 사인 URL 발급 직전에 10% 로 올린다(다음 마이크로태스크에서 별도 렌더).
+    setBillUploading(true);
+    setBillOcrPending(false);
+    setBillOcrFailed(false);
+    setBillUploadProgress(0);
     try {
+      // 다음 프레임에 0% → 10% 가 별도로 렌더되도록 잠깐 양보한다.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      setBillUploadProgress(10);
       const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
       });
       if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
+      setBillUploadProgress(30);
       const { uploadURL, objectPath } = await signRes.json();
       const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
       if (!putRes.ok) throw new Error("파일 업로드 실패");
+      setBillUploadProgress(80);
       await fetch(`${API_BASE}/storage/uploads/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ objectPath }),
       });
+      setBillUploadProgress(100);
       // Also save as accounting initial file so original is preserved.
       void fetch(`${API_BASE}/accounting-initial-files`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ category: "monthly_bill", fileUrl: objectPath, originalName: file.name, buildingId: building.id }),
       }).catch(() => {});
+      // 업로드 완료 → OCR 인식 단계로 전환.
+      setBillOcrPending(true);
+      setBillUploading(false);
       const ocrRes = await fetch(`${API_BASE}/fees/bill-ocr`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -197,6 +221,7 @@ export default function AccountantWizardPage() {
       if (ocrRes.status === 202) {
         // OCR 실패하지만 원본은 보관됨. preview는 비우고 재시도 안내.
         setBillPreview(null);
+        setBillOcrFailed(true);
         toast({
           title: "OCR 인식 실패 — 다시 시도해 주세요",
           description: (body && body.error) || "고지서 메뉴에서 ‘다시 인식’으로 재시도할 수 있습니다.",
@@ -214,9 +239,12 @@ export default function AccountantWizardPage() {
       setBillPreview(body);
       toast({ title: "OCR 완료", description: `${body.billingMonth} 청구서가 등록되었습니다.` });
     } catch (e) {
+      setBillOcrFailed(true);
       toast({ title: "고지서 처리 실패", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
     } finally {
-      setBillOcrLoading(false);
+      setBillUploading(false);
+      setBillOcrPending(false);
+      setBillUploadProgress(0);
     }
   }
 
@@ -330,9 +358,8 @@ export default function AccountantWizardPage() {
         />
         <div className="space-y-3 text-sm">
           {billOcrLoading ? (
-            <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 flex flex-col items-center gap-2">
+            <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 flex flex-col items-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-              <span className="text-xs text-slate-600">OCR 분석 중...</span>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -356,6 +383,16 @@ export default function AccountantWizardPage() {
               </button>
             </div>
           )}
+          {/* [Task #472] 가로 진행바는 조건부 컨테이너 밖에 항상 렌더한다.
+              billOcrLoading 이 false 가 되어도 done(100%) 단계가 보이도록
+              하고, 시각화 여부는 훅의 active 가 직접 결정한다. */}
+          <OcrProgressBar
+            isUploading={billUploading}
+            uploadProgress={billUploadProgress}
+            isOcrPending={billOcrPending}
+            isError={billOcrFailed}
+            testId="accountant-bill-ocr-progress"
+          />
           {billPreview && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-2">
               <div className="flex items-center gap-2">
