@@ -58,6 +58,9 @@ import {
   buildRfqAutoTitle,
   type RfqServiceType,
 } from "@workspace/shared/rfq-service-types";
+// [Task #475] 컨텍스트의 sido/sigungu 가 비어 있어도 addressFull/addressJibun
+//   으로부터 도출해 RFQ 화면이 막다른 길이 되지 않도록 한다.
+import { computeBuildingReady } from "@/lib/rfq-building-ready";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 // [Task #388] 견적 요청이 0건일 때, 곧 도래하는 필수/제안 업무를 활용한
@@ -234,10 +237,10 @@ export default function Rfqs() {
   }
 
   // 건물 컨텍스트의 주소가 매칭에 사용된다 (사용자에게는 노출하지 않음).
-  const buildingName = building?.name || "";
-  const buildingSido = building?.sido || "";
-  const buildingSigungu = building?.sigungu || "";
-  const buildingReady = !!buildingName && (!!buildingSido || !!buildingSigungu);
+  // [Task #475] 컨텍스트에 sido/sigungu 가 비어 있더라도 addressFull/addressJibun
+  //   텍스트로부터 도출 가능한 경우엔 RFQ 를 정상 진행시킨다.
+  //   순수 분기는 computeBuildingReady 에 모아 단위 테스트로 회귀 보호한다.
+  const { buildingName, buildingSido, buildingSigungu, buildingReady } = computeBuildingReady(building);
 
   // 자동 생성된 제목 (사용자가 직접 수정하지 않은 경우에만 사용).
   const autoTitle = buildRfqAutoTitle(form.category, form.serviceType || null);
@@ -416,8 +419,28 @@ export default function Rfqs() {
             </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!buildingReady && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                  현재 선택된 건물 정보가 비어 있어 견적 요청을 생성할 수 없습니다. 건물 정보(이름·주소)를 먼저 등록해주세요.
+                <div
+                  className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 space-y-2"
+                  data-testid="rfq-building-missing-warning"
+                >
+                  <p>
+                    현재 선택된 건물 정보가 비어 있어 견적 요청을 생성할 수 없습니다. 건물 정보(이름·주소)를 먼저 등록해주세요.
+                  </p>
+                  {/* [Task #475] 건물 설정으로 한 번에 이동할 수 있는 우회 동선.
+                       주소 카드(#address-info) 로 즉시 스크롤되도록 hash 를 함께 보낸다. */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDialogOpen(false);
+                      setLocation("/building-setup#address-info");
+                    }}
+                    className="border-amber-400 text-amber-900 hover:bg-amber-100"
+                    data-testid="rfq-go-to-building-setup"
+                  >
+                    건물 정보 설정으로 이동
+                  </Button>
                 </div>
               )}
 

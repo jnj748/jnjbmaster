@@ -10,6 +10,7 @@
     "./facility-today-progress": "./src/facility-today-progress.ts",
     "./rfq-service-types": "./src/rfq-service-types.ts",
     "./role-labels": "./src/role-labels.ts",
-    "./contract-renewal": "./src/contract-renewal.ts"
+    "./contract-renewal": "./src/contract-renewal.ts",
+    "./derive-region": "./src/derive-region.ts"
   }
 }

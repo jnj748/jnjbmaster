@@ -4,6 +4,9 @@ import { eq, and, lte, gte, sql, desc, inArray } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 // [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
+// [Task #475] addressFull/addressJibun 만 들어오고 sido/sigungu 가 비어 있는
+//   기존·이관 데이터에 대비해 저장 경로에서 자동 도출한다.
+import { deriveSidoSigungu } from "@workspace/shared/derive-region";
 import { walkForwardNextDue } from "../lib/taskTemplateCycle";
 import {
   LEGAL_PRESETS,
@@ -181,6 +184,24 @@ const BUILDING_BOOL_DEFAULTS: Record<string, boolean> = {
 // [Task #328] 건축물대장 표제부/총괄표제부 원본을 통째로 저장하는 jsonb 필드.
 const BUILDING_JSON_FIELDS = ["registerData"] as const;
 
+// [Task #475] 저장 직전, sido/sigungu 가 비어 있고 addressFull/addressJibun 이
+//   있으면 한국어 주소 첫 토큰들로 자동 도출해 채운다. 클라이언트가 카카오
+//   postcode 외 경로(엑셀, 직접 PUT)로 주소만 보내도 RFQ 매칭이 가능해진다.
+//   이미 값이 들어있는 경우엔 절대 덮어쓰지 않는다.
+function applySidoSigunguDerivation(v: Record<string, unknown>): void {
+  const sido = v.sido;
+  const sigungu = v.sigungu;
+  const hasSido = typeof sido === "string" && sido.trim().length > 0;
+  const hasSigungu = typeof sigungu === "string" && sigungu.trim().length > 0;
+  if (hasSido && hasSigungu) return;
+  const addressFull = typeof v.addressFull === "string" ? v.addressFull : null;
+  const addressJibun = typeof v.addressJibun === "string" ? v.addressJibun : null;
+  if (!addressFull && !addressJibun) return;
+  const derived = deriveSidoSigungu(addressFull, addressJibun);
+  if (!hasSido && derived.sido) v.sido = derived.sido;
+  if (!hasSigungu && derived.sigungu) v.sigungu = derived.sigungu;
+}
+
 function buildBuildingInsertValues(data: Record<string, unknown>): Record<string, unknown> {
   const v: Record<string, unknown> = { name: data.name };
   for (const f of BUILDING_TEXT_FIELDS) v[f] = data[f] || null;
@@ -190,6 +211,7 @@ function buildBuildingInsertValues(data: Record<string, unknown>): Record<string
   for (const f of BUILDING_JSON_FIELDS) {
     if (data[f] !== undefined && data[f] !== null) v[f] = data[f];
   }
+  applySidoSigunguDerivation(v);
   return v;
 }
 
@@ -211,6 +233,7 @@ function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string
   for (const f of BUILDING_JSON_FIELDS) {
     if (data[f] !== undefined) v[f] = data[f];
   }
+  applySidoSigunguDerivation(v);
   return v;
 }
 
@@ -461,8 +484,11 @@ router.post("/buildings", async (req: Request, res: Response) => {
     await db.update(usersTable)
       .set({
         buildingId: building.id,
-        buildingSido: data.sido || null,
-        buildingSigungu: data.sigungu || null,
+        // [Task #475] 사용자가 sido/sigungu 를 보내지 않아도 buildBuildingInsertValues
+        //   가 주소 텍스트로부터 자동 도출해 채우므로, 사용자 행에도 도출된 값을
+        //   동일하게 동기화한다(클라이언트 원시 입력 대신 building 행 기준).
+        buildingSido: building.sido || null,
+        buildingSigungu: building.sigungu || null,
       })
       .where(eq(usersTable.id, userId));
 
@@ -550,12 +576,16 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
 
     const [building] = await db.update(buildingsTable).set(updateData).where(eq(buildingsTable.id, id)).returning();
 
-    if (data.sido || data.sigungu) {
-      const userId = req.user?.userId;
-      if (userId) {
+    // [Task #475] 사용자가 sido/sigungu 를 명시적으로 보내지 않더라도, addressFull/
+    //   addressJibun 가 함께 들어오면 buildBuildingUpdateValues 가 자동 도출해 채워
+    //   둔 상태이므로, 결과 building 행을 기준으로 사용자의 buildingSido/Sigungu 도
+    //   함께 갱신한다(이전: 클라이언트 입력 키 유무로만 분기 → 자동 도출 케이스 누락).
+    if (data.sido !== undefined || data.sigungu !== undefined || data.addressFull !== undefined || data.addressJibun !== undefined) {
+      const requesterId = req.user?.userId;
+      if (requesterId) {
         await db.update(usersTable)
           .set({ buildingSido: building.sido, buildingSigungu: building.sigungu })
-          .where(eq(usersTable.id, userId));
+          .where(eq(usersTable.id, requesterId));
       }
     }
 

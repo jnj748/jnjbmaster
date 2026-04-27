@@ -80,6 +80,9 @@ export default function BuildingSetup() {
 
       {/* [Task #412] 주소(읽기 전용 또는 신규 검색) + 건물 기본 정보 */}
       {/* [Task #458] 편집 가드 prop 전달 — 진입 시 모든 입력은 읽기 전용. */}
+      {/* [Task #475] RFQ 다이얼로그의 "건물 정보 설정으로 이동" CTA 가
+          /building-setup#address-info 로 이동했을 때 이 섹션으로 스크롤되도록 anchor 부여. */}
+      <div id="address-info" className="scroll-mt-24">
       <StepAddressInfo
         building={setup.building}
         setBuilding={setup.setBuilding}
@@ -103,6 +106,7 @@ export default function BuildingSetup() {
         enterEditMode={setup.enterEditMode}
         cancelEdit={setup.cancelEdit}
       />
+      </div>
 
       {/* [Task #412] 로고 등록 섹션 */}
       {/* [Task #458] 로고 업로드도 편집 모드에서만 변경 가능. */}
