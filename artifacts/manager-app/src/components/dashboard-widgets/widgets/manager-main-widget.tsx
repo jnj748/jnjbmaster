@@ -25,8 +25,6 @@ import {
   useGetUnitsSummary,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import {
@@ -39,12 +37,9 @@ import {
   Car,
 } from "lucide-react";
 import { AlertActionDialog } from "@/components/alert-action-dialog";
-import {
-  type DashboardAlert,
-  ACTIONABLE_ALERT_TYPES,
-  ALERT_FALLBACK_ROUTES,
-  getTestTaskCardOverride,
-} from "@/lib/alert-utils";
+import { type DashboardAlert } from "@/lib/alert-utils";
+import { splitDashboardAlerts } from "@/lib/dashboard-alert-filters";
+import { useAlertClickHandler } from "@/hooks/use-alert-click-handler";
 import {
   MobileOnly,
   DesktopOnly,
@@ -75,78 +70,7 @@ export default function ManagerMainWidget() {
   // [Task #413] 알림 처리 다이얼로그(처리완료/연기/견적요청) 의 폼 상태·핸들러는
   //   AlertActionDialog 로 이전. 이 페이지는 selectedAlert 만 관리하면 된다.
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
-  const { toast } = useToast();
-  const [, navigate] = useLocation();
-
-  function handleAlertClick(alert: DashboardAlert) {
-    // [Task #437/#491] (테스트업무) 호실데이터 불러오기 카드(구 "소방점검")는
-    //   처리 모달 대신 호실 관리 화면(/units) 으로 이동시켜 신규 매니저가
-    //   호실 데이터 구성 동선을 자연스럽게 익히도록 한다. 정화조 청소 카드는
-    //   navigateTo 가 없으므로 기존 처리 모달이 그대로 열린다.
-    const testOverride = getTestTaskCardOverride(alert);
-    if (testOverride?.navigateTo) {
-      navigate(testOverride.navigateTo);
-      return;
-    }
-
-    if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
-      if (alert.relatedId) {
-        setSelectedAlert(alert);
-        return;
-      }
-      const fallback = ALERT_FALLBACK_ROUTES[alert.type];
-      if (fallback) {
-        navigate(fallback);
-        return;
-      }
-      toast({ title: "처리할 항목 정보를 찾을 수 없습니다", description: alert.title });
-      return;
-    }
-
-    if (alert.type === "data_destruction") {
-      if (!alert.relatedId) {
-        toast({ title: "대상 정보를 찾을 수 없습니다", description: alert.title });
-        return;
-      }
-      const isOwner = alert.title.includes("소유자");
-      navigate(isOwner ? `/units?tab=owners&openOwner=${alert.relatedId}` : `/tenants?openTenant=${alert.relatedId}`);
-      return;
-    }
-
-    // [Task #335] 견적 도착 카드 클릭 → /rfqs?openQuote={quoteId} 로 딥링크.
-    if (alert.type === "quote_received") {
-      if (!alert.relatedId) {
-        toast({ title: "견적 정보를 찾을 수 없습니다", description: alert.title });
-        return;
-      }
-      navigate(`/rfqs?openQuote=${alert.relatedId}`);
-      return;
-    }
-
-    if (alert.type === "task_template_mandatory" || alert.type === "task_template_suggested") {
-      if (!alert.relatedId) {
-        toast({ title: "처리할 항목 정보를 찾을 수 없습니다", description: alert.title });
-        return;
-      }
-      setSelectedAlert(alert);
-      return;
-    }
-
-    // [Task #389] 공고문 게시 제안업무: 동일한 액션 모달을 열어 처리완료 → 양식 출력으로 이어진다.
-    if (alert.type === "notice_posting") {
-      if (!alert.relatedId) {
-        toast({ title: "공고문 템플릿 정보를 찾을 수 없습니다", description: alert.title });
-        return;
-      }
-      setSelectedAlert(alert);
-      return;
-    }
-
-    toast({
-      title: "이 항목은 별도 처리 화면이 없습니다",
-      description: alert.title,
-    });
-  }
+  const handleAlertClick = useAlertClickHandler(setSelectedAlert);
 
   if (summaryLoading) {
     return (
@@ -171,39 +95,10 @@ export default function ManagerMainWidget() {
   const vehicleCount = vehicles?.length ?? 0;
   const vehiclesPerUnit = totalUnits > 0 ? (vehicleCount / totalUnits).toFixed(1) : "-";
 
-  // [Task #184] 점검 알림을 inspectionType 기준으로 분리한다.
-  //  - 필수업무현황: legal 점검 + 비점검 알림(세무·기한초과·하자만료·자료파기 등)
-  //  - 제안업무현황: self_regular / biweekly / seasonal / administrative 점검
-  // 분류는 클라이언트에서 수행하며, 알림 발생 로직(주기/임계치)은 그대로다.
-  const PROPOSED_INSPECTION_TYPES = new Set([
-    "self_regular",
-    "biweekly",
-    "seasonal",
-    "administrative",
-  ]);
-  const alertList: DashboardAlert[] = (alerts ?? []) as DashboardAlert[];
-  // [Task #221] 본사 관리 업무 템플릿 알림은 type=task_template_mandatory/
-  // task_template_suggested 로 동일 응답에 포함된다. 필수업무는 법정 점검과
-  // task_template_mandatory 를, 제안업무는 자체점검 계열과 task_template_suggested
-  // 를 같은 섹션에 노출한다.
-  const legalAlerts = alertList.filter((a) => {
-    if (a.type === "task_template_suggested") return false;
-    if (a.type === "inspection_due") {
-      return a.inspectionType === "legal" || !a.inspectionType;
-    }
-    return true;
-  });
-  const proposedAlerts = alertList.filter((a) => {
-    if (a.type === "task_template_suggested") return true;
-    // [Task #389] 공고문 게시 자동알림은 제안업무 섹션에 노출.
-    if (a.type === "notice_posting") return true;
-    if (a.type === "inspection_due") {
-      return (
-        !!a.inspectionType && PROPOSED_INSPECTION_TYPES.has(a.inspectionType)
-      );
-    }
-    return false;
-  });
+  // [Task #184/#221/#389] 알림을 필수/제안 섹션으로 분리. 함수는 lib 로 추출됨.
+  const { legalAlerts, proposedAlerts } = splitDashboardAlerts(
+    alerts as DashboardAlert[] | null | undefined,
+  );
 
   // [Task #358 → #397] 모바일 첫 화면의 2×2 KPI(필수업무 / 연체 세대 / 미수금률 /
   // 입주율) 묶음은 다른 섹션과 정보가 중복되어 제거했다. 같은 자리에 "건물관련
