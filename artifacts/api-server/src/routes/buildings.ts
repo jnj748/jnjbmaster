@@ -351,14 +351,60 @@ router.get("/buildings/check-manager", async (req: Request, res: Response) => {
 //  - POST /buildings 첫 등록 시점 외에도, 위저드를 강제 종료한 뒤 다시 진입하거나
 //    대시보드에 처음 도달했을 때에도 동일 진입점을 호출해 누락분만 채워 넣는다.
 //  - (buildingId, name) 4종 집합으로 중복 검사하므로 여러 번 호출돼도 항상 4건만 존재한다.
+//  - [Task #491] fire 카드는 "(테스트업무) 소방점검" → "(테스트업무) 호실데이터 불러오기"
+//    로 리네이밍됐다. 동일 건물 내 이전 이름 행이 남아 있으면 신규 이름으로 자연
+//    마이그레이션하여 중복 노출과 누락이 동시에 발생하지 않도록 한다.
 async function ensureTestInspectionsForBuilding(buildingId: number): Promise<number> {
   const SEED_NAMES = {
-    fire: "(테스트업무) 소방점검",
+    fire: "(테스트업무) 호실데이터 불러오기",
     septic: "(테스트업무) 정화조 청소",
     edu: "(테스트업무) 미화·경비원 교육의 달",
     ac: "(테스트업무) 에어컨 가동 전 정비 진행 공지",
   } as const;
+  const LEGACY_FIRE_NAME = "(테스트업무) 소방점검";
   const seedNameList: string[] = Object.values(SEED_NAMES);
+
+  // [Task #491] 이전 이름("(테스트업무) 소방점검")으로 시드된 잔존 행을 신규
+  //   이름으로 흡수한다. 동일 건물에 신규 이름 행이 이미 있으면 이전 이름 행을
+  //   모두 삭제하고, 없으면 한 건만 신규 이름으로 갱신(나머지는 삭제) 한다.
+  const legacyFireRows = await db
+    .select({ id: inspectionsTable.id })
+    .from(inspectionsTable)
+    .where(and(
+      eq(inspectionsTable.buildingId, buildingId),
+      eq(inspectionsTable.name, LEGACY_FIRE_NAME),
+    ));
+  if (legacyFireRows.length > 0) {
+    const newFireRows = await db
+      .select({ id: inspectionsTable.id })
+      .from(inspectionsTable)
+      .where(and(
+        eq(inspectionsTable.buildingId, buildingId),
+        eq(inspectionsTable.name, SEED_NAMES.fire),
+      ));
+    if (newFireRows.length > 0) {
+      // 신규 이름 행이 이미 있으면 이전 이름 행 전체 제거.
+      await db
+        .delete(inspectionsTable)
+        .where(and(
+          eq(inspectionsTable.buildingId, buildingId),
+          eq(inspectionsTable.name, LEGACY_FIRE_NAME),
+        ));
+    } else {
+      // 한 건만 살려서 새 이름으로 갱신, 나머지는 정리.
+      const [keep, ...extras] = legacyFireRows;
+      await db
+        .update(inspectionsTable)
+        .set({ name: SEED_NAMES.fire })
+        .where(eq(inspectionsTable.id, keep.id));
+      if (extras.length > 0) {
+        await db
+          .delete(inspectionsTable)
+          .where(inArray(inspectionsTable.id, extras.map((r) => r.id)));
+      }
+    }
+  }
+
   const existingTest = await db
     .select({ name: inspectionsTable.name })
     .from(inspectionsTable)

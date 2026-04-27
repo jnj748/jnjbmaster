@@ -315,8 +315,8 @@ function AlertSection({
                         {/* [Task #380] 필수업무 섹션은 둘째 줄을 "미처리시 과태료 발생" 고정 문구로
                             노출해 법정 의무 업무라는 점을 시니어 사용자에게 분명히 전달한다.
                             제안업무 섹션은 기존처럼 alert.message 를 그대로 보여준다.
-                            [Task #437] (테스트업무) 정화조 청소·소방점검 카드는 온보딩
-                            가이드 문구로 대체. 정화조는 1줄, 소방점검은 2줄. */}
+                            [Task #437/#491] (테스트업무) 정화조 청소·호실데이터 불러오기
+                            카드는 온보딩 가이드 문구로 대체. 두 카드 모두 한 줄 안내. */}
                         {(() => {
                           const test = getTestTaskCardOverride(alert);
                           if (test) {
@@ -641,9 +641,10 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
 
   function handleAlertClick(alert: DashboardAlert) {
-    // [Task #437] (테스트업무) 소방점검 카드는 처리 모달 대신 호실 관리 화면으로
-    //   이동시켜 신규 매니저가 호실 데이터 구성 동선을 자연스럽게 익히도록 한다.
-    //   정화조 청소 카드는 navigateTo 가 없으므로 기존 처리 모달이 그대로 열린다.
+    // [Task #437/#491] (테스트업무) 호실데이터 불러오기 카드(구 "소방점검")는
+    //   처리 모달 대신 호실 관리 화면(/units) 으로 이동시켜 신규 매니저가
+    //   호실 데이터 구성 동선을 자연스럽게 익히도록 한다. 정화조 청소 카드는
+    //   navigateTo 가 없으므로 기존 처리 모달이 그대로 열린다.
     const testOverride = getTestTaskCardOverride(alert);
     if (testOverride?.navigateTo) {
       navigate(testOverride.navigateTo);
