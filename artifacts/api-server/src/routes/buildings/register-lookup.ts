@@ -6,6 +6,18 @@ import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
 
+/**
+ * [Task #502] 공공데이터 표제부의 useAprDay(YYYYMMDD) 를 ISO YYYY-MM-DD 로 변환.
+ *  - 8자리 숫자가 아니면 빈 문자열을 반환한다(외부 응답이 비어 있거나 형식이 깨졌을 때).
+ *  - 사용승인일이 등록되지 않은 건물(예: 일부 미등록 건축물)에 대비해 안전 폴백.
+ */
+export function formatUseAprDayToIso(useAprDay: unknown): string {
+  if (typeof useAprDay !== "string") return "";
+  const s = useAprDay.trim();
+  if (!/^\d{8}$/.test(s)) return "";
+  return `${s.substring(0, 4)}-${s.substring(4, 6)}-${s.substring(6, 8)}`;
+}
+
 router.get("/buildings/lookup-register", async (req: Request, res: Response) => {
   const { sigunguCd, bjdongCd, bun, ji } = req.query;
 
@@ -62,6 +74,13 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
     const t = titleItem || {};
     const r = recapItem || {};
 
+    // [Task #502] 표제부 useAprDay(YYYYMMDD)를 ISO YYYY-MM-DD 사용승인일로 정규화한다.
+    //   기존 completionDate 키는 YYYYMMDD 원본을 유지(클라이언트가 substring 으로 분해
+    //   해 사용 중이므로 호환을 위해 보존). approvalDate 키는 신규로 노출해 위저드가
+    //   buildings.approvalDate 를 곧바로 채울 수 있게 한다.
+    const useAprDayRaw = t.useAprDay || r.useAprDay || "";
+    const approvalDateIso = formatUseAprDayToIso(useAprDayRaw);
+
     const buildingInfo = {
       found: true,
       // [Task #328] 표제부/총괄표제부 응답 원본을 그대로 전달해 클라이언트가
@@ -81,6 +100,8 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
         structureType: t.strctCdNm || r.strctCdNm || "",
         totalUnits: t.hhldCnt ? parseInt(t.hhldCnt) : (t.hoCnt ? parseInt(t.hoCnt) : (r.hhldCnt ? parseInt(r.hhldCnt) : 0)),
         completionDate: t.useAprDay || r.useAprDay || "",
+        // [Task #502] 사용승인일 (ISO YYYY-MM-DD). 위저드가 buildings.approvalDate 에 매핑.
+        approvalDate: approvalDateIso,
         elevatorCount: (t.rideUseElvtCnt ? parseInt(t.rideUseElvtCnt) : 0)
           + (t.emgenUseElvtCnt ? parseInt(t.emgenUseElvtCnt) : 0),
         platPlc: t.platPlc || r.platPlc || "",

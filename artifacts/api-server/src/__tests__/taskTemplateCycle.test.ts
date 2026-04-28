@@ -351,4 +351,40 @@ describe("walkForwardNextDue (사용승인일 baseline + cycleMonths)", () => {
     // 2015-12-31 + 11y = 2026-12-31 (>= today)
     assert.equal(next, "2026-12-31");
   });
+
+  // [Task #502] 짧은 주기(<=1개월) 항목도 사용승인일이 다르면 결과가 달라진다.
+  //   현 구현은 baseline 의 (년,월,일) 을 그대로 cursor 로 두고 cycle 만큼 더하므로
+  //   day-of-month 가 다르면 항상 다른 결과가 된다. 회귀 테스트로 고정한다.
+  it("monthly cycle: different baselines (different day-of-month) → different next due", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const a = walkForwardNextDue("2018-03-15", 1, today);
+    const b = walkForwardNextDue("2019-08-22", 1, today);
+    assert.notEqual(a, b, "different baseline day-of-month must yield different next due");
+    // baseline 의 day-of-month 가 보존되어야 한다.
+    assert.equal(a.slice(-2), "15");
+    assert.equal(b.slice(-2), "22");
+    // 그리고 결과는 today 이후여야 한다.
+    assert.ok(a >= "2026-04-22");
+    assert.ok(b >= "2026-04-22");
+  });
+
+  // [Task #502] 6개월 주기처럼 중간 길이 cycle 도 baseline 의 (월,일) 이 다르면
+  //   결과가 다르게 분산된다.
+  it("6-month cycle: two different baselines yield distinct future dates", () => {
+    const today = new Date(2026, 3, 22); // 2026-04-22
+    const a = walkForwardNextDue("2018-01-05", 6, today);
+    const b = walkForwardNextDue("2018-04-25", 6, today);
+    assert.notEqual(a, b);
+    assert.equal(a.slice(-2), "05");
+    assert.equal(b.slice(-2), "25");
+  });
+
+  // [Task #502] anchor 가 (1,1) 같은 값으로 폴백되는 경로가 없는지 확인.
+  //   baseline 이 정상적으로 주어지면 결과의 (월,일) 은 항상 baseline 의 (월,일) 이며,
+  //   1월 1일로 떨어지지 않는다(특정 baseline 이 1월 1일이 아닌 한).
+  it("never silently falls back to (1,1) anchor when baseline is provided", () => {
+    const today = new Date(2026, 3, 22);
+    const next = walkForwardNextDue("2017-09-07", 12, today);
+    assert.equal(next.slice(5), "09-07", "MM-DD must equal baseline MM-DD, not 01-01");
+  });
 });

@@ -111,7 +111,10 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
           nextDueDate,
           status: new Date(nextDueDate) < new Date() ? "overdue" : "upcoming",
           advanceAlertDays: 30,
-          notes: isProvisional ? "[임시] 준공일 기준 자동 산정 — 실제 점검일이 확인되면 수정해 주세요." : null,
+          // [Task #502] 폴백 baseline 은 사용승인일(approvalDate) 우선이고
+          //   approvalDate 가 비었을 때만 completionDate 가 사용되므로, 화면 카피와
+          //   일치하도록 워터마크 문구를 "사용승인일 기준" 으로 통일한다.
+          notes: isProvisional ? "[임시] 사용승인일 기준 자동 산정 — 실제 점검일이 확인되면 수정해 주세요." : null,
         }).returning();
 
         created.push(inspection);

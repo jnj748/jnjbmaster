@@ -483,6 +483,10 @@ export function useBuildingSetup() {
             completionDate: d.completionDate
               ? `${d.completionDate.substring(0, 4)}-${d.completionDate.substring(4, 6)}-${d.completionDate.substring(6, 8)}`
               : prev.completionDate,
+            // [Task #502] 표제부 사용승인일(useAprDay)을 ISO 형식으로 자동 채움.
+            //   서버가 d.approvalDate(YYYY-MM-DD) 를 새로 노출. 사용자가 이미
+            //   직접 입력해 둔 값이 있으면 절대 덮어쓰지 않는다.
+            approvalDate: prev.approvalDate || d.approvalDate || prev.approvalDate,
             elevatorCount: d.elevatorCount ? String(d.elevatorCount) : prev.elevatorCount,
             parkingSpaces: d.parkingCount ? String(d.parkingCount) : prev.parkingSpaces,
             landArea: d.landArea || prev.landArea,
