@@ -216,9 +216,18 @@
   }
 }
 
+/*
+ * [Task #543] 인쇄 페이지 여백 정책.
+ *   - 가정용/사무용 프린터(SINDOH D320 등) 는 종이 가장자리 ~3-5mm 를 인쇄하지
+ *     못한다. `margin: 0` 으로 두면 본문이 비인쇄 영역에 걸쳐 좌/우가 잘리고,
+ *     일부 브라우저는 페이지 안에서 문서를 한쪽으로 밀어버리는 현상까지 생겼다.
+ *   - 안전한 페이지 여백(상하·좌우 동일 10mm) 을 두고, 본문 .a4-document 의
+ *     인쇄용 padding 을 5mm 로 줄여 합쳐서 약 15mm 의 시각적 여백이 유지되도록
+ *     보정했다(이전 인쇄 padding 15mm 와 동일한 안전 영역).
+ */
 @page {
   size: A4;
-  margin: 0;
+  margin: 10mm;
 }
 
 .a4-document {
@@ -357,6 +366,21 @@ h1, h2, h3, h4 {
 }
 
 @media print {
+  /*
+   * [Task #543] 인쇄 좌표 안전 보정.
+   *   문서를 absolute 로 띄울 때 누적 transform / 컨테이닝 블록 오프셋이
+   *   페이지 좌표에 영향을 주지 않도록, html/body 의 정렬·여백·transform 을
+   *   초기화한다. 이렇게 두면 하위 [data-state="open"][role="dialog"] 의
+   *   `position: absolute; left: 0` 이 곧바로 페이지 컨테이닝 블록(=@page
+   *   margin 안쪽 콘텐츠 영역) 좌상단 기준으로 잡힌다.
+   */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    transform: none !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -368,32 +392,51 @@ h1, h2, h3, h4 {
     visibility: visible !important;
   }
 
+  /*
+   * [Task #543] 본문은 컨테이닝 블록(=다이얼로그 → body → @page 콘텐츠 영역)
+   *   을 가로로 가득 채우도록 left:0 / right:0 / width:auto 로 잡는다.
+   *   210mm 고정 폭은 다이얼로그·프레임·포털 폭이 미세하게 어긋났을 때
+   *   페이지 한쪽으로 본문이 밀려 잘리는 원인이 되었다(Task #543 재현 케이스).
+   *
+   *   padding 은 5mm — @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백이
+   *   유지되어, 이전(@page margin:0 + padding:15mm) 과 같은 본문 폭/줄 수가
+   *   재현된다. document-preview.tsx 가 inline padding(48px 56px) 을 줘도
+   *   인쇄 시에는 이 규칙(!important) 이 우선해 같은 위치에 정렬된다.
+   */
   .a4-document {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 210mm;
-    min-height: 297mm;
-    margin: 0;
-    padding: 15mm;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    box-sizing: border-box !important;
     background: white !important;
     color: black !important;
     font-size: 11pt;
     box-shadow: none !important;
+    transform: none !important;
   }
 
   .inspection-notice-print {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 210mm;
-    min-height: 297mm;
-    margin: 0;
-    padding: 15mm;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    box-sizing: border-box !important;
     background: white !important;
     color: black !important;
     font-size: 14pt;
     box-shadow: none !important;
+    transform: none !important;
   }
 
   .print\:hidden {
