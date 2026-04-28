@@ -1,7 +1,7 @@
 // [Task #174] 관리소장 모바일 우선 온보딩 위저드.
 // 한 화면 = 한 단계. 압박 어휘(반드시/필수/권장)를 빼고, AI 자동 입력과
 // 준공일 기준 폴백을 적극 활용해 가입 마찰을 낮춥니다.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
   Loader2,
@@ -12,7 +12,6 @@ import {
   CalendarDays,
   Image as ImageIcon,
   Upload,
-  Camera,
   CheckCircle2,
   PartyPopper,
   ChevronRight,
@@ -27,6 +26,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPhoneNumberPartial } from "@/lib/format-korean";
 import { LegalAppointmentList } from "@/components/building-setup/legal-appointment-list";
@@ -211,8 +211,8 @@ export default function ManagerWizardPage() {
   // 관리비 OCR 상태
   const [billOcr, setBillOcr] = useState<null | { id: number; billingMonth: string; totalAmount: number; lineItems: Record<string, number> }>(null);
   const [billBusy, setBillBusy] = useState(false);
-  const billCamRef = useRef<HTMLInputElement>(null);
-  const billFileRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 촬영/갤러리·파일 분리 버튼을 단일 트리거 + 공용 시트로 통일.
+  const [billPickerOpen, setBillPickerOpen] = useState(false);
 
   // ── 부팅: 다음 우편번호 SDK + 기존 건물 로드 ──
   useEffect(() => {
@@ -857,8 +857,7 @@ export default function ManagerWizardPage() {
         <BillStep
           busy={billBusy}
           preview={billOcr}
-          onPickCamera={() => billCamRef.current?.click()}
-          onPickFile={() => billFileRef.current?.click()}
+          onPick={() => setBillPickerOpen(true)}
           onPrev={goPrev}
           onNext={goNext}
           onSkip={goNext}
@@ -869,29 +868,19 @@ export default function ManagerWizardPage() {
         <DoneStep busy={busy} building={building} onStart={finalize} />
       )}
 
-      {/* 숨겨진 파일 입력 */}
-      <input
-        ref={billCamRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) runBillOcr(f);
+      {/* [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택). */}
+      <AttachmentPickerSheet
+        open={billPickerOpen}
+        onOpenChange={setBillPickerOpen}
+        title="고지서 첨부"
+        description="JPG · PNG · HEIC · PDF, 최대 10MB"
+        onPick={(f) => runBillOcr(f)}
+        fileOption={{
+          accept: "application/pdf",
+          label: "파일에서 선택",
+          description: "PDF 고지서",
         }}
-      />
-      <input
-        ref={billFileRef}
-        type="file"
-        accept="image/*,application/pdf"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) runBillOcr(f);
-        }}
+        testId="onboarding-bill-picker"
       />
     </Shell>
   );
@@ -1384,16 +1373,14 @@ function LogoStep({
 function BillStep({
   busy,
   preview,
-  onPickCamera,
-  onPickFile,
+  onPick,
   onPrev,
   onNext,
   onSkip,
 }: {
   busy: boolean;
   preview: { id: number; billingMonth: string; totalAmount: number; lineItems: Record<string, number> } | null;
-  onPickCamera: () => void;
-  onPickFile: () => void;
+  onPick: () => void;
   onPrev: () => void;
   onNext: () => void;
   onSkip: () => void;
@@ -1419,24 +1406,16 @@ function BillStep({
             </span>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onPickCamera}
-              className="p-5 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
-            >
-              <Camera className="w-6 h-6 text-slate-600" />
-              <span className="text-xs text-slate-700 font-medium">촬영</span>
-            </button>
-            <button
-              type="button"
-              onClick={onPickFile}
-              className="p-5 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
-            >
-              <Upload className="w-6 h-6 text-slate-600" />
-              <span className="text-xs text-slate-700 font-medium">갤러리·파일</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onPick}
+            className="w-full p-5 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
+            data-testid="onboarding-bill-trigger"
+          >
+            <Upload className="w-6 h-6 text-slate-600" />
+            <span className="text-xs text-slate-700 font-medium">고지서 첨부</span>
+            <span className="text-[10px] text-slate-500">촬영 · 앨범에서 선택 · 파일에서 선택</span>
+          </button>
         )}
       </div>
 

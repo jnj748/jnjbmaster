@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle, Camera } from "lucide-react";
+import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { OcrProgressBar } from "@/components/ocr-progress-bar";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -51,8 +52,9 @@ export default function BillsPage() {
   const { toast } = useToast();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 촬영/갤러리 분리 버튼을 단일 트리거 + 공용 시트로 통일.
+  // PDF 업로드 경로는 시트의 "파일에서 선택"(application/pdf)로 그대로 보존한다.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +127,7 @@ export default function BillsPage() {
     },
   });
 
-  function pick() { fileInputRef.current?.click(); }
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
+  function handlePick(f: File) {
     if (f.size > MAX_FILE_SIZE_BYTES) {
       toast({ title: "파일이 너무 큽니다", description: `최대 ${MAX_FILE_SIZE_MB}MB까지 가능합니다.`, variant: "destructive" });
       return;
@@ -152,44 +150,34 @@ export default function BillsPage() {
           <CardDescription>JPG · PNG · HEIC · PDF, 최대 {MAX_FILE_SIZE_MB}MB</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* [Task #170] 모바일에서 촬영/갤러리 분리. capture="environment"는 카메라 직진입,
-              미설정 입력은 사진 갤러리·파일 매니저(PDF 포함) 선택 다이얼로그. */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,application/pdf"
-            className="hidden"
-            onChange={onFileChange}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={onFileChange}
-          />
+          {/* [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택)로 통일. */}
           <div className="flex flex-wrap gap-2">
             <Button
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => setPickerOpen(true)}
               disabled={isUploading || ocrPending}
               className="gap-2"
-            >
-              <Camera className="w-4 h-4" /> 촬영
-            </Button>
-            <Button
-              onClick={pick}
-              disabled={isUploading || ocrPending}
-              variant="outline"
-              className="gap-2"
+              data-testid="bills-upload-trigger"
             >
               {(isUploading || ocrPending) ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> 인식 중...</>
               ) : (
-                <><Upload className="w-4 h-4" /> 갤러리 / 파일</>
+                <><Upload className="w-4 h-4" /> 고지서 첨부</>
               )}
             </Button>
           </div>
+          <AttachmentPickerSheet
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            title="고지서 첨부"
+            description="JPG · PNG · HEIC · PDF, 최대 10MB"
+            onPick={handlePick}
+            fileOption={{
+              accept: "application/pdf",
+              label: "파일에서 선택",
+              description: "PDF 고지서",
+            }}
+            testId="bills-picker"
+          />
           <OcrProgressBar
             isUploading={isUploading}
             uploadProgress={progress}

@@ -68,6 +68,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "초안",
@@ -654,7 +655,8 @@ function NewContractDialog({
 }) {
   const { token } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택)로 통일.
+  const [pickerOpen, setPickerOpen] = useState(false);
   const pendingFileNameRef = useRef<string | null>(null);
   const [form, setForm] = useState<NewContractFormState>(EMPTY_FORM);
   const [confidence, setConfidence] = useState<Record<string, number>>({});
@@ -753,14 +755,7 @@ function NewContractDialog({
     setConfidence(result.fieldConfidence ?? {});
   }
 
-  function pickFile() {
-    fileInputRef.current?.click();
-  }
-
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
+  function handlePick(f: File) {
     if (f.size > 10 * 1024 * 1024) {
       toast({
         title: "파일이 너무 큽니다",
@@ -880,18 +875,10 @@ function NewContractDialog({
                 계약서 PDF · JPG · PNG · HEIC (최대 10MB)를 올리면 업체명·사업자번호·기간·금액·카테고리·자동갱신
                 여부·제목 후보가 자동으로 채워집니다.
               </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={onFileChange}
-                data-testid="input-ocr-file"
-              />
               <Button
                 type="button"
                 variant="outline"
-                onClick={pickFile}
+                onClick={() => setPickerOpen(true)}
                 disabled={busy}
                 className="gap-2"
                 data-testid="button-ocr-upload"
@@ -902,6 +889,19 @@ function NewContractDialog({
                   <><Upload className="w-4 h-4" /> 계약서 업로드</>
                 )}
               </Button>
+              <AttachmentPickerSheet
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                title="계약서 첨부"
+                description="JPG · PNG · HEIC · PDF, 최대 10MB"
+                onPick={handlePick}
+                fileOption={{
+                  accept: "application/pdf",
+                  label: "파일에서 선택",
+                  description: "PDF 계약서",
+                }}
+                testId="contract-picker"
+              />
               <OcrProgressBar
                 isUploading={isUploading}
                 uploadProgress={progress}

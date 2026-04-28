@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import {
   useGetTodayAttendance,
   useCheckAttendance,
@@ -85,22 +86,28 @@ export default function FacilityWorktool() {
     }
   }
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
+  // [Task #507] 점검 항목 사진 첨부 — 어떤 행을 첨부 중인지 ref 로 보관한다.
+  // AttachmentPickerSheet 는 "촬영/앨범에서 선택"을 누르는 즉시 시트를 닫고
+  // (애니메이션 충돌 방지) 0.05s 뒤 hidden input.click() 을 트리거하는 구조라,
+  // 활성 행 id 를 React state 로 들고 onOpenChange(false) 시 비우면 사용자가
+  // 파일을 고르기 전에 항상 null 이 되어 사진이 버려진다. 시트 닫힘과 무관한
+  // ref 에 보관해 그 race 를 회피한다.
+  const activePhotoIdRef = useRef<string | null>(null);
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
 
   function setResult(id: string, result: CheckResult) {
     setChecklist((prev) => prev.map((item) => item.id === id ? { ...item, result } : item));
   }
 
+  // [Task #507] 카메라 전용이던 점검 항목 사진 첨부를 공용 시트(촬영/앨범에서 선택)로 통일.
   function handlePhotoClick(id: string) {
-    setActivePhotoId(id);
-    photoInputRef.current?.click();
+    activePhotoIdRef.current = id;
+    setPhotoSheetOpen(true);
   }
 
-  function handlePhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !activePhotoId) return;
+  function handlePhotoCapture(file: File) {
+    const targetId = activePhotoIdRef.current;
+    if (!targetId) return;
     const MAX_BYTES = 10 * 1024 * 1024;
     if (file.size > MAX_BYTES) {
       toast({
@@ -108,10 +115,9 @@ export default function FacilityWorktool() {
         description: "최대 10MB까지 첨부할 수 있습니다. 사진 크기를 줄여 다시 시도해주세요.",
         variant: "destructive",
       });
-      setActivePhotoId(null);
+      activePhotoIdRef.current = null;
       return;
     }
-    const targetId = activePhotoId;
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -124,7 +130,7 @@ export default function FacilityWorktool() {
         console.error("[facility-worktool] photo state update failed:", err);
         toast({ title: "사진 처리에 실패했습니다", variant: "destructive" });
       } finally {
-        setActivePhotoId(null);
+        activePhotoIdRef.current = null;
       }
     };
     reader.onerror = () => {
@@ -134,14 +140,14 @@ export default function FacilityWorktool() {
         description: "다른 사진으로 다시 시도해주세요.",
         variant: "destructive",
       });
-      setActivePhotoId(null);
+      activePhotoIdRef.current = null;
     };
     try {
       reader.readAsDataURL(file);
     } catch (err) {
       console.error("[facility-worktool] readAsDataURL threw:", err);
       toast({ title: "사진을 읽지 못했습니다", variant: "destructive" });
-      setActivePhotoId(null);
+      activePhotoIdRef.current = null;
     }
   }
 
@@ -371,15 +377,17 @@ export default function FacilityWorktool() {
       </Card>
   );
 
-  const photoInputEl = (
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handlePhotoCapture}
-      />
+  // [Task #507] 점검 항목 사진 첨부 — 공용 시트로 통일.
+  // 활성 행 id 는 ref(activePhotoIdRef) 가 보관하므로 시트 닫힘 콜백에서는
+  // 별도 정리 작업이 필요 없다. ref 는 handlePhotoCapture 에서 처리 후 비운다.
+  const photoPickerEl = (
+    <AttachmentPickerSheet
+      open={photoSheetOpen}
+      onOpenChange={setPhotoSheetOpen}
+      title="점검 사진 추가"
+      onPick={handlePhotoCapture}
+      testId="facility-checklist-photo"
+    />
   );
 
   return (
@@ -421,7 +429,7 @@ export default function FacilityWorktool() {
         </div>
       </DesktopOnly>
 
-      {photoInputEl}
+      {photoPickerEl}
     </div>
   );
 }

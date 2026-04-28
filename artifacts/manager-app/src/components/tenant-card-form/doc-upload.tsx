@@ -1,8 +1,12 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, Trash2, Upload, Loader2 } from "lucide-react";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 
+// [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택)로 통일.
+// 입주자 서류는 임대차계약서·신분증·사업자등록증·자동차등록증으로 사진/PDF 혼용
+// 자리이므로 시트의 fileOption(application/pdf)을 활성화한다.
 export function DocUpload({
   label,
   value,
@@ -16,7 +20,7 @@ export function DocUpload({
   onUpload: (file: File) => void;
   onRemove: () => void;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div>
       <Label className="text-xs mb-1 block">{label}</Label>
@@ -30,23 +34,12 @@ export function DocUpload({
         </div>
       ) : (
         <>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = "";
-            }}
-          />
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="w-full h-10 border-dashed"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setPickerOpen(true)}
             disabled={uploading}
           >
             {uploading ? (
@@ -54,8 +47,20 @@ export function DocUpload({
             ) : (
               <Upload className="w-4 h-4 mr-2" />
             )}
-            {uploading ? "업로드 중..." : "촬영 또는 파일 선택"}
+            {uploading ? "업로드 중..." : "촬영 또는 선택"}
           </Button>
+          <AttachmentPickerSheet
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            title={label}
+            onPick={onUpload}
+            fileOption={{
+              accept: "application/pdf",
+              label: "파일에서 선택",
+              description: "PDF 문서",
+            }}
+            testId="tenant-doc"
+          />
         </>
       )}
     </div>

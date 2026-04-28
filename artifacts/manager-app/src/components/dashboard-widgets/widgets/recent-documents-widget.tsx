@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +23,8 @@ import {
   SheetTitle,
   SheetFooter,
 } from "@/components/ui/sheet";
+// [Task #507] 외부 문서 첨부 시트를 공용 첨부 시트로 통일.
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import {
   FolderOpen,
   Plus,
@@ -31,9 +33,8 @@ import {
   Receipt,
   Megaphone,
   Image as ImageIcon,
-  Camera,
-  ImagePlus,
   Loader2,
+  Upload,
   X,
   Eye,
   Share2,
@@ -176,8 +177,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
   }, [drafts, quotes, notices, journals, externals]);
 
   // ---------- Upload sheet ----------
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 카메라/갤러리 hidden input 직접 클릭 → 공용 첨부 시트로 통일.
   const [pickerOpen, setPickerOpen] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploadedMime, setUploadedMime] = useState<string | null>(null);
@@ -199,23 +199,18 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
     },
   });
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) {
-      if (f.size > MAX_FILE_SIZE_BYTES) {
-        toast({
-          title: "파일이 너무 큽니다",
-          description: `최대 ${MAX_FILE_SIZE_MB}MB까지 업로드 가능합니다.`,
-          variant: "destructive",
-        });
-        e.target.value = "";
-        return;
-      }
-      setUploadedMime(f.type);
-      if (!docTitle) setDocTitle(f.name.replace(/\.[^.]+$/, ""));
-      uploadFile(f);
+  function handleFile(f: File) {
+    if (f.size > MAX_FILE_SIZE_BYTES) {
+      toast({
+        title: "파일이 너무 큽니다",
+        description: `최대 ${MAX_FILE_SIZE_MB}MB까지 업로드 가능합니다.`,
+        variant: "destructive",
+      });
+      return;
     }
-    e.target.value = "";
+    setUploadedMime(f.type);
+    if (!docTitle) setDocTitle(f.name.replace(/\.[^.]+$/, ""));
+    uploadFile(f);
   }
 
   const saveMutation = useMutation({
@@ -392,41 +387,26 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
                   </button>
                 </div>
               ) : (
-                <>
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFile}
-                    className="hidden"
-                  />
-                  <input
-                    ref={galleryInputRef}
-                    type="file"
-                    onChange={handleFile}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full h-20 flex flex-col gap-1 border-dashed"
-                    onClick={() => setPickerOpen(true)}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span className="text-xs">{progress}%</span>
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="w-5 h-5" />
-                        <span className="text-xs">촬영 또는 파일 선택</span>
-                      </>
-                    )}
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-20 flex flex-col gap-1 border-dashed"
+                  onClick={() => setPickerOpen(true)}
+                  disabled={isUploading}
+                  data-testid="external-doc-picker-trigger"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-xs">{progress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs">촬영 · 앨범에서 선택 · 파일에서 선택</span>
+                    </>
+                  )}
+                </Button>
               )}
             </div>
           </div>
@@ -454,47 +434,19 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         </SheetContent>
       </Sheet>
 
-      <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle className="text-left">파일 추가</SheetTitle>
-          </SheetHeader>
-          <div className="grid gap-2 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={() => {
-                setPickerOpen(false);
-                setTimeout(() => cameraInputRef.current?.click(), 50);
-              }}
-            >
-              <Camera className="w-5 h-5" />
-              사진 촬영
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={() => {
-                setPickerOpen(false);
-                setTimeout(() => galleryInputRef.current?.click(), 50);
-              }}
-            >
-              <ImagePlus className="w-5 h-5" />
-              파일 선택
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full h-12"
-              onClick={() => setPickerOpen(false)}
-            >
-              취소
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AttachmentPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="파일 추가"
+        description={`이미지·PDF·문서 등 어떤 파일이든 첨부할 수 있어요. (최대 ${MAX_FILE_SIZE_MB}MB)`}
+        onPick={handleFile}
+        fileOption={{
+          accept: "*/*",
+          label: "파일에서 선택",
+          description: "PDF·문서 등 모든 파일",
+        }}
+        testId="external-doc-picker"
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -6,22 +6,20 @@ import { AuthImage } from "@/components/auth-image";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Camera, X, Loader2, ImagePlus } from "lucide-react";
+  AttachmentPickerSheet,
+  type AttachmentPickerFileOption,
+} from "@/components/attachment-picker-sheet";
+import { Camera, X, Loader2 } from "lucide-react";
 
 interface PhotoUploadFieldProps {
   label: string;
   value: string | null;
   onChange: (url: string | null) => void;
   /**
-   * Optional test id prefix; the camera input gets `${testId}-camera-input`,
-   * the gallery input gets `${testId}-gallery-input`, and the trigger button
-   * gets `${testId}-trigger`. Useful for e2e tests that need to target
-   * specific upload fields.
+   * Optional test id prefix; the trigger button gets `${testId}-trigger`,
+   * the remove button gets `${testId}-remove`, and the picker sheet inputs
+   * are forwarded as `${testId}-camera-input` / `${testId}-gallery-input` /
+   * `${testId}-file-input` (when fileOption is set).
    */
   testId?: string;
   /**
@@ -40,30 +38,7 @@ const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export function PhotoUploadField({ label, value, onChange, testId, compact = false, disabled = false }: PhotoUploadFieldProps) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // [Task #413] 시트 스와이프-다운 닫기용 터치 좌표 추적.
-  const swipeStartYRef = useRef<number | null>(null);
-  const swipeDeltaRef = useRef<number>(0);
-
-  function handleSheetTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    swipeStartYRef.current = e.touches[0]?.clientY ?? null;
-    swipeDeltaRef.current = 0;
-  }
-  function handleSheetTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    const start = swipeStartYRef.current;
-    if (start == null) return;
-    const y = e.touches[0]?.clientY ?? start;
-    swipeDeltaRef.current = y - start;
-  }
-  function handleSheetTouchEnd() {
-    if (swipeDeltaRef.current > 60) {
-      setPickerOpen(false);
-    }
-    swipeStartYRef.current = null;
-    swipeDeltaRef.current = 0;
-  }
   const { token } = useAuth();
   const { toast } = useToast();
   const BASE = import.meta.env.BASE_URL ?? "/";
@@ -90,37 +65,26 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
     },
   });
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        toast({
-          title: "사진 용량이 너무 큽니다",
-          description: `최대 ${MAX_FILE_SIZE_MB}MB까지 업로드할 수 있습니다. 사진을 줄여서 다시 시도해주세요.`,
-          variant: "destructive",
-        });
-        e.target.value = "";
-        return;
-      }
-      uploadFile(file);
+  function handlePick(file: File) {
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast({
+        title: "사진 용량이 너무 큽니다",
+        description: `최대 ${MAX_FILE_SIZE_MB}MB까지 업로드할 수 있습니다. 사진을 줄여서 다시 시도해주세요.`,
+        variant: "destructive",
+      });
+      return;
     }
-    e.target.value = "";
+    uploadFile(file);
   }
 
   function handleRemove() {
     onChange(null);
   }
 
-  function pickCamera() {
-    setPickerOpen(false);
-    // 약간의 지연으로 시트 닫힘 애니메이션과 파일 다이얼로그가 충돌하지 않게 한다.
-    setTimeout(() => cameraInputRef.current?.click(), 50);
-  }
-
-  function pickGallery() {
-    setPickerOpen(false);
-    setTimeout(() => galleryInputRef.current?.click(), 50);
-  }
+  // PhotoUploadField 는 단일 이미지 결과(value: string | null)를 다루므로
+  // 시트의 "파일에서 선택"(PDF 등) 옵션은 노출하지 않는다. PDF 혼용 자리는
+  // AttachmentPickerSheet 를 직접 사용해 호출측에서 PDF 결과를 다룬다.
+  const fileOption: AttachmentPickerFileOption | undefined = undefined;
 
   return (
     <div className="space-y-1.5">
@@ -151,25 +115,6 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
         </div>
       ) : (
         <div>
-          {/* 후면 카메라 우선 호출. capture="environment"가 모바일 브라우저에서 카메라 앱을 직접 띄운다. */}
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            className="hidden"
-            data-testid={testId ? `${testId}-camera-input` : undefined}
-          />
-          {/* 일반 이미지 선택. capture 속성이 없으면 사진 앨범이 우선된다. */}
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-            data-testid={testId ? `${testId}-gallery-input` : undefined}
-          />
           <Button
             type="button"
             variant="outline"
@@ -198,55 +143,14 @@ export function PhotoUploadField({ label, value, onChange, testId, compact = fal
         </div>
       )}
 
-      <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-        <SheetContent
-          side="bottom"
-          className="rounded-t-2xl pt-3"
-          hideClose
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-        >
-          {/* 스와이프-다운 핸들(시각적 어포던스). 영역외 터치/스와이프-다운/취소 버튼으로 닫힌다. */}
-          <div
-            aria-hidden
-            className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-slate-300"
-          />
-          <SheetHeader>
-            <SheetTitle className="text-left">사진 추가</SheetTitle>
-          </SheetHeader>
-          <div className="grid gap-2 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={pickCamera}
-              data-testid={testId ? `${testId}-pick-camera` : "photo-pick-camera"}
-            >
-              <Camera className="w-5 h-5" />
-              촬영
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={pickGallery}
-              data-testid={testId ? `${testId}-pick-gallery` : "photo-pick-gallery"}
-            >
-              <ImagePlus className="w-5 h-5" />
-              앨범에서 선택
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full h-12"
-              onClick={() => setPickerOpen(false)}
-            >
-              취소
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AttachmentPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="사진 추가"
+        onPick={handlePick}
+        fileOption={fileOption}
+        testId={testId ?? "photo"}
+      />
     </div>
   );
 }

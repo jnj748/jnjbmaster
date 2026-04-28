@@ -2,8 +2,8 @@
 // 결과를 미리보기/편집 후 호출측 onInsert 콜백으로 전달한다.
 //
 // 사용 흐름:
-//   1) 사용자가 "메모 AI입력" 버튼을 누르면 카메라/앨범 선택 시트가 열린다
-//      (PhotoUploadField 의 시트 패턴을 그대로 재사용).
+//   1) 사용자가 "메모 AI입력" 버튼을 누르면 공용 첨부 시트가 열린다
+//      (촬영 / 앨범에서 선택 / 파일에서 선택).
 //   2) 파일 선택 → 오브젝트 스토리지로 업로드 → POST /memos/ocr 로 OCR.
 //   3) 인식 결과를 텍스트영역으로 보여주고, "메모에 추가"를 누르면
 //      onInsert(text) 콜백으로 호출측이 기존 메모 끝에 줄바꿈으로 이어 붙인다
@@ -11,9 +11,13 @@
 //
 // 어떤 입력 수단(타이핑/음성/AI입력)을 쓰든 결과가 같은 메모 state 한 곳에
 // 누적되도록, 본 컴포넌트는 메모 state 자체는 들고 있지 않고 콜백만 호출한다.
+//
+// [Task #507] 자체 시트 + 두 개의 hidden input 패턴을 공용 AttachmentPickerSheet
+// 으로 교체한다. 이미지+PDF 혼용 자리이므로 fileOption(application/pdf)으로
+// 세 번째 항목을 추가한다.
 
-import { useRef, useState } from "react";
-import { Camera, ImagePlus, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useRunMemoOcr } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -25,15 +29,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { OcrProgressBar } from "@/components/ocr-progress-bar";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { cn } from "@/lib/utils";
 
 const MAX_FILE_SIZE_MB = 10;
@@ -53,8 +52,6 @@ interface MemoAiInputButtonProps {
 export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputButtonProps) {
   const { token } = useAuth();
   const { toast } = useToast();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [resultText, setResultText] = useState("");
@@ -115,10 +112,7 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
 
   const busy = isUploading || ocrMutation.isPending;
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  function handlePick(file: File) {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       toast({
         title: "사진 용량이 너무 큽니다",
@@ -132,16 +126,6 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
     uploadFile(file);
   }
 
-  function pickCamera() {
-    setPickerOpen(false);
-    setTimeout(() => cameraInputRef.current?.click(), 50);
-  }
-
-  function pickGallery() {
-    setPickerOpen(false);
-    setTimeout(() => galleryInputRef.current?.click(), 50);
-  }
-
   function handleConfirm() {
     const text = resultText.trim();
     if (text.length > 0) {
@@ -153,24 +137,6 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
 
   return (
     <>
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-        data-testid={testId ? `${testId}-camera-input` : undefined}
-      />
-      <input
-        ref={galleryInputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        onChange={handleFileChange}
-        className="hidden"
-        data-testid={testId ? `${testId}-gallery-input` : undefined}
-      />
-
       <div className={cn("flex flex-col gap-1", className)}>
         <Button
           type="button"
@@ -198,50 +164,19 @@ export function MemoAiInputButton({ onInsert, testId, className }: MemoAiInputBu
         />
       </div>
 
-      <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl pt-3" hideClose>
-          <div
-            aria-hidden
-            className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-slate-300"
-          />
-          <SheetHeader>
-            <SheetTitle className="text-left">메모 사진 선택</SheetTitle>
-          </SheetHeader>
-          <p className="px-1 pt-1 text-xs text-muted-foreground">
-            손글씨·인쇄·포스트잇 메모 사진을 올리면 글자만 추출해 메모란에 넣어드려요.
-          </p>
-          <div className="grid gap-2 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={pickCamera}
-              data-testid={testId ? `${testId}-pick-camera` : "memo-ai-input-pick-camera"}
-            >
-              <Camera className="w-5 h-5" />
-              촬영
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-14 justify-start gap-3 text-base"
-              onClick={pickGallery}
-              data-testid={testId ? `${testId}-pick-gallery` : "memo-ai-input-pick-gallery"}
-            >
-              <ImagePlus className="w-5 h-5" />
-              앨범에서 선택
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full h-12"
-              onClick={() => setPickerOpen(false)}
-            >
-              취소
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AttachmentPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title="메모 사진 선택"
+        description="손글씨·인쇄·포스트잇 메모 사진을 올리면 글자만 추출해 메모란에 넣어드려요."
+        onPick={handlePick}
+        fileOption={{
+          accept: "application/pdf",
+          label: "파일에서 선택",
+          description: "PDF 메모 문서",
+        }}
+        testId={testId ?? "memo-ai-input"}
+      />
 
       <Dialog
         open={previewOpen}

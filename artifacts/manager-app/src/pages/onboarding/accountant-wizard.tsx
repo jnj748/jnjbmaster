@@ -1,7 +1,8 @@
 // [Task #132] 경리·회계 위저드. 주소 확인 → 부과면적 기준 선택 → 회계 초기 자료 업로드.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { useLocation } from "wouter";
-import { Loader2, Upload, FileText, CheckCircle2, Sparkles, Camera } from "lucide-react";
+import { Loader2, Upload, FileText, CheckCircle2, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { WizardShell } from "@/components/wizard/wizard-shell";
@@ -57,8 +58,8 @@ export default function AccountantWizardPage() {
   const billOcrLoading = billUploading || billOcrPending;
   // [Task #341] 본인이 연결되려는 건물에 이미 다른 활성 경리가 있을 때 차단 안내.
   const [dupMessage, setDupMessage] = useState<string | null>(null);
-  const billFileRef = useRef<HTMLInputElement>(null);
-  const billCameraRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 촬영/갤러리·파일 분리 버튼을 단일 트리거 + 공용 시트로 통일.
+  const [billPickerOpen, setBillPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -332,29 +333,19 @@ export default function AccountantWizardPage() {
         }}
         nextLabel={billPreview ? "확정 후 다음" : "다음"}
       >
-        {/* [Task #170] 촬영(카메라 직진입) / 갤러리·파일(이미지+PDF) 분리. */}
-        <input
-          ref={billFileRef}
-          type="file"
-          accept="image/*,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            if (f) uploadBillForOcr(f);
+        {/* [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택). */}
+        <AttachmentPickerSheet
+          open={billPickerOpen}
+          onOpenChange={setBillPickerOpen}
+          title="고지서 첨부"
+          description="JPG · PNG · HEIC · PDF, 최대 10MB"
+          onPick={(f) => uploadBillForOcr(f)}
+          fileOption={{
+            accept: "application/pdf",
+            label: "파일에서 선택",
+            description: "PDF 고지서",
           }}
-        />
-        <input
-          ref={billCameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = "";
-            if (f) uploadBillForOcr(f);
-          }}
+          testId="accountant-bill-picker"
         />
         <div className="space-y-3 text-sm">
           {billOcrLoading ? (
@@ -362,26 +353,16 @@ export default function AccountantWizardPage() {
               <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => billCameraRef.current?.click()}
-                className="p-5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
-              >
-                <Camera className="w-6 h-6 text-slate-600" />
-                <span className="text-xs text-slate-700 font-medium">촬영</span>
-                <span className="text-[10px] text-slate-500">카메라로 바로 찍기</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => billFileRef.current?.click()}
-                className="p-5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
-              >
-                <Upload className="w-6 h-6 text-slate-600" />
-                <span className="text-xs text-slate-700 font-medium">갤러리 / 파일</span>
-                <span className="text-[10px] text-slate-500">사진·PDF · 최대 10MB</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setBillPickerOpen(true)}
+              className="w-full p-5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
+              data-testid="accountant-bill-trigger"
+            >
+              <Upload className="w-6 h-6 text-slate-600" />
+              <span className="text-xs text-slate-700 font-medium">고지서 첨부</span>
+              <span className="text-[10px] text-slate-500">촬영 · 앨범에서 선택 · 파일에서 선택 · 최대 10MB</span>
+            </button>
           )}
           {/* [Task #472] 가로 진행바는 조건부 컨테이너 밖에 항상 렌더한다.
               billOcrLoading 이 false 가 되어도 done(100%) 단계가 보이도록

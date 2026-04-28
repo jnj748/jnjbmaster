@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Vendor, VendorCategory } from "@workspace/api-client-react";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
@@ -99,7 +100,8 @@ export default function PartnerVendorProfile() {
   const vendorId = user?.vendorId ?? null;
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  // [Task #507] 갤러리 단일 입력이던 프로필 사진 업로드를 공용 시트(촬영/앨범에서 선택)로 통일.
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
 
   const meVendorQuery = useQuery<Vendor | null>({
     queryKey: ME_VENDOR_QUERY_KEY,
@@ -305,9 +307,7 @@ export default function PartnerVendorProfile() {
     });
   }
 
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handlePhotoSelect(file: File) {
     setPhotoError("");
     if (!/^image\//.test(file.type)) {
       setPhotoError("이미지 파일만 업로드할 수 있습니다");
@@ -346,7 +346,6 @@ export default function PartnerVendorProfile() {
       setPhotoError(err instanceof Error ? err.message : "업로드 실패");
     } finally {
       setPhotoUploading(false);
-      if (photoInputRef.current) photoInputRef.current.value = "";
     }
   }
 
@@ -449,7 +448,7 @@ export default function PartnerVendorProfile() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => photoInputRef.current?.click()}
+                    onClick={() => setPhotoSheetOpen(true)}
                     disabled={photoUploading}
                     data-testid="button-vendor-photo-upload"
                   >
@@ -474,13 +473,12 @@ export default function PartnerVendorProfile() {
                 {photoError && (
                   <p className="text-xs text-red-600">{photoError}</p>
                 )}
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoSelect}
-                  data-testid="input-vendor-photo"
+                <AttachmentPickerSheet
+                  open={photoSheetOpen}
+                  onOpenChange={setPhotoSheetOpen}
+                  title="프로필 사진"
+                  onPick={handlePhotoSelect}
+                  testId="vendor-photo"
                 />
               </div>
             </div>

@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { CheckCircle2, Loader2, Upload, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { WizardShell } from "@/components/wizard/wizard-shell";
+import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import {
   ConsentSection,
   buildDecisions,
@@ -84,6 +85,8 @@ export default function PartnerWizardPage() {
     new Set(initial.selectedCategories ?? []),
   );
 
+  // [Task #507] 라벨/숨김 input 직접 클릭 패턴을 단일 트리거 + 공용 시트로 통일.
+  const [bizCertPickerOpen, setBizCertPickerOpen] = useState(false);
   const [bizCertUrl, setBizCertUrl] = useState<string | null>(initial.bizCertUrl ?? null);
   const [bizCertName, setBizCertName] = useState<string | null>(initial.bizCertName ?? null);
   const [bizCertSize, setBizCertSize] = useState<number | null>(initial.bizCertSize ?? null);
@@ -471,8 +474,11 @@ export default function PartnerWizardPage() {
             {uploadError}
           </div>
         )}
-        <label
-          className="block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
+        <button
+          type="button"
+          onClick={() => setBizCertPickerOpen(true)}
+          disabled={uploading}
+          className="w-full block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors disabled:cursor-default"
           data-testid="partner-bizcert-dropzone"
         >
           {uploading ? (
@@ -493,22 +499,24 @@ export default function PartnerWizardPage() {
           ) : (
             <div className="text-sm text-slate-500">
               <Upload className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-              클릭해서 사업자등록증 파일 선택
-              <div className="mt-1 text-[11px] text-slate-400">PDF, JPG, PNG, WebP · 최대 20MB</div>
+              클릭해서 사업자등록증 첨부
+              <div className="mt-1 text-[11px] text-slate-400">촬영 · 앨범에서 선택 · 파일에서 선택 (PDF · JPG · PNG · WebP · 최대 20MB)</div>
             </div>
           )}
-          <input
-            type="file"
-            className="hidden"
-            accept="image/*,application/pdf"
-            data-testid="partner-bizcert-input"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleUpload(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
+        </button>
+        <AttachmentPickerSheet
+          open={bizCertPickerOpen}
+          onOpenChange={setBizCertPickerOpen}
+          title="사업자등록증 첨부"
+          description="JPG · PNG · WebP · PDF, 최대 20MB"
+          onPick={handleUpload}
+          fileOption={{
+            accept: "application/pdf",
+            label: "파일에서 선택",
+            description: "PDF 사업자등록증",
+          }}
+          testId="partner-bizcert-picker"
+        />
         <p className="mt-2 text-[11px] text-slate-500">
           업로드한 파일은 본사 검토 및 견적 매칭 외 용도로 사용되지 않습니다.
         </p>
