@@ -27,3 +27,24 @@ export function fillNoticeTemplate(template: string, vars: Record<string, string
     return v != null ? String(v) : "";
   });
 }
+
+// [Task #530] 템플릿 본문 HTML 안의 `{{token}}` 을 안전하게 치환.
+//   - 매니저 미리보기와 본사 관리자 편집 모달이 같은 결과를 보여주도록 한 곳에 둔다.
+//   - HTML 본문 안에 들어가므로 값은 항상 escape 한다.
+const NOTICE_BODY_TOKEN_RE = /{{\s*([a-zA-Z0-9_]+)\s*}}/g;
+
+export function escapeNoticeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function renderNoticeBodyHtml(html: string, vars: Record<string, string>): string {
+  return html.replace(NOTICE_BODY_TOKEN_RE, (_m, key) => {
+    const v = vars[String(key)];
+    return v != null && v !== "" ? escapeNoticeHtml(v) : "";
+  });
+}

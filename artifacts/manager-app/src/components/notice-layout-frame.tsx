@@ -90,15 +90,18 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
 
   // 메타표는 가시 행을 기준으로 column span 을 적응한다. 가장 단순한 방식은
   // 토글에 따라 cell 을 조건부 렌더하고, 연락처 행의 colSpan 을 동적으로 계산.
+  // [Task #530] 공고NO(예: 2026-0428-0001) / 공고일(예: 2026-04-28) 처럼 짧은 값도
+  //   좁은 칸 폭에서 두 줄로 잘리지 않도록 칸 폭을 살짝 넓히고, 라벨/값 모두
+  //   whiteSpace:nowrap 을 적용한다(아래 td 렌더 참고).
   const topRowCells: Array<{ label: string; value: string; widthClass?: string }> = [];
   if (settings.showNoticeNoRow) {
-    topRowCells.push({ label: "공고NO", value: noticeNo, widthClass: "w-[20%]" });
+    topRowCells.push({ label: "공고NO", value: noticeNo, widthClass: "w-[24%]" });
   }
   if (settings.showBuildingRow) {
     topRowCells.push({ label: "건물명", value: buildingName });
   }
   if (settings.showDateRow) {
-    topRowCells.push({ label: "공고일", value: noticeDate, widthClass: "w-[14%]" });
+    topRowCells.push({ label: "공고일", value: noticeDate, widthClass: "w-[18%]" });
   }
   // 연락처 행이 단독으로만 켜져 있는 경우(상단 행이 0개) 단순 1x2 표 로 표시.
   const showAnyMetaRow =
@@ -139,7 +142,8 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
                 {topRowCells.flatMap((c, i) => [
                   <td
                     key={`l-${i}`}
-                    className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[12%]"
+                    className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[14%]"
+                    style={{ whiteSpace: "nowrap" }}
                   >
                     {c.label}
                   </td>,
@@ -149,7 +153,7 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
                       "border border-gray-400 py-1.5 px-2",
                       c.widthClass,
                     )}
-                    style={c.label === "건물명" ? { whiteSpace: "nowrap" } : undefined}
+                    style={{ whiteSpace: "nowrap" }}
                   >
                     {c.value}
                   </td>,

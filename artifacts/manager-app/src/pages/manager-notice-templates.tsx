@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { FileText, Image as ImageIcon, Share2, Printer } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
+import { renderNoticeBodyHtml, escapeNoticeHtml } from "@/lib/notice-layout";
 
 // [Task #323] 관리소장 공지문 템플릿
 //   - 플랫폼이 만든 템플릿 목록을 카드로 표시.
@@ -30,28 +31,14 @@ import { useNoticeLayout } from "@/hooks/use-notice-layout";
 //     이미지 저장 / 공유(PDF) / 문서로 저장(.docx) / 인쇄 4가지 액션을 제공.
 //   - 본문 HTML 의 placeholder({{...}})는 클라이언트에서 치환한다.
 
-const PLACEHOLDER_RE = /{{\s*([a-zA-Z0-9_]+)\s*}}/g;
-
 function todayKR(): string {
   const d = new Date();
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-function renderTemplate(html: string, vars: Record<string, string>): string {
-  return html.replace(PLACEHOLDER_RE, (_m, key) => {
-    const v = vars[String(key)];
-    return v != null && v !== "" ? escapeHtml(v) : "";
-  });
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+// [Task #530] 본문 HTML 토큰 치환 / HTML 이스케이프는 lib/notice-layout 으로 이동.
+const renderTemplate = renderNoticeBodyHtml;
+const escapeHtml = escapeNoticeHtml;
 
 function parseLabels(json: string | null | undefined): string[] {
   if (!json) return [];

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminBuildingNoticeTemplates,
@@ -29,7 +29,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
-import { DEFAULT_NOTICE_LAYOUT, type NoticeLayoutSettings } from "@/lib/notice-layout";
+import {
+  DEFAULT_NOTICE_LAYOUT,
+  renderNoticeBodyHtml,
+  type NoticeLayoutSettings,
+} from "@/lib/notice-layout";
 
 // [Task #323] platform_admin 전용 — 공지문 템플릿 관리.
 //   매니저가 사용하는 모든 템플릿(불조심/분리수거 등)을 여기서 추가/수정/삭제한다.
@@ -118,6 +122,9 @@ export default function PlatformNoticeTemplatesPage() {
   const [form, setForm] = useState<FormState>(blank());
   const [saving, setSaving] = useState(false);
   const templates: BuildingNoticeTemplate[] = data?.templates ?? [];
+  // [Task #530] 편집 모달의 우측 미리보기 패널이 매니저 미리보기와 동일한
+  //   공고문 양식(NoticeLayoutFrame) 안에서 본문을 보여주도록 시스템 레이아웃을 가져온다.
+  const { layout: noticeLayout } = useNoticeLayout();
 
   function startCreate() {
     setForm(blank());
@@ -279,10 +286,12 @@ export default function PlatformNoticeTemplatesPage() {
       </Card>
 
       <ResponsiveDialog open={open} onOpenChange={setOpen}>
-        <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{form.id ? "템플릿 편집" : "새 템플릿"}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
+          {/* [Task #530] 좌측: 기존 폼 / 우측: 매니저와 동일한 NoticeLayoutFrame 안의 실시간 미리보기. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3 px-1">
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
@@ -445,6 +454,26 @@ export default function PlatformNoticeTemplatesPage() {
                 />
                 <Label className="text-xs">처리완료시 보고서 양식으로 열기 (체크 안 하면 입주민 공지문)</Label>
               </div>
+            </div>
+          </div>
+            {/* [Task #530] 우측 미리보기 패널 — 모바일/태블릿(<md)에서는 폼 아래로 내려간다. */}
+            <div className="px-1">
+              <Label className="text-xs">미리보기</Label>
+              <div
+                className="mt-1 border rounded bg-white p-3 overflow-x-auto md:sticky md:top-0 md:max-h-[80vh] md:overflow-y-auto"
+                data-testid="container-template-preview"
+              >
+                <div
+                  className="bg-white p-4"
+                  style={{ fontFamily: "'Noto Sans KR','Malgun Gothic',sans-serif", minWidth: 480 }}
+                >
+                  <NoticeTemplateLivePreview form={form} settings={noticeLayout} />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                토큰은 샘플 값으로 치환되어 표시됩니다(예: 건물명 → "샘플 건물").
+                활성 여부와 상관없이 입력 중인 본문이 즉시 반영됩니다.
+              </p>
             </div>
           </div>
           <ResponsiveDialogFooter>
@@ -628,5 +657,71 @@ function NoticeLayoutSettingsCard() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// [Task #530] 본사 관리자 편집/신규 모달의 실시간 미리보기.
+//   - 매니저 미리보기와 같은 NoticeLayoutFrame 안에 본문 HTML 을 렌더한다.
+//   - 토큰({{buildingName}} 등)은 샘플 값으로, customA/B/C 는 입력칸 라벨에서
+//     "(라벨 예시)" 형태의 샘플 값으로 치환해 보여준다.
+//   - 활성/비활성, 신규/편집 구분 없이 동일하게 동작한다.
+function NoticeTemplateLivePreview({
+  form,
+  settings,
+}: {
+  form: FormState;
+  settings: NoticeLayoutSettings;
+}): ReactElement {
+  const labels = form.customFieldLabelsCsv
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const dateShort = `${yyyy}-${mm}-${dd}`;
+  const dateKR = `${yyyy}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+  const noticeNo = `${yyyy}-${mm}${dd}-0001`;
+
+  const sampleBuildingName = "샘플 건물";
+  const sampleManagementPhone = "02-1234-5678";
+  const sampleFeeInquiryPhone = "02-1234-5679";
+  const sampleFacilitySafetyPhone = "02-1234-5680";
+
+  const vars: Record<string, string> = {
+    buildingName: sampleBuildingName,
+    addressFull: "서울특별시 샘플구 샘플로 1",
+    managementOfficePhone: sampleManagementPhone,
+    feeInquiryPhone: sampleFeeInquiryPhone,
+    facilitySafetyPhone: sampleFacilitySafetyPhone,
+    date: dateKR,
+    customA: labels[0] ? `(${labels[0]} 예시)` : "",
+    customB: labels[1] ? `(${labels[1]} 예시)` : "",
+    customC: labels[2] ? `(${labels[2]} 예시)` : "",
+  };
+  const renderedHtml = renderNoticeBodyHtml(form.bodyHtml ?? "", vars);
+  const previewTitle = form.title || "공지 제목 예시";
+
+  return (
+    <NoticeLayoutFrame
+      settings={settings}
+      buildingName={sampleBuildingName}
+      managementOfficePhone={sampleManagementPhone}
+      feeInquiryPhone={sampleFeeInquiryPhone}
+      facilitySafetyPhone={sampleFacilitySafetyPhone}
+      logoUrl={null}
+      sealUrl={null}
+      noticeNo={noticeNo}
+      noticeDate={dateShort}
+      title={previewTitle}
+    >
+      <div
+        className="notice-template-body"
+        data-testid="template-preview-body"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+    </NoticeLayoutFrame>
   );
 }
