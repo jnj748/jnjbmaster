@@ -70,6 +70,8 @@ async function createBuilding(name: string): Promise<number> {
     .values({
       name,
       addressFull: "서울특별시 강남구 테헤란로 1",
+      sido: "서울특별시",
+      sigungu: "강남구",
     } as typeof buildingsTable.$inferInsert)
     .returning();
   createdBuildingIds.push(b.id);

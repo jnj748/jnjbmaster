@@ -3,9 +3,22 @@ import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc, isNull } from "drizzle-orm";
 import { db, warrantyPresetsTable, buildingWarrantiesTable, buildingsTable, notificationsTable, rfqsTable, vendorsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId, isBuildingScopedRole } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 router.use("/warranties", requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
+
+// [Task #558] 건물 단위 직원 역할(manager/accountant/facility_staff)이 본인
+//   소속 건물이 아닌 다른 건물의 하자담보를 직접 URL ID 로 조회·수정하는 것을
+//   막는 헬퍼. 누설 방지를 위해 403 대신 404 로 응답한다.
+async function assertOwnBuildingOr404(
+  req: import("express").Request,
+  buildingId: number,
+): Promise<boolean> {
+  if (!isBuildingScopedRole(req.user?.role)) return true;
+  const userBuildingId = await getUserBuildingId(req);
+  return userBuildingId != null && userBuildingId === buildingId;
+}
 const WARRANTY_PRESETS_DATA = [
   { tradeCategory: "waterproofing", tradeName: "방수공사 (옥상·외벽·지하층)", warrantyYears: 5, description: "옥상, 외벽, 지하층 방수공사", legalBasis: "주택법 시행령 별표 6" },
   { tradeCategory: "waterproofing", tradeName: "지붕공사", warrantyYears: 5, description: "지붕 방수 및 마감공사", legalBasis: "주택법 시행령 별표 6" },
@@ -39,6 +52,12 @@ router.get("/warranties/building/:buildingId", async (req, res): Promise<void> =
     return;
   }
 
+  // [Task #558] 건물 단위 역할은 본인 건물의 하자담보만 조회 가능.
+  if (!(await assertOwnBuildingOr404(req, buildingId))) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
   const warranties = await db
     .select()
     .from(buildingWarrantiesTable)
@@ -66,6 +85,12 @@ router.post("/warranties/building/:buildingId", async (req, res): Promise<void> 
   const buildingId = parseInt(req.params.buildingId);
   if (isNaN(buildingId)) {
     res.status(400).json({ error: "Invalid building ID" });
+    return;
+  }
+
+  // [Task #558] 건물 단위 역할은 본인 건물에만 하자담보를 생성 가능.
+  if (!(await assertOwnBuildingOr404(req, buildingId))) {
+    res.status(404).json({ error: "Not found" });
     return;
   }
 
@@ -130,6 +155,22 @@ router.patch("/warranties/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #558] 단건 수정도 buildingId 게이트.
+  if (isBuildingScopedRole(req.user?.role)) {
+    const [existing] = await db
+      .select({ buildingId: buildingWarrantiesTable.buildingId })
+      .from(buildingWarrantiesTable)
+      .where(eq(buildingWarrantiesTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Warranty not found" });
+      return;
+    }
+    if (!(await assertOwnBuildingOr404(req, existing.buildingId))) {
+      res.status(404).json({ error: "Warranty not found" });
+      return;
+    }
+  }
+
   const { contractorName, notes, status } = req.body;
   const updateData: Record<string, unknown> = {};
   if (contractorName !== undefined) updateData.contractorName = contractorName;
@@ -149,7 +190,14 @@ router.patch("/warranties/:id", async (req, res): Promise<void> => {
   res.json(warranty);
 });
 
-router.post("/warranties/check-alerts", async (_req, res): Promise<void> => {
+// [Task #558] check-alerts 는 모든 건물의 하자담보를 순회하며 만료 알림을
+//   발송하는 스케줄러성 엔드포인트라 매니저/시설직원이 직접 호출하면 응답에
+//   타 건물 하자담보 행이 그대로 노출된다. platform_admin / hq_executive 만
+//   허용해 BAC 누설을 차단한다.
+router.post(
+  "/warranties/check-alerts",
+  requireRole("platform_admin", "hq_executive"),
+  async (_req, res): Promise<void> => {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
@@ -221,6 +269,7 @@ router.post("/warranties/check-alerts", async (_req, res): Promise<void> => {
     );
 
   res.json({ alertsGenerated, warranties: updatedWarranties });
-});
+  },
+);
 
 export default router;

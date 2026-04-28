@@ -13,4 +13,7 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
+// 테스트에서 pg.types.setTypeParser 같은 저수준 설정을 노출하기 위한 재내보내기.
+export { pg };
+
 export * from "./schema";

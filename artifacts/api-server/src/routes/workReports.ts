@@ -13,12 +13,53 @@ import {
   UpdateWorkReportResponse,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId, isBuildingScopedRole } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 router.use("/work-reports", requireRole("manager", "platform_admin"));
+
+// [Task #558] rfqs.ts 의 serializeRfqRow 와 동일한 의도. drizzle 의 timestamp/
+//   date 컬럼은 Date 객체로 돌아오는 반면 응답 zod 스키마는 ISO string 을
+//   기대하므로, .parse() 직전에 Date → ISO string / 'YYYY-MM-DD' 로 정규화한다.
+function _toIsoDay(d: Date | string | null | undefined): string | null {
+  if (d == null) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d.toISOString().split("T")[0];
+  return d;
+}
+function _toIsoDateTime(d: Date | string | null | undefined): string | null {
+  if (d == null) return null;
+  return d instanceof Date ? d.toISOString() : d;
+}
+type WorkReportDateFields = {
+  completionDate?: Date | string | null;
+  reviewedAt?: Date | string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+function serializeWorkReportRow<T extends WorkReportDateFields>(row: T): T {
+  return {
+    ...row,
+    completionDate: _toIsoDay(row.completionDate),
+    reviewedAt: _toIsoDateTime(row.reviewedAt),
+    createdAt: _toIsoDateTime(row.createdAt),
+    updatedAt: _toIsoDateTime(row.updatedAt),
+  };
+}
+
 router.get("/work-reports", async (req, res): Promise<void> => {
   const params = ListWorkReportsQueryParams.safeParse(req.query);
   const conditions = [];
+
+  // [Task #558] 건물 단위 매니저는 본인 소속 건물의 완료보고서만 노출.
+  //   buildingId 미지정 매니저는 빈 배열(에러 아님). platform_admin 은 전체.
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBuildingId = await getUserBuildingId(req);
+    if (userBuildingId == null) {
+      res.json(ListWorkReportsResponse.parse([]));
+      return;
+    }
+    conditions.push(eq(workReportsTable.buildingId, userBuildingId));
+  }
 
   if (params.success && params.data.vendorId) {
     conditions.push(eq(workReportsTable.vendorId, params.data.vendorId));
@@ -33,8 +74,26 @@ router.get("/work-reports", async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(workReportsTable.createdAt));
 
-  res.json(ListWorkReportsResponse.parse(reports));
+  res.json(ListWorkReportsResponse.parse(reports.map(serializeWorkReportRow)));
 });
+
+// [Task #558] 단건 핸들러 공통 게이트.
+async function assertOwnReportOr404(
+  req: import("express").Request,
+  reportId: number,
+): Promise<{ ok: true; report: typeof workReportsTable.$inferSelect } | { ok: false }> {
+  const [report] = await db
+    .select()
+    .from(workReportsTable)
+    .where(eq(workReportsTable.id, reportId));
+  if (!report) return { ok: false };
+  if (!isBuildingScopedRole(req.user?.role)) return { ok: true, report };
+  const userBuildingId = await getUserBuildingId(req);
+  if (userBuildingId == null || report.buildingId == null || report.buildingId !== userBuildingId) {
+    return { ok: false };
+  }
+  return { ok: true, report };
+}
 
 router.get("/work-reports/:id", async (req, res): Promise<void> => {
   const params = GetWorkReportParams.safeParse(req.params);
@@ -43,17 +102,13 @@ router.get("/work-reports/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [report] = await db
-    .select()
-    .from(workReportsTable)
-    .where(eq(workReportsTable.id, params.data.id));
-
-  if (!report) {
+  const gate = await assertOwnReportOr404(req, params.data.id);
+  if (!gate.ok) {
     res.status(404).json({ error: "Work report not found" });
     return;
   }
 
-  res.json(GetWorkReportResponse.parse(report));
+  res.json(GetWorkReportResponse.parse(serializeWorkReportRow(gate.report)));
 });
 
 router.post("/work-reports", async (req, res): Promise<void> => {
@@ -64,7 +119,7 @@ router.post("/work-reports", async (req, res): Promise<void> => {
   }
 
   const [report] = await db.insert(workReportsTable).values(parsed.data).returning();
-  res.status(201).json(UpdateWorkReportResponse.parse(report));
+  res.status(201).json(UpdateWorkReportResponse.parse(serializeWorkReportRow(report)));
 });
 
 router.patch("/work-reports/:id", async (req, res): Promise<void> => {
@@ -77,6 +132,12 @@ router.patch("/work-reports/:id", async (req, res): Promise<void> => {
   const parsed = UpdateWorkReportBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const gate = await assertOwnReportOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Work report not found" });
     return;
   }
 
@@ -134,7 +195,7 @@ router.patch("/work-reports/:id", async (req, res): Promise<void> => {
     }
   }
 
-  res.json(UpdateWorkReportResponse.parse(report));
+  res.json(UpdateWorkReportResponse.parse(serializeWorkReportRow(report)));
 });
 
 export default router;

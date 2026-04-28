@@ -83,6 +83,8 @@ async function createTestBuilding(name: string, approvalDate: string): Promise<n
     .values({
       name,
       addressFull: "서울특별시 강남구 테헤란로 1",
+      sido: "서울특별시",
+      sigungu: "강남구",
       approvalDate,
       totalArea: "5000",
     } as typeof buildingsTable.$inferInsert)

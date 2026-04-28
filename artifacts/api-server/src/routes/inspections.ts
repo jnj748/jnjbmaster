@@ -24,12 +24,36 @@ import {
   BulkRegisterInspectionsBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { isBuildingScopedRole } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 router.use("/inspections", requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
 async function getUserBuildingId(userId: number): Promise<number | null> {
   const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   return user?.buildingId ?? null;
+}
+
+// [Task #558] 점검 단건 핸들러 공통 게이트.
+//   건물 단위 직원 역할(manager/accountant/facility_staff)이 본인 소속 건물이
+//   아닌 점검 ID 로 직접 조회·수정·삭제·완료·매칭승인 시 누설 방지를 위해
+//   404 로 응답한다(존재 자체를 노출하지 않음). platform_admin / hq_executive
+//   는 전 건물 가시성을 가지므로 통과.
+async function assertOwnInspectionOr404(
+  req: import("express").Request,
+  inspectionId: number,
+): Promise<{ ok: true; inspection: typeof inspectionsTable.$inferSelect } | { ok: false }> {
+  const [inspection] = await db
+    .select()
+    .from(inspectionsTable)
+    .where(eq(inspectionsTable.id, inspectionId));
+  if (!inspection) return { ok: false };
+  if (!isBuildingScopedRole(req.user?.role)) return { ok: true, inspection };
+  if (!req.user?.userId) return { ok: false };
+  const userBuildingId = await getUserBuildingId(req.user.userId);
+  if (userBuildingId == null || inspection.buildingId == null || inspection.buildingId !== userBuildingId) {
+    return { ok: false };
+  }
+  return { ok: true, inspection };
 }
 
 import { LEGAL_PRESETS } from "../domain/statutory";
@@ -70,10 +94,23 @@ function normalizeInspectionRow<T extends Record<string, unknown>>(row: T): T {
   return out as T;
 }
 
-router.get("/inspections", async (_req, res): Promise<void> => {
+router.get("/inspections", async (req, res): Promise<void> => {
+  // [Task #558] 건물 단위 역할은 본인 건물 점검만, 그 외(platform_admin /
+  //   hq_executive) 는 전 건물 점검이 보이도록 한다. buildingId 미지정 계정은
+  //   빈 배열(에러 아님).
+  const conds: Array<ReturnType<typeof eq>> = [];
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
+    if (userBuildingId == null) {
+      res.json([]);
+      return;
+    }
+    conds.push(eq(inspectionsTable.buildingId, userBuildingId));
+  }
   const inspections = await db
     .select()
     .from(inspectionsTable)
+    .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(inspectionsTable.nextDueDate);
 
   // [Task #544] 응답 정규화: (1) Date → ISO string 변환,
@@ -237,6 +274,12 @@ router.patch("/inspections/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const gate = await assertOwnInspectionOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Inspection not found" });
+    return;
+  }
+
   const updateData: Partial<typeof inspectionsTable.$inferInsert> & { nextDueDate?: string } = { ...parsed.data };
 
   if (parsed.data.lastInspectionDate) {
@@ -273,6 +316,12 @@ router.delete("/inspections/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const gate = await assertOwnInspectionOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Inspection not found" });
+    return;
+  }
+
   const [inspection] = await db
     .delete(inspectionsTable)
     .where(eq(inspectionsTable.id, params.data.id))
@@ -299,12 +348,12 @@ router.post("/inspections/:id/complete", async (req, res): Promise<void> => {
     return;
   }
 
-  const existing = await db.select().from(inspectionsTable).where(eq(inspectionsTable.id, params.data.id));
-  if (existing.length === 0) {
+  const gate = await assertOwnInspectionOr404(req, params.data.id);
+  if (!gate.ok) {
     res.status(404).json({ error: "Inspection not found" });
     return;
   }
-  const inspection = existing[0];
+  const inspection = gate.inspection;
 
   // useDates=false 로 codegen 된 zod 스키마라 inspectionDate 는 항상 문자열.
   const inspDateStr = String(parsed.data.inspectionDate);
@@ -365,6 +414,12 @@ router.get("/inspections/:id/logs", async (req, res): Promise<void> => {
     return;
   }
 
+  const gate = await assertOwnInspectionOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Inspection not found" });
+    return;
+  }
+
   const logs = await db
     .select()
     .from(inspectionLogsTable)
@@ -374,7 +429,14 @@ router.get("/inspections/:id/logs", async (req, res): Promise<void> => {
   res.json(ListInspectionLogsResponse.parse(logs));
 });
 
-router.post("/inspections/generate-alerts", async (_req, res): Promise<void> => {
+// [Task #558] generate-alerts 는 모든 건물의 점검을 순회하며 알림/지출품의서를
+//   생성하는 스케줄러성 엔드포인트라 매니저/시설직원이 직접 호출하면 응답으로
+//   타 건물 점검 정보가 그대로 노출된다. platform_admin / hq_executive 만
+//   허용해 BAC 누설을 차단한다.
+router.post(
+  "/inspections/generate-alerts",
+  requireRole("platform_admin", "hq_executive"),
+  async (_req, res): Promise<void> => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentDay = today.getDate();
@@ -483,9 +545,10 @@ router.post("/inspections/generate-alerts", async (_req, res): Promise<void> => 
   };
 
   res.json(GenerateInspectionAlertsResponse.parse(result));
-});
+  },
+);
 
-router.get("/inspections/upcoming", async (_req, res): Promise<void> => {
+router.get("/inspections/upcoming", async (req, res): Promise<void> => {
   const today = new Date();
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(today.getDate() + 30);
@@ -493,18 +556,28 @@ router.get("/inspections/upcoming", async (_req, res): Promise<void> => {
   const todayStr = today.toISOString().split("T")[0];
   const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
 
+  // [Task #558] 다가오는 점검 알림 위젯도 건물 단위 역할은 본인 건물만.
+  const conds = [
+    lte(inspectionsTable.nextDueDate, futureStr),
+    gte(inspectionsTable.nextDueDate, todayStr),
+  ];
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
+    if (userBuildingId == null) {
+      res.json([]);
+      return;
+    }
+    conds.push(eq(inspectionsTable.buildingId, userBuildingId));
+  }
+
   const inspections = await db
     .select()
     .from(inspectionsTable)
-    .where(
-      and(
-        lte(inspectionsTable.nextDueDate, futureStr),
-        gte(inspectionsTable.nextDueDate, todayStr)
-      )
-    )
+    .where(and(...conds))
     .orderBy(inspectionsTable.nextDueDate);
 
-  res.json(GetUpcomingInspectionsResponse.parse(inspections));
+  // [Task #558] /inspections 와 동일하게 Date → ISO string 정규화 후 .parse 한다.
+  res.json(GetUpcomingInspectionsResponse.parse(inspections.map(normalizeInspectionRow)));
 });
 
 function getCategoryLabel(category: string): string {
@@ -599,7 +672,14 @@ ${vendorList}
    - 최종 선정은 관리소장 승인 후 확정됩니다.`;
 }
 
-router.post("/inspections/ai-matching", async (_req, res): Promise<void> => {
+// [Task #558] ai-matching 도 generate-alerts 와 동일하게 모든 건물의 다가오는
+//   점검을 순회해 알림/입찰 초안/추천 업체를 응답으로 노출하는 스케줄러성
+//   엔드포인트라 매니저/시설직원에게 열어 두면 타 건물 점검 정보가 새어 나간다.
+//   platform_admin / hq_executive 만 호출 가능하도록 제한한다.
+router.post(
+  "/inspections/ai-matching",
+  requireRole("platform_admin", "hq_executive"),
+  async (_req, res): Promise<void> => {
   try {
   const today = new Date();
   const thirtyDaysFromNow = new Date();
@@ -737,7 +817,8 @@ router.post("/inspections/ai-matching", async (_req, res): Promise<void> => {
   } catch (error) {
     res.status(500).json({ error: "AI 매칭 처리 중 오류가 발생했습니다" });
   }
-});
+  },
+);
 
 router.post("/inspections/:id/approve-matching", async (req, res): Promise<void> => {
   const params = ApproveInspectionMatchingParams.safeParse(req.params);
@@ -753,12 +834,12 @@ router.post("/inspections/:id/approve-matching", async (req, res): Promise<void>
   }
 
   try {
-    const existing = await db.select().from(inspectionsTable).where(eq(inspectionsTable.id, params.data.id));
-    if (existing.length === 0) {
+    const gate = await assertOwnInspectionOr404(req, params.data.id);
+    if (!gate.ok) {
       res.status(404).json({ error: "Inspection not found" });
       return;
     }
-    const inspection = existing[0];
+    const inspection = gate.inspection;
     const categoryLabel = getCategoryLabel(inspection.category);
 
     const [rfq] = await db.insert(rfqsTable).values({

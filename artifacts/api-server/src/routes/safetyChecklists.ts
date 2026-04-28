@@ -19,6 +19,7 @@ import {
   UpdateSafetyChecklistItemResponse,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { isBuildingScopedRole } from "../middlewares/buildingScope";
 
 const CATEGORY_LABELS: Record<string, string> = {
   electrical: "전기설비",
@@ -43,9 +44,50 @@ async function getUserBuildingId(userId: number): Promise<number | null> {
   return user?.buildingId ?? null;
 }
 
+// [Task #558] rfqs.ts 의 serializeRfqRow 와 동일한 의도. drizzle 의 timestamp/
+//   date 컬럼은 Date 객체로 돌아오는 반면 응답 zod 스키마는 ISO string 을
+//   기대하므로, .parse() 직전에 Date → ISO string / 'YYYY-MM-DD' 로 정규화한다.
+function _toIsoDay(d: Date | string | null | undefined): string | null {
+  if (d == null) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d.toISOString().split("T")[0];
+  return d;
+}
+function _toIsoDateTime(d: Date | string | null | undefined): string | null {
+  if (d == null) return null;
+  return d instanceof Date ? d.toISOString() : d;
+}
+type ChecklistDateFields = {
+  inspectionDate?: Date | string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+function serializeChecklistRow<T extends ChecklistDateFields>(row: T): T {
+  return {
+    ...row,
+    inspectionDate: _toIsoDay(row.inspectionDate),
+    createdAt: _toIsoDateTime(row.createdAt),
+    updatedAt: _toIsoDateTime(row.updatedAt),
+  };
+}
+type ChecklistItemDateFields = { createdAt?: Date | string | null };
+function serializeChecklistItem<T extends ChecklistItemDateFields>(row: T): T {
+  return { ...row, createdAt: _toIsoDateTime(row.createdAt) };
+}
+
 router.get("/safety-checklists", async (req, res): Promise<void> => {
   const params = ListSafetyChecklistsQueryParams.safeParse(req.query);
   const conditions = [];
+
+  // [Task #558] 건물 단위 역할(manager/accountant/facility_staff)은 본인 소속
+  //   건물의 안전점검표만 노출. buildingId 미지정 계정은 빈 배열.
+  if (isBuildingScopedRole(req.user?.role)) {
+    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
+    if (userBuildingId == null) {
+      res.json(ListSafetyChecklistsResponse.parse([]));
+      return;
+    }
+    conditions.push(eq(safetyChecklistsTable.buildingId, userBuildingId));
+  }
 
   if (params.success) {
     if (params.data.category) {
@@ -62,8 +104,28 @@ router.get("/safety-checklists", async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(safetyChecklistsTable.inspectionDate));
 
-  res.json(ListSafetyChecklistsResponse.parse(checklists));
+  res.json(ListSafetyChecklistsResponse.parse(checklists.map(serializeChecklistRow)));
 });
+
+// [Task #558] 단건 핸들러용 공통 게이트. 건물 단위 역할이면 다른 건물 ID 직접
+//   호출 시 존재 자체를 노출하지 않기 위해 404 로 응답한다.
+async function assertOwnChecklistOr404(
+  req: import("express").Request,
+  checklistId: number,
+): Promise<{ ok: true; checklist: typeof safetyChecklistsTable.$inferSelect } | { ok: false }> {
+  const [checklist] = await db
+    .select()
+    .from(safetyChecklistsTable)
+    .where(eq(safetyChecklistsTable.id, checklistId));
+  if (!checklist) return { ok: false };
+  if (!isBuildingScopedRole(req.user?.role)) return { ok: true, checklist };
+  if (!req.user?.userId) return { ok: false };
+  const userBuildingId = await getUserBuildingId(req.user.userId);
+  if (userBuildingId == null || checklist.buildingId == null || checklist.buildingId !== userBuildingId) {
+    return { ok: false };
+  }
+  return { ok: true, checklist };
+}
 
 router.post("/safety-checklists", async (req, res): Promise<void> => {
   const parsed = CreateSafetyChecklistBody.safeParse(req.body);
@@ -89,7 +151,7 @@ router.post("/safety-checklists", async (req, res): Promise<void> => {
     );
   }
 
-  res.status(201).json(UpdateSafetyChecklistResponse.parse(checklist));
+  res.status(201).json(UpdateSafetyChecklistResponse.parse(serializeChecklistRow(checklist)));
 });
 
 router.get("/safety-checklists/:id", async (req, res): Promise<void> => {
@@ -99,12 +161,8 @@ router.get("/safety-checklists/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [checklist] = await db
-    .select()
-    .from(safetyChecklistsTable)
-    .where(eq(safetyChecklistsTable.id, params.data.id));
-
-  if (!checklist) {
+  const gate = await assertOwnChecklistOr404(req, params.data.id);
+  if (!gate.ok) {
     res.status(404).json({ error: "Checklist not found" });
     return;
   }
@@ -114,7 +172,7 @@ router.get("/safety-checklists/:id", async (req, res): Promise<void> => {
     .from(safetyChecklistItemsTable)
     .where(eq(safetyChecklistItemsTable.checklistId, params.data.id));
 
-  res.json(GetSafetyChecklistResponse.parse({ ...checklist, items }));
+  res.json(GetSafetyChecklistResponse.parse(serializeChecklistRow({ ...gate.checklist, items: items.map(serializeChecklistItem) })));
 });
 
 router.patch("/safety-checklists/:id", async (req, res): Promise<void> => {
@@ -130,6 +188,12 @@ router.patch("/safety-checklists/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const gate = await assertOwnChecklistOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Checklist not found" });
+    return;
+  }
+
   const [checklist] = await db
     .update(safetyChecklistsTable)
     .set(parsed.data)
@@ -141,13 +205,19 @@ router.patch("/safety-checklists/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UpdateSafetyChecklistResponse.parse(checklist));
+  res.json(UpdateSafetyChecklistResponse.parse(serializeChecklistRow(checklist)));
 });
 
 router.delete("/safety-checklists/:id", async (req, res): Promise<void> => {
   const params = DeleteSafetyChecklistParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const gate = await assertOwnChecklistOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Checklist not found" });
     return;
   }
 
@@ -175,12 +245,18 @@ router.post("/safety-checklists/:id/items", async (req, res): Promise<void> => {
     return;
   }
 
+  const gate = await assertOwnChecklistOr404(req, params.data.id);
+  if (!gate.ok) {
+    res.status(404).json({ error: "Checklist not found" });
+    return;
+  }
+
   const [item] = await db
     .insert(safetyChecklistItemsTable)
     .values({ ...parsed.data, checklistId: params.data.id })
     .returning();
 
-  res.status(201).json(UpdateSafetyChecklistItemResponse.parse(item));
+  res.status(201).json(UpdateSafetyChecklistItemResponse.parse(serializeChecklistItem(item)));
 });
 
 router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void> => {
@@ -194,6 +270,27 @@ router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void>
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  // [Task #558] item → checklist 조인을 통해 buildingId 게이트.
+  if (isBuildingScopedRole(req.user?.role)) {
+    const [parent] = await db
+      .select({ buildingId: safetyChecklistsTable.buildingId })
+      .from(safetyChecklistItemsTable)
+      .innerJoin(
+        safetyChecklistsTable,
+        eq(safetyChecklistItemsTable.checklistId, safetyChecklistsTable.id),
+      )
+      .where(eq(safetyChecklistItemsTable.id, params.data.itemId));
+    if (!parent) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
+    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
+    if (userBuildingId == null || parent.buildingId == null || parent.buildingId !== userBuildingId) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
   }
 
   const [item] = await db
@@ -261,7 +358,7 @@ router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void>
     }
   }
 
-  res.json(UpdateSafetyChecklistItemResponse.parse(item));
+  res.json(UpdateSafetyChecklistItemResponse.parse(serializeChecklistItem(item)));
 });
 
 export default router;
