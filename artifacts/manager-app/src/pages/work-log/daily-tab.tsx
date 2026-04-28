@@ -9,13 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { PhotoUploadField } from "@/components/photo-upload-field";
-import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
-import { shareDocument, formatKoreanDate } from "@/lib/official-document";
+import { downloadElementAsPng, safeFilename, sharePdfFromElement } from "@/lib/document-export";
+import { formatKoreanDate } from "@/lib/official-document";
 import {
   ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import {
-  useApi, todayISO, addDays, SECTIONS, CATEGORY_LABEL,
+  useApi, todayISO, addDays, thisMonth, SECTIONS, CATEGORY_LABEL,
   type DailyJournal, type DailyReport, type Status,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
@@ -111,12 +111,25 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
     }
   }
   async function share() {
+    if (!ref.current) return;
     setSharing(true);
     try {
-      const text = buildDailyShareText(report);
-      const r = await shareDocument({ title: `일일 일지 ${report.date}`, text });
-      if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-      else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+      // [Task #499] 일/주/월 보고서 공유는 텍스트가 아닌 PDF 로 전송한다.
+      // 파일명: 일일보고서_(건물명)_(작성자)_(생성연월).pdf
+      // 생성연월은 KST 기준 YYYY-MM (UTC 기준 toISOString 은 월 경계 오차 발생).
+      const ym = thisMonth();
+      const buildingName = report.buildingName ?? "건물";
+      const authorName = report.authorName || "관리자";
+      const filename = safeFilename(`일일보고서_${buildingName}_${authorName}_${ym}`);
+      const result = await withReadyDoc(frameRef, async () => {
+        if (!ref.current) return "failed" as const;
+        return await sharePdfFromElement(ref.current, filename, `일일보고서 ${buildingName}`);
+      });
+      if (result === "downloaded") toast({ title: "PDF 다운로드 완료" });
+      else if (result === "failed") toast({ title: "공유 실패", variant: "destructive" });
+      // "shared": OS 공유 시트가 처리하므로 별도 토스트 생략
+    } catch (e) {
+      toast({ title: "공유 실패", description: String(e), variant: "destructive" });
     } finally {
       setSharing(false);
     }
@@ -291,28 +304,6 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
       </A4DocumentFrame>
     </>
   );
-}
-
-function buildDailyShareText(r: DailyReport): string {
-  const lines: string[] = [];
-  lines.push(`[${r.buildingName ?? "건물"}] ${r.date} 일일 업무 보고`);
-  lines.push(`작성: ${r.authorName}`);
-  lines.push("");
-  if (r.journal) {
-    SECTIONS.forEach((s) => {
-      const st = r.journal![`${s.key}Status` as const] as Status;
-      const memo = r.journal![`${s.key}Memo` as const] as string | null;
-      lines.push(`■ ${s.label}: ${st === "ok" ? "이상 없음" : "특이사항"}${memo ? ` — ${memo}` : ""}`);
-    });
-    lines.push("");
-  }
-  lines.push(`■ 금일 업무 기록 ${r.entries.length}건`);
-  r.entries.forEach((e) => {
-    lines.push(`  [${CATEGORY_LABEL[e.category]}] ${e.memo}`);
-  });
-  lines.push("");
-  lines.push(`■ 법정업무: 완료 ${r.statutory.completed.length} / 미완료 ${r.statutory.postponed.length} / 기안 ${r.statutory.drafted.length}`);
-  return lines.join("\n");
 }
 
 /* ─────────── 일일 일지 4단계 위저드 ─────────── */

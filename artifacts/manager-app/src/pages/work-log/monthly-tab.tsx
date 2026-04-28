@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
-import { downloadElementAsPng, safeFilename } from "@/lib/document-export";
-import { shareDocument, formatKoreanDate } from "@/lib/official-document";
+import { downloadElementAsPng, safeFilename, sharePdfFromElement } from "@/lib/document-export";
+import { formatKoreanDate } from "@/lib/official-document";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog, isFollowUpDismissed } from "@/components/follow-up-suggestion-dialog";
 import {
@@ -18,6 +19,7 @@ import { ReportActionRow, withReadyDoc } from "./report-actions";
 export function MonthlyTab() {
   const [month, setMonth] = useState(thisMonth());
   const { call } = useApi();
+  const { user } = useAuth();
   const { toast } = useToast();
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
@@ -78,20 +80,24 @@ export function MonthlyTab() {
     }
   }
   async function share() {
-    if (!data) return;
+    if (!data || !ref.current) return;
     setSharing(true);
     try {
-      const lines = [
-        `[${data.buildingName ?? "건물"}] ${data.month} 월간 업무 보고`,
-        `일지 ${data.totalJournals}일 · 기록 ${data.totalEntries}건 · ${data.weeks.length}주 · 특이 ${data.issues}건`,
-        "",
-        data.textSummary,
-        "",
-        ...data.weeks.map((w) => `[${w.weekStart}] ${w.textSummary}`),
-      ];
-      const r = await shareDocument({ title: `월간 보고 ${data.month}`, text: lines.join("\n") });
-      if (r === "copied") toast({ title: "본문이 클립보드에 복사되었습니다" });
-      else if (r === "failed") toast({ title: "공유 실패", variant: "destructive" });
+      // [Task #499] 월간 보고서 공유는 텍스트가 아닌 PDF 로 전송한다.
+      // 파일명: 월간보고서_(건물명)_(작성자)_(생성연월).pdf
+      // 생성연월은 KST 기준 YYYY-MM (UTC 기준 toISOString 은 월 경계 오차 발생).
+      const ym = thisMonth();
+      const buildingName = data.buildingName ?? "건물";
+      const authorName = user?.name || user?.username || "관리자";
+      const filename = safeFilename(`월간보고서_${buildingName}_${authorName}_${ym}`);
+      const result = await withReadyDoc(frameRef, async () => {
+        if (!ref.current) return "failed" as const;
+        return await sharePdfFromElement(ref.current, filename, `월간보고서 ${buildingName}`);
+      });
+      if (result === "downloaded") toast({ title: "PDF 다운로드 완료" });
+      else if (result === "failed") toast({ title: "공유 실패", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "공유 실패", description: String(e), variant: "destructive" });
     } finally {
       setSharing(false);
     }
