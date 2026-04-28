@@ -5,6 +5,11 @@ import type { RefObject } from "react";
 import { StepAddress } from "./step-address";
 import { StepInfo } from "./step-info";
 import type { BuildingData, SafetyResult } from "./types";
+// [Task #568] 건물정보 수정 화면 하단에도 건축물대장 표제부/총괄표제부 상세와
+// 전유부(호실별 면적) 카드를 노출해, 관리소장이 /settings/building 한 화면에서
+// 모든 건축물대장 항목을 검토할 수 있게 한다.
+import { BuildingRegisterDetailsCard } from "@/components/building-register/building-register-details-card";
+import { BuildingExposeAreasCard } from "@/components/building-register/building-expose-areas-card";
 
 interface Props {
   building: BuildingData;
@@ -13,7 +18,16 @@ interface Props {
   postcodeLoaded: boolean;
   lookingUp: boolean;
   registerPreview: Record<string, unknown> | null;
-  areaInfo: { floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[];
+  // [Task #568] AreaInfoRow 와 동일 형태(동·호실 포함). StepAddress 의 미니 표 + 새
+  //   BuildingExposeAreasCard 가 같은 in-memory 데이터를 공유한다.
+  areaInfo: {
+    dong: string;
+    floorNo: string;
+    purposeName: string;
+    hoNm: string;
+    exposArea: number;
+    pubUseArea: number;
+  }[];
   openKakaoPostcode: () => void;
   // [Task #427] 잠긴 주소에서도 식별자만 다시 받기 위한 진입점.
   openRelookupPostcode: () => void;
@@ -60,6 +74,16 @@ export function StepAddressInfo(props: Props) {
         isEditing={props.isEditing}
         enterEditMode={props.enterEditMode}
         cancelEdit={props.cancelEdit}
+      />
+      {/* [Task #568] 편집 여부와 관계없이 항상 읽기 전용으로 노출. registerData 가
+          비어 있으면 BuildingRegisterDetailsCard 가 자체적으로 카드를 숨긴다.
+          전유부 카드는 useBuildingSetup 의 in-memory areaInfo 를 seedAreas 로 받아
+          "건축물대장 다시 조회" 직후(저장 전) 즉시 갱신되도록 한다. seedAreas 가
+          비어 있을 때만 buildingId 기반 fallback 페치가 동작한다. */}
+      <BuildingRegisterDetailsCard registerData={props.building.registerData ?? null} />
+      <BuildingExposeAreasCard
+        buildingId={props.existingId ?? null}
+        seedAreas={props.areaInfo}
       />
     </div>
   );

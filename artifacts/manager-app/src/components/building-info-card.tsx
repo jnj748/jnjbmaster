@@ -154,8 +154,15 @@ function Stat({
  * 건물이 없으면 등록 안내 카드를 표시합니다.
  */
 export function BuildingInfoCard({ className }: { className?: string }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { building } = useBuilding();
+  // [Task #568] /settings/building 은 manager / platform_admin 만 접근 가능하므로
+  //   accountant / facility_staff 의 "자세히" 버튼은 권한이 열린 /building-info 로 보낸다.
+  //   대시보드 BuildingInfoCard 가 세 역할 모두에서 동일하게 동작하도록 한다.
+  const detailHref =
+    user?.role === "accountant" || user?.role === "facility_staff"
+      ? "/building-info"
+      : "/settings/building";
   const [loading, setLoading] = useState(true);
   const [extra, setExtra] = useState<BuildingInfoCardData | null>(null);
 
@@ -234,5 +241,5 @@ export function BuildingInfoCard({ className }: { className?: string }) {
     completionDate: extra?.completionDate ?? building.completionDate ?? null,
   };
 
-  return <BuildingInfoCardView data={merged} className={className} />;
+  return <BuildingInfoCardView data={merged} detailHref={detailHref} className={className} />;
 }

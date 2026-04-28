@@ -2,6 +2,11 @@
 // 응답 항목을 건물정보 상세 화면에 그룹별로 노출하기 위한 한국어 라벨/포매터.
 // 이미 buildings 테이블 컬럼으로 평탄화돼 화면에 따로 노출되는 항목(연면적, 세대수, 승강기 등)은
 // 중복 표시를 피하려고 여기서 제외한다.
+//
+// [Task #568] 화이트리스트(REGISTER_FIELD_GROUPS)에 정의되지 않은 나머지 표제부/총괄표제부
+// 키도 "기타 (표제부)" / "기타 (총괄표제부)" 그룹으로 자동 노출한다. 라벨이 없는 키는 원본
+// 키 문자열을 라벨로 사용하고, 값은 자동 추정 포매터(YYYYMMDD 일자 / Y·N 토글 / 숫자 천단위 /
+// 객체·배열 JSON 한 줄)로 표시한다. 빈 값/완전 빈 객체는 자동 숨김.
 
 export type RegisterRaw = {
   title?: Record<string, unknown> | null;
@@ -177,14 +182,71 @@ export interface ResolvedField {
   display: string;
 }
 
+// [Task #568] 화이트리스트에 없는 키 값을 사람이 읽을 수 있는 문자열로 자동 변환.
+//   - YYYYMMDD 8자리 숫자 문자열 → "YYYY-MM-DD" 일자
+//   - "Y" / "N" → "적용" / "미적용"
+//   - 유한 숫자 → 천단위 콤마
+//   - 불리언 → "예" / "아니오"
+//   - 객체/배열 → JSON 한 줄. 비어 있으면 빈 문자열로 숨김.
+//   - 그 외 문자열 → trim. 빈 문자열은 빈 값으로 숨김.
+export function autoFormatRegisterValue(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (s === "") return "";
+    if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+    if (s === "Y") return "적용";
+    if (s === "N") return "미적용";
+    // 숫자 모양 문자열은 천단위 콤마로(소수도 허용).
+    if (/^-?\d+(\.\d+)?$/.test(s)) {
+      const n = Number(s);
+      if (Number.isFinite(n)) return n.toLocaleString();
+    }
+    return s;
+  }
+  if (typeof v === "number") {
+    if (!Number.isFinite(v)) return "";
+    return v.toLocaleString();
+  }
+  if (typeof v === "boolean") return v ? "예" : "아니오";
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "";
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "";
+    }
+  }
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return "";
+    try {
+      return JSON.stringify(obj);
+    } catch {
+      return "";
+    }
+  }
+  return String(v);
+}
+
 export function resolveRegisterFields(
   raw: RegisterRaw,
 ): Array<{ title: string; rows: ResolvedField[] }> {
   if (!raw || (!raw.title && !raw.recap)) return [];
   const out: Array<{ title: string; rows: ResolvedField[] }> = [];
+
+  // [Task #568] 화이트리스트가 "소유"한 키는 양쪽(title/recap) 모두에서 소비 처리해
+  //   "기타" 그룹에서 다시 노출되지 않게 한다. 값 유무와 무관하게 키 자체를 차감한다.
+  const consumedFromTitle = new Set<string>();
+  const consumedFromRecap = new Set<string>();
+
   for (const group of REGISTER_FIELD_GROUPS) {
     const rows: ResolvedField[] = [];
     for (const f of group.fields) {
+      consumedFromTitle.add(f.key);
+      consumedFromRecap.add(f.key);
+
       const v = pick(raw, f.key, f.source ?? "any");
       if (v === undefined || v === null) continue;
       const s = String(v).trim();
@@ -197,5 +259,28 @@ export function resolveRegisterFields(
     }
     if (rows.length > 0) out.push({ title: group.title, rows });
   }
+
+  // [Task #568] 화이트리스트에 잡히지 않은 나머지 항목을 "기타 (표제부)" /
+  //   "기타 (총괄표제부)" 그룹으로 자동 구성한다. 키는 원본 그대로(라벨), 값은 autoFormat.
+  const sources: Array<["title" | "recap", string, Record<string, unknown> | null]> = [
+    ["title", "기타 (표제부)", raw.title ?? null],
+    ["recap", "기타 (총괄표제부)", raw.recap ?? null],
+  ];
+  for (const [src, groupTitle, all] of sources) {
+    if (!all) continue;
+    const consumed = src === "title" ? consumedFromTitle : consumedFromRecap;
+    const rows: ResolvedField[] = [];
+    // 안정적 표시 순서를 위해 키 알파벳 순으로 정렬.
+    const keys = Object.keys(all).sort();
+    for (const k of keys) {
+      if (consumed.has(k)) continue;
+      const display = autoFormatRegisterValue(all[k]);
+      if (!display) continue;
+      // 같은 키 이름이 title/recap 양쪽에 있을 수 있으므로 키 충돌 방지를 위해 prefix.
+      rows.push({ key: `${src}.${k}`, label: k, display });
+    }
+    if (rows.length > 0) out.push({ title: groupTitle, rows });
+  }
+
   return out;
 }

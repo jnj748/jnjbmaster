@@ -18,7 +18,9 @@ import {
   Scale,
 } from "lucide-react";
 import { classifyLegalStaffing, daysUntil, type LegalAppointment } from "@/lib/legal-staffing";
-import { resolveRegisterFields, type RegisterRaw } from "@/lib/building-register-labels";
+import { type RegisterRaw } from "@/lib/building-register-labels";
+import { BuildingRegisterDetailsCard } from "@/components/building-register/building-register-details-card";
+import { BuildingExposeAreasCard } from "@/components/building-register/building-expose-areas-card";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -269,6 +271,8 @@ export default function BuildingInfo() {
 
       <BuildingRegisterDetailsCard registerData={b.registerData as RegisterRaw} />
 
+      <BuildingExposeAreasCard buildingId={Number(b.id) || null} />
+
       <div className="grid grid-cols-1 desktop:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -473,47 +477,9 @@ function LegalStaffingRow({ item }: { item: LegalAppointment }) {
   );
 }
 
-// [Task #328] 건축물대장 표제부/총괄표제부 응답 원본을 그룹별로 표시하는 카드.
-// register_data 가 비어 있거나 표시 가능한 항목이 0개면 카드 자체를 숨긴다.
-function BuildingRegisterDetailsCard({ registerData }: { registerData: RegisterRaw }) {
-  const groups = resolveRegisterFields(registerData);
-  if (groups.length === 0) return null;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Info className="w-4 h-4 text-indigo-600" />
-          건축물대장 상세
-        </CardTitle>
-        <CardDescription>
-          국토교통부 건축물대장 표제부/총괄표제부에서 자동으로 가져온 항목 ·
-          빈 값은 자동 숨김
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-5">
-          {groups.map((g) => (
-            <section key={g.title}>
-              <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                {g.title}
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 desktop:grid-cols-3 gap-x-6 gap-y-2 text-sm">
-                {g.rows.map((r) => (
-                  <div key={r.key} className="flex items-baseline gap-3">
-                    <span className="text-muted-foreground whitespace-nowrap min-w-[120px]">
-                      {r.label}
-                    </span>
-                    <span className="font-medium break-all">{r.display}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// [Task #328 / #568] 건축물대장 표제부/총괄표제부 카드는
+// `@/components/building-register/building-register-details-card` 로 분리되어
+// /settings/building 와 함께 재사용된다.
 
 function InfoRow({ label, value }: { label: string; value: unknown }) {
   // value 는 OverviewData.building (Record<string, unknown>) 에서 직접 들어오므로

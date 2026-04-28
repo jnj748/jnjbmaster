@@ -111,7 +111,17 @@ export function useBuildingSetup() {
   const [activeStep, setActiveStep] = useState(0);
 
   const [registerPreview, setRegisterPreview] = useState<Record<string, unknown> | null>(null);
-  const [areaInfo, setAreaInfo] = useState<{ floorNo: string; purposeName: string; exposArea: number; pubUseArea: number }[]>([]);
+  // [Task #568] AreaInfoRow 와 동일 형태(동·호실 포함)로 보관해 BuildingExposeAreasCard
+  //   에서 controlled 모드(in-memory) 데이터로도 그대로 활용한다. 정부 API 응답 상
+  //   값이 비어 올 수 있으므로 모든 필드를 옵셔널로 두지 않고 빈 문자열/0 으로 보존한다.
+  const [areaInfo, setAreaInfo] = useState<{
+    dong: string;
+    floorNo: string;
+    purposeName: string;
+    hoNm: string;
+    exposArea: number;
+    pubUseArea: number;
+  }[]>([]);
   const [postcodeLoaded, setPostcodeLoaded] = useState(false);
 
   const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
@@ -570,10 +580,17 @@ export function useBuildingSetup() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
-      if (result.found && result.areas?.length > 0) {
+      // [Task #568] 빈 응답/실패 시에도 areaInfo 를 빈 배열로 리셋해, 재조회 직후
+      //   /settings/building 의 BuildingExposeAreasCard 가 이전 데이터를 그대로
+      //   보여 주는 stale 화면 회귀를 방지한다(즉시 빈 상태 안내로 전환).
+      if (result.found && Array.isArray(result.areas) && result.areas.length > 0) {
         setAreaInfo(result.areas);
+      } else {
+        setAreaInfo([]);
       }
-    } catch {}
+    } catch {
+      setAreaInfo([]);
+    }
   }
 
   async function calculateSafety(data: Record<string, string>) {
