@@ -115,7 +115,12 @@ export function CompletionNotice({
   notes,
   closeUpPhotoUrl,
   widePhotoUrl,
-  buildingName = "OO아파트",
+  // [Task #545] 호출자가 buildingName 을 넘기지 않거나 BuildingContext 가
+  //   아직 로딩 중이어서 undefined 가 들어올 수 있다. 임시 자리표시자
+  //   "OO아파트" 를 박아두면 인쇄/저장에 그대로 출력돼 사용자 자산에 박히므로,
+  //   기본값을 빈 문자열로 둔다. 미리보기/인쇄/공유에서 건물명이 비면 해당
+  //   "대상" 행은 빈칸 또는 숨김으로 처리한다.
+  buildingName: rawBuildingName,
   // [Task #504] officeContact 는 deprecated — 더 이상 읽지 않는다(인터페이스만 유지).
   managementOfficePhone = null,
   feeInquiryPhone = null,
@@ -126,6 +131,9 @@ export function CompletionNotice({
   initialDocKind = "notice",
   initialBodies,
 }: CompletionNoticeProps) {
+  // [Task #545] 빈/공백만 있는 건물명을 일관되게 "비어 있음" 으로 정규화.
+  const buildingName = (rawBuildingName ?? "").trim();
+  const hasBuildingName = buildingName.length > 0;
   const { toast } = useToast();
   const { layout: noticeLayout } = useNoticeLayout();
   const documentRef = useRef<HTMLDivElement>(null);
@@ -140,24 +148,32 @@ export function CompletionNotice({
   const cleanAlertMessage = stripDday(alertMessage);
   const [title, setTitle] = useState(`${cleanAlertTitle} 처리 완료 안내`);
   const defaultBodies = useMemo<Record<DocKind, string>>(
-    () => ({
-      notice:
-        initialBodies?.notice ??
-        (`안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n` +
-          `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
-          `${cleanAlertMessage}\n\n` +
-          `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`),
-      report:
-        initialBodies?.report ??
-        (`${buildingName} ${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
-          `${cleanAlertMessage}`),
-      draft:
-        initialBodies?.draft ??
-        (`처리 항목: ${cleanAlertTitle}\n` +
-          `완료 일자: ${formatNoticeDate(completedDate)}\n` +
-          `업무 결과: ${cleanAlertMessage}`),
-    }),
-    [buildingName, cleanAlertTitle, cleanAlertMessage, completedDate, initialBodies],
+    () => {
+      // [Task #545] 건물명이 비면 "OO아파트" 같은 자리표시자 대신 행/접두를
+      //   생략하고, 호출자가 채워야 할 자리는 자연스러운 한글 표현으로 대체.
+      const noticePrefix = hasBuildingName
+        ? `안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n`
+        : `안녕하십니까 입주민 여러분 관리사무소 입니다.\n`;
+      const reportPrefix = hasBuildingName ? `${buildingName} ` : "";
+      return {
+        notice:
+          initialBodies?.notice ??
+          (noticePrefix +
+            `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
+            `${cleanAlertMessage}\n\n` +
+            `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`),
+        report:
+          initialBodies?.report ??
+          (`${reportPrefix}${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
+            `${cleanAlertMessage}`),
+        draft:
+          initialBodies?.draft ??
+          (`처리 항목: ${cleanAlertTitle}\n` +
+            `완료 일자: ${formatNoticeDate(completedDate)}\n` +
+            `업무 결과: ${cleanAlertMessage}`),
+      };
+    },
+    [buildingName, hasBuildingName, cleanAlertTitle, cleanAlertMessage, completedDate, initialBodies],
   );
   const [editedBodies, setEditedBodies] = useState<Partial<Record<DocKind, string>>>({});
   const body = editedBodies[docKind] ?? defaultBodies[docKind];
@@ -191,16 +207,17 @@ export function CompletionNotice({
 
   function buildPlainText(): string {
     const kindLabel = DOC_KIND_LABELS[docKind];
+    // [Task #545] 건물명이 비면 자리표시자 대신 해당 행 자체를 생략한다.
     return (
       `[${kindLabel}] ${title}\n\n` +
-      `건물명: ${buildingName}\n` +
+      (hasBuildingName ? `건물명: ${buildingName}\n` : "") +
       `일자: ${getTodayShort()}\n` +
       (authorName ? `작성자: ${authorName}\n` : "") +
       `\n${body}\n\n` +
       `■ 처리 항목: ${alertTitle}\n` +
       `■ 완료 일자: ${formatNoticeDate(completedDate)}\n` +
       (notesText ? `■ 비고: ${notesText}\n` : "") +
-      `\n${getTodayFormatted()}\n${buildingName} 관리사무소`
+      `\n${getTodayFormatted()}\n${hasBuildingName ? `${buildingName} 관리사무소` : "관리사무소"}`
     );
   }
 
@@ -210,8 +227,9 @@ export function CompletionNotice({
     try {
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
+        // [Task #545] 건물명이 비면 파일명 머리에 자리표시자 대신 "공문" 을 붙인다.
         const filename = safeFilename(
-          `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
+          `${hasBuildingName ? buildingName : "공문"}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
         );
         const result = await sharePdfFromElement(
           documentRef.current,
@@ -246,7 +264,7 @@ export function CompletionNotice({
           await downloadElementAsPng(
             documentRef.current,
             safeFilename(
-              `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
+              `${hasBuildingName ? buildingName : "공문"}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
             ),
           );
           toast({ title: "이미지 저장 완료", description: `${DOC_KIND_LABELS[docKind]}이(가) PNG로 저장되었습니다.` });
@@ -268,7 +286,7 @@ export function CompletionNotice({
         const blob = await elementToDocxBlob(documentRef.current, title);
         const filename =
           safeFilename(
-            `${buildingName}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
+            `${hasBuildingName ? buildingName : "공문"}_${DOC_KIND_LABELS[docKind]}_${title}_${authorName ?? ""}_${getTodayShort()}`,
           ) + ".docx";
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -377,7 +395,14 @@ export function CompletionNotice({
           >
             {docKind === "notice" && (
               <NoticeLayoutFrame
-                settings={noticeLayout}
+                // [Task #545] 건물명이 비어 있으면 메타표의 "건물명" 행을 숨겨,
+                //   "OO아파트" 같은 자리표시자가 그 자리에 박히지 않게 한다.
+                //   다른 토글(공고NO/공고일/연락처)은 시스템 설정 그대로 유지.
+                settings={
+                  hasBuildingName
+                    ? noticeLayout
+                    : { ...noticeLayout, showBuildingRow: false }
+                }
                 buildingName={buildingName}
                 managementOfficePhone={managementOfficePhone}
                 feeInquiryPhone={feeInquiryPhone}
@@ -571,12 +596,15 @@ function ReportBody(props: {
             <td className="border border-gray-400 bg-gray-100 font-semibold w-24 p-2">보고자</td>
             <td className="border border-gray-400 p-2">{authorName ?? ""}</td>
           </tr>
-          <tr>
-            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">대상</td>
-            <td className="border border-gray-400 p-2" colSpan={3}>
-              {buildingName}
-            </td>
-          </tr>
+          {/* [Task #545] 건물명이 비어 있으면 자리표시자("OO아파트") 대신 행 자체를 숨긴다. */}
+          {buildingName && (
+            <tr>
+              <td className="border border-gray-400 bg-gray-100 font-semibold p-2">대상</td>
+              <td className="border border-gray-400 p-2" colSpan={3}>
+                {buildingName}
+              </td>
+            </tr>
+          )}
           <tr>
             <td className="border border-gray-400 bg-gray-100 font-semibold p-2">처리 항목</td>
             <td className="border border-gray-400 p-2">{alertTitle}</td>
@@ -626,10 +654,13 @@ function DraftBody(props: {
           <span className="font-semibold w-20">기안자</span>
           <span>{authorName ?? ""}</span>
         </div>
-        <div className="flex col-span-2">
-          <span className="font-semibold w-20">대상</span>
-          <span>{buildingName}</span>
-        </div>
+        {/* [Task #545] 건물명이 비어 있으면 자리표시자 대신 "대상" 행 자체를 숨긴다. */}
+        {buildingName && (
+          <div className="flex col-span-2">
+            <span className="font-semibold w-20">대상</span>
+            <span>{buildingName}</span>
+          </div>
+        )}
         <div className="flex col-span-2">
           <span className="font-semibold w-20">제목</span>
           <span className="font-semibold">{title}</span>

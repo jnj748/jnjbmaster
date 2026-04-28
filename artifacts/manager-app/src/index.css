@@ -367,18 +367,35 @@ h1, h2, h3, h4 {
 
 @media print {
   /*
-   * [Task #543] 인쇄 좌표 안전 보정.
-   *   문서를 absolute 로 띄울 때 누적 transform / 컨테이닝 블록 오프셋이
-   *   페이지 좌표에 영향을 주지 않도록, html/body 의 정렬·여백·transform 을
-   *   초기화한다. 이렇게 두면 하위 [data-state="open"][role="dialog"] 의
-   *   `position: absolute; left: 0` 이 곧바로 페이지 컨테이닝 블록(=@page
-   *   margin 안쪽 콘텐츠 영역) 좌상단 기준으로 잡힌다.
+   * [Task #545] 인쇄 좌표 안전 보정 — 더 단단한 버전.
+   *
+   *   배경: Task #543 에서 다이얼로그를 `position: absolute; left:0; top:0` 로
+   *   바꿔 .a4-document 의 컨테이닝 블록이 다이얼로그가 되도록 했다.
+   *   그런데 실제 인쇄 미리보기에서 본문이 페이지 좌측으로 밀려 왼쪽이
+   *   잘리는 현상이 재현되었다(첨부: 기안서 인쇄 미리보기 캡처).
+   *
+   *   원인: 다이얼로그(=DialogPrimitive.Content)가 absolute 로 잡히는 순간,
+   *     - 다이얼로그가 .a4-document 의 컨테이닝 블록이 된다
+   *     - 다이얼로그 width:100% 는 그 다이얼로그의 컨테이닝 블록(=라디스
+   *       포털/body) 폭을 따른다
+   *     - 라디스 포털이 fixed/transform 등을 갖고 있거나 그 위에 다른 wrapper
+   *       (Tailwind의 `fixed inset-0` 등) 가 끼면, .a4-document 의 left:0 가
+   *       페이지 좌상단이 아니라 그 wrapper 좌상단이 되어 ±수십 px 어긋난다.
+   *
+   *   해결: 다이얼로그·드로어·포털 등 *모든* 중간 wrapper 의 positioning 을
+   *     일괄 `static` 으로 풀고, .a4-document 만 `position: absolute` 로
+   *     남긴다. 이러면 .a4-document 의 컨테이닝 블록은 가장 가까운 positioned
+   *     ancestor 가 없으므로 *initial containing block* (= 인쇄 시 @page
+   *     content area = A4 - @page margin) 이 된다. left:0 / right:0 가 곧바로
+   *     @page margin 안쪽 콘텐츠 영역의 좌·우 가장자리에 매핑되어 어떤
+   *     wrapper 깊이/너비에서도 잘리지 않는다.
    */
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
     transform: none !important;
+    position: static !important;
   }
 
   body * {
@@ -393,15 +410,58 @@ h1, h2, h3, h4 {
   }
 
   /*
-   * [Task #543] 본문은 컨테이닝 블록(=다이얼로그 → body → @page 콘텐츠 영역)
-   *   을 가로로 가득 채우도록 left:0 / right:0 / width:auto 로 잡는다.
-   *   210mm 고정 폭은 다이얼로그·프레임·포털 폭이 미세하게 어긋났을 때
-   *   페이지 한쪽으로 본문이 밀려 잘리는 원인이 되었다(Task #543 재현 케이스).
+   * [Task #545] 다이얼로그·드로어·포털·프레임 등 .a4-document 까지의 모든
+   *   중간 wrapper 를 정적(static) 블록으로 풀어 컨테이닝 블록을 만들지
+   *   않게 한다. 동시에 fixed/absolute 가 만들어내던 가운데 정렬 transform
+   *   도 비워, .a4-document 가 페이지 콘텐츠 영역 좌상단에 그대로 정렬되도록 한다.
+   */
+  [data-radix-portal],
+  [data-state="open"][role="dialog"],
+  [data-vaul-drawer],
+  [data-vaul-drawer-wrapper],
+  .a4-document-frame {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    transform: none !important;
+    animation: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .a4-document-frame > * {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    display: block !important;
+  }
+
+  /*
+   * [Task #545] 본문은 인쇄 시 absolute 로 띄워 페이지 콘텐츠 영역의
+   *   좌상단(0,0) 에 고정한다. 위에서 모든 ancestor 의 positioning 을 풀어
+   *   놓았으므로 컨테이닝 블록은 initial containing block(=@page content area)
+   *   이고, left:0 / right:0 / width:auto 로 좌·우 정확히 같은 시각적 여백이
+   *   확보된다(좌·우 비대칭 잘림 방지).
    *
-   *   padding 은 5mm — @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백이
+   *   padding: 5mm — @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백이
    *   유지되어, 이전(@page margin:0 + padding:15mm) 과 같은 본문 폭/줄 수가
    *   재현된다. document-preview.tsx 가 inline padding(48px 56px) 을 줘도
-   *   인쇄 시에는 이 규칙(!important) 이 우선해 같은 위치에 정렬된다.
+   *   인쇄 시에는 이 규칙(!important) 이 우선한다.
    */
   .a4-document {
     position: absolute !important;
@@ -410,6 +470,7 @@ h1, h2, h3, h4 {
     right: 0 !important;
     bottom: auto !important;
     width: auto !important;
+    max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 5mm !important;
@@ -428,6 +489,7 @@ h1, h2, h3, h4 {
     right: 0 !important;
     bottom: auto !important;
     width: auto !important;
+    max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 5mm !important;
@@ -441,58 +503,6 @@ h1, h2, h3, h4 {
 
   .print\:hidden {
     display: none !important;
-  }
-
-  [data-state="open"][role="dialog"] {
-    position: absolute;
-    left: 0 !important;
-    top: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: 100%;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    /* Radix Dialog 는 fixed + translate(-50%,-50%) 로 가운데 정렬되는데,
-       transform 을 그대로 두면 .a4-document 가 음수 좌표로 페이지 밖으로 밀려
-       인쇄 결과가 백지가 된다. 인쇄 시에는 transform/animation 을 모두 제거하고,
-       내부 스크롤(max-h:90vh + overflow-auto) 도 풀어서 본문 전체를 흘려준다. */
-    transform: none !important;
-    animation: none !important;
-    overflow: visible !important;
-    display: block !important;
-  }
-
-  /* ResponsiveDialog 가 desktop=Dialog, mobile=Drawer 분기인데
-     Drawer(=vaul) 도 동일하게 fixed + transform 으로 화면 하단에 띄워지므로
-     인쇄 시 같은 보정을 적용한다. */
-  [data-vaul-drawer],
-  [data-vaul-drawer-wrapper] {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: 100% !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    transform: none !important;
-    animation: none !important;
-    overflow: visible !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-  }
-
-  [data-radix-portal],
-  [data-state="open"][role="dialog"] > :not(.inspection-notice-print) {
-    visibility: hidden;
   }
 }
 

@@ -64,9 +64,18 @@ function buildFollowUpDocBodies(
   const sourceLine = `출처: ${sourceLabel} #${source.id} (${source.occurredAt})`;
   const keywordsLine = keywords ? `감지 키워드: ${keywords}` : "";
   const snippetLine = snippet ? `원문 요약: ${snippet}` : "";
+  // [Task #545] 호출자가 빈 문자열을 넘긴 경우(=BuildingContext 미로딩 또는 미입력)
+  //   본문에 자리표시자가 박히지 않도록, 건물명이 들어가는 자리는 자연스럽게 생략한다.
+  const trimmedBuilding = buildingName.trim();
+  const noticeGreeting = trimmedBuilding
+    ? `안녕하십니까 입주민 여러분 ${trimmedBuilding} 관리사무소 입니다.`
+    : `안녕하십니까 입주민 여러분 관리사무소 입니다.`;
+  const reportLead = trimmedBuilding
+    ? `${trimmedBuilding} 후속 조치 필요 사안에 대하여 아래와 같이 보고드립니다.`
+    : `후속 조치 필요 사안에 대하여 아래와 같이 보고드립니다.`;
 
   const notice = [
-    `안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.`,
+    noticeGreeting,
     `최근 다음과 같이 후속 조치가 필요한 사안이 확인되어 안내드립니다.`,
     "",
     `- 사안: ${source.title}`,
@@ -79,7 +88,7 @@ function buildFollowUpDocBodies(
     .join("\n");
 
   const report = [
-    `${buildingName} 후속 조치 필요 사안에 대하여 아래와 같이 보고드립니다.`,
+    reportLead,
     "",
     `- 사안: ${source.title}`,
     `- ${sourceLine}`,
@@ -123,7 +132,9 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
 
   const docInitialBodies = useMemo(() => {
     if (!source) return undefined;
-    return buildFollowUpDocBodies(source, detection, building?.name ?? "OO아파트");
+    // [Task #545] 자리표시자 "OO아파트" 폴백 제거 — 빈 문자열을 넘기면
+    //   buildFollowUpDocBodies 가 건물명 자리를 자연스럽게 생략한다.
+    return buildFollowUpDocBodies(source, detection, building?.name ?? "");
   }, [source, detection, building?.name]);
 
   if (!source || !detection) {
