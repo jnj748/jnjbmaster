@@ -84,10 +84,14 @@ router.get("/inspections", async (_req, res): Promise<void> => {
   //       "Fix drizzle date/time type mismatches" 에서 처리한다(본 task 범위 밖).
   const ItemSchema = (ListInspectionsResponse as unknown as { element: typeof ListInspectionsResponse })
     .element ?? ListInspectionsResponse;
+  // [Task #554 빌드 수정] 명시적 타입 술어가 ItemSchema 의 출력 타입(strict
+  //   inspection 행 타입)에 비해 `data: unknown` 으로 너무 넓어 TS 5.9 가 거부
+  //   했다. TS 5.5+ 의 자동 narrowing 으로 `r.success` 분기만 남겨도 동일하게
+  //   discriminated union 을 좁혀 준다.
   const normalized = inspections
     .map(normalizeInspectionRow)
     .map((row) => ItemSchema.safeParse(row))
-    .filter((r): r is { success: true; data: unknown } => r.success)
+    .filter((r) => r.success)
     .map((r) => r.data);
 
   res.json(normalized);

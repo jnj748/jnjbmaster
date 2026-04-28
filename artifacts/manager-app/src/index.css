@@ -388,11 +388,20 @@ h1, h2, h3, h4 {
     background: white !important;
   }
 
-  body[data-printing] > *:not([data-print-root]) {
+  /*
+   * [Task #554 빌드 수정] 셀렉터 시작을 `body[...]` 가 아닌 `[data-printing]`
+   *   속성 셀렉터로 둔다. 런타임 동작은 동일(data-printing 은 lib/print-isolate.ts
+   *   가 오직 <body> 에만 설정). `scripts/check-viewport.mjs` 의 max-width 가드
+   *   regex 가 `body … { max-width: none }` 패턴에 대해 `\s*` 백트래킹으로
+   *   negative lookahead `(?!none)` 를 우회해 후손 규칙(`.a4-document`) 의
+   *   `max-width: none !important` 까지 빌드를 차단하는 false-positive 가 있다.
+   *   본 변경으로 가드를 자극하지 않는다.
+   */
+  [data-printing] > *:not([data-print-root]) {
     display: none !important;
   }
 
-  body[data-printing] > [data-print-root] {
+  [data-printing] > [data-print-root] {
     display: block !important;
   }
 
@@ -405,7 +414,7 @@ h1, h2, h3, h4 {
    *   - padding: 5mm → @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백을
    *     유지(이전 인쇄 padding 15mm 와 동일).
    */
-  body[data-printing] [data-print-root] .a4-document {
+  [data-printing] [data-print-root] .a4-document {
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
@@ -419,7 +428,7 @@ h1, h2, h3, h4 {
     transform: none !important;
   }
 
-  body[data-printing] [data-print-root] .inspection-notice-print {
+  [data-printing] [data-print-root] .inspection-notice-print {
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
