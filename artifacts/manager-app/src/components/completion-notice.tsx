@@ -31,6 +31,35 @@ const DOC_KIND_LABELS: Record<DocKind, string> = {
   draft: "기안서",
 };
 
+// [Task #553] 알림 액션 종류 — 처리완료/처리예정/연기 모두 동일한 문서생성
+//   모달을 띄우되, 헤더 라벨/기본 본문/표 라벨이 액션 종류에 맞게 바뀐다.
+//   (기존 호출자는 actionKind 를 생략하면 "completed" 가 적용되어 종전 UX 유지.)
+export type CompletionActionKind = "completed" | "scheduled" | "postponed";
+
+const ACTION_LABELS: Record<
+  CompletionActionKind,
+  { headerSuffix: string; titleSuffix: string; dateLabel: string; previewKindLabel: string }
+> = {
+  completed: {
+    headerSuffix: "처리 완료 안내",
+    titleSuffix: "처리 완료 안내",
+    dateLabel: "완료 일자",
+    previewKindLabel: "처리 완료",
+  },
+  scheduled: {
+    headerSuffix: "처리예정 안내",
+    titleSuffix: "처리예정 안내",
+    dateLabel: "예정 일자",
+    previewKindLabel: "처리 예정",
+  },
+  postponed: {
+    headerSuffix: "일정 연기 안내",
+    titleSuffix: "일정 연기 안내",
+    dateLabel: "변경 예정일",
+    previewKindLabel: "일정 연기",
+  },
+};
+
 function formatNoticeDate(d: string | null | undefined): string {
   if (!d) return "";
   const dateStr = d.includes("T") ? d.split("T")[0] : d;
@@ -81,11 +110,35 @@ interface CompletionNoticeProps {
   onOpenChange: (open: boolean) => void;
   alertTitle: string;
   alertMessage: string;
+  /**
+   * [Task #553] 액션 기준일.
+   * - completed: 완료 일자
+   * - scheduled: 예정 일자
+   * - postponed: 연기 후 새 예정일
+   */
   completedDate: string;
   notes?: string | null;
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
   buildingName?: string;
+  /**
+   * [Task #553] 모달 컨텍스트. 생략 시 "completed" 로 동작하여 기존 UX 와 동일.
+   */
+  actionKind?: CompletionActionKind;
+  /**
+   * [Task #553] 처리예정 액션의 부가 입력 — 기본 본문에 반영된다.
+   */
+  scheduledMeta?: {
+    notes?: string | null;
+  };
+  /**
+   * [Task #553] 연기 액션의 부가 입력 — 기본 본문과 표에 반영된다.
+   */
+  postponedMeta?: {
+    days?: number | null;
+    reason?: string | null;
+    notes?: string | null;
+  };
   /**
    * @deprecated [Task #504] 시스템 공고문 레이아웃(`/platform/notice-templates`)의
    * `contactTemplate` 가 단일 진실 공급원이다. 이 prop 은 호환성을 위해 남아 있지만,
@@ -131,6 +184,9 @@ export function CompletionNotice({
   authorName = null,
   initialDocKind = "notice",
   initialBodies,
+  actionKind = "completed",
+  scheduledMeta,
+  postponedMeta,
 }: CompletionNoticeProps) {
   // [Task #545] 빈/공백만 있는 건물명을 일관되게 "비어 있음" 으로 정규화.
   const buildingName = (rawBuildingName ?? "").trim();
@@ -147,7 +203,9 @@ export function CompletionNotice({
   const [postingPeriodOverride, setPostingPeriodOverride] = useState<string | null>(null);
   const cleanAlertTitle = stripDday(alertTitle);
   const cleanAlertMessage = stripDday(alertMessage);
-  const [title, setTitle] = useState(`${cleanAlertTitle} 처리 완료 안내`);
+  // [Task #553] 액션 종류별 라벨/타이틀 매핑.
+  const actionLabel = ACTION_LABELS[actionKind];
+  const [title, setTitle] = useState(`${cleanAlertTitle} ${actionLabel.titleSuffix}`);
   const defaultBodies = useMemo<Record<DocKind, string>>(
     () => {
       // [Task #545] 건물명이 비면 "OO아파트" 같은 자리표시자 대신 행/접두를
@@ -156,25 +214,116 @@ export function CompletionNotice({
         ? `안녕하십니까 입주민 여러분 ${buildingName} 관리사무소 입니다.\n`
         : `안녕하십니까 입주민 여러분 관리사무소 입니다.\n`;
       const reportPrefix = hasBuildingName ? `${buildingName} ` : "";
+      const refDateText = formatNoticeDate(completedDate);
+
+      // [Task #553] 액션 종류별 기본 본문. completed 는 종전 문구 그대로 유지하고,
+      //   scheduled/postponed 는 기준일·예정 메모/연기 사유·일수가 자연스럽게
+      //   본문에 들어가도록 안내 문구를 새로 작성한다.
+      const scheduledExtra = scheduledMeta?.notes ? `\n\n■ 예정 메모\n${scheduledMeta.notes}` : "";
+      const postponedReasonText = postponedMeta?.reason ? postponedMeta.reason : "";
+      const postponedDaysText = postponedMeta?.days ? `${postponedMeta.days}일` : "";
+      const postponedExtraReport =
+        (postponedDaysText ? `\n연기 일수: ${postponedDaysText}` : "") +
+        (postponedReasonText ? `\n연기 사유: ${postponedReasonText}` : "") +
+        (postponedMeta?.notes ? `\n비고: ${postponedMeta.notes}` : "");
+
+      const noticeDefault = (() => {
+        if (actionKind === "scheduled") {
+          return (
+            noticePrefix +
+            `금번 ${cleanAlertTitle}을(를) ${refDateText}에 진행할 예정임을 안내드립니다.\n` +
+            `${cleanAlertMessage}` +
+            scheduledExtra +
+            `\n\n입주민 여러분의 양해와 협조를 부탁드립니다. 감사합니다.`
+          );
+        }
+        if (actionKind === "postponed") {
+          const reasonLine = postponedReasonText ? ` 사유: ${postponedReasonText}.` : "";
+          const daysLine = postponedDaysText ? ` (${postponedDaysText} 연기)` : "";
+          return (
+            noticePrefix +
+            `금번 ${cleanAlertTitle} 일정이 ${refDateText}로 변경되었음을 안내드립니다${daysLine}.${reasonLine}\n` +
+            `${cleanAlertMessage}` +
+            (postponedMeta?.notes ? `\n\n■ 비고\n${postponedMeta.notes}` : "") +
+            `\n\n입주민 여러분의 양해와 협조를 부탁드립니다. 감사합니다.`
+          );
+        }
+        return (
+          noticePrefix +
+          `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
+          `${cleanAlertMessage}\n\n` +
+          `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`
+        );
+      })();
+
+      const reportDefault = (() => {
+        if (actionKind === "scheduled") {
+          return (
+            `${reportPrefix}${cleanAlertTitle} 처리 예정에 대하여 아래와 같이 보고드립니다.\n` +
+            `예정 일자: ${refDateText}\n` +
+            `${cleanAlertMessage}` +
+            (scheduledMeta?.notes ? `\n예정 메모: ${scheduledMeta.notes}` : "")
+          );
+        }
+        if (actionKind === "postponed") {
+          return (
+            `${reportPrefix}${cleanAlertTitle} 일정 연기에 대하여 아래와 같이 보고드립니다.\n` +
+            `변경 예정일: ${refDateText}` +
+            postponedExtraReport +
+            `\n${cleanAlertMessage}`
+          );
+        }
+        return (
+          `${reportPrefix}${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
+          `${cleanAlertMessage}`
+        );
+      })();
+
+      const draftDefault = (() => {
+        if (actionKind === "scheduled") {
+          return (
+            `처리 항목: ${cleanAlertTitle}\n` +
+            `예정 일자: ${refDateText}\n` +
+            `진행 계획: ${cleanAlertMessage}` +
+            (scheduledMeta?.notes ? `\n예정 메모: ${scheduledMeta.notes}` : "")
+          );
+        }
+        if (actionKind === "postponed") {
+          return (
+            `처리 항목: ${cleanAlertTitle}\n` +
+            `변경 예정일: ${refDateText}` +
+            (postponedDaysText ? `\n연기 일수: ${postponedDaysText}` : "") +
+            (postponedReasonText ? `\n연기 사유: ${postponedReasonText}` : "") +
+            `\n업무 내용: ${cleanAlertMessage}` +
+            (postponedMeta?.notes ? `\n비고: ${postponedMeta.notes}` : "")
+          );
+        }
+        return (
+          `처리 항목: ${cleanAlertTitle}\n` +
+          `완료 일자: ${refDateText}\n` +
+          `업무 결과: ${cleanAlertMessage}`
+        );
+      })();
+
       return {
-        notice:
-          initialBodies?.notice ??
-          (noticePrefix +
-            `금번 ${cleanAlertTitle}에 대하여 아래와 같이 완료되었음을 공지드립니다.\n` +
-            `${cleanAlertMessage}\n\n` +
-            `앞으로도 관리사무소에서는 안전하고 쾌적한 건물이 되도록 항상 최선을 다하겠습니다. 감사합니다.`),
-        report:
-          initialBodies?.report ??
-          (`${reportPrefix}${cleanAlertTitle}에 대하여 아래와 같이 보고드립니다.\n` +
-            `${cleanAlertMessage}`),
-        draft:
-          initialBodies?.draft ??
-          (`처리 항목: ${cleanAlertTitle}\n` +
-            `완료 일자: ${formatNoticeDate(completedDate)}\n` +
-            `업무 결과: ${cleanAlertMessage}`),
+        notice: initialBodies?.notice ?? noticeDefault,
+        report: initialBodies?.report ?? reportDefault,
+        draft: initialBodies?.draft ?? draftDefault,
       };
     },
-    [buildingName, hasBuildingName, cleanAlertTitle, cleanAlertMessage, completedDate, initialBodies],
+    [
+      buildingName,
+      hasBuildingName,
+      cleanAlertTitle,
+      cleanAlertMessage,
+      completedDate,
+      initialBodies,
+      actionKind,
+      scheduledMeta?.notes,
+      postponedMeta?.days,
+      postponedMeta?.reason,
+      postponedMeta?.notes,
+    ],
   );
   const [editedBodies, setEditedBodies] = useState<Partial<Record<DocKind, string>>>({});
   const body = editedBodies[docKind] ?? defaultBodies[docKind];
@@ -214,6 +363,7 @@ export function CompletionNotice({
   function buildPlainText(): string {
     const kindLabel = DOC_KIND_LABELS[docKind];
     // [Task #545] 건물명이 비면 자리표시자 대신 해당 행 자체를 생략한다.
+    // [Task #553] 액션 종류별 기준일 라벨/연기 메타를 함께 출력한다.
     return (
       `[${kindLabel}] ${title}\n\n` +
       (hasBuildingName ? `건물명: ${buildingName}\n` : "") +
@@ -221,7 +371,13 @@ export function CompletionNotice({
       (authorName ? `작성자: ${authorName}\n` : "") +
       `\n${body}\n\n` +
       `■ 처리 항목: ${alertTitle}\n` +
-      `■ 완료 일자: ${formatNoticeDate(completedDate)}\n` +
+      `■ ${actionLabel.dateLabel}: ${formatNoticeDate(completedDate)}\n` +
+      (actionKind === "postponed" && postponedMeta?.days != null
+        ? `■ 연기 일수: ${postponedMeta.days}일\n`
+        : "") +
+      (actionKind === "postponed" && postponedMeta?.reason
+        ? `■ 연기 사유: ${postponedMeta.reason}\n`
+        : "") +
       (notesText ? `■ 비고: ${notesText}\n` : "") +
       `\n${getTodayFormatted()}\n${hasBuildingName ? `${buildingName} 관리사무소` : "관리사무소"}`
     );
@@ -324,7 +480,9 @@ export function CompletionNotice({
     >
       <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
         <ResponsiveDialogHeader className="print:hidden">
-          <ResponsiveDialogTitle>{DOC_KIND_LABELS[docKind]} 미리보기</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>
+            {actionLabel.headerSuffix} — {DOC_KIND_LABELS[docKind]} 미리보기
+          </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
         {/* 양식 선택 탭 */}
@@ -433,9 +591,21 @@ export function CompletionNotice({
                     <span>{alertTitle}</span>
                   </div>
                   <div className="flex">
-                    <span className="font-semibold w-24 shrink-0">■ 완료 일자</span>
+                    <span className="font-semibold w-24 shrink-0">■ {actionLabel.dateLabel}</span>
                     <span>{formatNoticeDate(completedDate)}</span>
                   </div>
+                  {actionKind === "postponed" && postponedMeta?.days != null && (
+                    <div className="flex">
+                      <span className="font-semibold w-24 shrink-0">■ 연기 일수</span>
+                      <span>{postponedMeta.days}일</span>
+                    </div>
+                  )}
+                  {actionKind === "postponed" && postponedMeta?.reason && (
+                    <div className="flex">
+                      <span className="font-semibold w-24 shrink-0">■ 연기 사유</span>
+                      <span>{postponedMeta.reason}</span>
+                    </div>
+                  )}
                 </div>
                 {notesText && (
                   <div className="mt-4 text-sm">
@@ -462,6 +632,9 @@ export function CompletionNotice({
                 authorName={authorName}
                 closeUpPhotoUrl={closeUpPhotoUrl}
                 widePhotoUrl={widePhotoUrl}
+                actionKind={actionKind}
+                dateLabel={actionLabel.dateLabel}
+                postponedMeta={postponedMeta}
               />
             )}
             {docKind === "draft" && (
@@ -475,6 +648,9 @@ export function CompletionNotice({
                 authorName={authorName}
                 closeUpPhotoUrl={closeUpPhotoUrl}
                 widePhotoUrl={widePhotoUrl}
+                actionKind={actionKind}
+                dateLabel={actionLabel.dateLabel}
+                postponedMeta={postponedMeta}
               />
             )}
           </div>
@@ -583,8 +759,25 @@ function ReportBody(props: {
   authorName: string | null;
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
+  // [Task #553] 처리완료/처리예정/연기 컨텍스트 라벨링.
+  actionKind?: CompletionActionKind;
+  dateLabel?: string;
+  postponedMeta?: { days?: number | null; reason?: string | null; notes?: string | null };
 }) {
-  const { buildingName, title, body, alertTitle, completedDate, notesText, authorName, closeUpPhotoUrl, widePhotoUrl } = props;
+  const {
+    buildingName,
+    title,
+    body,
+    alertTitle,
+    completedDate,
+    notesText,
+    authorName,
+    closeUpPhotoUrl,
+    widePhotoUrl,
+    actionKind = "completed",
+    dateLabel = "완료 일자",
+    postponedMeta,
+  } = props;
   return (
     <div className="space-y-3">
       <h2 className="text-2xl font-bold text-center border-b-2 border-black pb-3">업 무 보 고 서</h2>
@@ -614,9 +807,19 @@ function ReportBody(props: {
           <tr>
             <td className="border border-gray-400 bg-gray-100 font-semibold p-2">처리 항목</td>
             <td className="border border-gray-400 p-2">{alertTitle}</td>
-            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">완료 일자</td>
+            <td className="border border-gray-400 bg-gray-100 font-semibold p-2">{dateLabel}</td>
             <td className="border border-gray-400 p-2">{formatShortDate(completedDate)}</td>
           </tr>
+          {actionKind === "postponed" && (postponedMeta?.days != null || postponedMeta?.reason) && (
+            <tr>
+              <td className="border border-gray-400 bg-gray-100 font-semibold p-2">연기 일수</td>
+              <td className="border border-gray-400 p-2">
+                {postponedMeta?.days != null ? `${postponedMeta.days}일` : ""}
+              </td>
+              <td className="border border-gray-400 bg-gray-100 font-semibold p-2">연기 사유</td>
+              <td className="border border-gray-400 p-2">{postponedMeta?.reason ?? ""}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -645,8 +848,37 @@ function DraftBody(props: {
   authorName: string | null;
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
+  // [Task #553] 처리완료/처리예정/연기 컨텍스트 라벨링.
+  actionKind?: CompletionActionKind;
+  dateLabel?: string;
+  postponedMeta?: { days?: number | null; reason?: string | null; notes?: string | null };
 }) {
-  const { buildingName, title, body, alertTitle, completedDate, notesText, authorName, closeUpPhotoUrl, widePhotoUrl } = props;
+  const {
+    buildingName,
+    title,
+    body,
+    alertTitle,
+    completedDate,
+    notesText,
+    authorName,
+    closeUpPhotoUrl,
+    widePhotoUrl,
+    actionKind = "completed",
+    postponedMeta,
+  } = props;
+  // [Task #553] 액션 종류별 "기안 사유" 본문.
+  const reasonLine = (() => {
+    const dateText = formatNoticeDate(completedDate);
+    if (actionKind === "scheduled") {
+      return `아래와 같이 「${alertTitle}」 업무를 ${dateText}에 진행할 예정임을 보고드리며, 결재를 요청드립니다.`;
+    }
+    if (actionKind === "postponed") {
+      const daysText = postponedMeta?.days != null ? ` (${postponedMeta.days}일 연기)` : "";
+      const reasonText = postponedMeta?.reason ? ` 사유: ${postponedMeta.reason}.` : "";
+      return `아래와 같이 「${alertTitle}」 업무 일정을 ${dateText}로 변경${daysText}하고자 결재를 요청드립니다.${reasonText}`;
+    }
+    return `아래와 같이 「${alertTitle}」 업무가 ${dateText} 자로 완료되었음을 보고드리며, 결재를 요청드립니다.`;
+  })();
   return (
     <div className="space-y-3">
       <h2 className="text-2xl font-bold tracking-wide text-center border-b-2 border-black pb-3">기 안 서</h2>
@@ -693,9 +925,7 @@ function DraftBody(props: {
       </table>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 기안 사유</p>
-      <p className="text-sm leading-7">
-        아래와 같이 「{alertTitle}」 업무가 {formatNoticeDate(completedDate)} 자로 완료되었음을 보고드리며, 결재를 요청드립니다.
-      </p>
+      <p className="text-sm leading-7">{reasonLine}</p>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">2. 주요 내용</p>
       <div className="text-[15px] leading-7 whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{body}</div>

@@ -109,12 +109,17 @@ export function AlertActionDialog({
   const [completionNoticeData, setCompletionNoticeData] = useState<{
     alertTitle: string;
     alertMessage: string;
+    // [Task #553] 액션 기준일. completed=완료일, scheduled=예정일, postponed=새 예정일.
     completedDate: string;
     notes: string | null;
     closeUpPhotoUrl: string | null;
     widePhotoUrl: string | null;
     templateBody?: string;
     initialDocKind?: "notice" | "report" | "draft";
+    // [Task #553] 액션 컨텍스트 — 헤더 라벨/기본 본문/표 라벨에 반영된다.
+    actionKind?: "completed" | "scheduled" | "postponed";
+    scheduledMeta?: { notes?: string | null };
+    postponedMeta?: { days?: number | null; reason?: string | null; notes?: string | null };
   } | null>(null);
 
   const { toast } = useToast();
@@ -165,6 +170,42 @@ export function AlertActionDialog({
     onProcessed?.();
   }
 
+  // [Task #553] 공지 템플릿(`notice_posting`) 의 토큰 치환을 처리완료/처리예정/연기
+  //   세 흐름에서 공통으로 사용. `referenceDate` 가 `{{date}}` 자리에 들어간다.
+  //   알림이 공지 템플릿에 연결돼 있지 않으면 undefined 를 반환한다.
+  function buildNoticeTemplatePrefill(
+    a: DashboardAlert | null,
+    referenceDate: string,
+  ): { templateBody?: string; initialDocKind?: "notice" | "report" | "draft" } {
+    if (!a || a.type !== "notice_posting" || !a.relatedId) return {};
+    const tpl = noticeTemplates.find((t) => t.id === a.relatedId);
+    if (!tpl) return {};
+    const replaced = tpl.bodyHtml
+      .replace(/\{\{buildingName\}\}/g, building?.name ?? "")
+      .replace(/\{\{addressFull\}\}/g, building?.addressFull ?? "")
+      .replace(/\{\{managementOfficePhone\}\}/g, building?.managementOfficePhone ?? "")
+      .replace(/\{\{feeInquiryPhone\}\}/g, building?.feeInquiryPhone ?? "")
+      .replace(/\{\{facilitySafetyPhone\}\}/g, building?.facilitySafetyPhone ?? "")
+      .replace(/\{\{date\}\}/g, referenceDate)
+      .replace(/\{\{customA\}\}/g, "")
+      .replace(/\{\{customB\}\}/g, "")
+      .replace(/\{\{customC\}\}/g, "");
+    const text = replaced
+      .replace(/<br\s*\/?\s*>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return {
+      templateBody: text,
+      initialDocKind: tpl.requiresReport ? "report" : "notice",
+    };
+  }
+
   async function handleComplete() {
     if (!alert) return;
     if (!completeDate) {
@@ -198,35 +239,7 @@ export function AlertActionDialog({
     invalidateAfterAction();
     toast({ title: "처리 완료되었습니다" });
 
-    let templateBody: string | undefined;
-    let initialDocKind: "notice" | "report" | "draft" | undefined;
-    if (alert.type === "notice_posting" && alert.relatedId) {
-      const tpl = noticeTemplates.find((t) => t.id === alert.relatedId);
-      if (tpl) {
-        const replaced = tpl.bodyHtml
-          .replace(/\{\{buildingName\}\}/g, building?.name ?? "")
-          .replace(/\{\{addressFull\}\}/g, building?.addressFull ?? "")
-          .replace(/\{\{managementOfficePhone\}\}/g, building?.managementOfficePhone ?? "")
-          .replace(/\{\{feeInquiryPhone\}\}/g, building?.feeInquiryPhone ?? "")
-          .replace(/\{\{facilitySafetyPhone\}\}/g, building?.facilitySafetyPhone ?? "")
-          .replace(/\{\{date\}\}/g, completeDate)
-          .replace(/\{\{customA\}\}/g, "")
-          .replace(/\{\{customB\}\}/g, "")
-          .replace(/\{\{customC\}\}/g, "");
-        const text = replaced
-          .replace(/<br\s*\/?\s*>/gi, "\n")
-          .replace(/<\/p>/gi, "\n\n")
-          .replace(/<[^>]+>/g, "")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
-        templateBody = text;
-        initialDocKind = tpl.requiresReport ? "report" : "notice";
-      }
-    }
+    const { templateBody, initialDocKind } = buildNoticeTemplatePrefill(alert, completeDate);
     setCompletionNoticeData({
       alertTitle: alert.title,
       alertMessage: alert.message,
@@ -236,9 +249,26 @@ export function AlertActionDialog({
       widePhotoUrl,
       templateBody,
       initialDocKind,
+      actionKind: "completed",
     });
     onClose();
     setShowCompletionNotice(true);
+  }
+
+  // [Task #553] 연기 일수만큼 더해 "변경 예정일" 을 계산. 기존 dueDate 가 있으면
+  //   그 위에 더하고, 없으면 오늘 기준으로 더한다(YYYY-MM-DD 문자열 반환).
+  function computePostponedReferenceDate(
+    a: DashboardAlert,
+    days: number,
+  ): string {
+    const base = a.dueDate
+      ? new Date(a.dueDate)
+      : new Date(new Date().toISOString().split("T")[0]);
+    if (Number.isNaN(base.getTime())) {
+      return new Date().toISOString().split("T")[0];
+    }
+    base.setDate(base.getDate() + days);
+    return base.toISOString().split("T")[0];
   }
 
   async function handlePostpone() {
@@ -251,20 +281,43 @@ export function AlertActionDialog({
       toast({ title: "연기 사유를 선택해주세요", variant: "destructive" });
       return;
     }
+    const daysNum = parseInt(postponeDays) || 0;
     await createActionMutation.mutateAsync({
       data: {
         alertType: alert.type,
         relatedEntityType: getEntityType(alert.type),
         relatedEntityId: alert.relatedId!,
         actionType: "postponed",
-        postponeDays: parseInt(postponeDays) || null,
+        postponeDays: daysNum || null,
         postponeReason: postponeReason || null,
         notes: actionNotes || null,
       },
     });
     invalidateAfterAction();
     toast({ title: "일정이 연기되었습니다" });
+
+    // [Task #553] 연기 액션도 처리완료와 동일하게 문서생성 모달을 띄운다.
+    //   기준일 = dueDate(또는 오늘) + 연기 일수.
+    const refDate = computePostponedReferenceDate(alert, daysNum);
+    const { templateBody, initialDocKind } = buildNoticeTemplatePrefill(alert, refDate);
+    setCompletionNoticeData({
+      alertTitle: alert.title,
+      alertMessage: alert.message,
+      completedDate: refDate,
+      notes: actionNotes || null,
+      closeUpPhotoUrl: null,
+      widePhotoUrl: null,
+      templateBody,
+      initialDocKind,
+      actionKind: "postponed",
+      postponedMeta: {
+        days: daysNum || null,
+        reason: postponeReason || null,
+        notes: actionNotes || null,
+      },
+    });
     onClose();
+    setShowCompletionNotice(true);
   }
 
   // [Task #511] 처리예정 액션 저장. 같은 알림에 대해 다시 누르면 새 액션이
@@ -287,7 +340,26 @@ export function AlertActionDialog({
     });
     invalidateAfterAction();
     toast({ title: "처리예정이 등록되었습니다" });
+
+    // [Task #553] 처리예정 액션도 처리완료와 동일하게 문서생성 모달을 띄운다.
+    //   기준일 = 예정일, 본문/표/공지 템플릿 토큰 치환 모두 예정일 기준으로 동작.
+    const { templateBody, initialDocKind } = buildNoticeTemplatePrefill(alert, scheduledDate);
+    setCompletionNoticeData({
+      alertTitle: alert.title,
+      alertMessage: alert.message,
+      completedDate: scheduledDate,
+      notes: scheduledNotes || null,
+      closeUpPhotoUrl: null,
+      widePhotoUrl: null,
+      templateBody,
+      initialDocKind,
+      actionKind: "scheduled",
+      scheduledMeta: {
+        notes: scheduledNotes || null,
+      },
+    });
     onClose();
+    setShowCompletionNotice(true);
   }
 
   // [Task #511] 인라인 RFQ 작성 폼 대신 /rfqs?prefill=1 로 네비게이트한다.
@@ -610,7 +682,7 @@ export function AlertActionDialog({
 
       {completionNoticeData && (
         <CompletionNotice
-          key={`cn:${completionNoticeData.alertTitle}:${completionNoticeData.initialDocKind ?? "notice"}`}
+          key={`cn:${completionNoticeData.actionKind ?? "completed"}:${completionNoticeData.alertTitle}:${completionNoticeData.initialDocKind ?? "notice"}`}
           open={showCompletionNotice}
           onOpenChange={setShowCompletionNotice}
           alertTitle={completionNoticeData.alertTitle}
@@ -631,6 +703,9 @@ export function AlertActionDialog({
               ? { [completionNoticeData.initialDocKind ?? "notice"]: completionNoticeData.templateBody }
               : undefined
           }
+          actionKind={completionNoticeData.actionKind ?? "completed"}
+          scheduledMeta={completionNoticeData.scheduledMeta}
+          postponedMeta={completionNoticeData.postponedMeta}
         />
       )}
 
