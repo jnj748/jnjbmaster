@@ -11,13 +11,18 @@ import { FolderOpen, ListChecks } from "lucide-react";
 import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
 
 export function DocumentsLinkPair() {
+  // [Task #536] 부모 그리드 셀(우측 "오늘 업무일지 자동 작성하기" 카드와 같은 행)의
+  //   세로 높이에 맞춰 두 카드가 함께 늘어나도록 h-full + flex 컬럼으로 구성한다.
+  //   각 자식(Link)은 flex-1 + basis-0 으로 남는 세로 공간을 균등 분배해 채우며,
+  //   내부 button 은 h-full + items-center 로 콘텐츠를 세로 가운데 정렬한다.
+  //   모바일(1열)에서는 부모 셀에 stretch 가 걸리지 않으므로 자연 높이로 표시된다.
   return (
-    <div className="space-y-2 sm:space-y-2.5">
-      <Link href="/recent-documents">
+    <div className="flex flex-col h-full space-y-2 sm:space-y-2.5">
+      <Link href="/recent-documents" className="flex-1 basis-0 min-h-0">
         <button
           type="button"
           data-testid="btn-recent-documents"
-          className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
+          className="w-full h-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
         >
           <span className="flex items-center gap-3 min-w-0">
             {/* [Task #256] system 카테고리 — 처리 내역(reports)과 색으로 구분 */}
@@ -33,11 +38,11 @@ export function DocumentsLinkPair() {
         </button>
       </Link>
 
-      <Link href="/work-log?tab=activity">
+      <Link href="/work-log?tab=activity" className="flex-1 basis-0 min-h-0">
         <button
           type="button"
           data-testid="btn-activity-log"
-          className="w-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
+          className="w-full h-full flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:py-3.5 text-left hover:bg-muted/50 transition"
         >
           <span className="flex items-center gap-3 min-w-0">
             {/* [Task #256] reports 카테고리 — 업무일지 화면과 동일 토큰 */}
