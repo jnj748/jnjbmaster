@@ -13,13 +13,15 @@ import { Printer, Download, Share2, FileText } from "lucide-react";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
+import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import { useNoticeLayout } from "@/hooks/use-notice-layout";
+import { fillNoticeTemplate } from "@/lib/notice-layout";
 import {
   downloadElementAsPng,
   elementToDocxBlob,
   safeFilename,
   sharePdfFromElement,
 } from "@/lib/document-export";
-import { cn } from "@/lib/utils";
 
 type DocKind = "notice" | "report" | "draft";
 const DOC_KIND_LABELS: Record<DocKind, string> = {
@@ -73,15 +75,6 @@ function stripDday(s: string): string {
     .trim();
 }
 
-function buildingNameSizeClass(name: string): string {
-  const len = name.length;
-  if (len <= 8) return "text-xl";
-  if (len <= 12) return "text-lg";
-  if (len <= 16) return "text-base";
-  if (len <= 22) return "text-sm";
-  return "text-xs";
-}
-
 interface CompletionNoticeProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -92,7 +85,18 @@ interface CompletionNoticeProps {
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
   buildingName?: string;
+  /**
+   * @deprecated [Task #504] 시스템 공고문 레이아웃(`/platform/notice-templates`)의
+   * `contactTemplate` 가 단일 진실 공급원이다. 이 prop 은 호환성을 위해 남아 있지만,
+   * 호출자는 대신 `managementOfficePhone`/`feeInquiryPhone`/`facilitySafetyPhone` 만
+   * 넘겨 시스템 템플릿 토큰이 치환되도록 해야 한다. 본 컴포넌트는 이 값을 더
+   * 이상 연락처 출처로 사용하지 않는다.
+   */
   officeContact?: string;
+  /** [Task #504] 시스템 레이아웃의 연락처 템플릿 토큰 치환에 사용. */
+  managementOfficePhone?: string | null;
+  feeInquiryPhone?: string | null;
+  facilitySafetyPhone?: string | null;
   logoUrl?: string | null;
   sealUrl?: string | null;
   authorName?: string | null;
@@ -112,7 +116,10 @@ export function CompletionNotice({
   closeUpPhotoUrl,
   widePhotoUrl,
   buildingName = "OO아파트",
-  officeContact = "관리사무소 02-0000-0000",
+  // [Task #504] officeContact 는 deprecated — 더 이상 읽지 않는다(인터페이스만 유지).
+  managementOfficePhone = null,
+  feeInquiryPhone = null,
+  facilitySafetyPhone = null,
   logoUrl = null,
   sealUrl = null,
   authorName = null,
@@ -120,12 +127,15 @@ export function CompletionNotice({
   initialBodies,
 }: CompletionNoticeProps) {
   const { toast } = useToast();
+  const { layout: noticeLayout } = useNoticeLayout();
   const documentRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [docKind, setDocKind] = useState<DocKind>(initialDocKind);
   const [editMode, setEditMode] = useState(false);
   const [noticeNo] = useState(getNoticeNumber());
-  const [postingPeriod, setPostingPeriod] = useState("상시게재");
+  // [Task #504] postingPeriod / contact 는 시스템 레이아웃 기본값을 우선 사용하고,
+  //   사용자가 모달에서 수정할 때만 override 값을 들고 있는다(시스템 설정에는 영향 X).
+  const [postingPeriodOverride, setPostingPeriodOverride] = useState<string | null>(null);
   const cleanAlertTitle = stripDday(alertTitle);
   const cleanAlertMessage = stripDday(alertMessage);
   const [title, setTitle] = useState(`${cleanAlertTitle} 처리 완료 안내`);
@@ -153,7 +163,12 @@ export function CompletionNotice({
   const body = editedBodies[docKind] ?? defaultBodies[docKind];
   const setBody = (value: string) =>
     setEditedBodies((prev) => ({ ...prev, [docKind]: value }));
-  const [contact, setContact] = useState(officeContact);
+  // [Task #504] contactOverride: 사용자가 모달에서 직접 수정한 값.
+  //   초기값(null) 일 때는 NoticeLayoutFrame 이 시스템 레이아웃의 contactTemplate
+  //   를 토큰(managementOfficePhone 등) 으로 치환해 자동 사용한다. 레거시
+  //   `officeContact` prop 은 더 이상 출처로 사용하지 않는다 — 모든 호출자가
+  //   `managementOfficePhone` 등을 직접 넘기도록 일원화했다(Task #504 코드리뷰).
+  const [contactOverride, setContactOverride] = useState<string | null>(null);
   const [notesText, setNotesText] = useState(notes || "");
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -275,8 +290,6 @@ export function CompletionNotice({
     }
   }
 
-  const buildingNameClass = buildingNameSizeClass(buildingName);
-
   return (
     <ResponsiveDialog
       open={open}
@@ -327,11 +340,29 @@ export function CompletionNotice({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>게시기간</Label>
-                  <Input value={postingPeriod} onChange={(e) => setPostingPeriod(e.target.value)} />
+                  <Input
+                    value={postingPeriodOverride ?? noticeLayout.defaultPostingPeriod}
+                    onChange={(e) => setPostingPeriodOverride(e.target.value)}
+                    data-testid="input-posting-period"
+                  />
                 </div>
                 <div>
                   <Label>관리사무소 연락처</Label>
-                  <Input value={contact} onChange={(e) => setContact(e.target.value)} />
+                  <Input
+                    value={
+                      contactOverride
+                      // [Task #504 코드리뷰] 토큰 치환은 lib 의 fillNoticeTemplate 으로 일원화 —
+                      // 본문 렌더링과 동일한 토큰 집합({{buildingName}} 등 포함)을 인식한다.
+                      ?? fillNoticeTemplate(noticeLayout.contactTemplate, {
+                        buildingName,
+                        managementOfficePhone,
+                        feeInquiryPhone,
+                        facilitySafetyPhone,
+                      })
+                    }
+                    onChange={(e) => setContactOverride(e.target.value)}
+                    data-testid="input-contact"
+                  />
                 </div>
               </div>
             )}
@@ -345,22 +376,49 @@ export function CompletionNotice({
             style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
           >
             {docKind === "notice" && (
-              <NoticeBody
+              <NoticeLayoutFrame
+                settings={noticeLayout}
                 buildingName={buildingName}
-                buildingNameClass={buildingNameClass}
+                managementOfficePhone={managementOfficePhone}
+                feeInquiryPhone={feeInquiryPhone}
+                facilitySafetyPhone={facilitySafetyPhone}
                 logoUrl={logoUrl}
                 sealUrl={sealUrl}
                 noticeNo={noticeNo}
-                postingPeriod={postingPeriod}
-                contact={contact}
+                noticeDate={getTodayShort()}
+                postingPeriod={postingPeriodOverride ?? undefined}
+                contact={contactOverride ?? undefined}
                 title={title}
-                body={body}
-                alertTitle={alertTitle}
-                completedDate={completedDate}
-                notesText={notesText}
-                closeUpPhotoUrl={closeUpPhotoUrl}
-                widePhotoUrl={widePhotoUrl}
-              />
+              >
+                <p
+                  className="whitespace-pre-line text-justify"
+                  style={{ textJustify: "inter-word" }}
+                >
+                  {body}
+                </p>
+                <div className="mt-6 rounded border border-gray-300 px-4 py-3 text-sm space-y-1.5 bg-gray-50">
+                  <div className="flex">
+                    <span className="font-semibold w-24 shrink-0">■ 처리 항목</span>
+                    <span>{alertTitle}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="font-semibold w-24 shrink-0">■ 완료 일자</span>
+                    <span>{formatNoticeDate(completedDate)}</span>
+                  </div>
+                </div>
+                {notesText && (
+                  <div className="mt-4 text-sm">
+                    <p className="font-semibold mb-1">■ 비고</p>
+                    <p
+                      className="whitespace-pre-line text-justify"
+                      style={{ textJustify: "inter-word" }}
+                    >
+                      {notesText}
+                    </p>
+                  </div>
+                )}
+                <PhotosBlock closeUpPhotoUrl={closeUpPhotoUrl} widePhotoUrl={widePhotoUrl} />
+              </NoticeLayoutFrame>
             )}
             {docKind === "report" && (
               <ReportBody
@@ -483,129 +541,6 @@ function PhotosBlock({
   );
 }
 
-function NoticeBody(props: {
-  buildingName: string;
-  buildingNameClass: string;
-  logoUrl: string | null;
-  sealUrl: string | null;
-  noticeNo: string;
-  postingPeriod: string;
-  contact: string;
-  title: string;
-  body: string;
-  alertTitle: string;
-  completedDate: string;
-  notesText: string;
-  closeUpPhotoUrl?: string | null;
-  widePhotoUrl?: string | null;
-}) {
-  const {
-    buildingName,
-    buildingNameClass,
-    logoUrl,
-    sealUrl,
-    noticeNo,
-    postingPeriod,
-    contact,
-    title,
-    body,
-    alertTitle,
-    completedDate,
-    notesText,
-    closeUpPhotoUrl,
-    widePhotoUrl,
-  } = props;
-  return (
-    <>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b-2 border-black pb-4">
-        <div className="flex items-center justify-start">
-          {logoUrl ? (
-            <AuthImage src={logoUrl} alt={`${buildingName} 로고`} className="max-h-16 w-auto object-contain" />
-          ) : (
-            <span className={cn(buildingNameClass, "font-bold tracking-tight")} style={{ whiteSpace: "nowrap" }}>
-              {buildingName}
-            </span>
-          )}
-        </div>
-        <h1 className="text-3xl font-bold tracking-[0.4em] text-center" style={{ whiteSpace: "nowrap" }}>
-          공 고 문
-        </h1>
-        <div className="flex items-center justify-end">
-          <div className="border border-black text-xs">
-            <div className="px-3 py-1 border-b border-black text-center font-medium">게시기간</div>
-            <div className="px-3 py-1 text-center">{postingPeriod}</div>
-          </div>
-        </div>
-      </div>
-
-      <table className="w-full text-xs border-collapse mt-3">
-        <tbody>
-          <tr>
-            <td className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[15%]">공고NO</td>
-            <td className="border border-gray-400 py-1.5 px-2 w-[20%]">{noticeNo}</td>
-            <td className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[12%]">건물명</td>
-            <td className="border border-gray-400 py-1.5 px-2" style={{ whiteSpace: "nowrap" }}>
-              {buildingName}
-            </td>
-            <td className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[12%]">공고일</td>
-            <td className="border border-gray-400 py-1.5 px-2 w-[14%]">{getTodayShort()}</td>
-          </tr>
-          <tr>
-            <td className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2">연락처</td>
-            <td className="border border-gray-400 py-1.5 px-2" colSpan={5}>
-              {contact}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div className="text-center my-8">
-        <h2 className="text-xl font-bold border-b-2 border-black inline-block px-8 pb-2">{title}</h2>
-      </div>
-
-      <div className="text-[15px] leading-8 px-2">
-        <p className="whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{body}</p>
-      </div>
-
-      <div className="mt-6 rounded border border-gray-300 px-4 py-3 text-sm space-y-1.5 bg-gray-50">
-        <div className="flex">
-          <span className="font-semibold w-24 shrink-0">■ 처리 항목</span>
-          <span>{alertTitle}</span>
-        </div>
-        <div className="flex">
-          <span className="font-semibold w-24 shrink-0">■ 완료 일자</span>
-          <span>{formatNoticeDate(completedDate)}</span>
-        </div>
-      </div>
-
-      {notesText && (
-        <div className="mt-4 text-sm">
-          <p className="font-semibold mb-1">■ 비고</p>
-          <p className="whitespace-pre-line text-justify" style={{ textJustify: "inter-word" }}>{notesText}</p>
-        </div>
-      )}
-
-      <PhotosBlock closeUpPhotoUrl={closeUpPhotoUrl} widePhotoUrl={widePhotoUrl} />
-
-      <div className="text-center pt-12 mt-8 space-y-3">
-        {sealUrl ? (
-          <>
-            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
-              {buildingName} 관리사무소
-            </p>
-            <div className="flex justify-center pt-2">
-              <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
-            </div>
-          </>
-        ) : (
-          <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
-            {buildingName} 관리사무소 직인생략
-          </p>
-        )}
-      </div>
-    </>
-  );
-}
 
 function ReportBody(props: {
   buildingName: string;

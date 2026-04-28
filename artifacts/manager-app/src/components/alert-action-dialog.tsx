@@ -578,7 +578,9 @@ export function AlertActionDialog({
           closeUpPhotoUrl={completionNoticeData.closeUpPhotoUrl}
           widePhotoUrl={completionNoticeData.widePhotoUrl}
           buildingName={building?.name ?? undefined}
-          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
+          managementOfficePhone={building?.managementOfficePhone ?? null}
+          feeInquiryPhone={building?.feeInquiryPhone ?? null}
+          facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
           logoUrl={building?.logoUrl ?? null}
           authorName={user?.name ?? null}
           initialDocKind={completionNoticeData.initialDocKind ?? "notice"}

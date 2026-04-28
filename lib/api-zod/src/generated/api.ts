@@ -8121,6 +8121,105 @@ export const ListAdminCreditTopupOrdersResponse = zod.array(
 );
 
 /**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 조회 (모든 건물 운영 인력)
+ */
+export const GetNoticeLayoutResponse = zod
+  .object({
+    documentTitle: zod
+      .string()
+      .describe('상단 가운데 큰 제목 (예. \"공 고 문\" \/ \"공 지 문\").'),
+    defaultPostingPeriod: zod
+      .string()
+      .describe('우측 상단 게시기간 박스 기본 문구 (예. \"상시게재\").'),
+    contactTemplate: zod
+      .string()
+      .describe(
+        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+      ),
+    footerTemplate: zod
+      .string()
+      .describe("푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능."),
+    sealOmittedText: zod
+      .string()
+      .describe("직인 이미지가 없을 때 푸터에 덧붙이는 문구."),
+    showNoticeNoRow: zod.boolean().describe("메타표에 공고NO 칸을 표시할지."),
+    showBuildingRow: zod.boolean().describe("메타표에 건물명 칸을 표시할지."),
+    showDateRow: zod.boolean().describe("메타표에 공고일 칸을 표시할지."),
+    showContactRow: zod.boolean().describe("메타표에 연락처 행을 표시할지."),
+    showTitleBox: zod
+      .boolean()
+      .describe("본문 위 큰 제목 박스(굵은 가로선 강조)를 표시할지."),
+  })
+  .describe(
+    '[Task #504] 공고문 레이아웃 시스템 기본값.\n본사 관리자가 한 번 설정하면 공지문 템플릿 미리보기와 알림 처리완료 모달의\n\"공고문\" 탭이 동일한 기본값으로 렌더링된다.\n',
+  );
+
+/**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 저장 (platform_admin)
+ */
+export const UpsertNoticeLayoutBody = zod
+  .object({
+    documentTitle: zod
+      .string()
+      .describe('상단 가운데 큰 제목 (예. \"공 고 문\" \/ \"공 지 문\").'),
+    defaultPostingPeriod: zod
+      .string()
+      .describe('우측 상단 게시기간 박스 기본 문구 (예. \"상시게재\").'),
+    contactTemplate: zod
+      .string()
+      .describe(
+        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+      ),
+    footerTemplate: zod
+      .string()
+      .describe("푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능."),
+    sealOmittedText: zod
+      .string()
+      .describe("직인 이미지가 없을 때 푸터에 덧붙이는 문구."),
+    showNoticeNoRow: zod.boolean().describe("메타표에 공고NO 칸을 표시할지."),
+    showBuildingRow: zod.boolean().describe("메타표에 건물명 칸을 표시할지."),
+    showDateRow: zod.boolean().describe("메타표에 공고일 칸을 표시할지."),
+    showContactRow: zod.boolean().describe("메타표에 연락처 행을 표시할지."),
+    showTitleBox: zod
+      .boolean()
+      .describe("본문 위 큰 제목 박스(굵은 가로선 강조)를 표시할지."),
+  })
+  .describe(
+    '[Task #504] 공고문 레이아웃 시스템 기본값.\n본사 관리자가 한 번 설정하면 공지문 템플릿 미리보기와 알림 처리완료 모달의\n\"공고문\" 탭이 동일한 기본값으로 렌더링된다.\n',
+  );
+
+export const UpsertNoticeLayoutResponse = zod
+  .object({
+    documentTitle: zod
+      .string()
+      .describe('상단 가운데 큰 제목 (예. \"공 고 문\" \/ \"공 지 문\").'),
+    defaultPostingPeriod: zod
+      .string()
+      .describe('우측 상단 게시기간 박스 기본 문구 (예. \"상시게재\").'),
+    contactTemplate: zod
+      .string()
+      .describe(
+        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+      ),
+    footerTemplate: zod
+      .string()
+      .describe("푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능."),
+    sealOmittedText: zod
+      .string()
+      .describe("직인 이미지가 없을 때 푸터에 덧붙이는 문구."),
+    showNoticeNoRow: zod.boolean().describe("메타표에 공고NO 칸을 표시할지."),
+    showBuildingRow: zod.boolean().describe("메타표에 건물명 칸을 표시할지."),
+    showDateRow: zod.boolean().describe("메타표에 공고일 칸을 표시할지."),
+    showContactRow: zod.boolean().describe("메타표에 연락처 행을 표시할지."),
+    showTitleBox: zod
+      .boolean()
+      .describe("본문 위 큰 제목 박스(굵은 가로선 강조)를 표시할지."),
+  })
+  .describe(
+    '[Task #504] 공고문 레이아웃 시스템 기본값.\n본사 관리자가 한 번 설정하면 공지문 템플릿 미리보기와 알림 처리완료 모달의\n\"공고문\" 탭이 동일한 기본값으로 렌더링된다.\n',
+  );
+
+/**
  * @summary List platform feature flags / settings
  */
 export const ListPlatformSettingsResponseItem = zod.object({

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminBuildingNoticeTemplates,
   createBuildingNoticeTemplate,
   updateBuildingNoticeTemplate,
   deleteBuildingNoticeTemplate,
+  upsertNoticeLayout,
 } from "@workspace/api-client-react";
 import type {
   BuildingNoticeTemplate,
@@ -26,6 +27,9 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import { useNoticeLayout } from "@/hooks/use-notice-layout";
+import { DEFAULT_NOTICE_LAYOUT, type NoticeLayoutSettings } from "@/lib/notice-layout";
 
 // [Task #323] platform_admin 전용 — 공지문 템플릿 관리.
 //   매니저가 사용하는 모든 템플릿(불조심/분리수거 등)을 여기서 추가/수정/삭제한다.
@@ -218,7 +222,8 @@ export default function PlatformNoticeTemplatesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-5xl">
+    <div className="container mx-auto px-4 py-6 max-w-5xl space-y-4">
+      <NoticeLayoutSettingsCard />
       <Card>
         <CardHeader className="pb-2 flex-row items-center justify-between">
           <CardTitle className="text-base">공지문 템플릿 관리</CardTitle>
@@ -451,5 +456,177 @@ export default function PlatformNoticeTemplatesPage() {
         </ResponsiveDialogContent>
       </ResponsiveDialog>
     </div>
+  );
+}
+
+// [Task #504] 공고문 레이아웃 시스템 기본값 편집 카드.
+//   - GET /notice-layout 으로 현재값을 가져와 폼에 채우고, PUT 으로 저장한다.
+//   - 우측에 NoticeLayoutFrame 인라인 미리보기를 두어 즉시 결과를 확인할 수 있다.
+//   - 본 카드는 platform_admin 만 접근 가능한 라우트에서만 노출되므로 별도
+//     역할 가드는 두지 않는다(서버가 PUT 권한을 강제).
+function NoticeLayoutSettingsCard() {
+  const { layout, isLoading } = useNoticeLayout();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [draft, setDraft] = useState<NoticeLayoutSettings>(DEFAULT_NOTICE_LAYOUT);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) setDraft(layout);
+  }, [isLoading, layout]);
+
+  function patch(part: Partial<NoticeLayoutSettings>): void {
+    setDraft((d) => ({ ...d, ...part }));
+  }
+
+  async function handleSave(): Promise<void> {
+    setSaving(true);
+    try {
+      await upsertNoticeLayout(draft);
+      toast({ title: "공고문 레이아웃이 저장되었습니다" });
+      void qc.invalidateQueries({ queryKey: ["/api/notice-layout"] });
+    } catch (err: any) {
+      toast({ title: "저장 실패", description: err?.message ?? "", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleReset(): void {
+    setDraft(DEFAULT_NOTICE_LAYOUT);
+  }
+
+  return (
+    <Card data-testid="card-notice-layout-settings">
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-base">공고문 레이아웃 설정</CardTitle>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleReset} disabled={saving} data-testid="button-reset-notice-layout">
+            기본값
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving} data-testid="button-save-notice-layout">
+            {saving ? "저장 중…" : "저장"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p className="text-xs text-slate-500 mb-3">
+          이 설정은 모든 건물의 공지문 미리보기/처리완료 모달의 "공고문" 탭에서 공통으로 사용됩니다.
+          토큰: <code>{"{{buildingName}}"}</code>, <code>{"{{managementOfficePhone}}"}</code>,
+          <code>{" {{feeInquiryPhone}}"}</code>, <code>{" {{facilitySafetyPhone}}"}</code>.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">상단 큰 제목</Label>
+              <Input
+                value={draft.documentTitle}
+                onChange={(e) => patch({ documentTitle: e.target.value })}
+                data-testid="input-layout-document-title"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">기본 게시기간 문구</Label>
+              <Input
+                value={draft.defaultPostingPeriod}
+                onChange={(e) => patch({ defaultPostingPeriod: e.target.value })}
+                data-testid="input-layout-posting-period"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">연락처 행 템플릿</Label>
+              <Input
+                value={draft.contactTemplate}
+                onChange={(e) => patch({ contactTemplate: e.target.value })}
+                data-testid="input-layout-contact-template"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">푸터 텍스트 템플릿</Label>
+              <Input
+                value={draft.footerTemplate}
+                onChange={(e) => patch({ footerTemplate: e.target.value })}
+                data-testid="input-layout-footer-template"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">직인 미사용시 표기</Label>
+              <Input
+                value={draft.sealOmittedText}
+                onChange={(e) => patch({ sealOmittedText: e.target.value })}
+                data-testid="input-layout-seal-omitted"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <label className="flex items-center gap-2 text-xs">
+                <Switch
+                  checked={draft.showNoticeNoRow}
+                  onCheckedChange={(v) => patch({ showNoticeNoRow: v })}
+                  data-testid="switch-layout-show-notice-no"
+                />
+                공고NO 칸
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <Switch
+                  checked={draft.showBuildingRow}
+                  onCheckedChange={(v) => patch({ showBuildingRow: v })}
+                  data-testid="switch-layout-show-building"
+                />
+                건물명 칸
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <Switch
+                  checked={draft.showDateRow}
+                  onCheckedChange={(v) => patch({ showDateRow: v })}
+                  data-testid="switch-layout-show-date"
+                />
+                공고일 칸
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <Switch
+                  checked={draft.showContactRow}
+                  onCheckedChange={(v) => patch({ showContactRow: v })}
+                  data-testid="switch-layout-show-contact"
+                />
+                연락처 행
+              </label>
+              <label className="flex items-center gap-2 text-xs col-span-2">
+                <Switch
+                  checked={draft.showTitleBox}
+                  onCheckedChange={(v) => patch({ showTitleBox: v })}
+                  data-testid="switch-layout-show-title-box"
+                />
+                본문 위 큰 제목 박스 (예: "고지/공지 사항")
+              </label>
+            </div>
+          </div>
+
+          <div className="border rounded bg-white p-3 overflow-x-auto" data-testid="container-layout-preview">
+            <div
+              className="bg-white p-4"
+              style={{ fontFamily: "'Noto Sans KR','Malgun Gothic',sans-serif", minWidth: 480 }}
+            >
+              <NoticeLayoutFrame
+                settings={draft}
+                buildingName="샘플 건물"
+                managementOfficePhone="02-1234-5678"
+                feeInquiryPhone="02-1234-5679"
+                facilitySafetyPhone="02-1234-5680"
+                logoUrl={null}
+                sealUrl={null}
+                noticeNo="2026-0428-0001"
+                noticeDate="2026-04-28"
+                title="공지 제목 예시"
+              >
+                <p className="whitespace-pre-line">
+                  여기는 본문 영역입니다. 공지문 본문(템플릿)은 이 자리에 들어가며,
+                  처리완료 모달의 "공고문" 탭에서는 처리 항목/완료 일자/사진이 함께 표시됩니다.
+                </p>
+              </NoticeLayoutFrame>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

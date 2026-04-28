@@ -205,11 +205,9 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
           closeUpPhotoUrl={docEntry.photoUrl ?? null}
           widePhotoUrl={null}
           buildingName={building?.name}
-          officeContact={
-            building?.managementOfficePhone
-              ? `관리사무소 ☎ ${building.managementOfficePhone}`
-              : undefined
-          }
+          managementOfficePhone={building?.managementOfficePhone ?? null}
+          feeInquiryPhone={building?.feeInquiryPhone ?? null}
+          facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
           logoUrl={building?.logoUrl ?? null}
           authorName={user?.name ?? docEntry.authorName ?? null}
           initialDocKind="notice"

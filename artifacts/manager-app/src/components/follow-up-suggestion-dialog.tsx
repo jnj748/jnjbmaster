@@ -194,11 +194,9 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
       completedDate={source.occurredAt}
       notes={null}
       buildingName={building?.name}
-      officeContact={
-        building?.managementOfficePhone
-          ? `관리사무소 ☎ ${building.managementOfficePhone}`
-          : undefined
-      }
+      managementOfficePhone={building?.managementOfficePhone ?? null}
+      feeInquiryPhone={building?.feeInquiryPhone ?? null}
+      facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
       logoUrl={building?.logoUrl ?? null}
       authorName={user?.name ?? null}
       initialDocKind="notice"

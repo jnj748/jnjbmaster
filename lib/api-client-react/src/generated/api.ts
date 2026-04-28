@@ -224,6 +224,7 @@ import type {
   MeterReading,
   MonthlyPayment,
   MonthlySummaryReportItem,
+  NoticeLayoutSettings,
   Notification,
   Owner,
   PlatformAnnouncement,
@@ -24163,6 +24164,167 @@ export function useListAdminCreditTopupOrders<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 조회 (모든 건물 운영 인력)
+ */
+export const getGetNoticeLayoutUrl = () => {
+  return `/api/notice-layout`;
+};
+
+export const getNoticeLayout = async (
+  options?: RequestInit,
+): Promise<NoticeLayoutSettings> => {
+  return customFetch<NoticeLayoutSettings>(getGetNoticeLayoutUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNoticeLayoutQueryKey = () => {
+  return [`/api/notice-layout`] as const;
+};
+
+export const getGetNoticeLayoutQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNoticeLayout>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeLayout>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNoticeLayoutQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getNoticeLayout>>> = ({
+    signal,
+  }) => getNoticeLayout({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeLayout>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNoticeLayoutQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNoticeLayout>>
+>;
+export type GetNoticeLayoutQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 조회 (모든 건물 운영 인력)
+ */
+
+export function useGetNoticeLayout<
+  TData = Awaited<ReturnType<typeof getNoticeLayout>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeLayout>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNoticeLayoutQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 저장 (platform_admin)
+ */
+export const getUpsertNoticeLayoutUrl = () => {
+  return `/api/notice-layout`;
+};
+
+export const upsertNoticeLayout = async (
+  noticeLayoutSettings: NoticeLayoutSettings,
+  options?: RequestInit,
+): Promise<NoticeLayoutSettings> => {
+  return customFetch<NoticeLayoutSettings>(getUpsertNoticeLayoutUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(noticeLayoutSettings),
+  });
+};
+
+export const getUpsertNoticeLayoutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertNoticeLayout>>,
+    TError,
+    { data: BodyType<NoticeLayoutSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertNoticeLayout>>,
+  TError,
+  { data: BodyType<NoticeLayoutSettings> },
+  TContext
+> => {
+  const mutationKey = ["upsertNoticeLayout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertNoticeLayout>>,
+    { data: BodyType<NoticeLayoutSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertNoticeLayout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertNoticeLayoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertNoticeLayout>>
+>;
+export type UpsertNoticeLayoutMutationBody = BodyType<NoticeLayoutSettings>;
+export type UpsertNoticeLayoutMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #504] 공고문 레이아웃 시스템 기본값 저장 (platform_admin)
+ */
+export const useUpsertNoticeLayout = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertNoticeLayout>>,
+    TError,
+    { data: BodyType<NoticeLayoutSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertNoticeLayout>>,
+  TError,
+  { data: BodyType<NoticeLayoutSettings> },
+  TContext
+> => {
+  return useMutation(getUpsertNoticeLayoutMutationOptions(options));
+};
 
 /**
  * @summary List platform feature flags / settings

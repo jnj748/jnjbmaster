@@ -306,6 +306,7 @@ export * from "./meterReadingMeterType";
 export * from "./monthlyPayment";
 export * from "./monthlySummaryReportItem";
 export * from "./monthlySummaryReportItemStatus";
+export * from "./noticeLayoutSettings";
 export * from "./notification";
 export * from "./notificationKind";
 export * from "./owner";

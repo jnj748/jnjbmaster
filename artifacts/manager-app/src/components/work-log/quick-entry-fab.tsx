@@ -302,11 +302,9 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
           closeUpPhotoUrl={completionData.photoUrl}
           widePhotoUrl={completionData.widePhotoUrl}
           buildingName={building?.name}
-          officeContact={
-            building?.managementOfficePhone
-              ? `관리사무소 ☎ ${building.managementOfficePhone}`
-              : undefined
-          }
+          managementOfficePhone={building?.managementOfficePhone ?? null}
+          feeInquiryPhone={building?.feeInquiryPhone ?? null}
+          facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
           logoUrl={building?.logoUrl ?? null}
           authorName={user?.name ?? null}
           initialDocKind="notice"

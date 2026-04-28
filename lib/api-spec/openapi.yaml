@@ -5973,6 +5973,36 @@ paths:
                 items:
                   $ref: "#/components/schemas/AdminCreditTopupOrder"
 
+  /notice-layout:
+    get:
+      operationId: getNoticeLayout
+      tags: [buildings]
+      summary: "[Task #504] 공고문 레이아웃 시스템 기본값 조회 (모든 건물 운영 인력)"
+      responses:
+        "200":
+          description: Notice layout settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeLayoutSettings"
+    put:
+      operationId: upsertNoticeLayout
+      tags: [buildings]
+      summary: "[Task #504] 공고문 레이아웃 시스템 기본값 저장 (platform_admin)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoticeLayoutSettings"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeLayoutSettings"
+
   /platform-settings:
     get:
       operationId: listPlatformSettings
@@ -12572,6 +12602,55 @@ components:
         - id
         - key
         - value
+
+    NoticeLayoutSettings:
+      description: |
+        [Task #504] 공고문 레이아웃 시스템 기본값.
+        본사 관리자가 한 번 설정하면 공지문 템플릿 미리보기와 알림 처리완료 모달의
+        "공고문" 탭이 동일한 기본값으로 렌더링된다.
+      type: object
+      properties:
+        documentTitle:
+          type: string
+          description: 상단 가운데 큰 제목 (예. "공 고 문" / "공 지 문").
+        defaultPostingPeriod:
+          type: string
+          description: 우측 상단 게시기간 박스 기본 문구 (예. "상시게재").
+        contactTemplate:
+          type: string
+          description: 메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.
+        footerTemplate:
+          type: string
+          description: 푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능.
+        sealOmittedText:
+          type: string
+          description: 직인 이미지가 없을 때 푸터에 덧붙이는 문구.
+        showNoticeNoRow:
+          type: boolean
+          description: 메타표에 공고NO 칸을 표시할지.
+        showBuildingRow:
+          type: boolean
+          description: 메타표에 건물명 칸을 표시할지.
+        showDateRow:
+          type: boolean
+          description: 메타표에 공고일 칸을 표시할지.
+        showContactRow:
+          type: boolean
+          description: 메타표에 연락처 행을 표시할지.
+        showTitleBox:
+          type: boolean
+          description: 본문 위 큰 제목 박스(굵은 가로선 강조)를 표시할지.
+      required:
+        - documentTitle
+        - defaultPostingPeriod
+        - contactTemplate
+        - footerTemplate
+        - sealOmittedText
+        - showNoticeNoRow
+        - showBuildingRow
+        - showDateRow
+        - showContactRow
+        - showTitleBox
 
     UpsertPlatformSettingBody:
       type: object

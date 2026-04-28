@@ -21,6 +21,8 @@ import {
 } from "@/lib/document-export";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Image as ImageIcon, Share2, Printer } from "lucide-react";
+import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import { useNoticeLayout } from "@/hooks/use-notice-layout";
 
 // [Task #323] 관리소장 공지문 템플릿
 //   - 플랫폼이 만든 템플릿 목록을 카드로 표시.
@@ -168,6 +170,22 @@ export default function ManagerNoticeTemplatesPage() {
   );
 }
 
+function generateNoticeNo(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const seq = String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+  return `${y}-${m}${d}-${seq}`;
+}
+
+function todayShort(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${dd}`;
+}
+
 function PreviewDialog({
   template,
   onClose,
@@ -177,6 +195,8 @@ function PreviewDialog({
 }) {
   const { building } = useBuilding();
   const { toast } = useToast();
+  // [Task #504] 시스템 공고문 레이아웃 기본값을 받아 본문(템플릿 HTML)을 감싸 출력.
+  const { layout: noticeLayout } = useNoticeLayout();
   const labels = useMemo(() => parseLabels(template.customFieldLabels), [template]);
   const [customA, setCustomA] = useState("");
   const [customB, setCustomB] = useState("");
@@ -184,6 +204,8 @@ function PreviewDialog({
   const [date, setDate] = useState(todayKR());
   const previewRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<null | "img" | "share" | "doc" | "print">(null);
+  // 공고NO 는 다이얼로그가 열릴 때 한 번 채번해 캡처/공유 동안 일정하게 유지.
+  const [noticeNo] = useState(generateNoticeNo);
 
   const vars: Record<string, string> = {
     buildingName: building?.name ?? "",
@@ -333,9 +355,27 @@ function PreviewDialog({
             ref={previewRef}
             className="bg-white p-6"
             data-testid="preview-rendered"
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: renderedHtml }}
-          />
+            style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
+          >
+            <NoticeLayoutFrame
+              settings={noticeLayout}
+              buildingName={building?.name ?? ""}
+              managementOfficePhone={building?.managementOfficePhone ?? undefined}
+              feeInquiryPhone={building?.feeInquiryPhone ?? undefined}
+              facilitySafetyPhone={building?.facilitySafetyPhone ?? undefined}
+              logoUrl={building?.logoUrl ?? null}
+              sealUrl={null}
+              noticeNo={noticeNo}
+              noticeDate={todayShort()}
+              title={template.title}
+            >
+              <div
+                className="notice-template-body"
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{ __html: renderedHtml }}
+              />
+            </NoticeLayoutFrame>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-1 pb-2">

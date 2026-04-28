@@ -5076,6 +5076,35 @@ export interface PlatformSetting {
   updatedAt?: string;
 }
 
+/**
+ * [Task #504] 공고문 레이아웃 시스템 기본값.
+본사 관리자가 한 번 설정하면 공지문 템플릿 미리보기와 알림 처리완료 모달의
+"공고문" 탭이 동일한 기본값으로 렌더링된다.
+
+ */
+export interface NoticeLayoutSettings {
+  /** 상단 가운데 큰 제목 (예. "공 고 문" / "공 지 문"). */
+  documentTitle: string;
+  /** 우측 상단 게시기간 박스 기본 문구 (예. "상시게재"). */
+  defaultPostingPeriod: string;
+  /** 메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능. */
+  contactTemplate: string;
+  /** 푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능. */
+  footerTemplate: string;
+  /** 직인 이미지가 없을 때 푸터에 덧붙이는 문구. */
+  sealOmittedText: string;
+  /** 메타표에 공고NO 칸을 표시할지. */
+  showNoticeNoRow: boolean;
+  /** 메타표에 건물명 칸을 표시할지. */
+  showBuildingRow: boolean;
+  /** 메타표에 공고일 칸을 표시할지. */
+  showDateRow: boolean;
+  /** 메타표에 연락처 행을 표시할지. */
+  showContactRow: boolean;
+  /** 본문 위 큰 제목 박스(굵은 가로선 강조)를 표시할지. */
+  showTitleBox: boolean;
+}
+
 export interface UpsertPlatformSettingBody {
   key: string;
   value: string;

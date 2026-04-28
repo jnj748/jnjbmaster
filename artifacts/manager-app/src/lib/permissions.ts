@@ -588,11 +588,12 @@ export const ROUTES: RouteEntry[] = [
     label: "캠페인 알림", icon: Megaphone, group: "settings",
     access: ["platform_admin"], hidden: true },
   // [Task #323] 공지문 템플릿 — 매니저용 선택 페이지(/notices/templates)와 플랫폼 CRUD 페이지(/platform/notice-templates).
+  // [Task #504] 열람·사용 권한은 관리소장/경리/시설담당까지 확대(편집은 platform_admin 전용).
   { path: "/notices/templates",
     component: lazy(() => import("@/pages/manager-notice-templates")),
     label: "공지문 템플릿", icon: FileText, group: "facility",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager"] },
+    access: ["manager", "accountant", "facility_staff", "platform_admin"],
+    sideMenu: ["manager", "accountant", "facility_staff"] },
   { path: "/platform/notice-templates",
     component: lazy(() => import("@/pages/platform-notice-templates")),
     label: "공지문 템플릿 관리", icon: FileText, group: "settings",
