@@ -20,13 +20,15 @@ export default function BuildingContractsSummaryWidget() {
   }
 
   return (
-    <section data-testid="building-contracts-summary-widget">
-      <Link href={VENDOR_DIRECTORY_PATH}>
+    // [Task #503] 매니저 데스크톱 3행 우측 셀에 들어가도록 h-full 을 추가.
+    //   다른 역할(경리 등)에서는 단독 행으로 노출되어 높이 영향이 없다.
+    <section data-testid="building-contracts-summary-widget" className="h-full">
+      <Link href={VENDOR_DIRECTORY_PATH} className="block h-full">
         <Card
-          className="hover-elevate active-elevate-2 cursor-pointer"
+          className="h-full hover-elevate active-elevate-2 cursor-pointer"
           data-testid="vendor-directory-entry-card"
         >
-          <CardContent className="py-3 px-3 flex items-center gap-3">
+          <CardContent className="py-3 px-3 flex items-center gap-3 h-full">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <Phone className="w-4 h-4 text-primary" />
             </div>

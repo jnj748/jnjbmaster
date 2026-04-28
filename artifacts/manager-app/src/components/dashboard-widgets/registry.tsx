@@ -134,17 +134,19 @@ export type CatalogWidgetKey = keyof typeof WIDGETS;
 export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   // [Task #184] pending-approvals 위젯은 매니저 대시보드에서 숨긴다.
   // 결재 권한이 있는 다른 역할(accountant, platform_admin)에는 영향 없음.
+  // [Task #503] 매니저 데스크톱 본문은 manager-main 안에서 2열 × 3행 그리드로
+  //   재구성된다.
+  //   - "building-contracts-summary"(우리 건물 계약업체 연락망) 위젯은 manager-main
+  //     본문 3행 우측 셀로 이동했으므로 레지스트리 단일 출처를 유지하기 위해 매니저
+  //     레이아웃에서 제거한다(중복 노출 방지). 다른 역할(accountant) 레이아웃에는
+  //     그대로 남는다.
+  //   - "units-import-suggestion" 카드는 더 이상 노출하지 않는다.
   manager: {
     widgets: [
       "campaign-banner",
-      // [Task #450] "우리 건물 계약업체 연락망" 진입 버튼. 협력업체 주소록으로 한 번에 이동한다.
-      "building-contracts-summary",
       "manager-main",
       "delinquency-summary",
       "building-info",
-      // [관리소장 요청] "호실정보 불러오기" 제안 카드는 최상단이 아니라
-      //   대시보드 맨 아래(보조 영역)로 내려, 매일 보는 종합 현황을 먼저 보여준다.
-      "units-import-suggestion",
     ],
   },
   accountant: {

@@ -14,6 +14,16 @@
 //   - [Task #437] (테스트업무) 호실데이터 불러오기 카드 → /units 라우팅
 //
 //   registry.tsx 의 ManagerMainWidget 은 이 파일을 lazy import 한다.
+//
+//   [Task #503] 데스크톱 본문을 2열 × 3행 그리드로 재구성:
+//     1행: 필수업무현황 / 제안업무현황 (페이지당 5개)
+//     2행: (최근 문서함 + 처리 내역 세로 스택) / 오늘 업무일지 자동 작성하기(강조)
+//     3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망
+//   이후 영역(전체 폭)은 기존 순서 — 관리비 요약 → 입주자카드 알림 → KPI 4종 →
+//   개인정보 파기 대상. 함께 챙길 연체 세대 / 우리 건물 한눈에는 레지스트리에서
+//   manager-main 다음 슬롯으로 이어 붙는다.
+//   "4월 계절별 영선업무 제안" / "제안업무 · 호실정보 불러오기" 카드는 더 이상
+//   노출되지 않는다.
 
 import { useState } from "react";
 import {
@@ -50,9 +60,10 @@ import { StatCard } from "./stat-card";
 import { AlertSection } from "./alert-section-widget";
 import { TodayWorkLogEntry } from "./today-work-log-entry-widget";
 import { FeesSummaryWidget } from "./fees-summary-widget";
-import { SeasonalSuggestionsCard } from "./seasonal-suggestions-widget";
 import { DataDestructionSection } from "./data-destruction-section";
 import { DocumentsLinkPair } from "./documents-link-pair";
+import NoticeTemplatesEntryWidget from "./notice-templates-entry-widget";
+import BuildingContractsSummaryWidget from "./building-contracts-summary-widget";
 
 export default function ManagerMainWidget() {
   const { user } = useAuth();
@@ -105,9 +116,14 @@ export default function ManagerMainWidget() {
   // 계약현황" 한 줄과 "파트너사 비교 견적" 위젯을 배치한다.
   return (
     <>
-      {/* [Task #327 → #358 → 위젯 병합] 모바일 컴팩트 — 평탄 세로 스크롤. */}
+      {/* [Task #327 → #358 → 위젯 병합] 모바일 컴팩트 — 평탄 세로 스크롤.
+          [Task #503] 매니저 모바일에서 종전 registry 단계에서 campaign-banner 직후
+          렌더되던 "우리 건물 계약업체 연락망"(BuildingContractsSummaryWidget) 카드를
+          여기 MobileOnly 최상단으로 옮긴다. 데스크톱은 본 위젯의 DesktopOnly 3행
+          우측 셀에서만 렌더되므로 모바일·데스크톱 모두 단일 노출이 보장된다. */}
       <MobileOnly>
         <div className="space-y-3">
+          <BuildingContractsSummaryWidget />
           <AlertSection
             title="필수업무"
             description="법적으로 반드시 해야하는 업무"
@@ -138,35 +154,53 @@ export default function ManagerMainWidget() {
 
       <DesktopOnly>
         <div className="space-y-6">
-          <AlertSection
-            title="필수업무현황"
-            description="법적으로 반드시 해야하는 업무"
-            icon={ClipboardCheck}
-            iconClassName="text-chart-3"
-            alerts={legalAlerts}
-            loading={alertsLoading}
-            placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
-            placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
-            onAlertClick={handleAlertClick}
-            sectionKind="mandatory"
-          />
+          {/* [Task #503] 1행: 필수업무현황 / 제안업무현황 — 2열 1×2.
+              매니저 데스크톱에서는 한 페이지에 5개씩 노출(스크롤/스와이프 없이).
+              breakpoint: DesktopOnly(.dash-desktop-only) 가 900px+ 에서 켜지므로
+              Tailwind `md:`(768px+) 를 사용해 900~1023px 구간에서도 2열로 보이게 한다. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <AlertSection
+              title="필수업무현황"
+              description="법적으로 반드시 해야하는 업무"
+              icon={ClipboardCheck}
+              iconClassName="text-chart-3"
+              alerts={legalAlerts}
+              loading={alertsLoading}
+              placeholderZero="현재 60일 내 예정된 법정필수업무가 없습니다"
+              placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
+              onAlertClick={handleAlertClick}
+              sectionKind="mandatory"
+              pageSize={5}
+            />
 
-          <AlertSection
-            title="제안업무현황"
-            description="지금 시기 처리하면 좋아요"
-            icon={ListChecks}
-            iconClassName="text-chart-2"
-            alerts={proposedAlerts}
-            loading={alertsLoading}
-            placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
-            placeholderOne={"업무가 1개 남았습니다.\n남은 업무를 처리해보세요 소장님!"}
-            onAlertClick={handleAlertClick}
-          />
+            <AlertSection
+              title="제안업무현황"
+              description="지금 시기 처리하면 좋아요"
+              icon={ListChecks}
+              iconClassName="text-chart-2"
+              alerts={proposedAlerts}
+              loading={alertsLoading}
+              placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
+              placeholderOne={"업무가 1개 남았습니다.\n남은 업무를 처리해보세요 소장님!"}
+              onAlertClick={handleAlertClick}
+              pageSize={5}
+            />
+          </div>
 
-          <TodayWorkLogEntry />
+          {/* [Task #503] 2행: (최근 문서함 + 처리 내역 세로 스택) /
+              오늘 업무일지 자동 작성하기(강조). 두 칼럼 높이를 동일하게 맞춘다.
+              breakpoint: 위 1행과 동일한 이유로 `md:` 사용. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+            <DocumentsLinkPair />
+            <TodayWorkLogEntry variant="prominent" />
+          </div>
 
-          {/* [Task #250] 문서 산출물 진입(최근 문서함) + 처리 내역 진입 묶음. */}
-          <DocumentsLinkPair />
+          {/* [Task #503] 3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망.
+              breakpoint: 위 1·2행과 동일한 이유로 `md:` 사용. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+            <NoticeTemplatesEntryWidget />
+            <BuildingContractsSummaryWidget />
+          </div>
 
           {/* [Task #246] 관리비 요약 위젯. */}
           <div className="pt-2">
@@ -236,7 +270,8 @@ export default function ManagerMainWidget() {
             user={user}
           />
 
-          <SeasonalSuggestionsCard />
+          {/* [Task #503] "4월 계절별 영선업무 제안"(SeasonalSuggestionsCard) 카드는
+              매니저 데스크톱 대시보드에서 더 이상 노출되지 않는다. */}
         </div>
       </DesktopOnly>
     </>

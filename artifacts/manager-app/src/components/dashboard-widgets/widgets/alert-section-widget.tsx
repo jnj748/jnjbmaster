@@ -43,6 +43,10 @@ export function AlertSection({
   //   - suggested: 기존처럼 alert.message 를 그대로 노출.
   //   기본값은 안전하게 suggested 동작.
   sectionKind = "suggested",
+  // [Task #503] 한 페이지에 표시할 카드 수. 기본값 2(모바일/세로 컴팩트)이며,
+  //   매니저 데스크톱 2열 레이아웃에서는 5 를 전달해 한 화면에 5개씩 노출한다.
+  //   빈 슬롯 패딩·페이지네이션 동작은 동일한 패턴으로 일반화한다.
+  pageSize = 2,
 }: {
   title: string;
   description: string;
@@ -54,17 +58,19 @@ export function AlertSection({
   placeholderOne: string;
   onAlertClick: (alert: DashboardAlert) => void;
   sectionKind?: "mandatory" | "suggested";
+  pageSize?: number;
 }) {
-  const PAGE_SIZE = 2;
+  const PAGE_SIZE = Math.max(1, pageSize);
   const slots: AlertSlot[] = alerts.map((alert) => ({ kind: "alert" as const, alert }));
   if (alerts.length === 0) {
     slots.push({ kind: "placeholder", message: placeholderZero });
-    slots.push({ kind: "placeholder" });
+    while (slots.length < PAGE_SIZE) slots.push({ kind: "placeholder" });
   } else if (alerts.length === 1) {
     slots.push({ kind: "placeholder", message: placeholderOne });
-  } else if (alerts.length % 2 === 1) {
-    // Pad last page so it still occupies 2 rows of vertical space.
-    slots.push({ kind: "placeholder" });
+    while (slots.length < PAGE_SIZE) slots.push({ kind: "placeholder" });
+  } else if (alerts.length % PAGE_SIZE !== 0) {
+    // Pad last page so it still occupies PAGE_SIZE rows of vertical space.
+    while (slots.length % PAGE_SIZE !== 0) slots.push({ kind: "placeholder" });
   }
   const pages: AlertSlot[][] = Array.from(
     { length: Math.ceil(slots.length / PAGE_SIZE) },
@@ -105,8 +111,10 @@ export function AlertSection({
         </Link>
       </div>
       {loading ? (
+        // [Task #503] 로딩 스켈레톤 행 수도 PAGE_SIZE 에 맞춰 보여 최종 렌더 후
+        //   세로 점프(짧은 → 긴 높이)를 줄인다.
         <div className="space-y-2">
-          {[1, 2].map((i) => (
+          {Array.from({ length: PAGE_SIZE }, (_, i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}
         </div>
