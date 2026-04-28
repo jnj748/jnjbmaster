@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
 import { db, complaintsTable, usersTable, unitsTable, notificationsTable, buildingsTable } from "@workspace/db";
@@ -106,7 +107,7 @@ async function createHqNotification(complaint: { id: number; title: string; cate
     floor_noise: "층간소음", other: "기타",
   };
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "hq_executive",
     notificationType: "complaint_escalation",
     title: `[민감 민원] ${buildingName} - ${complaint.title}`,

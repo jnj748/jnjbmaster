@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable, unitsTable, tenantsTable, vehiclesTable, buildingsTable, alertActionsTable } from "@workspace/db";
@@ -138,7 +139,7 @@ router.post("/daily-reports", async (req, res): Promise<void> => {
     })
     .returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "role:manager",
     notificationType: "daily_report_submitted",
     title: "일간 보고서 제출",
@@ -201,7 +202,7 @@ router.post("/daily-reports/:id/submit", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "role:manager",
     notificationType: "daily_report_submitted",
     title: "일간 보고서 제출",
@@ -382,7 +383,7 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "platf
     return;
   }
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "role:manager",
     notificationType: "weekly_report_forwarded",
     title: "주간 보고서 전달",

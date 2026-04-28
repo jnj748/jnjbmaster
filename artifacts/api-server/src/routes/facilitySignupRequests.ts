@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 // [Task #132] 시설기사 가입 승인 요청 처리.
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, facilityStaffSignupRequestsTable, usersTable, buildingsTable, notificationsTable } from "@workspace/db";
@@ -51,7 +52,7 @@ export async function resolveTargetsAndNotify(requestId: number): Promise<void> 
   }
 
   // 알림 생성: 관리소장이 있으면 manager 인박스, 없으면 admin 인박스로 라우팅.
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: targetManagerId ? "manager" : "admin",
     notificationType: "facility_signup_request",
     title: "시설기사 가입 신청",

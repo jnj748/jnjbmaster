@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc, lte, gte, isNotNull, inArray, type SQL } from "drizzle-orm";
 import {
@@ -250,7 +251,7 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
   for (const c of candidates) {
     if (c.renewalAlertSent) continue;
 
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "contract_renewal_due",
       title: `[계약 갱신] ${c.vendorName} - ${c.title}`,
@@ -397,7 +398,7 @@ router.post("/contracts/from-quote/:quoteId", requireRole("manager", "platform_a
     .returning();
 
   if (steps.length > 0) {
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: `user:${steps[0].approverId}`,
       notificationType: "approval_step_pending",
       title: "결재 요청 (업체선정)",
@@ -596,7 +597,7 @@ partnerContractsRouter.post("/contracts/:id/agree", requireRole("partner"), asyn
     .returning();
 
   // 매니저(건물 단위)에게 인앱 알림. 건물 ID 가 없으면 hq 로 폴백.
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: row.buildingId ? `manager:${row.buildingId}` : "hq",
     notificationType: "contract_partner_agreed",
     title: "[계약] 파트너가 계약 내용에 동의했습니다",
@@ -671,7 +672,7 @@ router.post("/contracts/:id/documents", requireRole("manager", "platform_admin",
     })
     .returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "hq",
     notificationType: "contract_document_uploaded",
     title: "[계약문서] 새 증빙 업로드",

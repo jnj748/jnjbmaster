@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request } from "express";
 import { eq, and, or, ilike, inArray } from "drizzle-orm";
 import { db, ownersTable, notificationsTable, unitsTable } from "@workspace/db";
@@ -98,7 +99,7 @@ router.post("/owners", async (req: Request, res): Promise<void> => {
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   } as never).returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "owner_registered",
     title: "소유자 등록",
@@ -182,7 +183,7 @@ router.patch("/owners/:id", async (req: Request, res): Promise<void> => {
     return;
   }
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "owner_updated",
     title: "소유자 정보 변경",

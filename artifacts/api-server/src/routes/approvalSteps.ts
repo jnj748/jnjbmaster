@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
@@ -141,7 +142,7 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
       })
       .where(eq(approvalsTable.id, approvalId));
 
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: `user:${approval.requesterId}`,
       notificationType: "approval_rejected",
       title: "결재 반려",
@@ -167,7 +168,7 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
         })
         .where(eq(approvalsTable.id, approvalId));
 
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: `user:${nextStep.approverId}`,
         notificationType: "approval_step_pending",
         title: "결재 대기",
@@ -202,7 +203,7 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
         }
       }
 
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: `user:${approval.requesterId}`,
         notificationType: "approval_completed",
         title: "결재 완료",
@@ -217,7 +218,7 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
         .where(eq(approvalRecipientsTable.approvalId, approvalId));
 
       for (const r of recipients) {
-        await db.insert(notificationsTable).values({
+        await insertNotification({
           recipientType: `user:${r.userId}`,
           notificationType: "approval_shared",
           title: "결재 공유",
@@ -473,7 +474,7 @@ router.post("/approvals/draft/:id/submit", async (req, res): Promise<void> => {
     .returning();
 
   if (allSteps.length > 0) {
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: `user:${allSteps[0].approverId}`,
       notificationType: "approval_step_pending",
       title: "결재 요청",

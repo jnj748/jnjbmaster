@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc, sql } from "drizzle-orm";
 import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable, usersTable } from "@workspace/db";
@@ -406,7 +407,7 @@ router.post("/inspections/generate-alerts", async (_req, res): Promise<void> => 
           ? `[계절별 점검] ${inspection.name}`
           : `[점검 알림] ${inspection.name}`;
 
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "admin",
         notificationType: "inspection_alert",
         title: notifTitle,
@@ -639,19 +640,19 @@ router.post("/inspections/ai-matching", async (_req, res): Promise<void> => {
     }
 
     let notificationId: number | null = null;
-    const [notification] = await db.insert(notificationsTable).values({
+    const inserted = await insertNotification({
       recipientType: "admin",
       notificationType: "ai_matching",
       title: `[AI 매칭] ${inspection.name} 점검 예정 알림`,
       message: `${inspection.name} 점검이 ${daysUntilDue}일 후(${inspection.nextDueDate}) 예정되어 있습니다. AI가 ${top3Vendors.length}개 업체를 추천했습니다.`,
       relatedEntityType: "inspection",
       relatedEntityId: inspection.id,
-    }).returning();
-    notificationId = notification.id;
-    notificationsCreated++;
+    });
+    notificationId = inserted[0]?.id ?? null;
+    notificationsCreated += inserted.length;
 
     if (top3Vendors.length > 0) {
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "facility_manager",
         notificationType: "ai_matching",
         title: `[시설관리] ${inspection.name} 점검 예정`,
@@ -723,8 +724,11 @@ router.post("/inspections/:id/approve-matching", async (req, res): Promise<void>
     for (const vendorId of parsed.data.vendorIds) {
       const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, vendorId));
       if (vendor) {
-        await db.insert(notificationsTable).values({
-          recipientType: "vendor",
+        // [Task #532] 선택된 특정 업체에게만 RFQ 알림을 보낸다 — vendor:<id>
+        // (이전 코드는 "vendor" 라는 모호한 키를 써서 모든 협력업체 벨에
+        //  방송되는 버그가 있었다.)
+        await insertNotification({
+          recipientType: `vendor:${vendorId}`,
           notificationType: "rfq_request",
           title: `[견적요청] ${inspection.name} 점검 업체 선정`,
           message: `${parsed.data.buildingName}의 ${inspection.name} 점검에 대한 견적을 요청드립니다. 점검 예정일: ${inspection.nextDueDate}`,

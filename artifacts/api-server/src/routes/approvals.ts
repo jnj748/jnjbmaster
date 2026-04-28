@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsTable, notificationsTable, contractsTable } from "@workspace/db";
@@ -118,7 +119,7 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
   }
 
   if (steps.length > 0) {
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: `user:${steps[0].approverId}`,
       notificationType: "approval_step_pending",
       title: "결재 요청",

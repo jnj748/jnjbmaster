@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc, isNull } from "drizzle-orm";
 import { db, warrantyPresetsTable, buildingWarrantiesTable, buildingsTable, notificationsTable, rfqsTable, vendorsTable, usersTable } from "@workspace/db";
@@ -177,7 +178,7 @@ router.post("/warranties/check-alerts", async (_req, res): Promise<void> => {
     const buildingName = building?.name || "관리 건물";
 
     if (daysUntilExpiry <= 60 && daysUntilExpiry > 30 && !warranty.alertSent60) {
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "admin",
         notificationType: "warranty_expiry_60",
         title: `[하자담보] ${warranty.tradeName} 만료 60일 전`,
@@ -194,7 +195,7 @@ router.post("/warranties/check-alerts", async (_req, res): Promise<void> => {
     }
 
     if (daysUntilExpiry <= 30 && !warranty.alertSent30) {
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "admin",
         notificationType: "warranty_expiry_30",
         title: `[긴급] ${warranty.tradeName} 하자담보 만료 30일 전`,

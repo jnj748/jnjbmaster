@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable, usersTable } from "@workspace/db";
@@ -241,7 +242,7 @@ router.patch("/safety-checklists/items/:itemId", async (req, res): Promise<void>
         notes: item.notes || null,
       }).returning();
 
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "admin",
         notificationType: "defect_found",
         title: `🚨 불량 발견: ${item.itemName}`,

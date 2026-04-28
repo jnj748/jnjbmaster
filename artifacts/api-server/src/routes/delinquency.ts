@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import {
@@ -110,7 +111,7 @@ router.post("/delinquency/:id/notify", async (req: Request, res: Response): Prom
     .where(eq(delinquencyActionsTable.id, id))
     .returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "delinquency_notice",
     title: "연체 독촉 통지 발송",
@@ -161,7 +162,7 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
     .where(eq(delinquencyActionsTable.id, id))
     .returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "delinquency_parking_suspended",
     title: "주차권 정지 처리",
@@ -211,7 +212,7 @@ router.post("/delinquency/:id/resolve", async (req: Request, res: Response): Pro
     .where(eq(delinquencyActionsTable.id, id))
     .returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "delinquency_resolved",
     title: "연체 해소",

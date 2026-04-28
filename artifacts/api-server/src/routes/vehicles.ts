@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request } from "express";
 import { eq, and, or, ilike, ne, gte, sql, inArray } from "drizzle-orm";
 import { db, vehiclesTable, tenantsTable, notificationsTable, vehicleHistoryTable, unitsTable } from "@workspace/db";
@@ -174,7 +175,7 @@ router.post("/vehicles", async (req: Request, res): Promise<void> => {
     buildingId,
   }).returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "vehicle_registered",
     title: "차량 등록",
@@ -391,7 +392,7 @@ router.post("/vehicles/:id/cancel", async (req: Request, res): Promise<void> => 
     notes,
   });
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "vehicle_cancelled",
     title: "차량 말소",
@@ -440,7 +441,7 @@ router.post("/vehicles/batch-cancel", async (req: Request, res): Promise<void> =
   }
 
   if (vehicles.length > 0) {
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "vehicle_batch_cancelled",
       title: "차량 일괄 말소",
@@ -537,7 +538,7 @@ router.post("/vehicles/inspection", async (req: Request, res): Promise<void> => 
       .join(", ");
     const suffix = unregisteredUnits.length > 10 ? ` 외 ${unregisteredUnits.length - 10}건` : "";
 
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "vehicle_monthly_inspection",
       title: "월별 차량 점검 알림",

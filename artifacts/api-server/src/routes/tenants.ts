@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request } from "express";
 import { eq, and, or, ilike, sql, inArray } from "drizzle-orm";
 import { db, tenantsTable, notificationsTable, unitsTable, usersTable, tenantCardTokensTable } from "@workspace/db";
@@ -128,7 +129,7 @@ router.post("/tenants", async (req: Request, res): Promise<void> => {
     ...(dataDestructionDate ? { dataDestructionDate } : {}),
   } as never).returning();
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "tenant_registered",
     title: "입주자 등록",
@@ -218,7 +219,7 @@ router.patch("/tenants/:id", async (req: Request, res): Promise<void> => {
     return;
   }
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "tenant_updated",
     title: "입주자 정보 변경",
@@ -327,7 +328,7 @@ router.post("/tenants/:id/verify", async (req: Request, res): Promise<void> => {
       }
     }
 
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "tenant_verified",
       title: "입주자카드 승인 완료",

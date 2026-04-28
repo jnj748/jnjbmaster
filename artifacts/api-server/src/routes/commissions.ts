@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -196,7 +197,7 @@ router.post("/commissions/auto-settle", requireRole("manager", "platform_admin")
     actorName: req.user?.email ?? null,
   });
 
-  await db.insert(notificationsTable).values({
+  await insertNotification({
     recipientType: "admin",
     notificationType: "commission_settled",
     title: `[수수료 자동 정산] ${vendor.name}`,

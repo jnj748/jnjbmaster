@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, isNotNull, sql } from "drizzle-orm";
 import { db, tenantsTable, ownersTable, dataDestructionLogsTable, notificationsTable } from "@workspace/db";
@@ -152,7 +153,7 @@ router.post("/privacy/process-destructions", adminOnly, async (_req, res): Promi
   }
 
   if (processed.length > 0) {
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "data_destruction_completed",
       title: "개인정보 파기 처리 완료",
@@ -218,7 +219,7 @@ router.post("/privacy/destruction-alerts", adminOnly, async (_req, res): Promise
       ...upcomingOwners.map((o) => `소유자 ${o.unit}호 ${o.ownerName} (${o.dataDestructionDate})`),
     ].join(", ");
 
-    await db.insert(notificationsTable).values({
+    await insertNotification({
       recipientType: "admin",
       notificationType: "data_destruction_alert",
       title: "개인정보 파기 예정 알림",

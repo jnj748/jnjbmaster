@@ -1,3 +1,4 @@
+import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
 import {
@@ -10,7 +11,6 @@ import {
   commissionsTable,
   commissionEventsTable,
   contractsTable,
-  notificationsTable,
   approvalsTable,
 } from "@workspace/db";
 import {
@@ -288,14 +288,19 @@ router.post("/quotes", async (req, res): Promise<void> => {
       // 대시보드의 quote_received 알림은 dashboard.ts 에서 별도로 집계되며, 이 알림은
       // 알림센터(/notifications) 노출 및 푸시 채널을 위한 것이다.
       if (rfq.buildingId) {
-        await tx.insert(notificationsTable).values({
-          recipientType: `manager:${rfq.buildingId}`,
-          notificationType: "quote_received",
-          title: "견적 도착, 확인하세요",
-          message: `${vendor.name} 업체가 [${rfq.title}] 공고에 견적을 제출했습니다. 견적을 확인하고 채택 여부를 결정해주세요.`,
-          relatedEntityType: "quote",
-          relatedEntityId: inserted.id,
-        });
+        // [Task #532] 같은 트랜잭션 안에서 manager:<bid> → user:<id> fan-out 을
+        // 수행한다. tx 를 헬퍼에 넘겨 트랜잭션 경계를 깨지 않는다.
+        await insertNotification(
+          {
+            recipientType: `manager:${rfq.buildingId}`,
+            notificationType: "quote_received",
+            title: "견적 도착, 확인하세요",
+            message: `${vendor.name} 업체가 [${rfq.title}] 공고에 견적을 제출했습니다. 견적을 확인하고 채택 여부를 결정해주세요.`,
+            relatedEntityType: "quote",
+            relatedEntityId: inserted.id,
+          },
+          tx,
+        );
       }
 
       if (creditsOn && cost) {
@@ -510,7 +515,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
         })
         .returning();
 
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: "admin",
         notificationType: "contract_auto_created",
         title: "[계약] 견적 채택 → 품의·계약 자동 생성",
@@ -521,7 +526,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
 
       // [Task #335] 파트너에게 계약 초안 도착 알림. 파트너는 알림 클릭 후
       // /vendor-portal?openContract={id} 딥링크로 진입해 "계약 내용에 동의" 한다.
-      await db.insert(notificationsTable).values({
+      await insertNotification({
         recipientType: `vendor:${quote.vendorId}`,
         notificationType: "contract_draft_ready",
         title: "[계약] 견적이 채택되어 계약 초안이 생성되었습니다",
