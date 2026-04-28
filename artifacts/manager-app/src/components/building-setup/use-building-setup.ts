@@ -64,6 +64,8 @@ export const EMPTY_BUILDING: BuildingData = {
   registerData: null,
   // [Task #348] 호실 일괄 가져오기 단계 게이팅에 사용. 주소→건축물대장 조회 시 저장된 PK.
   buildingRegisterPk: null as string | null,
+  // [Task #516] 다동 단지의 동(棟)별 표제부 PK 캐시.
+  registerDongPks: null as { mgmBldrgstPk: string; dongName: string; isMain: boolean }[] | null,
 };
 
 export function useBuildingSetup() {
@@ -289,6 +291,8 @@ export function useBuildingSetup() {
           // 재저장 시 누락되지 않도록 한다(재조회를 하지 않은 경우 보존).
           registerData: data.building.registerData || null,
           buildingRegisterPk: data.building.buildingRegisterPk || null,
+          // [Task #516] 다동 단지의 동(棟)별 PK 캐시. 서버 응답 그대로 보관.
+          registerDongPks: (data.building as { registerDongPks?: { mgmBldrgstPk: string; dongName: string; isMain: boolean }[] | null }).registerDongPks ?? null,
         };
         setBuilding(next);
         // [Task #458] 폼이 새 데이터로 초기화될 때마다 마지막 저장 스냅샷을 갱신하고
@@ -457,6 +461,10 @@ export function useBuildingSetup() {
               recap: (rawFromServer.recap as Record<string, unknown> | null) ?? null,
             }
           : null;
+        // [Task #516] 다동 단지의 동별 PK 캐시. 서버가 dongs[] 를 내려주면 그대로 보관해
+        //   호실 일괄 가져오기 단계가 모든 동을 순회할 수 있게 한다.
+        const dongsFromServer = (result as { dongs?: { mgmBldrgstPk: string; dongName: string; isMain: boolean }[] }).dongs;
+        const nextDongs = Array.isArray(dongsFromServer) ? dongsFromServer.filter((x) => x?.mgmBldrgstPk) : null;
         setRegisterPreview(d);
         // [Task #427] 식별자 재조회 모드에서는 주소·건물 기본 정보를 덮어쓰지 않고,
         //   buildingRegisterPk + registerData 만 갱신한다(전유부 면적은 아래 lookupAreaInfo).
@@ -467,6 +475,7 @@ export function useBuildingSetup() {
               ...prev,
               registerData: nextRegisterData ?? prev.registerData ?? null,
               buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
+              registerDongPks: nextDongs && nextDongs.length > 0 ? nextDongs : prev.registerDongPks ?? null,
             };
           }
           return {
@@ -497,6 +506,8 @@ export function useBuildingSetup() {
             // [Task #348] 대장 조회 직후 mgmBldrgstPk 를 위저드 상태에 즉시 반영해야
             // "호실 일괄 가져오기" 단계 게이트가 정확히 풀린다.
             buildingRegisterPk: d.mgmBldrgstPk ? String(d.mgmBldrgstPk) : prev.buildingRegisterPk,
+            // [Task #516] 다동 단지의 동(棟)별 PK 캐시. 비면 이전 값을 유지(소실 방지).
+            registerDongPks: nextDongs && nextDongs.length > 0 ? nextDongs : prev.registerDongPks ?? null,
           };
         });
 
@@ -618,6 +629,8 @@ export function useBuildingSetup() {
         registerData: building.registerData ?? null,
         // [Task #348] mgmBldrgstPk 영속화 — 호실 일괄 가져오기 단계 게이트 및 백엔드 매칭에 사용.
         buildingRegisterPk: building.buildingRegisterPk ?? null,
+        // [Task #516] 다동 단지의 동(棟)별 PK 캐시 — 호실 일괄 가져오기 단계가 모든 동을 순회.
+        registerDongPks: building.registerDongPks ?? null,
       };
 
       const res = await fetch(url, {

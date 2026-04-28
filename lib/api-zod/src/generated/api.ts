@@ -3266,9 +3266,13 @@ export const ListBuildingsResponse = zod.array(ListBuildingsResponseItem);
  * @summary 건축물대장(전유부/공용부) 면적 정보로 호실을 일괄 upsert
  */
 export const importUnitsFromRegisterBodyDryRunDefault = false;
+export const importUnitsFromRegisterBodyIncludeOwnersDefault = true;
 
 export const ImportUnitsFromRegisterBody = zod.object({
   dryRun: zod.boolean().default(importUnitsFromRegisterBodyDryRunDefault),
+  includeOwners: zod
+    .boolean()
+    .default(importUnitsFromRegisterBodyIncludeOwnersDefault),
 });
 
 export const ImportUnitsFromRegisterResponse = zod.object({
@@ -3278,15 +3282,45 @@ export const ImportUnitsFromRegisterResponse = zod.object({
   skipped: zod.number(),
   items: zod.array(
     zod.object({
+      dong: zod.string(),
       floor: zod.string(),
       unitNumber: zod.string(),
       exclusiveArea: zod.number(),
       commonArea: zod.number(),
       usage: zod.string().nullable(),
+      ownerName: zod.string().nullish(),
+      ownerAddress: zod.string().nullish(),
       action: zod.enum(["create", "update", "skip"]),
     }),
   ),
   lastSyncedAt: zod.string().datetime({}).nullish(),
+  ownerLookupEnabled: zod.boolean().optional(),
+  ownerLookupAttempted: zod.number().optional(),
+  ownerLookupHit: zod.number().optional(),
+});
+
+/**
+ * @summary 소유자 자동 조회 (best-effort, 키 없으면 빈 결과)
+ */
+export const LookupOwnersBody = zod.object({
+  targets: zod.array(
+    zod.object({
+      dong: zod.string(),
+      unitNumber: zod.string(),
+    }),
+  ),
+});
+
+export const LookupOwnersResponse = zod.object({
+  enabled: zod.boolean(),
+  rows: zod.array(
+    zod.object({
+      dong: zod.string(),
+      unitNumber: zod.string(),
+      ownerName: zod.string().optional(),
+      ownerAddress: zod.string().optional(),
+    }),
+  ),
 });
 
 /**
@@ -4452,6 +4486,7 @@ export const ListUnitsQueryParams = zod.object({
 export const ListUnitsResponseItem = zod.object({
   id: zod.number(),
   buildingId: zod.number(),
+  dong: zod.string(),
   unitNumber: zod.string(),
   floor: zod.string(),
   exclusiveArea: zod.string().nullish(),
@@ -4462,6 +4497,17 @@ export const ListUnitsResponseItem = zod.object({
   source: zod.enum(["register", "manual", "csv"]),
   lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
   mgmBldrgstPk: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerPhone: zod.string().nullish(),
+  ownerAddress: zod.string().nullish(),
+  ownerSource: zod
+    .union([
+      zod.literal("auto"),
+      zod.literal("manual"),
+      zod.literal("csv"),
+      zod.literal(null),
+    ])
+    .nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
@@ -4548,6 +4594,7 @@ export const GetUnitResponse = zod
   .object({
     id: zod.number(),
     buildingId: zod.number(),
+    dong: zod.string(),
     unitNumber: zod.string(),
     floor: zod.string(),
     exclusiveArea: zod.string().nullish(),
@@ -4558,6 +4605,17 @@ export const GetUnitResponse = zod
     source: zod.enum(["register", "manual", "csv"]),
     lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
     mgmBldrgstPk: zod.string().nullish(),
+    ownerName: zod.string().nullish(),
+    ownerPhone: zod.string().nullish(),
+    ownerAddress: zod.string().nullish(),
+    ownerSource: zod
+      .union([
+        zod.literal("auto"),
+        zod.literal("manual"),
+        zod.literal("csv"),
+        zod.literal(null),
+      ])
+      .nullish(),
     tenantCount: zod.number().optional(),
     ownerCount: zod.number().optional(),
     vehicleCount: zod.number().optional(),
@@ -4696,6 +4754,7 @@ export const UpdateUnitBody = zod.object({
 export const UpdateUnitResponse = zod.object({
   id: zod.number(),
   buildingId: zod.number(),
+  dong: zod.string(),
   unitNumber: zod.string(),
   floor: zod.string(),
   exclusiveArea: zod.string().nullish(),
@@ -4706,6 +4765,17 @@ export const UpdateUnitResponse = zod.object({
   source: zod.enum(["register", "manual", "csv"]),
   lastRegisterSyncedAt: zod.string().datetime({}).nullish(),
   mgmBldrgstPk: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerPhone: zod.string().nullish(),
+  ownerAddress: zod.string().nullish(),
+  ownerSource: zod
+    .union([
+      zod.literal("auto"),
+      zod.literal("manual"),
+      zod.literal("csv"),
+      zod.literal(null),
+    ])
+    .nullish(),
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),

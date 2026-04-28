@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ImportUnitsFromRegisterBody = {
-  dryRun?: boolean;
-  includeOwners?: boolean;
-};
+export interface OwnerLookupRow {
+  dong: string;
+  unitNumber: string;
+  ownerName?: string;
+  ownerAddress?: string;
+}

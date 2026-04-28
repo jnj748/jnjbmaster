@@ -5,8 +5,9 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OwnerLookupRow } from "./ownerLookupRow";
 
-export type ImportUnitsFromRegisterBody = {
-  dryRun?: boolean;
-  includeOwners?: boolean;
-};
+export interface OwnerLookupResponse {
+  enabled: boolean;
+  rows: OwnerLookupRow[];
+}

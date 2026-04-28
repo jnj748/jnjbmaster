@@ -3858,9 +3858,23 @@ export const UnitSource = {
   csv: "csv",
 } as const;
 
+/**
+ * @nullable
+ */
+export type UnitOwnerSource =
+  | (typeof UnitOwnerSource)[keyof typeof UnitOwnerSource]
+  | null;
+
+export const UnitOwnerSource = {
+  auto: "auto",
+  manual: "manual",
+  csv: "csv",
+} as const;
+
 export interface Unit {
   id: number;
   buildingId: number;
+  dong: string;
   unitNumber: string;
   floor: string;
   /** @nullable */
@@ -3877,6 +3891,14 @@ export interface Unit {
   lastRegisterSyncedAt?: string | null;
   /** @nullable */
   mgmBldrgstPk?: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
+  /** @nullable */
+  ownerSource?: UnitOwnerSource;
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;
@@ -3894,12 +3916,17 @@ export const ImportUnitPreviewItemAction = {
 } as const;
 
 export interface ImportUnitPreviewItem {
+  dong: string;
   floor: string;
   unitNumber: string;
   exclusiveArea: number;
   commonArea: number;
   /** @nullable */
   usage: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
   action: ImportUnitPreviewItemAction;
 }
 
@@ -3911,6 +3938,21 @@ export interface ImportUnitsFromRegisterResponse {
   items: ImportUnitPreviewItem[];
   /** @nullable */
   lastSyncedAt?: string | null;
+  ownerLookupEnabled?: boolean;
+  ownerLookupAttempted?: number;
+  ownerLookupHit?: number;
+}
+
+export interface OwnerLookupRow {
+  dong: string;
+  unitNumber: string;
+  ownerName?: string;
+  ownerAddress?: string;
+}
+
+export interface OwnerLookupResponse {
+  enabled: boolean;
+  rows: OwnerLookupRow[];
 }
 
 export type CreateUnitBodyStatus =
@@ -5650,6 +5692,16 @@ export type ListMonthlySummaryReportsParams = {
 
 export type ImportUnitsFromRegisterBody = {
   dryRun?: boolean;
+  includeOwners?: boolean;
+};
+
+export type LookupOwnersBodyTargetsItem = {
+  dong: string;
+  unitNumber: string;
+};
+
+export type LookupOwnersBody = {
+  targets: LookupOwnersBodyTargetsItem[];
 };
 
 export type ListContractsParams = {

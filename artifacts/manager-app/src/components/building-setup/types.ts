@@ -42,6 +42,9 @@ export interface BuildingData {
   } | null;
   // [Task #348] 건축물대장 관리PK(mgmBldrgstPk). 호실 일괄 가져오기/단계 게이트에 사용.
   buildingRegisterPk?: string | null;
+  // [Task #516] 다동 단지의 동(棟)별 표제부 PK 캐시. lookup-register 응답에 dongs[] 가
+  // 들어 있으면 그대로 보관해 호실 일괄 가져오기 시 모든 동을 순회한다.
+  registerDongPks?: { mgmBldrgstPk: string; dongName: string; isMain: boolean }[] | null;
 }
 
 // [Task #501] 항목별 3-상태. 백엔드 calculate-safety 와 동일 정의를 유지한다.

@@ -7,10 +7,15 @@ import { db, buildingsTable, usersTable, unitsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 // [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
-import { type AreaInfoRow, fetchAreaInfoFromRegister } from "./register-lookup";
+import {
+  type AreaInfoRow,
+  fetchAreaInfoFromRegister,
+  fetchAreaInfoForAllDongs,
+} from "./register-lookup";
+import { lookupOwnersBestEffort, type OwnerLookupRow } from "./owner-lookup";
 
 // [Task #348] 건축물대장 면적 정보 → units 일괄 upsert.
-// 매칭 키: (정규화된 층 + 호실번호). 동일 행이 있으면 면적/용도/source/sync 시각만 갱신.
+// 매칭 키: (정규화된 동 + 정규화된 층 + 호실번호). 동일 행이 있으면 면적/용도/source/sync 시각만 갱신.
 // 사용자 수기 입력 컬럼(소유자/입주민/연락처/메모 등)은 건드리지 않는다.
 // dryRun=true 면 DB 변경 없이 미리보기만 반환한다.
 function normalizeFloor(raw: string): string {
@@ -52,6 +57,9 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
   }
 
   const dryRun = req.body?.dryRun === true;
+  // [Task #516] 클라이언트가 소유자 자동 조회 비활성화를 명시적으로 요청한 경우 건너뛴다.
+  //   기본값은 활성(true) 이며, 외부 키 미설정/실패 시에도 호실 가져오기 자체는 항상 진행한다.
+  const includeOwners: boolean = req.body?.includeOwners !== false;
   const buildingId = me.buildingId;
 
   const [building] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, buildingId));
@@ -59,14 +67,32 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     res.status(404).json({ error: "건물을 찾을 수 없습니다." });
     return;
   }
-  if (!building.buildingRegisterPk) {
-    res.status(400).json({ error: "건물에 등록된 관리건축물대장PK가 없습니다. 먼저 주소로 건축물대장을 조회해 주세요." });
+
+  // [Task #516] 동(棟)별 PK 캐시(register_dong_pks) 가 있으면 모든 동을 순회한다.
+  //   캐시가 없는 기존 건물은 단일 buildingRegisterPk 로 폴백.
+  const dongPks = (building.registerDongPks ?? []).map((d) => d.mgmBldrgstPk).filter(Boolean);
+  const fallbackPk = building.buildingRegisterPk ?? "";
+  const pksToFetch = dongPks.length > 0 ? dongPks : (fallbackPk ? [fallbackPk] : []);
+
+  if (pksToFetch.length === 0) {
+    res.status(400).json({
+      error: "건물에 등록된 관리건축물대장PK가 없습니다. 먼저 주소로 건축물대장을 조회해 주세요.",
+    });
     return;
   }
 
-  let areas: AreaInfoRow[] | null;
+  let areas: AreaInfoRow[];
   try {
-    areas = await fetchAreaInfoFromRegister(building.buildingRegisterPk);
+    if (pksToFetch.length === 1) {
+      // 단일 동 폴백: 기존 동작 그대로.
+      const single = await fetchAreaInfoFromRegister(pksToFetch[0]);
+      areas = single ?? [];
+    } else {
+      // [Task #516] 다동 페이징: 동별 응답이 빈 body 라도 다음 동을 계속 진행. 결과/실패 로그 누적.
+      areas = await fetchAreaInfoForAllDongs(pksToFetch, (info) => {
+        req.log.info({ buildingId, ...info }, "Register area info fetched per dong");
+      });
+    }
   } catch (e) {
     if (e instanceof Error && e.message === "API_KEY_MISSING") {
       res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다." });
@@ -77,7 +103,7 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     return;
   }
 
-  if (!areas || areas.length === 0) {
+  if (areas.length === 0) {
     res.status(404).json({ error: "건축물대장에서 면적 정보를 찾을 수 없습니다." });
     return;
   }
@@ -89,27 +115,61 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     return;
   }
 
-  // 기존 호실 로딩(층+호실번호 매칭).
+  // 기존 호실 로딩((동+층+호실번호) 매칭).
   const existing = await db.select().from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
   const existingByKey = new Map<string, typeof existing[number]>();
   for (const u of existing) {
-    existingByKey.set(`${normalizeFloor(u.floor)}|${u.unitNumber.trim()}`, u);
+    const key = `${(u.dong ?? "").trim()}|${normalizeFloor(u.floor)}|${u.unitNumber.trim()}`;
+    existingByKey.set(key, u);
   }
 
-  // 같은 (층+호실번호)가 대장 응답 내에 중복 등장할 수 있으므로 후행 행이 우선되도록 dedupe.
-  const previewMap = new Map<string, { row: AreaInfoRow; floor: string; unitNumber: string }>();
+  // 같은 (동+층+호실번호)가 대장 응답 내에 중복 등장할 수 있으므로 후행 행이 우선되도록 dedupe.
+  const previewMap = new Map<string, { row: AreaInfoRow; dong: string; floor: string; unitNumber: string }>();
   for (const r of rows) {
+    const dong = (r.dong ?? "").trim();
     const floor = normalizeFloor(r.floorNo);
     const unitNumber = deriveUnitNumber(r);
-    previewMap.set(`${floor}|${unitNumber}`, { row: r, floor, unitNumber });
+    previewMap.set(`${dong}|${floor}|${unitNumber}`, { row: r, dong, floor, unitNumber });
   }
 
+  // [Task #516] Best-Effort 소유자 자동 조회. 키 미설정/타임아웃은 호실 가져오기를 막지 않는다.
+  let ownerMap = new Map<string, OwnerLookupRow>();
+  let ownerLookupAttempted = 0;
+  let ownerLookupHit = 0;
+  let ownerLookupEnabled = false;
+  if (includeOwners) {
+    try {
+      const targets = Array.from(previewMap.values()).map((p) => ({
+        dong: p.dong,
+        unitNumber: p.unitNumber,
+      }));
+      const ownerResult = await lookupOwnersBestEffort({
+        building,
+        targets,
+        log: (info) => req.log.info({ buildingId, ...info }, "Owner lookup result (per dong)"),
+      });
+      ownerLookupEnabled = ownerResult.enabled;
+      ownerLookupAttempted = targets.length;
+      for (const r of ownerResult.rows) {
+        ownerLookupHit++;
+        ownerMap.set(`${(r.dong ?? "").trim()}|${r.unitNumber.trim()}`, r);
+      }
+    } catch (e) {
+      req.log.warn({ err: e, buildingId }, "Owner auto-lookup failed (best-effort, ignoring)");
+      ownerMap = new Map();
+    }
+  }
+
+  // [Task #516] 미리보기 행 + 가져오기/유지 분류 결과.
   const items: Array<{
+    dong: string;
     floor: string;
     unitNumber: string;
     exclusiveArea: number;
     commonArea: number;
     usage: string | null;
+    ownerName: string | null;
+    ownerAddress: string | null;
     action: "create" | "update" | "skip";
   }> = [];
 
@@ -120,19 +180,26 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
   const now = new Date();
   const upserts: Array<{ id?: number; values: Record<string, unknown> }> = [];
 
-  for (const { row, floor, unitNumber } of previewMap.values()) {
+  for (const { row, dong, floor, unitNumber } of previewMap.values()) {
     const exclusiveArea = row.exposArea;
     const commonArea = row.pubUseArea;
     const usage = row.purposeName || null;
-    const key = `${floor}|${unitNumber}`;
+    const key = `${dong}|${floor}|${unitNumber}`;
     const prev = existingByKey.get(key);
+    const owner = ownerMap.get(`${dong}|${unitNumber}`) ?? null;
 
     if (!prev) {
-      items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "create" });
+      const ownerName = owner?.ownerName ?? null;
+      const ownerAddress = owner?.ownerAddress ?? null;
+      items.push({
+        dong, floor, unitNumber, exclusiveArea, commonArea, usage,
+        ownerName, ownerAddress, action: "create",
+      });
       created++;
       upserts.push({
         values: {
           buildingId,
+          dong,
           unitNumber,
           floor,
           exclusiveArea: String(exclusiveArea),
@@ -142,40 +209,72 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
           apiGenerated: true,
           mgmBldrgstPk: building.buildingRegisterPk,
           lastRegisterSyncedAt: now,
+          // [Task #516] 신규 생성 시에만 자동 소유자 결과를 곧바로 채운다.
+          //   기존 행은 사용자가 수기로 채웠을 수 있으므로 update 분기에서 보호적으로만 채움.
+          ownerName,
+          ownerAddress,
+          ownerSource: ownerName || ownerAddress ? "auto" : null,
         },
       });
     } else {
       const sameArea = nearlyEqual(prev.exclusiveArea, exclusiveArea) && nearlyEqual(prev.commonArea, commonArea);
       const sameUsage = (prev.usage ?? null) === usage;
-      if (sameArea && sameUsage && prev.source === "register") {
-        items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "skip" });
+      // [Task #516] 사용자가 비어 있는 ownerName / ownerAddress 칸에 대해서만 자동 채움.
+      //   ownerSource 가 manual/csv 인 경우는 절대 덮어쓰지 않는다.
+      const canFillOwnerName = owner?.ownerName && !prev.ownerName && prev.ownerSource !== "manual" && prev.ownerSource !== "csv";
+      const canFillOwnerAddress = owner?.ownerAddress && !prev.ownerAddress && prev.ownerSource !== "manual" && prev.ownerSource !== "csv";
+      const ownerFillNeeded = Boolean(canFillOwnerName || canFillOwnerAddress);
+
+      const previewOwnerName = canFillOwnerName ? owner?.ownerName ?? null : (prev.ownerName ?? null);
+      const previewOwnerAddress = canFillOwnerAddress ? owner?.ownerAddress ?? null : (prev.ownerAddress ?? null);
+
+      if (sameArea && sameUsage && prev.source === "register" && !ownerFillNeeded) {
+        items.push({
+          dong, floor, unitNumber, exclusiveArea, commonArea, usage,
+          ownerName: previewOwnerName, ownerAddress: previewOwnerAddress, action: "skip",
+        });
         skipped++;
-        // 마지막 동기화 시각만 갱신.
         upserts.push({
           id: prev.id,
           values: { lastRegisterSyncedAt: now, mgmBldrgstPk: building.buildingRegisterPk },
         });
       } else {
-        items.push({ floor, unitNumber, exclusiveArea, commonArea, usage, action: "update" });
-        updated++;
-        upserts.push({
-          id: prev.id,
-          values: {
-            exclusiveArea: String(exclusiveArea),
-            commonArea: String(commonArea),
-            usage,
-            source: "register",
-            apiGenerated: true,
-            mgmBldrgstPk: building.buildingRegisterPk,
-            lastRegisterSyncedAt: now,
-          },
+        items.push({
+          dong, floor, unitNumber, exclusiveArea, commonArea, usage,
+          ownerName: previewOwnerName, ownerAddress: previewOwnerAddress, action: "update",
         });
+        updated++;
+        const updateValues: Record<string, unknown> = {
+          exclusiveArea: String(exclusiveArea),
+          commonArea: String(commonArea),
+          usage,
+          source: "register",
+          apiGenerated: true,
+          mgmBldrgstPk: building.buildingRegisterPk,
+          lastRegisterSyncedAt: now,
+        };
+        if (canFillOwnerName) {
+          updateValues.ownerName = owner?.ownerName ?? null;
+          updateValues.ownerSource = "auto";
+        }
+        if (canFillOwnerAddress) {
+          updateValues.ownerAddress = owner?.ownerAddress ?? null;
+          if (!updateValues.ownerSource) updateValues.ownerSource = "auto";
+        }
+        upserts.push({ id: prev.id, values: updateValues });
       }
     }
   }
 
   if (dryRun) {
-    res.json({ dryRun: true, created, updated, skipped, items, lastSyncedAt: null });
+    res.json({
+      dryRun: true,
+      created, updated, skipped,
+      items, lastSyncedAt: null,
+      ownerLookupEnabled,
+      ownerLookupAttempted,
+      ownerLookupHit,
+    });
     return;
   }
 
@@ -195,7 +294,14 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     return;
   }
 
-  res.json({ dryRun: false, created, updated, skipped, items, lastSyncedAt: now.toISOString() });
+  res.json({
+    dryRun: false,
+    created, updated, skipped,
+    items, lastSyncedAt: now.toISOString(),
+    ownerLookupEnabled,
+    ownerLookupAttempted,
+    ownerLookupHit,
+  });
 });
 
 export default router;

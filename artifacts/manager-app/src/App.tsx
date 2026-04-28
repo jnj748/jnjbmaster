@@ -38,6 +38,8 @@ const AccountantWizardPage = lazy(() => import("@/pages/onboarding/accountant-wi
 const FacilityWizardPage = lazy(() => import("@/pages/onboarding/facility-wizard"));
 const PartnerWizardPage = lazy(() => import("@/pages/onboarding/partner-wizard"));
 const FacilityPendingPage = lazy(() => import("@/pages/onboarding/facility-pending"));
+// [Task #516] 호실·소유자 마스터 풀스크린 마법사. 첫 필수업무 카드에서 진입한다.
+const UnitsMasterWizardPage = lazy(() => import("@/pages/onboarding/units-master"));
 const DocumentPreviewPage = lazy(() => import("@/pages/document-preview"));
 const RecentDocumentsPage = lazy(() => import("@/pages/recent-documents"));
 // [Task #485] 권한 부족으로 routes.map 에 마운트되지 않은 /settings/* 진입을
@@ -233,6 +235,8 @@ function AuthenticatedRoutes() {
                 <Route path="/onboarding/facility-staff" component={FacilityWizardPage} />
                 <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
                 <Route path="/onboarding/partner" component={PartnerWizardPage} />
+                {/* [Task #516] 호실·소유자 마스터 풀스크린 마법사. */}
+                <Route path="/onboarding/units-master" component={UnitsMasterWizardPage} />
                 <Route path="/documents/preview" component={DocumentPreviewPage} />
                 <Route path="/recent-documents" component={RecentDocumentsPage} />
                 <Route path="/" component={DashboardComponent} />

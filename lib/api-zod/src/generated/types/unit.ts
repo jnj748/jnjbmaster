@@ -5,12 +5,14 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UnitOwnerSource } from "./unitOwnerSource";
 import type { UnitSource } from "./unitSource";
 import type { UnitStatus } from "./unitStatus";
 
 export interface Unit {
   id: number;
   buildingId: number;
+  dong: string;
   unitNumber: string;
   floor: string;
   /** @nullable */
@@ -27,6 +29,14 @@ export interface Unit {
   lastRegisterSyncedAt?: string | null;
   /** @nullable */
   mgmBldrgstPk?: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
+  /** @nullable */
+  ownerSource?: UnitOwnerSource;
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;

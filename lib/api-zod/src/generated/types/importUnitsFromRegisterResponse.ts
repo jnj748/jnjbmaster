@@ -15,4 +15,7 @@ export interface ImportUnitsFromRegisterResponse {
   items: ImportUnitPreviewItem[];
   /** @nullable */
   lastSyncedAt?: string | null;
+  ownerLookupEnabled?: boolean;
+  ownerLookupAttempted?: number;
+  ownerLookupHit?: number;
 }

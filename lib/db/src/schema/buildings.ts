@@ -38,6 +38,16 @@ export type BuildingRegisterData = {
   recap?: Record<string, unknown> | null;
 };
 
+// [Task #516] 집합건축물 단지 안의 동(棟)별 표제부 PK 목록.
+// lookup-register 가 페이징해서 채워 두면, 호실 일괄 가져오기 시 매번 표제부 페이징을
+// 다시 돌리지 않고 이 목록을 그대로 순회한다. dongName 은 표제부의 bldNm/dongNm 등에서
+// 도출되며 비어 있을 수 있다. isMain 은 주건축물 여부(mainAtchGbCdNm == '주건축물').
+export type BuildingRegisterDongPk = {
+  mgmBldrgstPk: string;
+  dongName: string;
+  isMain: boolean;
+};
+
 export const buildingsTable = pgTable("buildings", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -89,6 +99,9 @@ export const buildingsTable = pgTable("buildings", {
   // [Task #328] 표제부/총괄표제부 응답 원본을 그대로 보관해 신규 항목(지붕/높이/에너지등급/
   // 내진설계/부속건축물/허가일·착공일/주차 상세 등)을 잃지 않고 상세 화면에서 활용한다.
   registerData: jsonb("register_data").$type<BuildingRegisterData>(),
+  // [Task #516] 집합건축물 단지 안 동(棟)별 표제부 PK 캐시. lookup-register 가
+  // 끝까지 페이징해 채워 둔다. 단일 동 건물이면 길이 1, 다동 건물이면 N.
+  registerDongPks: jsonb("register_dong_pks").$type<BuildingRegisterDongPk[]>(),
   isActive: boolean("is_active").notNull().default(true),
   isReadOnly: boolean("is_read_only").notNull().default(false),
   billingDay: integer("billing_day").notNull().default(1),

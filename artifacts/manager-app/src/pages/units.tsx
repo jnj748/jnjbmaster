@@ -47,7 +47,10 @@ import { UnitFormDialog, type UnitFormState } from "@/components/units/unit-form
 import { UnitDetailDialog } from "@/components/units/unit-detail-dialog";
 import { UnitsSummaryCards } from "@/components/units/units-summary-cards";
 import { UnitsFloorList } from "@/components/units/units-floor-list";
+// [Task #516] 다동 단지 소유자 점검을 위한 그리드 보기 모드.
+import { UnitsOwnerGrid } from "@/components/units/units-owner-grid";
 import { UnitsImportDialog } from "@/components/units/units-import-dialog";
+import { LayoutGrid, Rows3 } from "lucide-react";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   vacant: { label: "공실", variant: "secondary" },
@@ -74,6 +77,8 @@ export default function UnitsPage() {
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   // [Task #469] 빈 상태에서 페이지 이동 없이 호실 가져오기 마법사를 모달로 띄운다.
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // [Task #516] 호실 목록 보기 모드 — 층별 카드(기본) / 소유자 그리드.
+  const [viewMode, setViewMode] = useState<"floor" | "owner">("floor");
   const [detailUnitId, setDetailUnitId] = useState<number | null>(null);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   const [csvErrors, setCsvErrors] = useState<string[]>([]);
@@ -373,8 +378,40 @@ export default function UnitsPage() {
             <SelectItem value="maintenance">정비중</SelectItem>
           </SelectContent>
         </Select>
+        {/* [Task #516] 보기 모드 — 층별 카드 / 소유자 그리드 */}
+        <div className="ml-auto inline-flex rounded-md border bg-background p-0.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "floor" ? "default" : "ghost"}
+            onClick={() => setViewMode("floor")}
+            className="h-8"
+            data-testid="btn-view-mode-floor"
+          >
+            <Rows3 className="w-4 h-4 mr-1.5" /> 층별
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "owner" ? "default" : "ghost"}
+            onClick={() => setViewMode("owner")}
+            className="h-8"
+            data-testid="btn-view-mode-owner"
+          >
+            <LayoutGrid className="w-4 h-4 mr-1.5" /> 소유자
+          </Button>
+        </div>
       </div>
 
+      {viewMode === "owner" ? (
+        <UnitsOwnerGrid
+          isLoading={isLoading}
+          units={units}
+          onView={(id) => setDetailUnitId(id)}
+          onEdit={(unit) => openEdit(unit)}
+          onDelete={(id) => handleDelete(id)}
+        />
+      ) : (
       <UnitsFloorList
         isLoading={isLoading}
         units={units}
@@ -392,6 +429,7 @@ export default function UnitsPage() {
         // [Task #469] 페이지 이동 대신 모달 다이얼로그로 호실 가져오기 마법사를 띄운다.
         onSyncFromRegister={() => setImportDialogOpen(true)}
       />
+      )}
 
       <UnitsImportDialog
         open={importDialogOpen}

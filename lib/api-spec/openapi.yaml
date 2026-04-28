@@ -2322,6 +2322,11 @@ paths:
                 dryRun:
                   type: boolean
                   default: false
+                # [Task #516] best-effort 소유자 자동 조회를 시도할지 여부.
+                # 기본 true. 외부 API 키가 없거나 실패해도 호실 가져오기 자체는 진행한다.
+                includeOwners:
+                  type: boolean
+                  default: true
       responses:
         "200":
           description: 가져오기 결과 (실제 또는 미리보기)
@@ -2333,6 +2338,36 @@ paths:
           description: 건물에 등록된 mgmBldrgstPk 가 없습니다.
         "404":
           description: 건축물대장에서 면적 정보를 찾을 수 없습니다.
+
+  # [Task #516] best-effort 소유자 자동 조회 — 키 없으면 빈 결과를 돌려준다.
+  /buildings/owner-lookup:
+    post:
+      operationId: lookupOwners
+      tags: [buildings]
+      summary: 소유자 자동 조회 (best-effort, 키 없으면 빈 결과)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets:
+                  type: array
+                  items:
+                    type: object
+                    required: [dong, unitNumber]
+                    properties:
+                      dong: { type: string }
+                      unitNumber: { type: string }
+      responses:
+        "200":
+          description: 소유자 자동 조회 결과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerLookupResponse"
 
   # ── Warranty Management ──────────────────────────────────
   /warranties/presets:
@@ -10807,12 +10842,16 @@ components:
 
     Unit:
       type: object
-      required: [id, buildingId, unitNumber, floor, status, source, createdAt, updatedAt]
+      required: [id, buildingId, dong, unitNumber, floor, status, source, createdAt, updatedAt]
       properties:
         id:
           type: integer
         buildingId:
           type: integer
+        # [Task #516] 집합건축물(아파트·오피스텔)에서 동(棟). 단일 동 건물은 빈 문자열.
+        # 매칭 키 (buildingId + dong + unitNumber) 의 일부.
+        dong:
+          type: string
         unitNumber:
           type: string
         floor:
@@ -10841,6 +10880,17 @@ components:
         # [Task #348] 동기화에 사용한 관리건축물대장PK.
         mgmBldrgstPk:
           type: ["string", "null"]
+        # [Task #516] 소유자 이름/연락처/주소. ownerSource 가 채워진 컬럼의 출처를 알린다.
+        ownerName:
+          type: ["string", "null"]
+        ownerPhone:
+          type: ["string", "null"]
+        ownerAddress:
+          type: ["string", "null"]
+        # 'auto' = 부동산공부조회 등 외부 API, 'manual' = 사용자 수기 입력, 'csv' = CSV 업로드.
+        ownerSource:
+          type: ["string", "null"]
+          enum: [auto, manual, csv, null]
         tenantCount:
           type: integer
         ownerCount:
@@ -10858,8 +10908,11 @@ components:
     # 함께 화면에 미리보기 표를 그릴 때 사용한다.
     ImportUnitPreviewItem:
       type: object
-      required: [floor, unitNumber, exclusiveArea, commonArea, usage, action]
+      required: [dong, floor, unitNumber, exclusiveArea, commonArea, usage, action]
       properties:
+        # [Task #516] 동(棟). 단일 동 건물은 빈 문자열, 다동 건물은 동 이름.
+        dong:
+          type: string
         floor:
           type: string
         unitNumber:
@@ -10869,6 +10922,11 @@ components:
         commonArea:
           type: number
         usage:
+          type: ["string", "null"]
+        # [Task #516] best-effort 소유자 자동 조회로 채워진 값(있으면 미리보기에 노출).
+        ownerName:
+          type: ["string", "null"]
+        ownerAddress:
           type: ["string", "null"]
         # 'create' = 신규 등록 예정/실시
         # 'update' = 면적/용도 갱신 예정/실시 (사용자 수기 컬럼은 보존)
@@ -10899,6 +10957,40 @@ components:
         lastSyncedAt:
           type: ["string", "null"]
           format: date-time
+        # [Task #516] 소유자 자동 조회 시도 여부와 적중 수.
+        # enabled=false 면 외부 키가 없어 호출 자체를 건너뛴 상태.
+        ownerLookupEnabled:
+          type: boolean
+        ownerLookupAttempted:
+          type: integer
+        ownerLookupHit:
+          type: integer
+
+    # [Task #516] 소유자 자동 조회 결과 한 행. 외부 API 가 비어있는 필드는 생략된다.
+    OwnerLookupRow:
+      type: object
+      required: [dong, unitNumber]
+      properties:
+        dong:
+          type: string
+        unitNumber:
+          type: string
+        ownerName:
+          type: string
+        ownerAddress:
+          type: string
+
+    OwnerLookupResponse:
+      type: object
+      required: [enabled, rows]
+      properties:
+        # 외부 API 키가 있어 호출 자체를 시도했는지. false 면 빈 결과.
+        enabled:
+          type: boolean
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnerLookupRow"
 
     CreateUnitBody:
       type: object

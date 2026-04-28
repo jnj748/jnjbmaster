@@ -214,6 +214,7 @@ import type {
   ListVendorsParams,
   ListWeeklySummaryReportsParams,
   ListWorkReportsParams,
+  LookupOwnersBody,
   MaintenanceLog,
   ManagementContractTemplate,
   MarkAnnouncementRead200,
@@ -227,6 +228,7 @@ import type {
   NoticeLayoutSettings,
   Notification,
   Owner,
+  OwnerLookupResponse,
   PlatformAnnouncement,
   PlatformCampaign,
   PlatformCampaignBody,
@@ -9801,6 +9803,92 @@ export const useImportUnitsFromRegister = <
   TContext
 > => {
   return useMutation(getImportUnitsFromRegisterMutationOptions(options));
+};
+
+/**
+ * @summary 소유자 자동 조회 (best-effort, 키 없으면 빈 결과)
+ */
+export const getLookupOwnersUrl = () => {
+  return `/api/buildings/owner-lookup`;
+};
+
+export const lookupOwners = async (
+  lookupOwnersBody: LookupOwnersBody,
+  options?: RequestInit,
+): Promise<OwnerLookupResponse> => {
+  return customFetch<OwnerLookupResponse>(getLookupOwnersUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(lookupOwnersBody),
+  });
+};
+
+export const getLookupOwnersMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOwners>>,
+    TError,
+    { data: BodyType<LookupOwnersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupOwners>>,
+  TError,
+  { data: BodyType<LookupOwnersBody> },
+  TContext
+> => {
+  const mutationKey = ["lookupOwners"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupOwners>>,
+    { data: BodyType<LookupOwnersBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return lookupOwners(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LookupOwnersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupOwners>>
+>;
+export type LookupOwnersMutationBody = BodyType<LookupOwnersBody>;
+export type LookupOwnersMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 소유자 자동 조회 (best-effort, 키 없으면 빈 결과)
+ */
+export const useLookupOwners = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOwners>>,
+    TError,
+    { data: BodyType<LookupOwnersBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof lookupOwners>>,
+  TError,
+  { data: BodyType<LookupOwnersBody> },
+  TContext
+> => {
+  return useMutation(getLookupOwnersMutationOptions(options));
 };
 
 /**

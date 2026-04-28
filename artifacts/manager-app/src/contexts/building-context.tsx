@@ -32,6 +32,9 @@ interface BuildingInfo {
   // /buildings/my 응답은 이미 buildings 행 전체를 그대로 돌려주므로 별도 호출 없이
   // 그대로 노출만 하면 된다.
   buildingRegisterPk?: string | null;
+  // [Task #516] 다동 단지의 동(棟)별 표제부 PK 캐시. 호실 마스터 마법사가
+  //   "동 N개" 와 같은 메타 정보를 보여주거나, 단일 동 / 다동 분기에 활용한다.
+  registerDongPks?: { mgmBldrgstPk: string; dongName: string; isMain: boolean }[] | null;
 }
 
 interface BuildingContextType {

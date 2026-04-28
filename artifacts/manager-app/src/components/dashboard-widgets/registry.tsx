@@ -140,10 +140,16 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   //     본문 3행 우측 셀로 이동했으므로 레지스트리 단일 출처를 유지하기 위해 매니저
   //     레이아웃에서 제거한다(중복 노출 방지). 다른 역할(accountant) 레이아웃에는
   //     그대로 남는다.
-  //   - "units-import-suggestion" 카드는 더 이상 노출하지 않는다.
+  //   - [Task #516] "units-import-suggestion" 카드는 첫 필수업무 카드로 다시
+  //     격상되었다(Task #503 의 "노출 안 함" 결정을 뒤집음). 호실·소유자 마스터
+  //     세팅이 완료되어야 그 위에 쌓이는 입주민/회계/공지 기능이 정상 동작하므로,
+  //     캠페인 배너 바로 다음 자리에 둔다. 호실/동기화 이력이 충분하면 위젯 내부
+  //     에서 자동으로 "완료 요약" 모드로 전환되어 매일 보여도 시끄럽지 않다.
   manager: {
     widgets: [
       "campaign-banner",
+      // [Task #516] 첫 필수업무 — 호실·소유자 마스터 마법사 진입.
+      "units-import-suggestion",
       "manager-main",
       "delinquency-summary",
       "building-info",

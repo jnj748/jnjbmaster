@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ImportUnitsFromRegisterBody = {
-  dryRun?: boolean;
-  includeOwners?: boolean;
+export type LookupOwnersBodyTargetsItem = {
+  dong: string;
+  unitNumber: string;
 };

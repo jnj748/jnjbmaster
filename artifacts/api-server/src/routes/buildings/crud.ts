@@ -39,7 +39,8 @@ const BUILDING_BOOL_DEFAULTS: Record<string, boolean> = {
   hasPlayground: false, hasGas: true, hasSepticTank: true, safetyManagerRequired: false,
 };
 // [Task #328] 건축물대장 표제부/총괄표제부 원본을 통째로 저장하는 jsonb 필드.
-const BUILDING_JSON_FIELDS = ["registerData"] as const;
+// [Task #516] 다동 단지의 동(棟)별 표제부 PK 캐시(registerDongPks) 도 동일 채널로 저장.
+const BUILDING_JSON_FIELDS = ["registerData", "registerDongPks"] as const;
 
 // [Task #475] 저장 직전, sido/sigungu 가 비어 있고 addressFull/addressJibun 이
 //   있으면 한국어 주소 첫 토큰들로 자동 도출해 채운다. 클라이언트가 카카오

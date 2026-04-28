@@ -8,11 +8,16 @@
 import type { ImportUnitPreviewItemAction } from "./importUnitPreviewItemAction";
 
 export interface ImportUnitPreviewItem {
+  dong: string;
   floor: string;
   unitNumber: string;
   exclusiveArea: number;
   commonArea: number;
   /** @nullable */
   usage: string | null;
+  /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
   action: ImportUnitPreviewItemAction;
 }
