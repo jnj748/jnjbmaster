@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ImageDown, Share2, Printer } from "lucide-react";
 import type { A4DocumentFrameHandle } from "@/components/a4-document-frame";
+// [Task #554] printIsolatedNode 는 daily/weekly/monthly-tab 에서 직접 import.
+// 이 파일은 withReadyDoc(frame transform 해제) 책임만 유지한다.
 
 /**
  * [Task #205] 일/주/월 일지 공통 액션 버튼.

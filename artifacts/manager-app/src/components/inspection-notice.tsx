@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Printer } from "lucide-react";
 import { AuthImage } from "@/components/auth-image";
+import { printIsolatedNode } from "@/lib/print-isolate";
 
 export const CATEGORY_LEGAL_BASIS: Record<string, string> = {
   elevator: "승강기 안전관리법 제32조 (정기검사)",
@@ -117,10 +118,23 @@ export function InspectionNotice({
   const inspectionDate = formatNoticeDate(inspection.nextDueDate);
 
   function handlePrint() {
+    // [Task #554] setEditMode(false) 후 React 가 폼→프리뷰 전환을 commit 하기
+    //   전에 클론을 뜨면 편집 입력 박스가 그대로 인쇄될 수 있다. 안정된 프리뷰
+    //   DOM 을 클론하기 위해 두 번의 requestAnimationFrame 후 호출한다.
+    //
+    //   왜 2번? React 18 의 useState 갱신은 다음 프레임에 commit, 그 commit 이
+    //   가져오는 layout 변경(폼 unmount→프리뷰 mount)은 그 다음 프레임에
+    //   paint 된다. setTimeout(100ms) 보다 결정적이며 느린 디바이스에서도
+    //   "프레임이 그려진 다음" 이라는 의미가 변하지 않는다.
+    //
+    //   printIsolatedNode 자체가 또 한 번 rAF 양보 후 window.print() 를 호출하
+    //   므로 총 3 프레임 후 인쇄 다이얼로그가 뜬다(여전히 사용자 체감상 즉시).
     setEditMode(false);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        printIsolatedNode(printRef.current);
+      });
+    });
   }
 
   return (

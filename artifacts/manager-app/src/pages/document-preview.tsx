@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Share2, Download, Printer } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { printIsolatedNode } from "@/lib/print-isolate";
 import {
   A4DocumentFrame,
   type A4DocumentFrameHandle,
@@ -143,8 +144,12 @@ export default function DocumentPreviewPage() {
   }
 
   function handlePrint() {
+    // [Task #554] withReady 가 frame 의 transform 을 풀어준 뒤,
+    //   printIsolatedNode 가 .a4-document 노드를 `<body>` 직속 격리
+    //   컨테이너로 deep-clone 해 인쇄. inline padding(48px 56px) 은
+    //   격리 시 @media print 의 padding:5mm 가 우선해 동일한 본문 폭이 유지된다.
     void withReady(() => {
-      window.print();
+      printIsolatedNode(documentRef.current);
     });
   }
 

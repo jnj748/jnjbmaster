@@ -16,6 +16,7 @@ import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-doc
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import { fillNoticeTemplate } from "@/lib/notice-layout";
+import { printIsolatedNode } from "@/lib/print-isolate";
 import {
   downloadElementAsPng,
   elementToDocxBlob,
@@ -200,8 +201,13 @@ export function CompletionNotice({
   }
 
   function handlePrint() {
+    // [Task #554] withReadyDocument 가 편집 모드를 닫고 frame 의 transform 을
+    //   풀어준 뒤, printIsolatedNode 가 .a4-document 노드를 `<body>` 직속
+    //   격리 컨테이너로 deep-clone 해 인쇄한다. 모달/드로어 wrapper 의
+    //   positioning 영향을 완전히 우회하므로 좌·우 정렬 + 다중 페이지 자연
+    //   흐름이 동시에 보장된다(이전 #543~#545 의 position:fixed 회귀 해결).
     void withReadyDocument(() => {
-      window.print();
+      printIsolatedNode(documentRef.current);
     });
   }
 

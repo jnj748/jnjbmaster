@@ -13,6 +13,7 @@ import {
   type WeeklyReport,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
+import { printIsolatedNode } from "@/lib/print-isolate";
 
 export function WeeklyTab() {
   const [weekStart, setWeekStart] = useState(mondayOf(todayISO()));
@@ -71,7 +72,10 @@ export function WeeklyTab() {
     }
   }
   function print() {
-    void withReadyDoc(frameRef, () => { window.print(); });
+    // [Task #554] withReadyDoc + printIsolatedNode 조합으로 모달 외부 격리
+    //   컨테이너에 .a4-document 를 deep-clone 해 인쇄. 자연 블록 흐름으로
+    //   다중 페이지 정상 출력(이전 #543~#545 회귀 해결).
+    void withReadyDoc(frameRef, () => { printIsolatedNode(ref.current); });
   }
 
   return (

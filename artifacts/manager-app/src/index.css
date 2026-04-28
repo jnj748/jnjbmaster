@@ -342,143 +342,70 @@ h1, h2, h3, h4 {
   z-index: 5;
 }
 
-@media print {
-  .a4-document-frame {
-    overflow: visible !important;
-    background: white !important;
-    padding: 0 !important;
-    height: auto !important;
-    width: auto !important;
-    margin: 0 !important;
-    position: static !important;
-    display: block !important;
-  }
-  .a4-document-frame > * {
-    transform: none !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  .a4-document-actions {
-    display: none !important;
-  }
+/*
+ * [Task #554] 인쇄 격리 컨테이너 (`<body>` 직속 `[data-print-root]`).
+ *
+ *   `lib/print-isolate.ts` 의 printIsolatedNode() 가 인쇄 직전 대상 노드를
+ *   deep-clone 해서 이 컨테이너에 넣고 `body[data-printing]` 플래그를 켠다.
+ *   화면(@media screen) 에서는 항상 숨겨 두고, 인쇄(@media print) 일 때만
+ *   `body[data-printing]` 와 함께 보이도록 한다 — 인쇄 다이얼로그가 열린
+ *   순간 다른 본문이 잠깐 비치는 것을 방지한다.
+ */
+[data-print-root] {
+  display: none;
 }
 
 @media print {
   /*
-   * [Task #545] 인쇄 좌표 안전 보정 — 더 단단한 버전.
+   * [Task #554] 인쇄 격리 기반의 단일 진실원(single source of truth) 인쇄 규칙.
    *
-   *   배경: Task #543 에서 다이얼로그를 `position: absolute; left:0; top:0` 로
-   *   바꿔 .a4-document 의 컨테이닝 블록이 다이얼로그가 되도록 했다.
-   *   그런데 실제 인쇄 미리보기에서 본문이 페이지 좌측으로 밀려 왼쪽이
-   *   잘리는 현상이 재현되었다(첨부: 기안서 인쇄 미리보기 캡처).
+   *   배경(전사): Task #543~#545 는 모달(Radix Dialog)/드로어(Vaul) 안에서
+   *     인쇄할 때 본문이 좌·우로 어긋나는 현상을 잡으려고 (a) 본문까지 가는
+   *     모든 wrapper 의 positioning/transform 을 정적으로 풀고 (b) `.a4-document`
+   *     자체를 `position: fixed; left:0; top:0; right:0; bottom:auto` 로 페이지에
+   *     못박았다. 좌·우 정렬은 잡혔으나 두 회귀가 따라왔다.
+   *       (1) 본문이 페이지 상단이 아니라 중상단부터 시작 (위 빈 공간 누적)
+   *       (2) 1페이지 분량을 넘는 문서의 2페이지 이후가 통째로 백지로 출력
+   *     `position: fixed` 요소는 인쇄에서 다음 페이지로 흘러가지 않기 때문이다.
    *
-   *   원인: 다이얼로그(=DialogPrimitive.Content)가 absolute 로 잡히는 순간,
-   *     - 다이얼로그가 .a4-document 의 컨테이닝 블록이 된다
-   *     - 다이얼로그 width:100% 는 그 다이얼로그의 컨테이닝 블록(=라디스
-   *       포털/body) 폭을 따른다
-   *     - 라디스 포털이 fixed/transform 등을 갖고 있거나 그 위에 다른 wrapper
-   *       (Tailwind의 `fixed inset-0` 등) 가 끼면, .a4-document 의 left:0 가
-   *       페이지 좌상단이 아니라 그 wrapper 좌상단이 되어 ±수십 px 어긋난다.
+   *   해결: `lib/print-isolate.ts` 의 printIsolatedNode() 가 인쇄 직전
+   *     `.a4-document`/`.inspection-notice-print` 노드를 deep-clone 해 `<body>`
+   *     직속 `[data-print-root]` 컨테이너로 옮긴다. 이 컨테이너는 다이얼로그/
+   *     드로어/포털 등 어떤 positioned wrapper 안에도 있지 않으므로 본문의
+   *     컨테이닝 블록은 자연스럽게 *initial containing block*(=@page content area)
+   *     이 된다. `position: fixed` 없이도 좌·우 정렬과 다중 페이지 자연 흐름이
+   *     동시에 보장된다 — 두 회귀를 한 번에 해결.
    *
-   *   해결: 다이얼로그·드로어·포털 등 *모든* 중간 wrapper 의 positioning 을
-   *     일괄 `static` 으로 풀고, .a4-document 만 `position: absolute` 로
-   *     남긴다. 이러면 .a4-document 의 컨테이닝 블록은 가장 가까운 positioned
-   *     ancestor 가 없으므로 *initial containing block* (= 인쇄 시 @page
-   *     content area = A4 - @page margin) 이 된다. left:0 / right:0 가 곧바로
-   *     @page margin 안쪽 콘텐츠 영역의 좌·우 가장자리에 매핑되어 어떤
-   *     wrapper 깊이/너비에서도 잘리지 않는다.
+   *   본 블록은 격리 컨테이너 외 모든 body 형제(=#root, Radix/Vaul 포털,
+   *   토스트 컨테이너 등) 를 인쇄에서 숨기고, 컨테이너 안 본문에는 자연스러운
+   *   블록 흐름용 폭/여백/색상만 강제한다. 이전 버전이 wrapper 마다 걸어두던
+   *   `position: static !important; transform: none !important; ...` 무력화는
+   *   격리로 인해 더 이상 필요 없어 모두 제거되었다.
    */
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
-    transform: none !important;
-    position: static !important;
   }
 
-  body * {
-    visibility: hidden;
+  body[data-printing] > *:not([data-print-root]) {
+    display: none !important;
   }
 
-  .a4-document,
-  .a4-document *,
-  .inspection-notice-print,
-  .inspection-notice-print * {
-    visibility: visible !important;
-  }
-
-  /*
-   * [Task #545] 다이얼로그·드로어·포털·프레임 등 .a4-document 까지의 모든
-   *   중간 wrapper 를 정적(static) 블록으로 풀어 컨테이닝 블록을 만들지
-   *   않게 한다. 동시에 fixed/absolute 가 만들어내던 가운데 정렬 transform
-   *   도 비워, .a4-document 가 페이지 콘텐츠 영역 좌상단에 그대로 정렬되도록 한다.
-   */
-  [data-radix-portal],
-  [data-state="open"][role="dialog"],
-  [data-vaul-drawer],
-  [data-vaul-drawer-wrapper],
-  .a4-document-frame {
-    position: static !important;
-    inset: auto !important;
-    left: auto !important;
-    top: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    transform: none !important;
-    animation: none !important;
-    overflow: visible !important;
-    display: block !important;
-  }
-
-  .a4-document-frame > * {
-    position: static !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
+  body[data-printing] > [data-print-root] {
     display: block !important;
   }
 
   /*
-   * [Task #545] 본문은 인쇄 시 absolute 로 띄워 페이지 콘텐츠 영역의
-   *   좌상단(0,0) 에 고정한다. 위에서 모든 ancestor 의 positioning 을 풀어
-   *   놓았으므로 컨테이닝 블록은 initial containing block(=@page content area)
-   *   이고, left:0 / right:0 / width:auto 로 좌·우 정확히 같은 시각적 여백이
-   *   확보된다(좌·우 비대칭 잘림 방지).
-   *
-   *   padding: 5mm — @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백이
-   *   유지되어, 이전(@page margin:0 + padding:15mm) 과 같은 본문 폭/줄 수가
-   *   재현된다. document-preview.tsx 가 inline padding(48px 56px) 을 줘도
-   *   인쇄 시에는 이 규칙(!important) 이 우선한다.
+   * 격리 컨테이너 안 본문은 자연스러운 블록 흐름으로 둔다.
+   *   - width: auto / max-width: none → 페이지 콘텐츠 영역(=A4 - @page margin)
+   *     폭에 맞춰 좌·우 비대칭 없이 채워진다.
+   *   - min-height: 0 → 화면용 `min-height: 297mm` 가 짧은 문서에서 강제로
+   *     2페이지를 만들지 않게 한다.
+   *   - padding: 5mm → @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백을
+   *     유지(이전 인쇄 padding 15mm 와 동일).
    */
-  /*
-   * [Task #544] 본문은 모달/드로어 등 상위 컨테이닝 블록의 위치에 영향을 받지
-   *   않도록 `position: fixed` 로 시점 자체를 페이지(=뷰포트=인쇄 페이지)에
-   *   직접 고정한다. `position: absolute` 는 가장 가까운 positioned 조상이
-   *   컨테이닝 블록이 되는데, 다이얼로그/드로어가 화면 가운데에 떠 있으면
-   *   left/right=0 이 그 컨테이너 기준으로 잡혀 페이지 좌표상 음수 영역으로
-   *   밀려난다(Task #543 → #544 회귀 검증에서 실측 left=-261~-451px).
-   *   fixed 는 인쇄 시에도 @page 영역 자체를 컨테이닝 블록으로 사용하므로
-   *   left:0 / right:0 만으로 항상 페이지 가로 전체를 차지하게 된다.
-   */
-  .a4-document {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    right: 0 !important;
-    bottom: auto !important;
+  body[data-printing] [data-print-root] .a4-document {
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
@@ -492,12 +419,7 @@ h1, h2, h3, h4 {
     transform: none !important;
   }
 
-  .inspection-notice-print {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    right: 0 !important;
-    bottom: auto !important;
+  body[data-printing] [data-print-root] .inspection-notice-print {
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
@@ -511,39 +433,13 @@ h1, h2, h3, h4 {
     transform: none !important;
   }
 
+  /*
+   * 격리되지 않은 인쇄 경로(예: 대시보드 위젯의 즉시 window.print()) 에서는
+   * `body[data-printing]` 가 켜지지 않아 위 규칙들이 적용되지 않는다. 그쪽은
+   * "화면 전체를 그대로 인쇄" 동작이므로 최소한 `print:hidden` 만 보장한다.
+   */
   .print\:hidden {
     display: none !important;
-  }
-
-  /*
-   * [Task #544] Tailwind v4 의 standalone CSS 속성 중화.
-   *
-   *   Task #545 가 .a4-document 까지의 모든 wrapper(dialog/drawer/portal/frame)
-   *   를 `position: static !important; transform: none !important` 로 풀어
-   *   컨테이닝 블록 생성을 차단했지만, Tailwind v4 는 `.translate-x-[-50%]`
-   *   같은 유틸을 standalone CSS 속성(`translate: var(--tw-translate-x) ...`)
-   *   으로 내보내기 때문에 `transform: none` 만으로는 막히지 않는다.
-   *   `translate` / `rotate` / `scale` / `perspective` / `will-change` /
-   *   `backdrop-filter` / `filter` 는 모두 absolute/fixed 자손의 컨테이닝 블록을
-   *   만들 수 있으므로(인쇄 매체에서 시각적 효과는 무의미하므로) body 하위
-   *   전 요소에 일괄로 비활성화한다.
-   *
-   *   회귀 검증(Task #544 e2e): 1280×800 desktop Dialog + 400×720 mobile Drawer
-   *   에서 CompletionNotice 3종(notice/report/draft) + InspectionNotice 의
-   *   .a4-document / .inspection-notice-print 좌표를 측정한 결과, 이 규칙이
-   *   없으면 모바일 Drawer 분기에서 본문이 left=-261~-640px 로 어긋났다.
-   */
-  body * {
-    transform: none !important;
-    translate: none !important;
-    rotate: none !important;
-    scale: none !important;
-    perspective: none !important;
-    animation: none !important;
-    will-change: auto !important;
-    contain: none !important;
-    backdrop-filter: none !important;
-    filter: none !important;
   }
 }
 

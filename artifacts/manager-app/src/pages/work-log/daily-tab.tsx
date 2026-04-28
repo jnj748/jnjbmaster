@@ -19,6 +19,7 @@ import {
   type DailyJournal, type DailyReport, type Status,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
+import { printIsolatedNode } from "@/lib/print-isolate";
 
 export function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWizard?: boolean; onAutoOpenConsumed?: () => void } = {}) {
   // [Task #250] 처리 내역에서 일지 행을 클릭하면 ?date=YYYY-MM-DD 가 함께 전달되어
@@ -135,8 +136,12 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
     }
   }
   function print() {
+    // [Task #554] withReadyDoc 가 frame 의 transform-scale 을 잠시 풀어준 뒤,
+    //   printIsolatedNode 가 .a4-document 노드를 `<body>` 직속 격리 컨테이너로
+    //   deep-clone 해 인쇄한다. 이전 #543~#545 의 `position: fixed` 회귀
+    //   (본문 중상단부터 시작 + 2페이지 이후 백지) 를 자연 블록 흐름으로 해결.
     void withReadyDoc(frameRef, () => {
-      window.print();
+      printIsolatedNode(ref.current);
     });
   }
 

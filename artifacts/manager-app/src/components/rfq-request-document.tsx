@@ -14,6 +14,7 @@ import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
 import { rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
+import { printIsolatedNode } from "@/lib/print-isolate";
 import {
   downloadElementAsPng,
   openMailtoWithDocument,
@@ -110,8 +111,12 @@ export function RfqRequestDocument({
   }
 
   function handlePrint() {
+    // [Task #554] withReadyDocument 가 편집 모드 종료 + frame transform 해제
+    //   를 끝낸 뒤, printIsolatedNode 가 .a4-document 노드를 `<body>` 직속
+    //   격리 컨테이너로 deep-clone 해 인쇄. 다이얼로그 wrapper 영향을 우회해
+    //   다중 페이지 자연 흐름과 좌·우 정렬을 동시에 보장.
     void withReadyDocument(() => {
-      window.print();
+      printIsolatedNode(documentRef.current);
     });
   }
 
