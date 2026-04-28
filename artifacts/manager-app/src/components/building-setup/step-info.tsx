@@ -112,10 +112,13 @@ export function StepInfo({
 
       <Card>
         <CardHeader>
-          {/* [Task #458] 카드 제목 옆 ‘수정하기’ 버튼. 누르면 페이지 전체 입력 필드가 풀린다. */}
+          {/* [Task #458/#531] 카드 제목 옆 ‘수정하기’ 버튼. 누르면 페이지 전체 입력 필드가 풀린다.
+              신규 건물(existingId === null)에서는 수정할 대상 자체가 없으므로 노출하지 않는다 —
+              이미 진입 시점부터 편집 모드라서 무의미한 데다, 사용자에게 ‘저장 전에 또 뭘 눌러야
+              하나’ 라는 혼선을 키운다. */}
           <div className="flex items-center justify-between gap-2">
             <CardTitle>건물 상세 정보</CardTitle>
-            {!isEditing && (
+            {!isEditing && existingId !== null && (
               <Button
                 type="button"
                 variant="outline"
@@ -447,23 +450,30 @@ export function StepInfo({
       {/* [Task #412] "법정업무 선택" 탭 제거에 따라 선택된 법정업무 안내 박스도 제거.
           관련 자동 추가 로직은 use-building-setup.ts에 그대로 보존되어 백엔드 스케줄에 반영. */}
 
-      {/* [Task #458] 편집 모드일 때만 저장/취소 버튼을 노출한다.
-          - 저장 성공 시 hook 이 isEditing 을 false 로 되돌리며 ‘수정하기’ 버튼이 다시 보인다.
-          - 취소 시 마지막 저장 스냅샷으로 되돌리고 읽기 전용으로 복귀한다. */}
-      {isEditing && (
+      {/* [Task #458/#531] 편집 모드(isEditing) 또는 신규 건물(existingId === null) 일 때 저장
+          버튼을 노출한다.
+          - 신규 건물에서는 hook 이 진입 시 isEditing=true 로 두므로 두 조건 모두 만족하지만,
+            방어적으로 OR 결합을 유지해 isEditing 초기값에 의존하지 않게 한다.
+          - 저장 성공 시 hook 이 isEditing 을 false 로 되돌리며, 이때 existingId 가 채워져
+            ‘수정하기’ 버튼이 다시 보이는 흐름으로 자연스럽게 전환된다.
+          - 취소 버튼은 신규 건물에서는 ‘되돌릴 마지막 저장 스냅샷’ 자체가 비어 있어 의미가
+            없으므로 숨긴다. 기존 건물 편집 흐름에서만 노출. */}
+      {(isEditing || existingId === null) && (
         <div className="flex flex-col-reverse desktop:flex-row gap-2">
-          <Button
-            type="button"
-            onClick={cancelEdit}
-            disabled={saving}
-            variant="outline"
-            className="desktop:w-32"
-            size="lg"
-            data-testid="button-cancel-edit-building-info"
-          >
-            <X className="w-4 h-4 mr-2" />
-            취소
-          </Button>
+          {isEditing && existingId !== null && (
+            <Button
+              type="button"
+              onClick={cancelEdit}
+              disabled={saving}
+              variant="outline"
+              className="desktop:w-32"
+              size="lg"
+              data-testid="button-cancel-edit-building-info"
+            >
+              <X className="w-4 h-4 mr-2" />
+              취소
+            </Button>
+          )}
           <Button
             onClick={saveBuilding}
             disabled={saving || !building.name}

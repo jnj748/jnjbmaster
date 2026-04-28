@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -69,20 +70,30 @@ export const EMPTY_BUILDING: BuildingData = {
 };
 
 export function useBuildingSetup() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { toast } = useToast();
+  // [Task #531] 저장 성공 직후 BuildingProvider 캐시(["building","my",userId])와
+  //   호실 목록 캐시("/api/units")를 즉시 무효화해, 사용자가 호실관리로 돌아갔을 때
+  //   "건물 정보 저장 먼저" 안내가 사라지고 다음 단계가 바로 노출되도록 한다.
+  const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [building, setBuilding] = useState<BuildingData>(EMPTY_BUILDING);
   const [existingId, setExistingId] = useState<number | null>(null);
-  // [Task #458] 건물정보 수정 화면의 편집 가드.
-  //   - 기본 false (읽기 전용) — 진입 시 모든 입력이 비활성화돼 실수로 값이 바뀌지 않게 한다.
-  //   - 사용자가 ‘수정하기’ 버튼을 눌러야 true 가 되어 입력이 풀린다.
+  // [Task #458/#531] 건물정보 수정 화면의 편집 가드.
+  //   - 기본값은 true (편집 가능) — 신규 사용자가 진입 시 곧바로 입력/저장이 가능해야 한다.
+  //     이전에는 기본 false 였는데, 이 경우 신규 건물에서는 ‘수정할 대상’ 자체가 없어
+  //     ‘수정하기’ 버튼을 눌러야 한다는 발상을 못 하고 그대로 화면을 떠나, POST /buildings
+  //     가 한 번도 호출되지 않는 회귀(#531)가 발생했다.
+  //   - fetchBuilding 결과로 기존 건물(existingId)이 채워질 때만 false 로 잠근다.
+  //     데이터가 없는 경로(building: null)에서는 true 를 유지한다.
+  //   - 짧은 로딩 구간에서 깜빡이지 않도록, 페이지 컴포넌트는 setup.loading 동안 스켈레톤만
+  //     보여주므로 초기값은 true 로 두어도 안전하다.
   //   - lastSavedBuildingRef 는 ‘취소’ 시 되돌릴 마지막 저장 상태(=서버에서 마지막으로 받은 값
   //     또는 가장 최근 저장 직전의 building 스냅샷)를 보관한다.
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
   const lastSavedBuildingRef = useRef<BuildingData>(EMPTY_BUILDING);
   const [safetyResult, setSafetyResult] = useState<SafetyResult | null>(null);
   // [Task #458] 편집 진입 시 안전관리자 분석 결과를 함께 스냅샷하여, 취소 시 폼과 함께 되돌린다.
@@ -671,6 +682,15 @@ export function useBuildingSetup() {
         //   편집 모드를 종료해 다시 읽기 전용 상태로 돌아가게 한다.
         lastSavedBuildingRef.current = building;
         setIsEditing(false);
+        // [Task #531] BuildingProvider 캐시(["building","my",userId])는 staleTime 10분이라
+        //   저장 직후 호실관리로 돌아가도 building: null 을 그대로 돌려줘서 "건물 정보 저장
+        //   먼저" 안내가 다시 노출되는 회귀가 있었다. 저장 성공 시점에 즉시 무효화한다.
+        //   호실 목록 캐시(/api/units)도 같은 자리에서 함께 무효화해, 새 건물 컨텍스트가
+        //   호실 페이지에 즉시 반영되도록 한다.
+        if (user?.id) {
+          queryClient.invalidateQueries({ queryKey: ["building", "my", user.id] });
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/units"] });
         // [Task #412] 단일 화면 구조에서는 단계 이동이 없으므로 setActiveStep 호출 제거.
         const params = new URLSearchParams(window.location.search);
         const returnTo = params.get("returnTo");
