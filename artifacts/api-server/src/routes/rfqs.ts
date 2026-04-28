@@ -31,7 +31,7 @@ const managerOnly = requireRole("manager", "platform_admin");
 
 // [Task #226] 파트너 시점에서 RFQ 카드에 즉시 표시할 예상 차감 / 환불 정책 메타를 부착한다.
 // 카드 1장당 별도 요청을 못 하기 때문에 서버에서 batch 로 채워 보낸다.
-async function enrichWithExpectedCredits<T extends { id: number; category: string; sido: string | null; sigungu: string | null; buildingId: number | null; estimatedAmount: number | null; }>(
+async function enrichWithExpectedCredits<T extends Record<string, unknown> & { id: number; category: string; sido: string | null; sigungu: string | null; buildingId: number | null; estimatedAmount: number | null; }>(
   rows: T[],
 ): Promise<Array<T & { expectedCreditCost: number | null; expectedCreditScope: "sigungu" | "sido" | "default" | null; noViewRefundDays: number | null; noViewRefundRatio: number | null; }>> {
   if (rows.length === 0) return [];
@@ -89,6 +89,30 @@ function toIsoDate(d: Date | string | null | undefined): string | null {
   return d;
 }
 
+// [Task #510] drizzle 의 timestamp 컬럼은 Date 객체로 돌아오는 반면, 우리가
+//   응답으로 사용하는 zod 스키마(UpdateRfqResponse / ListRfqsResponseItem 등)
+//   는 createdAt/updatedAt 을 ISO datetime string 으로 기대한다. 그대로
+//   .parse 를 태우면 ZodError 가 터져 INSERT 자체는 성공했음에도 클라이언트는
+//   500 을 받고 사용자 입장에서는 "버튼이 죽은 것 처럼" 보였다 (견적 요청 모달
+//   제출 무반응 이슈). 응답 스키마는 건드리지 않고, 직렬화 단계에서만
+//   Date → ISO string / YYYY-MM-DD 로 정규화한다.
+type RfqRowDateFields = {
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+  deadline?: Date | string | null;
+  desiredDate?: Date | string | null;
+};
+
+function serializeRfqRow<T extends RfqRowDateFields>(row: T): T {
+  return {
+    ...row,
+    desiredDate: toIsoDate(row.desiredDate),
+    deadline: toIsoDate(row.deadline),
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  };
+}
+
 router.get("/rfqs", async (req, res): Promise<void> => {
   const params = ListRfqsQueryParams.safeParse(req.query);
   const conditions = [];
@@ -120,7 +144,7 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       return r.vendorIds.split(",").includes(vendorId);
     });
     const enriched = await enrichWithExpectedCredits(filtered);
-    res.json(ListRfqsResponse.parse(enriched));
+    res.json(ListRfqsResponse.parse(enriched.map(serializeRfqRow)));
     return;
   }
 
@@ -157,11 +181,11 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       return false;
     });
     const enriched = await enrichWithExpectedCredits(filtered);
-    res.json(ListRfqsResponse.parse(enriched));
+    res.json(ListRfqsResponse.parse(enriched.map(serializeRfqRow)));
     return;
   }
 
-  res.json(ListRfqsResponse.parse(rfqs));
+  res.json(ListRfqsResponse.parse(rfqs.map(serializeRfqRow)));
 });
 
 // [Task #226] HQ 어드민 대시보드용 매칭/제출/환불 통계.
@@ -306,11 +330,11 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
 
   if (req.user?.role === "partner") {
     const [enriched] = await enrichWithExpectedCredits([rfq]);
-    res.json(GetRfqResponse.parse(enriched ?? rfq));
+    res.json(GetRfqResponse.parse(serializeRfqRow(enriched ?? rfq)));
     return;
   }
 
-  res.json(GetRfqResponse.parse(rfq));
+  res.json(GetRfqResponse.parse(serializeRfqRow(rfq)));
 });
 
 router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
@@ -420,7 +444,11 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     });
     throw e;
   }
-  res.status(201).json(UpdateRfqResponse.parse(rfq));
+  // [Task #510] drizzle 가 timestamp/date 컬럼을 Date 객체로 돌려주기 때문에
+  //   응답 스키마(UpdateRfqResponse) 의 string 기대치와 어긋나 INSERT 성공
+  //   직후 ZodError → 500 이 발생했었다. serializeRfqRow 로 Date → ISO string
+  //   정규화만 거친 뒤 .parse 에 넘긴다.
+  res.status(201).json(UpdateRfqResponse.parse(serializeRfqRow(rfq)));
 });
 
 router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<void> => {
@@ -469,7 +497,7 @@ router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<vo
     .where(eq(rfqsTable.id, params.data.id))
     .returning();
 
-  res.json(ExpandRfqScopeResponse.parse(updated));
+  res.json(ExpandRfqScopeResponse.parse(serializeRfqRow(updated)));
 });
 
 router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
@@ -515,7 +543,7 @@ router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
     }
   }
 
-  res.json(UpdateRfqResponse.parse(rfq));
+  res.json(UpdateRfqResponse.parse(serializeRfqRow(rfq)));
 });
 
 router.delete("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {

@@ -73,6 +73,26 @@ import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/interm
 import { RfqMatchStatsCard } from "@/pages/settings";
 import { VendorRatingInline } from "@/components/star-rating";
 
+// [Task #510] orval 이 만든 axios 기반 mutation 은 실패 시 AxiosError 를
+//   throw 하고 서버 본문은 err.response.data 에 담긴다. catch 블록에서
+//   `any` 캐스팅 없이도 안전하게 메시지를 뽑기 위한 작은 type guard 헬퍼.
+function extractServerErrorMessage(err: unknown): string | null {
+  if (err && typeof err === "object" && "response" in err) {
+    const response = (err as { response?: unknown }).response;
+    if (response && typeof response === "object" && "data" in response) {
+      const data = (response as { data?: unknown }).data;
+      if (typeof data === "string" && data.length > 0) return data;
+      if (data && typeof data === "object") {
+        const obj = data as { error?: unknown; message?: unknown };
+        if (typeof obj.error === "string" && obj.error.length > 0) return obj.error;
+        if (typeof obj.message === "string" && obj.message.length > 0) return obj.message;
+      }
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return null;
+}
+
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
   { value: "water_tank", label: "저수조" },
@@ -308,7 +328,28 @@ export default function Rfqs() {
       widePhotoUrl,
     };
 
-    await createMutation.mutateAsync({ data });
+    // [Task #510] 이전에는 mutateAsync 를 try/catch 없이 호출해, 서버/네트워크
+    //   오류 시 promise rejection 만 나고 사용자에게는 아무 변화도 보이지 않는
+    //   "버튼이 안 눌리는 것 같다" 상태가 되었다. 어떤 실패라도 destructive
+    //   토스트로 노출하고, 성공 분기에서만 다이얼로그 닫기/리셋을 수행한다.
+    try {
+      await createMutation.mutateAsync({ data });
+    } catch (err: unknown) {
+      console.error("[rfqs] create RFQ failed:", err);
+      // orval 이 만든 axios 기반 mutation 은 실패 시 AxiosError 를 throw 하며,
+      //   서버에서 보낸 본문은 err.response.data 에 담긴다.
+      //   가능한 한 서버 응답의 message/error 텍스트를 그대로 보여 주고,
+      //   그렇지 않으면 일반 폴백 메시지를 사용한다.
+      const serverMessage = extractServerErrorMessage(err);
+      toast({
+        title: "견적 요청 생성에 실패했습니다",
+        description:
+          serverMessage ||
+          "잠시 후 다시 시도하거나, 입력값과 네트워크 상태를 확인해 주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
     toast({ title: "견적 요청이 생성되었습니다" });
     setDialogOpen(false);
@@ -415,7 +456,11 @@ export default function Rfqs() {
           </ResponsiveDialogTrigger>
           <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>새 견적 요청</ResponsiveDialogTitle>
+              {/* [Task #510] 모달 제목을 하단 제출 버튼 라벨과 동일한 "파트너사
+                   비교견적받기" 로 통일해 사용자가 어떤 액션이 일어나는지
+                   명확히 알 수 있도록 한다. 트리거 버튼(헤더의 "+ 견적 요청")
+                   라벨은 그대로 유지. */}
+              <ResponsiveDialogTitle>파트너사 비교견적받기</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!buildingReady && (
@@ -566,8 +611,16 @@ export default function Rfqs() {
                   남은 필수 항목: {missingItems.join(", ")}
                 </p>
               )}
-              <Button type="submit" className="w-full" data-testid="rfq-submit">
-                파트너사 비교견적받기
+              {/* [Task #510] 제출 진행 중에는 버튼을 비활성화해 더블 클릭으로
+                   인한 중복 생성과 "버튼이 안 눌리는 것 같다" 는 인상을 막는다.
+                   누락 항목 검증은 onClick 시점 토스트로 별도로 안내한다. */}
+              <Button
+                type="submit"
+                className="w-full"
+                data-testid="rfq-submit"
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? "요청을 보내는 중..." : "파트너사 비교견적받기"}
               </Button>
             </form>
           </ResponsiveDialogContent>
