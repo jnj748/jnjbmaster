@@ -1,68 +1,42 @@
-// [Task #496] buildings 라우터 분리 — (테스트업무) 4건 멱등 시드 헬퍼·트리거.
+// [Task #496] buildings 라우터 분리 — (테스트업무) 카드 멱등 시드 헬퍼·트리거.
 //   원본 routes/buildings.ts 의 ensureTestInspectionsForBuilding (export) 와
 //   POST /buildings/seed-test-inspections 를 그대로 옮긴다. crud.ts 의
 //   POST /buildings 핸들러도 첫 등록 시 같은 헬퍼를 호출한다.
+//   [Task #567] 시드 카드는 정화조·교육·에어컨 3건이며, 이전 fire 카드(호실데이터
+//   불러오기/소방점검) 잔존 행은 호출 시마다 정리한다.
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, usersTable, inspectionsTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 
-// [Task #268] 신규 매니저 첫 화면 체험용 (테스트업무) 4건을 멱등하게 시드한다.
+// [Task #268] 신규 매니저 첫 화면 체험용 (테스트업무) 카드를 멱등하게 시드한다.
 //  - POST /buildings 첫 등록 시점 외에도, 위저드를 강제 종료한 뒤 다시 진입하거나
 //    대시보드에 처음 도달했을 때에도 동일 진입점을 호출해 누락분만 채워 넣는다.
-//  - (buildingId, name) 4종 집합으로 중복 검사하므로 여러 번 호출돼도 항상 4건만 존재한다.
-//  - [Task #491] fire 카드는 "(테스트업무) 소방점검" → "(테스트업무) 호실데이터 불러오기"
-//    로 리네이밍됐다. 동일 건물 내 이전 이름 행이 남아 있으면 신규 이름으로 자연
-//    마이그레이션하여 중복 노출과 누락이 동시에 발생하지 않도록 한다.
+//  - (buildingId, name) 집합으로 중복 검사하므로 여러 번 호출돼도 항상 동일 개수만 존재한다.
+//  - [Task #567] 기존 fire 카드("(테스트업무) 호실데이터 불러오기", 더 이전엔
+//    "(테스트업무) 소방점검") 는 호실 데이터 불러오기 기능 자체가 별도로 구현될
+//    예정이라 시드 대상에서 제외한다. 잔존 행이 있으면 buildingId 기준으로 삭제하여
+//    다음 시드 트리거만으로 자연스럽게 사라지게 한다. 정화조·교육·에어컨 3건만 남는다.
 export async function ensureTestInspectionsForBuilding(buildingId: number): Promise<number> {
   const SEED_NAMES = {
-    fire: "(테스트업무) 호실데이터 불러오기",
     septic: "(테스트업무) 정화조 청소",
     edu: "(테스트업무) 미화·경비원 교육의 달",
     ac: "(테스트업무) 에어컨 가동 전 정비 진행 공지",
   } as const;
-  const LEGACY_FIRE_NAME = "(테스트업무) 소방점검";
+  // [Task #567] 제거된 fire 카드의 과거/현재 이름. 잔존 행이 있으면 정리한다.
+  const REMOVED_FIRE_NAMES = [
+    "(테스트업무) 호실데이터 불러오기",
+    "(테스트업무) 소방점검",
+  ];
   const seedNameList: string[] = Object.values(SEED_NAMES);
 
-  // [Task #491] 이전 이름("(테스트업무) 소방점검")으로 시드된 잔존 행을 신규
-  //   이름으로 흡수한다. 동일 건물에 신규 이름 행이 이미 있으면 이전 이름 행을
-  //   모두 삭제하고, 없으면 한 건만 신규 이름으로 갱신(나머지는 삭제) 한다.
-  const legacyFireRows = await db
-    .select({ id: inspectionsTable.id })
-    .from(inspectionsTable)
+  // [Task #567] 동일 buildingId 안에서 제거된 fire 카드 이름으로 시드된 잔존
+  //   inspections 행을 모두 삭제한다. 멱등 — 다음 시드 트리거 호출 시 빈 결과로 noop.
+  await db
+    .delete(inspectionsTable)
     .where(and(
       eq(inspectionsTable.buildingId, buildingId),
-      eq(inspectionsTable.name, LEGACY_FIRE_NAME),
+      inArray(inspectionsTable.name, REMOVED_FIRE_NAMES),
     ));
-  if (legacyFireRows.length > 0) {
-    const newFireRows = await db
-      .select({ id: inspectionsTable.id })
-      .from(inspectionsTable)
-      .where(and(
-        eq(inspectionsTable.buildingId, buildingId),
-        eq(inspectionsTable.name, SEED_NAMES.fire),
-      ));
-    if (newFireRows.length > 0) {
-      // 신규 이름 행이 이미 있으면 이전 이름 행 전체 제거.
-      await db
-        .delete(inspectionsTable)
-        .where(and(
-          eq(inspectionsTable.buildingId, buildingId),
-          eq(inspectionsTable.name, LEGACY_FIRE_NAME),
-        ));
-    } else {
-      // 한 건만 살려서 새 이름으로 갱신, 나머지는 정리.
-      const [keep, ...extras] = legacyFireRows;
-      await db
-        .update(inspectionsTable)
-        .set({ name: SEED_NAMES.fire })
-        .where(eq(inspectionsTable.id, keep.id));
-      if (extras.length > 0) {
-        await db
-          .delete(inspectionsTable)
-          .where(inArray(inspectionsTable.id, extras.map((r) => r.id)));
-      }
-    }
-  }
 
   const existingTest = await db
     .select({ name: inspectionsTable.name })
@@ -79,17 +53,6 @@ export async function ensureTestInspectionsForBuilding(buildingId: number): Prom
     return d.toISOString().split("T")[0];
   };
   const candidates: Array<typeof inspectionsTable.$inferInsert> = [
-    {
-      buildingId,
-      name: SEED_NAMES.fire,
-      category: "fire_safety",
-      inspectionType: "legal",
-      frequencyPerYear: 2,
-      legalCycleMonths: 6,
-      nextDueDate: plusDays(-3),
-      status: "overdue",
-      advanceAlertDays: 30,
-    },
     {
       buildingId,
       name: SEED_NAMES.septic,

@@ -12,7 +12,6 @@ import {
   type DashboardAlert,
   ACTIONABLE_ALERT_TYPES,
   ALERT_FALLBACK_ROUTES,
-  getTestTaskCardOverride,
 } from "@/lib/alert-utils";
 
 export function useAlertClickHandler(
@@ -23,16 +22,9 @@ export function useAlertClickHandler(
 
   return useCallback(
     (alert: DashboardAlert) => {
-      // [Task #437/#491] (테스트업무) 호실데이터 불러오기 카드(구 "소방점검")는
-      //   처리 모달 대신 호실 관리 화면(/units) 으로 이동시켜 신규 매니저가
-      //   호실 데이터 구성 동선을 자연스럽게 익히도록 한다. 정화조 청소 카드는
-      //   navigateTo 가 없으므로 기존 처리 모달이 그대로 열린다.
-      const testOverride = getTestTaskCardOverride(alert);
-      if (testOverride?.navigateTo) {
-        navigate(testOverride.navigateTo);
-        return;
-      }
-
+      // [Task #567] (테스트업무) 호실데이터 불러오기 카드 전용 분기(/units 직행)는
+      //   카드 자체가 시드에서 제거됨에 따라 함께 제거됐다. 정화조 카드는 일반
+      //   처리 모달 흐름(아래 ACTIONABLE_ALERT_TYPES 분기)을 그대로 사용한다.
       if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
         if (alert.relatedId) {
           setSelectedAlert(alert);

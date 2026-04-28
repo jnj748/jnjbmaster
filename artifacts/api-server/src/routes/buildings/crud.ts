@@ -144,7 +144,7 @@ router.post("/buildings", async (req: Request, res: Response) => {
       })
       .where(eq(usersTable.id, userId));
 
-    // [Task #265/#268] 신규 매니저 첫 건물 등록 시 대시보드 체험용 (테스트업무) 4건을 시드한다.
+    // [Task #265/#268/#567] 신규 매니저 첫 건물 등록 시 대시보드 체험용 (테스트업무) 3건을 시드한다.
     //  - 첫 등록뿐 아니라 위저드 강제 종료 후 재진입 케이스도 동일한 ensureTestInspectionsForBuilding
     //    헬퍼(POST /buildings/seed-test-inspections 와 공유)를 통해 멱등하게 보장된다.
     if (isFirstBuildingForManager) {
@@ -244,7 +244,7 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
     // [Task #278] 매니저가 buildingId 미연결 상태로 PUT을 통해 본인 건물을 저장하면
     // 사용자 행에 buildingId/지역 정보를 함께 채워 둔다. 이후 동일 요청 흐름의
     // POST /buildings/seed-test-inspections 호출이 noop 으로 빠지지 않고 정상적으로
-    // (테스트업무) 4건을 보장한다.
+    // (테스트업무) 3건을 보장한다.
     if (claimManagerForBuilding) {
       try {
         await db.update(usersTable)

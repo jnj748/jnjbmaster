@@ -185,7 +185,7 @@ export default function ManagerWizardPage() {
       console.debug("[manager-wizard] seed-test-inspections failed", origin, e);
     } finally {
       // 시드 성공/실패와 무관하게 대시보드 알림·요약 쿼리를 무효화해
-      // 사용자가 대시보드로 이동하자마자 (테스트업무) 4건이 즉시 보이게 한다.
+      // 사용자가 대시보드로 이동하자마자 (테스트업무) 3건이 즉시 보이게 한다.
       void queryClient.invalidateQueries({ queryKey: getGetDashboardAlertsQueryKey() });
       void queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
       // [Task #489] BuildingProvider 캐시(`["building","my", userId]`) 도 함께 무효화한다.
@@ -506,7 +506,7 @@ export default function ManagerWizardPage() {
       setBuilding(merged);
       // [Task #278] 건물 정보 저장 성공 직후 (POST/PUT 무관) 멱등 시드 보장.
       // finalize/closeWizard 의 다중 안전망은 그대로 두고, 저장→다음 단계 사이의
-      // 빈 구간에서도 (테스트업무) 4건이 누락 없이 노출되도록 한다.
+      // 빈 구간에서도 (테스트업무) 3건이 누락 없이 노출되도록 한다.
       void seedTestInspectionsAndInvalidate(method === "POST" ? "post-save" : "put-save");
       setStep("info");
     } catch (e) {
@@ -684,7 +684,7 @@ export default function ManagerWizardPage() {
         }).catch((e) => {
           console.error("[finalize] lock-address failed", e);
         });
-        // [Task #268/#278] 정상 완료 경로에서도 (테스트업무) 4건 누락이 없는지 한 번 더
+        // [Task #268/#278] 정상 완료 경로에서도 (테스트업무) 3건 누락이 없는지 한 번 더
         // 멱등 보장 + 대시보드 캐시 무효화. 첫 POST /buildings 에서 이미 시드돼 있으면
         // 추가 insert 없음. 새로고침 없이도 즉시 두 섹션이 채워진다.
         await seedTestInspectionsAndInvalidate("finalize");

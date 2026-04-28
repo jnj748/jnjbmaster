@@ -129,11 +129,10 @@ export function getTrafficColor(dueDate: string | null): "red" | "yellow" | "gre
 //   - 신규 매니저가 첫 화면에서 "직접 한번 눌러보세요" 형태로 자연스럽게 사용
 //     흐름을 익히도록 단순 경고 문구 대신 행동 유도 카피로 바꾼다.
 //   - 정화조 청소 카드: 한 줄 안내, 클릭 시 기존 처리 모달 열기.
-//   - 호실데이터 불러오기 카드(구 "소방점검"): 한 줄 안내, 클릭 시 호실 관리
-//     (/units) 로 이동(모달 미표시). [Task #491] 카드명을 "(테스트업무) 호실데이터
-//     불러오기" 로 리네이밍하고 안내를 한 줄로 정리.
+//   - [Task #567] "(테스트업무) 호실데이터 불러오기"(fire) 카드는 시드 자체에서
+//     제거됐다(추후 별도 구현 예정). 클라이언트 오버라이드도 정화조만 남는다.
 //   - 식별은 alert.title 접두 일치로 한다 (서버 시드명과 동일).
-export type TestTaskCardKind = "septic" | "fire";
+export type TestTaskCardKind = "septic";
 
 export interface TestTaskCardOverride {
   kind: TestTaskCardKind;
@@ -144,9 +143,6 @@ export interface TestTaskCardOverride {
 }
 
 const SEPTIC_TITLE_PREFIX = "(테스트업무) 정화조 청소";
-// [Task #491] 신규 시드명. 기존 매니저 계정의 잔존 행은 서버 시드 함수가 자연
-//   마이그레이션하므로 클라이언트는 새 이름만 식별하면 된다.
-const FIRE_TITLE_PREFIX = "(테스트업무) 호실데이터 불러오기";
 
 export function getTestTaskCardOverride(alert: { title: string }): TestTaskCardOverride | null {
   const t = alert.title ?? "";
@@ -154,15 +150,6 @@ export function getTestTaskCardOverride(alert: { title: string }): TestTaskCardO
     return {
       kind: "septic",
       secondLines: ["여기를 눌러 테스트 업무를 완료처리해보세요"],
-    };
-  }
-  if (t.startsWith(FIRE_TITLE_PREFIX)) {
-    return {
-      kind: "fire",
-      secondLines: [
-        "이 업무를 누르면 AI가 호실별 데이터를 자동으로 가져옵니다.",
-      ],
-      navigateTo: "/units",
     };
   }
   return null;

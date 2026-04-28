@@ -9,9 +9,9 @@
 //     는 catalog 의 별도 위젯으로 추출 완료.
 //   - [Task #205] TodayWorkLogEntry → today-work-log-entry-widget
 //   - [Task #246] FeesSummaryWidget → fees-summary-widget
-//   - [Task #184/#331/#380/#429/#437/#491] AlertSection → alert-section-widget
+//   - [Task #184/#331/#380/#429/#437/#491/#567] AlertSection → alert-section-widget
 //   - [Task #413] AlertActionDialog 자체도 별도 컴포넌트로 분리 완료
-//   - [Task #437] (테스트업무) 호실데이터 불러오기 카드 → /units 라우팅
+//   - [Task #567] (테스트업무) 호실데이터 불러오기 카드 자체가 시드에서 제거됨
 //
 //   registry.tsx 의 ManagerMainWidget 은 이 파일을 lazy import 한다.
 //

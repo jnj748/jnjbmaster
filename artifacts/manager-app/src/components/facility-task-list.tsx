@@ -111,15 +111,9 @@ export function FacilityTaskList({
 
   // 알림 클릭 → 대시보드와 동일한 분기 로직.
   function handleAlertClick(alert: DashboardAlert) {
-    // [Task #437/#491] (테스트업무) 호실데이터 불러오기 카드(구 "소방점검")는
-    //   처리 모달 대신 호실 관리 화면(/units) 으로 이동시킨다. 정화조 청소
-    //   카드는 navigateTo 가 없으므로 기존 동작 유지.
-    const testOverride = getTestTaskCardOverride(alert);
-    if (testOverride?.navigateTo) {
-      navigate(testOverride.navigateTo);
-      return;
-    }
-
+    // [Task #567] (테스트업무) 호실데이터 불러오기 카드 전용 분기(/units 직행)는
+    //   카드 자체가 시드에서 제거됨에 따라 함께 제거됐다. 정화조 카드는 일반
+    //   처리 모달 흐름(아래 ACTIONABLE_ALERT_TYPES 분기)을 그대로 사용한다.
     if ((ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type)) {
       if (alert.relatedId) {
         setSelectedAlert(alert);
@@ -505,8 +499,8 @@ function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{alert.title}</p>
-        {/* [Task #437/#491] (테스트업무) 정화조 청소·호실데이터 불러오기 카드는
-            온보딩 가이드 문구로 대체. 두 카드 모두 한 줄 안내로 노출한다. */}
+        {/* [Task #437/#567] (테스트업무) 정화조 청소 카드는 온보딩 가이드 문구로
+            대체해 한 줄 안내로 노출한다. (호실데이터 불러오기 카드는 시드에서 제거됨) */}
         {(() => {
           const test = getTestTaskCardOverride(alert);
           if (test) {
