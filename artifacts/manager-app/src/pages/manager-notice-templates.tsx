@@ -16,6 +16,7 @@ import { useBuilding } from "@/contexts/building-context";
 import {
   downloadElementAsPng,
   elementToDocxBlob,
+  elementToPdfBlob,
   sharePdfFromElement,
   safeFilename,
 } from "@/lib/document-export";
@@ -173,6 +174,34 @@ function todayShort(): string {
   return `${d.getFullYear()}-${m}-${dd}`;
 }
 
+// [Task #539] iOS Safari 는 새 탭에서 blob: 스킴의 PDF 표시·자동 인쇄가 불안정하여
+//   인쇄 자체가 죽는 경우가 잦다. 이 환경에서는 새 탭을 열지 않고 PDF 를
+//   다운로드한 뒤 사용자가 직접 열어 인쇄하도록 폴백한다.
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // 모던 iPadOS 는 Mac 으로 UA 를 보고하지만 터치 이벤트가 있다.
+  if (
+    ua.includes("Mac") &&
+    typeof document !== "undefined" &&
+    "ontouchend" in document
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function triggerPdfDownload(url: string, name: string): void {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 function PreviewDialog({
   template,
   onClose,
@@ -261,21 +290,92 @@ function PreviewDialog({
     }
   }
 
-  function handlePrint() {
+  // [Task #539] 인쇄 핸들러를 PDF 기반으로 교체.
+  //   - 기존 방식(window.open + innerHTML 복사)은 본문 앱의 Tailwind/전역 스타일이
+  //     포함되지 않아 NoticeLayoutFrame 의 박스/표/머리글이 모두 풀려 줄글로
+  //     출력되었다. 또한 HTML 인쇄 소스이므로 브라우저가 디폴트로 URL/날짜/
+  //     페이지번호를 머리글·바닥글에 찍었다.
+  //   - 미리보기 ref 를 elementToPdfBlob 으로 그대로 캡처해 PDF Blob 으로 변환
+  //     하면 화면 픽셀 그대로 인쇄되고, PDF 를 인쇄 소스로 주면 브라우저
+  //     인쇄 다이얼로그의 머리글/바닥글 디폴트 항목이 표시되지 않는다.
+  //   - iOS Safari 등 새 탭에서 blob PDF 표시·인쇄가 불안정한 환경은 다운로드
+  //     폴백으로 처리해 인쇄 자체가 죽지 않게 한다.
+  async function handlePrint() {
     if (!previewRef.current) return;
-    setBusy("print");
-    try {
-      const w = window.open("", "_blank", "width=900,height=1200");
-      if (!w) {
-        toast({ title: "팝업 차단", description: "브라우저의 팝업 차단을 해제해 주세요.", variant: "destructive" });
+    const useDownloadFallback = isIOS();
+    let printWin: Window | null = null;
+    if (!useDownloadFallback) {
+      // 팝업 차단 회피: 사용자 제스처와 같은 동기 컨텍스트에서 새 탭을 미리 연다.
+      printWin = window.open("", "_blank");
+      if (!printWin) {
+        toast({
+          title: "팝업 차단",
+          description: "브라우저의 팝업 차단을 해제해 주세요.",
+          variant: "destructive",
+        });
         return;
       }
-      w.document.write(
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(template.title)}</title>` +
-          `<style>@page{size:A4;margin:18mm;}body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;}</style>` +
-          `</head><body>${previewRef.current.innerHTML}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300);}</script></body></html>`,
-      );
-      w.document.close();
+      try {
+        printWin.document.write(
+          `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">` +
+            `<title>${escapeHtml(template.title)}</title></head>` +
+            `<body style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;margin:24px;">` +
+            `인쇄용 PDF 를 준비하고 있습니다…</body></html>`,
+        );
+        printWin.document.close();
+      } catch {
+        // 일부 환경에서 about:blank 에 write 가 막힐 수 있음 — 무시.
+      }
+    }
+    setBusy("print");
+    try {
+      // 캡처 직전 한 프레임 양보 — 라벨/이미지/폰트가 안정될 시간 확보.
+      await new Promise((r) => setTimeout(r, 50));
+      const blob = await elementToPdfBlob(previewRef.current);
+      const url = URL.createObjectURL(blob);
+      if (printWin) {
+        const winRef = printWin;
+        try {
+          winRef.location.replace(url);
+          // PDF 뷰어 로드 후 인쇄 다이얼로그 자동 호출. 실패해도 PDF 뷰어 자체의
+          // 인쇄 버튼으로 인쇄 가능하므로 silent fail.
+          setTimeout(() => {
+            try {
+              winRef.focus();
+              winRef.print();
+            } catch {
+              /* ignore */
+            }
+          }, 800);
+          // blob URL 은 새 탭이 살아있는 동안 유지되어야 하므로 길게 둔 뒤 회수.
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch {
+          try {
+            winRef.close();
+          } catch {
+            /* ignore */
+          }
+          triggerPdfDownload(url, `${filename}.pdf`);
+          toast({
+            title: "PDF 저장됨",
+            description: "저장된 PDF 파일을 열어 인쇄해 주세요.",
+          });
+        }
+      } else {
+        // iOS Safari 폴백 — 다운로드된 PDF 를 사용자가 열어 인쇄.
+        triggerPdfDownload(url, `${filename}.pdf`);
+        toast({
+          title: "PDF 저장됨",
+          description: "저장된 PDF 파일을 열어 인쇄해 주세요.",
+        });
+      }
+    } catch (e) {
+      try {
+        printWin?.close();
+      } catch {
+        /* ignore */
+      }
+      toast({ title: "인쇄 준비 실패", description: String(e), variant: "destructive" });
     } finally {
       setBusy(null);
     }
