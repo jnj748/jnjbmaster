@@ -14,8 +14,9 @@ import {
   Pencil,
   X,
 } from "lucide-react";
-import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/page-constants/building-setup";
+import { CATEGORY_LABELS } from "@/lib/page-constants/building-setup";
 import type { BuildingData, SafetyResult } from "./types";
+import { LegalAppointmentList } from "./legal-appointment-list";
 
 interface Props {
   building: BuildingData;
@@ -436,34 +437,10 @@ export function StepInfo({
             </CardContent>
           </Card>
 
+          {/* [Task #501] 위저드 InfoStep 과 동일한 공용 컴포넌트로 통합.
+              "선임 필요 / 확인 필요 / 선임 불요" 3-상태를 한 화면에 모아 표시한다. */}
           {safetyResult.fields && safetyResult.fields.length > 0 && (
-            <div className="grid grid-cols-1 desktop:grid-cols-2 gap-3">
-              {safetyResult.fields.map((f) => (
-                <Card key={f.field} className={`border ${f.required ? "border-orange-200 bg-orange-50/30" : "border-gray-200 bg-gray-50/30"}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h4 className="text-sm font-bold">{FIELD_LABELS[f.field] || f.field}</h4>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${f.required ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-600"}`}>
-                        {f.required ? "선임 필수" : "해당 없음"}
-                      </span>
-                    </div>
-                    {f.grade && (
-                      <p className="text-sm font-medium text-primary mb-1">{f.grade}</p>
-                    )}
-                    {f.type && f.required && (
-                      <p className="text-xs text-muted-foreground mb-1">유형: {f.type}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mb-2">근거: {f.legalBasis}</p>
-                    {f.notes.map((note, i) => (
-                      <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                        <span className={`mt-0.5 ${f.required ? "text-orange-500" : "text-gray-400"}`}>•</span>
-                        {note}
-                      </p>
-                    ))}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <LegalAppointmentList fields={safetyResult.fields} />
           )}
         </div>
       )}

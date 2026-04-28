@@ -44,13 +44,23 @@ export interface BuildingData {
   buildingRegisterPk?: string | null;
 }
 
+// [Task #501] 항목별 3-상태. 백엔드 calculate-safety 와 동일 정의를 유지한다.
+//   - required:      법정 기준 충족 → 선임 필요
+//   - pending_input: 입력값 부족(0/누락) → "확인 필요"
+//   - not_required:  법령 기준 미달이 분명함 → 선임 불요
+export type AppointmentStatus = "required" | "pending_input" | "not_required";
+
 export interface AppointmentField {
   field: string;
   required: boolean;
+  // [Task #501] 백엔드가 내려주지 않는 구버전 응답을 고려해 옵셔널로 둔다.
+  status?: AppointmentStatus;
   grade: string | null;
   type: string | null;
   legalBasis: string;
   notes: string[];
+  // [Task #501] status==="pending_input" 일 때 부족한 입력 키 목록.
+  pendingInputs?: string[];
 }
 
 export interface SafetyResult {

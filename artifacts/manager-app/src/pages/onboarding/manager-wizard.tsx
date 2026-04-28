@@ -29,6 +29,8 @@ import { useOnboarding } from "@/contexts/onboarding-context";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatPhoneNumberPartial } from "@/lib/format-korean";
+import { LegalAppointmentList } from "@/components/building-setup/legal-appointment-list";
+import type { AppointmentField } from "@/components/building-setup/types";
 import {
   getGetDashboardAlertsQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -101,13 +103,19 @@ interface BuildingState {
   buildingRegisterPk?: string | null;
 }
 
+// [Task #501] 백엔드 calculate-safety 응답 구조와 정합한 타입.
+//   status / pendingInputs 가 새로 내려오므로 LegalAppointmentList 가
+//   "선임 필요 / 확인 필요 / 선임 불요" 3-상태로 분기 렌더링한다.
+type SafetyStatus = "required" | "pending_input" | "not_required";
 interface SafetyField {
   field: string;
   required: boolean;
-  grade?: string;
-  type?: string;
+  status?: SafetyStatus;
+  grade?: string | null;
+  type?: string | null;
   legalBasis?: string;
   notes: string[];
+  pendingInputs?: string[];
 }
 interface SafetyResult {
   safetyManagerRequired: boolean;
@@ -1152,6 +1160,14 @@ function InfoStep({
               <p className="text-[11px] text-slate-500 mt-1">법정 기준에 맞춰 자동으로 추천된 등급이에요. 다음 단계에서 점검 일정을 만들어 드릴게요.</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* [Task #501] 6종 법정 선임 항목을 "선임 필요 / 확인 필요 / 선임 불요" 3-상태로 모두 노출.
+          입력값 부족(전기 용량/가스 사용량/승강기 대수 등) 항목이 보이지 않고 사라지지 않도록 한다. */}
+      {safety?.fields && safety.fields.length > 0 && (
+        <div className="mt-4">
+          <LegalAppointmentList fields={safety.fields as AppointmentField[]} />
         </div>
       )}
 
