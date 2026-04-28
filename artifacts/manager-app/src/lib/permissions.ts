@@ -174,7 +174,7 @@ export const GROUP_TITLES: Record<Group, string> = {
 };
 
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
-  manager: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
+  manager: ["dashboard", "facility", "reports", "accounting", "residents", "marketplace", "settings"],
   // [플랫폼 메뉴 구조조정] 플랫폼는 개별 건물 실무를 직접 수행하지
   //   않으므로 dashboard/residents/facility/accounting 그룹의 사이드바 노출을
   //   전부 제거하고, "보고/마켓플레이스/설정" 3 그룹만 사용한다. 통합 대시보드
