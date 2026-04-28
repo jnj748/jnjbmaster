@@ -17,12 +17,26 @@ export interface DashboardAlert {
   cycleMonths?: number | null;
   intervalDays?: number | null;
   noticeTemplateId?: number | null;
+  // [Task #511] 가장 최근 액션이 "scheduled" 인 경우 매니저가 정한 처리예정 메타.
+  //   actionStatus === "scheduled" 일 때만 의미가 있으며 카드 우측의 노란/빨간
+  //   "처리예정 D-N" 라벨과 모달 내부 폼 prefill 에 사용된다.
+  scheduledDate?: string | null;
+  scheduledNotes?: string | null;
+  // [Task #511] 알림에 첨부된 근경/원경 사진 URL. 가장 최근 액션의 첨부에서 흘러오며,
+  //   비교견적 탭에서 /rfqs?prefill 의 closeUpPhoto/widePhoto 쿼리로 그대로 전달된다.
+  closeUpPhotoUrl?: string | null;
+  widePhotoUrl?: string | null;
   createdAt: string;
 }
 
-export type AlertActionTab = "complete" | "postpone" | "rfq";
+// [Task #511] 알림 처리 모달 탭 식별자.
+//   탭 노출 순서는 항상 [complete → scheduled → postpone → rfq] 이며
+//   알림 유형에 관계없이 4개 탭 모두 동일하게 표시된다.
+export type AlertActionTab = "complete" | "scheduled" | "postpone" | "rfq";
 
-// 다이얼로그를 통한 직접 처리(완료/연기/견적요청) 가 가능한 알림 유형.
+// 알림 카드 클릭 시 처리 모달이 열리는 알림 유형.
+//   이 목록 외의 유형은 ALERT_FALLBACK_ROUTES 의 경로로 네비게이트한다.
+//   (모달이 열린 뒤에는 모든 탭이 동일하게 노출되며 알림 유형으로 가르지 않음)
 export const ACTIONABLE_ALERT_TYPES = [
   "inspection_due",
   "tax_due",
@@ -68,6 +82,39 @@ export function getDdayLabel(
   if (diff < 0) return { label: `${Math.abs(diff)}일 지남`, days: diff, isOverdue: true };
   if (diff === 0) return { label: "D-Day", days: 0, isOverdue: false };
   return { label: `D-${diff}`, days: diff, isOverdue: false };
+}
+
+// [Task #511] 처리예정(scheduled) 배지 표시 메타. 알림에 scheduled 액션이
+//   걸려 있을 때 카드 우측에 노출되는 작은 라벨에 사용한다.
+//   - tone="yellow" : 예정일이 오늘 이후 (D-Day 포함)
+//   - tone="red"    : 예정일이 이미 지남 → "예정일 N일 경과"
+//   - null          : 예정일이 없거나 actionStatus 가 scheduled 가 아닌 경우
+export interface ScheduledBadgeMeta {
+  tone: "yellow" | "red";
+  text: string;
+}
+
+export function getScheduledBadge(
+  alert: { actionStatus?: string | null; scheduledDate?: string | null },
+): ScheduledBadgeMeta | null {
+  if (alert.actionStatus !== "scheduled") return null;
+  const scheduled = alert.scheduledDate;
+  if (!scheduled) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(scheduled);
+  due.setHours(0, 0, 0, 0);
+  if (Number.isNaN(due.getTime())) return null;
+  const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const month = due.getMonth() + 1;
+  const day = due.getDate();
+  if (diff < 0) {
+    return { tone: "red", text: `예정일 ${Math.abs(diff)}일 경과 (${month}/${day})` };
+  }
+  if (diff === 0) {
+    return { tone: "yellow", text: `처리예정 D-Day (${month}/${day})` };
+  }
+  return { tone: "yellow", text: `처리예정 D-${diff} (${month}/${day})` };
 }
 
 // 트래픽 라이트(녹색/노란색/빨간색) 색상.

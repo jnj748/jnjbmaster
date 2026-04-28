@@ -276,6 +276,9 @@ router.post("/alert-actions", requireRole(
       completedDate: data.completedDate || null,
       nextCycleDate: computedNextCycleDate || data.nextCycleDate || null,
       actedOnDueDate,
+      // [Task #511] action_type="scheduled" 일 때 사용자가 정한 처리예정일.
+      //   다른 actionType 에서는 무시된다.
+      scheduledDate: data.actionType === "scheduled" ? (data.scheduledDate || null) : null,
       postponeDays: data.postponeDays || null,
       postponeReason: data.postponeReason || null,
       rfqId: data.rfqId || null,

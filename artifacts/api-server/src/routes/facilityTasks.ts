@@ -65,7 +65,40 @@ interface BuiltAlert {
   cycleMonths?: number | null;
   intervalDays?: number | null;
   noticeTemplateId?: number | null;
+  // [Task #511] 가장 최근 액션이 scheduled 일 때 노출되는 처리예정 메타.
+  //   facility 페이지(필수업무/추천업무)도 같은 알림 카드를 사용하므로 dashboard.ts 와
+  //   동일한 형태로 노출해야 D-N 라벨/모달 prefill 이 동작한다.
+  scheduledDate?: string | null;
+  scheduledNotes?: string | null;
+  // [Task #511] 비교견적 prefill 자동 채움용. 가장 최근 액션에 첨부된 사진 URL.
+  closeUpPhotoUrl?: string | null;
+  widePhotoUrl?: string | null;
   createdAt: string;
+}
+
+// [Task #511] dashboard.ts 의 동명 헬퍼와 동일 동작.
+//   1) 가장 최근 액션이 scheduled 면 처리예정 메타+actionStatus 를 채움.
+//   2) 액션 종류와 무관하게 첨부 사진이 있으면 비교견적 prefill 용으로 노출.
+function applyActionMeta(
+  alert: BuiltAlert,
+  action:
+    | {
+        actionType: string;
+        scheduledDate?: string | null;
+        notes?: string | null;
+        closeUpPhotoUrl?: string | null;
+        widePhotoUrl?: string | null;
+      }
+    | undefined,
+): void {
+  if (!action) return;
+  if (action.actionType === "scheduled") {
+    alert.scheduledDate = action.scheduledDate ?? null;
+    alert.scheduledNotes = action.notes ?? null;
+    alert.actionStatus = "scheduled";
+  }
+  if (action.closeUpPhotoUrl) alert.closeUpPhotoUrl = action.closeUpPhotoUrl;
+  if (action.widePhotoUrl) alert.widePhotoUrl = action.widePhotoUrl;
 }
 
 // 모든 예정/기한초과 알림을 한 번에 빌드한 뒤 mandatory/suggested 분류로 나눠 사용한다.
@@ -165,7 +198,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     const daysLeft = Math.ceil((dueMs - todayMs) / 86400000);
     const severity: BuiltAlert["severity"] =
       daysLeft <= 7 ? "critical" : daysLeft <= 30 ? "warning" : "info";
-    alerts.push({
+    const inspAlert: BuiltAlert = {
       id: alertId++,
       type: "inspection_due",
       title: `${inspection.name} 점검 예정`,
@@ -180,7 +213,9 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyActionMeta(inspAlert, action);
+    alerts.push(inspAlert);
   }
 
   const overdueInspections = await db
@@ -211,7 +246,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     const daysOverdue = Math.ceil(
       (todayMs - new Date(inspection.nextDueDate).getTime()) / 86400000,
     );
-    alerts.push({
+    const overdueInspAlert: BuiltAlert = {
       id: alertId++,
       type: "inspection_due",
       title: `${inspection.name} 기한 초과`,
@@ -226,7 +261,9 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyActionMeta(overdueInspAlert, action);
+    alerts.push(overdueInspAlert);
   }
 
   // ── Tax schedules ── 모든 pending (마감일 무관)
@@ -259,7 +296,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     }
     const severity: BuiltAlert["severity"] =
       daysLeft < 0 ? "critical" : daysLeft <= 30 ? "warning" : "info";
-    alerts.push({
+    const taxAlert: BuiltAlert = {
       id: alertId++,
       type: "tax_due",
       title: `${tax.title} 마감 예정${dLabel}`,
@@ -271,7 +308,9 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       dueDate: tax.dueDate,
       penaltyInfo: null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyActionMeta(taxAlert, taxAction);
+    alerts.push(taxAlert);
   }
 
   // ── Tasks (overdue + followup) ──
@@ -298,7 +337,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
         if (new Date(today) < suppressUntil) continue;
       }
     }
-    alerts.push({
+    const taskAlert: BuiltAlert = {
       id: alertId++,
       type: alertType,
       title: isFollowUp ? task.title : `${task.title} 기한 초과`,
@@ -312,7 +351,9 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       dueDate: task.dueDate,
       penaltyInfo: null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyActionMeta(taskAlert, taskAction);
+    alerts.push(taskAlert);
   }
 
   // ── Data destruction (all upcoming) ──
@@ -433,7 +474,11 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     const buildingName = buildingMap.get(warranty.buildingId) || "관리 건물";
     const severity: BuiltAlert["severity"] =
       daysUntilExpiry <= 30 ? "critical" : daysUntilExpiry <= 60 ? "warning" : "info";
-    alerts.push({
+    // [Task #511] 하자담보 알림도 다른 알림과 동일하게 가장 최근 액션의 actionType /
+    //   처리예정 메타 / 첨부 사진을 같이 흘려보낸다. 그래야 시설관리(필수업무) 페이지의
+    //   하자담보 카드에서도 비교견적 진행중 / 처리예정 D-N 라벨이 정확히 표시된다.
+    const warrantyAction = actionMap.get(`warranty_expiry:${warranty.id}`);
+    const warrantyAlert: BuiltAlert = {
       id: alertId++,
       type: "warranty_expiry",
       title: `[하자담보] ${warranty.tradeName} 만료 ${daysUntilExpiry}일 전`,
@@ -441,11 +486,13 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       severity,
       relatedId: warranty.id,
       hasDraft: false,
-      actionStatus: null,
+      actionStatus: warrantyAction?.actionType ?? null,
       dueDate: warranty.expiryDate,
       penaltyInfo: null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyActionMeta(warrantyAlert, warrantyAction);
+    alerts.push(warrantyAlert);
   }
 
   // ── Task templates (windowDaysOverride 로 모든 예정 노출) ──
@@ -485,6 +532,13 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       inspectionType: a.classification === "legal" ? "legal" : null,
       createdAt: a.createdAt,
       noticeTemplateId: a.noticeTemplateId,
+      // [Task #511] resolveActiveTemplateAlerts 가 가장 최근 액션의 scheduled 메타 +
+      //   첨부 사진 URL 을 함께 반환하므로 facility 필수/추천업무 카드도 동일하게
+      //   D-N 라벨과 비교견적 prefill 을 받게 한다.
+      scheduledDate: a.scheduledDate ?? null,
+      scheduledNotes: a.scheduledNotes ?? null,
+      closeUpPhotoUrl: a.closeUpPhotoUrl ?? null,
+      widePhotoUrl: a.widePhotoUrl ?? null,
     });
   }
   alertId += 1000 + templateAlerts.length;

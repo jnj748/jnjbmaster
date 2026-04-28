@@ -13,4 +13,5 @@ export const AlertActionActionType = {
   completed: "completed",
   postponed: "postponed",
   rfq_requested: "rfq_requested",
+  scheduled: "scheduled",
 } as const;

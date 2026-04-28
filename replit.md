@@ -72,6 +72,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Usage Analytics Dashboard:** Tracks user activity for platform administrators.
 - **Onboarding Automation:** Streamlined first-time manager login and guided setup.
 - **Role Display Labels (Single Source):** All role display names are centrally defined in `lib/shared/src/role-labels.ts` for consistency across front and backend.
+- **Unified Alert Action Modal (#511):** All alert types share the same modal with four tabs — 처리완료 / 처리예정 / 연기 / 비교견적. The 비교견적 tab no longer hosts an inline RFQ form; it routes to `/rfqs?prefill=1&...`. 처리예정 actions store a `scheduled_date` on `alert_actions`; alerts remain visible on the dashboard with a yellow `예정 D-N` badge (red `예정 경과 N일` after the date passes).
 
 ## External Dependencies
 - Node.js

@@ -1,6 +1,11 @@
 // [Task #413] /dashboard/alerts 와 시설관리 "필수업무"/"제안업무" 페이지가 공유하는
-//   알림 처리 다이얼로그(처리완료 / 연기 / 견적요청). 처리 후 결과로 띄우는
-//   CompletionNotice / RfqRequestDocument 도 함께 캡슐화한다.
+//   알림 처리 다이얼로그. 처리 후 결과로 띄우는 CompletionNotice 도 함께 캡슐화한다.
+//
+//   [Task #511] 4개 탭 [처리완료, 처리예정, 연기, 비교견적] 을 알림 유형에 관계없이
+//     동일하게 노출한다. 비교견적 탭은 인라인 RFQ 작성 폼을 제거하고 /rfqs?prefill=1
+//     로 네비게이트하는 단일 버튼으로 대체했다. 처리예정 탭은 신규 추가된 액션으로,
+//     예정일·메모를 저장하면 카드 우측에 노란/빨간 D-N 라벨이 표시되고 알림 자체는
+//     유지된다(예정일이 지나면 자동으로 빨간 "예정일 N일 경과" 라벨로 전환).
 //
 //   호출 측은 selectedAlert 상태와 onClose 만 관리하면 된다. onProcessed 로 자체
 //   알림 목록 쿼리도 추가 invalidate 가능. 다른 페이지에서도 동일 동작을 보장하기
@@ -11,13 +16,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   useCreateAlertAction,
-  useCreateRfq,
   useListBuildingNoticeTemplates,
   type BuildingNoticeTemplate,
   getGetDashboardAlertsQueryKey,
-  getListRfqsQueryKey,
-  type CreateRfqBody,
-  type CreateRfqBodyCategory,
 } from "@workspace/api-client-react";
 import {
   ResponsiveDialog,
@@ -40,12 +41,12 @@ import {
   AlertTriangle,
   CheckCircle,
   CalendarClock,
+  CalendarDays,
   FileText,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { MemoInputFooter } from "@/components/memo-input-footer";
 import { CompletionNotice } from "@/components/completion-notice";
-import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 import { useToast } from "@/hooks/use-toast";
 import {
   type DashboardAlert,
@@ -94,12 +95,13 @@ export function AlertActionDialog({
   const [postponeDays, setPostponeDays] = useState("7");
   const [postponeReason, setPostponeReason] = useState("");
   const [actionNotes, setActionNotes] = useState("");
-  const [rfqTitle, setRfqTitle] = useState("");
-  const [rfqDeadline, setRfqDeadline] = useState("");
+  // [Task #511] 처리예정 탭 전용 상태. scheduledDate 는 기본 today+3, scheduledNotes
+  //   는 사용자가 입력한 메모. 같은 알림을 다시 열면 서버에 저장된 alert.scheduledDate /
+  //   alert.scheduledNotes 로 prefill 한다.
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledNotes, setScheduledNotes] = useState("");
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
-  const [rfqCloseUpPhotoUrl, setRfqCloseUpPhotoUrl] = useState<string | null>(null);
-  const [rfqWidePhotoUrl, setRfqWidePhotoUrl] = useState<string | null>(null);
   const [delayReason, setDelayReason] = useState("");
   const [delayReasonDetail, setDelayReasonDetail] = useState("");
 
@@ -114,13 +116,10 @@ export function AlertActionDialog({
     templateBody?: string;
     initialDocKind?: "notice" | "report" | "draft";
   } | null>(null);
-  const [showRfqDocument, setShowRfqDocument] = useState(false);
-  const [rfqDocumentData, setRfqDocumentData] = useState<RfqDocumentData | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createActionMutation = useCreateAlertAction();
-  const createRfqMutation = useCreateRfq();
   const [, navigate] = useLocation();
 
   const { data: noticeTemplatesData } = useListBuildingNoticeTemplates();
@@ -135,10 +134,13 @@ export function AlertActionDialog({
     setPostponeDays("7");
     setPostponeReason("");
     setActionNotes("");
-    setRfqTitle(alert.title);
-    const twoWeeks = new Date();
-    twoWeeks.setDate(twoWeeks.getDate() + 14);
-    setRfqDeadline(twoWeeks.toISOString().split("T")[0]);
+    // [Task #511] 같은 알림에 처리예정 액션이 이미 있으면 그 값을 prefill 한다.
+    //   - alert.scheduledDate 가 있으면 그대로, 없으면 today+3.
+    //   - alert.scheduledNotes 가 있으면 그대로, 없으면 빈 문자열.
+    const defaultScheduled = new Date(todayStr);
+    defaultScheduled.setDate(defaultScheduled.getDate() + 3);
+    setScheduledDate(alert.scheduledDate ?? defaultScheduled.toISOString().split("T")[0]);
+    setScheduledNotes(alert.scheduledNotes ?? "");
     let prefilledNextCycle = "";
     if (alert.type === "inspection_due") {
       const base = new Date(todayStr);
@@ -154,8 +156,6 @@ export function AlertActionDialog({
     setNextCycleDate(prefilledNextCycle);
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);
-    setRfqCloseUpPhotoUrl(null);
-    setRfqWidePhotoUrl(null);
     setDelayReason("");
     setDelayReasonDetail("");
   }, [alert]);
@@ -267,57 +267,73 @@ export function AlertActionDialog({
     onClose();
   }
 
-  async function handleRfqRequest() {
+  // [Task #511] 처리예정 액션 저장. 같은 알림에 대해 다시 누르면 새 액션이
+  //   가장 최근 액션으로 덮어써져 D-N 라벨이 갱신된다(서버는 latest action 만 사용).
+  async function handleScheduled() {
     if (!alert) return;
-    if (!rfqTitle.trim()) {
-      toast({ title: "견적 요청 제목을 입력해주세요", variant: "destructive" });
+    if (!scheduledDate) {
+      toast({ title: "예정일을 선택해주세요", variant: "destructive" });
       return;
     }
-    if (!rfqDeadline) {
-      toast({ title: "견적 마감일을 선택해주세요", variant: "destructive" });
-      return;
-    }
-    const catMap: Record<string, string> = {
-      inspection_due: "elevator",
-    };
-    const rfqData: CreateRfqBody = {
-      title: rfqTitle,
-      category: (catMap[alert.type] || "other") as CreateRfqBodyCategory,
-      buildingName: building?.name || "관리 건물",
-      deadline: rfqDeadline,
-      description: `${alert.title} - ${alert.message}`,
-      sido: building?.sido || null,
-      sigungu: building?.sigungu || null,
-      geoScope: building?.sido
-        ? (building?.sigungu ? "sigungu" : "sido")
-        : null,
-      closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
-      widePhotoUrl: rfqWidePhotoUrl || null,
-    };
-    const createdRfq = await createRfqMutation.mutateAsync({ data: rfqData });
-
     await createActionMutation.mutateAsync({
       data: {
         alertType: alert.type,
         relatedEntityType: getEntityType(alert.type),
         relatedEntityId: alert.relatedId!,
-        actionType: "rfq_requested",
-        rfqId: createdRfq?.id ?? null,
-        notes: `견적 요청 생성: ${rfqTitle}`,
-        closeUpPhotoUrl: rfqCloseUpPhotoUrl || null,
-        widePhotoUrl: rfqWidePhotoUrl || null,
+        actionType: "scheduled",
+        scheduledDate,
+        notes: scheduledNotes || null,
       },
     });
     invalidateAfterAction();
-    queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
-    toast({ title: "견적 요청이 생성되었습니다" });
-    setRfqDocumentData({
-      ...rfqData,
-      title: rfqData.title ?? "",
-      createdAt: new Date().toISOString(),
-    });
+    toast({ title: "처리예정이 등록되었습니다" });
     onClose();
-    setShowRfqDocument(true);
+  }
+
+  // [Task #511] 인라인 RFQ 작성 폼 대신 /rfqs?prefill=1 로 네비게이트한다.
+  //   /rfqs 페이지의 prefill 효과가 모달을 자동으로 열고 카테고리·제목·사진을 채운다.
+  //
+  //   네비게이트 직전에 actionType="rfq_requested" 액션을 먼저 기록한다. 사용자가
+  //   RFQ 작성을 중도 포기하더라도 알림은 "비교견적 진행 중" 상태로 전환되어
+  //   대시보드에서 미처리 항목으로 다시 노출되지 않는다(과거 인라인 폼이 이 역할을
+  //   했었다 — Task #511 에서 폼 자체를 제거하면서 동일 보장이 필요).
+  async function handleOpenRfqPage() {
+    if (!alert) return;
+    try {
+      await createActionMutation.mutateAsync({
+        data: {
+          alertType: alert.type,
+          relatedEntityType: getEntityType(alert.type),
+          relatedEntityId: alert.relatedId ?? alert.id,
+          actionType: "rfq_requested",
+          notes: null,
+        },
+      });
+    } catch (err) {
+      toast({
+        title: "비교견적 요청 기록에 실패했습니다",
+        description: err instanceof Error ? err.message : "잠시 후 다시 시도해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+    invalidateAfterAction();
+    const catMap: Record<string, string> = {
+      inspection_due: "elevator",
+    };
+    const params = new URLSearchParams();
+    params.set("prefill", "1");
+    params.set("title", alert.title);
+    params.set("category", catMap[alert.type] ?? "other");
+    // [Task #511] 비교견적 사진 prefill 은 (1) 알림에 첨부된 사진(=가장 최근 액션의
+    //   첨부) 을 우선하고, 없으면 (2) 모달의 처리완료 탭에서 사용자가 막 업로드한
+    //   로컬 상태를 사용한다. 둘 다 없으면 사진 없이 이동.
+    const prefillCloseUp = alert.closeUpPhotoUrl ?? closeUpPhotoUrl;
+    const prefillWide = alert.widePhotoUrl ?? widePhotoUrl;
+    if (prefillCloseUp) params.set("closeUpPhoto", prefillCloseUp);
+    if (prefillWide) params.set("widePhoto", prefillWide);
+    onClose();
+    navigate(`/rfqs?${params.toString()}`);
   }
 
   return (
@@ -354,15 +370,19 @@ export function AlertActionDialog({
                   </Button>
                 )}
 
+              {/* [Task #511] 알림 유형에 관계없이 항상 [처리완료, 처리예정, 연기, 비교견적]
+                  4개 탭 순서로 노출. 비교견적 탭은 인라인 폼 대신 /rfqs 로 이동. */}
               <div className="flex gap-1 border-b">
                 {[
-                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle },
-                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock },
-                  ...(["inspection_due", "task_overdue", "warranty_expiry"].includes(alert.type) ? [{ key: "rfq" as AlertActionTab, label: "견적요청", icon: FileText }] : []),
+                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle, testId: "tab-complete" },
+                  { key: "scheduled" as AlertActionTab, label: "처리예정", icon: CalendarDays, testId: "tab-scheduled" },
+                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock, testId: "tab-postpone" },
+                  { key: "rfq" as AlertActionTab, label: "비교견적", icon: FileText, testId: "tab-rfq" },
                 ].map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => setActionTab(tab.key)}
+                    data-testid={tab.testId}
                     className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                       actionTab === tab.key
                         ? "border-primary text-primary"
@@ -517,47 +537,69 @@ export function AlertActionDialog({
                 </div>
               )}
 
-              {actionTab === "rfq" && (
+              {/* [Task #511] 처리예정 탭. 매니저가 정한 예정일을 저장하고 모달을 닫는다.
+                  알림은 사라지지 않으며 카드 우측에 노란/빨간 D-N 라벨로 노출된다. */}
+              {actionTab === "scheduled" && (
                 <div className="space-y-3">
                   <div>
-                    <Label>견적 요청 제목</Label>
-                    <Input
-                      value={rfqTitle}
-                      onChange={(e) => setRfqTitle(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>견적 마감일</Label>
+                    <Label>처리 예정일</Label>
                     <Input
                       type="date"
-                      value={rfqDeadline}
-                      onChange={(e) => setRfqDeadline(e.target.value)}
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      data-testid="alert-scheduled-date"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <PhotoUploadField label="근경 사진" value={rfqCloseUpPhotoUrl} onChange={setRfqCloseUpPhotoUrl} />
-                    <PhotoUploadField label="원경 사진" value={rfqWidePhotoUrl} onChange={setRfqWidePhotoUrl} />
+                    <p className="text-xs mt-1 text-muted-foreground">
+                      이 날짜를 기준으로 카드에 D-N 라벨이 표시됩니다.
+                    </p>
                   </div>
                   <div>
-                    <Label>메모</Label>
+                    <Label>메모 (선택)</Label>
                     <Textarea
-                      value={actionNotes}
-                      onChange={(e) => setActionNotes(e.target.value)}
-                      placeholder="견적 요청 시 참고사항"
-                      data-testid="alert-rfq-memo"
+                      value={scheduledNotes}
+                      onChange={(e) => setScheduledNotes(e.target.value)}
+                      placeholder="언제·누가·어떻게 처리할 예정인지"
+                      data-testid="alert-scheduled-memo"
                     />
                     <MemoInputFooter
-                      testId="alert-rfq-memo"
+                      testId="alert-scheduled-memo"
                       onInsert={(text) =>
-                        setActionNotes((prev) =>
+                        setScheduledNotes((prev) =>
                           prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text,
                         )
                       }
                     />
                   </div>
-                  <Button className="w-full" variant="default" onClick={handleRfqRequest} disabled={createActionMutation.isPending || createRfqMutation.isPending}>
+                  <Button
+                    className="w-full"
+                    variant="default"
+                    onClick={handleScheduled}
+                    disabled={createActionMutation.isPending}
+                    data-testid="btn-save-scheduled"
+                  >
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    {createActionMutation.isPending ? "처리 중..." : "처리예정 등록"}
+                  </Button>
+                </div>
+              )}
+
+              {/* [Task #511] 비교견적 탭은 인라인 폼 대신 단일 버튼으로 단순화한다.
+                  /rfqs 페이지에서 동일한 prefill 효과로 작성을 이어간다. */}
+              {actionTab === "rfq" && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    이 알림에서 비교견적을 요청하면 「견적의뢰」 페이지가 열리며
+                    제목·카테고리가 자동으로 채워집니다.
+                  </p>
+                  <Button
+                    className="w-full"
+                    variant="default"
+                    onClick={handleOpenRfqPage}
+                    disabled={createActionMutation.isPending}
+                    data-testid="btn-open-rfq-page"
+                  >
                     <FileText className="w-4 h-4 mr-2" />
-                    {createActionMutation.isPending || createRfqMutation.isPending ? "처리 중..." : "견적 요청 생성"}
+                    {createActionMutation.isPending ? "처리 중..." : "비교견적 요청하기"}
                   </Button>
                 </div>
               )}
@@ -592,15 +634,6 @@ export function AlertActionDialog({
         />
       )}
 
-      {rfqDocumentData && (
-        <RfqRequestDocument
-          open={showRfqDocument}
-          onOpenChange={setShowRfqDocument}
-          rfq={rfqDocumentData}
-          officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
-          logoUrl={building?.logoUrl ?? null}
-        />
-      )}
     </>
   );
 }

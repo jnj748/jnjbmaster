@@ -20,6 +20,7 @@ import {
   type DashboardAlert,
   ACTIONABLE_ALERT_TYPES,
   getDdayLabel,
+  getScheduledBadge,
   getTestTaskCardOverride,
 } from "@/lib/alert-utils";
 
@@ -257,6 +258,34 @@ export function AlertSection({
                         {alert.actionStatus === "postponed" && (
                           <Badge variant="outline" className="text-[10px] h-5 text-amber-600 border-amber-300">연기</Badge>
                         )}
+                        {/* [Task #511] 비교견적 진행 중 라벨 (rfq_requested 액션 기록 후) */}
+                        {alert.actionStatus === "rfq_requested" && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] h-5 text-blue-700 border-blue-300 bg-blue-50"
+                            data-testid={`rfq-progress-badge-${alert.relatedId ?? alert.id}`}
+                          >
+                            비교견적 진행 중
+                          </Badge>
+                        )}
+                        {/* [Task #511] 처리예정 D-N 라벨 (yellow=오늘 이후, red=경과) */}
+                        {(() => {
+                          const sched = getScheduledBadge(alert);
+                          if (!sched) return null;
+                          const cls =
+                            sched.tone === "red"
+                              ? "text-red-700 border-red-300 bg-red-50"
+                              : "text-yellow-800 border-yellow-300 bg-yellow-50";
+                          return (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] h-5 ${cls}`}
+                              data-testid={`scheduled-badge-${alert.relatedId ?? alert.id}`}
+                            >
+                              {sched.text}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
                   );

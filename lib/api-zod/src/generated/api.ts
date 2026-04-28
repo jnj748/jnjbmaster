@@ -1761,9 +1761,21 @@ export const ListAlertActionsResponseItem = zod.object({
   alertType: zod.string(),
   relatedEntityType: zod.string(),
   relatedEntityId: zod.number(),
-  actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
+  actionType: zod.enum([
+    "completed",
+    "postponed",
+    "rfq_requested",
+    "scheduled",
+  ]),
   completedDate: zod.string().date().nullish(),
   nextCycleDate: zod.string().date().nullish(),
+  scheduledDate: zod
+    .string()
+    .date()
+    .nullish()
+    .describe(
+      "[Task #511] action_type=scheduled 인 처리예정 액션의 사용자 지정 예정일.",
+    ),
   postponeDays: zod.number().nullish(),
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
@@ -1781,9 +1793,19 @@ export const CreateAlertActionBody = zod.object({
   alertType: zod.string(),
   relatedEntityType: zod.string(),
   relatedEntityId: zod.number(),
-  actionType: zod.enum(["completed", "postponed", "rfq_requested"]),
+  actionType: zod.enum([
+    "completed",
+    "postponed",
+    "rfq_requested",
+    "scheduled",
+  ]),
   completedDate: zod.string().date().nullish(),
   nextCycleDate: zod.string().date().nullish(),
+  scheduledDate: zod
+    .string()
+    .date()
+    .nullish()
+    .describe("[Task #511] action_type=scheduled 인 처리예정 액션의 예정일."),
   postponeDays: zod.number().nullish(),
   postponeReason: zod.string().nullish(),
   rfqId: zod.number().nullish(),
@@ -2421,6 +2443,31 @@ export const GetDashboardAlertsResponseItem = zod.object({
     .nullish()
     .describe(
       "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
+    ),
+  scheduledDate: zod
+    .string()
+    .date()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 예정일. 카드\/리스트의 '처리예정 D-N' 라벨 표시에 사용된다.",
+    ),
+  scheduledNotes: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 메모. 알림 처리 모달 재오픈 시 처리예정 탭의 메모 입력란에 미리 채워진다.",
+    ),
+  closeUpPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 근경 사진 URL. 가장 최근 액션(또는 origin 데이터)에서 추출되며, 비교견적 탭 → \/rfqs?prefill 로 자동 전달된다.",
+    ),
+  widePhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
     ),
   createdAt: zod.string().datetime({}),
 });
@@ -6643,6 +6690,31 @@ export const GetFacilityMandatoryTasksResponseItem = zod.object({
     .describe(
       "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
     ),
+  scheduledDate: zod
+    .string()
+    .date()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 예정일. 카드\/리스트의 '처리예정 D-N' 라벨 표시에 사용된다.",
+    ),
+  scheduledNotes: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 메모. 알림 처리 모달 재오픈 시 처리예정 탭의 메모 입력란에 미리 채워진다.",
+    ),
+  closeUpPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 근경 사진 URL. 가장 최근 액션(또는 origin 데이터)에서 추출되며, 비교견적 탭 → \/rfqs?prefill 로 자동 전달된다.",
+    ),
+  widePhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
+    ),
   createdAt: zod.string().datetime({}),
 });
 export const GetFacilityMandatoryTasksResponse = zod.array(
@@ -6705,6 +6777,31 @@ export const GetFacilitySuggestedTasksResponseItem = zod.object({
     .nullish()
     .describe(
       "[Task #393] task template 알림(task_template_mandatory\/suggested)에 미리 연결된 공고문 템플릿(building_notice_templates) ID. 값이 있으면 매니저앱 알림 처리 다이얼로그에 '공고문 작성' CTA 가 노출된다. NULL 이면 표시되지 않는다.",
+    ),
+  scheduledDate: zod
+    .string()
+    .date()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 예정일. 카드\/리스트의 '처리예정 D-N' 라벨 표시에 사용된다.",
+    ),
+  scheduledNotes: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 가장 최근 액션이 scheduled 인 경우 그 메모. 알림 처리 모달 재오픈 시 처리예정 탭의 메모 입력란에 미리 채워진다.",
+    ),
+  closeUpPhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 근경 사진 URL. 가장 최근 액션(또는 origin 데이터)에서 추출되며, 비교견적 탭 → \/rfqs?prefill 로 자동 전달된다.",
+    ),
+  widePhotoUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
     ),
   createdAt: zod.string().datetime({}),
 });

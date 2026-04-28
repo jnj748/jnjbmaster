@@ -17,6 +17,11 @@ export interface AlertAction {
   completedDate?: string | null;
   /** @nullable */
   nextCycleDate?: string | null;
+  /**
+   * [Task #511] action_type=scheduled 인 처리예정 액션의 사용자 지정 예정일.
+   * @nullable
+   */
+  scheduledDate?: string | null;
   /** @nullable */
   postponeDays?: number | null;
   /** @nullable */

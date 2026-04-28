@@ -196,6 +196,13 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     intervalDays?: number | null;
     // [Task #393] task template 알림에 미리 연결된 공고문 템플릿 ID. NULL/누락이면 CTA 미노출.
     noticeTemplateId?: number | null;
+    // [Task #511] 가장 최근 액션이 scheduled 인 경우 노출되는 처리예정 메타.
+    scheduledDate?: string | null;
+    scheduledNotes?: string | null;
+    // [Task #511] 비교견적 prefill 자동 채움용. 가장 최근 액션에 첨부된 근경/원경 사진이
+    //   있으면 그 URL 을 노출, 없으면 null. /rfqs?prefill 에 그대로 전달된다.
+    closeUpPhotoUrl?: string | null;
+    widePhotoUrl?: string | null;
     createdAt: string;
   }> = [];
 
@@ -236,6 +243,27 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     }
   }
 
+  // [Task #511] 가장 최근 액션이 scheduled 일 때 알림에 처리예정 메타를 채워준다.
+  //   actionStatus 도 "scheduled" 로 마킹해 클라이언트가 동일 알림을 다시 열었을 때
+  //   "처리예정 D-N" 라벨과 모달 내부 폼 prefill 을 결정한다.
+  function applyScheduledMeta(
+    alert: typeof alerts[number],
+    action: typeof recentActions[number] | undefined,
+  ): void {
+    if (action && action.actionType === "scheduled") {
+      alert.scheduledDate = action.scheduledDate ?? null;
+      alert.scheduledNotes = action.notes ?? null;
+      alert.actionStatus = "scheduled";
+    }
+    // [Task #511] 액션 타입과 무관하게 가장 최근 액션에 첨부된 사진 URL 을 알림에
+    //   실어 보낸다 — 비교견적 탭에서 /rfqs?prefill 로 전달되어 신규 RFQ 의 근경/원경
+    //   사진 칸에 자동 채움된다. 사진이 없는 액션이면 null 그대로 둔다.
+    if (action) {
+      if (action.closeUpPhotoUrl) alert.closeUpPhotoUrl = action.closeUpPhotoUrl;
+      if (action.widePhotoUrl) alert.widePhotoUrl = action.widePhotoUrl;
+    }
+  }
+
   const upcomingInspections = await db
     .select()
     .from(inspectionsTable)
@@ -268,7 +296,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     }
     const preset = LEGAL_PRESETS.find((p) => p.name === inspection.name);
     const penaltyInfo = preset?.penaltyInfo || null;
-    alerts.push({
+    const inspectionAlert: typeof alerts[number] = {
       id: alertId++,
       type: "inspection_due",
       title: `${inspection.name} 점검 예정`,
@@ -283,7 +311,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyScheduledMeta(inspectionAlert, action);
+    alerts.push(inspectionAlert);
   }
 
   const overdueInspections = await db
@@ -312,7 +342,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     const presetO = LEGAL_PRESETS.find((p) => p.name === inspection.name);
     const penaltyInfoO = presetO?.penaltyInfo || null;
     const daysOverdue = Math.ceil((new Date(today).getTime() - new Date(inspection.nextDueDate).getTime()) / (1000 * 60 * 60 * 24));
-    alerts.push({
+    const overdueInspectionAlert: typeof alerts[number] = {
       id: alertId++,
       type: "inspection_due",
       title: `${inspection.name} 기한 초과`,
@@ -327,7 +357,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyScheduledMeta(overdueInspectionAlert, action);
+    alerts.push(overdueInspectionAlert);
   }
 
   const pendingTax = await db
@@ -360,7 +392,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
           if (new Date(today) < suppressUntil) continue;
         }
       }
-      alerts.push({
+      const taxAlert: typeof alerts[number] = {
         id: alertId++,
         type: "tax_due",
         title: `${tax.title} 마감 예정${dLabel}`,
@@ -372,7 +404,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         dueDate: tax.dueDate,
         penaltyInfo: null,
         createdAt: new Date().toISOString(),
-      });
+      };
+      applyScheduledMeta(taxAlert, taxAction);
+      alerts.push(taxAlert);
     }
   }
 
@@ -402,7 +436,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         if (new Date(today) < suppressUntil) continue;
       }
     }
-    alerts.push({
+    const taskAlert: typeof alerts[number] = {
       id: alertId++,
       type: alertType,
       title: isFollowUp
@@ -418,7 +452,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       dueDate: task.dueDate,
       penaltyInfo: null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyScheduledMeta(taskAlert, taskAction);
+    alerts.push(taskAlert);
   }
 
   const upcomingDestructionTenants = await db
@@ -509,7 +545,11 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
 
     const buildingName = building?.name || "관리 건물";
 
-    alerts.push({
+    // [Task #511] 하자담보 알림에서도 처리예정 액션을 조회해 라벨/메타를 노출한다.
+    //   기존에는 action 조회를 생략해 actionStatus 가 항상 null 이었지만
+    //   처리예정 통합 이후에는 모든 알림 유형에서 D-N 라벨이 필요하다.
+    const warrantyAction = actionMap.get(`warranty_expiry:${warranty.id}`);
+    const warrantyAlert: typeof alerts[number] = {
       id: alertId++,
       type: "warranty_expiry",
       title: `[하자담보] ${warranty.tradeName} 만료 ${daysUntilExpiry}일 전`,
@@ -517,11 +557,13 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       severity: daysUntilExpiry <= 30 ? "critical" : "warning",
       relatedId: warranty.id,
       hasDraft: false,
-      actionStatus: null,
+      actionStatus: warrantyAction?.actionType || null,
       dueDate: warranty.expiryDate,
       penaltyInfo: null,
       createdAt: new Date().toISOString(),
-    });
+    };
+    applyScheduledMeta(warrantyAlert, warrantyAction);
+    alerts.push(warrantyAlert);
   }
 
   // [Task #221] 본사 관리 템플릿에서 산출된 알림을 동일한 응답에 합쳐
@@ -567,6 +609,12 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       // [Task #393] task template 에 연결된 공고문 템플릿 ID 가 있으면 알림 응답에도 흘려보낸다.
       //   매니저앱 알림 처리 다이얼로그가 본 값을 기준으로 "공고문 작성" CTA 노출 여부를 결정한다.
       noticeTemplateId: a.noticeTemplateId,
+      // [Task #511] 템플릿 알림에서도 처리예정 메타와 첨부 사진을 그대로 흘려보낸다.
+      //   비교견적 탭의 prefill 동작이 다른 알림 소스와 동일하게 작동하도록 한다.
+      scheduledDate: a.scheduledDate ?? null,
+      scheduledNotes: a.scheduledNotes ?? null,
+      closeUpPhotoUrl: a.closeUpPhotoUrl ?? null,
+      widePhotoUrl: a.widePhotoUrl ?? null,
     });
   }
 
@@ -709,7 +757,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       }
 
       const dLabel = daysUntil === 0 ? " [D-Day]" : ` [D-${daysUntil}]`;
-      alerts.push({
+      const noticeAlert: typeof alerts[number] = {
         id: alertId++,
         type: "notice_posting",
         title: `${tpl.title} 게시 예정${dLabel}`,
@@ -721,7 +769,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         dueDate: occurrence,
         penaltyInfo: null,
         createdAt: new Date().toISOString(),
-      });
+      };
+      applyScheduledMeta(noticeAlert, action);
+      alerts.push(noticeAlert);
     }
   }
 

@@ -38,6 +38,7 @@ import {
   ACTIONABLE_ALERT_TYPES,
   ALERT_FALLBACK_ROUTES,
   getDdayLabel,
+  getScheduledBadge,
   getTrafficColor,
   getTestTaskCardOverride,
 } from "@/lib/alert-utils";
@@ -542,6 +543,37 @@ function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
             연기
           </Badge>
         )}
+        {/* [Task #511] 비교견적(예전 RFQ 요청) 액션이 기록된 알림은 모달에서 사용자가
+            비교견적 페이지로 이동했음을 의미. 알림은 그대로 노출하되 진행 중 라벨로
+            상태를 명확히 한다. */}
+        {alert.actionStatus === "rfq_requested" && (
+          <Badge
+            variant="outline"
+            className="text-[10px] h-5 text-blue-700 border-blue-300 bg-blue-50"
+            data-testid={`rfq-progress-badge-${alert.relatedId ?? alert.id}`}
+          >
+            비교견적 진행 중
+          </Badge>
+        )}
+        {/* [Task #511] 처리예정 D-N 라벨. 예정일 도래 전이면 노란색, 경과하면 빨간색.
+            연기 라벨과 달리 알림 자체는 사라지지 않으므로 함께 노출돼도 무방. */}
+        {(() => {
+          const sched = getScheduledBadge(alert);
+          if (!sched) return null;
+          const cls =
+            sched.tone === "red"
+              ? "text-red-700 border-red-300 bg-red-50"
+              : "text-yellow-800 border-yellow-300 bg-yellow-50";
+          return (
+            <Badge
+              variant="outline"
+              className={`text-[10px] h-5 ${cls}`}
+              data-testid={`scheduled-badge-${alert.relatedId ?? alert.id}`}
+            >
+              {sched.text}
+            </Badge>
+          );
+        })()}
       </div>
     </div>
   );

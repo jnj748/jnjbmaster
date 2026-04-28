@@ -12,6 +12,8 @@ export const alertActionsTable = pgTable("alert_actions", {
   completedDate: date("completed_date"),
   nextCycleDate: date("next_cycle_date"),
   actedOnDueDate: date("acted_on_due_date"),
+  // [Task #511] 처리예정(action_type="scheduled") 액션의 사용자가 정한 예정일.
+  scheduledDate: date("scheduled_date"),
   postponeDays: integer("postpone_days"),
   postponeReason: text("postpone_reason"),
   rfqId: integer("rfq_id"),

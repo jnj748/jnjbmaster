@@ -44,5 +44,25 @@ export interface Alert {
    * @nullable
    */
   noticeTemplateId?: number | null;
+  /**
+   * [Task #511] 가장 최근 액션이 scheduled 인 경우 그 예정일. 카드/리스트의 '처리예정 D-N' 라벨 표시에 사용된다.
+   * @nullable
+   */
+  scheduledDate?: string | null;
+  /**
+   * [Task #511] 가장 최근 액션이 scheduled 인 경우 그 메모. 알림 처리 모달 재오픈 시 처리예정 탭의 메모 입력란에 미리 채워진다.
+   * @nullable
+   */
+  scheduledNotes?: string | null;
+  /**
+   * [Task #511] 알림에 첨부된 근경 사진 URL. 가장 최근 액션(또는 origin 데이터)에서 추출되며, 비교견적 탭 → /rfqs?prefill 로 자동 전달된다.
+   * @nullable
+   */
+  closeUpPhotoUrl?: string | null;
+  /**
+   * [Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.
+   * @nullable
+   */
+  widePhotoUrl?: string | null;
   createdAt: string;
 }

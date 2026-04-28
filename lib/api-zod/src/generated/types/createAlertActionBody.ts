@@ -16,6 +16,11 @@ export interface CreateAlertActionBody {
   completedDate?: string | null;
   /** @nullable */
   nextCycleDate?: string | null;
+  /**
+   * [Task #511] action_type=scheduled 인 처리예정 액션의 예정일.
+   * @nullable
+   */
+  scheduledDate?: string | null;
   /** @nullable */
   postponeDays?: number | null;
   /** @nullable */

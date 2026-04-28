@@ -513,6 +513,13 @@ export interface ResolvedTemplateAlert {
   // [Task #393] 알림 처리 다이얼로그에서 매니저가 한 번에 공고문을 작성할 수 있도록
   //   해당 task template 에 미리 연결된 공고문 템플릿 ID. 없으면 null.
   noticeTemplateId: number | null;
+  // [Task #511] 가장 최근 액션이 scheduled 인 경우 매니저가 정한 처리예정 메타.
+  scheduledDate: string | null;
+  scheduledNotes: string | null;
+  // [Task #511] 가장 최근 액션에 첨부된 근경/원경 사진 URL. 비교견적 prefill 자동
+  //   채움(/rfqs?prefill&closeUpPhoto=&widePhoto=)에 사용된다. 첨부가 없으면 null.
+  closeUpPhotoUrl: string | null;
+  widePhotoUrl: string | null;
 }
 
 export interface TemplateAlertContext {
@@ -741,6 +748,13 @@ export async function resolveActiveTemplateAlerts(
     const purposeTrimmed = typeof tplPurpose === "string" ? tplPurpose.trim() : "";
     const fallbackMessage = `${t.description ?? t.title} — ${dueIso} (${dDayLabel})`;
     const message = purposeTrimmed.length > 0 ? purposeTrimmed : fallbackMessage;
+    // [Task #511] 가장 최근 액션의 actionType 을 그대로 actionStatus 로 노출한다.
+    //   (completed/postponed 는 위에서 `continue` 로 이미 suppress 되었으므로
+    //   여기 도달한 recentAction 은 scheduled / rfq_requested / 그 외 비-suppress
+    //   상태이며, 클라이언트가 D-N 라벨, 비교견적 진행중 배지 등을 표시할 수 있게
+    //   원본 actionType 을 그대로 흘려보낸다. scheduled 메타는 actionType==="scheduled"
+    //   일 때만 의미가 있으므로 그 경우에만 추가로 채운다.)
+    const isScheduledAction = recentAction?.actionType === "scheduled";
     alerts.push({
       id: id++,
       type:
@@ -755,7 +769,7 @@ export async function resolveActiveTemplateAlerts(
       severity,
       relatedId: t.id,
       hasDraft: false,
-      actionStatus: null,
+      actionStatus: recentAction?.actionType ?? null,
       dueDate: dueIso,
       penaltyInfo: null,
       inspectionType: null,
@@ -766,6 +780,12 @@ export async function resolveActiveTemplateAlerts(
       // [Task #393] 클라이언트(매니저앱) 알림 처리 다이얼로그가 "공고문 작성" CTA 표시 여부를
       //   결정할 수 있도록 그대로 흘려보낸다.
       noticeTemplateId: (t as { noticeTemplateId?: number | null }).noticeTemplateId ?? null,
+      scheduledDate: isScheduledAction ? recentAction!.scheduledDate ?? null : null,
+      scheduledNotes: isScheduledAction ? recentAction!.notes ?? null : null,
+      // [Task #511] 액션 종류와 무관하게 가장 최근 액션의 첨부 사진을 같이 흘려보낸다.
+      //   비교견적 탭이 /rfqs?prefill 의 closeUpPhoto/widePhoto 쿼리에 그대로 사용한다.
+      closeUpPhotoUrl: recentAction?.closeUpPhotoUrl ?? null,
+      widePhotoUrl: recentAction?.widePhotoUrl ?? null,
     });
   }
 
