@@ -4,9 +4,59 @@
 //   그대로 옮긴다. units-import.ts 가 AreaInfoRow / fetchAreaInfoFromRegister 를 import 한다.
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+/**
+ * [Task #552] 건축물대장 응답의 큰 정수 ID(mgmBldrgstPk 등) 가 JSON number 로
+ *   내려와도 정밀도가 깨지지 않도록 파싱 전에 문자열로 감싸 둔다.
+ *
+ *   배경: `JSON.parse` 는 자바스크립트 Number 로 받은 뒤 다시 String() 으로 바꾸면
+ *   16~17자리 이상 정수에서 정밀도 손실이 발생한다. 예) 1000000000000000412345 →
+ *   `1.0000000000000004e+21`. 이 값이 그대로 buildings.building_register_pk 에 저장되면
+ *   이후 `getBrExposPubuseAreaInfo` 호출이 가짜 PK 로 나가 404 가 발생한다(아티스톤 사례).
+ *
+ *   대상 키는 식별자 필드만 한정해 표시용 숫자(면적/층수 등) 의 의미가 바뀌지 않도록 한다.
+ *   외부에 export 해 단위 테스트(`registerLookup-pk-precision.test.ts`) 에서도 검증한다.
+ */
+const ID_FIELDS_TO_PRESERVE = [
+  "mgmBldrgstPk",
+  "bun",
+  "ji",
+  "sigunguCd",
+  "bjdongCd",
+  "platGbCd",
+  "regstrGbCd",
+  "regstrKindCd",
+] as const;
+
+export function preserveBigIntegerIds(jsonText: string): string {
+  let out = jsonText;
+  for (const field of ID_FIELDS_TO_PRESERVE) {
+    // "field":<digits> (no quotes, no decimal) → "field":"<digits>"
+    // 뒤따르는 문자가 ',' '}' ']' '공백' 중 하나여야 매칭 — 구조적 위치만 잡는다.
+    const re = new RegExp(`"${field}"\\s*:\\s*(-?\\d+)(?=\\s*[,}\\]\\s])`, "g");
+    out = out.replace(re, `"${field}":"$1"`);
+  }
+  return out;
+}
+
+export function parseRegisterJsonText(jsonText: string): unknown {
+  return JSON.parse(preserveBigIntegerIds(jsonText));
+}
+
+async function fetchRegisterJsonSafe(url: string): Promise<unknown | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const text = await r.text();
+    if (!text) return null;
+    return parseRegisterJsonText(text);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * [Task #502] 공공데이터 표제부의 useAprDay(YYYYMMDD) 를 ISO YYYY-MM-DD 로 변환.
@@ -44,6 +94,23 @@ function pickStr(...vals: unknown[]): string {
   for (const v of vals) {
     if (typeof v === "string" && v.trim()) return v.trim();
     if (typeof v === "number") return String(v);
+  }
+  return "";
+}
+
+/**
+ * [Task #552] 식별자 전용 picker — number 입력을 절대 받지 않는다.
+ *
+ *   `pickStr` 은 표시용 문자열(면적·층수 표기 등)에 number → String 폴백이 유용하지만,
+ *   PK·본번·부번 같은 식별자에는 number 가 한 번이라도 끼면 자릿수/정밀도가 손상된다.
+ *   응답 파싱 단계에서 `preserveBigIntegerIds` 가 큰 정수 ID 를 문자열로 보존하므로,
+ *   여기로 number 가 흘러오는 경우는 곧 "정밀도 보존이 깨진 경로" 라는 신호다.
+ *   조용히 폴백하지 않고 빈 문자열을 돌려 호출 측이 "수기 재조회 필요" 로 분기하게 한다.
+ */
+export function pickIdString(...vals: unknown[]): string {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+    // number 는 의도적으로 거부 — 큰 정수 PK 가 손상되는 경로를 차단한다.
   }
   return "";
 }
@@ -95,9 +162,10 @@ export async function fetchAllDongPksFromRegister(params: {
       _type: "json",
     });
     const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
-    const res = await fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${qs}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null) as BldRgstResp | null;
+    // [Task #552] 정밀도 보존 파서를 통해 mgmBldrgstPk 가 항상 문자열로 들어오도록 한다.
+    const res = (await fetchRegisterJsonSafe(
+      `https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo?${qs}`,
+    )) as BldRgstResp | null;
 
     const body = res?.response?.body;
     if (pageNo === 1) {
@@ -116,7 +184,8 @@ export async function fetchAllDongPksFromRegister(params: {
 
   const dongs: RegisterDongPk[] = all
     .map((it) => ({
-      mgmBldrgstPk: pickStr(it.mgmBldrgstPk),
+      // [Task #552] PK 는 식별자이므로 number 폴백을 거부하는 pickIdString 으로 추출.
+      mgmBldrgstPk: pickIdString(it.mgmBldrgstPk),
       dongName: extractDongName(it),
       isMain: isMainBuilding(it),
     }))
@@ -124,7 +193,7 @@ export async function fetchAllDongPksFromRegister(params: {
   // 대표 동: 주건축물이 있으면 그 동, 없으면 첫 동.
   dongs.sort((a, b) => Number(b.isMain) - Number(a.isMain));
   const firstPk = dongs[0]?.mgmBldrgstPk ?? "";
-  const firstItem = all.find((it) => pickStr(it.mgmBldrgstPk) === firstPk) ?? all[0] ?? null;
+  const firstItem = all.find((it) => pickIdString(it.mgmBldrgstPk) === firstPk) ?? all[0] ?? null;
 
   return { dongs, firstItem, resultCode };
 }
@@ -158,9 +227,8 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
         bun: String(bun || ""),
         ji: String(ji || "0"),
       }),
-      fetch(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${recapQs}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
+      // [Task #552] 총괄표제부도 정밀도 보존 파서로 받는다.
+      fetchRegisterJsonSafe(`https://apis.data.go.kr/1613000/BldRgstHubService/getBrRecapTitleInfo?${recapQs}`),
     ]);
 
     const titleAll = titleResult.status === "fulfilled" ? titleResult.value : null;
@@ -229,13 +297,15 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
           + (t.emgenUseElvtCnt ? parseInt(String(t.emgenUseElvtCnt)) : 0),
         platPlc: pickStr(t.platPlc, r.platPlc),
         newPlatPlc: pickStr(t.newPlatPlc, r.newPlatPlc),
-        sigunguCd: pickStr(t.sigunguCd, r.sigunguCd),
-        bjdongCd: pickStr(t.bjdongCd, r.bjdongCd),
-        bun: pickStr(t.bun, r.bun),
-        ji: pickStr(t.ji, r.ji),
+        // [Task #552] 식별자(시군구·법정동·본번·부번·PK) 는 number 폴백을 거부한다.
+        sigunguCd: pickIdString(t.sigunguCd, r.sigunguCd),
+        bjdongCd: pickIdString(t.bjdongCd, r.bjdongCd),
+        bun: pickIdString(t.bun, r.bun),
+        ji: pickIdString(t.ji, r.ji),
         // [Task #516] 대표 동의 PK. 단일 동 건물에서는 기존 단일 PK 와 동일하며,
         // 다동 건물에서는 주건축물(주건축물 표시가 없으면 첫 동)의 PK 가 들어간다.
-        mgmBldrgstPk: dongs[0]?.mgmBldrgstPk ?? pickStr(t.mgmBldrgstPk, r.mgmBldrgstPk),
+        // [Task #552] PK 는 식별자 — pickIdString 으로 number 입력을 거부한다.
+        mgmBldrgstPk: dongs[0]?.mgmBldrgstPk ?? pickIdString(t.mgmBldrgstPk, r.mgmBldrgstPk),
         landArea: pickStr(r.platArea),
         buildingCoverageRatio: pickStr(r.bcRat),
         floorAreaRatio: pickStr(r.vlRat),
@@ -297,9 +367,10 @@ export async function fetchAreaInfoFromRegister(mgmBldrgstPk: string): Promise<A
         };
       };
     };
-    const result = (await fetch(
+    // [Task #552] 전유부 응답에도 mgmBldrgstPk·bun·ji 같은 식별자가 포함될 수 있어 정밀도 보존 파서로 받는다.
+    const result = (await fetchRegisterJsonSafe(
       `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`,
-    ).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as BldExposResp | null;
+    )) as BldExposResp | null;
 
     const body = result?.response?.body;
     const items = body?.items?.item;
@@ -401,6 +472,164 @@ router.get("/buildings/lookup-area-info", async (req: Request, res: Response) =>
     req.log.error({ err: error }, "Error looking up area info");
     res.status(500).json({ error: "전용/공용면적 조회 실패" });
   }
+});
+
+// [Task #552] 손상된 building_register_pk 식별·복구 — 운영 DB 원샷 복구용 엔드포인트.
+//
+//   문제: 일부 행이 `1.0000000000000004e+21` 같은 지수표기 문자열, 또는 비정상적으로
+//   짧은(13자 미만) / 비정상적으로 긴(22자 초과) PK 로 저장돼 있어
+//   `getBrExposPubuseAreaInfo` 호출이 가짜 PK 로 나가 404 가 발생한다.
+//
+//   복구 방법: 행의 register_data.title 에 보존된 sigunguCd/bjdongCd/bun/ji 를 이용해
+//   `fetchAllDongPksFromRegister` 를 다시 호출 → 정밀도가 보존된 PK 로 building_register_pk
+//   와 register_dong_pks 를 갱신한다. 실패 행은 "수기 재조회 필요" 로 응답에 분리해 남긴다.
+//
+//   접근권한: platform_admin 만. dryRun=true 면 스캔 결과만 돌려주고 DB 를 변경하지 않는다.
+function isPkSuspicious(pk: string | null | undefined): boolean {
+  if (!pk) return false;
+  if (pk.includes("e+") || pk.includes("E+")) return true;
+  if (pk.includes(".")) return true;
+  if (pk.length < 13) return true;
+  if (pk.length > 22) return true;
+  return false;
+}
+
+router.post("/buildings/repair-register-pks", async (req: Request, res: Response): Promise<void> => {
+  // platform_admin 만 — buildings 라우터 진입점에서 이미 인증/역할 검사가 1차 적용되지만,
+  // 본 라우트는 운영 DB 정정용이라 명시적으로 한 번 더 잠근다.
+  if (!req.user || req.user.role !== "platform_admin") {
+    res.status(403).json({ error: "platform_admin 만 사용할 수 있습니다." });
+    return;
+  }
+  const dryRun = req.body?.dryRun === true;
+  const onlyIds: number[] | undefined = Array.isArray(req.body?.ids)
+    ? (req.body.ids as unknown[]).map((v) => Number(v)).filter((n) => Number.isFinite(n))
+    : undefined;
+
+  // 손상 후보 추출. SQL 측에서 1차 필터링 후 JS 에서 isPkSuspicious 로 재확인.
+  const baseWhere = and(
+    isNotNull(buildingsTable.buildingRegisterPk),
+    or(
+      sql`${buildingsTable.buildingRegisterPk} LIKE '%e+%'`,
+      sql`${buildingsTable.buildingRegisterPk} LIKE '%E+%'`,
+      sql`${buildingsTable.buildingRegisterPk} LIKE '%.%'`,
+      sql`length(${buildingsTable.buildingRegisterPk}) < 13`,
+      sql`length(${buildingsTable.buildingRegisterPk}) > 22`,
+    ),
+  );
+  const where = onlyIds && onlyIds.length > 0
+    ? and(baseWhere, inArray(buildingsTable.id, onlyIds))
+    : baseWhere;
+  const candidates = await db.select().from(buildingsTable).where(where);
+
+  type ReportRow = {
+    id: number;
+    name: string;
+    addressJibun: string | null;
+    addressFull: string | null;
+    before: string | null;
+    beforeLen: number;
+    beforeDongCount: number;
+    after?: string | null;
+    afterDongCount?: number;
+    status: "repaired" | "manual_review_needed" | "preview";
+    reason?: string;
+  };
+
+  const repaired: ReportRow[] = [];
+  const manual: ReportRow[] = [];
+  const preview: ReportRow[] = [];
+
+  for (const b of candidates) {
+    const before = b.buildingRegisterPk ?? "";
+    const beforeRow: ReportRow = {
+      id: b.id,
+      name: b.name,
+      addressJibun: b.addressJibun ?? null,
+      addressFull: b.addressFull ?? null,
+      before,
+      beforeLen: before.length,
+      beforeDongCount: (b.registerDongPks ?? []).length,
+      status: "preview",
+    };
+
+    if (!isPkSuspicious(before)) continue; // SQL 1차 통과했지만 JS 검사에서 통과한 경우.
+
+    // register_data.title 에서 시군구·법정동·본번·부번을 추출. 셋 중 하나라도 비어 있으면 자동 복구 보류.
+    const reg = (b.registerData ?? null) as { title?: Record<string, unknown> | null } | null;
+    const title = reg?.title ?? null;
+    const sigunguCd = title ? pickIdString(title.sigunguCd) : "";
+    const bjdongCd = title ? pickIdString(title.bjdongCd) : "";
+    const bun = title ? pickIdString(title.bun) : "";
+    const ji = title ? pickIdString(title.ji) : "";
+
+    if (!sigunguCd || !bjdongCd || !bun) {
+      manual.push({
+        ...beforeRow,
+        status: "manual_review_needed",
+        reason: "register_data.title 에 sigunguCd/bjdongCd/bun 식별자가 없어 자동 재조회가 불가합니다.",
+      });
+      continue;
+    }
+
+    if (dryRun) {
+      preview.push({
+        ...beforeRow,
+        status: "preview",
+        reason: `재조회 후보 — sigunguCd=${sigunguCd}, bjdongCd=${bjdongCd}, bun=${bun}, ji=${ji || "0"}`,
+      });
+      continue;
+    }
+
+    try {
+      const lookup = await fetchAllDongPksFromRegister({ sigunguCd, bjdongCd, bun, ji: ji || "0" });
+      const newPk = lookup.dongs[0]?.mgmBldrgstPk ?? "";
+      if (!newPk || !/^\d+$/.test(newPk) || isPkSuspicious(newPk)) {
+        manual.push({
+          ...beforeRow,
+          status: "manual_review_needed",
+          reason: `재조회 응답에서 정상 PK 를 얻지 못했습니다 (resultCode=${lookup.resultCode ?? "?"}, dongs=${lookup.dongs.length}).`,
+        });
+        continue;
+      }
+      await db
+        .update(buildingsTable)
+        .set({
+          buildingRegisterPk: newPk,
+          registerDongPks: lookup.dongs,
+        })
+        .where(eq(buildingsTable.id, b.id));
+      repaired.push({
+        ...beforeRow,
+        status: "repaired",
+        after: newPk,
+        afterDongCount: lookup.dongs.length,
+      });
+      req.log.info(
+        { buildingId: b.id, before, after: newPk, dongCount: lookup.dongs.length },
+        "Repaired corrupted building_register_pk",
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "재조회 실패";
+      manual.push({
+        ...beforeRow,
+        status: "manual_review_needed",
+        reason: `재조회 호출이 실패했습니다: ${msg}`,
+      });
+      req.log.warn({ err: e, buildingId: b.id }, "Failed to repair building_register_pk");
+    }
+  }
+
+  res.json({
+    dryRun,
+    scanned: candidates.length,
+    repairedCount: repaired.length,
+    manualReviewCount: manual.length,
+    previewCount: preview.length,
+    repaired,
+    manualReviewNeeded: manual,
+    preview,
+  });
 });
 
 export default router;
