@@ -1,0 +1,240 @@
+[
+  {
+    "id": "cover",
+    "position": 1,
+    "filepath": "src/pages/slides/Cover.tsx",
+    "title": "표지",
+    "description": "관리소장 모드 사용 매뉴얼 표지. 부드러운 보라 그라디언트와 큰 한글 헤드라인."
+  },
+  {
+    "id": "toc",
+    "position": 2,
+    "filepath": "src/pages/slides/Toc.tsx",
+    "title": "목차 — 8가지 길",
+    "description": "8개 챕터를 2x4 그리드 카드로 안내. ‘모든 화면은 실제 앱 그대로’임을 명시."
+  },
+  {
+    "id": "c1-cover",
+    "position": 3,
+    "filepath": "src/pages/slides/C1Cover.tsx",
+    "title": "1. 필수업무 처리 — 챕터 표지",
+    "description": "법정 의무 업무를 늦지 않게 처리하는 챕터. 진입경로 ‘사이드바 › 든든하게 지키는 시설관리 › 필수업무’ 안내."
+  },
+  {
+    "id": "c1-mobile",
+    "position": 4,
+    "filepath": "src/pages/slides/C1Mobile.tsx",
+    "title": "1. 필수업무 · 스마트폰",
+    "description": "실제 모바일 홈/필수업무 목록 캡처와 4단계 따라하기. 25건·기한초과 3건의 실제 데이터."
+  },
+  {
+    "id": "c1-desktop",
+    "position": 5,
+    "filepath": "src/pages/slides/C1Desktop.tsx",
+    "title": "1. 필수업무 · 컴퓨터",
+    "description": "실제 컴퓨터 필수업무 목록 캡처. 사이드바 ‘든든하게 지키는 시설관리 › 필수업무’ 강조와 처리 단계."
+  },
+  {
+    "id": "c1-outcome",
+    "position": 6,
+    "filepath": "src/pages/slides/C1Outcome.tsx",
+    "title": "1. 필수업무 · 처리 결과",
+    "description": "완료/연기/견적요청 3가지 결과가 일보·결재함·견적함으로 자동 분배되는 흐름."
+  },
+  {
+    "id": "c2-cover",
+    "position": 7,
+    "filepath": "src/pages/slides/C2Cover.tsx",
+    "title": "2. 제안업무 처리 — 챕터 표지",
+    "description": "권장 업무 챕터. 진입경로와 필수업무와의 차이(기한 초과 X, D-7 권장 시점) 안내."
+  },
+  {
+    "id": "c2-mobile-desktop",
+    "position": 8,
+    "filepath": "src/pages/slides/C2MobileDesktop.tsx",
+    "title": "2. 제안업무 · 모바일+컴퓨터",
+    "description": "모바일·컴퓨터 캡처를 좌우 비교. 처리/연기/제외 3가지 액션 단계."
+  },
+  {
+    "id": "c2-outcome",
+    "position": 9,
+    "filepath": "src/pages/slides/C2Outcome.tsx",
+    "title": "2. 제안업무 · 처리 결과",
+    "description": "처리 시 일보 자동 반영, 연기 시 다음 권장 시점으로 이동, 제외 시 재권장 안 함."
+  },
+  {
+    "id": "c3-cover",
+    "position": 10,
+    "filepath": "src/pages/slides/C3Cover.tsx",
+    "title": "3. 업무기록 작성 — 챕터 표지",
+    "description": "필수·제안 외 평소 업무를 한 줄로 적는 업무기록. 모바일 ‘+ 업무기록’과 컴퓨터 ‘업무일지 › 금일기록’ 두 진입로."
+  },
+  {
+    "id": "c3-mobile",
+    "position": 11,
+    "filepath": "src/pages/slides/C3Mobile.tsx",
+    "title": "3. 업무기록 · 스마트폰",
+    "description": "모바일 홈과 금일기록 탭 캡처. 가운데 ‘+ 업무기록’ 버튼으로 4단계 입력."
+  },
+  {
+    "id": "c3-desktop",
+    "position": 12,
+    "filepath": "src/pages/slides/C3Desktop.tsx",
+    "title": "3. 업무기록 · 컴퓨터",
+    "description": "컴퓨터 ‘업무일지 › 금일기록’ 탭 캡처. 시간 순 기록 표시와 + 업무기록 버튼."
+  },
+  {
+    "id": "c4-cover",
+    "position": 13,
+    "filepath": "src/pages/slides/C4Cover.tsx",
+    "title": "4. 일지(일보) 만들기 — 챕터 표지",
+    "description": "하루 자료가 자동으로 일일 업무보고서로 합쳐지는 챕터. 자동 자료/소장 코멘트/마감 3단계."
+  },
+  {
+    "id": "c4-mobile",
+    "position": 14,
+    "filepath": "src/pages/slides/C4Mobile.tsx",
+    "title": "4. 일보 · 스마트폰",
+    "description": "모바일 일보 캡처. 자동 채워진 일일 업무보고서 위에 한 줄만 추가하고 ‘일지 작성’."
+  },
+  {
+    "id": "c4-desktop",
+    "position": 15,
+    "filepath": "src/pages/slides/C4Desktop.tsx",
+    "title": "4. 일보 · 컴퓨터",
+    "description": "컴퓨터 일보 캡처. 일일 업무보고서 표 구조와 ‘이미지로 저장 / 공유 / 인쇄’ 버튼 위치."
+  },
+  {
+    "id": "c4-actions",
+    "position": 16,
+    "filepath": "src/pages/slides/C4Actions.tsx",
+    "title": "4. 일보 · 보고서 액션 3개",
+    "description": "이미지로 저장(PNG) / 공유(공유시트, iOS는 PDF) / 인쇄(PDF 미리보기). 모든 보고서 공통."
+  },
+  {
+    "id": "c5-cover",
+    "position": 17,
+    "filepath": "src/pages/slides/C5Cover.tsx",
+    "title": "5. 주보(자동) — 챕터 표지",
+    "description": "한 주 일보가 자동으로 합쳐지는 주보. 매주 일요일 22:00 생성, 결재 자동 상신."
+  },
+  {
+    "id": "c5-devices",
+    "position": 18,
+    "filepath": "src/pages/slides/C5Devices.tsx",
+    "title": "5. 주보(자동) · 모바일·컴퓨터",
+    "description": "모바일·컴퓨터 ‘주보(자동)’ 탭 캡처. 좌우 화살표 주차 이동과 주간 코멘트 한 줄."
+  },
+  {
+    "id": "c5-actions",
+    "position": 19,
+    "filepath": "src/pages/slides/C5Actions.tsx",
+    "title": "5. 주보 · 이미지·공유·인쇄",
+    "description": "주보의 액션 3개와 iOS의 PDF 다운로드 폴백 안내."
+  },
+  {
+    "id": "c6-cover",
+    "position": 20,
+    "filepath": "src/pages/slides/C6Cover.tsx",
+    "title": "6. 월보(자동) — 챕터 표지",
+    "description": "한 달 주보를 모은 월보. 완료율·민원·재무·다음달 권장. 본부장→사장 두 단계 결재."
+  },
+  {
+    "id": "c6-devices",
+    "position": 21,
+    "filepath": "src/pages/slides/C6Devices.tsx",
+    "title": "6. 월보(자동) · 모바일·컴퓨터",
+    "description": "모바일·컴퓨터 ‘월보(자동)’ 탭 캡처와 4단계 확인 안내."
+  },
+  {
+    "id": "c6-actions",
+    "position": 22,
+    "filepath": "src/pages/slides/C6Actions.tsx",
+    "title": "6. 월보 · 이미지·공유·인쇄",
+    "description": "PNG 한 장으로 카톡, 대표회의장 인쇄용 A4. 시스템에 자동 보관됨 안내."
+  },
+  {
+    "id": "c7-cover",
+    "position": 23,
+    "filepath": "src/pages/slides/C7Cover.tsx",
+    "title": "7. 공고문 템플릿 — 챕터 표지",
+    "description": "건물 정보가 자동 채워지는 공고문 템플릿. 안전/위생/공지/일반 4분류."
+  },
+  {
+    "id": "c7-mobile",
+    "position": 24,
+    "filepath": "src/pages/slides/C7Mobile.tsx",
+    "title": "7. 공고문 템플릿 · 스마트폰",
+    "description": "모바일 공지문 템플릿 캡처. ‘더보기 › 공지문 템플릿’ 진입과 카테고리 선택 4단계."
+  },
+  {
+    "id": "c7-desktop",
+    "position": 25,
+    "filepath": "src/pages/slides/C7Desktop.tsx",
+    "title": "7. 공고문 템플릿 · 컴퓨터",
+    "description": "컴퓨터 공지문 템플릿 캡처. 사이드바 진입과 3×3 카드, 다이얼로그 미리보기."
+  },
+  {
+    "id": "c7-actions",
+    "position": 26,
+    "filepath": "src/pages/slides/C7Actions.tsx",
+    "title": "7. 공고문 · 4가지 액션",
+    "description": "이미지 저장(PNG)·공유(단톡방)·문서 저장(.docx, 한글에서 수정)·인쇄. iOS 폴백 안내."
+  },
+  {
+    "id": "c8-cover",
+    "position": 27,
+    "filepath": "src/pages/slides/C8Cover.tsx",
+    "title": "8. 공유·인쇄 한눈에 — 챕터 표지",
+    "description": "보고서 3버튼 vs 공고문 4버튼 비교. ‘버튼은 항상 위쪽 한 줄, 같은 색’."
+  },
+  {
+    "id": "c8-kakao-mobile",
+    "position": 28,
+    "filepath": "src/pages/slides/C8KakaoMobile.tsx",
+    "title": "8. 카톡 공유 · 스마트폰",
+    "description": "스마트폰 공유 시트로 카톡 보내기 4단계. iOS는 PDF 다운로드 후 카톡 첨부."
+  },
+  {
+    "id": "c8-kakao-desktop",
+    "position": 29,
+    "filepath": "src/pages/slides/C8KakaoDesktop.tsx",
+    "title": "8. 카톡 공유 · 컴퓨터",
+    "description": "컴퓨터에서는 ‘이미지로 저장’ 후 카톡PC에 드래그 또는 PDF 저장 후 첨부."
+  },
+  {
+    "id": "c8-print-mobile",
+    "position": 30,
+    "filepath": "src/pages/slides/C8PrintMobile.tsx",
+    "title": "8. 인쇄 · 스마트폰",
+    "description": "공고문 인쇄 4단계. 안드로이드는 즉시 프린터 선택, 아이폰은 PDF 저장 → 한 번 더 누르기."
+  },
+  {
+    "id": "c8-print-desktop",
+    "position": 31,
+    "filepath": "src/pages/slides/C8PrintDesktop.tsx",
+    "title": "8. 인쇄 · 컴퓨터",
+    "description": "PDF 미리보기에서 인쇄 다이얼로그 자동 호출, 안 될 때 미리보기 위쪽 인쇄 아이콘."
+  },
+  {
+    "id": "c8-faq",
+    "position": 32,
+    "filepath": "src/pages/slides/C8Faq.tsx",
+    "title": "8. 자주 듣는 질문",
+    "description": "공유·인쇄에서 자주 막히는 6가지 — 공유가 안 됨, 단톡방 없음, 한글 수정, 인쇄 자동호출 안 됨 등."
+  },
+  {
+    "id": "summary",
+    "position": 33,
+    "filepath": "src/pages/slides/Summary.tsx",
+    "title": "한 장 요약",
+    "description": "8개 챕터 × 들어가는 길 × 해야 할 행동 — 한 장 표로 한눈에."
+  },
+  {
+    "id": "help",
+    "position": 34,
+    "filepath": "src/pages/slides/Help.tsx",
+    "title": "도움말",
+    "description": "AI 관리비서 / 고객지원 / 방문 교육 3가지 도움 채널과 마무리 인사."
+  }
+]

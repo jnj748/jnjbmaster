@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: var(--slide-primary);
+  --color-primary-deep: var(--slide-primary-deep);
+  --color-primary-soft: var(--slide-primary-soft);
+  --color-accent: var(--slide-accent);
+  --color-accent-soft: var(--slide-accent-soft);
+  --color-danger: var(--slide-danger);
+  --color-danger-soft: var(--slide-danger-soft);
+  --color-success: var(--slide-success);
+  --color-success-soft: var(--slide-success-soft);
+  --color-bg: var(--slide-bg);
+  --color-surface: var(--slide-surface);
+  --color-ink: var(--slide-ink);
+  --color-text: var(--slide-text);
+  --color-muted: var(--slide-muted);
+  --color-line: var(--slide-line);
+  --font-display: var(--font-display-family);
+  --font-body: var(--font-body-family);
+}
+
+:root {
+  --slide-primary: #4f4cdc;
+  --slide-primary-deep: #2622a3;
+  --slide-primary-soft: #ecebfb;
+  --slide-accent: #ffb547;
+  --slide-accent-soft: #fff3dc;
+  --slide-danger: #d6271f;
+  --slide-danger-soft: #fde6e4;
+  --slide-success: #1a8a4d;
+  --slide-success-soft: #def3e4;
+  --slide-bg: #f5f6fc;
+  --slide-surface: #ffffff;
+  --slide-ink: #131736;
+  --slide-text: #1f2542;
+  --slide-muted: #6b7090;
+  --slide-line: #e0e3f0;
+  --font-display-family: "Noto Sans KR", "Pretendard", system-ui, sans-serif;
+  --font-body-family: "Noto Sans KR", "Pretendard", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--slide-bg);
+  color: var(--slide-text);
+  font-family: var(--font-body-family);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.slide-viewer {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}

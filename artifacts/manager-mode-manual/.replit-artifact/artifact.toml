@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/manager-mode-manual/"
+title = "관리소장 모드 사용 매뉴얼"
+version = "1.0.0"
+id = "artifacts/manager-mode-manual"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/manager-mode-manual/" ]
+localPort = 22908
+
+[services.development]
+run = "pnpm --filter @workspace/manager-mode-manual run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manager-mode-manual", "run", "build" ]
+publicDir = "artifacts/manager-mode-manual/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22908"
+BASE_PATH = "/manager-mode-manual/"
