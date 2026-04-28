@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc, or, inArray, sum, count } from "drizzle-orm";
 import { db, rfqsTable, vendorsTable, usersTable, quotesTable, buildingsTable, creditLedgerTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getUserBuildingId, isBuildingScopedRole } from "../middlewares/buildingScope";
 import {
   refundRfqConsumption,
   computeCreditCost,
@@ -116,7 +117,9 @@ function serializeRfqRow<T extends RfqRowDateFields>(row: T): T {
 router.get("/rfqs", async (req, res): Promise<void> => {
   const params = ListRfqsQueryParams.safeParse(req.query);
   const conditions = [];
-  const isPartner = req.user?.role === "partner";
+  const role = req.user?.role;
+  const isPartner = role === "partner";
+  const isHqOrAdmin = role === "platform_admin" || role === "hq_executive";
 
   if (isPartner) {
     const [authUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
@@ -125,6 +128,23 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       return;
     }
     req.query.forVendorId = authUser.vendorId.toString();
+  } else if (isBuildingScopedRole(role)) {
+    // [Task #551] 관리소장/경리/시설기사 등 건물 단위 직원 역할은 본인이 속한
+    //   건물의 RFQ 만 볼 수 있다. 종전에는 이 분기가 빠져 있어 다른 건물의
+    //   RFQ 가 함께 노출되는 데이터 유출 버그가 있었다(Broken Access Control).
+    //   buildingId 가 비어 있으면 빈 목록을 반환한다(에러 아님).
+    const userBuildingId = await getUserBuildingId(req);
+    if (userBuildingId == null) {
+      res.json(ListRfqsResponse.parse([]));
+      return;
+    }
+    conditions.push(eq(rfqsTable.buildingId, userBuildingId));
+  } else if (isHqOrAdmin) {
+    // [Task #551] 본사/플랫폼 관리자는 전체 RFQ 를 볼 수 있되, 선택적으로
+    //   ?buildingId 쿼리 파라미터로 특정 건물만 필터할 수 있다.
+    if (params.success && params.data.buildingId != null) {
+      conditions.push(eq(rfqsTable.buildingId, Number(params.data.buildingId)));
+    }
   }
 
   if (params.success && params.data.status) {
@@ -325,6 +345,16 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
+    }
+  } else if (isBuildingScopedRole(req.user?.role)) {
+    // [Task #551] 건물 단위 직원 역할은 다른 건물의 RFQ 단건 조회를 차단한다.
+    //   타 건물 RFQ ID 를 알아도 직접 URL 로 열람·비교가 불가능하도록
+    //   목록과 동일한 스코프 규칙을 적용한다(Broken Access Control 차단).
+    //   존재 자체를 노출하지 않기 위해 403 대신 목록 결과와 동일한 404 로 응답.
+    const userBuildingId = await getUserBuildingId(req);
+    if (userBuildingId == null || rfq.buildingId == null || rfq.buildingId !== userBuildingId) {
+      res.status(404).json({ error: "RFQ not found" });
+      return;
     }
   }
 

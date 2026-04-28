@@ -5610,6 +5610,10 @@ export type ListRfqsParams = {
    * Filter RFQs visible to this vendor (by invitation + geo/category match)
    */
   forVendorId?: number;
+  /**
+   * [Task #551] HQ/플랫폼 관리자가 특정 건물의 RFQ만 필터링할 때 사용한다. 매니저/경리/시설기사 등 건물 단위 직원 역할은 본인 소속 건물로 자동 스코프되며, 이 파라미터를 보내도 무시된다.
+   */
+  buildingId?: number;
 };
 
 export type ListRfqsStatus =
