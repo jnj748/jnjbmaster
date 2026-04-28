@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/manager-flyer/"
+title = "관리의달인 인쇄 전단"
+version = "1.0.0"
+id = "artifacts/manager-flyer"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/manager-flyer/" ]
+localPort = 23069
+
+[services.development]
+run = "pnpm --filter @workspace/manager-flyer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manager-flyer", "run", "build" ]
+publicDir = "artifacts/manager-flyer/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23069"
+BASE_PATH = "/manager-flyer/"
