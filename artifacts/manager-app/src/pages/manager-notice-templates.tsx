@@ -21,7 +21,7 @@ import {
   safeFilename,
 } from "@/lib/document-export";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Image as ImageIcon, Share2, Printer } from "lucide-react";
+import { FileText, Image as ImageIcon, Share2, Printer, RotateCcw, Upload, X as XIcon } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import { renderNoticeBodyHtml, escapeNoticeHtml } from "@/lib/notice-layout";
@@ -223,6 +223,21 @@ function PreviewDialog({
   // 공고NO 는 다이얼로그가 열릴 때 한 번 채번해 캡처/공유 동안 일정하게 유지.
   const [noticeNo] = useState(generateNoticeNo);
 
+  // [Task #566] 본문 직접 수정 + 사진 첨부.
+  //   - 본문 영역은 contentEditable 로 직접 수정 가능. React state 와 분리해
+  //     키 입력마다 re-render 되지 않도록 한다.
+  //   - bodyDirty=false 이면 custom/date 입력 변경에 따라 자동 재채움.
+  //     사용자가 한 번이라도 본문을 직접 수정하면 dirty=true 로 잠그고,
+  //     이후 입력 변경은 본문에 영향을 주지 않는다. "원본으로 되돌리기"
+  //     로만 다시 토큰 치환을 적용한다.
+  //   - 첨부 사진은 다이얼로그 세션 동안만 메모리(state)에 보관하며
+  //     서버에 저장하지 않는다. data: URL 로 보관해 PNG/PDF/docx 캡처에
+  //     별도 변환 없이 그대로 포함된다.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [bodyDirty, setBodyDirty] = useState(false);
+  const [photos, setPhotos] = useState<(string | null)[]>([null, null]);
+  const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+
   const vars: Record<string, string> = {
     buildingName: building?.name ?? "",
     addressFull: building?.addressFull ?? "",
@@ -236,6 +251,74 @@ function PreviewDialog({
     customC,
   };
   const renderedHtml = useMemo(() => renderTemplate(template.bodyHtml, vars), [template, vars]);
+
+  // [Task #566] 본문 초기 채움 / 입력 변경 시 자동 재채움 (단, 사용자 수정 전에만).
+  //   contentEditable 의 innerHTML 을 직접 set 하기 때문에 React 가 매 키 입력마다
+  //   덮어쓰지 않는다. dirty 플래그가 켜지면 더 이상 자동으로 재채우지 않는다.
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    if (bodyDirty) return;
+    bodyRef.current.innerHTML = renderedHtml;
+  }, [renderedHtml, bodyDirty]);
+
+  function handleResetBody() {
+    if (!bodyRef.current) return;
+    bodyRef.current.innerHTML = renderedHtml;
+    setBodyDirty(false);
+  }
+
+  // 데이터 URL 은 메모리에 그대로 보관되므로 매우 큰 이미지가 들어오면
+  // 다이얼로그 세션 내내 메모리 점유가 커진다. 10MB 를 상한선으로 둔다.
+  const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+  function handlePhotoChange(idx: number, file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "이미지 파일만 첨부할 수 있습니다", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast({
+        title: "사진이 너무 큽니다",
+        description: "10MB 이하 이미지만 첨부할 수 있습니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = String(e.target?.result || "");
+      if (!dataUrl) return;
+      setPhotos((prev) => {
+        const next = [...prev];
+        next[idx] = dataUrl;
+        return next;
+      });
+    };
+    reader.onerror = () => {
+      toast({ title: "사진을 읽지 못했습니다", variant: "destructive" });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // "추가" / "교체" 클릭 시 input.value 를 먼저 비워야 동일 파일을 다시 선택해도
+  // change 이벤트가 발생한다 (모든 브라우저 공통).
+  function openPhotoPicker(idx: number) {
+    const input = photoInputRefs[idx]?.current;
+    if (!input) return;
+    input.value = "";
+    input.click();
+  }
+
+  function handlePhotoRemove(idx: number) {
+    setPhotos((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+    const input = photoInputRefs[idx]?.current;
+    if (input) input.value = "";
+  }
 
   const filename = safeFilename(`${building?.name ?? "건물"}_${template.title}_${date}`);
 
@@ -437,6 +520,89 @@ function PreviewDialog({
           />
         </div>
 
+        {/* [Task #566] 사진 첨부 컨트롤 — 캡처 영역 밖에 두어 컨트롤 자체가 PNG/PDF/docx 에 포함되지 않게 한다. */}
+        <div className="px-1 space-y-2" data-testid="photo-upload-controls">
+          <Label className="text-xs">사진 첨부 (최대 2장, 다이얼로그를 닫으면 사라집니다)</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                className="border rounded p-2 bg-slate-50 flex flex-col gap-2"
+                data-testid={`photo-upload-slot-${i}`}
+              >
+                <input
+                  ref={photoInputRefs[i]}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  data-testid={`input-photo-${i}`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    handlePhotoChange(i, file);
+                  }}
+                />
+                {photos[i] ? (
+                  <>
+                    <div className="aspect-[4/3] w-full bg-white border overflow-hidden flex items-center justify-center">
+                      <img
+                        src={photos[i] ?? ""}
+                        alt={`첨부 사진 ${i + 1}`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => openPhotoPicker(i)}
+                        data-testid={`button-photo-replace-${i}`}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1" />교체
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handlePhotoRemove(i)}
+                        data-testid={`button-photo-remove-${i}`}
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-24 w-full flex flex-col items-center justify-center gap-1"
+                    onClick={() => openPhotoPicker(i)}
+                    data-testid={`button-photo-add-${i}`}
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="text-xs">사진 {i + 1} 추가</span>
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* [Task #566] 본문 편집 가이드 + 원본 복원 버튼 — 캡처 영역 밖. */}
+        <div className="px-1 flex items-center justify-between gap-2">
+          <Label className="text-xs">본문 (직접 수정 가능)</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleResetBody}
+            data-testid="button-reset-body"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />원본으로 되돌리기
+          </Button>
+        </div>
+
         <div className="border rounded bg-white p-2 mx-1" data-testid="container-preview">
           <div
             ref={previewRef}
@@ -456,10 +622,48 @@ function PreviewDialog({
               noticeDate={todayShort()}
               title={template.title}
             >
+              {/*
+                [Task #566] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
+                  사진이 0/1/2 장이든 동일한 높이를 차지하므로 본문 시작 y 좌표가 흔들리지 않는다.
+              */}
               <div
-                className="notice-template-body"
-                // eslint-disable-next-line react/no-danger
-                dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                className="grid grid-cols-2 gap-3 mb-4"
+                data-testid="notice-photo-area"
+                aria-label="첨부 사진 영역"
+              >
+                {[0, 1].map((i) => (
+                  <div
+                    key={i}
+                    className="aspect-[4/3] border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden"
+                    data-testid={`notice-photo-slot-${i}`}
+                  >
+                    {photos[i] ? (
+                      <img
+                        src={photos[i] ?? ""}
+                        alt=""
+                        className="w-full h-full object-contain bg-white"
+                      />
+                    ) : (
+                      <span className="text-[11px] text-slate-400 select-none">사진 없음</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/*
+                [Task #566] 본문 — contentEditable. innerHTML 은 useEffect 에서 직접 채우므로
+                  키 입력마다 React 가 덮어쓰지 않는다. hover/focus 의 시각 힌트는 캡처 시점에는
+                  포커스가 다른 곳(저장 버튼)으로 이동하므로 PNG/PDF 결과에 들어가지 않는다.
+              */}
+              <div
+                ref={bodyRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => {
+                  if (!bodyDirty) setBodyDirty(true);
+                }}
+                spellCheck={false}
+                className="notice-template-body outline-none cursor-text rounded hover:bg-blue-50/30 focus:bg-blue-50/30 transition-colors"
+                data-testid="editable-body"
               />
             </NoticeLayoutFrame>
           </div>
