@@ -217,17 +217,32 @@
 }
 
 /*
- * [Task #543] 인쇄 페이지 여백 정책.
+ * [Task #543] 인쇄 페이지 여백 정책 (격리되지 않은 인쇄 경로용 기본값).
  *   - 가정용/사무용 프린터(SINDOH D320 등) 는 종이 가장자리 ~3-5mm 를 인쇄하지
  *     못한다. `margin: 0` 으로 두면 본문이 비인쇄 영역에 걸쳐 좌/우가 잘리고,
  *     일부 브라우저는 페이지 안에서 문서를 한쪽으로 밀어버리는 현상까지 생겼다.
- *   - 안전한 페이지 여백(상하·좌우 동일 10mm) 을 두고, 본문 .a4-document 의
- *     인쇄용 padding 을 5mm 로 줄여 합쳐서 약 15mm 의 시각적 여백이 유지되도록
- *     보정했다(이전 인쇄 padding 15mm 와 동일한 안전 영역).
+ *   - 격리되지 않은 인쇄 경로(대시보드 위젯의 즉시 window.print() 등) 는
+ *     화면 그대로 인쇄하므로 안전 마진 10mm 를 유지한다(브라우저 머리/꼬리는
+ *     이 마진 안에 자연스럽게 들어감).
+ *
+ * [2026-04-28 인쇄 머리꼬리 숨김] 격리 인쇄(.a4-document/.inspection-notice-print) 에서는 사용자가
+ *   브라우저 인쇄 다이얼로그의 "머리글/바닥글"(URL·날짜·페이지번호) 을 매번
+ *   끄지 않아도 디폴트로 보이지 않게 한다. CSS 표준에 머리/꼬리 자체를 끄는
+ *   API 는 없지만, @page margin 을 0 으로 두면 머리/꼬리가 그릴 자리가 없어
+ *   주요 브라우저(Chrome/Edge/Safari) 에서 자동으로 숨겨진다. 격리 인쇄 본문
+ *   에만 적용되도록 named page (@page borderless) 로 분리한다 — 격리되지
+ *   않은 인쇄 경로는 위 기본 @page (10mm) 를 그대로 사용한다.
+ *   좌·우 비인쇄 영역(~5mm) 침범은 본문 padding 15mm 가 흡수한다(텍스트는
+ *   padding 안쪽이라 잘리지 않음).
  */
 @page {
   size: A4;
   margin: 10mm;
+}
+
+@page borderless {
+  size: A4;
+  margin: 0;
 }
 
 .a4-document {
@@ -411,15 +426,20 @@ h1, h2, h3, h4 {
    *     폭에 맞춰 좌·우 비대칭 없이 채워진다.
    *   - min-height: 0 → 화면용 `min-height: 297mm` 가 짧은 문서에서 강제로
    *     2페이지를 만들지 않게 한다.
-   *   - padding: 5mm → @page margin(10mm) 과 합쳐 약 15mm 의 시각적 여백을
-   *     유지(이전 인쇄 padding 15mm 와 동일).
+   *   - page: borderless → @page borderless (margin: 0) 를 적용해 브라우저
+   *     머리/꼬리(URL·날짜·페이지번호) 가 그릴 자리를 없앤다 [2026-04-28 인쇄 머리꼬리 숨김].
+   *   - padding: 15mm → @page borderless (margin: 0) 환경에서 본문 자체가
+   *     시각 여백을 제공한다. 좌·우 비인쇄 영역(~5mm) 은 padding 의 바깥쪽
+   *     5mm 에 흡수되어 텍스트는 잘리지 않는다 (총 시각 여백 15mm 유지 —
+   *     이전 인쇄 padding 15mm 와 동일).
    */
   [data-printing] [data-print-root] .a4-document {
+    page: borderless;
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 5mm !important;
+    padding: 15mm !important;
     box-sizing: border-box !important;
     background: white !important;
     color: black !important;
@@ -429,11 +449,12 @@ h1, h2, h3, h4 {
   }
 
   [data-printing] [data-print-root] .inspection-notice-print {
+    page: borderless;
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 5mm !important;
+    padding: 15mm !important;
     box-sizing: border-box !important;
     background: white !important;
     color: black !important;
