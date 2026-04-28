@@ -45,13 +45,52 @@ function calculateNextDueDate(lastDate: string, cycleMonths: number, intervalDay
   return d.toISOString().split("T")[0];
 }
 
+/**
+ * [Task #544] Drizzle ↔ zod 정규화 (좁은 surgical 헬퍼).
+ *
+ *   `inspections` 테이블의 `created_at` / `updated_at` 컬럼은 timestamp 타입이라
+ *   Drizzle 이 row 를 Date 인스턴스로 돌려준다. 반면 generated zod 스키마
+ *   (`ListInspectionsResponse`, `UpdateInspectionResponse`,
+ *    `CompleteInspectionResponse`) 는 ISO 8601 string 을 기대해 .parse() 가
+ *   "Expected string, received date" 로 실패한다(별도 backlog
+ *   "Fix drizzle date/time type mismatches" 의 일부).
+ *
+ *   본 task(#544) 의 인쇄 정렬 회귀 테스트가 inspection seed → 모달 트리거
+ *   경로를 거쳐야 해서, 그 backlog 가 해소되기 전 단계의 임시 좁은 보정을
+ *   여기서 수행한다. Date → ISO string 으로만 바꾸고 그 외 컬럼은 그대로 둔다.
+ */
+function normalizeInspectionRow<T extends Record<string, unknown>>(row: T): T {
+  const out: Record<string, unknown> = { ...row };
+  for (const key of ["createdAt", "updatedAt"] as const) {
+    const v = out[key];
+    if (v instanceof Date) {
+      out[key] = v.toISOString();
+    }
+  }
+  return out as T;
+}
+
 router.get("/inspections", async (_req, res): Promise<void> => {
   const inspections = await db
     .select()
     .from(inspectionsTable)
     .orderBy(inspectionsTable.nextDueDate);
 
-  res.json(ListInspectionsResponse.parse(inspections));
+  // [Task #544] 응답 정규화: (1) Date → ISO string 변환,
+  //   (2) 과거 마이그레이션에서 들어간 deprecated category(예: "self_regular")
+  //       는 zod enum 에 없어 .parse() 가 통째로 실패 — safeParse 로 행 단위
+  //       검증 후 통과한 행만 응답에 포함한다(=UI 가 표시할 수 없는 행은 어차피
+  //       무의미하므로 자르는 게 안전). 본격적인 schema drift 정리는 backlog
+  //       "Fix drizzle date/time type mismatches" 에서 처리한다(본 task 범위 밖).
+  const ItemSchema = (ListInspectionsResponse as unknown as { element: typeof ListInspectionsResponse })
+    .element ?? ListInspectionsResponse;
+  const normalized = inspections
+    .map(normalizeInspectionRow)
+    .map((row) => ItemSchema.safeParse(row))
+    .filter((r): r is { success: true; data: unknown } => r.success)
+    .map((r) => r.data);
+
+  res.json(normalized);
 });
 
 router.get("/inspections/presets", async (_req, res): Promise<void> => {
@@ -116,7 +155,8 @@ router.post("/inspections", async (req, res): Promise<void> => {
   }
 
   const [inspection] = await db.insert(inspectionsTable).values(data as typeof inspectionsTable.$inferInsert).returning();
-  res.status(201).json(UpdateInspectionResponse.parse(inspection));
+  // [Task #544] Date → ISO string 정규화 (위 헬퍼 doc 참고).
+  res.status(201).json(UpdateInspectionResponse.parse(normalizeInspectionRow(inspection)));
 });
 
 router.post("/inspections/bulk-register", async (req, res): Promise<void> => {
@@ -175,7 +215,8 @@ router.post("/inspections/bulk-register", async (req, res): Promise<void> => {
 
   res.status(201).json({
     registeredCount: createdInspections.length,
-    inspections: ListInspectionsResponse.parse(createdInspections),
+    // [Task #544] Date → ISO string 정규화 (위 헬퍼 doc 참고).
+    inspections: ListInspectionsResponse.parse(createdInspections.map(normalizeInspectionRow)),
   });
 });
 
@@ -217,7 +258,8 @@ router.patch("/inspections/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UpdateInspectionResponse.parse(inspection));
+  // [Task #544] Date → ISO string 정규화 (위 헬퍼 doc 참고).
+  res.json(UpdateInspectionResponse.parse(normalizeInspectionRow(inspection)));
 });
 
 router.delete("/inspections/:id", async (req, res): Promise<void> => {
@@ -304,7 +346,12 @@ router.post("/inspections/:id/complete", async (req, res): Promise<void> => {
     });
   }
 
-  res.json(CompleteInspectionResponse.parse(updated));
+  // [Task #544] Date → ISO string 정규화 (위 헬퍼 doc 참고). updated 는
+  //   { inspection, log } 합성 객체이므로 inspection 키만 정규화한다.
+  const normalized = (updated && typeof updated === "object" && "inspection" in updated)
+    ? { ...(updated as Record<string, unknown>), inspection: normalizeInspectionRow((updated as { inspection: Record<string, unknown> }).inspection) }
+    : updated;
+  res.json(CompleteInspectionResponse.parse(normalized));
 });
 
 router.get("/inspections/:id/logs", async (req, res): Promise<void> => {

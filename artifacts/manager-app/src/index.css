@@ -463,8 +463,18 @@ h1, h2, h3, h4 {
    *   재현된다. document-preview.tsx 가 inline padding(48px 56px) 을 줘도
    *   인쇄 시에는 이 규칙(!important) 이 우선한다.
    */
+  /*
+   * [Task #544] 본문은 모달/드로어 등 상위 컨테이닝 블록의 위치에 영향을 받지
+   *   않도록 `position: fixed` 로 시점 자체를 페이지(=뷰포트=인쇄 페이지)에
+   *   직접 고정한다. `position: absolute` 는 가장 가까운 positioned 조상이
+   *   컨테이닝 블록이 되는데, 다이얼로그/드로어가 화면 가운데에 떠 있으면
+   *   left/right=0 이 그 컨테이너 기준으로 잡혀 페이지 좌표상 음수 영역으로
+   *   밀려난다(Task #543 → #544 회귀 검증에서 실측 left=-261~-451px).
+   *   fixed 는 인쇄 시에도 @page 영역 자체를 컨테이닝 블록으로 사용하므로
+   *   left:0 / right:0 만으로 항상 페이지 가로 전체를 차지하게 된다.
+   */
   .a4-document {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     right: 0 !important;
@@ -483,7 +493,7 @@ h1, h2, h3, h4 {
   }
 
   .inspection-notice-print {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     right: 0 !important;
@@ -503,6 +513,37 @@ h1, h2, h3, h4 {
 
   .print\:hidden {
     display: none !important;
+  }
+
+  /*
+   * [Task #544] Tailwind v4 의 standalone CSS 속성 중화.
+   *
+   *   Task #545 가 .a4-document 까지의 모든 wrapper(dialog/drawer/portal/frame)
+   *   를 `position: static !important; transform: none !important` 로 풀어
+   *   컨테이닝 블록 생성을 차단했지만, Tailwind v4 는 `.translate-x-[-50%]`
+   *   같은 유틸을 standalone CSS 속성(`translate: var(--tw-translate-x) ...`)
+   *   으로 내보내기 때문에 `transform: none` 만으로는 막히지 않는다.
+   *   `translate` / `rotate` / `scale` / `perspective` / `will-change` /
+   *   `backdrop-filter` / `filter` 는 모두 absolute/fixed 자손의 컨테이닝 블록을
+   *   만들 수 있으므로(인쇄 매체에서 시각적 효과는 무의미하므로) body 하위
+   *   전 요소에 일괄로 비활성화한다.
+   *
+   *   회귀 검증(Task #544 e2e): 1280×800 desktop Dialog + 400×720 mobile Drawer
+   *   에서 CompletionNotice 3종(notice/report/draft) + InspectionNotice 의
+   *   .a4-document / .inspection-notice-print 좌표를 측정한 결과, 이 규칙이
+   *   없으면 모바일 Drawer 분기에서 본문이 left=-261~-640px 로 어긋났다.
+   */
+  body * {
+    transform: none !important;
+    translate: none !important;
+    rotate: none !important;
+    scale: none !important;
+    perspective: none !important;
+    animation: none !important;
+    will-change: auto !important;
+    contain: none !important;
+    backdrop-filter: none !important;
+    filter: none !important;
   }
 }
 
