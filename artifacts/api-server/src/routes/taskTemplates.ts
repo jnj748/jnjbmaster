@@ -16,6 +16,8 @@ import {
   taskTemplateBuildingUsageScopes,
   taskTemplateEligibilityFields,
   taskTemplateEligibilityOps,
+  taskStatuses,
+  taskTemplateRiskLevels,
   usersTable,
   type TaskTemplate,
   type TaskTemplateEligibilityRule,
@@ -37,6 +39,16 @@ const eligibilityRuleSchema = z.object({
   field: z.enum(taskTemplateEligibilityFields),
   op: z.enum(taskTemplateEligibilityOps),
   value: z.number().finite(),
+});
+// [Task #523] 시스템 표준 업무 상태 / 위험등급 enum.
+const taskStatusEnum = z.enum(taskStatuses);
+const riskLevelEnum = z.enum(taskTemplateRiskLevels);
+// [Task #523] 법정근거 1건 — 법령명·조문 둘 중 하나만 있어도 저장 가능,
+//   URL 은 선택. 셋 다 비어있는 행은 정규화 단계에서 제거된다.
+const legalBasisItemSchema = z.object({
+  lawName: z.string().max(200).optional(),
+  article: z.string().max(200).optional(),
+  url: z.string().max(500).optional(),
 });
 
 const CreateBody = z.object({
@@ -83,7 +95,50 @@ const CreateBody = z.object({
   // [Task #393] 알림 발생 시 매니저가 작성·배포할 공고문 템플릿(building_notice_templates) 후보 ID.
   //   null/미지정 → 기존 자동 알림만 노출(공고문 작성 CTA 미노출). 양수 → 알림 다이얼로그에 CTA 추가.
   noticeTemplateId: z.number().int().positive().nullable().optional(),
+  // [Task #523] 공고문 출력 항목(입주민 노출, 포괄적). 모두 선택.
+  scheduleNotice: z.string().max(200).nullable().optional(),
+  // [Task #523] PATCH 에서 "이 항목을 비웁니다" 의도를 명시적으로 보내려면
+  //   배열은 [] 또는 null, defaultStatus 는 null(→기본값 폴백) 입력을 허용해야
+  //   한다. 정규화 로직이 null 을 안전한 기본값으로 변환한다.
+  legalBasis: z.array(legalBasisItemSchema).nullable().optional(),
+  defaultStatus: taskStatusEnum.nullable().optional(),
+  // [Task #523] 보고서·기안서 출력 항목(내부, 상세). 모두 선택.
+  responsibleDepartment: z.string().max(100).nullable().optional(),
+  procedureSteps: z.array(z.string().max(300)).nullable().optional(),
+  requiredAttachments: z.array(z.string().max(200)).nullable().optional(),
+  reportItems: z.array(z.string().max(200)).nullable().optional(),
+  riskLevel: riskLevelEnum.nullable().optional(),
+  tags: z.array(z.string().max(50)).nullable().optional(),
 });
+
+// [Task #523] 입력 정규화 헬퍼.
+//   - 문자열 배열: trim + 빈 항목 제거 + 길이 제한.
+//   - legalBasis: 각 항목 trim, lawName/article/url 모두 비어있는 행 제거.
+function normalizeStringArray(arr: string[] | null | undefined, maxLen: number): string[] {
+  if (!arr) return [];
+  return arr
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s) => s.length > 0)
+    .map((s) => (s.length > maxLen ? s.slice(0, maxLen) : s));
+}
+function normalizeLegalBasis(
+  arr: Array<{ lawName?: string; article?: string; url?: string }> | null | undefined,
+): Array<{ lawName?: string; article?: string; url?: string }> {
+  if (!arr) return [];
+  const out: Array<{ lawName?: string; article?: string; url?: string }> = [];
+  for (const r of arr) {
+    const lawName = (r.lawName ?? "").trim();
+    const article = (r.article ?? "").trim();
+    const url = (r.url ?? "").trim();
+    if (!lawName && !article && !url) continue;
+    const item: { lawName?: string; article?: string; url?: string } = {};
+    if (lawName) item.lawName = lawName;
+    if (article) item.article = article;
+    if (url) item.url = url;
+    out.push(item);
+  }
+  return out;
+}
 
 // [Task #302] frequencyType 별 필수 보조값 검증 (defense-in-depth).
 //   UI 가 이미 보장하지만 API 에서도 일관성 강제.
@@ -249,6 +304,16 @@ router.post(
         // [Task #393] 알림 처리 다이얼로그에서 매니저가 한 번에 공고문을 작성할 수 있도록
         //   본 task template 과 연결된 공고문 템플릿 ID 를 보관. NULL 이면 기존 동작 유지.
         noticeTemplateId: d.noticeTemplateId ?? null,
+        // [Task #523] 문서 출력용 분류 항목 — 공고문/보고서 자동 작성에서 동일 표현 보장.
+        scheduleNotice: d.scheduleNotice?.trim() ? d.scheduleNotice.trim() : null,
+        legalBasis: normalizeLegalBasis(d.legalBasis),
+        defaultStatus: d.defaultStatus ?? "발생",
+        responsibleDepartment: d.responsibleDepartment?.trim() ? d.responsibleDepartment.trim() : null,
+        procedureSteps: normalizeStringArray(d.procedureSteps, 300),
+        requiredAttachments: normalizeStringArray(d.requiredAttachments, 200),
+        reportItems: normalizeStringArray(d.reportItems, 200),
+        riskLevel: d.riskLevel ?? null,
+        tags: normalizeStringArray(d.tags, 50),
         createdBy: userId ?? null,
         createdByName: author?.name ?? null,
       } as never)
@@ -291,7 +356,29 @@ router.patch(
         else if (k === "eligibility" && v == null) patch[k] = [];
         // [Task #381] purpose 는 NOT NULL — null 입력은 빈 문자열로 정규화.
         else if (k === "purpose" && v == null) patch[k] = "";
-        else patch[k] = v;
+        // [Task #523] 문서 출력용 분류 항목 정규화.
+        //   - 텍스트(단일): trim 후 빈 문자열은 null 로 저장.
+        //   - jsonb 배열: NOT NULL 컬럼이므로 null 입력은 [] 로 저장.
+        //   - defaultStatus: null 입력은 기본값("발생") 으로 폴백.
+        else if (k === "scheduleNotice") {
+          const t = typeof v === "string" ? v.trim() : "";
+          patch[k] = t.length > 0 ? t : null;
+        } else if (k === "responsibleDepartment") {
+          const t = typeof v === "string" ? v.trim() : "";
+          patch[k] = t.length > 0 ? t : null;
+        } else if (k === "legalBasis") {
+          patch[k] = normalizeLegalBasis(v as Parameters<typeof normalizeLegalBasis>[0]);
+        } else if (k === "procedureSteps") {
+          patch[k] = normalizeStringArray(v as string[] | undefined, 300);
+        } else if (k === "requiredAttachments") {
+          patch[k] = normalizeStringArray(v as string[] | undefined, 200);
+        } else if (k === "reportItems") {
+          patch[k] = normalizeStringArray(v as string[] | undefined, 200);
+        } else if (k === "tags") {
+          patch[k] = normalizeStringArray(v as string[] | undefined, 50);
+        } else if (k === "defaultStatus" && v == null) {
+          patch[k] = "발생";
+        } else patch[k] = v;
       }
     }
     const [updated] = await db

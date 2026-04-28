@@ -58,6 +58,30 @@ export interface TaskTemplateEligibilityRule {
   value: number;
 }
 
+// [Task #523] 시스템 표준 업무 상태(enum). 인스턴스(실제 발생한 업무)의
+// 상태값으로도 재사용되며, 템플릿에는 "기본 상태"만 저장한다. 라벨이 템플릿마다
+// 갈리면 공고문·보고서·기안서 자동 작성의 일관성이 깨지므로 5종으로 고정.
+export const taskStatuses = [
+  "발생",
+  "처리예정",
+  "처리완료",
+  "연기",
+  "취소",
+] as const;
+export type TaskStatus = (typeof taskStatuses)[number];
+
+// [Task #523] 보고서·기안서 출력에 사용하는 위험등급(enum). 미입력 허용.
+export const taskTemplateRiskLevels = ["low", "medium", "high", "critical"] as const;
+export type TaskTemplateRiskLevel = (typeof taskTemplateRiskLevels)[number];
+
+// [Task #523] 공고문에 노출되는 법정근거 항목 1건. 법령명/조문 중 하나만 있어도
+// 저장 가능, URL 은 선택. JSONB 배열로 보관한다.
+export interface TaskTemplateLegalBasis {
+  lawName?: string;
+  article?: string;
+  url?: string;
+}
+
 // [Task #297] 업무유형 — 관리소장 운영 분류. 신규 입력의 필수값.
 export const taskTemplateTaskTypes = [
   "facility",       // 시설
@@ -157,6 +181,23 @@ export const taskTemplatesTable = pgTable("task_templates", {
   //   /notices/templates?templateId=N 으로 prefill 진입한다. NULL 이면 기존 자동 알림 동작만 유지.
   //   FK 제약 없이 정수 ID 만 보관해 공고문 템플릿이 삭제되더라도 task template 행은 유지된다(클라이언트에서 fallback 처리).
   noticeTemplateId: integer("notice_template_id"),
+  // [Task #523] 공고문 출력 항목 — 입주민에게 노출되는 공고문 자동 작성에 사용.
+  //   포괄적으로 "업무명·시기·법정근거·상태" 4가지만 노출하기 위한 입력값.
+  //   - scheduleNotice: 공고문에 들어갈 시기 안내 한 줄 (예: "매년 5월 정기점검")
+  //   - legalBasis:     법령명·조문·URL 다중. 빈 항목/공백은 저장 시 정규화로 제거.
+  //   - defaultStatus:  템플릿 기본 상태. 시스템 표준 enum 5종 중 하나(기본 "발생").
+  scheduleNotice: text("schedule_notice"),
+  legalBasis: jsonb("legal_basis").$type<TaskTemplateLegalBasis[]>().notNull().default([]),
+  defaultStatus: text("default_status").notNull().default("발생"),
+  // [Task #523] 보고서·기안서 출력 항목 — 내부 문서 자동 작성에 사용.
+  //   상세히 노출되며 입주민 공고문에는 사용되지 않는다.
+  //   모든 필드는 선택. 배열은 NOT NULL DEFAULT [] 로 기존 행 호환성 보장.
+  responsibleDepartment: text("responsible_department"),
+  procedureSteps: jsonb("procedure_steps").$type<string[]>().notNull().default([]),
+  requiredAttachments: jsonb("required_attachments").$type<string[]>().notNull().default([]),
+  reportItems: jsonb("report_items").$type<string[]>().notNull().default([]),
+  riskLevel: text("risk_level"),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
   createdBy: integer("created_by"),
   createdByName: text("created_by_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

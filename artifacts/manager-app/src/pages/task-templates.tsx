@@ -50,6 +50,14 @@ type Frequency =
 type AnchorType = "building_approval_date";
 type Category = "mandatory" | "suggested";
 type TaskType = "facility" | "fee" | "accounting" | "security" | "cleaning" | "etc";
+// [Task #523] 시스템 표준 업무 상태(템플릿 "기본 상태" 입력) / 위험등급.
+type TaskStatus = "발생" | "처리예정" | "처리완료" | "연기" | "취소";
+type RiskLevel = "low" | "medium" | "high" | "critical";
+interface LegalBasisItem {
+  lawName?: string;
+  article?: string;
+  url?: string;
+}
 type BuildingUsage =
   | "공동주택"
   | "업무시설"
@@ -101,9 +109,29 @@ interface TaskTemplate {
   targetRoles?: string[] | null;
   // [Task #393] 알림 발생 시 매니저가 작성·배포할 공고문 템플릿 ID. NULL = 미연결(기존 자동 알림만).
   noticeTemplateId: number | null;
+  // [Task #523] 공고문 출력 항목(입주민 노출, 포괄적). 모두 선택.
+  scheduleNotice: string | null;
+  legalBasis: LegalBasisItem[];
+  defaultStatus: TaskStatus;
+  // [Task #523] 보고서·기안서 출력 항목(내부, 상세). 모두 선택.
+  responsibleDepartment: string | null;
+  procedureSteps: string[];
+  requiredAttachments: string[];
+  reportItems: string[];
+  riskLevel: RiskLevel | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
+
+// [Task #523] 표준 상태/위험등급 라벨.
+const TASK_STATUS_OPTIONS: TaskStatus[] = ["발생", "처리예정", "처리완료", "연기", "취소"];
+const RISK_LEVEL_OPTIONS: { value: RiskLevel; label: string }[] = [
+  { value: "low", label: "낮음" },
+  { value: "medium", label: "보통" },
+  { value: "high", label: "높음" },
+  { value: "critical", label: "심각" },
+];
 
 const CATEGORY_LABEL: Record<Category, string> = {
   mandatory: "법정업무",
@@ -248,6 +276,16 @@ function emptyDraft(defaultRole?: string): DraftType {
     targetRoles: defaultRole ? [defaultRole] : [],
     // [Task #393] 신규 입력 시 미연결로 시작. 폼에서 선택해 연결 가능.
     noticeTemplateId: null,
+    // [Task #523] 문서 출력용 분류 항목 — 신규 입력 시 모두 빈 상태에서 시작.
+    scheduleNotice: "",
+    legalBasis: [],
+    defaultStatus: "발생",
+    responsibleDepartment: "",
+    procedureSteps: [],
+    requiredAttachments: [],
+    reportItems: [],
+    riskLevel: null,
+    tags: [],
   };
 }
 
@@ -294,6 +332,277 @@ function NoticeTemplateLink({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+// [Task #523] 공고문 / 보고서·기안서 출력 항목을 신규/수정 화면에서 입력하기 위한 공용 섹션.
+//   - 신규 다이얼로그 / 인라인 수정 폼 양쪽에서 동일하게 사용해 일관된 입력 경험을 제공.
+//   - 모든 필드는 선택. 입력 옆에 "공고문에 노출 / 보고서·기안서에만 사용" 안내를 표시해
+//     관리자가 노출 범위를 헷갈리지 않도록 한다.
+function DocumentOutputSections({
+  draft,
+  setDraft,
+}: {
+  draft: DraftType;
+  setDraft: (next: DraftType) => void;
+}) {
+  function setField<K extends keyof DraftType>(k: K, v: DraftType[K]) {
+    setDraft({ ...draft, [k]: v });
+  }
+  function addLegalBasis() {
+    setField("legalBasis", [...draft.legalBasis, { lawName: "", article: "", url: "" }]);
+  }
+  function updateLegalBasis(i: number, patch: Partial<LegalBasisItem>) {
+    const next = draft.legalBasis.map((row, idx) => (idx === i ? { ...row, ...patch } : row));
+    setField("legalBasis", next);
+  }
+  function removeLegalBasis(i: number) {
+    setField("legalBasis", draft.legalBasis.filter((_, idx) => idx !== i));
+  }
+  function addListItem(key: "procedureSteps" | "requiredAttachments" | "reportItems") {
+    setField(key, [...draft[key], ""]);
+  }
+  function updateListItem(
+    key: "procedureSteps" | "requiredAttachments" | "reportItems",
+    i: number,
+    v: string,
+  ) {
+    const next = draft[key].map((row, idx) => (idx === i ? v : row));
+    setField(key, next);
+  }
+  function removeListItem(
+    key: "procedureSteps" | "requiredAttachments" | "reportItems",
+    i: number,
+  ) {
+    setField(key, draft[key].filter((_, idx) => idx !== i));
+  }
+  // [Task #523] 태그 입력은 쉼표 구분으로 받아 trim+빈값 제거 후 저장.
+  function setTagsFromText(text: string) {
+    const list = text
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    setField("tags", list);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 공고문 출력 항목 (입주민 노출, 포괄적) */}
+      <section
+        className="rounded border border-blue-200 bg-blue-50/40 p-3 space-y-3"
+        data-testid="section-doc-notice"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-blue-900">공고문 출력 항목</h3>
+          <p className="text-[11px] text-blue-700/80 mt-0.5">
+            입주민에게 노출되는 공고문에 사용됩니다. 업무명·시기·법정근거·상태 4가지만
+            포괄적으로 노출하므로, 처리기한 같은 약속이 깨질 수 있는 항목은 입력하지 마세요.
+          </p>
+        </div>
+        <div>
+          <Label className="text-xs">시기 안내문</Label>
+          <p className="text-[10px] text-muted-foreground mb-1">
+            공고문에 노출되는 시기 표현 한 줄 (예: "매년 5월 정기점검")
+          </p>
+          <Input
+            value={draft.scheduleNotice ?? ""}
+            onChange={(e) => setField("scheduleNotice", e.target.value)}
+            maxLength={200}
+            placeholder='예: "매년 5월 1일~31일 사이 시행"'
+            data-testid="input-schedule-notice"
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">법정근거</Label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px]"
+              onClick={addLegalBasis}
+              data-testid="btn-add-legal-basis"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />근거 추가
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mb-1">
+            공고문에 함께 노출됩니다. 법령명·조문 중 하나만 입력해도 저장 가능, URL은 선택.
+          </p>
+          {draft.legalBasis.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground border border-dashed rounded p-2 text-center">
+              법정근거 없음
+            </p>
+          ) : (
+            <div className="space-y-1.5" data-testid="list-legal-basis">
+              {draft.legalBasis.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-1.5" data-testid={`legal-basis-row-${idx}`}>
+                  <Input
+                    className="flex-1 h-8 text-xs"
+                    value={row.lawName ?? ""}
+                    onChange={(e) => updateLegalBasis(idx, { lawName: e.target.value })}
+                    placeholder="법령명 (예: 전기사업법)"
+                    data-testid={`input-legal-basis-law-${idx}`}
+                  />
+                  <Input
+                    className="w-32 h-8 text-xs"
+                    value={row.article ?? ""}
+                    onChange={(e) => updateLegalBasis(idx, { article: e.target.value })}
+                    placeholder="조문 (예: 제73조)"
+                    data-testid={`input-legal-basis-article-${idx}`}
+                  />
+                  <Input
+                    className="w-44 h-8 text-xs"
+                    value={row.url ?? ""}
+                    onChange={(e) => updateLegalBasis(idx, { url: e.target.value })}
+                    placeholder="URL (선택)"
+                    data-testid={`input-legal-basis-url-${idx}`}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => removeLegalBasis(idx)}
+                    data-testid={`btn-remove-legal-basis-${idx}`}
+                  >
+                    <X className="w-3.5 h-3.5 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <Label className="text-xs">기본 상태</Label>
+          <p className="text-[10px] text-muted-foreground mb-1">
+            공고문·보고서 자동 작성 시 사용되는 시작 상태입니다 (시스템 표준 5종 고정).
+          </p>
+          <Select
+            value={draft.defaultStatus}
+            onValueChange={(v) => setField("defaultStatus", v as TaskStatus)}
+          >
+            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-default-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TASK_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </section>
+
+      {/* 보고서·기안서 출력 항목 (내부, 상세) */}
+      <section
+        className="rounded border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"
+        data-testid="section-doc-report"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-emerald-900">보고서·기안서 출력 항목</h3>
+          <p className="text-[11px] text-emerald-700/80 mt-0.5">
+            본사·관리소 내부 보고서/기안서 자동 작성에만 사용됩니다. 입주민 공고문에는 노출되지 않습니다.
+          </p>
+        </div>
+        <div>
+          <Label className="text-xs">담당부서</Label>
+          <Input
+            value={draft.responsibleDepartment ?? ""}
+            onChange={(e) => setField("responsibleDepartment", e.target.value)}
+            maxLength={100}
+            placeholder='예: "시설팀", "관리지원팀"'
+            data-testid="input-responsible-department"
+          />
+        </div>
+        {(["procedureSteps", "requiredAttachments", "reportItems"] as const).map((key) => {
+          const labels = {
+            procedureSteps: { title: "처리절차", placeholder: "예: 1차 사전점검 → 2차 본점검 → 결과보고" },
+            requiredAttachments: { title: "첨부서류 종류", placeholder: "예: 점검결과서, 시정조치 사진" },
+            reportItems: { title: "결과보고 항목", placeholder: "예: 점검일자, 시정 필요사항, 다음 점검일" },
+          } as const;
+          const meta = labels[key];
+          const list = draft[key];
+          return (
+            <div key={key}>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">{meta.title}</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => addListItem(key)}
+                  data-testid={`btn-add-${key}`}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />항목 추가
+                </Button>
+              </div>
+              {list.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground border border-dashed rounded p-2 text-center mt-1">
+                  항목 없음
+                </p>
+              ) : (
+                <div className="space-y-1.5 mt-1" data-testid={`list-${key}`}>
+                  {list.map((v, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <Input
+                        className="flex-1 h-8 text-xs"
+                        value={v}
+                        onChange={(e) => updateListItem(key, idx, e.target.value)}
+                        placeholder={meta.placeholder}
+                        data-testid={`input-${key}-${idx}`}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => removeListItem(key, idx)}
+                        data-testid={`btn-remove-${key}-${idx}`}
+                      >
+                        <X className="w-3.5 h-3.5 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">위험등급</Label>
+            <Select
+              value={draft.riskLevel ?? "__none__"}
+              onValueChange={(v) =>
+                setField("riskLevel", v === "__none__" ? null : (v as RiskLevel))
+              }
+            >
+              <SelectTrigger className="h-8 text-xs" data-testid="select-risk-level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">미지정</SelectItem>
+                {RISK_LEVEL_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">관련 키워드(태그)</Label>
+            <Input
+              className="h-8 text-xs"
+              value={draft.tags.join(", ")}
+              onChange={(e) => setTagsFromText(e.target.value)}
+              placeholder="쉼표로 구분 (예: 화재, 점검, 자체점검)"
+              data-testid="input-tags"
+            />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -489,6 +798,17 @@ export default function TaskTemplatesPage() {
       targetRoles: t.targetRoles ?? [],
       // [Task #393] 기존 행은 NULL 가능. 폼에서 변경 시 PATCH 로 함께 전송.
       noticeTemplateId: t.noticeTemplateId ?? null,
+      // [Task #523] 기존 행은 마이그레이션으로 schedule_notice=NULL,
+      //   legal_basis=[], default_status='발생' 등 안전한 기본값을 가진다.
+      scheduleNotice: t.scheduleNotice ?? "",
+      legalBasis: Array.isArray(t.legalBasis) ? t.legalBasis : [],
+      defaultStatus: (t.defaultStatus ?? "발생") as TaskStatus,
+      responsibleDepartment: t.responsibleDepartment ?? "",
+      procedureSteps: Array.isArray(t.procedureSteps) ? t.procedureSteps : [],
+      requiredAttachments: Array.isArray(t.requiredAttachments) ? t.requiredAttachments : [],
+      reportItems: Array.isArray(t.reportItems) ? t.reportItems : [],
+      riskLevel: t.riskLevel ?? null,
+      tags: Array.isArray(t.tags) ? t.tags : [],
     });
   }
 
@@ -1164,6 +1484,11 @@ export default function TaskTemplatesPage() {
                           className="text-xs"
                           data-testid={`input-template-purpose-inline-${t.id}`}
                         />
+
+                        {/* [Task #523] 8행: 공고문 / 보고서·기안서 출력 항목 — 인라인 편집에서도
+                            신규 다이얼로그와 동일한 입력 UI 를 제공해 본사 관리자가 어느 경로로
+                            진입하든 같은 항목을 편집할 수 있게 한다. */}
+                        <DocumentOutputSections draft={draft} setDraft={setDraft} />
                       </CardContent>
                     </Card>
                   );
@@ -1205,6 +1530,26 @@ export default function TaskTemplatesPage() {
                           )}
                         <span className="text-xs text-muted-foreground">우선순위 {t.priority}</span>
                         <span className="text-xs text-muted-foreground">사전알림 D-{t.advanceAlertDays}</span>
+                        {/* [Task #523] 문서 출력용 분류 항목이 채워졌는지 한눈에 확인할 수 있도록
+                             간단한 카운트 배지를 노출. 입력값이 없으면 배지 자체를 숨긴다. */}
+                        {Array.isArray(t.legalBasis) && t.legalBasis.length > 0 && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-blue-300 bg-blue-50 text-blue-700"
+                            data-testid={`badge-legal-basis-${t.id}`}
+                            title="공고문 법정근거 입력 건수"
+                          >
+                            법정근거 {t.legalBasis.length}건
+                          </span>
+                        )}
+                        {Array.isArray(t.procedureSteps) && t.procedureSteps.length > 0 && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700"
+                            data-testid={`badge-procedure-steps-${t.id}`}
+                            title="보고서·기안서 처리절차 단계 수"
+                          >
+                            처리절차 {t.procedureSteps.length}단계
+                          </span>
+                        )}
                         {!t.isActive && <Badge variant="destructive">비활성</Badge>}
                       </div>
                       <h3 className="text-sm font-semibold mt-1">{t.title}</h3>
@@ -1338,6 +1683,12 @@ export default function TaskTemplatesPage() {
                   </Select>
                 </div>
               </div>
+
+              {/* [Task #523] 공고문 / 보고서·기안서 출력 항목 — 기본 정보와 반복 주기 사이.
+                   공고문 자동 작성에서는 시기 안내·법정근거·기본 상태만 노출하고, 보고서·기안서
+                   자동 작성에서는 담당부서·처리절차·첨부서류·결과보고·위험등급·태그 등
+                   상세 항목을 사용한다. 모두 선택 입력. */}
+              <DocumentOutputSections draft={draft} setDraft={setDraft} />
 
               {/* [#297] 반복주기 + 동적 보조 입력. 지정월/지정일/시작일은 모두 제거. */}
               <div className="grid grid-cols-2 gap-3 items-start">
