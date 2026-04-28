@@ -9,6 +9,18 @@
     <meta name="apple-mobile-web-app-title" content="관리의달인" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>관리의달인</title>
+    <script>
+      // [도메인 일원화] jnjbuildingmaster.replit.app 으로 들어온 모든 트래픽을
+      //   정식 도메인 jnjbmaster.com 으로 즉시 이동시킨다. React 마운트 전에
+      //   실행되어 사용자에게는 jnjbmaster.com 만 보인다.
+      (function () {
+        if (location.hostname === "jnjbuildingmaster.replit.app") {
+          location.replace(
+            "https://jnjbmaster.com" + location.pathname + location.search + location.hash
+          );
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon-v2.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192-v2.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512-v2.png" />
