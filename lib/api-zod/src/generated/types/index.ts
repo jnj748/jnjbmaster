@@ -178,6 +178,8 @@ export * from "./executiveKpi";
 export * from "./executiveSpending";
 export * from "./executiveSpendingByCategoryItem";
 export * from "./executiveSpendingMonthlyTrendItem";
+export * from "./extractPlatformKnowledgeDocText200";
+export * from "./extractPlatformKnowledgeDocText200Extractor";
 export * from "./facilityAlert";
 export * from "./facilityAlertType";
 export * from "./facilityDashboard";

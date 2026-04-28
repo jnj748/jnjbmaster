@@ -141,6 +141,8 @@ import type {
   Draft,
   ExecutiveKpi,
   ExecutiveSpending,
+  ExtractPlatformKnowledgeDocText200,
+  ExtractPlatformKnowledgeDocTextBody,
   FacilityAlert,
   FacilityDashboard,
   FacilityDefectTrends,
@@ -16865,6 +16867,98 @@ export const useCreatePlatformKnowledgeDoc = <
   TContext
 > => {
   return useMutation(getCreatePlatformKnowledgeDocMutationOptions(options));
+};
+
+/**
+ * @summary Extract body text and SHA-256 hash from an uploaded attachment (HQ admin)
+ */
+export const getExtractPlatformKnowledgeDocTextUrl = () => {
+  return `/api/platform/knowledge-docs/extract-text`;
+};
+
+export const extractPlatformKnowledgeDocText = async (
+  extractPlatformKnowledgeDocTextBody: ExtractPlatformKnowledgeDocTextBody,
+  options?: RequestInit,
+): Promise<ExtractPlatformKnowledgeDocText200> => {
+  return customFetch<ExtractPlatformKnowledgeDocText200>(
+    getExtractPlatformKnowledgeDocTextUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(extractPlatformKnowledgeDocTextBody),
+    },
+  );
+};
+
+export const getExtractPlatformKnowledgeDocTextMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>,
+    TError,
+    { data: BodyType<ExtractPlatformKnowledgeDocTextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>,
+  TError,
+  { data: BodyType<ExtractPlatformKnowledgeDocTextBody> },
+  TContext
+> => {
+  const mutationKey = ["extractPlatformKnowledgeDocText"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>,
+    { data: BodyType<ExtractPlatformKnowledgeDocTextBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return extractPlatformKnowledgeDocText(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExtractPlatformKnowledgeDocTextMutationResult = NonNullable<
+  Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>
+>;
+export type ExtractPlatformKnowledgeDocTextMutationBody =
+  BodyType<ExtractPlatformKnowledgeDocTextBody>;
+export type ExtractPlatformKnowledgeDocTextMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Extract body text and SHA-256 hash from an uploaded attachment (HQ admin)
+ */
+export const useExtractPlatformKnowledgeDocText = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>,
+    TError,
+    { data: BodyType<ExtractPlatformKnowledgeDocTextBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof extractPlatformKnowledgeDocText>>,
+  TError,
+  { data: BodyType<ExtractPlatformKnowledgeDocTextBody> },
+  TContext
+> => {
+  return useMutation(
+    getExtractPlatformKnowledgeDocTextMutationOptions(options),
+  );
 };
 
 /**

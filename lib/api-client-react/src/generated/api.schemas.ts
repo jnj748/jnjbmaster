@@ -2240,10 +2240,14 @@ export interface PlatformKnowledgeDoc {
   /** @nullable */
   fileName?: string | null;
   /** @nullable */
+  fileHash?: string | null;
+  /** @nullable */
   effectiveDate?: string | null;
   /** @nullable */
   version?: string | null;
   isActive: boolean;
+  /** @nullable */
+  targetRoles?: string[] | null;
   /** @nullable */
   createdBy?: number | null;
   /** @nullable */
@@ -6079,10 +6083,41 @@ export type CreatePlatformKnowledgeDocBody = {
   /** @nullable */
   fileName?: string | null;
   /** @nullable */
+  fileHash?: string | null;
+  /** @nullable */
   effectiveDate?: string | null;
   /** @nullable */
   version?: string | null;
   isActive?: boolean;
+  /** @nullable */
+  targetRoles?: string[] | null;
+  confirmPii?: boolean;
+  confirmDuplicate?: boolean;
+};
+
+export type ExtractPlatformKnowledgeDocTextBody = {
+  objectPath: string;
+};
+
+export type ExtractPlatformKnowledgeDocText200Extractor =
+  (typeof ExtractPlatformKnowledgeDocText200Extractor)[keyof typeof ExtractPlatformKnowledgeDocText200Extractor];
+
+export const ExtractPlatformKnowledgeDocText200Extractor = {
+  txt: "txt",
+  pdf: "pdf",
+  docx: "docx",
+  unsupported: "unsupported",
+  failed: "failed",
+} as const;
+
+export type ExtractPlatformKnowledgeDocText200 = {
+  bodyText: string;
+  /** @nullable */
+  fileHash?: string | null;
+  mimeType: string;
+  charCount: number;
+  extractor: ExtractPlatformKnowledgeDocText200Extractor;
+  reason?: string;
 };
 
 export type UpdatePlatformKnowledgeDocBody = {
@@ -6096,10 +6131,16 @@ export type UpdatePlatformKnowledgeDocBody = {
   /** @nullable */
   fileName?: string | null;
   /** @nullable */
+  fileHash?: string | null;
+  /** @nullable */
   effectiveDate?: string | null;
   /** @nullable */
   version?: string | null;
   isActive?: boolean;
+  /** @nullable */
+  targetRoles?: string[] | null;
+  confirmPii?: boolean;
+  confirmDuplicate?: boolean;
 };
 
 export type DeletePlatformKnowledgeDoc200 = {

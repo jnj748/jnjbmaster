@@ -27,6 +27,10 @@ export const platformKnowledgeDocsTable = pgTable(
     // [Task #283] 역할별 적용 대상. NULL/빈 배열은 "전체 공통" 의미이며,
     //   값이 들어 있으면 ?role= 컨텍스트와 일치하는 역할에만 노출/필터된다.
     targetRoles: text("target_roles").array(),
+    // [Task #533] 첨부 파일의 SHA-256 해시(소문자 hex). 같은 파일이
+    //   다시 업로드되는 것을 감지해 중복 등록을 막는 용도. 첨부가 없거나
+    //   기존 마이그레이션 이전 데이터는 NULL.
+    fileHash: text("file_hash"),
     createdBy: integer("created_by"),
     createdByName: text("created_by_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -34,6 +38,7 @@ export const platformKnowledgeDocsTable = pgTable(
   },
   (t) => ({
     activeIdx: index("ix_platform_knowledge_docs_active").on(t.isActive),
+    fileHashIdx: index("ix_platform_knowledge_docs_file_hash").on(t.fileHash),
   }),
 );
 

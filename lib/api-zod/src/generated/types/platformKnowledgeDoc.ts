@@ -18,10 +18,14 @@ export interface PlatformKnowledgeDoc {
   /** @nullable */
   fileName?: string | null;
   /** @nullable */
+  fileHash?: string | null;
+  /** @nullable */
   effectiveDate?: string | null;
   /** @nullable */
   version?: string | null;
   isActive: boolean;
+  /** @nullable */
+  targetRoles?: string[] | null;
   /** @nullable */
   createdBy?: number | null;
   /** @nullable */

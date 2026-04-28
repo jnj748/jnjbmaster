@@ -17,8 +17,14 @@ export type UpdatePlatformKnowledgeDocBody = {
   /** @nullable */
   fileName?: string | null;
   /** @nullable */
+  fileHash?: string | null;
+  /** @nullable */
   effectiveDate?: string | null;
   /** @nullable */
   version?: string | null;
   isActive?: boolean;
+  /** @nullable */
+  targetRoles?: string[] | null;
+  confirmPii?: boolean;
+  confirmDuplicate?: boolean;
 };

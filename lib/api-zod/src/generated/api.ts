@@ -5736,9 +5736,11 @@ export const ListPlatformKnowledgeDocsResponseItem = zod.object({
   bodyText: zod.string(),
   fileUrl: zod.string().nullish(),
   fileName: zod.string().nullish(),
+  fileHash: zod.string().nullish(),
   effectiveDate: zod.string().nullish(),
   version: zod.string().nullish(),
   isActive: zod.boolean(),
+  targetRoles: zod.array(zod.string()).nullish(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
   createdAt: zod.string().datetime({}),
@@ -5758,9 +5760,29 @@ export const CreatePlatformKnowledgeDocBody = zod.object({
   bodyText: zod.string().optional(),
   fileUrl: zod.string().nullish(),
   fileName: zod.string().nullish(),
+  fileHash: zod.string().nullish(),
   effectiveDate: zod.string().nullish(),
   version: zod.string().nullish(),
   isActive: zod.boolean().optional(),
+  targetRoles: zod.array(zod.string()).nullish(),
+  confirmPii: zod.boolean().optional(),
+  confirmDuplicate: zod.boolean().optional(),
+});
+
+/**
+ * @summary Extract body text and SHA-256 hash from an uploaded attachment (HQ admin)
+ */
+export const ExtractPlatformKnowledgeDocTextBody = zod.object({
+  objectPath: zod.string(),
+});
+
+export const ExtractPlatformKnowledgeDocTextResponse = zod.object({
+  bodyText: zod.string(),
+  fileHash: zod.string().nullish(),
+  mimeType: zod.string(),
+  charCount: zod.number(),
+  extractor: zod.enum(["txt", "pdf", "docx", "unsupported", "failed"]),
+  reason: zod.string().optional(),
 });
 
 /**
@@ -5777,9 +5799,13 @@ export const UpdatePlatformKnowledgeDocBody = zod.object({
   bodyText: zod.string().optional(),
   fileUrl: zod.string().nullish(),
   fileName: zod.string().nullish(),
+  fileHash: zod.string().nullish(),
   effectiveDate: zod.string().nullish(),
   version: zod.string().nullish(),
   isActive: zod.boolean().optional(),
+  targetRoles: zod.array(zod.string()).nullish(),
+  confirmPii: zod.boolean().optional(),
+  confirmDuplicate: zod.boolean().optional(),
 });
 
 export const UpdatePlatformKnowledgeDocResponse = zod.object({
@@ -5790,9 +5816,11 @@ export const UpdatePlatformKnowledgeDocResponse = zod.object({
   bodyText: zod.string(),
   fileUrl: zod.string().nullish(),
   fileName: zod.string().nullish(),
+  fileHash: zod.string().nullish(),
   effectiveDate: zod.string().nullish(),
   version: zod.string().nullish(),
   isActive: zod.boolean(),
+  targetRoles: zod.array(zod.string()).nullish(),
   createdBy: zod.number().nullish(),
   createdByName: zod.string().nullish(),
   createdAt: zod.string().datetime({}),

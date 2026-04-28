@@ -4254,11 +4254,21 @@ paths:
                   type: ["string", "null"]
                 fileName:
                   type: ["string", "null"]
+                fileHash:
+                  type: ["string", "null"]
                 effectiveDate:
                   type: ["string", "null"]
                 version:
                   type: ["string", "null"]
                 isActive:
+                  type: boolean
+                targetRoles:
+                  type: ["array", "null"]
+                  items:
+                    type: string
+                confirmPii:
+                  type: boolean
+                confirmDuplicate:
                   type: boolean
               required:
                 - title
@@ -4269,6 +4279,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlatformKnowledgeDoc"
+
+  /platform/knowledge-docs/extract-text:
+    post:
+      operationId: extractPlatformKnowledgeDocText
+      tags: [notifications]
+      summary: Extract body text and SHA-256 hash from an uploaded attachment (HQ admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                objectPath:
+                  type: string
+              required:
+                - objectPath
+      responses:
+        "200":
+          description: Extraction result. Always 200 — failures are signaled via `extractor`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bodyText:
+                    type: string
+                  fileHash:
+                    type: ["string", "null"]
+                  mimeType:
+                    type: string
+                  charCount:
+                    type: integer
+                  extractor:
+                    type: string
+                    enum: [txt, pdf, docx, unsupported, failed]
+                  reason:
+                    type: string
+                required: [bodyText, mimeType, charCount, extractor]
 
   /platform/knowledge-docs/{id}:
     patch:
@@ -4300,11 +4349,21 @@ paths:
                   type: ["string", "null"]
                 fileName:
                   type: ["string", "null"]
+                fileHash:
+                  type: ["string", "null"]
                 effectiveDate:
                   type: ["string", "null"]
                 version:
                   type: ["string", "null"]
                 isActive:
+                  type: boolean
+                targetRoles:
+                  type: ["array", "null"]
+                  items:
+                    type: string
+                confirmPii:
+                  type: boolean
+                confirmDuplicate:
                   type: boolean
       responses:
         "200":
@@ -8713,12 +8772,18 @@ components:
           type: ["string", "null"]
         fileName:
           type: ["string", "null"]
+        fileHash:
+          type: ["string", "null"]
         effectiveDate:
           type: ["string", "null"]
         version:
           type: ["string", "null"]
         isActive:
           type: boolean
+        targetRoles:
+          type: ["array", "null"]
+          items:
+            type: string
         createdBy:
           type: ["integer", "null"]
         createdByName:
