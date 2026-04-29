@@ -184,7 +184,12 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
   //   기존 marketplace 항목들 중 access 가 accountant 를 포함하는 것만 자동 노출되며,
   //   주소록 항목은 access 에 accountant 가 포함되어 있어 사이드바에 보인다.
-  accountant: ["dashboard", "accounting", "reports", "residents", "marketplace"],
+  // [Task #583] 공지문 템플릿(/notices/templates) 의 sideMenu 에 accountant 가
+  //   포함되어 있어 사이드바에 노출되어야 하는데 facility 그룹이 빠져 있어
+  //   실제로는 보이지 않았다. facility 그룹을 추가해 노출되게 한다 — 같은
+  //   그룹의 다른 시설 항목들은 sideMenu 에 accountant 가 없으므로 자동으로
+  //   감춰져, 경리 사이드바의 시설관리 섹션에는 "공지문 템플릿" 한 항목만 노출된다.
+  accountant: ["dashboard", "accounting", "facility", "reports", "residents", "marketplace"],
   // [Task #416] 시설기사도 marketplace 그룹의 "협력업체 주소록"(/building/vendor-directory)
   //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
   //   같은 그룹의 다른 항목(견적/계약 등)은 access 가 facility_staff 를 포함하지 않으므로

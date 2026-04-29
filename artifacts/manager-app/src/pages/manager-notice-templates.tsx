@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useListBuildingNoticeTemplates } from "@workspace/api-client-react";
 import type { BuildingNoticeTemplate } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   ResponsiveDialog,
@@ -16,30 +17,39 @@ import { useBuilding } from "@/contexts/building-context";
 import {
   downloadElementAsPng,
   elementToDocxBlob,
-  elementToPdfBlob,
   sharePdfFromElement,
   safeFilename,
 } from "@/lib/document-export";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Image as ImageIcon, Share2, Printer, RotateCcw, Upload, X as XIcon } from "lucide-react";
+import {
+  Download,
+  FileText,
+  Printer,
+  RotateCcw,
+  Share2,
+  Upload,
+  X as XIcon,
+} from "lucide-react";
+import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
-import { renderNoticeBodyHtml, escapeNoticeHtml } from "@/lib/notice-layout";
+import { fillNoticeTemplate, renderNoticeBodyHtml } from "@/lib/notice-layout";
+import { printIsolatedNode } from "@/lib/print-isolate";
 
 // [Task #323] 관리소장 공지문 템플릿
 //   - 플랫폼이 만든 템플릿 목록을 카드로 표시.
-//   - 카드 선택 → 미리보기 다이얼로그에서 건물정보+사용자 입력값을 채운 본문을 보여주고
+//   - 카드 선택 → 문서생성 모달(편집/미리보기 토글 + A4 인쇄 레이아웃) 으로
+//     건물정보+사용자 입력값을 채운 본문을 보여주고
 //     이미지 저장 / 공유(PDF) / 문서로 저장(.docx) / 인쇄 4가지 액션을 제공.
 //   - 본문 HTML 의 placeholder({{...}})는 클라이언트에서 치환한다.
+// [Task #583] PreviewDialog 를 알림 처리 후 뜨는 CompletionNotice 와 동일한
+//   문서생성 모달 패턴(편집/미리보기 토글 + A4DocumentFrame + printIsolatedNode)
+//   으로 재구성해 한 가지 문서 UX 로 통일했다.
 
 function todayKR(): string {
   const d = new Date();
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
-
-// [Task #530] 본문 HTML 토큰 치환 / HTML 이스케이프는 lib/notice-layout 으로 이동.
-const renderTemplate = renderNoticeBodyHtml;
-const escapeHtml = escapeNoticeHtml;
 
 function parseLabels(json: string | null | undefined): string[] {
   if (!json) return [];
@@ -174,34 +184,6 @@ function todayShort(): string {
   return `${d.getFullYear()}-${m}-${dd}`;
 }
 
-// [Task #539] iOS Safari 는 새 탭에서 blob: 스킴의 PDF 표시·자동 인쇄가 불안정하여
-//   인쇄 자체가 죽는 경우가 잦다. 이 환경에서는 새 탭을 열지 않고 PDF 를
-//   다운로드한 뒤 사용자가 직접 열어 인쇄하도록 폴백한다.
-function isIOS(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  // 모던 iPadOS 는 Mac 으로 UA 를 보고하지만 터치 이벤트가 있다.
-  if (
-    ua.includes("Mac") &&
-    typeof document !== "undefined" &&
-    "ontouchend" in document
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function triggerPdfDownload(url: string, name: string): void {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
 function PreviewDialog({
   template,
   onClose,
@@ -214,57 +196,68 @@ function PreviewDialog({
   // [Task #504] 시스템 공고문 레이아웃 기본값을 받아 본문(템플릿 HTML)을 감싸 출력.
   const { layout: noticeLayout } = useNoticeLayout();
   const labels = useMemo(() => parseLabels(template.customFieldLabels), [template]);
+
+  // 사용자 입력값 — 본문 토큰 치환에 사용.
   const [customA, setCustomA] = useState("");
   const [customB, setCustomB] = useState("");
   const [customC, setCustomC] = useState("");
   const [date, setDate] = useState(todayKR());
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [busy, setBusy] = useState<null | "img" | "share" | "doc" | "print">(null);
-  // 공고NO 는 다이얼로그가 열릴 때 한 번 채번해 캡처/공유 동안 일정하게 유지.
-  const [noticeNo] = useState(generateNoticeNo);
 
-  // [Task #566] 본문 직접 수정 + 사진 첨부.
-  //   - 본문 영역은 contentEditable 로 직접 수정 가능. React state 와 분리해
-  //     키 입력마다 re-render 되지 않도록 한다.
-  //   - bodyDirty=false 이면 custom/date 입력 변경에 따라 자동 재채움.
-  //     사용자가 한 번이라도 본문을 직접 수정하면 dirty=true 로 잠그고,
-  //     이후 입력 변경은 본문에 영향을 주지 않는다. "원본으로 되돌리기"
-  //     로만 다시 토큰 치환을 적용한다.
-  //   - 첨부 사진은 다이얼로그 세션 동안만 메모리(state)에 보관하며
-  //     서버에 저장하지 않는다. data: URL 로 보관해 PNG/PDF/docx 캡처에
-  //     별도 변환 없이 그대로 포함된다.
-  const bodyRef = useRef<HTMLDivElement | null>(null);
-  const [bodyDirty, setBodyDirty] = useState(false);
+  // 문서 메타 — 편집 모드에서 수정 가능.
+  const [title, setTitle] = useState(template.title);
+  const [notesText, setNotesText] = useState("");
+  const [postingPeriodOverride, setPostingPeriodOverride] = useState<string | null>(null);
+  const [contactOverride, setContactOverride] = useState<string | null>(null);
+
+  // 첨부 사진 — 다이얼로그 세션 동안만 메모리에 보관.
   const [photos, setPhotos] = useState<(string | null)[]>([null, null]);
   const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
-  const vars: Record<string, string> = {
-    buildingName: building?.name ?? "",
-    addressFull: building?.addressFull ?? "",
-    managementOfficePhone: building?.managementOfficePhone ?? "",
-    // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
-    feeInquiryPhone: building?.feeInquiryPhone ?? "",
-    facilitySafetyPhone: building?.facilitySafetyPhone ?? "",
-    date,
-    customA,
-    customB,
-    customC,
-  };
-  const renderedHtml = useMemo(() => renderTemplate(template.bodyHtml, vars), [template, vars]);
+  // 모달 상태.
+  const [editMode, setEditMode] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [exportingDoc, setExportingDoc] = useState(false);
+  // 공고NO 는 다이얼로그가 열릴 때 한 번 채번해 캡처/공유 동안 일정하게 유지.
+  const [noticeNo] = useState(generateNoticeNo);
 
-  // [Task #566] 본문 초기 채움 / 입력 변경 시 자동 재채움 (단, 사용자 수정 전에만).
-  //   contentEditable 의 innerHTML 을 직접 set 하기 때문에 React 가 매 키 입력마다
-  //   덮어쓰지 않는다. dirty 플래그가 켜지면 더 이상 자동으로 재채우지 않는다.
+  const documentRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<A4DocumentFrameHandle>(null);
+
+  // [Task #583] 본문 HTML 토큰 치환 결과. customA/B/C 또는 date 가 바뀌면
+  //   bodyDirty=false 인 경우에만 자동 재채움 — 사용자가 한 번이라도 본문을
+  //   수정했다면 잠그고, "원본으로 되돌리기" 로만 다시 토큰 치환을 적용한다.
+  const renderedHtml = useMemo(
+    () =>
+      renderNoticeBodyHtml(template.bodyHtml, {
+        buildingName: building?.name ?? "",
+        addressFull: building?.addressFull ?? "",
+        managementOfficePhone: building?.managementOfficePhone ?? "",
+        // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
+        feeInquiryPhone: building?.feeInquiryPhone ?? "",
+        facilitySafetyPhone: building?.facilitySafetyPhone ?? "",
+        date,
+        customA,
+        customB,
+        customC,
+      }),
+    [template, building, date, customA, customB, customC],
+  );
+  const [body, setBody] = useState(renderedHtml);
+  const [bodyDirty, setBodyDirty] = useState(false);
+
   useEffect(() => {
-    if (!bodyRef.current) return;
-    if (bodyDirty) return;
-    bodyRef.current.innerHTML = renderedHtml;
+    if (!bodyDirty) setBody(renderedHtml);
   }, [renderedHtml, bodyDirty]);
 
   function handleResetBody() {
-    if (!bodyRef.current) return;
-    bodyRef.current.innerHTML = renderedHtml;
+    setBody(renderedHtml);
     setBodyDirty(false);
+  }
+
+  function handleBodyChange(v: string) {
+    setBody(v);
+    if (!bodyDirty) setBodyDirty(true);
   }
 
   // 데이터 URL 은 메모리에 그대로 보관되므로 매우 큰 이미지가 들어오면
@@ -320,310 +313,318 @@ function PreviewDialog({
     if (input) input.value = "";
   }
 
-  const filename = safeFilename(`${building?.name ?? "건물"}_${template.title}_${date}`);
+  const filename = safeFilename(`${building?.name ?? "건물"}_${template.title}_${todayShort()}`);
+
+  // [Task #583] 캡처 직전 편집 모드를 닫고 A4DocumentFrame 의 transform 을
+  //   풀어주는 헬퍼 — CompletionNotice 와 동일한 패턴.
+  async function withReadyDocument<T>(fn: () => Promise<T> | T): Promise<T> {
+    setEditMode(false);
+    await new Promise((r) => setTimeout(r, 120));
+    if (frameRef.current) {
+      return await frameRef.current.withFullScale(fn);
+    }
+    return await fn();
+  }
+
+  function handlePrint() {
+    // [Task #583] withReadyDocument 가 편집 모드를 닫고 frame 의 transform 을
+    //   풀어준 뒤, printIsolatedNode 가 .a4-document 노드를 `<body>` 직속
+    //   격리 컨테이너로 deep-clone 해 인쇄한다. 모달의 positioning 영향을
+    //   완전히 우회하므로 좌·우 정렬 + 다중 페이지 자연 흐름이 동시에 보장된다.
+    void withReadyDocument(() => {
+      printIsolatedNode(documentRef.current);
+    });
+  }
 
   async function handleDownloadImage() {
-    if (!previewRef.current) return;
-    setBusy("img");
+    if (!documentRef.current) return;
+    setExporting(true);
     try {
-      await downloadElementAsPng(previewRef.current, filename);
-      toast({ title: "이미지 저장 완료", description: "PNG 파일이 다운로드되었습니다." });
+      await withReadyDocument(async () => {
+        if (!documentRef.current) return;
+        await downloadElementAsPng(documentRef.current, filename);
+        toast({ title: "이미지 저장 완료", description: "PNG 파일이 다운로드되었습니다." });
+      });
     } catch (e) {
       toast({ title: "이미지 저장 실패", description: String(e), variant: "destructive" });
     } finally {
-      setBusy(null);
+      setExporting(false);
     }
   }
 
   async function handleShare() {
-    if (!previewRef.current) return;
-    setBusy("share");
+    if (!documentRef.current) return;
+    setSharing(true);
     try {
-      const result = await sharePdfFromElement(previewRef.current, filename, template.title);
-      if (result === "shared") {
-        toast({ title: "공유 시작", description: "원하는 앱으로 보내주세요." });
-      } else if (result === "downloaded") {
-        toast({ title: "PDF 저장됨", description: "기기에 저장된 PDF를 직접 첨부해 주세요." });
-      } else {
-        toast({ title: "공유 실패", variant: "destructive" });
-      }
+      await withReadyDocument(async () => {
+        if (!documentRef.current) return;
+        const result = await sharePdfFromElement(documentRef.current, filename, template.title);
+        if (result === "shared") {
+          toast({ title: "공유 시작", description: "원하는 앱으로 보내주세요." });
+        } else if (result === "downloaded") {
+          toast({ title: "PDF 저장됨", description: "기기에 저장된 PDF를 직접 첨부해 주세요." });
+        } else {
+          toast({ title: "공유 실패", variant: "destructive" });
+        }
+      });
     } finally {
-      setBusy(null);
+      setSharing(false);
     }
   }
 
   async function handleDownloadDoc() {
-    if (!previewRef.current) return;
-    setBusy("doc");
+    if (!documentRef.current) return;
+    setExportingDoc(true);
     try {
-      const blob = await elementToDocxBlob(previewRef.current, template.title);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${filename}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: "문서 저장 완료", description: ".docx 파일이 다운로드되었습니다." });
+      await withReadyDocument(async () => {
+        if (!documentRef.current) return;
+        const blob = await elementToDocxBlob(documentRef.current, template.title);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+          title: "문서 저장 완료",
+          description: "Word(.docx) 파일로 저장되었습니다. 워드/한글/구글문서에서 열어 수정할 수 있습니다.",
+        });
+      });
     } catch (e) {
       toast({ title: "문서 저장 실패", description: String(e), variant: "destructive" });
     } finally {
-      setBusy(null);
+      setExportingDoc(false);
     }
   }
 
-  // [Task #539] 인쇄 핸들러를 PDF 기반으로 교체.
-  //   - 기존 방식(window.open + innerHTML 복사)은 본문 앱의 Tailwind/전역 스타일이
-  //     포함되지 않아 NoticeLayoutFrame 의 박스/표/머리글이 모두 풀려 줄글로
-  //     출력되었다. 또한 HTML 인쇄 소스이므로 브라우저가 디폴트로 URL/날짜/
-  //     페이지번호를 머리글·바닥글에 찍었다.
-  //   - 미리보기 ref 를 elementToPdfBlob 으로 그대로 캡처해 PDF Blob 으로 변환
-  //     하면 화면 픽셀 그대로 인쇄되고, PDF 를 인쇄 소스로 주면 브라우저
-  //     인쇄 다이얼로그의 머리글/바닥글 디폴트 항목이 표시되지 않는다.
-  //   - iOS Safari 등 새 탭에서 blob PDF 표시·인쇄가 불안정한 환경은 다운로드
-  //     폴백으로 처리해 인쇄 자체가 죽지 않게 한다.
-  async function handlePrint() {
-    if (!previewRef.current) return;
-    const useDownloadFallback = isIOS();
-    let printWin: Window | null = null;
-    if (!useDownloadFallback) {
-      // 팝업 차단 회피: 사용자 제스처와 같은 동기 컨텍스트에서 새 탭을 미리 연다.
-      printWin = window.open("", "_blank");
-      if (!printWin) {
-        toast({
-          title: "팝업 차단",
-          description: "브라우저의 팝업 차단을 해제해 주세요.",
-          variant: "destructive",
-        });
-        return;
-      }
-      try {
-        printWin.document.write(
-          `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">` +
-            `<title>${escapeHtml(template.title)}</title></head>` +
-            `<body style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;color:#111827;margin:24px;">` +
-            `인쇄용 PDF 를 준비하고 있습니다…</body></html>`,
-        );
-        printWin.document.close();
-      } catch {
-        // 일부 환경에서 about:blank 에 write 가 막힐 수 있음 — 무시.
-      }
-    }
-    setBusy("print");
-    try {
-      // 캡처 직전 한 프레임 양보 — 라벨/이미지/폰트가 안정될 시간 확보.
-      await new Promise((r) => setTimeout(r, 50));
-      const blob = await elementToPdfBlob(previewRef.current);
-      const url = URL.createObjectURL(blob);
-      if (printWin) {
-        const winRef = printWin;
-        try {
-          winRef.location.replace(url);
-          // PDF 뷰어 로드 후 인쇄 다이얼로그 자동 호출. 실패해도 PDF 뷰어 자체의
-          // 인쇄 버튼으로 인쇄 가능하므로 silent fail.
-          setTimeout(() => {
-            try {
-              winRef.focus();
-              winRef.print();
-            } catch {
-              /* ignore */
-            }
-          }, 800);
-          // blob URL 은 새 탭이 살아있는 동안 유지되어야 하므로 길게 둔 뒤 회수.
-          setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        } catch {
-          try {
-            winRef.close();
-          } catch {
-            /* ignore */
-          }
-          triggerPdfDownload(url, `${filename}.pdf`);
-          toast({
-            title: "PDF 저장됨",
-            description: "저장된 PDF 파일을 열어 인쇄해 주세요.",
-          });
-        }
-      } else {
-        // iOS Safari 폴백 — 다운로드된 PDF 를 사용자가 열어 인쇄.
-        triggerPdfDownload(url, `${filename}.pdf`);
-        toast({
-          title: "PDF 저장됨",
-          description: "저장된 PDF 파일을 열어 인쇄해 주세요.",
-        });
-      }
-    } catch (e) {
-      try {
-        printWin?.close();
-      } catch {
-        /* ignore */
-      }
-      toast({ title: "인쇄 준비 실패", description: String(e), variant: "destructive" });
-    } finally {
-      setBusy(null);
-    }
-  }
+  const resolvedContact =
+    contactOverride ??
+    fillNoticeTemplate(noticeLayout.contactTemplate, {
+      buildingName: building?.name ?? "",
+      managementOfficePhone: building?.managementOfficePhone,
+      feeInquiryPhone: building?.feeInquiryPhone,
+      facilitySafetyPhone: building?.facilitySafetyPhone,
+    });
+  const resolvedPostingPeriod = postingPeriodOverride ?? noticeLayout.defaultPostingPeriod;
 
   return (
-    <ResponsiveDialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <ResponsiveDialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <ResponsiveDialogHeader>
+    <ResponsiveDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
+        <ResponsiveDialogHeader className="print:hidden">
           <ResponsiveDialogTitle>
             <span className="mr-2">{template.icon ?? "📄"}</span>
             {template.title}
           </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        {labels.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-1">
-            {labels[0] && (
-              <div>
-                <Label className="text-xs">{labels[0]}</Label>
-                <Input
-                  value={customA}
-                  onChange={(e) => setCustomA(e.target.value)}
-                  placeholder={labels[0]}
-                  data-testid="input-custom-a"
-                />
-              </div>
-            )}
-            {labels[1] && (
-              <div>
-                <Label className="text-xs">{labels[1]}</Label>
-                <Input
-                  value={customB}
-                  onChange={(e) => setCustomB(e.target.value)}
-                  placeholder={labels[1]}
-                  data-testid="input-custom-b"
-                />
-              </div>
-            )}
-            {labels[2] && (
-              <div className="sm:col-span-2">
-                <Label className="text-xs">{labels[2]}</Label>
-                <Input
-                  value={customC}
-                  onChange={(e) => setCustomC(e.target.value)}
-                  placeholder={labels[2]}
-                  data-testid="input-custom-c"
-                />
-              </div>
-            )}
-          </div>
-        )}
-        <div className="px-1">
-          <Label className="text-xs">날짜</Label>
-          <Input
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            data-testid="input-date"
-          />
-        </div>
+        {editMode && (
+          <div className="space-y-3 border-b pb-4 mb-2 print:hidden">
+            <div>
+              <Label>제목</Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                data-testid="input-title"
+              />
+            </div>
 
-        {/* [Task #566] 사진 첨부 컨트롤 — 캡처 영역 밖에 두어 컨트롤 자체가 PNG/PDF/docx 에 포함되지 않게 한다. */}
-        <div className="px-1 space-y-2" data-testid="photo-upload-controls">
-          <Label className="text-xs">사진 첨부 (최대 2장, 다이얼로그를 닫으면 사라집니다)</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {[0, 1].map((i) => (
-              <div
-                key={i}
-                className="border rounded p-2 bg-slate-50 flex flex-col gap-2"
-                data-testid={`photo-upload-slot-${i}`}
-              >
-                <input
-                  ref={photoInputRefs[i]}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  data-testid={`input-photo-${i}`}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    handlePhotoChange(i, file);
-                  }}
-                />
-                {photos[i] ? (
-                  <>
-                    <div className="aspect-[4/3] w-full bg-white border overflow-hidden flex items-center justify-center">
-                      <img
-                        src={photos[i] ?? ""}
-                        alt={`첨부 사진 ${i + 1}`}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => openPhotoPicker(i)}
-                        data-testid={`button-photo-replace-${i}`}
-                      >
-                        <Upload className="w-3.5 h-3.5 mr-1" />교체
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handlePhotoRemove(i)}
-                        data-testid={`button-photo-remove-${i}`}
-                      >
-                        <XIcon className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-24 w-full flex flex-col items-center justify-center gap-1"
-                    onClick={() => openPhotoPicker(i)}
-                    data-testid={`button-photo-add-${i}`}
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="text-xs">사진 {i + 1} 추가</span>
-                  </Button>
+            {labels.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {labels[0] && (
+                  <div>
+                    <Label className="text-xs">{labels[0]}</Label>
+                    <Input
+                      value={customA}
+                      onChange={(e) => setCustomA(e.target.value)}
+                      placeholder={labels[0]}
+                      data-testid="input-custom-a"
+                    />
+                  </div>
+                )}
+                {labels[1] && (
+                  <div>
+                    <Label className="text-xs">{labels[1]}</Label>
+                    <Input
+                      value={customB}
+                      onChange={(e) => setCustomB(e.target.value)}
+                      placeholder={labels[1]}
+                      data-testid="input-custom-b"
+                    />
+                  </div>
+                )}
+                {labels[2] && (
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">{labels[2]}</Label>
+                    <Input
+                      value={customC}
+                      onChange={(e) => setCustomC(e.target.value)}
+                      placeholder={labels[2]}
+                      data-testid="input-custom-c"
+                    />
+                  </div>
                 )}
               </div>
-            ))}
+            )}
+
+            <div>
+              <Label className="text-xs">날짜</Label>
+              <Input
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                data-testid="input-date"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>본문</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleResetBody}
+                  data-testid="button-reset-body"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" />원본으로 되돌리기
+                </Button>
+              </div>
+              <Textarea
+                value={body}
+                onChange={(e) => handleBodyChange(e.target.value)}
+                rows={8}
+                data-testid="editable-body"
+              />
+            </div>
+
+            <div>
+              <Label>비고</Label>
+              <Textarea
+                value={notesText}
+                onChange={(e) => setNotesText(e.target.value)}
+                rows={2}
+                data-testid="input-notes"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>게시기간</Label>
+                <Input
+                  value={resolvedPostingPeriod}
+                  onChange={(e) => setPostingPeriodOverride(e.target.value)}
+                  data-testid="input-posting-period"
+                />
+              </div>
+              <div>
+                <Label>관리사무소 연락처</Label>
+                <Input
+                  value={resolvedContact}
+                  onChange={(e) => setContactOverride(e.target.value)}
+                  data-testid="input-contact"
+                />
+              </div>
+            </div>
+
+            {/* [Task #583] 사진 첨부 컨트롤 — 캡처 영역 밖에 두어 컨트롤 자체가 PNG/PDF/docx 에 포함되지 않게 한다. */}
+            <div className="space-y-2" data-testid="photo-upload-controls">
+              <Label className="text-xs">사진 첨부 (최대 2장, 다이얼로그를 닫으면 사라집니다)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[0, 1].map((i) => (
+                  <div
+                    key={i}
+                    className="border rounded p-2 bg-slate-50 flex flex-col gap-2"
+                    data-testid={`photo-upload-slot-${i}`}
+                  >
+                    <input
+                      ref={photoInputRefs[i]}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      data-testid={`input-photo-${i}`}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        handlePhotoChange(i, file);
+                      }}
+                    />
+                    {photos[i] ? (
+                      <>
+                        <div className="aspect-[4/3] w-full bg-white border overflow-hidden flex items-center justify-center">
+                          <img
+                            src={photos[i] ?? ""}
+                            alt={`첨부 사진 ${i + 1}`}
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => openPhotoPicker(i)}
+                            data-testid={`button-photo-replace-${i}`}
+                          >
+                            <Upload className="w-3.5 h-3.5 mr-1" />교체
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handlePhotoRemove(i)}
+                            data-testid={`button-photo-remove-${i}`}
+                          >
+                            <XIcon className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-24 w-full flex flex-col items-center justify-center gap-1"
+                        onClick={() => openPhotoPicker(i)}
+                        data-testid={`button-photo-add-${i}`}
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span className="text-xs">사진 {i + 1} 추가</span>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* [Task #566] 본문 편집 가이드 + 원본 복원 버튼 — 캡처 영역 밖. */}
-        <div className="px-1 flex items-center justify-between gap-2">
-          <Label className="text-xs">본문 (직접 수정 가능)</Label>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={handleResetBody}
-            data-testid="button-reset-body"
-          >
-            <RotateCcw className="w-3.5 h-3.5 mr-1" />원본으로 되돌리기
-          </Button>
-        </div>
-
-        <div className="border rounded bg-white p-2 mx-1" data-testid="container-preview">
+        <A4DocumentFrame ref={frameRef}>
           <div
-            ref={previewRef}
-            className="bg-white p-6"
-            data-testid="preview-rendered"
+            ref={documentRef}
+            className="a4-document"
             style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
           >
             <NoticeLayoutFrame
               settings={noticeLayout}
               buildingName={building?.name ?? ""}
-              managementOfficePhone={building?.managementOfficePhone ?? undefined}
-              feeInquiryPhone={building?.feeInquiryPhone ?? undefined}
-              facilitySafetyPhone={building?.facilitySafetyPhone ?? undefined}
+              managementOfficePhone={building?.managementOfficePhone ?? null}
+              feeInquiryPhone={building?.feeInquiryPhone ?? null}
+              facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
               logoUrl={building?.logoUrl ?? null}
               sealUrl={null}
               noticeNo={noticeNo}
               noticeDate={todayShort()}
-              title={template.title}
+              postingPeriod={postingPeriodOverride ?? undefined}
+              contact={contactOverride ?? undefined}
+              title={title}
             >
               {/*
-                [Task #566] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
+                [Task #583] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
                   사진이 0/1/2 장이든 동일한 높이를 차지하므로 본문 시작 y 좌표가 흔들리지 않는다.
               */}
               <div
@@ -649,59 +650,90 @@ function PreviewDialog({
                   </div>
                 ))}
               </div>
+
               {/*
-                [Task #566] 본문 — contentEditable. innerHTML 은 useEffect 에서 직접 채우므로
-                  키 입력마다 React 가 덮어쓰지 않는다. hover/focus 의 시각 힌트는 캡처 시점에는
-                  포커스가 다른 곳(저장 버튼)으로 이동하므로 PNG/PDF 결과에 들어가지 않는다.
+                [Task #583] 본문 — 템플릿 HTML 토큰 치환 결과를 그대로 출력.
+                  편집 모드의 textarea 가 body 상태를 갱신하면 미리보기에도 즉시 반영된다.
               */}
               <div
-                ref={bodyRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={() => {
-                  if (!bodyDirty) setBodyDirty(true);
-                }}
-                spellCheck={false}
-                className="notice-template-body outline-none cursor-text rounded hover:bg-blue-50/30 focus:bg-blue-50/30 transition-colors"
-                data-testid="editable-body"
+                className="notice-template-body"
+                data-testid="preview-rendered"
+                dangerouslySetInnerHTML={{ __html: body }}
               />
+
+              {notesText && (
+                <div className="mt-4 text-sm">
+                  <p className="font-semibold mb-1">■ 비고</p>
+                  <p
+                    className="whitespace-pre-line text-justify"
+                    style={{ textJustify: "inter-word" }}
+                  >
+                    {notesText}
+                  </p>
+                </div>
+              )}
             </NoticeLayoutFrame>
           </div>
-        </div>
+        </A4DocumentFrame>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-1 pb-2">
-          <Button
-            variant="outline"
-            onClick={handleDownloadImage}
-            disabled={busy !== null}
-            data-testid="button-download-image"
-          >
-            <ImageIcon className="w-4 h-4 mr-1" />이미지 저장
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleShare}
-            disabled={busy !== null}
-            data-testid="button-share"
-          >
-            <Share2 className="w-4 h-4 mr-1" />공유
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleDownloadDoc}
-            disabled={busy !== null}
-            data-testid="button-download-doc"
-          >
-            <FileText className="w-4 h-4 mr-1" />문서 저장
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            disabled={busy !== null}
-            data-testid="button-print"
-          >
-            <Printer className="w-4 h-4 mr-1" />인쇄
-          </Button>
+        <div className="a4-document-actions space-y-2 print:hidden">
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditMode((v) => !v)}
+              data-testid="btn-toggle-edit"
+            >
+              {editMode ? "미리보기" : "수정"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handlePrint}
+              data-testid="button-print"
+              className="hidden md:inline-flex"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              인쇄
+            </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              variant="outline"
+              onClick={handleShare}
+              disabled={sharing}
+              data-testid="button-share"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+            >
+              <Share2 />
+              <span className="min-w-0 truncate">
+                {sharing ? "공유 중..." : "외부 공유"}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadImage}
+              disabled={exporting}
+              data-testid="button-download-image"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+            >
+              <Download />
+              <span className="min-w-0 truncate">
+                {exporting ? "저장 중..." : "이미지 저장"}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDownloadDoc}
+              disabled={exportingDoc}
+              data-testid="button-download-doc"
+              className="h-auto w-full min-w-0 flex-col gap-1 px-1 py-2 text-[11px] leading-tight [&_svg]:size-4 sm:h-9 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+            >
+              <FileText />
+              <span className="min-w-0 truncate">
+                {exportingDoc ? "저장 중..." : "문서로 저장"}
+              </span>
+            </Button>
+          </div>
         </div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
