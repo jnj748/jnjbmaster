@@ -8,7 +8,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
-// [Task #227/#341] 한 건물에는 관리소장·경리·시설담당자가 각 1명씩만 가입할 수 있다.
+// [Task #227/#341] 한 건물에는 관리소장·경리가 각 1명씩만 가입할 수 있다.
+// 시설담당자는 한 건물에 여러 명이 활동할 수 있으므로 중복 검사 대상에서 제외한다
+// (현장 실무: 한 단지에 시설기사·전기·소방·기계 담당이 동시에 배치되는 경우가 많음).
 // 위저드/우회 모두를 막기 위해 동일한 지번 주소(또는 동일 building.id)에
 // 동일 역할의 다른 활성 사용자가 묶여 있는지 검사한다. 모든 역할에 동일 안내 문구를 사용.
 export const BUILDING_DUPLICATE_MESSAGE =
@@ -20,9 +22,10 @@ export const BUILDING_DUPLICATE_MESSAGE =
 const MANAGER_DUPLICATE_MESSAGE = BUILDING_DUPLICATE_MESSAGE;
 void MANAGER_DUPLICATE_MESSAGE;
 
-// [Task #341] 1주소 1인 차단의 적용 대상 역할.
-export type DuplicateCheckRole = "manager" | "accountant" | "facility_staff";
-const DUPLICATE_CHECK_ROLES: readonly DuplicateCheckRole[] = ["manager", "accountant", "facility_staff"];
+// [Task #559] 1주소 1인 차단의 적용 대상 역할 — 시설담당자는 다인원 허용으로 정책 변경되어
+//   대상에서 제외된다. 매니저·경리는 그대로 1건물 1명을 유지한다.
+export type DuplicateCheckRole = "manager" | "accountant";
+const DUPLICATE_CHECK_ROLES: readonly DuplicateCheckRole[] = ["manager", "accountant"];
 
 export function isDuplicateCheckRole(v: unknown): v is DuplicateCheckRole {
   return typeof v === "string" && (DUPLICATE_CHECK_ROLES as readonly string[]).includes(v);

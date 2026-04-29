@@ -1,10 +1,9 @@
 import { insertNotification } from "../lib/notificationRecipient";
 // [Task #132] 시설기사 가입 승인 요청 처리.
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, facilityStaffSignupRequestsTable, usersTable, buildingsTable, notificationsTable } from "@workspace/db";
+import { db, facilityStaffSignupRequestsTable, usersTable, buildingsTable } from "@workspace/db";
 import { authMiddleware, requireRole } from "../middlewares/auth";
 import { and, desc, eq } from "drizzle-orm";
-import { findExistingActiveUserForAddress, BUILDING_DUPLICATE_MESSAGE } from "./buildings";
 
 const router: IRouter = Router();
 
@@ -170,29 +169,10 @@ router.post("/facility-signup-requests/:id/approve", requireRole("manager", "pla
     return;
   }
 
-  // [Task #341] 시설담당자도 한 건물에 1명만 활성화 가능. 승인 직전에 동일 건물/지번 주소에
-  // 이미 다른 활성 시설담당자가 있는지 확인. 있으면 승인 중단(409) — 신청 행은 pending 으로 유지하여
-  // 다른 건물로 재배치 또는 거절을 선택할 수 있게 한다.
-  const [targetBuilding] = await db.select({ addressJibun: buildingsTable.addressJibun })
-    .from(buildingsTable)
-    .where(eq(buildingsTable.id, finalBuildingId));
-  const dup = await findExistingActiveUserForAddress({
-    role: "facility_staff",
-    buildingId: finalBuildingId,
-    addressJibun: targetBuilding?.addressJibun ?? null,
-    excludeUserId: reqRowExisting.userId,
-  });
-  if (dup) {
-    // [Task #341] 409 사유를 신청 행 note에 저장한다. 관리소장이 본인 건물로 시도하는
-    // 일반 경로뿐 아니라, HQ/플랫폼이 명시적인 buildingId로 시도해 차단된 경우에도
-    // 신청자 화면(facility-pending)이 동일한 안내를 일관되게 보여줄 수 있게 한다.
-    // 상태는 pending 으로 유지하여 다른 건물 재배치 또는 거절을 선택할 수 있게 한다.
-    await db.update(facilityStaffSignupRequestsTable)
-      .set({ note: BUILDING_DUPLICATE_MESSAGE })
-      .where(eq(facilityStaffSignupRequestsTable.id, reqRowExisting.id));
-    res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
-    return;
-  }
+  // [Task #559] 시설담당자는 한 건물에 여러 명이 활동할 수 있으므로
+  //   승인 직전 중복 검사를 수행하지 않는다 (정책 변경: 다인원 허용).
+  //   매니저는 자기 건물에 필요한 만큼 시설기사를 자유롭게 승인할 수 있다.
+  //   매니저·경리의 1건물 1명 제약은 routes/buildings/duplicates.ts 에서 그대로 유지된다.
 
   await db.transaction(async (tx) => {
     const [r] = await tx.update(facilityStaffSignupRequestsTable)
