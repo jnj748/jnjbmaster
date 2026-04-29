@@ -466,6 +466,60 @@ h1, h2, h3, h4 {
   }
 
   /*
+   * [Task #560] 다중 페이지 인쇄 안전장치 — 길어진 주보/월보가 한 장으로
+   * 잘리거나 페이지 경계에서 어색하게 끊기지 않도록 한다.
+   *
+   *   1) [data-print-root] 의 height/overflow 잠금을 명시적으로 풀어 자연
+   *      블록 흐름을 보장. 어디선가 상속/계산되는 height 캡으로 본문이
+   *      1페이지로 잘리는 회귀를 차단한다.
+   *   2) thead 를 table-header-group 으로 두어 표가 여러 페이지에 걸칠 때
+   *      매 페이지 상단에 헤더가 자동 반복되도록 한다 (브라우저 기본 동작
+   *      이지만 일부 환경에서 누락되므로 명시).
+   *   3) 각 행(tr) 은 break-inside: avoid 로 두어 페이지 경계에서 한 행이
+   *      반으로 잘려 인쇄되지 않게 한다 — 행 단위로 통째로 다음 페이지로
+   *      넘어간다. 페이지 분할 자체는 행 사이에서 자연스럽게 일어난다.
+   *   4) 제목(h1~h4) 직후의 본문이 같은 페이지에 머물도록 break-after: avoid.
+   *      "1. 주간 요약" 만 페이지 끝에 외롭게 남고 본문은 다음 페이지로
+   *      넘어가는 고립(orphan title) 을 방지한다.
+   *   5) 그림/도형은 페이지 경계에서 잘리지 않게.
+   *
+   *   page-break-* (legacy) 도 함께 명시 — 일부 모바일 PWA 의 PDF 엔진은
+   *   신규 break-* 를 무시하고 legacy 만 인식한다.
+   */
+  [data-printing] [data-print-root] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  [data-printing] [data-print-root] .a4-document table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  [data-printing] [data-print-root] .a4-document thead {
+    display: table-header-group;
+  }
+  [data-printing] [data-print-root] .a4-document tfoot {
+    display: table-footer-group;
+  }
+  [data-printing] [data-print-root] .a4-document tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  [data-printing] [data-print-root] .a4-document h1,
+  [data-printing] [data-print-root] .a4-document h2,
+  [data-printing] [data-print-root] .a4-document h3,
+  [data-printing] [data-print-root] .a4-document h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  [data-printing] [data-print-root] .a4-document img,
+  [data-printing] [data-print-root] .a4-document svg {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: 100%;
+  }
+
+  /*
    * 격리되지 않은 인쇄 경로(예: 대시보드 위젯의 즉시 window.print()) 에서는
    * `body[data-printing]` 가 켜지지 않아 위 규칙들이 적용되지 않는다. 그쪽은
    * "화면 전체를 그대로 인쇄" 동작이므로 최소한 `print:hidden` 만 보장한다.
