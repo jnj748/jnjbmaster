@@ -1,5 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation as useLocationForGate } from "wouter";
+
+// [DEV 분할 프리뷰 격자] DEV 빌드에서만 lazy import — prod 빌드에서는 import.meta.env.DEV
+//   가드로 lazy 호출 자체가 dead code 제거되어 청크 분리도 만들어지지 않는다.
+//   진입은 AppRouter 의 첫 분기 (인증 게이트 무관, 격자가 자체적으로 4 토큰 발급).
+const DevPreviewGrid = import.meta.env.DEV
+  ? lazy(() => import("@/pages/dev/preview-grid"))
+  : null;
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -329,6 +336,17 @@ function AuthenticatedRoutes() {
 
 function AppRouter() {
   const { user, isLoading } = useAuth();
+  const [location] = useLocationForGate();
+
+  // [DEV 분할 프리뷰 격자] 인증 게이트 이전에 분기 — 격자 자체가 4명 토큰 발급.
+  //   prod 빌드에서는 DevPreviewGrid 가 null 이므로 이 분기 전체가 dead code.
+  if (import.meta.env.DEV && DevPreviewGrid && location.startsWith("/__dev/preview-grid")) {
+    return (
+      <Suspense fallback={<SplashScreen />}>
+        <DevPreviewGrid />
+      </Suspense>
+    );
+  }
 
   if (isLoading) {
     return <SplashScreen />;

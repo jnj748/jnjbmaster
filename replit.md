@@ -70,6 +70,7 @@
   3. **시드 데이터 가드** — DEV 시드 함수는 진입 첫 줄에 `NODE_ENV !== "production"` early-return (이미 `seedTestUsers` 패턴). `seed`, `demo`, `test` 표식이 있는 행은 prod 마이그레이션·시드에서 절대 호출되지 않게.
   - task 명세에는 항상 위 3가드의 **각각 어디에 들어가는지 파일 경로 단위로 명시** 한다 ("dev-only" 라는 한 단어로 끝내지 않는다).
   - 검증: prod 빌드 산출물(`pnpm --filter @workspace/manager-app run build` → `dist/`) 에 디버그 컴포넌트 식별자가 들어 있지 않음을 grep 으로 확인하는 단계를 task 검증 항목에 포함.
+  - **적용 사례 — DEV 분할 프리뷰 격자 (`/__dev/preview-grid`)** — 사용자 간 입력 연계 시각 검증용. 시드 `artifacts/api-server/src/seed-dev-demo-seeds.ts` (vendor + partner.vendor_id 매핑 + RFQ 1건 멱등, 결재 1건은 매 부팅 재시드 — title 화이트리스트 `[DEV 데모] …`). 격자 페이지 `artifacts/manager-app/src/pages/dev/preview-grid.tsx` (2×2 = 직원3 + 파트너1, 자동 polling 없음·새로고침 버튼만). 인증 키 분리 `artifacts/manager-app/src/contexts/auth-context.tsx#getAuthStorageKey` (DEV + `?devAs=<email>` 일 때만 `auth_token__dev__<email>`, prod 는 항상 `auth_token`). 라우트 등록은 `App.tsx` 의 `import.meta.env.DEV && DevPreviewGrid && location.startsWith("/__dev/preview-grid")` lazy 가드. 본부장/관리인/관리자는 격자에 안 넣고 빠른 로그인으로 따로 검증 (사장님 결정).
 
 - **권한 SoT 체이너 (모든 신규 모듈 task 의 의무 첨부)**: 신규 모듈 task 명세를 작성할 때, 다음 두 경로는 반드시 `relevantFiles` 와 본문 인용에 함께 들어가야 한다. agent 가 권한 정책을 새로 추정하지 않고 SoT 를 따르도록 잠금:
   - `docs/user-roles/README.md` — 6개 역할 위계도 SoT

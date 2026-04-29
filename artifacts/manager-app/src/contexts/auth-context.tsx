@@ -58,15 +58,39 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`;
 
+// [DEV 분할 프리뷰 격자] iframe 마다 다른 사용자로 띄울 수 있게 localStorage 키를
+//   사용자별로 분기한다. 같은 origin 의 iframe 4개는 localStorage 를 공유하지만,
+//   토큰 키만 다르면 서로 충돌하지 않고 각자 자기 사용자 컨텍스트로 동작한다.
+//
+//   - DEV 한정 (import.meta.env.DEV). prod 빌드에서는 항상 "auth_token" 으로 컴파일됨
+//     (dead code 제거).
+//   - URL 의 ?devAs=<email> 을 한번 읽어 sessionStorage 에 박아 둔다 — 격자 셀
+//     안에서 navigate 후에도 키 분기가 유지되도록.
+//   - sessionStorage 는 iframe 별 분리 — 격자 사이 컨텍스트가 섞이지 않는다.
+const DEV_AS_SESSION_KEY = "__dev_as__";
+function getAuthStorageKey(): string {
+  if (!import.meta.env.DEV) return "auth_token";
+  if (typeof window === "undefined") return "auth_token";
+  let devAs = window.sessionStorage.getItem(DEV_AS_SESSION_KEY);
+  if (!devAs) {
+    const fromUrl = new URLSearchParams(window.location.search).get("devAs");
+    if (fromUrl) {
+      window.sessionStorage.setItem(DEV_AS_SESSION_KEY, fromUrl);
+      devAs = fromUrl;
+    }
+  }
+  return devAs ? `auth_token__dev__${devAs}` : "auth_token";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("auth_token"));
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(getAuthStorageKey()));
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem("auth_token");
+    localStorage.removeItem(getAuthStorageKey());
   }, []);
 
   useEffect(() => {
@@ -86,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
       })
       .catch(() => {
-        localStorage.removeItem("auth_token");
+        localStorage.removeItem(getAuthStorageKey());
         setToken(null);
       })
       .finally(() => {
@@ -111,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem(getAuthStorageKey(), data.token);
   };
 
   const register = async (regData: RegisterData) => {
@@ -129,18 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem("auth_token", data.token);
+    localStorage.setItem(getAuthStorageKey(), data.token);
   };
 
   const applyToken = useCallback((newToken: string) => {
-    localStorage.setItem("auth_token", newToken);
+    localStorage.setItem(getAuthStorageKey(), newToken);
     setToken(newToken);
     setIsLoading(true);
   }, []);
 
   // [Task #132] /auth/select-role 후 user 새로고침용.
   const refreshUser = useCallback(async () => {
-    const t = localStorage.getItem("auth_token");
+    const t = localStorage.getItem(getAuthStorageKey());
     if (!t) return;
     const res = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
     if (res.ok) {

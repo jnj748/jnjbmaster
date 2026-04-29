@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { db, usersTable, hqBuildingAssignmentsTable, buildingsTable } from "@workspace/db";
 import { eq, and, sql, isNull, inArray } from "drizzle-orm";
 import { logger } from "./lib/logger";
+import { seedDevDemoSeeds } from "./seed-dev-demo-seeds";
 
 const TEST_PASSWORD = "test1234!";
 
@@ -253,6 +254,12 @@ export async function seedTestUsers() {
   if (created > 0) {
     logger.info({ created }, "Test user accounts seeded");
   }
+
+  // [DEV 분할 프리뷰] 사용자 간 입력 연계 검증용 최소 씨앗 데이터.
+  //   - vendor 1건 + partner.vendor_id 매핑 + RFQ 1건 (멱등).
+  //   - 결재 1건 (매 부팅 재시드 — accountant 결재 시 소진).
+  //   호출 순서: 사용자 시드 + buildingId 재연결 + HQ 매핑이 모두 끝난 다음.
+  await seedDevDemoSeeds();
 
   // [Task #629] 시드 직후 한 번만 DEV DB 정합화 보고를 출력한다(자동 삭제 없음).
   await reportDevDbHealth();
