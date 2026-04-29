@@ -27,7 +27,11 @@ const PutBody = z.object({
   overrides: z.array(OverrideRow),
 });
 
-// 플랫폼만 저장. 전체 페이로드를 받아 차이만 upsert/delete (단순화: 전부 upsert).
+// 플랫폼만 저장. 전체 페이로드를 받아 (role, blockId) 별로 upsert.
+//   [요청] 셀 의미를 일관시키기 위해 enabled=true 도 저장한다(이전엔 true=삭제였다).
+//   - true  : 명시적 ON  → 사이드바/라우트 가드가 access 화이트리스트를 우회해 노출.
+//   - false : 명시적 OFF → 사이드바/라우트에서 무조건 숨김.
+//   기본값(=access 화이트리스트 그대로)으로 복원하려면 DELETE /platform/menu-overrides 사용.
 router.put(
   "/platform/menu-overrides",
   requireRole("platform_admin"),
@@ -38,21 +42,8 @@ router.put(
       return;
     }
     const userId = req.user?.userId ?? null;
-    // 전체 페이로드를 트랜잭션으로 묶어 atomicity 보장.
     await db.transaction(async (tx) => {
       for (const o of parsed.data.overrides) {
-        // enabled=true 인 행은 "기본값"이라 굳이 보존할 필요 없음 → 삭제하여 row 수 최소화.
-        if (o.enabled) {
-          await tx
-            .delete(roleMenuOverridesTable)
-            .where(
-              and(
-                eq(roleMenuOverridesTable.role, o.role as MenuOverrideRole),
-                eq(roleMenuOverridesTable.blockId, o.blockId),
-              ),
-            );
-          continue;
-        }
         const existing = await tx
           .select()
           .from(roleMenuOverridesTable)
@@ -65,13 +56,13 @@ router.put(
         if (existing.length > 0) {
           await tx
             .update(roleMenuOverridesTable)
-            .set({ enabled: false, updatedBy: userId, updatedAt: new Date() })
+            .set({ enabled: o.enabled, updatedBy: userId, updatedAt: new Date() })
             .where(eq(roleMenuOverridesTable.id, existing[0].id));
         } else {
           await tx.insert(roleMenuOverridesTable).values({
             role: o.role as MenuOverrideRole,
             blockId: o.blockId,
-            enabled: false,
+            enabled: o.enabled,
             updatedBy: userId,
           });
         }

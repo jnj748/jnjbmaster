@@ -780,12 +780,15 @@ const rootItem = (role: Role): NavItem => ({
 });
 
 /** Returns SPA route definitions {path, component} for a role. */
-export function getRoutesForRole(role: Role): { path: string; component: AnyComponent }[] {
+export function getRoutesForRole(
+  role: Role,
+  overrides?: readonly MenuOverride[] | null,
+): { path: string; component: AnyComponent }[] {
   if (role === "partner") {
     // [Task #290] 파트너는 협력업체 풀(`/vendors`) 대신 본인 업체 전용 페이지
     //   (`/me/vendor`)와 크레딧 페이지(`/me/credits`)에만 접근한다.
     //   /settings 는 의도적으로 노출하지 않는다.
-    return [
+    const partnerBase: { path: string; component: AnyComponent }[] = [
       { path: "/rfqs", component: VendorPortal },
       { path: "/commissions", component: Commissions },
       { path: "/me/vendor", component: PartnerVendorProfile },
@@ -794,8 +797,22 @@ export function getRoutesForRole(role: Role): { path: string; component: AnyComp
       { path: "/me/credits/topup/success", component: PartnerCreditsTopupSuccess },
       { path: "/me/credits/topup/fail", component: PartnerCreditsTopupFail },
     ];
+    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴는 라우트도 함께 등록한다.
+    const explicitExtra = ROUTES.filter(
+      (r) =>
+        !r.hidden &&
+        !r.access.includes("partner") &&
+        isMenuExplicitlyEnabled("partner", r.path, overrides) &&
+        !partnerBase.some((p) => p.path === r.path),
+    ).map((r) => ({ path: r.path, component: r.component }));
+    return [...partnerBase, ...explicitExtra];
   }
-  return ROUTES.filter((r) => r.access.includes(role)).map((r) => ({
+  // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 라우트를 등록한다.
+  return ROUTES.filter(
+    (r) =>
+      !r.hidden &&
+      (r.access.includes(role) || isMenuExplicitlyEnabled(role, r.path, overrides)),
+  ).map((r) => ({
     path: r.path,
     component: r.component,
   }));
@@ -908,6 +925,24 @@ export function isMenuBlockEnabled(
   return true;
 }
 
+/**
+ * 본사가 그리드에서 명시적으로 켠(enabled=true) 셀인지 여부.
+ *  - 부재(=기본값) 는 false (= 명시적 활성 아님). 명시적 활성일 때만 access 화이트리스트를 우회한다.
+ *  - 본사(platform_admin) 는 그리드 대상이 아니므로 항상 false.
+ */
+export function isMenuExplicitlyEnabled(
+  role: Role,
+  blockId: string,
+  overrides?: readonly MenuOverride[] | null,
+): boolean {
+  if (!overrides || overrides.length === 0) return false;
+  if (role === "platform_admin") return false;
+  for (const o of overrides) {
+    if (o.role === role && o.blockId === blockId) return o.enabled === true;
+  }
+  return false;
+}
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
 export function getSidebarSections(
   role: Role,
@@ -927,11 +962,28 @@ export function getSidebarSections(
       { path: "/commissions", label: PARTNER_COMMISSIONS_LABEL, icon: PARTNER_COMMISSIONS_ICON },
       { path: "/me/vendor", label: PARTNER_MY_VENDOR_LABEL, icon: PARTNER_MY_VENDOR_ICON },
     ];
+    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴를 사이드바 끝에 함께 노출.
+    //   기본 6 항목과 path 가 겹치지 않는 ROUTES 항목만 추가.
+    const explicitExtra: NavItem[] = [];
+    for (const entry of ROUTES) {
+      if (entry.hidden) continue;
+      if (partnerItems.some((it) => it.path === entry.path)) continue;
+      if (!isMenuExplicitlyEnabled("partner", entry.path, overrides)) continue;
+      explicitExtra.push({
+        path: entry.path,
+        label: labelFor(entry, "partner"),
+        icon: entry.icon,
+        group: entry.group,
+      });
+    }
     return [
       {
-        items: partnerItems.filter(
-          (it) => it.path === "/" || isMenuBlockEnabled("partner", it.path, overrides),
-        ),
+        items: [
+          ...partnerItems.filter(
+            (it) => it.path === "/" || isMenuBlockEnabled("partner", it.path, overrides),
+          ),
+          ...explicitExtra,
+        ],
       },
     ];
   }
@@ -950,7 +1002,9 @@ export function getSidebarSections(
       if (entry.group !== group) continue;
       if (entry.hidden) continue;
       const visibleTo = entry.sideMenu ?? entry.access;
-      if (!visibleTo.includes(role)) continue;
+      // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 노출한다.
+      const explicit = isMenuExplicitlyEnabled(role, entry.path, overrides);
+      if (!visibleTo.includes(role) && !explicit) continue;
       // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
       if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
       items.push({
@@ -1061,12 +1115,24 @@ export function isRouteCategoryEnabled(path: string, disabledCategories?: readon
 }
 
 /** True if role is allowed to navigate to the given path. */
-export function canAccess(role: Role, path: string): boolean {
+export function canAccess(
+  role: Role,
+  path: string,
+  overrides?: readonly MenuOverride[] | null,
+): boolean {
   if (path === "/") return true;
   if (role === "partner") {
-    return ["/rfqs", "/vendors", "/commissions"].some((p) => path === p || path.startsWith(p + "/"));
+    if (["/rfqs", "/vendors", "/commissions"].some((p) => path === p || path.startsWith(p + "/"))) {
+      return true;
+    }
+    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴도 접근 허용.
+    const match = ROUTES.find((r) => path === r.path || path.startsWith(r.path + "/"));
+    if (!match) return false;
+    return isMenuExplicitlyEnabled("partner", match.path, overrides);
   }
   const match = ROUTES.find((r) => path === r.path || path.startsWith(r.path + "/"));
   if (!match) return false;
-  return match.access.includes(role);
+  if (match.access.includes(role)) return true;
+  // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트를 우회.
+  return isMenuExplicitlyEnabled(role, match.path, overrides);
 }

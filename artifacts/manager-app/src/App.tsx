@@ -11,6 +11,7 @@ import { OnboardingProvider, useOnboarding } from "@/contexts/onboarding-context
 import { OnboardingGate } from "@/components/onboarding-gate";
 import { useUsageTracker } from "@/hooks/use-usage-tracker";
 import { useCategoryLabelsBootstrap } from "@/hooks/use-category-labels";
+import { useMenuOverrides, useMenuOverridesLoaded } from "@/hooks/use-menu-overrides";
 // [성능] 진입 직후 화면에 보이지 않는 컴포넌트는 lazy 로 분리해 초기 번들에서 제외.
 const OnboardingModal = lazy(() =>
   import("@/components/onboarding-modal").then((m) => ({ default: m.OnboardingModal })),
@@ -130,7 +131,13 @@ function ManagerOnboardingRedirect() {
 function AuthenticatedRoutes() {
   const { user } = useAuth();
   const role = getEffectiveRole(user);
-  const routes = getRoutesForRole(role);
+  // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도
+  //   라우트로 등록되어야 한다. useMenuOverrides 의 모듈 캐시는 layout.tsx 와 공유된다.
+  const menuOverrides = useMenuOverrides(!!user);
+  // 첫 fetch 가 끝나기 전에 catch-all redirect 가 동작하면 explicit ON 메뉴 딥링크 시
+  //   사용자 의도 URL 을 잃는다 → loaded 가 true 일 때만 catch-all 을 활성.
+  const overridesLoaded = useMenuOverridesLoaded(!!user);
+  const routes = getRoutesForRole(role, menuOverrides);
   // [Task #296] 인증된 사용자의 라우트 변경을 자동 수집(분석용).
   useUsageTracker();
   // [Task #312] 카테고리 한글 라벨을 DB 단일 출처에서 부트스트랩한다.
@@ -255,9 +262,17 @@ function AuthenticatedRoutes() {
                 <Route path="/settings/profile" component={SettingsPageLazy} />
                 <Route path="/settings/building" component={SettingsPageLazy} />
                 <Route path="/settings/platform" component={SettingsPageLazy} />
-                <Route>
-                  <Redirect to="/" />
-                </Route>
+                {overridesLoaded ? (
+                  <Route>
+                    <Redirect to="/" />
+                  </Route>
+                ) : (
+                  // overrides 첫 로드 전에는 catch-all 을 비활성해
+                  //   explicit ON 메뉴 딥링크가 "/" 로 튕기지 않도록 유예한다.
+                  <Route>
+                    <PageLoader />
+                  </Route>
+                )}
               </Switch>
             </Suspense>
           </Layout>

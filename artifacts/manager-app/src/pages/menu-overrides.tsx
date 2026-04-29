@@ -16,18 +16,26 @@ interface BlockRow {
   label: string;
   group: Group;
   eligibleRoles: Set<Role>;
+  /** 라우트의 access 화이트리스트 — 그리드의 "기본값" 결정에 사용. */
+  defaultRoles: Set<Role>;
 }
 
 function buildBlocks(): BlockRow[] {
   const rows: BlockRow[] = [];
   for (const r of ROUTES) {
-    const eligible = TARGET_ROLES.filter((role) => r.access.includes(role));
-    if (eligible.length === 0) continue;
+    if (r.hidden) continue;
+    // 본사(platform_admin) 전용으로만 잡혀 있는 시스템 페이지는 그리드 대상이 아님.
+    //   (본사 전용 페이지는 hidden 처리되어 있어 위에서 걸러지지만, 안전을 위해 한 번 더 검증.)
+    const baseEligible = TARGET_ROLES.filter((role) => r.access.includes(role));
+    if (baseEligible.length === 0) continue;
+    // [요청] "모든 유저가 일단 모든 메뉴를 활성화/비활성화" — 5개 직책 모두에 체크박스를 노출.
+    //   사이드바/라우트 가드는 override.enabled=true 가 명시되면 access 화이트리스트를 우회한다.
     rows.push({
       blockId: r.path,
       label: r.label,
       group: r.group,
-      eligibleRoles: new Set(eligible),
+      eligibleRoles: new Set<Role>(TARGET_ROLES),
+      defaultRoles: new Set<Role>(baseEligible),
     });
   }
   return rows;
@@ -82,21 +90,21 @@ export default function MenuOverridesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function isEnabled(role: Role, blockId: string): boolean {
-    const v = overrides.get(key(role, blockId));
-    return v === undefined ? true : v;
+  function defaultEnabled(role: Role, block: BlockRow): boolean {
+    return block.defaultRoles.has(role);
   }
-  function toggle(role: Role, blockId: string) {
-    const k = key(role, blockId);
+  function isEnabled(role: Role, block: BlockRow): boolean {
+    const v = overrides.get(key(role, block.blockId));
+    return v === undefined ? defaultEnabled(role, block) : v;
+  }
+  function toggle(role: Role, block: BlockRow) {
+    const k = key(role, block.blockId);
     const next = new Map(overrides);
-    const cur = next.get(k);
-    if (cur === undefined) {
-      next.set(k, false);
-    } else if (cur === false) {
-      next.delete(k);
-    } else {
-      next.set(k, false);
-    }
+    const cur = isEnabled(role, block);
+    const target = !cur;
+    // 토글 결과가 access 기본값과 같아지면 row 를 비워 깔끔하게 유지(=기본값으로 복귀).
+    if (target === defaultEnabled(role, block)) next.delete(k);
+    else next.set(k, target);
     setOverrides(next);
   }
   function toggleGroup(role: Role, blocksInGroup: BlockRow[], turnOn: boolean) {
@@ -104,8 +112,8 @@ export default function MenuOverridesPage() {
     for (const b of blocksInGroup) {
       if (!b.eligibleRoles.has(role)) continue;
       const k = key(role, b.blockId);
-      if (turnOn) next.delete(k);
-      else next.set(k, false);
+      if (turnOn === defaultEnabled(role, b)) next.delete(k);
+      else next.set(k, turnOn);
     }
     setOverrides(next);
   }
@@ -126,7 +134,7 @@ export default function MenuOverridesPage() {
       for (const b of blocks) {
         for (const role of TARGET_ROLES) {
           if (!b.eligibleRoles.has(role)) continue;
-          payload.push({ role, blockId: b.blockId, enabled: isEnabled(role, b.blockId) });
+          payload.push({ role, blockId: b.blockId, enabled: isEnabled(role, b) });
         }
       }
       const res = await fetch(`${API_BASE}/platform/menu-overrides`, {
@@ -197,8 +205,9 @@ export default function MenuOverridesPage() {
         <div>
           <h1 className="text-xl font-semibold">유저유형별 메뉴 활성화</h1>
           <p className="text-xs text-slate-500 mt-1">
-            행 = 메뉴, 열 = 역할. 체크 해제 시 그 역할 사용자의 사이드바·하단 네비·대시보드에서 숨겨집니다.
-            "—" 는 해당 역할에 권한이 없는 메뉴입니다.
+            행 = 메뉴, 열 = 역할. 모든 셀을 자유롭게 켜고 끌 수 있습니다.
+            체크 해제 시 그 역할 사용자의 사이드바·하단 네비·대시보드에서 숨겨지고,
+            기본 권한이 없던 메뉴라도 체크하면 그 역할에게 노출됩니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -236,7 +245,7 @@ export default function MenuOverridesPage() {
                     if (eligibleCount === 0) return <td key={r} className="text-center text-slate-300">—</td>;
                     const allOn = blocksInGroup
                       .filter((b) => b.eligibleRoles.has(r))
-                      .every((b) => isEnabled(r, b.blockId));
+                      .every((b) => isEnabled(r, b));
                     return (
                       <td key={r} className="text-center">
                         <button
@@ -260,13 +269,13 @@ export default function MenuOverridesPage() {
                       if (!b.eligibleRoles.has(r)) {
                         return <td key={r} className="text-center text-slate-300">—</td>;
                       }
-                      const on = isEnabled(r, b.blockId);
+                      const on = isEnabled(r, b);
                       return (
                         <td key={r} className="text-center">
                           <input
                             type="checkbox"
                             checked={on}
-                            onChange={() => toggle(r, b.blockId)}
+                            onChange={() => toggle(r, b)}
                             className="w-4 h-4 cursor-pointer accent-blue-600"
                           />
                         </td>
