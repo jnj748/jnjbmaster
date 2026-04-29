@@ -1,5 +1,5 @@
 import {
-  Wrench, Receipt, MessageSquareWarning,
+  Wrench, Receipt, MessageSquareWarning, ClipboardList,
   CreditCard, Landmark, FileSignature, MessagesSquare,
   Flame, Zap, Cog, MoreHorizontal, type LucideIcon,
 } from "lucide-react";
@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 export type Role = "manager" | "accountant" | "facility_staff";
 
 /** 직책별 업무기록 카테고리 (서버 enum 과 일치). */
-export const MANAGER_CATEGORIES = ["facility", "bill", "complaint"] as const;
+export const MANAGER_CATEGORIES = ["facility", "bill", "complaint", "admin"] as const;
 export const ACCOUNTANT_CATEGORIES = ["receivable", "expense", "draft", "complaint"] as const;
 export const FACILITY_CATEGORIES = ["fire", "electric", "mechanical", "other"] as const;
 export type Category =
@@ -30,6 +30,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   facility: "시설",
   bill: "관리비",
   complaint: "민원",
+  admin: "행정",
   // accountant
   receivable: "수납·연체",
   expense: "지출",
@@ -44,6 +45,7 @@ export const CATEGORY_ICON: Record<string, LucideIcon> = {
   facility: Wrench,
   bill: Receipt,
   complaint: MessageSquareWarning,
+  admin: ClipboardList,
   receivable: CreditCard,
   expense: Landmark,
   draft: FileSignature,
@@ -82,6 +84,7 @@ export function getCategoriesFor(role: Role): CategoryOption[] {
         { value: "facility", label: "시설", icon: Wrench, hint: "엘리베이터·누수·전기 등" },
         { value: "bill", label: "관리비", icon: Receipt, hint: "검침·청구·납부 메모" },
         { value: "complaint", label: "민원", icon: MessageSquareWarning, hint: "주민 요청·소음·주차" },
+        { value: "admin", label: "행정", icon: ClipboardList, hint: "공문·결재·보고·회의 준비 등" },
       ];
   }
 }

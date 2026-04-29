@@ -60,7 +60,7 @@ function effectiveRole(role: string | null | undefined): "manager" | "accountant
 
 /** 직책별 허용 업무기록 카테고리. */
 const CATEGORY_BY_ROLE: Record<"manager" | "accountant" | "facility_staff", readonly string[]> = {
-  manager: ["facility", "bill", "complaint"],
+  manager: ["facility", "bill", "complaint", "admin"],
   accountant: ["receivable", "expense", "draft", "complaint"],
   facility_staff: ["fire", "electric", "mechanical", "other"],
 };

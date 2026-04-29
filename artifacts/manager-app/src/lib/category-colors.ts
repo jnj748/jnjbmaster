@@ -92,6 +92,7 @@ export const WORK_LOG_CATEGORY_TOKEN: Record<string, CategoryToken> = {
   facility:   "facility",
   bill:       "accounting",
   complaint:  "residents",
+  admin:      "reports",
   // accountant
   receivable: "accounting",
   expense:    "accounting",

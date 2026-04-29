@@ -22,6 +22,8 @@ import {
   useApi,
   CATEGORY_LABEL,
   CATEGORY_ICON,
+  getCategoriesFor,
+  useCurrentRole,
   type Category,
   type WorkLogEntry,
 } from "./shared";
@@ -32,6 +34,14 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { building } = useBuilding();
+  const role = useCurrentRole();
+  const filterChips = useMemo(
+    () => [
+      { value: "all" as const, label: "전체" },
+      ...getCategoriesFor(role).map((c) => ({ value: c.value, label: c.label })),
+    ],
+    [role],
+  );
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<WorkLogEntry | null>(null);
   const [editMemo, setEditMemo] = useState("");
@@ -79,15 +89,13 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
         오늘 업무일지 만들기
       </Button>
       <div className="flex gap-2 overflow-x-auto">
-        {([
-          ["all", "전체"], ["facility", "시설"], ["bill", "관리비"], ["complaint", "민원"],
-        ] as const).map(([k, label]) => (
+        {filterChips.map(({ value, label }) => (
           <button
-            key={k}
-            onClick={() => setFilter(k as typeof filter)}
-            data-testid={`filter-${k}`}
+            key={value}
+            onClick={() => setFilter(value)}
+            data-testid={`filter-${value}`}
             className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
-              filter === k ? "bg-accent text-accent-foreground border-accent" : "bg-background"
+              filter === value ? "bg-accent text-accent-foreground border-accent" : "bg-background"
             }`}
           >
             {label}
