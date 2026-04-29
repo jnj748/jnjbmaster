@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { format, parse, isValid } from "date-fns";
+import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
 import { ko } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useListBuildingNoticeTemplates } from "@workspace/api-client-react";
-import type { BuildingNoticeTemplate } from "@workspace/api-client-react";
+import {
+  useListBuildingNoticeTemplates,
+  useRegisterNoticeOutput,
+} from "@workspace/api-client-react";
+import type {
+  BuildingNoticeTemplate,
+  RegisterNoticeOutputBody,
+} from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -205,6 +213,7 @@ function PreviewDialog({
   onClose: () => void;
 }) {
   const { building } = useBuilding();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   // [Task #504] 시스템 공고문 레이아웃 기본값을 받아 본문(템플릿 HTML)을 감싸 출력.
   const { layout: noticeLayout } = useNoticeLayout();
@@ -230,6 +239,35 @@ function PreviewDialog({
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [exportingDoc, setExportingDoc] = useState(false);
+
+  // [Task #610] 공고문 export 시 documents 레지스트리에 등록한다.
+  const registerOutput = useRegisterNoticeOutput();
+  function todayYmd(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  // 등록 결과를 기다려 실패 시 사용자에게 알린다. 산출물은 이미 만들어졌으므로
+  // export UX 는 차단하지 않는다.
+  async function recordOutput(format: RegisterNoticeOutputBody["format"]) {
+    try {
+      await registerOutput.mutateAsync({
+        data: {
+          templateId: template.id,
+          title: title || template.title,
+          format,
+          outputDate: todayYmd(),
+        },
+      });
+    } catch (err) {
+      toast({
+        title: "공고문 기록 실패",
+        description:
+          "공고문은 정상적으로 만들어졌지만 문서함에 기록되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+        variant: "destructive",
+      });
+      console.warn("registerNoticeOutput failed", err);
+    }
+  }
   // 공고NO 는 다이얼로그가 열릴 때 한 번 채번해 캡처/공유 동안 일정하게 유지.
   const [noticeNo] = useState(generateNoticeNo);
 
@@ -355,6 +393,7 @@ function PreviewDialog({
     //   완전히 우회하므로 좌·우 정렬 + 다중 페이지 자연 흐름이 동시에 보장된다.
     void withReadyDocument(() => {
       printIsolatedNode(documentRef.current);
+      recordOutput("pdf");
     });
   }
 
@@ -365,6 +404,7 @@ function PreviewDialog({
       await withReadyDocument(async () => {
         if (!documentRef.current) return;
         await downloadElementAsPng(documentRef.current, filename);
+        recordOutput("png");
         toast({ title: "이미지 저장 완료", description: "PNG 파일이 다운로드되었습니다." });
       });
     } catch (e) {
@@ -382,8 +422,10 @@ function PreviewDialog({
         if (!documentRef.current) return;
         const result = await sharePdfFromElement(documentRef.current, filename, template.title);
         if (result === "shared") {
+          recordOutput("share");
           toast({ title: "공유 시작", description: "원하는 앱으로 보내주세요." });
         } else if (result === "downloaded") {
+          recordOutput("pdf");
           toast({ title: "PDF 저장됨", description: "기기에 저장된 PDF를 직접 첨부해 주세요." });
         } else {
           toast({ title: "공유 실패", variant: "destructive" });
@@ -409,6 +451,7 @@ function PreviewDialog({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        recordOutput("docx");
         toast({
           title: "문서 저장 완료",
           description: "Word(.docx) 파일로 저장되었습니다. 워드/한글/구글문서에서 열어 수정할 수 있습니다.",
@@ -745,6 +788,30 @@ function PreviewDialog({
               <span className="min-w-0 truncate">
                 {exportingDoc ? "저장 중..." : "문서로 저장"}
               </span>
+            </Button>
+          </div>
+          {/* [Task #610] 공고문 → 기안서로 만들기 표준 진입.
+              recordOutput("share") 으로 documents/notice_outputs upsert 후
+              prefill 페이로드를 들고 /approval-create 로 이동한다. */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-notice-to-approval"
+              onClick={() => {
+                recordOutput("share");
+                const qs = buildApprovalPrefillSearch({
+                  kind: "notice_output",
+                  sourceTable: "notice_outputs",
+                  title: title || template.title,
+                  buildingId: building?.id ?? null,
+                  metadata: { templateId: template.id, outputDate: todayYmd() },
+                });
+                navigate(`/approval-create?${qs.toString()}`);
+              }}
+            >
+              <FileText className="w-4 h-4 mr-1" />
+              기안서로 만들기
             </Button>
           </div>
         </div>

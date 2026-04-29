@@ -10,6 +10,9 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 플랫폼 공지 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
 
 const router: IRouter = Router();
 
@@ -116,21 +119,50 @@ router.post(
       .select({ name: usersTable.name })
       .from(usersTable)
       .where(eq(usersTable.id, req.user!.userId));
-    const [created] = await db
-      .insert(platformAnnouncementsTable)
-      .values({
-        title,
-        body,
-        audience,
-        startsAt: startsAt ? new Date(startsAt) : new Date(),
-        endsAt: endsAt ? new Date(endsAt) : null,
-        recurrence,
-        recurrenceDays: normalizeRecurrenceDays(recurrence, recurrenceDays),
-        isActive: isActive ?? true,
-        createdBy: req.user!.userId,
-        createdByName: author?.name ?? null,
-      })
-      .returning();
+    // [Task #610] 2층 단일 통로 — 공지 INSERT + documents upsert 헬퍼 위임.
+    let created: typeof platformAnnouncementsTable.$inferSelect;
+    try {
+      created = await saveProducingDocument({
+        write: (exec) =>
+          exec
+            .insert(platformAnnouncementsTable)
+            .values({
+              title,
+              body,
+              audience,
+              startsAt: startsAt ? new Date(startsAt) : new Date(),
+              endsAt: endsAt ? new Date(endsAt) : null,
+              recurrence,
+              recurrenceDays: normalizeRecurrenceDays(recurrence, recurrenceDays),
+              isActive: isActive ?? true,
+              createdBy: req.user!.userId,
+              createdByName: author?.name ?? null,
+            })
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "announcement",
+          sourceTable: "platform_announcements",
+          state: (isActive ?? true) ? "active" : "archived",
+          // [Task #610] 명명 SoT — buildDocumentName('announcement') 적용.
+          title: (r) =>
+            buildDocumentName({
+              kind: "announcement",
+              title: r.title,
+              date: r.startsAt,
+            }).title,
+          authorId: req.user!.userId,
+          authorRole: "platform_admin",
+          href: (r) => `/platform/announcements?id=${r.id}`,
+          metadata: (r) => ({ audience: r.audience, recurrence: r.recurrence }),
+        },
+      });
+    } catch (err) {
+      req.log.error({ err }, "[Task #610] platform announcement saveProducingDocument failed");
+      res.status(500).json({ error: "공지 저장 실패" });
+      return;
+    }
+
     res.status(201).json(created);
   },
 );
@@ -218,11 +250,32 @@ router.patch(
       }
     }
 
-    const [updated] = await db
-      .update(platformAnnouncementsTable)
-      .set(patch)
-      .where(eq(platformAnnouncementsTable.id, id))
-      .returning();
+    // [Task #610] 단일 통로 — 공지 PATCH 도 saveProducingDocument 로.
+    let updated!: typeof platformAnnouncementsTable.$inferSelect;
+    try {
+      updated = await saveProducingDocument({
+        write: (exec) =>
+          exec
+            .update(platformAnnouncementsTable)
+            .set(patch)
+            .where(eq(platformAnnouncementsTable.id, id))
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "announcement",
+          sourceTable: "platform_announcements",
+          title: (r) => r.title,
+          buildingId: null,
+          href: (r) => `/announcements/${r.id}`,
+        },
+      });
+    } catch (e) {
+      if (e instanceof MissingSourceRowError) {
+        res.status(404).json({ error: "공지를 찾을 수 없습니다" });
+        return;
+      }
+      throw e;
+    }
     if (!updated) {
       res.status(404).json({ error: "공지를 찾을 수 없습니다" });
       return;

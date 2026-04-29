@@ -74,3 +74,5 @@ export * from "./approvalSignedCopies";
 export * from "./hqApprovalThresholds";
 export * from "./expenseVouchers";
 export * from "./paymentRequests";
+export * from "./documents";
+export * from "./noticeOutputs";

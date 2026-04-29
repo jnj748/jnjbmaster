@@ -49,6 +49,7 @@ import { PhotoUploadField } from "@/components/photo-upload-field";
 import { MemoInputFooter } from "@/components/memo-input-footer";
 import { CompletionNotice } from "@/components/completion-notice";
 import { useToast } from "@/hooks/use-toast";
+import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
 import {
   type DashboardAlert,
   type AlertActionTab,
@@ -497,6 +498,34 @@ export function AlertActionDialog({
                     공고문 작성
                   </Button>
                 )}
+
+              {/* [Task #610] 알림 → 기안서로 만들기 표준 진입.
+                  registerDocument 1층 트리거가 alert_actions INSERT 시 자동 등록되므로
+                  source 일관성 위해 prefill 도 'alert_actions' 로 둔다 (#611 본문 자동작성 대비). */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                data-testid="btn-alert-to-approval"
+                onClick={() => {
+                  const qs = buildApprovalPrefillSearch({
+                    kind: "alert_action_output",
+                    sourceTable: "alert_actions",
+                    title: alert.title,
+                    metadata: {
+                      category: "maintenance",
+                      alertType: alert.type,
+                      alertMessage: alert.message,
+                      alertId: alert.id,
+                    },
+                  });
+                  onClose();
+                  navigate(`/approval-create?${qs.toString()}`);
+                }}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                기안서로 만들기
+              </Button>
 
               {/* [Task #511] 알림 유형에 관계없이 항상 [처리완료, 처리예정, 연기, 비교견적]
                   4개 탭 순서로 노출. 비교견적 탭은 인라인 폼 대신 /rfqs 로 이동.

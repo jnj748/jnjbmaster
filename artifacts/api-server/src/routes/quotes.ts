@@ -1,4 +1,8 @@
 import { insertNotification } from "../lib/notificationRecipient";
+// [Task #610] 견적 채택 시 자동 생성되는 업체선정 기안서를 documents 레지스트리에
+import { registerDocument } from "../services/documents/registerDocument";
+import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
 import { Router, type IRouter } from "express";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
 import {
@@ -12,6 +16,7 @@ import {
   commissionEventsTable,
   contractsTable,
   approvalsTable,
+  type DocumentAuthorRole,
 } from "@workspace/db";
 import {
   ListQuotesQueryParams,
@@ -143,6 +148,9 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
   if (req.user?.role === "manager" && !quote.firstViewedAt) {
     try {
       const now = new Date();
+      // [allow-direct-write: 매니저 첫 열람 타임스탬프 기록 (best-effort 환불 잡 판정용);
+      //   견적 라이프사이클 상태 변화 없음. 트리거 trg_documents_quotes 가 documents.updated_at 만
+      //   새로고침한다.]
       await db.update(quotesTable).set({ firstViewedAt: now }).where(eq(quotesTable.id, quote.id));
       quote.firstViewedAt = now;
     } catch {
@@ -293,7 +301,22 @@ router.post("/quotes", async (req, res): Promise<void> => {
         }
       }
 
-      const [inserted] = await tx.insert(quotesTable).values(body).returning();
+      // [Task #610] 2층 단일 통로 — 견적 INSERT + documents upsert 헬퍼 위임.
+      const inserted = await saveProducingDocument({
+        executor: tx,
+        write: (exec) => exec.insert(quotesTable).values(body).returning().then((r) => r[0]),
+        document: {
+          kind: "quote",
+          sourceTable: "quotes",
+          state: "active",
+          title: `[견적] ${vendor.name} - ${rfq.title}`,
+          authorId: req.user?.userId ?? null,
+          authorRole: "partner",
+          buildingId: rfq.buildingId,
+          href: (r) => `/quotes?id=${r.id}`,
+          metadata: (r) => ({ vendorId: r.vendorId, rfqId: r.rfqId, totalAmount: r.totalAmount }),
+        },
+      });
 
       // [Task #335] 견적 도착 알림: 해당 RFQ 가 속한 건물의 매니저들에게 인앱 알림 전송.
       // 대시보드의 quote_received 알림은 dashboard.ts 에서 별도로 집계되며, 이 알림은
@@ -412,156 +435,322 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     }
   }
 
-  const [quote] = await db
-    .update(quotesTable)
-    .set(parsed.data as never)
-    .where(eq(quotesTable.id, params.data.id))
-    .returning();
-
-  if (!quote) {
-    res.status(404).json({ error: "Quote not found" });
-    return;
-  }
-
-  // Auto-create commission in 'pending' status when quote is accepted AND contract copy is uploaded
-  const wasReady = prev.status === "accepted" && prev.contractUploadedAt != null;
-  const isReady = quote.status === "accepted" && quote.contractUploadedAt != null;
-  const justReady = !wasReady && isReady;
-  if (justReady && (await isAutoCommissionEnabled())) {
-    const [rfq] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
-    const category = rfq?.category ?? "기타";
-    const rate = await computeCommissionRate(category, quote.totalAmount);
-    const commissionAmount = Math.round((quote.totalAmount * rate) / 100);
-    const [created] = await db
-      .insert(commissionsTable)
-      .values({
-        vendorId: quote.vendorId,
-        vendorName: quote.vendorName,
-        contractAmount: quote.totalAmount,
-        commissionRate: rate,
-        commissionAmount,
-        status: "pending",
-        matchedDate: new Date().toISOString().split("T")[0],
-        rfqId: quote.rfqId,
-        quoteId: quote.id,
-        category,
-        notes: "[자동] 견적 선정 및 계약 진행",
-      })
-      .returning();
-    await db.insert(commissionEventsTable).values({
-      commissionId: created.id,
-      fromStatus: null,
-      toStatus: "pending",
-      reason: "견적 선정 자동 생성",
-      actorId: req.user?.userId ?? null,
-      actorName: req.user?.email ?? null,
-    });
-  }
-
-  // [Task #335] 견적 채택 시 동일 RFQ 의 다른 submitted 견적은 자동으로 rejected 처리하고
-  // RFQ 자체도 awarded 상태로 마감해, 매니저 대시보드의 "견적 도착" 잔여 알림이 즉시 사라지게 한다.
-  // [Task #612] 채택 시 closedAt / closedQuoteId 기록 + 거절 파트너에게도 알림.
-  if (prev.status !== "accepted" && quote.status === "accepted") {
-    const rejected = await db
-      .update(quotesTable)
-      .set({ status: "rejected" })
-      .where(
-        and(
-          eq(quotesTable.rfqId, quote.rfqId),
-          ne(quotesTable.id, quote.id),
-          eq(quotesTable.status, "submitted"),
-        ),
-      )
-      .returning();
-    await db
-      .update(rfqsTable)
-      .set({ status: "awarded", closedAt: new Date(), closedQuoteId: quote.id })
-      .where(eq(rfqsTable.id, quote.rfqId));
-
-    const [rfqForNotify] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
-    for (const r of rejected) {
-      await insertNotification({
-        recipientType: `vendor:${r.vendorId}`,
-        notificationType: "quote_rejected",
-        title: "비교견적 결과 안내",
-        message: `[${rfqForNotify?.title ?? "RFQ"}] 다른 업체 견적이 채택되었습니다.`,
-        relatedEntityType: "rfq",
-        relatedEntityId: quote.rfqId,
-      });
+  // 견적 수락은 quote/RFQ/commissions/approval/contract/documents 까지
+  // 한 트랜잭션으로 묶어 부분 실패 시 일관성 깨짐을 막는다.
+  const quote = await db.transaction(async (tx) => {
+    // OpenAPI 의 string|null 시간 필드를 Drizzle 의 Date|null 로 변환해
+    // .set 의 타입 우회 캐스팅을 제거한다. 명시 부분 페이로드만 넘긴다.
+    const p = parsed.data;
+    const updateSet: Partial<typeof quotesTable.$inferInsert> = {};
+    if (p.status !== undefined) updateSet.status = p.status;
+    if (p.notes !== undefined) updateSet.notes = p.notes;
+    if (p.contractFilePath !== undefined) updateSet.contractFilePath = p.contractFilePath;
+    if (p.contractUploadedAt !== undefined) {
+      updateSet.contractUploadedAt = p.contractUploadedAt === null ? null : new Date(p.contractUploadedAt);
     }
-  }
+    if (p.lineItems !== undefined) updateSet.lineItems = p.lineItems;
+    if (p.subtotal !== undefined) updateSet.subtotal = p.subtotal;
+    if (p.vatAmount !== undefined) updateSet.vatAmount = p.vatAmount;
+    if (p.validUntil !== undefined) updateSet.validUntil = p.validUntil;
+    if (p.warrantyTerms !== undefined) updateSet.warrantyTerms = p.warrantyTerms;
+    if (p.attachmentUrl !== undefined) updateSet.attachmentUrl = p.attachmentUrl;
 
-  // Auto-create contract draft when quote transitions to accepted (Task #65)
-  if (prev.status !== "accepted" && quote.status === "accepted") {
-    const existing = await db.select().from(contractsTable).where(eq(contractsTable.quoteId, quote.id));
-    if (existing.length === 0) {
-      const [rfq] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
-      const requesterId = req.user?.userId ?? null;
-      const [requester] = requesterId
-        ? await db.select({ name: usersTable.name, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, requesterId))
-        : [undefined];
+    let updated!: typeof quotesTable.$inferSelect;
+    try {
+      updated = await saveProducingDocument({
+        executor: tx,
+        write: (exec) =>
+          exec
+            .update(quotesTable)
+            .set(updateSet)
+            .where(eq(quotesTable.id, params.data.id))
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "quote",
+          sourceTable: "quotes",
+          title: (r) => r.vendorName,
+          buildingId: null,
+          href: (r) => `/quotes/${r.id}`,
+        },
+      });
+    } catch (e) {
+      if (e instanceof MissingSourceRowError) {
+        throw Object.assign(new Error("Quote not found"), { http: 404 });
+      }
+      throw e;
+    }
 
-      const title = `[업체선정] ${rfq?.title ?? "RFQ"} - ${quote.vendorName}`;
-
-      const [approval] = await db
-        .insert(approvalsTable)
+    // Auto-create commission in 'pending' status when quote is accepted AND contract copy is uploaded
+    const wasReady = prev.status === "accepted" && prev.contractUploadedAt != null;
+    const isReady = updated.status === "accepted" && updated.contractUploadedAt != null;
+    const justReady = !wasReady && isReady;
+    if (justReady && (await isAutoCommissionEnabled())) {
+      const [rfq] = await tx.select().from(rfqsTable).where(eq(rfqsTable.id, updated.rfqId));
+      const category = rfq?.category ?? "기타";
+      const rate = await computeCommissionRate(category, updated.totalAmount);
+      const commissionAmount = Math.round((updated.totalAmount * rate) / 100);
+      const [created] = await tx
+        .insert(commissionsTable)
         .values({
-          title,
-          description: `업체 선정 결재 (자동 생성) — ${quote.vendorName} (RFQ #${quote.rfqId}, 견적 #${quote.id}). 결재선을 추가한 뒤 상신하세요.`,
-          category: "other",
+          vendorId: updated.vendorId,
+          vendorName: updated.vendorName,
+          contractAmount: updated.totalAmount,
+          commissionRate: rate,
+          commissionAmount,
           status: "pending",
-          isDraft: true,
-          requesterId: requesterId ?? 0,
-          requesterName: requester?.name ?? requester?.email ?? "system",
-          estimatedAmount: quote.totalAmount,
-          vendorName: quote.vendorName,
-          vendorQuoteDetails: quote.itemBreakdown ?? null,
-          totalSteps: 1,
-          currentStep: 1,
+          matchedDate: new Date().toISOString().split("T")[0],
+          rfqId: updated.rfqId,
+          quoteId: updated.id,
+          category,
+          notes: "[자동] 견적 선정 및 계약 진행",
         })
         .returning();
-
-      const [contract] = await db
-        .insert(contractsTable)
-        .values({
-          buildingId: rfq?.buildingId ?? null,
-          buildingName: rfq?.buildingName ?? null,
-          vendorId: quote.vendorId,
-          vendorName: quote.vendorName,
-          category: rfq?.category ?? "other",
-          title,
-          rfqId: quote.rfqId,
-          quoteId: quote.id,
-          approvalId: approval.id,
-          contractAmount: quote.totalAmount,
-          status: "in_approval",
-          isRecurring: false,
-          notes: "견적 채택 시 자동 생성된 계약. 연결된 업체선정 품의가 최종 승인되면 자동으로 활성화됩니다.",
-        })
-        .returning();
-
-      await insertNotification({
-        recipientType: "admin",
-        notificationType: "contract_auto_created",
-        title: "[계약] 견적 채택 → 품의·계약 자동 생성",
-        message: `${quote.vendorName} 견적 채택으로 업체선정 품의(#${approval.id})와 계약(#${contract.id})이 생성되었습니다. 결재선을 추가해 상신하세요.`,
-        relatedEntityType: "contract",
-        relatedEntityId: contract.id,
-      });
-
-      // [Task #335] 파트너에게 계약 초안 도착 알림. 파트너는 알림 클릭 후
-      // /vendor-portal?openContract={id} 딥링크로 진입해 "계약 내용에 동의" 한다.
-      await insertNotification({
-        recipientType: `vendor:${quote.vendorId}`,
-        notificationType: "contract_draft_ready",
-        title: "[계약] 견적이 채택되어 계약 초안이 생성되었습니다",
-        message: `[${rfq?.title ?? "RFQ"}] 견적이 채택되었습니다. 계약 내용을 확인하고 동의해주세요.`,
-        relatedEntityType: "contract",
-        relatedEntityId: contract.id,
+      await tx.insert(commissionEventsTable).values({
+        commissionId: created.id,
+        fromStatus: null,
+        toStatus: "pending",
+        reason: "견적 선정 자동 생성",
+        actorId: req.user?.userId ?? null,
+        actorName: req.user?.email ?? null,
       });
     }
-  }
 
+    // [Task #335] 견적 채택 시 동일 RFQ 의 다른 submitted 견적은 자동으로 rejected 처리하고
+    // RFQ 자체도 awarded 상태로 마감해, 매니저 대시보드의 "견적 도착" 잔여 알림이 즉시 사라지게 한다.
+    // [Task #612] 채택 시 closedAt / closedQuoteId 기록 + 거절 파트너에게도 알림.
+    // [Task #610] 거절된 견적 ID 들은 quote_bundle documents.metadata 에 보존한다.
+    let rejectedQuoteIdsForBundle: number[] = [];
+    let rejectedVendorIdsForBundle: number[] = [];
+    if (prev.status !== "accepted" && updated.status === "accepted") {
+      // 거절될 다른 견적들 — 각각 saveProducingDocument 로 통과시켜 documents.state 동기화.
+      //   대량(보통 1~3건)이지만 한 트랜잭션 안에서 순차 처리한다.
+      const others = await tx
+        .select({ id: quotesTable.id, vendorId: quotesTable.vendorId, vendorName: quotesTable.vendorName })
+        .from(quotesTable)
+        .where(
+          and(
+            eq(quotesTable.rfqId, updated.rfqId),
+            ne(quotesTable.id, updated.id),
+            eq(quotesTable.status, "submitted"),
+          ),
+        );
+      for (const o of others) {
+        // [Task #610] 단일 통로 — 자동 거절도 saveProducingDocument 로.
+        await saveProducingDocument({
+          executor: tx,
+          write: (exec) =>
+            exec
+              .update(quotesTable)
+              .set({ status: "rejected" })
+              .where(eq(quotesTable.id, o.id))
+              .returning()
+              .then((r) => r[0]),
+          document: {
+            kind: "quote",
+            sourceTable: "quotes",
+            title: (r) => r.vendorName,
+            buildingId: null,
+            href: (r) => `/quotes/${r.id}`,
+          },
+        });
+      }
+      rejectedQuoteIdsForBundle = others.map((r) => r.id);
+      rejectedVendorIdsForBundle = others.map((r) => r.vendorId);
+      // [Task #610] 단일 통로 — RFQ awarded 마감도 saveProducingDocument 로.
+      await saveProducingDocument({
+        executor: tx,
+        write: (exec) =>
+          exec
+            .update(rfqsTable)
+            .set({ status: "awarded", closedAt: new Date(), closedQuoteId: updated.id })
+            .where(eq(rfqsTable.id, updated.rfqId))
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "rfq",
+          sourceTable: "rfqs",
+          title: (r) => r.title,
+          buildingId: (r) => r.buildingId,
+          href: (r) => `/rfqs?id=${r.id}`,
+        },
+      });
+
+      const [rfqForNotify] = await tx.select().from(rfqsTable).where(eq(rfqsTable.id, updated.rfqId));
+      for (const r of others) {
+        await insertNotification(
+          {
+            recipientType: `vendor:${r.vendorId}`,
+            notificationType: "quote_rejected",
+            title: "비교견적 결과 안내",
+            message: `[${rfqForNotify?.title ?? "RFQ"}] 다른 업체 견적이 채택되었습니다.`,
+            relatedEntityType: "rfq",
+            relatedEntityId: updated.rfqId,
+          },
+          tx,
+        );
+      }
+    }
+
+    // Auto-create contract draft when quote transitions to accepted (Task #65)
+    if (prev.status !== "accepted" && updated.status === "accepted") {
+      const existing = await tx.select().from(contractsTable).where(eq(contractsTable.quoteId, updated.id));
+      if (existing.length === 0) {
+        const [rfq] = await tx.select().from(rfqsTable).where(eq(rfqsTable.id, updated.rfqId));
+        const requesterId = req.user?.userId ?? null;
+        const [requester] = requesterId
+          ? await tx.select({ name: usersTable.name, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, requesterId))
+          : [undefined];
+
+        const title = `[업체선정] ${rfq?.title ?? "RFQ"} - ${updated.vendorName}`;
+
+        // [Task #610] 2층 단일 통로 — 자동 생성 기안서 INSERT + documents upsert 헬퍼 위임.
+        const naming = buildDocumentName({
+          kind: "quote_bundle",
+          date: new Date(),
+          title: rfq?.title ?? "RFQ",
+          selectedVendorName: updated.vendorName,
+          buildingName: rfq?.buildingName ?? null,
+        });
+        const baseBundleMetadata = {
+          rfqId: updated.rfqId,
+          acceptedQuoteId: updated.id,
+          acceptedVendorId: updated.vendorId,
+          acceptedVendorName: updated.vendorName,
+          rejectedQuoteIds: rejectedQuoteIdsForBundle,
+          rejectedVendorIds: rejectedVendorIdsForBundle,
+          totalAmount: updated.totalAmount,
+          autoCreated: true,
+        };
+
+        const approval = await saveProducingDocument({
+          executor: tx,
+          write: (exec) =>
+            exec
+              .insert(approvalsTable)
+              .values({
+                title,
+                description: `업체 선정 결재 (자동 생성) — ${updated.vendorName} (RFQ #${updated.rfqId}, 견적 #${updated.id}). 결재선을 추가한 뒤 상신하세요.`,
+                category: "other",
+                status: "pending",
+                isDraft: true,
+                requesterId: requesterId ?? 0,
+                requesterName: requester?.name ?? requester?.email ?? "system",
+                estimatedAmount: updated.totalAmount,
+                vendorName: updated.vendorName,
+                vendorQuoteDetails: updated.itemBreakdown ?? null,
+                totalSteps: 1,
+                currentStep: 1,
+              })
+              .returning()
+              .then((r) => r[0]),
+          document: {
+            // 트리거 1층이 박은 'approval' 을 'quote_bundle' 로 덮어쓴다.
+            kind: "quote_bundle",
+            sourceTable: "approvals",
+            state: "draft",
+            title: naming.title,
+            subtitle: `${updated.vendorName} · ₩${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}`,
+            authorId: requesterId,
+            // 견적 채택 행위자(manager/accountant/platform_admin) 의 실제 역할.
+            authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+            buildingId: rfq?.buildingId ?? null,
+            href: (a) => `/approvals/${a.id}`,
+            metadata: baseBundleMetadata,
+          },
+        });
+
+        const contract = await saveProducingDocument({
+          executor: tx,
+          write: (exec) =>
+            exec
+              .insert(contractsTable)
+              .values({
+                buildingId: rfq?.buildingId ?? null,
+                buildingName: rfq?.buildingName ?? null,
+                vendorId: updated.vendorId,
+                vendorName: updated.vendorName,
+                category: rfq?.category ?? "other",
+                title,
+                rfqId: updated.rfqId,
+                quoteId: updated.id,
+                approvalId: approval.id,
+                contractAmount: updated.totalAmount,
+                status: "in_approval",
+                isRecurring: false,
+                notes: "견적 채택 시 자동 생성된 계약. 연결된 업체선정 품의가 최종 승인되면 자동으로 활성화됩니다.",
+              })
+              .returning()
+              .then((r) => r[0]),
+          document: {
+            kind: "contract",
+            sourceTable: "contracts",
+            state: "draft",
+            title,
+            authorId: requesterId,
+            authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+            buildingId: rfq?.buildingId ?? null,
+            href: (c) => `/contracts?id=${c.id}`,
+            metadata: (c) => ({ vendorName: c.vendorName, status: c.status, autoCreated: true }),
+          },
+        });
+
+        // contract.id 를 quote_bundle metadata 에 추가하는 idempotent upsert.
+        // 같은 (sourceTable='approvals', sourceId=approval.id) 라 같은 documents 행을 갱신.
+        await registerDocument({
+          executor: tx,
+          kind: "quote_bundle",
+          sourceTable: "approvals",
+          sourceId: approval.id,
+          state: "draft",
+          title: naming.title,
+          subtitle: `${updated.vendorName} · ₩${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}`,
+          authorId: requesterId,
+          authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+          buildingId: rfq?.buildingId ?? null,
+          href: `/approvals/${approval.id}`,
+          metadata: { ...baseBundleMetadata, contractId: contract.id },
+        });
+
+        await insertNotification(
+          {
+            recipientType: "admin",
+            notificationType: "contract_auto_created",
+            title: "[계약] 견적 채택 → 품의·계약 자동 생성",
+            message: `${updated.vendorName} 견적 채택으로 업체선정 품의(#${approval.id})와 계약(#${contract.id})이 생성되었습니다. 결재선을 추가해 상신하세요.`,
+            relatedEntityType: "contract",
+            relatedEntityId: contract.id,
+          },
+          tx,
+        );
+
+        // [Task #335] 파트너에게 계약 초안 도착 알림. 파트너는 알림 클릭 후
+        // /vendor-portal?openContract={id} 딥링크로 진입해 "계약 내용에 동의" 한다.
+        await insertNotification(
+          {
+            recipientType: `vendor:${updated.vendorId}`,
+            notificationType: "contract_draft_ready",
+            title: "[계약] 견적이 채택되어 계약 초안이 생성되었습니다",
+            message: `[${rfq?.title ?? "RFQ"}] 견적이 채택되었습니다. 계약 내용을 확인하고 동의해주세요.`,
+            relatedEntityType: "contract",
+            relatedEntityId: contract.id,
+          },
+          tx,
+        );
+      }
+    }
+
+    return updated;
+  }).catch((e) => {
+    const err = e as { http?: number; message?: string };
+    if (err.http === 404) {
+      res.status(404).json({ error: err.message ?? "Quote not found" });
+      return null;
+    }
+    throw e;
+  });
+
+  if (!quote) return; // already responded
   res.json(UpdateQuoteResponse.parse(quote));
 });
 

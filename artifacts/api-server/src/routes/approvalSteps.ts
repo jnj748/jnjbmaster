@@ -3,6 +3,10 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, approvalSignedCopiesTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
 import { requireRole, type AuthPayload } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 임시저장 기안서 commit 후 documents 레지스트리에 등록.
+import { registerDocument } from "../services/documents/registerDocument";
+import { saveProducingDocument } from "../repo/producingDocuments";
+import type { DocumentAuthorRole } from "@workspace/db";
 import { transitionContractStatus } from "./contracts";
 // [Task #611] 라인이 최종 승인되는 모든 경로(전자결재 포함)에서 같은 후크로
 //   지출결의서·입금요청서를 자동 발행한다.
@@ -210,13 +214,28 @@ router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), 
   }
 
   if (action === "reject") {
-    await db
-      .update(approvalsTable)
-      .set({
-        status: "rejected",
-        rejectionReason: comment ?? "반려됨",
-      })
-      .where(eq(approvalsTable.id, approvalId));
+    // [Task #610] 단일 통로 — 반려 transition 도 saveProducingDocument 로.
+    await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(approvalsTable)
+          .set({
+            status: "rejected",
+            rejectionReason: comment ?? "반려됨",
+          })
+          .where(eq(approvalsTable.id, approvalId))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "approval",
+        sourceTable: "approvals",
+        state: "rejected",
+        title: (r) => r.title,
+        authorId: (r) => r.requesterId,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/approvals/${r.id}`,
+      },
+    });
 
     await insertNotification({
       recipientType: `user:${approval.requesterId}`,
@@ -236,13 +255,28 @@ router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), 
     const nextStep = allSteps.find((s) => s.status === "pending" && s.id !== stepId);
 
     if (nextStep) {
-      await db
-        .update(approvalsTable)
-        .set({
-          currentStep: nextStep.stepOrder,
-          status: "in_progress",
-        })
-        .where(eq(approvalsTable.id, approvalId));
+      // [Task #610] 단일 통로 — 다음 단계 진행도 saveProducingDocument 로.
+      await saveProducingDocument({
+        write: (exec) =>
+          exec
+            .update(approvalsTable)
+            .set({
+              currentStep: nextStep.stepOrder,
+              status: "in_progress",
+            })
+            .where(eq(approvalsTable.id, approvalId))
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "approval",
+          sourceTable: "approvals",
+          state: "active",
+          title: (r) => r.title,
+          authorId: (r) => r.requesterId,
+          buildingId: (r) => r.buildingId,
+          href: (r) => `/approvals/${r.id}`,
+        },
+      });
 
       await insertNotification({
         recipientType: `user:${nextStep.approverId}`,
@@ -259,15 +293,30 @@ router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), 
         .where(eq(usersTable.id, user.userId))
         .then((rows) => rows[0]?.name ?? user.email);
 
-      await db
-        .update(approvalsTable)
-        .set({
-          status: "approved",
-          approverId: user.userId,
-          approverName: userName,
-          approvedAt: new Date(),
-        })
-        .where(eq(approvalsTable.id, approvalId));
+      // [Task #610] 단일 통로 — 최종 승인 transition 도 saveProducingDocument 로.
+      await saveProducingDocument({
+        write: (exec) =>
+          exec
+            .update(approvalsTable)
+            .set({
+              status: "approved",
+              approverId: user.userId,
+              approverName: userName,
+              approvedAt: new Date(),
+            })
+            .where(eq(approvalsTable.id, approvalId))
+            .returning()
+            .then((r) => r[0]),
+        document: {
+          kind: "approval",
+          sourceTable: "approvals",
+          state: "completed",
+          title: (r) => r.title,
+          authorId: (r) => r.requesterId,
+          buildingId: (r) => r.buildingId,
+          href: (r) => `/approvals/${r.id}`,
+        },
+      });
 
       const linkedContracts = await db
         .select()
@@ -377,27 +426,50 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
     return;
   }
 
-  const [row] = await db
-    .insert(approvalsTable)
-    .values({
-      title: body.title || "임시 저장",
-      description: body.description || "",
-      category: body.category || "other",
-      templateId: body.templateId ?? null,
-      estimatedAmount: body.estimatedAmount ?? null,
-      vendorName: body.vendorName ?? null,
-      vendorQuoteDetails: body.vendorQuoteDetails ?? null,
-      relatedDraftId: body.relatedDraftId ?? null,
-      relatedInspectionId: body.relatedInspectionId ?? null,
-      requesterId: user.userId,
-      requesterName: userName,
-      buildingId,
-      status: "draft",
-      isDraft: true,
-      totalSteps: steps.length || 1,
-      currentStep: 1,
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — 임시저장 INSERT + documents upsert 헬퍼 위임.
+  let row: typeof approvalsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(approvalsTable)
+          .values({
+            title: body.title || "임시 저장",
+            description: body.description || "",
+            category: body.category || "other",
+            templateId: body.templateId ?? null,
+            estimatedAmount: body.estimatedAmount ?? null,
+            vendorName: body.vendorName ?? null,
+            vendorQuoteDetails: body.vendorQuoteDetails ?? null,
+            relatedDraftId: body.relatedDraftId ?? null,
+            relatedInspectionId: body.relatedInspectionId ?? null,
+            requesterId: user.userId,
+            requesterName: userName,
+            buildingId,
+            status: "draft",
+            isDraft: true,
+            totalSteps: steps.length || 1,
+            currentStep: 1,
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "draft",
+        sourceTable: "approvals",
+        state: "draft",
+        title: (r) => r.title,
+        authorId: user.userId,
+        authorRole: (user.role as DocumentAuthorRole) ?? null,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/approvals/${r.id}`,
+        metadata: (r) => ({ category: r.category, isDraft: true }),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] approval draft saveProducingDocument failed");
+    res.status(500).json({ error: "임시 저장 실패" });
+    return;
+  }
 
   for (let i = 0; i < steps.length; i++) {
     await db.insert(approvalStepsTable).values({
@@ -418,6 +490,8 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
       type: r.type,
     });
   }
+
+  // [Task #610] saveProducingDocument 가 documents 레지스트리 upsert 까지 책임진다 —
 
   res.status(201).json(serializeApproval(row));
 });
@@ -446,25 +520,41 @@ router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res):
     return;
   }
 
-  const [row] = await db
-    .update(approvalsTable)
-    .set({
-      title: body.title || existing.title,
-      description: body.description || existing.description,
-      category: body.category || existing.category,
-      templateId: body.templateId ?? existing.templateId,
-      estimatedAmount: body.estimatedAmount ?? existing.estimatedAmount,
-      vendorName: body.vendorName ?? existing.vendorName,
-      vendorQuoteDetails: body.vendorQuoteDetails ?? existing.vendorQuoteDetails,
-      // [Task #611 fix] draft 수정 시 buildingId 갱신 허용 (자동 라우팅 키).
-      buildingId:
-        typeof body.buildingId === "number" && Number.isFinite(body.buildingId)
-          ? body.buildingId
-          : existing.buildingId,
-      totalSteps: steps.length || existing.totalSteps,
-    })
-    .where(eq(approvalsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — UPDATE 도 saveProducingDocument 를 거친다.
+  const row = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set({
+          title: body.title || existing.title,
+          description: body.description || existing.description,
+          category: body.category || existing.category,
+          templateId: body.templateId ?? existing.templateId,
+          estimatedAmount: body.estimatedAmount ?? existing.estimatedAmount,
+          vendorName: body.vendorName ?? existing.vendorName,
+          vendorQuoteDetails: body.vendorQuoteDetails ?? existing.vendorQuoteDetails,
+          // [Task #611 fix] draft 수정 시 buildingId 갱신 허용 (자동 라우팅 키).
+          buildingId:
+            typeof body.buildingId === "number" && Number.isFinite(body.buildingId)
+              ? body.buildingId
+              : existing.buildingId,
+          totalSteps: steps.length || existing.totalSteps,
+        })
+        .where(eq(approvalsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "draft",
+      sourceTable: "approvals",
+      state: "draft",
+      title: (r) => r.title,
+      authorId: user.userId,
+      authorRole: (user.role as DocumentAuthorRole) ?? null,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+      metadata: (r) => ({ category: r.category, isDraft: true }),
+    },
+  });
 
   if (steps.length > 0) {
     await db.delete(approvalStepsTable).where(eq(approvalStepsTable.approvalId, id));
@@ -565,11 +655,27 @@ router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), async (re
   if (body.vendorName !== undefined) updatedFields.vendorName = body.vendorName;
   if (body.vendorQuoteDetails !== undefined) updatedFields.vendorQuoteDetails = body.vendorQuoteDetails;
 
-  const [row] = await db
-    .update(approvalsTable)
-    .set(updatedFields)
-    .where(eq(approvalsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — draft → 상신 transition 도 saveProducingDocument 로.
+  const row = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set(updatedFields)
+        .where(eq(approvalsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "approval",
+      sourceTable: "approvals",
+      state: allSteps.length > 0 ? "active" : "submitted",
+      title: (r) => r.title,
+      authorId: existing.requesterId,
+      authorRole: (user.role as DocumentAuthorRole) ?? null,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+      metadata: (r) => ({ category: r.category, isDraft: false, submitted: true }),
+    },
+  });
 
   if (allSteps.length > 0) {
     await insertNotification({

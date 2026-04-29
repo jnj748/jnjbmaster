@@ -13,6 +13,10 @@ import {
   maintenanceLogsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 일일 업무일지 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
+import type { DocumentAuthorRole } from "@workspace/db";
 
 const router: IRouter = Router();
 // [직책별 일보 분리] /work-logs 와 /daily-journals 는 소장/경리/시설과장 모두 접근 가능.
@@ -318,11 +322,47 @@ router.put("/daily-journals/:date", async (req, res): Promise<void> => {
         : existing?.complaintPhotoUrl ?? null,
   };
 
-  let row;
-  if (existing) {
-    [row] = await db.update(dailyJournalsTable).set(values).where(eq(dailyJournalsTable.id, existing.id)).returning();
-  } else {
-    [row] = await db.insert(dailyJournalsTable).values(values).returning();
+  // [Task #610] 2층 단일 통로 — 일보 INSERT/UPDATE + documents upsert 헬퍼 위임.
+  let row: typeof dailyJournalsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        existing
+          ? exec
+              .update(dailyJournalsTable)
+              .set(values)
+              .where(eq(dailyJournalsTable.id, existing.id))
+              .returning()
+              .then((r) => r[0])
+          : exec
+              .insert(dailyJournalsTable)
+              .values(values)
+              .returning()
+              .then((r) => r[0]),
+      document: {
+        kind: "journal",
+        sourceTable: "daily_journals",
+        state: "active",
+        // [Task #610] 명명 SoT — buildDocumentName('journal') 적용.
+        title: (r) =>
+          buildDocumentName({
+            kind: "journal",
+            date: r.journalDate,
+            authorName: r.authorName,
+          }).title,
+        authorId: (r) => r.authorId,
+        authorRole: role as DocumentAuthorRole,
+        buildingId: (r) => r.buildingId,
+        periodStart: (r) => r.journalDate,
+        periodEnd: (r) => r.journalDate,
+        href: (r) => `/work-log?date=${r.journalDate}`,
+        metadata: { role },
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] journal saveProducingDocument failed");
+    res.status(500).json({ error: "일일업무일지 저장 실패" });
+    return;
   }
   res.json(serializeJournal(row));
 });
@@ -428,6 +468,9 @@ async function composeDaily(buildingId: number, date: string, ctxName: string, c
   // 보고서 스냅샷 영속화 — 동일 (role) 입력 → 동일 출력 (멱등).
   // 직책 분리 후 snapshot 은 (building_id, journal_date, role) 단위가 된다.
   if (journal) {
+    // [allow-direct-write: snapshot 캐시 부속 갱신만 — 라이프사이클 상태 변화 없음
+    //   (entries/journalDate/role 입력 동일 → 동일 결과 멱등). 트리거
+    //   trg_documents_daily_journals 가 documents.updated_at 만 새로고침한다.]
     await db.update(dailyJournalsTable)
       .set({ snapshot: report })
       .where(eq(dailyJournalsTable.id, journal.id));

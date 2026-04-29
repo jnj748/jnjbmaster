@@ -16,6 +16,10 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 계약 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
+import type { DocumentAuthorRole } from "@workspace/db";
 // [역할 라벨 SoT] 알림 본문 등 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 // [Task #369] 갱신 알림 임계값(75일)·본문 포맷 단일 소스. 화면·서버 모두 같은 값.
@@ -75,7 +79,23 @@ export async function transitionContractStatus(
   if (!allowed.includes(target)) {
     return { ok: false, error: `Cannot transition from ${existing.status} to ${target}` };
   }
-  await db.update(contractsTable).set({ status: target }).where(eq(contractsTable.id, contractId));
+  // [Task #610] 단일 통로 — 계약 status transition 도 saveProducingDocument 로.
+  await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(contractsTable)
+        .set({ status: target })
+        .where(eq(contractsTable.id, contractId))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "contract",
+      sourceTable: "contracts",
+      title: (r) => r.title,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/contracts/${r.id}`,
+    },
+  });
   return { ok: true };
 }
 
@@ -186,26 +206,59 @@ router.post("/contracts", requireRole("manager", "platform_admin", "accountant")
     res.status(400).json({ error: "vendorId, vendorName, category, title are required" });
     return;
   }
-  const [row] = await db
-    .insert(contractsTable)
-    .values({
-      buildingId: body.buildingId ?? null,
-      buildingName: body.buildingName ?? null,
-      vendorId: body.vendorId,
-      vendorName: body.vendorName,
-      category: body.category,
-      title: body.title,
-      rfqId: body.rfqId ?? null,
-      quoteId: body.quoteId ?? null,
-      approvalId: body.approvalId ?? null,
-      contractAmount: body.contractAmount ?? null,
-      startDate: body.startDate ?? null,
-      endDate: body.endDate ?? null,
-      status: body.status ?? "draft",
-      isRecurring: body.isRecurring ?? false,
-      notes: body.notes ?? null,
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — 계약 INSERT + documents upsert 헬퍼 위임.
+  let row: typeof contractsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(contractsTable)
+          .values({
+            buildingId: body.buildingId ?? null,
+            buildingName: body.buildingName ?? null,
+            vendorId: body.vendorId,
+            vendorName: body.vendorName,
+            category: body.category,
+            title: body.title,
+            rfqId: body.rfqId ?? null,
+            quoteId: body.quoteId ?? null,
+            approvalId: body.approvalId ?? null,
+            contractAmount: body.contractAmount ?? null,
+            startDate: body.startDate ?? null,
+            endDate: body.endDate ?? null,
+            status: body.status ?? "draft",
+            isRecurring: body.isRecurring ?? false,
+            notes: body.notes ?? null,
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "contract",
+        sourceTable: "contracts",
+        state: (body.status ?? "draft") === "draft" ? "draft" : "active",
+        // [Task #610] 명명 SoT — buildDocumentName('contract') 적용.
+        title: (r) =>
+          buildDocumentName({
+            kind: "contract",
+            title: r.title,
+            selectedVendorName: r.vendorName,
+            date: r.startDate ?? r.createdAt,
+          }).title,
+        authorId: req.user?.userId ?? null,
+        authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+        buildingId: (r) => r.buildingId,
+        periodStart: (r) => r.startDate ?? null,
+        periodEnd: (r) => r.endDate ?? null,
+        href: (r) => `/contracts?id=${r.id}`,
+        metadata: (r) => ({ vendorName: r.vendorName, status: r.status }),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] contract saveProducingDocument failed");
+    res.status(500).json({ error: "계약 저장 실패" });
+    return;
+  }
+
   res.status(201).json(serializeContract(row));
 });
 
@@ -265,11 +318,23 @@ router.post("/contracts/check-renewal-alerts", requireRole("manager", "platform_
       relatedEntityId: c.id,
     });
 
-    const [up] = await db
-      .update(contractsTable)
-      .set({ renewalAlertSent: new Date(), status: "renewal_due" })
-      .where(eq(contractsTable.id, c.id))
-      .returning();
+    // [Task #610] 단일 통로 — 갱신 임박 자동 transition.
+    const up = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(contractsTable)
+          .set({ renewalAlertSent: new Date(), status: "renewal_due" })
+          .where(eq(contractsTable.id, c.id))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "contract",
+        sourceTable: "contracts",
+        title: (r) => r.title,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/contracts/${r.id}`,
+      },
+    });
 
     updated.push(up);
     alertsGenerated++;
@@ -347,55 +412,93 @@ router.post("/contracts/from-quote/:quoteId", requireRole("manager", "platform_a
   const buildingName = body.buildingName ?? rfq?.buildingName ?? null;
   const steps = Array.isArray(body.approvalSteps) ? body.approvalSteps : [];
 
-  const [approval] = await db
-    .insert(approvalsTable)
-    .values({
-      title,
-      description: `업체 선정 결재 — ${quote.vendorName} (RFQ #${quote.rfqId}, 견적 #${quote.id})`,
-      category: "other",
-      status: steps.length > 0 ? "in_progress" : "pending",
-      isDraft: false,
-      requesterId: user.userId,
-      requesterName: userName,
-      estimatedAmount: quote.totalAmount,
-      vendorName: quote.vendorName,
-      vendorQuoteDetails: quote.itemBreakdown ?? null,
-      totalSteps: Math.max(steps.length, 1),
-      currentStep: 1,
-    })
-    .returning();
-
-  for (let i = 0; i < steps.length; i++) {
-    await db.insert(approvalStepsTable).values({
-      approvalId: approval.id,
-      stepOrder: i + 1,
-      approverId: steps[i].approverId,
-      approverName: steps[i].approverName,
-      approverRole: steps[i].approverRole ?? null,
-      status: "pending",
+  // [Task #610 Layer 5] 단일 트랜잭션 안에서 (1) 결재 (2) 결재선 (3) 계약 을 모두 만든다.
+  const userRole = (user.role as DocumentAuthorRole | undefined) ?? "manager";
+  const { approval, contract } = await db.transaction(async (tx) => {
+    const approvalRow = await saveProducingDocument({
+      executor: tx,
+      write: async (txx) => {
+        const [a] = await txx.insert(approvalsTable).values({
+          title,
+          description: `업체 선정 결재 — ${quote.vendorName} (RFQ #${quote.rfqId}, 견적 #${quote.id})`,
+          category: "other",
+          status: steps.length > 0 ? "in_progress" : "pending",
+          isDraft: false,
+          requesterId: user.userId,
+          requesterName: userName,
+          estimatedAmount: quote.totalAmount,
+          vendorName: quote.vendorName,
+          vendorQuoteDetails: quote.itemBreakdown ?? null,
+          totalSteps: Math.max(steps.length, 1),
+          currentStep: 1,
+        }).returning();
+        return a;
+      },
+      document: {
+        kind: "approval",
+        sourceTable: "approvals",
+        title,
+        authorId: user.userId,
+        authorRole: userRole,
+        state: steps.length > 0 ? "active" : "submitted",
+        href: (a) => `/approvals/${a.id}`,
+      },
     });
-  }
 
-  const [contract] = await db
-    .insert(contractsTable)
-    .values({
-      buildingId: body.buildingId ?? null,
-      buildingName,
-      vendorId: quote.vendorId,
-      vendorName: quote.vendorName,
-      category,
-      title,
-      rfqId: quote.rfqId,
-      quoteId: quote.id,
-      approvalId: approval.id,
-      contractAmount: quote.totalAmount,
-      startDate: body.startDate ?? null,
-      endDate: body.endDate ?? null,
-      status: "in_approval",
-      isRecurring: false,
-      notes: vendor ? `대표자: ${vendor.representativeName ?? "-"} / 사업자번호: ${vendor.businessRegNumber ?? "-"}` : null,
-    })
-    .returning();
+    for (let i = 0; i < steps.length; i++) {
+      await tx.insert(approvalStepsTable).values({
+        approvalId: approvalRow.id,
+        stepOrder: i + 1,
+        approverId: steps[i].approverId,
+        approverName: steps[i].approverName,
+        approverRole: steps[i].approverRole ?? null,
+        status: "pending",
+      });
+    }
+
+    const contractRow = await saveProducingDocument({
+      executor: tx,
+      write: async (txx) => {
+        const [c] = await txx.insert(contractsTable).values({
+          buildingId: body.buildingId ?? null,
+          buildingName,
+          vendorId: quote.vendorId,
+          vendorName: quote.vendorName,
+          category,
+          title,
+          rfqId: quote.rfqId,
+          quoteId: quote.id,
+          approvalId: approvalRow.id,
+          contractAmount: quote.totalAmount,
+          startDate: body.startDate ?? null,
+          endDate: body.endDate ?? null,
+          status: "in_approval",
+          isRecurring: false,
+          notes: vendor ? `대표자: ${vendor.representativeName ?? "-"} / 사업자번호: ${vendor.businessRegNumber ?? "-"}` : null,
+        }).returning();
+        return c;
+      },
+      document: {
+        kind: "contract",
+        sourceTable: "contracts",
+        // [Task #610] 명명 SoT — buildDocumentName('contract') 적용.
+        title: (c) =>
+          buildDocumentName({
+            kind: "contract",
+            title: c.title,
+            selectedVendorName: c.vendorName,
+            date: c.startDate ?? c.createdAt,
+          }).title,
+        buildingId: body.buildingId ?? null,
+        authorId: user.userId,
+        authorRole: userRole,
+        state: "active",
+        href: (c) => `/contracts/${c.id}`,
+      },
+    });
+
+    return { approval: approvalRow, contract: contractRow };
+  });
 
   if (steps.length > 0) {
     await insertNotification({
@@ -473,7 +576,32 @@ router.patch("/contracts/:id", requireRole("manager", "platform_admin", "account
     res.status(400).json({ error: "No fields to update" });
     return;
   }
-  const [row] = await db.update(contractsTable).set(updateData).where(eq(contractsTable.id, id)).returning();
+  // [Task #610] 단일 통로 — PATCH /contracts/:id 내용 갱신도 saveProducingDocument 로.
+  let row!: typeof contractsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(contractsTable)
+          .set(updateData)
+          .where(eq(contractsTable.id, id))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "contract",
+        sourceTable: "contracts",
+        title: (r) => r.title,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/contracts/${r.id}`,
+      },
+    });
+  } catch (e) {
+    if (e instanceof MissingSourceRowError) {
+      res.status(404).json({ error: "Contract not found" });
+      return;
+    }
+    throw e;
+  }
   if (!row) {
     res.status(404).json({ error: "Contract not found" });
     return;
@@ -498,7 +626,23 @@ router.post("/contracts/:id/transition", requireRole("manager", "platform_admin"
     res.status(400).json({ error: `Cannot transition from ${existing.status} to ${target}` });
     return;
   }
-  const [row] = await db.update(contractsTable).set({ status: target }).where(eq(contractsTable.id, id)).returning();
+  // [Task #610] 단일 통로 — POST /contracts/:id/transition.
+  const row = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(contractsTable)
+        .set({ status: target })
+        .where(eq(contractsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "contract",
+      sourceTable: "contracts",
+      title: (r) => r.title,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/contracts/${r.id}`,
+    },
+  });
   res.json(serializeContract(row));
 });
 
@@ -590,6 +734,9 @@ partnerContractsRouter.post("/contracts/:id/agree", requireRole("partner"), asyn
     res.json(serializeContract(existing));
     return;
   }
+  // [allow-direct-write: 파트너 동의 타임스탬프 단일 필드 갱신; status 변화 없음
+  //   (계약 라이프사이클은 별도 transition 라우트로). 트리거 trg_documents_contracts
+  //   가 documents.metadata 만 추가 머지한다.]
   const [row] = await db
     .update(contractsTable)
     .set({ partnerAgreedAt: new Date() })

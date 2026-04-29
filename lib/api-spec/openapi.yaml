@@ -67,6 +67,10 @@ tags:
     description: Partner contract lifecycle management
   - name: ai
     description: 관리소장 AI 도우미 (chat assistant)
+  - name: documents
+    description: "[Task #610] 통합 문서 레지스트리 — 모든 문서 산출물의 단일 인덱스"
+  - name: noticeOutputs
+    description: "[Task #610] 공고문 템플릿 export(PNG/DOCX/공유) 시점 등록"
 
 paths:
   /healthz:
@@ -6632,8 +6636,234 @@ paths:
                     $ref: "#/components/schemas/ReferralBenefit"
                 required: [benefit]
 
+  # ── [Task #610] Documents (unified registry) ──────────────────────────────
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents from the unified registry
+      parameters:
+        - name: kind
+          in: query
+          description: Comma-separated DocumentKind values
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          schema:
+            type: integer
+        - name: buildingId
+          in: query
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Documents page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentsPage"
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get a single document row
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentRow"
+        "404":
+          description: Not found
+
+  # ── [Task #610] Notice outputs (export-time registration) ─────────────────
+  /notice-outputs:
+    post:
+      operationId: registerNoticeOutput
+      tags: [noticeOutputs]
+      summary: Register a notice template export (PNG/DOCX/PDF/share)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterNoticeOutputBody"
+      responses:
+        "201":
+          description: Created or updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeOutput"
+
 components:
   schemas:
+    # ── [Task #610] Documents (unified registry) ─────────────────────────────
+    DocumentKind:
+      type: string
+      enum:
+        - journal
+        - weekly_report
+        - monthly_report
+        - draft
+        - approval
+        - quote_bundle
+        - rfq
+        - notice_output
+        - alert_action_output
+        - external
+        - quote
+        - contract
+        - announcement
+    DocumentState:
+      type: string
+      enum:
+        - draft
+        - active
+        - submitted
+        - completed
+        - archived
+        - rejected
+    DocumentRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          $ref: "#/components/schemas/DocumentKind"
+        sourceTable:
+          type: string
+        sourceId:
+          type: integer
+        state:
+          $ref: "#/components/schemas/DocumentState"
+        title:
+          type: ["string", "null"]
+        subtitle:
+          type: ["string", "null"]
+        authorId:
+          type: ["integer", "null"]
+        authorRole:
+          type: ["string", "null"]
+        buildingId:
+          type: ["integer", "null"]
+        periodStart:
+          type: ["string", "null"]
+        periodEnd:
+          type: ["string", "null"]
+        href:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, kind, sourceTable, sourceId, state, metadata, createdAt, updatedAt]
+    DocumentsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRow"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [items, total, limit, offset]
+    NoticeOutputFormat:
+      type: string
+      enum: [png, docx, pdf, share]
+    NoticeOutput:
+      type: object
+      properties:
+        id:
+          type: integer
+        templateId:
+          type: integer
+        buildingId:
+          type: integer
+        authorId:
+          type: integer
+        authorRole:
+          type: string
+        title:
+          type: string
+        formats:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoticeOutputFormat"
+        outputDate:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, templateId, buildingId, authorId, authorRole, title, formats, outputDate, createdAt, updatedAt]
+    RegisterNoticeOutputBody:
+      type: object
+      properties:
+        templateId:
+          type: integer
+        title:
+          type: string
+        format:
+          $ref: "#/components/schemas/NoticeOutputFormat"
+        outputDate:
+          type: string
+      required: [templateId, title, format]
+
     AiChatCitation:
       type: object
       properties:

@@ -21,6 +21,7 @@ import {
   type DailyJournal, type DailyReport, type Status, type Role,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
+import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
 import { printIsolatedNode } from "@/lib/print-isolate";
 
 export function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoOpenWizard?: boolean; onAutoOpenConsumed?: () => void } = {}) {
@@ -120,6 +121,8 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // [Task #610] 일일 일지 → 기안서 진입.
+  const [, navigate] = useLocation();
 
   async function exportPng() {
     if (!ref.current) return;
@@ -177,6 +180,16 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
         onSaveImage={exportPng}
         onShare={share}
         onPrint={print}
+        onMakeApproval={() => {
+          // [Task #610] 일일 일지 → 기안서로 만들기. 본문 자동 작성은 #611 영역.
+          const qs = buildApprovalPrefillSearch({
+            kind: "journal",
+            sourceTable: "daily_journals",
+            title: `일일업무보고서_${report.buildingName ?? ""}_${report.date}`,
+            metadata: { date: report.date },
+          });
+          navigate(`/approval-create?${qs.toString()}`);
+        }}
         saving={saving}
         sharing={sharing}
       />

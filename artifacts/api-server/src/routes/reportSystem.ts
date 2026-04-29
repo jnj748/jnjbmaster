@@ -4,6 +4,9 @@ import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable, unitsTable, tenantsTable, vehiclesTable, buildingsTable, alertActionsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
+// [Task #610] 2층 단일 통로 — 주보/월보 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
 
 const router: IRouter = Router();
 
@@ -38,6 +41,8 @@ async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, use
       const updatedSummary = weekly.summary
         ? weekly.summary + "\n" + entryLine
         : entryLine;
+      // [allow-direct-write: 일일보고 자동 누적 — summary 본문 부속 갱신만(라이프사이클 상태 변화 없음).
+      //   트리거 trg_documents_weekly_summary_reports 가 documents.title/updated_at 만 새로고침한다.]
       await db.update(weeklySummaryReportsTable)
         .set({
           summary: updatedSummary,
@@ -49,16 +54,33 @@ async function linkDailyToWeekly(row: typeof dailyReportsTable.$inferSelect, use
   } else {
     const managerUser = await db.select().from(usersTable)
       .where(eq(usersTable.role, "manager")).then(r => r[0]);
-    await db.insert(weeklySummaryReportsTable).values({
-      title: `${weekStart} 주간 보고 (자동 생성)`,
-      weekStart,
-      weekEnd,
-      summary: `■ 금주 업무 내용\n${entryLine}`,
-      totalDailyReports: 1,
-      dailyReportIds: String(row.id),
-      authorId: managerUser?.id ?? userId,
-      authorName: managerUser?.name ?? userIdentifier,
-      status: "draft",
+    // [Task #610 Layer 5] 자동 주간보고 생성도 단일 통로(saveProducingDocument) 로 라우팅.
+    // [Task #610] 명명 SoT — buildDocumentName('weekly_report') 적용.
+    const autoNaming = buildDocumentName({ kind: "weekly_report", date: weekStart });
+    await saveProducingDocument({
+      write: async (tx) => {
+        const [w] = await tx.insert(weeklySummaryReportsTable).values({
+          title: autoNaming.title,
+          weekStart,
+          weekEnd,
+          summary: `■ 금주 업무 내용\n${entryLine}`,
+          totalDailyReports: 1,
+          dailyReportIds: String(row.id),
+          authorId: managerUser?.id ?? userId,
+          authorName: managerUser?.name ?? userIdentifier,
+          status: "draft",
+        }).returning();
+        return w;
+      },
+      document: {
+        kind: "weekly_report",
+        sourceTable: "weekly_summary_reports",
+        title: autoNaming.title,
+        authorId: managerUser?.id ?? userId,
+        authorRole: "manager",
+        state: "draft",
+        href: (w) => `/reports/weekly/${w.id}`,
+      },
     });
   }
 }
@@ -352,20 +374,46 @@ router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"),
 
   const summary = `주간 보고 요약 (${weekStart} ~ ${weekEnd})\n\n총 ${weekDailyReports.length}건의 일간 보고서\n${summaryParts.join("\n")}\n\n${weekDailyReports.map((dr) => `- [${dr.reportDate}] ${dr.title}`).join("\n")}${inspectionSection}${overdueSection}`;
 
-  const [row] = await db
-    .insert(weeklySummaryReportsTable)
-    .values({
-      weekStart,
-      weekEnd,
-      title: `주간 보고서 (${weekStart} ~ ${weekEnd})`,
-      summary,
-      dailyReportIds: JSON.stringify(weekDailyReports.map((dr) => dr.id)),
-      totalDailyReports: weekDailyReports.length,
-      authorId: user.userId,
-      authorName: userName,
-      status: "draft",
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — 산출 INSERT + documents upsert 를 헬퍼에 위임.
+  // [Task #610] 명명 SoT — buildDocumentName('weekly_report') 적용.
+  const weeklyNaming = buildDocumentName({ kind: "weekly_report", date: weekStart });
+  let row: typeof weeklySummaryReportsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(weeklySummaryReportsTable)
+          .values({
+            weekStart,
+            weekEnd,
+            title: weeklyNaming.title,
+            summary,
+            dailyReportIds: JSON.stringify(weekDailyReports.map((dr) => dr.id)),
+            totalDailyReports: weekDailyReports.length,
+            authorId: user.userId,
+            authorName: userName,
+            status: "draft",
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "weekly_report",
+        sourceTable: "weekly_summary_reports",
+        state: "draft",
+        title: (r) => r.title,
+        authorId: user.userId,
+        authorRole: "manager",
+        periodStart: weekStart,
+        periodEnd: weekEnd,
+        href: (r) => `/report-system?weekly=${r.id}`,
+        metadata: (r) => ({ totalDailyReports: r.totalDailyReports }),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] weekly saveProducingDocument failed");
+    res.status(500).json({ error: "주간 보고서 저장 실패" });
+    return;
+  }
 
   res.status(201).json(serializeWeekly(row));
 });
@@ -373,11 +421,31 @@ router.post("/weekly-summary-reports", requireRole("manager", "platform_admin"),
 router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "platform_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
 
-  const [row] = await db
-    .update(weeklySummaryReportsTable)
-    .set({ status: "forwarded" })
-    .where(eq(weeklySummaryReportsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — 주간보고 전달(forwarded) 도 saveProducingDocument 로.
+  let row!: typeof weeklySummaryReportsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(weeklySummaryReportsTable)
+          .set({ status: "forwarded" })
+          .where(eq(weeklySummaryReportsTable.id, id))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "weekly_report",
+        sourceTable: "weekly_summary_reports",
+        title: (r) => r.title,
+        href: (r) => `/weekly-reports/${r.id}`,
+      },
+    });
+  } catch (e) {
+    if (e instanceof MissingSourceRowError) {
+      res.status(404).json({ error: "주간 보고서를 찾을 수 없습니다" });
+      return;
+    }
+    throw e;
+  }
 
   if (!row) {
     res.status(404).json({ error: "주간 보고서를 찾을 수 없습니다" });
@@ -543,29 +611,56 @@ router.post("/monthly-summary-reports", requireRole("manager", "platform_admin")
 
   const summary = `월간 보고 요약 (${reportMonth})\n\n총 ${monthWeeklyReports.length}건의 주간 보고서\n총 ${totalDailyCount}건의 일간 보고서 집계\n\n${monthWeeklyReports.map((wr) => `- ${wr.title} (일간 보고 ${wr.totalDailyReports}건)`).join("\n")}${inspSummary}${accountingSummary}${kpiSummary}`;
 
-  const [row] = await db
-    .insert(monthlySummaryReportsTable)
-    .values({
-      reportMonth,
-      buildingId,
-      title: `월간 보고서 (${reportMonth})`,
-      summary,
-      weeklyReportIds: JSON.stringify(monthWeeklyReports.map((wr) => wr.id)),
-      totalWeeklyReports: monthWeeklyReports.length,
-      totalBilled: acctData?.totalBilled ?? null,
-      totalCollected: acctData?.totalCollected ?? null,
-      collectionRate: acctData?.collectionRate ?? null,
-      unpaidAmount: acctData?.unpaidAmount ?? null,
-      unpaidUnits: acctData?.unpaidCount ?? null,
-      occupantCardCount: acctData?.occupantCardCount ?? null,
-      totalUnits: acctData?.unitCount ?? null,
-      vehicleCardCount: acctData?.vehicleCardCount ?? null,
-      momChangePct: acctData?.momChangePct ?? null,
-      authorId: user.userId,
-      authorName: userName,
-      status: "draft",
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — 월보 commit + documents upsert 헬퍼 위임.
+  // [Task #610] 명명 SoT — buildDocumentName('monthly_report') 적용.
+  const monthlyNaming = buildDocumentName({ kind: "monthly_report", date: monthStart });
+  let row: typeof monthlySummaryReportsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(monthlySummaryReportsTable)
+          .values({
+            reportMonth,
+            buildingId,
+            title: monthlyNaming.title,
+            summary,
+            weeklyReportIds: JSON.stringify(monthWeeklyReports.map((wr) => wr.id)),
+            totalWeeklyReports: monthWeeklyReports.length,
+            totalBilled: acctData?.totalBilled ?? null,
+            totalCollected: acctData?.totalCollected ?? null,
+            collectionRate: acctData?.collectionRate ?? null,
+            unpaidAmount: acctData?.unpaidAmount ?? null,
+            unpaidUnits: acctData?.unpaidCount ?? null,
+            occupantCardCount: acctData?.occupantCardCount ?? null,
+            totalUnits: acctData?.unitCount ?? null,
+            vehicleCardCount: acctData?.vehicleCardCount ?? null,
+            momChangePct: acctData?.momChangePct ?? null,
+            authorId: user.userId,
+            authorName: userName,
+            status: "draft",
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "monthly_report",
+        sourceTable: "monthly_summary_reports",
+        state: "draft",
+        title: `월간 보고서 (${reportMonth})`,
+        authorId: user.userId,
+        authorRole: "manager",
+        buildingId,
+        periodStart: monthStart,
+        periodEnd: monthEnd,
+        href: (r) => `/report-system?monthly=${r.id}`,
+        metadata: { reportMonth, totalDailyCount },
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] monthly saveProducingDocument failed");
+    res.status(500).json({ error: "월간 보고서 저장 실패" });
+    return;
+  }
 
   res.status(201).json(serializeMonthly(row));
 });

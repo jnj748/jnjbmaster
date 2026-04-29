@@ -3,6 +3,9 @@ import { Router, type IRouter } from "express";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsTable, notificationsTable, contractsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 기안서 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument } from "../repo/producingDocuments";
+import type { DocumentAuthorRole } from "@workspace/db";
 import { tasksTable, inspectionsTable } from "@workspace/db";
 import { transitionContractStatus } from "./contracts";
 // [Task #611 fix] manager/accountant/custodian/hq_executive/facility 등 모든 비
@@ -94,26 +97,49 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
     return;
   }
 
-  const [row] = await db
-    .insert(approvalsTable)
-    .values({
-      title: body.title,
-      description: body.description,
-      category: body.category,
-      templateId: body.templateId ?? null,
-      estimatedAmount: body.estimatedAmount ?? null,
-      vendorName: body.vendorName ?? null,
-      vendorQuoteDetails: body.vendorQuoteDetails ?? null,
-      relatedDraftId: body.relatedDraftId ?? null,
-      relatedInspectionId: body.relatedInspectionId ?? null,
-      requesterId: user.userId,
-      requesterName: userName,
-      status: steps.length > 0 ? "in_progress" : "pending",
-      isDraft: false,
-      totalSteps: Math.max(steps.length, 1),
-      currentStep: 1,
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — 결재 INSERT + documents upsert 헬퍼 위임.
+  let row: typeof approvalsTable.$inferSelect;
+  try {
+    row = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(approvalsTable)
+          .values({
+            title: body.title,
+            description: body.description,
+            category: body.category,
+            templateId: body.templateId ?? null,
+            estimatedAmount: body.estimatedAmount ?? null,
+            vendorName: body.vendorName ?? null,
+            vendorQuoteDetails: body.vendorQuoteDetails ?? null,
+            relatedDraftId: body.relatedDraftId ?? null,
+            relatedInspectionId: body.relatedInspectionId ?? null,
+            requesterId: user.userId,
+            requesterName: userName,
+            status: steps.length > 0 ? "in_progress" : "pending",
+            isDraft: false,
+            totalSteps: Math.max(steps.length, 1),
+            currentStep: 1,
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "approval",
+        sourceTable: "approvals",
+        state: "submitted",
+        title: (r) => r.title,
+        authorId: user.userId,
+        authorRole: (user.role as DocumentAuthorRole) ?? null,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/approvals/${r.id}`,
+        metadata: (r) => ({ category: r.category, totalSteps: r.totalSteps }),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] approval saveProducingDocument failed");
+    res.status(500).json({ error: "결재 상신 실패" });
+    return;
+  }
 
   for (let i = 0; i < steps.length; i++) {
     await db.insert(approvalStepsTable).values({
@@ -145,6 +171,9 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
       relatedEntityId: row.id,
     });
   }
+
+  // saveProducingDocument 가 위에서 이미 documents 레지스트리에 같은 (kind, sourceTable,
+  // sourceId) 로 등록을 마쳤다 — 별도의 registerDocument 호출은 중복이라 두지 않는다.
 
   res.status(201).json(serializeApproval(row));
 });
@@ -230,16 +259,30 @@ router.post("/approvals/:id/approve", requireRole("manager", "platform_admin"), 
     .where(eq(usersTable.id, user.userId))
     .then((rows) => rows[0]?.name ?? user.email);
 
-  const [row] = await db
-    .update(approvalsTable)
-    .set({
-      status: "approved",
-      approverId: user.userId,
-      approverName: userName,
-      approvedAt: new Date(),
-    })
-    .where(eq(approvalsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — 단건 승인 transition 도 saveProducingDocument 로.
+  const row = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set({
+          status: "approved",
+          approverId: user.userId,
+          approverName: userName,
+          approvedAt: new Date(),
+        })
+        .where(eq(approvalsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "approval",
+      sourceTable: "approvals",
+      state: "completed",
+      title: (r) => r.title,
+      authorId: (r) => r.requesterId,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+    },
+  });
 
   const linkedContracts = await db.select().from(contractsTable).where(eq(contractsTable.approvalId, id));
   for (const c of linkedContracts) {
@@ -277,16 +320,30 @@ router.post("/approvals/:id/reject", requireRole("manager", "platform_admin"), a
     .where(eq(usersTable.id, user.userId))
     .then((rows) => rows[0]?.name ?? user.email);
 
-  const [row] = await db
-    .update(approvalsTable)
-    .set({
-      status: "rejected",
-      approverId: user.userId,
-      approverName: userName,
-      rejectionReason: body.reason,
-    })
-    .where(eq(approvalsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — 단건 반려 transition 도 saveProducingDocument 로.
+  const row = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set({
+          status: "rejected",
+          approverId: user.userId,
+          approverName: userName,
+          rejectionReason: body.reason,
+        })
+        .where(eq(approvalsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "approval",
+      sourceTable: "approvals",
+      state: "rejected",
+      title: (r) => r.title,
+      authorId: (r) => r.requesterId,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+    },
+  });
 
   res.json(serializeApproval(row));
 });

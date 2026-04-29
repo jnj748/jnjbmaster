@@ -142,7 +142,9 @@ import type {
   DismissCampaign200,
   DismissCampaignBody,
   DocumentChecklist,
+  DocumentRow,
   DocumentTemplateItem,
+  DocumentsPage,
   Draft,
   ExecutiveKpi,
   ExecutiveSpending,
@@ -202,6 +204,7 @@ import type {
   ListDailyReportsParams,
   ListDelinquenciesParams,
   ListDocumentChecklistsParams,
+  ListDocumentsParams,
   ListMaintenanceLogsParams,
   ListMeterReadingsParams,
   ListMonthlySummaryReportsParams,
@@ -237,6 +240,7 @@ import type {
   MonthlyPayment,
   MonthlySummaryReportItem,
   NoticeLayoutSettings,
+  NoticeOutput,
   Notification,
   Owner,
   OwnerLookupResponse,
@@ -257,6 +261,7 @@ import type {
   RecordCampaignImpression200,
   RecordPaymentBody,
   ReferrerDetail,
+  RegisterNoticeOutputBody,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   RenameAiSessionBody,
@@ -26668,4 +26673,272 @@ export const useCreateReferrerBenefit = <
   TContext
 > => {
   return useMutation(getCreateReferrerBenefitMutationOptions(options));
+};
+
+/**
+ * @summary List documents from the unified registry
+ */
+export const getListDocumentsUrl = (params?: ListDocumentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents?${stringifiedParams}`
+    : `/api/documents`;
+};
+
+export const listDocuments = async (
+  params?: ListDocumentsParams,
+  options?: RequestInit,
+): Promise<DocumentsPage> => {
+  return customFetch<DocumentsPage>(getListDocumentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDocumentsQueryKey = (params?: ListDocumentsParams) => {
+  return [`/api/documents`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDocumentsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listDocuments>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDocuments>>> = ({
+    signal,
+  }) => listDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocuments>>
+>;
+export type ListDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List documents from the unified registry
+ */
+
+export function useListDocuments<
+  TData = Awaited<ReturnType<typeof listDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDocumentsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listDocuments>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single document row
+ */
+export const getGetDocumentUrl = (id: number) => {
+  return `/api/documents/${id}`;
+};
+
+export const getDocument = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DocumentRow> => {
+  return customFetch<DocumentRow>(getGetDocumentUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDocumentQueryKey = (id: number) => {
+  return [`/api/documents/${id}`] as const;
+};
+
+export const getGetDocumentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDocument>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getDocument>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDocumentQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDocument>>> = ({
+    signal,
+  }) => getDocument(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDocument>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDocumentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDocument>>
+>;
+export type GetDocumentQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single document row
+ */
+
+export function useGetDocument<
+  TData = Awaited<ReturnType<typeof getDocument>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getDocument>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDocumentQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a notice template export (PNG/DOCX/PDF/share)
+ */
+export const getRegisterNoticeOutputUrl = () => {
+  return `/api/notice-outputs`;
+};
+
+export const registerNoticeOutput = async (
+  registerNoticeOutputBody: RegisterNoticeOutputBody,
+  options?: RequestInit,
+): Promise<NoticeOutput> => {
+  return customFetch<NoticeOutput>(getRegisterNoticeOutputUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerNoticeOutputBody),
+  });
+};
+
+export const getRegisterNoticeOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerNoticeOutput>>,
+    TError,
+    { data: BodyType<RegisterNoticeOutputBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerNoticeOutput>>,
+  TError,
+  { data: BodyType<RegisterNoticeOutputBody> },
+  TContext
+> => {
+  const mutationKey = ["registerNoticeOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerNoticeOutput>>,
+    { data: BodyType<RegisterNoticeOutputBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerNoticeOutput(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterNoticeOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerNoticeOutput>>
+>;
+export type RegisterNoticeOutputMutationBody =
+  BodyType<RegisterNoticeOutputBody>;
+export type RegisterNoticeOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a notice template export (PNG/DOCX/PDF/share)
+ */
+export const useRegisterNoticeOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerNoticeOutput>>,
+    TError,
+    { data: BodyType<RegisterNoticeOutputBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerNoticeOutput>>,
+  TError,
+  { data: BodyType<RegisterNoticeOutputBody> },
+  TContext
+> => {
+  return useMutation(getRegisterNoticeOutputMutationOptions(options));
 };

@@ -12,6 +12,10 @@ import {
   rfqSiteVisitsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — RFQ commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
+import { buildDocumentName } from "@workspace/document-naming";
+import type { DocumentAuthorRole } from "@workspace/db";
 import {
   getUserBuildingId,
   isBuildingScopedRole,
@@ -566,7 +570,29 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
 
   let rfq;
   try {
-    [rfq] = await db.insert(rfqsTable).values(data).returning();
+    // [Task #610] 2층 단일 통로 — RFQ INSERT + documents upsert 헬퍼 위임.
+    rfq = await saveProducingDocument({
+      write: (exec) => exec.insert(rfqsTable).values(data).returning().then((r) => r[0]),
+      document: {
+        kind: "rfq",
+        sourceTable: "rfqs",
+        // 신규 RFQ 는 거의 항상 "open" 으로 들어오지만, 'awarded' 인 경우 'completed'.
+        state: "active",
+        // [Task #610] 명명 SoT — buildDocumentName('rfq') 적용.
+        title: (r) =>
+          buildDocumentName({
+            kind: "rfq",
+            title: r.title,
+            buildingName: r.buildingName,
+            date: r.createdAt,
+          }).title,
+        authorId: req.user?.userId ?? null,
+        authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/rfqs?id=${r.id}`,
+        metadata: (r) => ({ category: r.category, serviceType: r.serviceType, status: r.status }),
+      },
+    });
   } catch (e: any) {
     console.error("RFQ insert failed:", {
       message: e?.message,
@@ -622,6 +648,8 @@ router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<vo
   const newGeoIds = matchedVendors.map((v) => v.id.toString());
   const mergedIds = [...new Set([...existingIds, ...newGeoIds])];
 
+  // [allow-direct-write: vendorIds 매칭 풀 확장 — 라이프사이클 상태(open/closed/awarded) 변화 없음.
+  //   트리거 trg_documents_rfqs 가 documents.metadata 머지로 closedQuoteId 변화만 감지한다.]
   const [updated] = await db
     .update(rfqsTable)
     .set({
@@ -653,11 +681,32 @@ router.patch("/rfqs/:id", managerOnly, async (req, res): Promise<void> => {
     return;
   }
 
-  const [rfq] = await db
-    .update(rfqsTable)
-    .set(parsed.data)
-    .where(eq(rfqsTable.id, params.data.id))
-    .returning();
+  // [Task #610] 단일 통로 — RFQ PATCH 도 saveProducingDocument 로.
+  let rfq!: typeof rfqsTable.$inferSelect;
+  try {
+    rfq = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(rfqsTable)
+          .set(parsed.data)
+          .where(eq(rfqsTable.id, params.data.id))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "rfq",
+        sourceTable: "rfqs",
+        title: (r) => r.title,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/rfqs?id=${r.id}`,
+      },
+    });
+  } catch (e) {
+    if (e instanceof MissingSourceRowError) {
+      res.status(404).json({ error: "RFQ not found" });
+      return;
+    }
+    throw e;
+  }
 
   if (!rfq) {
     res.status(404).json({ error: "RFQ not found" });

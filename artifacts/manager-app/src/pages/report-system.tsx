@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
+import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
 import {
   useListWeeklySummaryReports,
   useGenerateWeeklySummaryReport,
@@ -57,7 +59,19 @@ export default function ReportSystem() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const isManager = user?.role === "manager";
+
+  // [Task #610] 주보/월보 → 기안서로 만들기 진입.
+  function goApprovalFromReport(kind: "weekly_report" | "monthly_report", id: number, title: string) {
+    const qs = buildApprovalPrefillSearch({
+      kind,
+      sourceTable: kind === "weekly_report" ? "weekly_summary_reports" : "monthly_summary_reports",
+      sourceId: id,
+      title,
+    });
+    navigate(`/approval-create?${qs.toString()}`);
+  }
 
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly">("weekly");
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek());
@@ -300,14 +314,22 @@ export default function ReportSystem() {
                 {selectedWeekly.authorName}
               </div>
             </div>
-            {isManager && selectedWeekly.status !== "forwarded" && (
-              <ResponsiveDialogFooter>
+            <ResponsiveDialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => goApprovalFromReport("weekly_report", selectedWeekly.id, selectedWeekly.title)}
+                data-testid="button-weekly-to-approval"
+              >
+                <FileText className="w-4 h-4 mr-1" />
+                기안서로 만들기
+              </Button>
+              {isManager && selectedWeekly.status !== "forwarded" && (
                 <Button onClick={() => handleForwardWeekly(selectedWeekly.id)}>
                   <Send className="w-4 h-4 mr-1" />
                   보고서 전달
                 </Button>
-              </ResponsiveDialogFooter>
-            )}
+              )}
+            </ResponsiveDialogFooter>
           </ResponsiveDialogContent>
         )}
       </ResponsiveDialog>
@@ -338,6 +360,16 @@ export default function ReportSystem() {
                 {selectedMonthly.authorName}
               </div>
             </div>
+            <ResponsiveDialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => goApprovalFromReport("monthly_report", selectedMonthly.id, selectedMonthly.title)}
+                data-testid="button-monthly-to-approval"
+              >
+                <FileText className="w-4 h-4 mr-1" />
+                기안서로 만들기
+              </Button>
+            </ResponsiveDialogFooter>
           </ResponsiveDialogContent>
         )}
       </ResponsiveDialog>

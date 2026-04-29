@@ -5,6 +5,103 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+export type DocumentKind = (typeof DocumentKind)[keyof typeof DocumentKind];
+
+export const DocumentKind = {
+  journal: "journal",
+  weekly_report: "weekly_report",
+  monthly_report: "monthly_report",
+  draft: "draft",
+  approval: "approval",
+  quote_bundle: "quote_bundle",
+  rfq: "rfq",
+  notice_output: "notice_output",
+  alert_action_output: "alert_action_output",
+  external: "external",
+  quote: "quote",
+  contract: "contract",
+  announcement: "announcement",
+} as const;
+
+export type DocumentState = (typeof DocumentState)[keyof typeof DocumentState];
+
+export const DocumentState = {
+  draft: "draft",
+  active: "active",
+  submitted: "submitted",
+  completed: "completed",
+  archived: "archived",
+  rejected: "rejected",
+} as const;
+
+export type DocumentRowMetadata = { [key: string]: unknown };
+
+export interface DocumentRow {
+  id: number;
+  kind: DocumentKind;
+  sourceTable: string;
+  sourceId: number;
+  state: DocumentState;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  subtitle?: string | null;
+  /** @nullable */
+  authorId?: number | null;
+  /** @nullable */
+  authorRole?: string | null;
+  /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  periodStart?: string | null;
+  /** @nullable */
+  periodEnd?: string | null;
+  /** @nullable */
+  href?: string | null;
+  /** @nullable */
+  thumbnailUrl?: string | null;
+  metadata: DocumentRowMetadata;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentsPage {
+  items: DocumentRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export type NoticeOutputFormat =
+  (typeof NoticeOutputFormat)[keyof typeof NoticeOutputFormat];
+
+export const NoticeOutputFormat = {
+  png: "png",
+  docx: "docx",
+  pdf: "pdf",
+  share: "share",
+} as const;
+
+export interface NoticeOutput {
+  id: number;
+  templateId: number;
+  buildingId: number;
+  authorId: number;
+  authorRole: string;
+  title: string;
+  formats: NoticeOutputFormat[];
+  outputDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterNoticeOutputBody {
+  templateId: number;
+  title: string;
+  format: NoticeOutputFormat;
+  outputDate?: string;
+}
+
 export interface AiChatCitation {
   type: string;
   id: number | string;
@@ -6785,4 +6882,20 @@ export type ListAdminReferrers200 = {
 
 export type CreateReferrerBenefit201 = {
   benefit: ReferralBenefit;
+};
+
+export type ListDocumentsParams = {
+  /**
+   * Comma-separated DocumentKind values
+   */
+  kind?: string;
+  state?: string;
+  role?: string;
+  authorId?: number;
+  buildingId?: number;
+  from?: string;
+  to?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
 };

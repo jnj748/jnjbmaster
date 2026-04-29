@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +23,7 @@ export function WeeklyTab() {
   const { call } = useApi();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const [saving, setSaving] = useState(false);
@@ -94,6 +97,16 @@ export function WeeklyTab() {
         onSaveImage={exportPng}
         onShare={share}
         onPrint={print}
+        onMakeApproval={data ? () => {
+          // [Task #610] 주간 일지 → 기안서로 만들기.
+          const qs = buildApprovalPrefillSearch({
+            kind: "weekly_report",
+            sourceTable: "weekly_summary_reports",
+            title: `주간업무보고서_${data.buildingName ?? ""}_${data.weekStart}_${data.weekEnd}`,
+            metadata: { weekStart: data.weekStart, weekEnd: data.weekEnd },
+          });
+          navigate(`/approval-create?${qs.toString()}`);
+        } : undefined}
         saving={saving}
         sharing={sharing}
       />

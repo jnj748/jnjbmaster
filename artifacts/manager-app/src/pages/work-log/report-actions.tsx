@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ImageDown, Share2, Printer } from "lucide-react";
+import { ImageDown, Share2, Printer, FileText } from "lucide-react";
 import type { A4DocumentFrameHandle } from "@/components/a4-document-frame";
 // [Task #554] printIsolatedNode 는 daily/weekly/monthly-tab 에서 직접 import.
 // 이 파일은 withReadyDoc(frame transform 해제) 책임만 유지한다.
@@ -11,12 +11,15 @@ import type { A4DocumentFrameHandle } from "@/components/a4-document-frame";
  */
 export function ReportActionRow({
   onSaveImage, onShare, onPrint,
+  onMakeApproval,
   saving = false, sharing = false,
   testidPrefix,
 }: {
   onSaveImage: () => void;
   onShare: () => void;
   onPrint: () => void;
+  /** [Task #610] 일/주/월 일지 → 기안서로 만들기 진입. undefined 면 미노출. */
+  onMakeApproval?: () => void;
   saving?: boolean;
   sharing?: boolean;
   testidPrefix: string;
@@ -34,8 +37,10 @@ export function ReportActionRow({
   // - 라벨/아이콘 자체는 변경하지 않는다.
   const actionButtonClass =
     "w-full min-w-0 px-2 gap-1 text-xs sm:text-sm whitespace-normal break-keep leading-tight min-h-9 h-auto py-1.5";
+  // [Task #610] 기안서 진입 버튼이 있으면 4컬럼, 없으면 기존 3컬럼.
+  const cols = onMakeApproval ? "grid-cols-4" : "grid-cols-3";
   return (
-    <div className="grid grid-cols-3 gap-2 print:hidden" data-testid={`${testidPrefix}-actions`}>
+    <div className={`grid ${cols} gap-2 print:hidden`} data-testid={`${testidPrefix}-actions`}>
       <Button
         variant="outline"
         onClick={onSaveImage}
@@ -65,6 +70,17 @@ export function ReportActionRow({
         <Printer className="w-4 h-4 shrink-0" />
         <span className="min-w-0">인쇄</span>
       </Button>
+      {onMakeApproval && (
+        <Button
+          variant="outline"
+          onClick={onMakeApproval}
+          data-testid={`${testidPrefix}-make-approval`}
+          className={actionButtonClass}
+        >
+          <FileText className="w-4 h-4 shrink-0" />
+          <span className="min-w-0">기안서로 만들기</span>
+        </Button>
+      )}
     </div>
   );
 }

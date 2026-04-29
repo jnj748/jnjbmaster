@@ -28,6 +28,8 @@ import {
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import { insertNotification } from "../lib/notificationRecipient";
+// [Task #610] 단일 통로 — approval lifecycle UPDATE 도 saveProducingDocument 로 통과.
+import { saveProducingDocument } from "../repo/producingDocuments";
 
 const router: IRouter = Router();
 
@@ -373,22 +375,36 @@ router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
 
   const totalSteps = order - 1;
 
-  const [updated] = await db
-    .update(approvalsTable)
-    .set({
-      isDraft: false,
-      status: urgent ? "approved" : totalSteps > 0 ? "in_progress" : "pending",
-      currentStep: 1,
-      totalSteps: Math.max(totalSteps, 1),
-      urgentExecution: urgent,
-      urgentConsentMemo: urgent ? urgentMemo : null,
-      hqThresholdSnapshot: thresholdSnapshot,
-      hqApproverId: needsHqStep && hqExec ? hqExec.id : null,
-      custodianApproverId: custodian?.id ?? null,
-      approvedAt: urgent ? new Date() : null,
-    })
-    .where(eq(approvalsTable.id, id))
-    .returning();
+  // [Task #610] 단일 통로 — 라인 상신(submit) lifecycle UPDATE 도 saveProducingDocument 로.
+  const updated = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set({
+          isDraft: false,
+          status: urgent ? "approved" : totalSteps > 0 ? "in_progress" : "pending",
+          currentStep: 1,
+          totalSteps: Math.max(totalSteps, 1),
+          urgentExecution: urgent,
+          urgentConsentMemo: urgent ? urgentMemo : null,
+          hqThresholdSnapshot: thresholdSnapshot,
+          hqApproverId: needsHqStep && hqExec ? hqExec.id : null,
+          custodianApproverId: custodian?.id ?? null,
+          approvedAt: urgent ? new Date() : null,
+        })
+        .where(eq(approvalsTable.id, id))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "approval",
+      sourceTable: "approvals",
+      state: urgent ? "completed" : "submitted",
+      title: (r) => r.title,
+      authorId: (r) => r.requesterId,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+    },
+  });
 
   // 다음 결재자 알림 (정상 경로) — 첫 단계.
   if (!urgent && totalSteps > 0) {
@@ -422,6 +438,9 @@ router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
         status: "pending",
       })
       .returning();
+    // [allow-direct-write: urgentTaskId 외래키 포인터만 갱신; 라이프사이클 상태 변화 없음
+    //   (status·isDraft 등은 위 saveProducingDocument 가 이미 documents 동기화).
+    //   트리거 documents_approvals_aiu 가 updated_at 만 새로고침한다.]
     await db.update(approvalsTable).set({ urgentTaskId: task.id }).where(eq(approvalsTable.id, id));
     await issueDownstreamDocuments({ ...updated, urgentTaskId: task.id }, true);
   }
@@ -750,10 +769,25 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     .where(eq(approvalStepsTable.id, stepId));
 
   if (action === "reject") {
-    await db
-      .update(approvalsTable)
-      .set({ status: "rejected", rejectionReason: comment ?? "반려됨" })
-      .where(eq(approvalsTable.id, approvalId));
+    // [Task #610] 단일 통로 — 라인 반려 transition 도 saveProducingDocument 로.
+    await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(approvalsTable)
+          .set({ status: "rejected", rejectionReason: comment ?? "반려됨" })
+          .where(eq(approvalsTable.id, approvalId))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "approval",
+        sourceTable: "approvals",
+        state: "rejected",
+        title: (r) => r.title,
+        authorId: (r) => r.requesterId,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/approvals/${r.id}`,
+      },
+    });
     await insertNotification({
       recipientType: `user:${approval.requesterId}`,
       notificationType: "approval_rejected",
@@ -775,10 +809,25 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
   const nextPending = allSteps.find((s) => s.status === "pending" && s.id !== stepId);
 
   if (nextPending) {
-    await db
-      .update(approvalsTable)
-      .set({ currentStep: nextPending.stepOrder, status: "in_progress" })
-      .where(eq(approvalsTable.id, approvalId));
+    // [Task #610] 단일 통로 — 다음 단계 진행 transition.
+    await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .update(approvalsTable)
+          .set({ currentStep: nextPending.stepOrder, status: "in_progress" })
+          .where(eq(approvalsTable.id, approvalId))
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "approval",
+        sourceTable: "approvals",
+        state: "active",
+        title: (r) => r.title,
+        authorId: (r) => r.requesterId,
+        buildingId: (r) => r.buildingId,
+        href: (r) => `/approvals/${r.id}`,
+      },
+    });
     await insertNotification({
       recipientType: `user:${nextPending.approverId}`,
       notificationType: "approval_step_pending",
@@ -797,11 +846,25 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     .from(usersTable)
     .where(eq(usersTable.id, user.userId))
     .then((rows) => rows[0]?.name ?? user.email);
-  const [finalApproval] = await db
-    .update(approvalsTable)
-    .set({ status: "approved", approverId: step.approverId, approverName: step.approverName, approvedAt: decided })
-    .where(eq(approvalsTable.id, approvalId))
-    .returning();
+  // [Task #610] 단일 통로 — 라인 최종 승인 transition.
+  const finalApproval = await saveProducingDocument({
+    write: (exec) =>
+      exec
+        .update(approvalsTable)
+        .set({ status: "approved", approverId: step.approverId, approverName: step.approverName, approvedAt: decided })
+        .where(eq(approvalsTable.id, approvalId))
+        .returning()
+        .then((r) => r[0]),
+    document: {
+      kind: "approval",
+      sourceTable: "approvals",
+      state: "completed",
+      title: (r) => r.title,
+      authorId: (r) => r.requesterId,
+      buildingId: (r) => r.buildingId,
+      href: (r) => `/approvals/${r.id}`,
+    },
+  });
 
   await issueDownstreamDocuments(finalApproval, false);
 

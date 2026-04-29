@@ -105,24 +105,50 @@ export default function ApprovalCreate() {
   const urlParams = new URLSearchParams(window.location.search);
   const draftId = urlParams.get("draftId");
   // [Task #197] 후속 조치 제안 팝업에서 prefill=1 로 진입한 경우 본문/제목/분류를 미리 채운다.
+  // [Task #610] 표준 prefill 페이로드(source_kind/source_table/source_id/source_doc_id/building_id)
   const isPrefill = urlParams.get("prefill") === "1";
   const prefillTitle = urlParams.get("title") ?? "";
   const prefillBody = urlParams.get("body") ?? "";
   const prefillCategory = urlParams.get("category") ?? "";
-  const prefillSourceType = urlParams.get("sourceType") ?? "";
-  const prefillSourceId = urlParams.get("sourceId") ?? "";
+
+  // [Task #610] 신규 표준 키 우선 — 없으면 구 #197 키로 폴백.
+  const prefillSourceKind = urlParams.get("source_kind") ?? "";
+  const prefillSourceTable = urlParams.get("source_table") ?? "";
+  const prefillSourceIdNew = urlParams.get("source_id") ?? "";
+  const prefillSourceDocId = urlParams.get("source_doc_id") ?? "";
+  const prefillBuildingId = urlParams.get("building_id") ?? "";
+
+  // FollowUpSource.type 으로 변환 (없으면 빈 문자열).
+  const SOURCE_KIND_TO_FOLLOWUP_TYPE: Record<string, FollowUpSource["type"]> = {
+    journal: "daily_journal",
+    weekly_report: "weekly_journal",
+    monthly_report: "monthly_journal",
+    alert_action_output: "alert_action",
+  };
+  const mappedFollowUpType =
+    SOURCE_KIND_TO_FOLLOWUP_TYPE[prefillSourceKind] ?? "";
+
+  // 구 키 (Task #197) — 신규 키가 비어있을 때만 사용.
+  const prefillSourceType = urlParams.get("sourceType") ?? mappedFollowUpType;
+  const prefillSourceId =
+    urlParams.get("sourceId") ?? prefillSourceIdNew ?? "";
   const prefillSourceDate = urlParams.get("sourceDate") ?? "";
   const prefillKeywords = urlParams.get("keywords") ?? "";
 
   const [title, setTitle] = useState(isPrefill ? prefillTitle : "");
+  // [Task #610] 출처 표시는 두 명세 모두 지원.
+  const sourceAnnotation =
+    prefillSourceType
+      ? `\n\n──────────\n[자동 제안] 출처: ${prefillSourceType} #${prefillSourceId} (${prefillSourceDate})` +
+        (prefillKeywords ? `\n감지 키워드: ${prefillKeywords}` : "")
+      : prefillSourceKind
+        ? `\n\n──────────\n[기안서 작성] 출처: ${prefillSourceKind}` +
+          (prefillSourceTable ? `/${prefillSourceTable}` : "") +
+          (prefillSourceIdNew ? `#${prefillSourceIdNew}` : "") +
+          (prefillSourceDocId ? ` (doc#${prefillSourceDocId})` : "")
+        : "";
   const [description, setDescription] = useState(
-    isPrefill
-      ? prefillBody +
-          (prefillSourceType
-            ? `\n\n──────────\n[자동 제안] 출처: ${prefillSourceType} #${prefillSourceId} (${prefillSourceDate})` +
-              (prefillKeywords ? `\n감지 키워드: ${prefillKeywords}` : "")
-            : "")
-      : "",
+    isPrefill ? prefillBody + sourceAnnotation : "",
   );
   const validApprovalCategories = ["maintenance", "inspection", "facility", "equipment", "other"];
   const [category, setCategory] = useState(

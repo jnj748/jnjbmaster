@@ -8,6 +8,9 @@ import {
   ListAlertActionsResponseItem,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+// [Task #610] 2층 단일 통로 — 알림 처리 산출물 commit 후 documents 레지스트리에 등록.
+import { saveProducingDocument } from "../repo/producingDocuments";
+import type { DocumentAuthorRole } from "@workspace/db";
 
 const router: IRouter = Router();
 // [Task #304] GET 과 POST 는 권한이 다르므로 router.use 로 일괄 적용하지 않고
@@ -285,33 +288,56 @@ router.post("/alert-actions", requireRole(
     }
   }
 
-  const [action] = await db
-    .insert(alertActionsTable)
-    .values({
-      // [Task #304] auth payload 키는 `userId` 임 (`id` 아님). 잘못된 키로
-      //   null 이 저장되면 resolveActiveTemplateAlerts 의 사용자별 액션 매칭이
-      //   실패해 처리완료/연기 후에도 알림이 다시 노출된다.
-      userId: req.user?.userId ?? null,
-      alertType: data.alertType,
-      relatedEntityType: data.relatedEntityType,
-      relatedEntityId: data.relatedEntityId,
-      actionType: data.actionType,
-      completedDate: data.completedDate || null,
-      nextCycleDate: computedNextCycleDate || data.nextCycleDate || null,
-      actedOnDueDate,
-      // [Task #511] action_type="scheduled" 일 때 사용자가 정한 처리예정일.
-      //   다른 actionType 에서는 무시된다.
-      scheduledDate: data.actionType === "scheduled" ? (data.scheduledDate || null) : null,
-      postponeDays: data.postponeDays || null,
-      postponeReason: data.postponeReason || null,
-      rfqId: data.rfqId || null,
-      notes: data.notes || null,
-      closeUpPhotoUrl: data.closeUpPhotoUrl || null,
-      widePhotoUrl: data.widePhotoUrl || null,
-      delayReason: data.delayReason || null,
-      delayReasonDetail: data.delayReasonDetail || null,
-    })
-    .returning();
+  // [Task #610] 2층 단일 통로 — INSERT + documents upsert 헬퍼 위임.
+  let action: typeof alertActionsTable.$inferSelect;
+  try {
+    action = await saveProducingDocument({
+      write: (exec) =>
+        exec
+          .insert(alertActionsTable)
+          .values({
+            // [Task #304] auth payload 키는 `userId` 임 (`id` 아님).
+            userId: req.user?.userId ?? null,
+            alertType: data.alertType,
+            relatedEntityType: data.relatedEntityType,
+            relatedEntityId: data.relatedEntityId,
+            actionType: data.actionType,
+            completedDate: data.completedDate || null,
+            nextCycleDate: computedNextCycleDate || data.nextCycleDate || null,
+            actedOnDueDate,
+            scheduledDate: data.actionType === "scheduled" ? (data.scheduledDate || null) : null,
+            postponeDays: data.postponeDays || null,
+            postponeReason: data.postponeReason || null,
+            rfqId: data.rfqId || null,
+            notes: data.notes || null,
+            closeUpPhotoUrl: data.closeUpPhotoUrl || null,
+            widePhotoUrl: data.widePhotoUrl || null,
+            delayReason: data.delayReason || null,
+            delayReasonDetail: data.delayReasonDetail || null,
+          })
+          .returning()
+          .then((r) => r[0]),
+      document: {
+        kind: "alert_action_output",
+        sourceTable: "alert_actions",
+        state: "active",
+        title: (a) => `[알림처리] ${a.alertType} - ${a.actionType}`,
+        authorId: (a) => a.userId ?? null,
+        authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
+        href: (a) => `/alerts?action=${a.id}`,
+        metadata: (a) => ({
+          alertType: a.alertType,
+          actionType: a.actionType,
+          relatedEntityType: a.relatedEntityType,
+          relatedEntityId: a.relatedEntityId,
+        }),
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "[Task #610] alert_action saveProducingDocument failed");
+    res.status(500).json({ error: "알림 처리 저장 실패" });
+    return;
+  }
 
   // [Task #389] drizzle 의 .returning() 은 createdAt 을 Date 로 돌려주는데 응답
   //   스키마(zod.string().datetime)는 ISO 문자열을 요구한다. 직렬화하지 않으면

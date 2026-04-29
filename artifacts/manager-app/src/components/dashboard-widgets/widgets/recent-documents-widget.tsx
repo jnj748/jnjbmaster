@@ -1,11 +1,9 @@
+// [Task #610] 최근 문서함 — 통합 문서 레지스트리(`GET /api/documents`) 단일 호출 구조.
+
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  useListDrafts,
-  useListQuotes,
-  useListPlatformAnnouncements,
-} from "@workspace/api-client-react";
+import { useLocation } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useListDocuments, type DocumentRow, type DocumentKind } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +21,6 @@ import {
   SheetTitle,
   SheetFooter,
 } from "@/components/ui/sheet";
-// [Task #507] 외부 문서 첨부 시트를 공용 첨부 시트로 통일.
 import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import {
   FolderOpen,
@@ -33,48 +30,79 @@ import {
   Receipt,
   Megaphone,
   Image as ImageIcon,
+  CalendarDays,
+  CalendarRange,
+  CalendarClock,
+  ListChecks,
+  ClipboardCheck,
   Loader2,
   Upload,
   X,
   Eye,
   Share2,
   Printer,
+  FileSignature,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { shareDocument } from "@/lib/official-document";
-// [Task #256] 5색 카테고리 토큰 단일 출처 — 최근 문서함 헤더는 system 색.
 import { CATEGORY_ICON_CLASS } from "@/lib/category-colors";
+import { buildApprovalPrefillUrl } from "@/lib/approval-prefill";
 
-// [Task #250] 최근문서함은 "문서 산출물" 전용으로 정비.
-//   - 포함: 기안(draft), 견적(quote), 공고(notice), 외부 업로드(external),
-//     일지 스냅샷(journal — /work-log 의 일일 일지가 보고서로 굳어진 것).
-//   - 제외: 메모(work_log_entries 단건), 후속조치(alert_actions).
-//     이 둘은 /work-log 의 "처리 내역" 탭에서 시간순으로 본다.
-type DocKind = "journal" | "draft" | "quote" | "notice" | "external";
+type DocKind = DocumentKind;
 
-interface DocItem {
-  id: string;
-  kind: DocKind;
-  title: string;
-  subtitle?: string;
-  createdAt: string;
-  href?: string;
-  thumbnailUrl?: string | null;
-}
-
-const KIND_META: Record<DocKind, { label: string; icon: typeof FolderOpen; color: string }> = {
-  journal:   { label: "일지 보고서", icon: NotebookPen,   color: "text-emerald-600 bg-emerald-50" },
-  draft:     { label: "기안",         icon: FileEdit,      color: "text-violet-600 bg-violet-50" },
-  quote:     { label: "견적",         icon: Receipt,       color: "text-orange-600 bg-orange-50" },
-  notice:    { label: "공고",         icon: Megaphone,     color: "text-rose-600 bg-rose-50" },
-  external:  { label: "외부 업로드",  icon: ImageIcon,     color: "text-slate-600 bg-slate-100" },
+const KIND_META: Record<string, { label: string; icon: typeof FolderOpen; color: string }> = {
+  journal:             { label: "일일 일지",      icon: NotebookPen,    color: "text-emerald-600 bg-emerald-50" },
+  weekly_report:       { label: "주간 보고서",    icon: CalendarRange,  color: "text-emerald-700 bg-emerald-100" },
+  monthly_report:      { label: "월간 보고서",    icon: CalendarClock,  color: "text-emerald-800 bg-emerald-100" },
+  draft:               { label: "기안 임시",      icon: FileEdit,       color: "text-violet-500 bg-violet-50" },
+  approval:            { label: "기안 상신",      icon: FileSignature,  color: "text-violet-700 bg-violet-100" },
+  quote_bundle:        { label: "업체선정 기안",  icon: ClipboardCheck, color: "text-violet-800 bg-violet-100" },
+  rfq:                 { label: "비교견적",       icon: Receipt,        color: "text-orange-600 bg-orange-50" },
+  notice_output:       { label: "공고문",         icon: Megaphone,      color: "text-rose-600 bg-rose-50" },
+  alert_action_output: { label: "알림 처리",      icon: ListChecks,     color: "text-amber-600 bg-amber-50" },
+  external:            { label: "외부 업로드",    icon: ImageIcon,      color: "text-slate-600 bg-slate-100" },
+  quote:               { label: "견적",           icon: Receipt,        color: "text-orange-700 bg-orange-100" },
+  contract:            { label: "계약",           icon: FileSignature,  color: "text-blue-700 bg-blue-50" },
 };
+
+const KIND_FILTERS: { value: DocKind; label: string }[] = [
+  { value: "notice_output",       label: "공고문" },
+  { value: "weekly_report",       label: "보고서" },
+  { value: "monthly_report",      label: "월보" },
+  { value: "approval",            label: "기안서" },
+  { value: "journal",             label: "일지" },
+  { value: "rfq",                 label: "비교견적" },
+  { value: "external",            label: "외부" },
+  { value: "alert_action_output", label: "알림 처리" },
+];
+
+const ROLE_FILTERS: { value: string; label: string }[] = [
+  { value: "manager",        label: "관리소장" },
+  { value: "accountant",     label: "경리" },
+  { value: "facility_staff", label: "시설과장" },
+];
+
+type PeriodChip = "all" | "today" | "week" | "month";
 
 const MAX_FILE_SIZE_MB = 20;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 interface RecentDocumentsWidgetProps {
   buildingId?: number | null;
+}
+
+function periodChipToFromIso(chip: PeriodChip): string | undefined {
+  if (chip === "all") return undefined;
+  const now = new Date();
+  const d = new Date(now);
+  if (chip === "today") {
+    d.setHours(0, 0, 0, 0);
+  } else if (chip === "week") {
+    d.setDate(d.getDate() - 7);
+  } else {
+    d.setMonth(d.getMonth() - 1);
+  }
+  return d.toISOString();
 }
 
 export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWidgetProps) {
@@ -86,98 +114,32 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [kindFilter, setKindFilter] = useState<DocKind | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<string | "all">("all");
+  const [period, setPeriod] = useState<PeriodChip>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // 1) drafts/quotes/notices via generated hooks
-  const { data: drafts, isLoading: l1 } = useListDrafts();
-  const { data: quotes, isLoading: l2 } = useListQuotes();
-  const { data: notices, isLoading: l4 } = useListPlatformAnnouncements();
+  const params = useMemo(() => {
+    const p: { kind?: string; role?: string; from?: string; q?: string; buildingId?: number; limit?: number } = {
+      limit: 50,
+    };
+    if (kindFilter !== "all") p.kind = kindFilter;
+    if (roleFilter !== "all") p.role = roleFilter;
+    const from = periodChipToFromIso(period);
+    if (from) p.from = from;
+    if (searchTerm.trim()) p.q = searchTerm.trim();
+    if (buildingId != null) p.buildingId = buildingId;
+    return p;
+  }, [kindFilter, roleFilter, period, searchTerm, buildingId]);
 
-  // 2) daily journals (보고서 스냅샷) via direct fetch
-  const { data: journals, isLoading: l6 } = useQuery({
-    queryKey: ["recent-doc-journals"],
-    queryFn: async () => {
-      const r = await fetch(`${apiBase}/daily-journals?limit=20`, { headers: authHeaders });
-      if (!r.ok) return [];
-      return (await r.json()) as Array<{ id: number; journalDate: string }>;
-    },
-    enabled: !!token,
-    staleTime: 60 * 1000,
+  const { data, isLoading, refetch } = useListDocuments(params, {
+    query: { enabled: !!token, staleTime: 30 * 1000 },
   });
+  const items = (data?.items ?? []) as DocumentRow[];
 
-  // 3) external documents — 서버가 인증 컨텍스트에서 건물을 결정
-  const externalKey = ["recent-doc-external", buildingId ?? null];
-  const { data: externals, isLoading: l7 } = useQuery({
-    queryKey: externalKey,
-    queryFn: async () => {
-      const r = await fetch(`${apiBase}/external-documents`, { headers: authHeaders });
-      if (!r.ok) return [];
-      return (await r.json()) as Array<{
-        id: number; title: string; fileUrl: string; mimeType?: string | null; createdAt: string;
-      }>;
-    },
-    enabled: !!token,
-    staleTime: 60 * 1000,
-  });
-
-  const isLoading = l1 || l2 || l4 || l6 || l7;
-
-  const items = useMemo<DocItem[]>(() => {
-    const out: DocItem[] = [];
-
-    for (const d of drafts ?? []) {
-      const dd = d as { id: number; title: string; createdAt?: string };
-      out.push({
-        id: `draft-${dd.id}`, kind: "draft",
-        title: dd.title || "기안서",
-        createdAt: dd.createdAt ?? new Date(0).toISOString(),
-        // [Task #250] 항목별 deep link: 목록 페이지에서 ?id= 를 받아 해당 카드를 강조/스크롤할 수 있도록 한다.
-        href: `/drafts?id=${dd.id}#draft-${dd.id}`,
-      });
-    }
-    for (const q of quotes ?? []) {
-      const qq = q as { id: number; title?: string; vendorName?: string; createdAt?: string };
-      out.push({
-        id: `quote-${qq.id}`, kind: "quote",
-        title: qq.title || qq.vendorName || "견적",
-        subtitle: qq.vendorName,
-        createdAt: qq.createdAt ?? new Date(0).toISOString(),
-        href: `/quotes?id=${qq.id}#quote-${qq.id}`,
-      });
-    }
-    for (const n of notices ?? []) {
-      const nn = n as { id: number; title: string; createdAt?: string };
-      out.push({
-        id: `notice-${nn.id}`, kind: "notice",
-        title: nn.title,
-        createdAt: nn.createdAt ?? new Date(0).toISOString(),
-        href: `/announcements?id=${nn.id}#notice-${nn.id}`,
-      });
-    }
-    for (const j of journals ?? []) {
-      out.push({
-        id: `journal-${j.id}`, kind: "journal",
-        title: `${j.journalDate} 일일 업무 보고서`,
-        createdAt: `${j.journalDate}T00:00:00.000Z`,
-        href: "/work-log?tab=daily",
-      });
-    }
-    for (const e of externals ?? []) {
-      out.push({
-        id: `external-${e.id}`, kind: "external",
-        title: e.title,
-        createdAt: e.createdAt,
-        thumbnailUrl: (e.mimeType ?? "").startsWith("image/") ? e.fileUrl : null,
-        // [Task #250] 외부 업로드도 fileUrl 로 즉시 미리보기/인쇄가 가능하도록 href 노출.
-        href: e.fileUrl,
-      });
-    }
-
-    out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
-    return out.slice(0, 8);
-  }, [drafts, quotes, notices, journals, externals]);
+  const externalKey = useMemo(() => ["recent-doc-external", buildingId ?? null] as const, [buildingId]);
 
   // ---------- Upload sheet ----------
-  // [Task #507] 카메라/갤러리 hidden input 직접 클릭 → 공용 첨부 시트로 통일.
   const [pickerOpen, setPickerOpen] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploadedMime, setUploadedMime] = useState<string | null>(null);
@@ -230,6 +192,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
     onSuccess: () => {
       toast({ title: "외부 문서가 추가되었습니다" });
       queryClient.invalidateQueries({ queryKey: externalKey });
+      void refetch();
       setUploadedUrl(null);
       setUploadedMime(null);
       setDocTitle("");
@@ -262,7 +225,7 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
             최근문서함
           </h2>
           <p className="text-[11px] text-muted-foreground mt-1">
-            저장된 문서를 다시 보고, 다시 공유·인쇄할 수 있습니다
+            저장된 문서를 다시 보고, 다시 공유·인쇄·기안서로 만들 수 있습니다
           </p>
         </div>
         <Button
@@ -278,6 +241,68 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
         </Button>
       </div>
 
+      {/* 검색 + 필터 영역 */}
+      <div className="space-y-2 mb-3">
+        <Input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="제목 / 부제 검색..."
+          className="h-8 text-xs"
+          data-testid="recent-docs-search"
+        />
+        {/* 종류 필터 */}
+        <div className="flex flex-wrap gap-1">
+          <FilterChip active={kindFilter === "all"} onClick={() => setKindFilter("all")}>
+            전체
+          </FilterChip>
+          {KIND_FILTERS.map((k) => (
+            <FilterChip
+              key={k.value}
+              active={kindFilter === k.value}
+              onClick={() => setKindFilter(k.value)}
+              testId={`recent-docs-kind-${k.value}`}
+            >
+              {k.label}
+            </FilterChip>
+          ))}
+        </div>
+        {/* 역할 필터 */}
+        <div className="flex flex-wrap gap-1">
+          <FilterChip active={roleFilter === "all"} onClick={() => setRoleFilter("all")}>
+            모든 역할
+          </FilterChip>
+          {ROLE_FILTERS.map((r) => (
+            <FilterChip
+              key={r.value}
+              active={roleFilter === r.value}
+              onClick={() => setRoleFilter(r.value)}
+              testId={`recent-docs-role-${r.value}`}
+            >
+              {r.label}
+            </FilterChip>
+          ))}
+        </div>
+        {/* 기간 칩 */}
+        <div className="flex flex-wrap gap-1">
+          {([
+            ["all", "전체 기간"],
+            ["today", "오늘"],
+            ["week", "이번 주"],
+            ["month", "이번 달"],
+          ] as Array<[PeriodChip, string]>).map(([v, label]) => (
+            <FilterChip
+              key={v}
+              active={period === v}
+              onClick={() => setPeriod(v)}
+              testId={`recent-docs-period-${v}`}
+            >
+              {v === "all" ? <CalendarDays className="w-3 h-3 mr-0.5" /> : null}
+              {label}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -287,60 +312,14 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">저장된 문서가 없습니다</p>
+            <p className="text-sm text-muted-foreground">조건에 맞는 문서가 없습니다</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
           {items.map((it) => (
-            <DocumentRow key={it.id} item={it} />
+            <DocumentRowView key={it.id} item={it} />
           ))}
-          {items.map((it) => {
-            const meta = KIND_META[it.kind];
-            const Icon = meta.icon;
-            const inner = (
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate active-elevate-2 transition-colors">
-                <span
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}
-                >
-                  <Icon className="w-4 h-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold text-muted-foreground">
-                      {meta.label}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
-                      저장됨
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      · {formatDate(it.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium truncate">{it.title}</p>
-                  {it.subtitle && (
-                    <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
-                  )}
-                </div>
-                {it.thumbnailUrl && (
-                  <AuthImage
-                    src={it.thumbnailUrl}
-                    alt=""
-                    className="w-10 h-10 rounded object-cover shrink-0"
-                  />
-                )}
-              </div>
-            );
-            return it.href ? (
-              <Link key={it.id} href={it.href} data-testid={`recent-doc-${it.id}`}>
-                {inner}
-              </Link>
-            ) : (
-              <div key={it.id} data-testid={`recent-doc-${it.id}`}>
-                {inner}
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -451,13 +430,34 @@ export default function RecentDocumentsWidget({ buildingId }: RecentDocumentsWid
   );
 }
 
-// [Task #250] 문서 행: 좌측 라벨/제목 영역 + 우측 즉시 액션 (다시 보기/공유/인쇄).
-//   - 별도 데이터 모델이 없으므로 모든 산출물은 기본 "저장됨" 상태.
-//   - "다시 보기": href 로 내부/외부 미리보기 이동.
-//   - "다시 공유": Web Share API → 클립보드 폴백.
-//   - "다시 인쇄": 미리보기 페이지로 이동 후 사용자가 인쇄(브라우저 인쇄 다이얼로그 트리거 가능 시).
-// [Task #250] 행 단위 공유/인쇄 시각은 서버 저장 모델이 없으므로 localStorage 로 best-effort 추적.
-//   - key: `recent-doc-action:<id>` → { sharedAt?: ISO, printedAt?: ISO }
+function FilterChip({
+  active,
+  onClick,
+  children,
+  testId,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  testId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className={
+        "inline-flex items-center text-[11px] px-2 h-6 rounded-full border transition-colors " +
+        (active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-card text-muted-foreground border-border hover-elevate")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
 function readActionState(id: string): { sharedAt?: string; printedAt?: string } {
   try {
     const raw = window.localStorage.getItem(`recent-doc-action:${id}`);
@@ -473,18 +473,26 @@ function writeActionState(id: string, patch: { sharedAt?: string; printedAt?: st
       `recent-doc-action:${id}`,
       JSON.stringify({ ...cur, ...patch }),
     );
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
-function DocumentRow({ item }: { item: DocItem }) {
-  const meta = KIND_META[item.kind];
+function DocumentRowView({ item }: { item: DocumentRow }) {
+  const meta = KIND_META[item.kind] ?? KIND_META.external;
   const Icon = meta.icon;
   const [, navigate] = useLocation();
-  const [actionState, setActionState] = useState(() => readActionState(item.id));
+  const stableId = `doc-${item.id}`;
+  const [actionState, setActionState] = useState(() => readActionState(stableId));
 
   const openPreview = () => {
     if (!item.href) return;
-    if (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf") || item.href.startsWith("/api/") || item.href.startsWith("/objects/")) {
+    if (
+      /^https?:\/\//i.test(item.href) ||
+      item.href.endsWith(".pdf") ||
+      item.href.startsWith("/api/") ||
+      item.href.startsWith("/objects/")
+    ) {
       window.open(item.href, "_blank", "noopener,noreferrer");
     } else {
       navigate(item.href);
@@ -494,10 +502,13 @@ function DocumentRow({ item }: { item: DocItem }) {
   const reshare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const summary = [item.subtitle, formatDate(item.createdAt)].filter(Boolean).join(" · ");
-    const result = await shareDocument({ title: `${meta.label} · ${item.title}`, text: summary });
+    const result = await shareDocument({
+      title: `${meta.label} · ${item.title ?? "(제목 없음)"}`,
+      text: summary,
+    });
     if (result === "shared" || result === "copied") {
       const now = new Date().toISOString();
-      writeActionState(item.id, { sharedAt: now });
+      writeActionState(stableId, { sharedAt: now });
       setActionState((s) => ({ ...s, sharedAt: now }));
     }
   };
@@ -506,22 +517,54 @@ function DocumentRow({ item }: { item: DocItem }) {
     e.stopPropagation();
     if (item.href && (/^https?:\/\//i.test(item.href) || item.href.endsWith(".pdf"))) {
       const w = window.open(item.href, "_blank", "noopener,noreferrer");
-      try { w?.focus(); w?.print?.(); } catch { /* noop */ }
+      try {
+        w?.focus();
+        w?.print?.();
+      } catch {
+        /* noop */
+      }
     } else if (item.href) {
       navigate(item.href);
-      setTimeout(() => { try { window.print(); } catch { /* noop */ } }, 300);
+      setTimeout(() => {
+        try {
+          window.print();
+        } catch {
+          /* noop */
+        }
+      }, 300);
     } else {
-      try { window.print(); } catch { /* noop */ }
+      try {
+        window.print();
+      } catch {
+        /* noop */
+      }
     }
     const now = new Date().toISOString();
-    writeActionState(item.id, { printedAt: now });
+    writeActionState(stableId, { printedAt: now });
     setActionState((s) => ({ ...s, printedAt: now }));
+  };
+
+  const convertToApproval = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = buildApprovalPrefillUrl({
+      id: item.id,
+      kind: item.kind,
+      sourceTable: item.sourceTable,
+      sourceId: item.sourceId,
+      title: item.title,
+      subtitle: item.subtitle,
+      authorId: item.authorId,
+      buildingId: item.buildingId,
+      href: item.href,
+      metadata: item.metadata as Record<string, unknown>,
+    });
+    navigate(url);
   };
 
   return (
     <div
       className="flex items-center gap-3 p-3 rounded-lg border bg-card hover-elevate transition-colors"
-      data-testid={`recent-doc-${item.id}`}
+      data-testid={`recent-doc-${stableId}`}
     >
       <span className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${meta.color}`}>
         <Icon className="w-4 h-4" />
@@ -530,12 +573,15 @@ function DocumentRow({ item }: { item: DocItem }) {
         type="button"
         onClick={openPreview}
         className="min-w-0 flex-1 text-left"
-        data-testid={`recent-doc-open-${item.id}`}
+        data-testid={`recent-doc-open-${stableId}`}
       >
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-semibold text-muted-foreground">{meta.label}</span>
-          <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700">
-            저장됨 · {formatDate(item.createdAt)}
+          <Badge
+            variant="outline"
+            className="text-[10px] h-4 px-1 border-emerald-300 text-emerald-700"
+          >
+            {item.state} · {formatDate(item.createdAt)}
           </Badge>
           {actionState.sharedAt && (
             <Badge variant="outline" className="text-[10px] h-4 px-1 border-blue-300 text-blue-700">
@@ -548,13 +594,17 @@ function DocumentRow({ item }: { item: DocItem }) {
             </Badge>
           )}
         </div>
-        <p className="text-sm font-medium truncate">{item.title}</p>
+        <p className="text-sm font-medium truncate">{item.title ?? "(제목 없음)"}</p>
         {item.subtitle && (
           <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
         )}
       </button>
       {item.thumbnailUrl && (
-        <AuthImage src={item.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+        <AuthImage
+          src={item.thumbnailUrl}
+          alt=""
+          className="w-10 h-10 rounded object-cover shrink-0"
+        />
       )}
       <div className="flex items-center gap-1 shrink-0">
         <Button
@@ -563,7 +613,7 @@ function DocumentRow({ item }: { item: DocItem }) {
           className="h-8 w-8"
           onClick={openPreview}
           aria-label="다시 보기"
-          data-testid={`recent-doc-view-${item.id}`}
+          data-testid={`recent-doc-view-${stableId}`}
         >
           <Eye className="w-4 h-4" />
         </Button>
@@ -573,7 +623,7 @@ function DocumentRow({ item }: { item: DocItem }) {
           className="h-8 w-8"
           onClick={reshare}
           aria-label="다시 공유"
-          data-testid={`recent-doc-share-${item.id}`}
+          data-testid={`recent-doc-share-${stableId}`}
         >
           <Share2 className="w-4 h-4" />
         </Button>
@@ -583,11 +633,25 @@ function DocumentRow({ item }: { item: DocItem }) {
           className="h-8 w-8"
           onClick={reprint}
           aria-label="다시 인쇄"
-          data-testid={`recent-doc-print-${item.id}`}
+          data-testid={`recent-doc-print-${stableId}`}
         >
           <Printer className="w-4 h-4" />
         </Button>
+        {/* [Task #610] "기안서로 만들기" 표준 진입점 — 기안 자체는 제외. */}
+        {item.kind !== "draft" && item.kind !== "approval" && item.kind !== "quote_bundle" && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={convertToApproval}
+            aria-label="기안서로 만들기"
+            data-testid={`recent-doc-to-approval-${stableId}`}
+          >
+            <FileSignature className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
 }
+

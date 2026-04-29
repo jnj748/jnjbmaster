@@ -9196,3 +9196,131 @@ export const CreateReferrerBenefitBody = zod.object({
   amount: zod.number().min(1),
   memo: zod.string().nullish(),
 });
+
+/**
+ * @summary List documents from the unified registry
+ */
+export const listDocumentsQueryLimitDefault = 50;
+export const listDocumentsQueryOffsetDefault = 0;
+
+export const ListDocumentsQueryParams = zod.object({
+  kind: zod.coerce
+    .string()
+    .optional()
+    .describe("Comma-separated DocumentKind values"),
+  state: zod.coerce.string().optional(),
+  role: zod.coerce.string().optional(),
+  authorId: zod.coerce.number().optional(),
+  buildingId: zod.coerce.number().optional(),
+  from: zod.coerce.string().datetime({}).optional(),
+  to: zod.coerce.string().datetime({}).optional(),
+  q: zod.coerce.string().optional(),
+  limit: zod.coerce.number().default(listDocumentsQueryLimitDefault),
+  offset: zod.coerce.number().default(listDocumentsQueryOffsetDefault),
+});
+
+export const ListDocumentsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      kind: zod.enum([
+        "journal",
+        "weekly_report",
+        "monthly_report",
+        "draft",
+        "approval",
+        "quote_bundle",
+        "rfq",
+        "notice_output",
+        "alert_action_output",
+        "external",
+        "quote",
+        "contract",
+        "announcement",
+      ]),
+      sourceTable: zod.string(),
+      sourceId: zod.number(),
+      state: zod.enum([
+        "draft",
+        "active",
+        "submitted",
+        "completed",
+        "archived",
+        "rejected",
+      ]),
+      title: zod.string().nullish(),
+      subtitle: zod.string().nullish(),
+      authorId: zod.number().nullish(),
+      authorRole: zod.string().nullish(),
+      buildingId: zod.number().nullish(),
+      periodStart: zod.string().nullish(),
+      periodEnd: zod.string().nullish(),
+      href: zod.string().nullish(),
+      thumbnailUrl: zod.string().nullish(),
+      metadata: zod.record(zod.string(), zod.unknown()),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+});
+
+/**
+ * @summary Get a single document row
+ */
+export const GetDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDocumentResponse = zod.object({
+  id: zod.number(),
+  kind: zod.enum([
+    "journal",
+    "weekly_report",
+    "monthly_report",
+    "draft",
+    "approval",
+    "quote_bundle",
+    "rfq",
+    "notice_output",
+    "alert_action_output",
+    "external",
+    "quote",
+    "contract",
+    "announcement",
+  ]),
+  sourceTable: zod.string(),
+  sourceId: zod.number(),
+  state: zod.enum([
+    "draft",
+    "active",
+    "submitted",
+    "completed",
+    "archived",
+    "rejected",
+  ]),
+  title: zod.string().nullish(),
+  subtitle: zod.string().nullish(),
+  authorId: zod.number().nullish(),
+  authorRole: zod.string().nullish(),
+  buildingId: zod.number().nullish(),
+  periodStart: zod.string().nullish(),
+  periodEnd: zod.string().nullish(),
+  href: zod.string().nullish(),
+  thumbnailUrl: zod.string().nullish(),
+  metadata: zod.record(zod.string(), zod.unknown()),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Register a notice template export (PNG/DOCX/PDF/share)
+ */
+export const RegisterNoticeOutputBody = zod.object({
+  templateId: zod.number(),
+  title: zod.string(),
+  format: zod.enum(["png", "docx", "pdf", "share"]),
+  outputDate: zod.string().optional(),
+});
