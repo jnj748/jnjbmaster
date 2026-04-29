@@ -42,8 +42,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const selfRegistrableRoles = ["manager", "accountant", "facility_staff", "partner"];
-  const validPortals = ["building", "partner", "hq"];
+  // [Task #611] 관리인(custodian)도 자가 가입 허용. 포털 타입은 "custodian" 전용.
+  const selfRegistrableRoles = ["manager", "accountant", "facility_staff", "partner", "custodian"];
+  const validPortals = ["building", "partner", "hq", "custodian"];
 
   let role: string;
   let portalType: string;
@@ -77,6 +78,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     if (portalType === "building" && role === "partner") {
       res.status(400).json({ error: "건물관리 포털에서 파트너사 역할은 사용할 수 없습니다" });
       return;
+    }
+    // [Task #611] 관리인 포털과 관리인 역할의 1:1 결합.
+    if (portalType === "custodian" && role !== "custodian") {
+      res.status(400).json({ error: "관리인 포털은 관리인 역할만 가능합니다" });
+      return;
+    }
+    if (role === "custodian" && portalType !== "custodian") {
+      portalType = "custodian";
     }
     roleSelected = true;
   }

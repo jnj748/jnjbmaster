@@ -5,6 +5,10 @@ import { db, approvalsTable, usersTable, approvalStepsTable, approvalRecipientsT
 import { requireRole } from "../middlewares/auth";
 import { tasksTable, inspectionsTable } from "@workspace/db";
 import { transitionContractStatus } from "./contracts";
+// [Task #611 fix] manager/accountant/custodian/hq_executive/facility 등 모든 비
+//   platform_admin 역할에서 GET /approvals · /approvals/:id 가 본인 빌딩 스코프
+//   밖의 결재를 노출하지 않도록 같은 정책을 재사용한다.
+import { accessibleBuildingIds } from "./approvalPipeline";
 
 const router: IRouter = Router();
 
@@ -24,13 +28,26 @@ router.get("/approvals", async (req, res): Promise<void> => {
 
   rows = rows.filter((r) => !r.isDraft);
 
-  if (user.role === "manager" || user.role === "platform_admin") {
-  } else {
+  // [Task #611 fix] 빌딩 스코프 강제 (multi-tenant 노출 방지).
+  //   - platform_admin: 전체 노출.
+  //   - hq_executive: hq_building_assignments 로 매핑된 건물만.
+  //   - manager: 본인 buildingId + 본사(buildingId=null) 안건.
+  //   - 그 외 역할(accountant/custodian/facility 등): 본인 buildingId
+  //     + 본인이 상신했거나 본인이 결재자로 배정된 결재만.
+  const scope = await accessibleBuildingIds(user.userId, user.role);
+  if (!scope.allBuildings) {
     const assignedSteps = await db.select({ approvalId: approvalStepsTable.approvalId })
       .from(approvalStepsTable)
       .where(eq(approvalStepsTable.approverId, user.userId));
     const assignedIds = new Set(assignedSteps.map((s) => s.approvalId));
-    rows = rows.filter((r) => r.requesterId === user.userId || assignedIds.has(r.id));
+    rows = rows.filter((r) => {
+      const inScope =
+        (r.buildingId === null && scope.includeNullBuilding) ||
+        (r.buildingId !== null && scope.ids.includes(r.buildingId));
+      if (inScope) return true;
+      // 스코프 밖이라도 본인이 상신/결재자인 건은 봐야 한다.
+      return r.requesterId === user.userId || assignedIds.has(r.id);
+    });
   }
 
   if (status) {
@@ -163,16 +180,30 @@ router.get("/approvals/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "manager" && user.role !== "platform_admin") {
-    const isRequester = row.requesterId === user.userId;
-    const assignedSteps = await db.select({ id: approvalStepsTable.id })
-      .from(approvalStepsTable)
-      .where(and(eq(approvalStepsTable.approvalId, id), eq(approvalStepsTable.approverId, user.userId)));
-    const isApprover = assignedSteps.length > 0;
-    if (!isRequester && !isApprover) {
-      res.status(403).json({ error: "접근 권한이 없습니다" });
-      return;
+  // [Task #611 fix] 빌딩 스코프 강제 + 상신자/결재자 통과.
+  //   platform_admin 만 무조건 통과. 그 외에는:
+  //     - 본인이 상신했거나 결재자로 배정된 결재 → 통과
+  //     - 그렇지 않더라도 본인의 빌딩 스코프 안에 있고 manager 면 통과
+  //   (manager 외 역할은 본인이 관여한 결재만 봐야 함.)
+  const isRequester = row.requesterId === user.userId;
+  const assignedSteps = await db.select({ id: approvalStepsTable.id })
+    .from(approvalStepsTable)
+    .where(and(eq(approvalStepsTable.approvalId, id), eq(approvalStepsTable.approverId, user.userId)));
+  const isApprover = assignedSteps.length > 0;
+  let isAuthorized = user.role === "platform_admin" || isRequester || isApprover;
+  if (!isAuthorized && (user.role === "manager" || user.role === "hq_executive")) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    if (
+      row.buildingId === null
+        ? scope.includeNullBuilding
+        : scope.ids.includes(row.buildingId)
+    ) {
+      isAuthorized = true;
     }
+  }
+  if (!isAuthorized) {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
   }
 
   res.json(serializeApproval(row));

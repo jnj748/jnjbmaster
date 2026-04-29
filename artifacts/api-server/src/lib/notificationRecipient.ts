@@ -55,6 +55,8 @@ const KNOWN_ROLES = new Set([
   "hq_executive",
   "accountant",
   "facility_staff",
+  // [Task #611] 관리인.
+  "custodian",
 ]);
 
 function isPositiveIntString(s: string): boolean {

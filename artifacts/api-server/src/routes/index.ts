@@ -30,6 +30,8 @@ import safetyTrainingsRouter from "./safetyTrainings";
 import facilityDashboardRouter from "./facilityDashboard";
 import facilityTasksRouter from "./facilityTasks";
 import approvalStepsRouter from "./approvalSteps";
+// [Task #611] 결재 라인(파이프라인) — 임계 금액 / 서명본 / 지출결의서 / 입금요청서.
+import approvalPipelineRouter from "./approvalPipeline";
 import signaturesRouter from "./signatures";
 import documentTemplatesRouter from "./documentTemplates";
 import reportSystemRouter from "./reportSystem";
@@ -131,10 +133,14 @@ router.use(quotesRouter);
 router.use(partnerContractsRouter);
 
 const buildingRouter: IRouter = Router();
-const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff");
+// [Task #611] custodian(관리인)도 결재함·입금요청함 진입을 위해 buildingRouter 게이트
+//   를 통과해야 한다. 라우트별 requireRole 로 세부 권한은 따로 막는다.
+const buildingOnly = requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff", "custodian");
 buildingRouter.use(buildingOnly);
 buildingRouter.use(dashboardRouter);
 buildingRouter.use(approvalsRouter);
+// [Task #611] 결재 라인 파이프라인 — 임계 금액 / 서명본 / 지출결의서 / 입금요청서.
+buildingRouter.use(approvalPipelineRouter);
 buildingRouter.use(tasksRouter);
 buildingRouter.use(inspectionsRouter);
 buildingRouter.use(taxSchedulesRouter);

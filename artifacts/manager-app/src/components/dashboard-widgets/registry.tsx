@@ -182,6 +182,11 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     // [Task #283] partner 도 banner 채널 캠페인 노출 대상이므로 배너 슬롯 추가.
     widgets: ["campaign-banner", "partner-main"],
   },
+  // [Task #611] custodian (관리인) — 입금요청서함 + 결재함 진입을 다른 화면에서 별도로 제공.
+  //   대시보드 본문은 캠페인 배너만 두고, 추후 전용 위젯이 추가되면 이 자리에 등록한다.
+  custodian: {
+    widgets: ["campaign-banner"],
+  },
 };
 
 // Falls back to the manager layout for unknown roles so we never blank out.

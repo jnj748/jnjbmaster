@@ -1,12 +1,25 @@
 import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
-import { requireRole } from "../middlewares/auth";
+import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, approvalSignedCopiesTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
+import { requireRole, type AuthPayload } from "../middlewares/auth";
 import { transitionContractStatus } from "./contracts";
+// [Task #611] 라인이 최종 승인되는 모든 경로(전자결재 포함)에서 같은 후크로
+//   지출결의서·입금요청서를 자동 발행한다.
+import { issueDownstreamDocuments, accessibleBuildingIds } from "./approvalPipeline";
 
 const router: IRouter = Router();
-router.use("/approvals", requireRole("manager", "platform_admin", "accountant"));
+// [Task #611 round-7] 라우터 전체에 걸친 거시 가드 대신, 각 엔드포인트에 정확한
+//   역할 집합을 박는다. 이전 구현은 `router.use(..., requireRole(... 'custodian'))`
+//   로 custodian 에게 draft create/update/submit 등 결재안 작성 엔드포인트까지
+//   열어버려, "관리인은 본인 결재함만 본다"라는 권한 경계가 깨져 있었다.
+//
+//   - 결재함 (read / process step) → manager, platform_admin, accountant,
+//     hq_executive, custodian (본인 결재함의 전자결재 처리 포함)
+//   - draft 생성·수정·상신 → manager, platform_admin, accountant, hq_executive
+//     (custodian 제외 — 결재안을 만들 권한 없음)
+const inboxRoles = ["manager", "platform_admin", "accountant", "hq_executive", "custodian"] as const;
+const draftRoles = ["manager", "platform_admin", "accountant", "hq_executive"] as const;
 function serializeStep(r: typeof approvalStepsTable.$inferSelect) {
   return {
     ...r,
@@ -24,7 +37,30 @@ function serializeApproval(r: typeof approvalsTable.$inferSelect) {
   };
 }
 
-router.get("/approvals/:id/steps", async (req, res): Promise<void> => {
+// [Task #611 round-8] /steps · /recipients 도 /approvals/:id 와 동일한
+//   빌딩 스코프 정책으로 보호한다. 이전 구현은 manager/platform_admin 을
+//   무조건 통과시켜, 다른 건물의 결재안 ID 만 알면 단계·수신자가 노출됐다.
+async function isAuthorizedForApprovalDetail(
+  approval: typeof approvalsTable.$inferSelect,
+  user: AuthPayload,
+): Promise<boolean> {
+  if (user.role === "platform_admin") return true;
+  if (approval.requesterId === user.userId) return true;
+  const assignedSteps = await db
+    .select({ id: approvalStepsTable.id })
+    .from(approvalStepsTable)
+    .where(and(eq(approvalStepsTable.approvalId, approval.id), eq(approvalStepsTable.approverId, user.userId)));
+  if (assignedSteps.length > 0) return true;
+  if (user.role === "manager" || user.role === "hq_executive") {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    if (scope.allBuildings) return true;
+    if (approval.buildingId === null) return scope.includeNullBuilding;
+    return scope.ids.includes(approval.buildingId);
+  }
+  return false;
+}
+
+router.get("/approvals/:id/steps", requireRole(...inboxRoles), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const user = req.user!;
 
@@ -34,15 +70,9 @@ router.get("/approvals/:id/steps", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "manager" && user.role !== "platform_admin") {
-    const isRequester = approval.requesterId === user.userId;
-    const assignedSteps = await db.select({ id: approvalStepsTable.id })
-      .from(approvalStepsTable)
-      .where(and(eq(approvalStepsTable.approvalId, approvalId), eq(approvalStepsTable.approverId, user.userId)));
-    if (!isRequester && assignedSteps.length === 0) {
-      res.status(403).json({ error: "접근 권한이 없습니다" });
-      return;
-    }
+  if (!(await isAuthorizedForApprovalDetail(approval, user))) {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
   }
 
   const steps = await db
@@ -54,7 +84,7 @@ router.get("/approvals/:id/steps", async (req, res): Promise<void> => {
   res.json(steps.map(serializeStep));
 });
 
-router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<void> => {
+router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const stepId = Number(req.params.stepId);
   const { action, comment, signatureId } = req.body;
@@ -106,6 +136,20 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
     return;
   }
 
+  // [Task #611 fix] 오프라인 결재 단계는 본 엔드포인트로 닫을 수 없다.
+  //   본부장/관리인이 인쇄·서명한 결재본을 첨부한 뒤 상신자(관리소장)가
+  //   /process-offline 으로 마감해야 한다 — 그래야 서명본 1장 이상 첨부
+  //   여부를 검증할 수 있다. 이 가드가 없으면 결재자가 시스템에서 곧바로
+  //   '승인'을 눌러 서명본 없이 라인이 마감되는 우회가 가능하다.
+  if (step.path === "offline") {
+    res.status(400).json({
+      error:
+        "이 단계는 오프라인(서명본 첨부 필수) 경로입니다. " +
+        "서명본을 업로드한 뒤 상신자(관리소장)가 오프라인 결재 마감으로 처리해주세요.",
+    });
+    return;
+  }
+
   if (signatureId) {
     const [sig] = await db
       .select()
@@ -129,9 +173,41 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
       comment: comment ?? null,
       signatureId: signatureId ?? null,
       processedAt: new Date(),
+      decidedAt: new Date(),
+      signedCopyMissing: false,
     })
     .where(eq(approvalStepsTable.id, stepId))
     .returning();
+
+  // [Task #611 fix] 전자결재 단계가 결재(승인/반려)되면 표준 결재 산출물을
+  //   approval_signed_copies 에 자동으로 적재한다. 종이서명본 대신 시스템이
+  //   생성한 결정 메타데이터(decision artifact) 를 영구 보관해 오프라인 라인과
+  //   동일하게 "결재 단계마다 1장 이상의 결재본이 보관된다"는 불변식을 지킨다.
+  try {
+    const approverNameForArtifact = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.userId))
+      .then((rows) => rows[0]?.name ?? user.email ?? "결재자");
+    await db.insert(approvalSignedCopiesTable).values({
+      approvalId,
+      stepId,
+      pageNumber: 1,
+      fileName: `electronic-decision-step-${stepId}.json`,
+      // 전자결재 결정의 표준 조회 경로. 동일 도메인 내 GET 으로 메타데이터를 회신한다.
+      fileUrl: `/api/approvals/${approvalId}/steps/${stepId}/electronic-decision`,
+      mimeType: "application/json",
+      uploadMethod: "file_picker",
+      kind: "electronic_pdf",
+      uploadedBy: user.userId,
+      uploadedByName: approverNameForArtifact,
+    });
+  } catch (err) {
+    (req as { log?: { error?: (...args: unknown[]) => void } }).log?.error?.(
+      { err, approvalId, stepId },
+      "electronic decision artifact persist failed",
+    );
+  }
 
   if (action === "reject") {
     await db
@@ -203,6 +279,20 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
         }
       }
 
+      // [Task #611] 전자결재 경로로 라인이 최종 승인되면 같은 컨텍스트로
+      //   지출결의서(→경리) / 입금요청서(→관리인) 자동 발행.
+      const [finalApproval] = await db
+        .select()
+        .from(approvalsTable)
+        .where(eq(approvalsTable.id, approvalId));
+      if (finalApproval) {
+        try {
+          await issueDownstreamDocuments(finalApproval, false);
+        } catch (err) {
+          (req as { log?: { error?: (...args: unknown[]) => void } }).log?.error?.({ err, approvalId }, "issueDownstreamDocuments failed");
+        }
+      }
+
       await insertNotification({
         recipientType: `user:${approval.requesterId}`,
         notificationType: "approval_completed",
@@ -233,7 +323,7 @@ router.post("/approvals/:id/steps/:stepId/process", async (req, res): Promise<vo
   res.json(serializeStep(updatedStep));
 });
 
-router.get("/approvals/:id/recipients", async (req, res): Promise<void> => {
+router.get("/approvals/:id/recipients", requireRole(...inboxRoles), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const user = req.user!;
 
@@ -243,15 +333,9 @@ router.get("/approvals/:id/recipients", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.role !== "manager" && user.role !== "platform_admin") {
-    const isRequester = approval.requesterId === user.userId;
-    const assignedSteps = await db.select({ id: approvalStepsTable.id })
-      .from(approvalStepsTable)
-      .where(and(eq(approvalStepsTable.approvalId, approvalId), eq(approvalStepsTable.approverId, user.userId)));
-    if (!isRequester && assignedSteps.length === 0) {
-      res.status(403).json({ error: "접근 권한이 없습니다" });
-      return;
-    }
+  if (!(await isAuthorizedForApprovalDetail(approval, user))) {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
   }
 
   const recipients = await db
@@ -267,15 +351,23 @@ router.get("/approvals/:id/recipients", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/approvals/draft", async (req, res): Promise<void> => {
+router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Promise<void> => {
   const user = req.user!;
   const body = req.body;
 
-  const userName = await db
-    .select({ name: usersTable.name })
+  // [Task #611 fix] 라인 자동 라우팅(/submit-line)에서 본부장 배정/임계 조회는
+  // approval.buildingId 를 키로 한다. draft 단계에서 buildingId 를 보존하지 않으면
+  // 상신 시 항상 null 이 되어 본부장 단계가 누락된다.
+  const [requester] = await db
+    .select({ name: usersTable.name, buildingId: usersTable.buildingId })
     .from(usersTable)
-    .where(eq(usersTable.id, user.userId))
-    .then((rows) => rows[0]?.name ?? user.email);
+    .where(eq(usersTable.id, user.userId));
+  const userName = requester?.name ?? user.email;
+  const buildingIdRaw = body.buildingId ?? requester?.buildingId ?? null;
+  const buildingId =
+    typeof buildingIdRaw === "number" && Number.isFinite(buildingIdRaw)
+      ? buildingIdRaw
+      : null;
 
   const steps = body.approvalSteps || [];
   const recipients = body.recipients || [];
@@ -299,6 +391,7 @@ router.post("/approvals/draft", async (req, res): Promise<void> => {
       relatedInspectionId: body.relatedInspectionId ?? null,
       requesterId: user.userId,
       requesterName: userName,
+      buildingId,
       status: "draft",
       isDraft: true,
       totalSteps: steps.length || 1,
@@ -329,7 +422,7 @@ router.post("/approvals/draft", async (req, res): Promise<void> => {
   res.status(201).json(serializeApproval(row));
 });
 
-router.put("/approvals/draft/:id", async (req, res): Promise<void> => {
+router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body;
   const user = req.user!;
@@ -363,6 +456,11 @@ router.put("/approvals/draft/:id", async (req, res): Promise<void> => {
       estimatedAmount: body.estimatedAmount ?? existing.estimatedAmount,
       vendorName: body.vendorName ?? existing.vendorName,
       vendorQuoteDetails: body.vendorQuoteDetails ?? existing.vendorQuoteDetails,
+      // [Task #611 fix] draft 수정 시 buildingId 갱신 허용 (자동 라우팅 키).
+      buildingId:
+        typeof body.buildingId === "number" && Number.isFinite(body.buildingId)
+          ? body.buildingId
+          : existing.buildingId,
       totalSteps: steps.length || existing.totalSteps,
     })
     .where(eq(approvalsTable.id, id))
@@ -397,7 +495,7 @@ router.put("/approvals/draft/:id", async (req, res): Promise<void> => {
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/draft/:id/submit", async (req, res): Promise<void> => {
+router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body || {};
   const user = req.user!;

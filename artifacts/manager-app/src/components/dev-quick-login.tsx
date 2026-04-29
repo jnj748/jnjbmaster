@@ -12,6 +12,8 @@ const TEST_ACCOUNTS = [
   { email: "hq@test.com", label: ROLE_LABELS.hq_executive, portalType: "hq" as const, color: "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" },
   { email: "admin@test.com", label: ROLE_LABELS.platform_admin, portalType: "hq" as const, color: "bg-purple-100 text-purple-700 hover:bg-purple-200" },
   { email: "partner@test.com", label: ROLE_LABELS.partner, portalType: "partner" as const, color: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
+  // [Task #611] custodian (관리인) — 본부장→관리인 결재 라인의 2단계/단독 결재자.
+  { email: "custodian@test.com", label: ROLE_LABELS.custodian, portalType: "custodian" as const, color: "bg-amber-100 text-amber-700 hover:bg-amber-200" },
 ];
 
 const TEST_PASSWORD = "test1234!";

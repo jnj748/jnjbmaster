@@ -36,6 +36,7 @@ import {
   Users,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import SignedCopyUploader, { type SignedCopySummary } from "@/components/signed-copy-uploader";
 
 const categoryLabel = (c: string) => {
   const labels: Record<string, string> = {
@@ -69,6 +70,7 @@ interface ApprovalItem {
   description: string;
   category: string;
   status: string;
+  requesterId?: number;
   requesterName: string;
   approverName: string | null;
   estimatedAmount: number | null;
@@ -79,6 +81,10 @@ interface ApprovalItem {
   currentStep: number;
   createdAt: string;
   approvedAt: string | null;
+  // [Task #611] 새 파이프라인 필드.
+  urgentExecution?: boolean;
+  urgentConsentMemo?: string | null;
+  hqThresholdSnapshot?: number | null;
 }
 
 interface ApprovalStep {
@@ -91,6 +97,9 @@ interface ApprovalStep {
   status: string;
   comment: string | null;
   processedAt: string | null;
+  // [Task #611] 오프라인/전자 결재 경로.
+  path?: "offline" | "electronic" | null;
+  signedCopyMissing?: boolean;
 }
 
 interface SignatureItem {
@@ -115,6 +124,9 @@ export default function Approvals() {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [userSignatures, setUserSignatures] = useState<SignatureItem[]>([]);
   const [selectedSignatureId, setSelectedSignatureId] = useState<number | null>(null);
+  // [Task #611] 단계별 서명본 캐시 + 오프라인 결재완료 액션 처리 중 상태.
+  const [signedCopiesByStep, setSignedCopiesByStep] = useState<Record<number, SignedCopySummary[]>>({});
+  const [offlineProcessingStepId, setOfflineProcessingStepId] = useState<number | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [drafts, setDrafts] = useState<ApprovalItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
@@ -147,15 +159,18 @@ export default function Approvals() {
   const rejectMutation = useRejectApproval();
 
   useEffect(() => {
-    if (selectedApproval && selectedApproval.totalSteps > 1) {
+    // [Task #611] 새 파이프라인은 1단계 라인(관리인 단독)도 step path 표시가 필요해
+    //   totalSteps 1 인 경우에도 단계 정보를 가져온다.
+    if (selectedApproval) {
       fetch(`${API_BASE}/approvals/${selectedApproval.id}/steps`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : []))
-        .then((data: ApprovalStep[]) => setApprovalSteps(data))
+        .then((data: ApprovalStep[]) => setApprovalSteps(Array.isArray(data) ? data : []))
         .catch(() => setApprovalSteps([]));
     } else {
       setApprovalSteps([]);
+      setSignedCopiesByStep({});
     }
 
     if (selectedApproval) {
@@ -168,6 +183,70 @@ export default function Approvals() {
       setSelectedSignatureId(null);
     }
   }, [selectedApproval, API_BASE, token]);
+
+  // [Task #611] 단계 목록이 들어오면 오프라인 단계의 서명본을 일괄 조회.
+  useEffect(() => {
+    if (!selectedApproval || approvalSteps.length === 0 || !token) return;
+    let cancelled = false;
+    (async () => {
+      const results: Record<number, SignedCopySummary[]> = {};
+      for (const step of approvalSteps) {
+        if (step.path !== "offline") continue;
+        try {
+          const res = await fetch(
+            `${API_BASE}/approvals/${selectedApproval.id}/steps/${step.id}/signed-copies`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (res.ok) {
+            const data: SignedCopySummary[] = await res.json();
+            results[step.id] = Array.isArray(data) ? data : [];
+          } else {
+            results[step.id] = [];
+          }
+        } catch {
+          results[step.id] = [];
+        }
+      }
+      if (!cancelled) setSignedCopiesByStep(results);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedApproval, approvalSteps, API_BASE, token]);
+
+  // [Task #611] 오프라인 단계 — 상신자(관리소장)/관리자가 본부장·관리인 결재 결과를 대신 마감.
+  async function handleOfflineProcess(stepId: number, action: "approve" | "reject", comment?: string) {
+    if (!selectedApproval) return;
+    setOfflineProcessingStepId(stepId);
+    try {
+      const res = await fetch(
+        `${API_BASE}/approvals/${selectedApproval.id}/steps/${stepId}/process-offline`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ action, comment: comment || null }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        toast({ title: err?.error || "오프라인 결재 처리에 실패했습니다", variant: "destructive" });
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetApprovalStatsQueryKey() });
+      toast({
+        title: action === "approve" ? "오프라인 결재가 완료되었습니다" : "결재가 반려되었습니다",
+      });
+      setSelectedApproval(null);
+    } catch {
+      toast({ title: "오프라인 결재 처리에 실패했습니다", variant: "destructive" });
+    } finally {
+      setOfflineProcessingStepId(null);
+    }
+  }
 
   async function handleApprove(id: number) {
     try {
@@ -502,7 +581,20 @@ export default function Approvals() {
                 </div>
               )}
 
-              {isMultiStep(selectedApproval) && approvalSteps.length > 0 && (
+              {selectedApproval.urgentExecution && (
+                <div className="rounded-md border border-orange-300 bg-orange-50 p-3 text-sm space-y-1">
+                  <p className="font-medium text-orange-800 flex items-center gap-1">
+                    <DollarSign className="w-4 h-4" /> 긴급집행 (사후결재)
+                  </p>
+                  {selectedApproval.urgentConsentMemo && (
+                    <p className="text-xs text-orange-800 whitespace-pre-wrap">
+                      유선 동의 메모: {selectedApproval.urgentConsentMemo}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {approvalSteps.length > 0 && (
                 <div>
                   <p className="text-muted-foreground text-sm mb-2 flex items-center gap-1">
                     <Users className="w-4 h-4" />
@@ -511,14 +603,29 @@ export default function Approvals() {
                   <div className="space-y-2">
                     {approvalSteps.map((step) => {
                       const isCurrent = step.stepOrder === selectedApproval.currentStep;
-                      const canProcess = isCurrent && step.status === "pending" && step.approverId === user?.id;
+                      // [Task #611] 전자 결재(electronic) 단계만 결재자 본인이 직접 처리.
+                      const canProcess =
+                        isCurrent &&
+                        step.status === "pending" &&
+                        step.approverId === user?.id &&
+                        step.path !== "offline";
+                      const isOffline = step.path === "offline";
+                      const isRequester =
+                        !!user &&
+                        (selectedApproval.requesterId === user.id || user.role === "platform_admin");
+                      const canCloseOffline =
+                        isOffline &&
+                        isCurrent &&
+                        step.status === "pending" &&
+                        isRequester;
+                      const stepCopies = signedCopiesByStep[step.id] ?? [];
                       return (
                         <div
                           key={step.id}
                           className={`p-2 rounded-lg border ${isCurrent ? "border-blue-300 bg-blue-50" : "border-gray-200"}`}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-xs shrink-0">
                                 {step.stepOrder}단계
                               </Badge>
@@ -526,6 +633,16 @@ export default function Approvals() {
                               <span className="text-xs text-muted-foreground">
                                 ({roleLabels[step.approverRole] || step.approverRole})
                               </span>
+                              {isOffline && (
+                                <Badge variant="outline" className="text-[10px] text-orange-700 border-orange-400">
+                                  오프라인
+                                </Badge>
+                              )}
+                              {step.signedCopyMissing && (
+                                <Badge variant="destructive" className="text-[10px]">
+                                  서명본 미첨부
+                                </Badge>
+                              )}
                             </div>
                             <Badge
                               variant={step.status === "approved" ? "default" : step.status === "rejected" ? "destructive" : "secondary"}
@@ -541,6 +658,53 @@ export default function Approvals() {
                             <p className="text-xs text-muted-foreground mt-1 ml-16">
                               처리: {formatDate(step.processedAt)}
                             </p>
+                          )}
+                          {/* [Task #611] 오프라인 단계 — 서명본 업로드 슬롯 (모두에게 표시, 업로드는 권한 있는 사용자만) */}
+                          {isOffline && (
+                            <div className="mt-2 ml-16">
+                              <SignedCopyUploader
+                                approvalId={selectedApproval.id}
+                                stepId={step.id}
+                                kind="offline_scan"
+                                existing={stepCopies}
+                                disabled={!isRequester}
+                                onUploaded={(summary) => {
+                                  setSignedCopiesByStep((prev) => ({
+                                    ...prev,
+                                    [step.id]: [summary, ...(prev[step.id] ?? [])],
+                                  }));
+                                }}
+                              />
+                            </div>
+                          )}
+                          {canCloseOffline && (
+                            <div className="mt-2 ml-16 flex gap-2">
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 h-7 text-xs"
+                                disabled={
+                                  offlineProcessingStepId === step.id ||
+                                  stepCopies.length === 0
+                                }
+                                onClick={() => handleOfflineProcess(step.id, "approve")}
+                                title={stepCopies.length === 0 ? "서명본을 1장 이상 첨부하세요" : ""}
+                              >
+                                <Check className="w-3 h-3 mr-1" />
+                                오프라인 결재완료
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 text-xs"
+                                disabled={offlineProcessingStepId === step.id}
+                                onClick={() => {
+                                  const reason = prompt("반려 사유를 입력하세요:");
+                                  if (reason) handleOfflineProcess(step.id, "reject", reason);
+                                }}
+                              >
+                                <X className="w-3 h-3 mr-1" /> 반려
+                              </Button>
+                            </div>
                           )}
                           {canProcess && (
                             <div className="mt-2 ml-16 space-y-2">

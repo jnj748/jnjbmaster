@@ -18,7 +18,9 @@ export type AppRole =
   | "facility_staff"
   | "hq_executive"
   | "platform_admin"
-  | "partner";
+  | "partner"
+  // [Task #611] 관리인 — 집합건물법상 예산집행 결정권자. 결재함/입금요청함만 본다.
+  | "custodian";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   manager: "관리소장",
@@ -27,6 +29,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   hq_executive: "본부장",
   platform_admin: "관리자",
   partner: "파트너사",
+  custodian: "관리인",
 };
 
 /**
@@ -45,12 +48,14 @@ export function roleLabel(role: string | null | undefined): string {
  *  - hq       : 본부장 + 관리자 공용 포털
  *  - partner  : 파트너사 포털
  */
-export type PortalType = "building" | "hq" | "partner";
+// [Task #611] custodian(관리인) 포털 추가 — 결재함/입금요청함 전용 진입.
+export type PortalType = "building" | "hq" | "partner" | "custodian";
 
 export const PORTAL_LABELS: Record<PortalType, string> = {
   building: "건물관리",
   hq: ROLE_LABELS.hq_executive,
   partner: ROLE_LABELS.partner,
+  custodian: ROLE_LABELS.custodian,
 };
 
 /**

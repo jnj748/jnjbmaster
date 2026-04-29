@@ -51,6 +51,8 @@ import {
   Users,
   ArrowLeft,
   X,
+  Zap,
+  AlertCircle,
 } from "lucide-react";
 
 const categories = [
@@ -127,6 +129,11 @@ export default function ApprovalCreate() {
     isPrefill && validApprovalCategories.includes(prefillCategory) ? prefillCategory : "other",
   );
   const [estimatedAmount, setEstimatedAmount] = useState("");
+  // [Task #611] 본부장→관리인 자동 라인 사용 여부.
+  //   기본값 ON — 안건 금액과 본부장 임계 금액에 따라 1·2단계가 자동으로 결정된다.
+  const [useHqLine, setUseHqLine] = useState(true);
+  const [urgentExecution, setUrgentExecution] = useState(false);
+  const [urgentConsentMemo, setUrgentConsentMemo] = useState("");
   const [vendorName, setVendorName] = useState("");
   const [vendorQuoteDetails, setVendorQuoteDetails] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
@@ -311,25 +318,93 @@ export default function ApprovalCreate() {
       return;
     }
 
+    // [Task #611] 긴급집행은 유선 동의 메모가 필수.
+    if (useHqLine && urgentExecution && !urgentConsentMemo.trim()) {
+      toast({
+        title: "긴급집행은 유선 동의 메모가 필요합니다",
+        description: "통화 일시·통화자·동의 요지를 짧게 적어주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const payload = buildPayload();
-      const url = draftId ? `${API_BASE}/approvals/draft/${draftId}/submit` : `${API_BASE}/approvals`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        toast({ title: err?.error || "결재 요청 제출에 실패했습니다", variant: "destructive" });
-        return;
+      let approvalId: number | null = null;
+
+      if (useHqLine) {
+        // [Task #611] 본부장→관리인 자동 라인 — 항상 draft 로 만든 뒤
+        //   /approvals/:id/submit-line 으로 임계 금액 기반 라인을 구성한다.
+        const draftUrl = draftId
+          ? `${API_BASE}/approvals/draft/${draftId}`
+          : `${API_BASE}/approvals/draft`;
+        const draftMethod = draftId ? "PUT" : "POST";
+        const draftRes = await fetch(draftUrl, {
+          method: draftMethod,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ...payload,
+            // 라인은 서버 자동 결정 — 사용자 수동 단계는 무시한다.
+            approvalSteps: undefined,
+          }),
+        });
+        if (!draftRes.ok) {
+          const err = await draftRes.json().catch(() => null);
+          toast({ title: err?.error || "기안 저장에 실패했습니다", variant: "destructive" });
+          return;
+        }
+        const draft = await draftRes.json();
+        approvalId = draft?.id ?? null;
+        if (!approvalId) {
+          toast({ title: "기안 ID 를 받지 못했습니다", variant: "destructive" });
+          return;
+        }
+        const lineRes = await fetch(`${API_BASE}/approvals/${approvalId}/submit-line`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            urgentExecution,
+            urgentConsentMemo: urgentExecution ? urgentConsentMemo.trim() : undefined,
+          }),
+        });
+        if (!lineRes.ok) {
+          const err = await lineRes.json().catch(() => null);
+          toast({
+            title: err?.error || "결재 라인 구성에 실패했습니다",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        const url = draftId ? `${API_BASE}/approvals/draft/${draftId}/submit` : `${API_BASE}/approvals`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          toast({ title: err?.error || "결재 요청 제출에 실패했습니다", variant: "destructive" });
+          return;
+        }
       }
+
       queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetApprovalStatsQueryKey() });
-      toast({ title: "결재 요청이 제출되었습니다" });
+      toast({
+        title: urgentExecution
+          ? "긴급집행 라인이 발행되었습니다 — 사후결재(서명본) 첨부를 잊지 마세요"
+          : "결재 요청이 제출되었습니다",
+      });
       // [Task #220] 후속조치 prefill 진입이면 필수업무 등록 권유.
       if (followUpSource) {
         setFollowUpConfirmOpen(true);
@@ -492,6 +567,72 @@ export default function ApprovalCreate() {
         </div>
 
         <div className="space-y-6">
+          {/* [Task #611] 본부장→관리인 자동 라인 + 긴급집행 토글 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                결재 라인 / 긴급집행
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useHqLine}
+                  onChange={(e) => {
+                    setUseHqLine(e.target.checked);
+                    if (!e.target.checked) setUrgentExecution(false);
+                  }}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">본부장 → 관리인 자동 라인 사용</span>
+                  <span className="block text-xs text-muted-foreground">
+                    예상 금액이 본부장 임계 금액 이상이면 본부장 결재가 자동으로 1단계에 들어갑니다.
+                    그 외에는 관리인 결재 1단계로 구성됩니다.
+                  </span>
+                </span>
+              </label>
+              {useHqLine && (
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={urgentExecution}
+                    onChange={(e) => setUrgentExecution(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-orange-700">긴급집행 (사후결재)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      유선 동의를 받은 뒤 즉시 지출결의서·입금요청서를 발행합니다.
+                      본부장/관리인 서명본은 사후에 첨부해야 하며, "사후결재 받기" 필수업무가 자동 등록됩니다.
+                    </span>
+                  </span>
+                </label>
+              )}
+              {useHqLine && urgentExecution && (
+                <div className="rounded-md border border-orange-200 bg-orange-50 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-orange-800">
+                    <AlertCircle className="w-4 h-4" />
+                    유선 동의 메모 (필수)
+                  </div>
+                  <Textarea
+                    placeholder="예) 2026-04-29 14:20 본부장 김철수 통화, 누수 보수 80만원 즉시 진행 동의"
+                    value={urgentConsentMemo}
+                    onChange={(e) => setUrgentConsentMemo(e.target.value)}
+                    rows={3}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-orange-700">
+                    통화 일시 · 통화자 · 동의 요지를 한 줄에 적어주세요.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {!useHqLine && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -554,6 +695,7 @@ export default function ApprovalCreate() {
               )}
             </CardContent>
           </Card>
+          )}
 
           <Card>
             <CardHeader>

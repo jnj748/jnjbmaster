@@ -2,8 +2,13 @@ import { pgTable, text, serial, integer, timestamp, varchar, boolean } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const userRoles = ["manager", "partner", "platform_admin", "hq_executive", "accountant", "facility_staff"] as const;
-export const portalTypes = ["building", "partner", "hq"] as const;
+// [Task #611] custodian = 관리인(집합건물법상 예산집행 결정권자). hq_executive(본부장)와는
+//   다른 경량 사용자 유형. 메뉴는 본인 결재함·입금요청함·송금완료 처리·서명본
+//   업로드·본인 정보 정도로만 제한된다.
+export const userRoles = ["manager", "partner", "platform_admin", "hq_executive", "accountant", "facility_staff", "custodian"] as const;
+// [Task #611] custodian 포털을 hq/building 과 분리. 사이드/하단 네비 노출 폭을
+//   결재함·입금요청함 위주로 좁히기 위함.
+export const portalTypes = ["building", "partner", "hq", "custodian"] as const;
 // [Task #106] 관리소장 첫 로그인 모달 선택값. NULL = 미선택, 'started' = 위저드로 진행, 'browsing' = 둘러보기 모드.
 export const onboardingPreferences = ["started", "browsing"] as const;
 // [Task #132] facility_staff 가입 승인 흐름. 'active' = 정상, 'pending' = 승인 대기, 'rejected' = 반려.

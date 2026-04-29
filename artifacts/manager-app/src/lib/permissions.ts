@@ -105,6 +105,11 @@ const PlatformRoleFacility = lazy(() => import("@/pages/platform-role-status").t
 const PlatformRoleHq = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.HqExecutivesStatus })));
 const PlatformRolePartners = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.PartnersStatus })));
 
+// [Task #611] 결재 라인 — 지출결의서 / 입금요청서 / 본부장 임계 금액 화면.
+const ExpenseVoucherInbox = lazy(() => import("@/pages/expense-voucher-inbox"));
+const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
+const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds"));
+
 // [역할 라벨 SoT] 역할 키 / 표시 라벨은 @workspace/shared/role-labels 에서
 //   단일 소스로 정의한다. 라벨이 바뀌면 그 파일만 수정하면 프런트엔드와
 //   백엔드가 동시에 반영된다.
@@ -158,6 +163,8 @@ export interface RouteEntry {
 export function getEffectiveRole(user: { role?: string | null; portalType?: string | null } | null | undefined): Role {
   if (!user) return "manager";
   if (user.portalType === "partner") return "partner";
+  // [Task #611] 관리인(custodian) 포털 — 결재함/입금요청함 전용 단순 메뉴.
+  if (user.portalType === "custodian" || user.role === "custodian") return "custodian";
   return (user.role as Role) ?? "manager";
 }
 
@@ -197,6 +204,8 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   facility_staff: ["dashboard", "facility", "marketplace"],
   hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
+  // [Task #611] 관리인 — 결재함과 입금요청함만 노출. 그 외 화면은 access 자체가 없다.
+  custodian: ["reports", "accounting"],
 };
 
 const ALL_BUILDING: Role[] = ["manager", "accountant", "facility_staff", "platform_admin"];
@@ -474,10 +483,11 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/approvals", component: Approvals,
     label: "결재함", icon: ClipboardCheck, group: "reports",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #611] 본부장(hq_executive) / 관리인(custodian) 도 자기 결재함을 본다.
+    access: ["manager", "platform_admin", "accountant", "hq_executive", "custodian"],
     // [관리소장 메뉴 숨김] 결재함은 회계 사이드바에만 노출 (플랫폼 제외).
-    sideMenu: ["accountant"],
-    bottomNav: ["accountant"],
+    sideMenu: ["accountant", "hq_executive", "custodian"],
+    bottomNav: ["accountant", "custodian"],
     bottomLabel: "결재",
   },
   {
@@ -485,6 +495,30 @@ export const ROUTES: RouteEntry[] = [
     label: "결재 상신", icon: ClipboardList, group: "reports",
     access: ["manager", "platform_admin", "accountant"],
     hidden: true,
+  },
+  // [Task #611] 지출결의서함 — 경리 전용. 본부장/관리인 라인 통과 후 자동 발행된 항목을
+  //   기록하면 settlements 출납이 동기화되며, 같은 라인의 paymentRequest 가 관리인 함으로 흘러간다.
+  {
+    path: "/expense-vouchers", component: ExpenseVoucherInbox,
+    label: "지출결의서함", icon: Receipt, group: "accounting",
+    access: ["accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  // [Task #611] 입금요청함 — 관리인 전용. 송금 완료시 settlements 동기화 + 라인 종결.
+  {
+    path: "/payment-requests", component: PaymentRequestInbox,
+    label: "입금요청함", icon: Send, group: "accounting",
+    access: ["custodian", "platform_admin"],
+    sideMenu: ["custodian"],
+    bottomNav: ["custodian"],
+    bottomLabel: "입금요청",
+  },
+  // [Task #611] 본부장 임계 금액 설정 — 본부장/관리자가 건물별로 본부장 결재 임계 금액을 설정.
+  {
+    path: "/hq-approval-thresholds", component: HqApprovalThresholds,
+    label: "본부장 임계 금액", icon: DollarSign, group: "settings",
+    access: ["hq_executive", "platform_admin"],
+    sideMenu: ["hq_executive", "platform_admin"],
   },
   {
     path: "/report-system", component: ReportSystemPage,
@@ -709,6 +743,9 @@ export const ROOT_DASHBOARDS: Record<Role, AnyComponent> = {
   accountant: Dashboard,
   facility_staff: Dashboard,
   partner: Dashboard,
+  // [Task #611] 관리인은 결재함이 사실상 첫 화면이지만,
+  //   루트(/) 진입은 통합 대시보드 셸로 통일.
+  custodian: Dashboard,
 };
 
 const ROOT_LABELS: Record<Role, string> = {
@@ -718,6 +755,7 @@ const ROOT_LABELS: Record<Role, string> = {
   accountant: "대시보드",
   facility_staff: "일일 업무",
   partner: "대시보드",
+  custodian: "결재함",
 };
 
 const ROOT_ICONS: Record<Role, LucideIcon> = {
@@ -727,6 +765,7 @@ const ROOT_ICONS: Record<Role, LucideIcon> = {
   accountant: LayoutDashboard,
   facility_staff: ClipboardCheck,
   partner: LayoutDashboard,
+  custodian: ClipboardCheck,
 };
 
 // [Task #290] 파트너 메뉴 라벨/아이콘 — 협력업체 풀(/vendors) 진입 제거,

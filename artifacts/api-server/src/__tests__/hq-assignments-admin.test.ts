@@ -60,7 +60,7 @@ async function createUser(role: string, buildingId: number | null, portalType = 
     name: `${role}-사용자`,
     role,
     portalType,
-    approvalStatus: "approved",
+    approvalStatus: "active",
     buildingId: buildingId ?? undefined,
   } as typeof usersTable.$inferInsert).returning();
   createdUserIds.push(u.id);
