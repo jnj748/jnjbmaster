@@ -76,8 +76,14 @@ function buildBuildingInsertValues(data: Record<string, unknown>): Record<string
 function buildBuildingUpdateValues(data: Record<string, unknown>): Record<string, unknown> {
   const v: Record<string, unknown> = {};
   if (data.name !== undefined) v.name = data.name;
+  // [Task #559] insert 경로(buildBuildingInsertValues)는 이미 `data[f] || null` 로
+  //   빈 문자열을 null 로 정규화하지만, update 경로는 그대로 통과시켜
+  //   completionDate / approvalDate 같은 date 컬럼에 빈 문자열 ""이 들어가는 순간
+  //   PostgreSQL 이 "invalid input syntax for type date" 로 PUT 전체를 500 으로
+  //   떨어뜨리고 있었다("Failed to update building" 토스트의 진짜 원인).
+  //   insert 와 동일한 정규화로 통일한다 — 빈 문자열은 null 로 저장한다.
   for (const f of BUILDING_TEXT_FIELDS) {
-    if (data[f] !== undefined) v[f] = data[f];
+    if (data[f] !== undefined) v[f] = data[f] === "" ? null : data[f];
   }
   for (const f of BUILDING_INT_FIELDS) {
     if (data[f] !== undefined) v[f] = data[f] ? parseInt(String(data[f])) : null;

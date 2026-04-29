@@ -77,12 +77,15 @@ router.get("/onboarding/status", async (req: Request, res: Response): Promise<vo
   const [building] = await db.select().from(buildingsTable).where(eq(buildingsTable.id, user.buildingId));
   const hasBuilding = !!building;
   const hasCompletionDate = !!building?.completionDate;
-  // 제원: totalArea/totalFloors/totalUnits 가 모두 채워져 있어야 Gate1 통과.
+  // [Task #559] 제원 게이트는 totalArea/totalFloors 만 요구한다.
+  //   totalUnits 는 위저드 step-info 에 입력란이 없는 read-only 표시 필드라,
+  //   값이 비어 있으면 매니저가 본인 힘으로 채울 수 없는 데드락을 만든다
+  //   (예: 단독건물 1개 호실, 건축물대장에서 hoCnt=0 인 단지). 추후 위저드에
+  //   세대수 입력란이 추가되면 이 조건을 다시 강화할 수 있다.
   const hasBuildingSpecs = !!(
     building &&
     building.totalArea != null && Number(building.totalArea) > 0 &&
-    building.totalFloors != null && building.totalFloors > 0 &&
-    building.totalUnits != null && building.totalUnits > 0
+    building.totalFloors != null && building.totalFloors > 0
   );
 
   const [legalCount] = await db

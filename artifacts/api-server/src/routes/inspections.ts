@@ -163,7 +163,15 @@ router.get("/inspections/presets", async (_req, res): Promise<void> => {
     presets = await db.select().from(legalInspectionPresetsTable);
   }
 
-  res.json(ListInspectionPresetsResponse.parse(presets));
+  // [Task #559] drizzle 의 timestamp 컬럼은 JS Date 객체를 반환하지만 응답
+  //   스키마(ListInspectionPresetsResponse)는 createdAt 을 string 으로 기대해
+  //   parse 가 ZodError("Expected string, received date") 로 500 을 던지고 있었다.
+  //   res.json 직전에 Date → ISO string 으로 변환해 직렬화 형식을 맞춘다.
+  const serialized = presets.map((p) => ({
+    ...p,
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+  }));
+  res.json(ListInspectionPresetsResponse.parse(serialized));
 });
 
 router.post("/inspections", async (req, res): Promise<void> => {
