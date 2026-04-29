@@ -336,7 +336,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     const overdueInspectionAlert: typeof alerts[number] = {
       id: alertId++,
       type: "inspection_due",
-      title: `${inspection.name} 기한 초과`,
+      title: inspection.name,
       message: `${inspection.nextDueDate} 마감 기한이 ${daysOverdue}일 경과했습니다. 즉시 처리가 필요합니다.`,
       severity: "critical",
       relatedId: inspection.id,
@@ -364,11 +364,6 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       const nowMs = new Date(today).getTime();
       const daysLeft = Math.ceil((dueMs - nowMs) / (1000 * 60 * 60 * 24));
 
-      let dLabel = "";
-      if (daysLeft < 0) dLabel = " (기한 초과)";
-      else if (daysLeft === 0) dLabel = " [D-Day]";
-      else if (daysLeft <= 30) dLabel = ` [D-${daysLeft}]`;
-
       let message = `${tax.dueDate}까지 ${tax.title}을(를) 처리해야 합니다.`;
       if (daysLeft <= 30 && daysLeft >= 0) {
         message += " 세무사에게 자료를 준비하세요. (매출/매입 증빙, 급여대장, 4대보험 등)";
@@ -386,7 +381,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       const taxAlert: typeof alerts[number] = {
         id: alertId++,
         type: "tax_due",
-        title: `${tax.title} 마감 예정${dLabel}`,
+        title: tax.title,
         message,
         severity: daysLeft <= 30 ? "critical" : "warning",
         relatedId: tax.id,
@@ -430,9 +425,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     const taskAlert: typeof alerts[number] = {
       id: alertId++,
       type: alertType,
-      title: isFollowUp
-        ? task.title
-        : `${task.title} 기한 초과`,
+      title: task.title,
       message: isFollowUp
         ? (task.description?.split("\n")[0] ?? "후속조치로 등록된 1회성 필수업무입니다.")
         : `${task.dueDate}이 마감이었던 업무가 아직 완료되지 않았습니다.`,

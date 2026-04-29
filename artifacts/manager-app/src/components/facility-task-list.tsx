@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
-import { AlertTriangle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   getGetFacilityMandatoryTasksQueryKey,
   getGetFacilitySuggestedTasksQueryKey,
@@ -358,44 +358,15 @@ export function FacilityTaskList({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {overdue.length > 0 && (
-            <section>
-              <h2 className="text-sm font-bold text-red-700 flex items-center gap-1.5 mb-2">
-                <AlertTriangle className="w-4 h-4" />
-                기한 초과 ({overdue.length}건)
-              </h2>
-              <div className="space-y-2">
-                {overdue.map((alert) => (
-                  <AlertRow
-                    key={alert.id}
-                    alert={alert}
-                    sectionKind={sectionKind}
-                    onClick={handleAlertClick}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-          {upcoming.length > 0 && (
-            <section>
-              {overdue.length > 0 && (
-                <h2 className="text-sm font-bold text-foreground mb-2">
-                  예정 ({upcoming.length}건)
-                </h2>
-              )}
-              <div className="space-y-2">
-                {upcoming.map((alert) => (
-                  <AlertRow
-                    key={alert.id}
-                    alert={alert}
-                    sectionKind={sectionKind}
-                    onClick={handleAlertClick}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+        <div className="space-y-2">
+          {[...overdue, ...upcoming].map((alert) => (
+            <AlertRow
+              key={alert.id}
+              alert={alert}
+              sectionKind={sectionKind}
+              onClick={handleAlertClick}
+            />
+          ))}
         </div>
       )}
 
@@ -442,7 +413,6 @@ interface AlertRowProps {
 }
 
 function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
-  const dday = getDdayLabel(alert.dueDate ?? null);
   const trafficColor = getTrafficColor(alert.dueDate ?? null);
   const isInteractive =
     (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
@@ -485,17 +455,6 @@ function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
               : "bg-green-500"
           }`}
         />
-        <span
-          className={`text-[10px] font-bold whitespace-nowrap ${
-            trafficColor === "red"
-              ? "text-red-700"
-              : trafficColor === "yellow"
-              ? "text-yellow-700"
-              : "text-green-700"
-          }`}
-        >
-          {dday.label}
-        </span>
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{alert.title}</p>

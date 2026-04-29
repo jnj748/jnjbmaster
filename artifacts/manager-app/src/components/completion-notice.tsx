@@ -101,6 +101,8 @@ function stripDday(s: string): string {
     .replace(/\s*\[\s*D\s*[-+]?\s*\w+\s*\]\s*/gi, " ")
     .replace(/\s*\[\s*D-?Day\s*\]\s*/gi, " ")
     .replace(/\s*\[\s*기한[^\]]*\]\s*/g, " ")
+    .replace(/\s*\(\s*기한\s*초과\s*\)\s*/g, " ")
+    .replace(/\s*기한\s*초과\s*/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
