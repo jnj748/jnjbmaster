@@ -5542,6 +5542,126 @@ export interface ContractOcrPreview {
   rawText: string;
 }
 
+/**
+ * Consent decisions; see server implementation.
+ */
+export type CompleteOauthSignupBodyConsents = { [key: string]: unknown };
+
+export interface CompleteOauthSignupBody {
+  /** Token issued by the OAuth callback identifying the pending signup. */
+  pendingToken: string;
+  email?: string | null;
+  name?: string | null;
+  /** Account holder's KR mobile phone (digits or hyphenated). */
+  phone?: string | null;
+  /** [Task #582] Optional referrer's KR mobile phone (digits or hyphenated).
+Server requires 010 + 8 digits (11 digits total after normalization)
+and rejects self-referral.
+ */
+  referrerPhone?: string | null;
+  /** Consent decisions; see server implementation. */
+  consents?: CompleteOauthSignupBodyConsents;
+  [key: string]: unknown;
+}
+
+export type ReferrerAggregateRowMatchedUser = null | {
+  id: number;
+  fullName: string;
+  role: string;
+};
+
+/**
+ * Task #582. 추천인(휴대폰 번호) 단위로 집계된 가입자 통계 + 매칭된 회원 정보.
+
+ */
+export interface ReferrerAggregateRow {
+  /** 정규화된 11자리 휴대폰 번호 */
+  referrerPhone: string;
+  /** 이 번호를 추천인으로 등록한 가입자 수 */
+  signupCount: number;
+  /** @nullable */
+  latestSignupAt: string | null;
+  matchedUser: ReferrerAggregateRowMatchedUser;
+  /** 지급 기록된 베네핏 합계(원/크레딧 — kind 와 무관한 단순 합) */
+  benefitTotalAmount: number;
+  benefitCount: number;
+  /**
+   * 마지막으로 베네핏이 지급(기록)된 시각. 없으면 null.
+   * @nullable
+   */
+  latestBenefitAt: string | null;
+}
+
+export type ReferralBenefitKind =
+  (typeof ReferralBenefitKind)[keyof typeof ReferralBenefitKind];
+
+export const ReferralBenefitKind = {
+  credit: "credit",
+  cash: "cash",
+  other: "other",
+} as const;
+
+/**
+ * Task #582. referral_benefits row.
+ */
+export interface ReferralBenefit {
+  id: number;
+  referrerPhone: string;
+  grantedByUserId: number;
+  /** @nullable */
+  grantedByName?: string | null;
+  kind: ReferralBenefitKind;
+  amount: number;
+  /** @nullable */
+  memo?: string | null;
+  grantedAt: string;
+}
+
+export interface ReferrerRecruitedUser {
+  id: number;
+  fullName: string;
+  /** @nullable */
+  phone?: string | null;
+  role: string;
+  createdAt: string;
+}
+
+export type ReferrerDetailMatchedUser = null | {
+  id: number;
+  fullName: string;
+  role: string;
+  /** @nullable */
+  phone?: string | null;
+};
+
+/**
+ * Task #582. 추천인 상세 — 가입자 목록 + 베네핏 이력.
+ */
+export interface ReferrerDetail {
+  referrerPhone: string;
+  matchedUser: ReferrerDetailMatchedUser;
+  recruitedUsers: ReferrerRecruitedUser[];
+  benefits: ReferralBenefit[];
+  benefitTotalAmount: number;
+}
+
+export type CreateReferrerBenefitBodyKind =
+  (typeof CreateReferrerBenefitBodyKind)[keyof typeof CreateReferrerBenefitBodyKind];
+
+export const CreateReferrerBenefitBodyKind = {
+  credit: "credit",
+  cash: "cash",
+  other: "other",
+} as const;
+
+export interface CreateReferrerBenefitBody {
+  kind: CreateReferrerBenefitBodyKind;
+  /** @minimum 1 */
+  amount: number;
+  /** @nullable */
+  memo?: string | null;
+}
+
 export type ListTasksParams = {
   status?: ListTasksStatus;
   priority?: ListTasksPriority;
@@ -6398,3 +6518,42 @@ export const ListAdminCreditTopupOrdersStatus = {
   failed: "failed",
   cancelled: "cancelled",
 } as const;
+
+export type CompleteOauthSignup200 = { [key: string]: unknown };
+
+export type ListAdminReferrersParams = {
+  /**
+   * 추천인 연락처 부분 검색 (숫자만 비교)
+   */
+  q?: string;
+  sort?: ListAdminReferrersSort;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type ListAdminReferrersSort =
+  (typeof ListAdminReferrersSort)[keyof typeof ListAdminReferrersSort];
+
+export const ListAdminReferrersSort = {
+  signups_desc: "signups_desc",
+  signups_asc: "signups_asc",
+  recent_desc: "recent_desc",
+  recent_asc: "recent_asc",
+  phone_asc: "phone_asc",
+} as const;
+
+export type ListAdminReferrers200 = {
+  referrers: ReferrerAggregateRow[];
+  total: number;
+};
+
+export type CreateReferrerBenefit201 = {
+  benefit: ReferralBenefit;
+};

@@ -6333,6 +6333,145 @@ paths:
           content:
             text/event-stream: {}
 
+  /auth/oauth/complete-signup:
+    post:
+      operationId: completeOauthSignup
+      tags: [auth]
+      summary: "[Task #582] 소셜 로그인 후 가입 완료 (선택: 추천인 연락처 포함)"
+      description: |
+        Completes a social signup. The body must include a `pendingToken` issued
+        by the OAuth callback. Optionally accepts `referrerPhone` (KR mobile,
+        digits or hyphenated). Other fields (consents, etc.) are accepted but
+        not constrained here; see server implementation for details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteOauthSignupBody"
+      responses:
+        "200":
+          description: Signup completed; returns auth token
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Invalid input (e.g. invalid referrer phone, self-referral, missing consent)
+
+  /admin/referrers:
+    get:
+      operationId: listAdminReferrers
+      tags: [users]
+      summary: "[Task #582] platform_admin: 추천인별 가입자 집계 목록"
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: "추천인 연락처 부분 검색 (숫자만 비교)"
+          schema:
+            type: string
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [signups_desc, signups_asc, recent_desc, recent_asc, phone_asc]
+            default: signups_desc
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Referrer aggregates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  referrers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReferrerAggregateRow"
+                  total:
+                    type: integer
+                required: [referrers, total]
+
+  /admin/referrers/export:
+    get:
+      operationId: exportAdminReferrers
+      tags: [users]
+      summary: "[Task #582] platform_admin: 추천인 집계 CSV 다운로드"
+      responses:
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /admin/referrers/{phone}:
+    get:
+      operationId: getAdminReferrerDetail
+      tags: [users]
+      summary: "[Task #582] platform_admin: 특정 추천인의 가입자/베네핏 이력"
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: "정규화된 11자리 휴대폰 번호"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Referrer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferrerDetail"
+
+  /admin/referrers/{phone}/benefits:
+    post:
+      operationId: createReferrerBenefit
+      tags: [users]
+      summary: "[Task #582] platform_admin: 추천인 베네핏 지급 기록"
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReferrerBenefitBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  benefit:
+                    $ref: "#/components/schemas/ReferralBenefit"
+                required: [benefit]
+
 components:
   schemas:
     AiChatCitation:
@@ -13295,3 +13434,174 @@ components:
       required:
         - fieldConfidence
         - rawText
+
+    CompleteOauthSignupBody:
+      type: object
+      additionalProperties: true
+      required: [pendingToken]
+      properties:
+        pendingToken:
+          type: string
+          description: Token issued by the OAuth callback identifying the pending signup.
+        email:
+          type: string
+          format: email
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+          description: Account holder's KR mobile phone (digits or hyphenated).
+        referrerPhone:
+          type: string
+          nullable: true
+          description: |
+            [Task #582] Optional referrer's KR mobile phone (digits or hyphenated).
+            Server requires 010 + 8 digits (11 digits total after normalization)
+            and rejects self-referral.
+        consents:
+          type: object
+          additionalProperties: true
+          description: Consent decisions; see server implementation.
+
+    ReferrerAggregateRow:
+      type: object
+      description: |
+        Task #582. 추천인(휴대폰 번호) 단위로 집계된 가입자 통계 + 매칭된 회원 정보.
+      properties:
+        referrerPhone:
+          type: string
+          description: "정규화된 11자리 휴대폰 번호"
+        signupCount:
+          type: integer
+          description: "이 번호를 추천인으로 등록한 가입자 수"
+        latestSignupAt:
+          type: ["string", "null"]
+          format: date-time
+        matchedUser:
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                id:
+                  type: integer
+                fullName:
+                  type: string
+                role:
+                  type: string
+              required: [id, fullName, role]
+        benefitTotalAmount:
+          type: integer
+          description: "지급 기록된 베네핏 합계(원/크레딧 — kind 와 무관한 단순 합)"
+        benefitCount:
+          type: integer
+        latestBenefitAt:
+          type: ["string", "null"]
+          format: date-time
+          description: "마지막으로 베네핏이 지급(기록)된 시각. 없으면 null."
+      required:
+        - referrerPhone
+        - signupCount
+        - latestSignupAt
+        - matchedUser
+        - benefitTotalAmount
+        - benefitCount
+        - latestBenefitAt
+
+    ReferralBenefit:
+      type: object
+      description: "Task #582. referral_benefits row."
+      properties:
+        id:
+          type: integer
+        referrerPhone:
+          type: string
+        grantedByUserId:
+          type: integer
+        grantedByName:
+          type: ["string", "null"]
+        kind:
+          type: string
+          enum: [credit, cash, other]
+        amount:
+          type: integer
+        memo:
+          type: ["string", "null"]
+        grantedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - referrerPhone
+        - grantedByUserId
+        - kind
+        - amount
+        - grantedAt
+
+    ReferrerRecruitedUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        phone:
+          type: ["string", "null"]
+        role:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, fullName, role, createdAt]
+
+    ReferrerDetail:
+      type: object
+      description: "Task #582. 추천인 상세 — 가입자 목록 + 베네핏 이력."
+      properties:
+        referrerPhone:
+          type: string
+        matchedUser:
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                id:
+                  type: integer
+                fullName:
+                  type: string
+                role:
+                  type: string
+                phone:
+                  type: ["string", "null"]
+              required: [id, fullName, role]
+        recruitedUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferrerRecruitedUser"
+        benefits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferralBenefit"
+        benefitTotalAmount:
+          type: integer
+      required:
+        - referrerPhone
+        - matchedUser
+        - recruitedUsers
+        - benefits
+        - benefitTotalAmount
+
+    CreateReferrerBenefitBody:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [credit, cash, other]
+        amount:
+          type: integer
+          minimum: 1
+        memo:
+          type: ["string", "null"]
+      required: [kind, amount]

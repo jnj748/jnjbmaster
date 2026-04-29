@@ -37,6 +37,10 @@ export const usersTable = pgTable("users", {
   //   JSON 배열 문자열로 저장. NULL 또는 빈 배열이면 모든 카테고리가 활성.
   //   "dashboard" 는 끌 수 없음(홈 진입 보장).
   disabledCategories: text("disabled_categories"),
+  // [Task #582] 가입 시 입력한 추천인 휴대폰 번호 (정규화된 11자리, 예: 01012345678).
+  //   본사가 referrer_phone 별로 가입 현황·베네핏 지급 이력을 집계한다.
+  //   해당 번호가 플랫폼 회원의 phone 과 일치하면 사이드 패널에서 매칭 정보가 보인다.
+  referrerPhone: text("referrer_phone"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

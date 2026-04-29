@@ -50,6 +50,9 @@ export default function SocialSignup() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  // [Task #582] 추천인 휴대폰 (선택). 11자리 휴대폰 형식으로만 검증한다.
+  const [referrerPhone, setReferrerPhone] = useState("");
+  const [referrerError, setReferrerError] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -120,10 +123,33 @@ export default function SocialSignup() {
   const missingRequired = getMissingRequired(consentDocs, consentValue);
   const consentsOk = missingRequired.length === 0;
 
+  // [Task #582] 추천인 입력의 즉시 유효성. 비어있으면 유효(선택 입력) 으로 간주.
+  //   본인 번호와 동일한 경우도 즉시 무효 처리해 가입 버튼을 비활성화하고
+  //   사용자에게 즉시 안내 메시지를 보여준다.
+  const referrerDigitsLive = referrerPhone.replace(/\D+/g, "");
+  const ownDigitsLive = phone.replace(/\D+/g, "");
+  let referrerLiveMessage: string | null = null;
+  let referrerValid = true;
+  if (referrerDigitsLive !== "") {
+    if (!/^010\d{8}$/.test(referrerDigitsLive)) {
+      // 길이가 충분히 길면 "입력 완료 후 형식 오류" 로 간주하고 메시지를 표시.
+      if (referrerDigitsLive.length >= 11) {
+        referrerLiveMessage = "010으로 시작하는 11자리 휴대폰 번호를 입력해 주세요";
+      }
+      referrerValid = false;
+    } else if (referrerDigitsLive === ownDigitsLive) {
+      referrerLiveMessage = "본인 연락처는 추천인으로 등록할 수 없습니다";
+      referrerValid = false;
+    }
+  }
+  // 라이브 메시지가 있으면 submit-time 메시지를 우선 시한다.
+  const referrerMessage = referrerError ?? referrerLiveMessage;
+
   async function performSubmit(finalValue: Record<string, boolean>) {
     setLoading(true);
     try {
       const decisions = buildDecisions(consentDocs, finalValue);
+      const referrerDigits = referrerPhone.replace(/\D+/g, "");
       const res = await fetch(`${API_BASE}/auth/oauth/complete-signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,6 +158,8 @@ export default function SocialSignup() {
           email: email.trim(),
           name: name.trim(),
           phone: phone.trim() || undefined,
+          // [Task #582] 추천인 휴대폰 (선택). 정규화는 서버가 다시 한 번 수행.
+          referrerPhone: referrerDigits || undefined,
           consents: { decisions, version: "1.0" },
         }),
       });
@@ -160,6 +188,19 @@ export default function SocialSignup() {
       setError("이름을 입력해 주세요");
       return;
     }
+    // [Task #582] 추천인 휴대폰: 입력 시에만 검증.
+    const referrerDigits = referrerPhone.replace(/\D+/g, "");
+    if (referrerDigits) {
+      if (!/^010\d{8}$/.test(referrerDigits)) {
+        setReferrerError("올바른 휴대폰 번호를 입력해 주세요");
+        return;
+      }
+      if (referrerDigits === phone.replace(/\D+/g, "")) {
+        setReferrerError("본인 연락처는 추천인으로 등록할 수 없습니다");
+        return;
+      }
+    }
+    setReferrerError(null);
     if (!consentsOk) {
       setError("필수 약관에 모두 동의해 주세요");
       return;
@@ -262,6 +303,34 @@ export default function SocialSignup() {
               />
             </div>
 
+            {/* [Task #582] 추천인 휴대폰. 검증·자기참조 차단·정규화 동시. */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                추천인 연락처 (선택)
+              </label>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                maxLength={14}
+                value={referrerPhone}
+                onChange={(e) => {
+                  setReferrerPhone(formatPhoneNumberPartial(e.target.value));
+                  setReferrerError(null);
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                placeholder="010-0000-0000"
+                aria-invalid={referrerMessage ? "true" : "false"}
+              />
+              {referrerMessage ? (
+                <p className="mt-1 text-xs text-rose-600">{referrerMessage}</p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500">
+                  추천해 주신 분의 휴대폰 번호를 입력하면 본사가 별도 보상에 활용합니다.
+                </p>
+              )}
+            </div>
+
             <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 leading-relaxed">
               <Shield className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
               (주)관리의달인은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따른
@@ -279,7 +348,7 @@ export default function SocialSignup() {
           <div className="shrink-0 px-5 pt-3 pb-4 md:px-6 md:pb-5 border-t border-slate-100">
             <button
               type="submit"
-              disabled={loading || !consentsOk}
+              disabled={loading || !consentsOk || !referrerValid}
               className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-medium text-sm md:text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "처리 중..." : "가입 완료"}

@@ -265,10 +265,28 @@ router.get("/auth/oauth/:provider/callback", async (req, res): Promise<void> => 
 });
 
 router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
-  const { pendingToken, email, name, phone, consents } = req.body || {};
+  const { pendingToken, email, name, phone, consents, referrerPhone } = req.body || {};
   if (!pendingToken) {
     res.status(400).json({ error: "유효하지 않은 요청입니다" });
     return;
+  }
+
+  // [Task #582] 추천인 휴대폰: 선택 입력. 입력 시 KR 모바일 010 + 8자리(총 11자리)만
+  // 허용한다. (집계 키로 사용되므로 정규화된 11자리만 저장.) 본인 번호와 동일하면 거절.
+  let normalizedReferrerPhone: string | null = null;
+  if (referrerPhone != null && String(referrerPhone).trim() !== "") {
+    const digits = String(referrerPhone).replace(/\D+/g, "");
+    const validKrMobile = /^010\d{8}$/.test(digits);
+    if (!validKrMobile) {
+      res.status(400).json({ error: "추천인 연락처는 올바른 휴대폰 번호여야 합니다" });
+      return;
+    }
+    const ownDigits = String(phone || "").replace(/\D+/g, "");
+    if (ownDigits && ownDigits === digits) {
+      res.status(400).json({ error: "본인 연락처는 추천인으로 등록할 수 없습니다" });
+      return;
+    }
+    normalizedReferrerPhone = digits;
   }
 
   let pending;
@@ -395,6 +413,8 @@ router.post("/auth/oauth/complete-signup", async (req, res): Promise<void> => {
         portalType: pending.portalType,
         // [Task #132] OAuth 가입은 가입 시점에 역할이 확정되므로 역할 선택 화면을 거치지 않는다.
         roleSelected: true,
+        // [Task #582] 가입 시 입력한 추천인 휴대폰 (정규화된 11자리). nullable.
+        referrerPhone: normalizedReferrerPhone,
       }).returning();
 
       await tx.insert(userSocialAccountsTable).values({

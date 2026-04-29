@@ -8712,3 +8712,170 @@ export const SendAiChatMessageBody = zod.object({
   sessionId: zod.number().optional(),
   content: zod.string(),
 });
+
+/**
+ * Completes a social signup. The body must include a `pendingToken` issued
+by the OAuth callback. Optionally accepts `referrerPhone` (KR mobile,
+digits or hyphenated). Other fields (consents, etc.) are accepted but
+not constrained here; see server implementation for details.
+
+ * @summary [Task #582] 소셜 로그인 후 가입 완료 (선택: 추천인 연락처 포함)
+ */
+export const CompleteOauthSignupBody = zod.object({
+  pendingToken: zod
+    .string()
+    .describe(
+      "Token issued by the OAuth callback identifying the pending signup.",
+    ),
+  email: zod.string().email().nullish(),
+  name: zod.string().nullish(),
+  phone: zod
+    .string()
+    .nullish()
+    .describe("Account holder's KR mobile phone (digits or hyphenated)."),
+  referrerPhone: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #582] Optional referrer's KR mobile phone (digits or hyphenated).\nServer requires 010 + 8 digits (11 digits total after normalization)\nand rejects self-referral.\n",
+    ),
+  consents: zod
+    .record(zod.string(), zod.unknown())
+    .optional()
+    .describe("Consent decisions; see server implementation."),
+});
+
+export const CompleteOauthSignupResponse = zod.record(
+  zod.string(),
+  zod.unknown(),
+);
+
+/**
+ * @summary [Task #582] platform_admin: 추천인별 가입자 집계 목록
+ */
+export const listAdminReferrersQuerySortDefault = `signups_desc`;
+export const listAdminReferrersQueryLimitDefault = 100;
+export const listAdminReferrersQueryLimitMax = 200;
+
+export const listAdminReferrersQueryOffsetDefault = 0;
+export const listAdminReferrersQueryOffsetMin = 0;
+
+export const ListAdminReferrersQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .optional()
+    .describe("추천인 연락처 부분 검색 (숫자만 비교)"),
+  sort: zod
+    .enum([
+      "signups_desc",
+      "signups_asc",
+      "recent_desc",
+      "recent_asc",
+      "phone_asc",
+    ])
+    .default(listAdminReferrersQuerySortDefault),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminReferrersQueryLimitMax)
+    .default(listAdminReferrersQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(listAdminReferrersQueryOffsetMin)
+    .default(listAdminReferrersQueryOffsetDefault),
+});
+
+export const ListAdminReferrersResponse = zod.object({
+  referrers: zod.array(
+    zod
+      .object({
+        referrerPhone: zod.string().describe("정규화된 11자리 휴대폰 번호"),
+        signupCount: zod
+          .number()
+          .describe("이 번호를 추천인으로 등록한 가입자 수"),
+        latestSignupAt: zod.string().datetime({}).nullable(),
+        matchedUser: zod.union([
+          zod.null(),
+          zod.object({
+            id: zod.number(),
+            fullName: zod.string(),
+            role: zod.string(),
+          }),
+        ]),
+        benefitTotalAmount: zod
+          .number()
+          .describe(
+            "지급 기록된 베네핏 합계(원\/크레딧 — kind 와 무관한 단순 합)",
+          ),
+        benefitCount: zod.number(),
+        latestBenefitAt: zod
+          .string()
+          .datetime({})
+          .nullable()
+          .describe("마지막으로 베네핏이 지급(기록)된 시각. 없으면 null."),
+      })
+      .describe(
+        "Task #582. 추천인(휴대폰 번호) 단위로 집계된 가입자 통계 + 매칭된 회원 정보.\n",
+      ),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary [Task #582] platform_admin: 특정 추천인의 가입자/베네핏 이력
+ */
+export const GetAdminReferrerDetailParams = zod.object({
+  phone: zod.coerce.string().describe("정규화된 11자리 휴대폰 번호"),
+});
+
+export const GetAdminReferrerDetailResponse = zod
+  .object({
+    referrerPhone: zod.string(),
+    matchedUser: zod.union([
+      zod.null(),
+      zod.object({
+        id: zod.number(),
+        fullName: zod.string(),
+        role: zod.string(),
+        phone: zod.string().nullish(),
+      }),
+    ]),
+    recruitedUsers: zod.array(
+      zod.object({
+        id: zod.number(),
+        fullName: zod.string(),
+        phone: zod.string().nullish(),
+        role: zod.string(),
+        createdAt: zod.string().datetime({}),
+      }),
+    ),
+    benefits: zod.array(
+      zod
+        .object({
+          id: zod.number(),
+          referrerPhone: zod.string(),
+          grantedByUserId: zod.number(),
+          grantedByName: zod.string().nullish(),
+          kind: zod.enum(["credit", "cash", "other"]),
+          amount: zod.number(),
+          memo: zod.string().nullish(),
+          grantedAt: zod.string().datetime({}),
+        })
+        .describe("Task #582. referral_benefits row."),
+    ),
+    benefitTotalAmount: zod.number(),
+  })
+  .describe("Task #582. 추천인 상세 — 가입자 목록 + 베네핏 이력.");
+
+/**
+ * @summary [Task #582] platform_admin: 추천인 베네핏 지급 기록
+ */
+export const CreateReferrerBenefitParams = zod.object({
+  phone: zod.coerce.string(),
+});
+
+export const CreateReferrerBenefitBody = zod.object({
+  kind: zod.enum(["credit", "cash", "other"]),
+  amount: zod.number().min(1),
+  memo: zod.string().nullish(),
+});

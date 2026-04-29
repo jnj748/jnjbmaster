@@ -63,6 +63,8 @@ import type {
   Complaint,
   ComplaintAnalytics,
   CompleteInspectionBody,
+  CompleteOauthSignup200,
+  CompleteOauthSignupBody,
   ConfirmCreditTopupOrderBody,
   Contract,
   ContractDetail,
@@ -89,6 +91,8 @@ import type {
   CreatePlatformAnnouncementBody,
   CreatePlatformKnowledgeDocBody,
   CreateQuoteBody,
+  CreateReferrerBenefit201,
+  CreateReferrerBenefitBody,
   CreateRfqBody,
   CreateSafetyChecklistBody,
   CreateSafetyChecklistItemBody,
@@ -186,6 +190,8 @@ import type {
   KakaoNotifyResponse,
   ListAdminBuildingNoticeTemplates200,
   ListAdminCreditTopupOrdersParams,
+  ListAdminReferrers200,
+  ListAdminReferrersParams,
   ListAlertActionsParams,
   ListApprovalsParams,
   ListBuildingNoticeTemplates200,
@@ -246,6 +252,7 @@ import type {
   RecordCampaignCtaClick200,
   RecordCampaignImpression200,
   RecordPaymentBody,
+  ReferrerDetail,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   RenameAiSessionBody,
@@ -25586,4 +25593,447 @@ export const useSendAiChatMessage = <
   TContext
 > => {
   return useMutation(getSendAiChatMessageMutationOptions(options));
+};
+
+/**
+ * Completes a social signup. The body must include a `pendingToken` issued
+by the OAuth callback. Optionally accepts `referrerPhone` (KR mobile,
+digits or hyphenated). Other fields (consents, etc.) are accepted but
+not constrained here; see server implementation for details.
+
+ * @summary [Task #582] 소셜 로그인 후 가입 완료 (선택: 추천인 연락처 포함)
+ */
+export const getCompleteOauthSignupUrl = () => {
+  return `/api/auth/oauth/complete-signup`;
+};
+
+export const completeOauthSignup = async (
+  completeOauthSignupBody: CompleteOauthSignupBody,
+  options?: RequestInit,
+): Promise<CompleteOauthSignup200> => {
+  return customFetch<CompleteOauthSignup200>(getCompleteOauthSignupUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completeOauthSignupBody),
+  });
+};
+
+export const getCompleteOauthSignupMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOauthSignup>>,
+    TError,
+    { data: BodyType<CompleteOauthSignupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeOauthSignup>>,
+  TError,
+  { data: BodyType<CompleteOauthSignupBody> },
+  TContext
+> => {
+  const mutationKey = ["completeOauthSignup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeOauthSignup>>,
+    { data: BodyType<CompleteOauthSignupBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return completeOauthSignup(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteOauthSignupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeOauthSignup>>
+>;
+export type CompleteOauthSignupMutationBody = BodyType<CompleteOauthSignupBody>;
+export type CompleteOauthSignupMutationError = ErrorType<void>;
+
+/**
+ * @summary [Task #582] 소셜 로그인 후 가입 완료 (선택: 추천인 연락처 포함)
+ */
+export const useCompleteOauthSignup = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOauthSignup>>,
+    TError,
+    { data: BodyType<CompleteOauthSignupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeOauthSignup>>,
+  TError,
+  { data: BodyType<CompleteOauthSignupBody> },
+  TContext
+> => {
+  return useMutation(getCompleteOauthSignupMutationOptions(options));
+};
+
+/**
+ * @summary [Task #582] platform_admin: 추천인별 가입자 집계 목록
+ */
+export const getListAdminReferrersUrl = (params?: ListAdminReferrersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/referrers?${stringifiedParams}`
+    : `/api/admin/referrers`;
+};
+
+export const listAdminReferrers = async (
+  params?: ListAdminReferrersParams,
+  options?: RequestInit,
+): Promise<ListAdminReferrers200> => {
+  return customFetch<ListAdminReferrers200>(getListAdminReferrersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminReferrersQueryKey = (
+  params?: ListAdminReferrersParams,
+) => {
+  return [`/api/admin/referrers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminReferrersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminReferrers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminReferrersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminReferrers>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminReferrersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminReferrers>>
+  > = ({ signal }) => listAdminReferrers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminReferrers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminReferrersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminReferrers>>
+>;
+export type ListAdminReferrersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #582] platform_admin: 추천인별 가입자 집계 목록
+ */
+
+export function useListAdminReferrers<
+  TData = Awaited<ReturnType<typeof listAdminReferrers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminReferrersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminReferrers>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminReferrersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #582] platform_admin: 추천인 집계 CSV 다운로드
+ */
+export const getExportAdminReferrersUrl = () => {
+  return `/api/admin/referrers/export`;
+};
+
+export const exportAdminReferrers = async (
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportAdminReferrersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportAdminReferrersQueryKey = () => {
+  return [`/api/admin/referrers/export`] as const;
+};
+
+export const getExportAdminReferrersQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportAdminReferrers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof exportAdminReferrers>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getExportAdminReferrersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportAdminReferrers>>
+  > = ({ signal }) => exportAdminReferrers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportAdminReferrers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportAdminReferrersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportAdminReferrers>>
+>;
+export type ExportAdminReferrersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #582] platform_admin: 추천인 집계 CSV 다운로드
+ */
+
+export function useExportAdminReferrers<
+  TData = Awaited<ReturnType<typeof exportAdminReferrers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof exportAdminReferrers>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportAdminReferrersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #582] platform_admin: 특정 추천인의 가입자/베네핏 이력
+ */
+export const getGetAdminReferrerDetailUrl = (phone: string) => {
+  return `/api/admin/referrers/${phone}`;
+};
+
+export const getAdminReferrerDetail = async (
+  phone: string,
+  options?: RequestInit,
+): Promise<ReferrerDetail> => {
+  return customFetch<ReferrerDetail>(getGetAdminReferrerDetailUrl(phone), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminReferrerDetailQueryKey = (phone: string) => {
+  return [`/api/admin/referrers/${phone}`] as const;
+};
+
+export const getGetAdminReferrerDetailQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminReferrerDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  phone: string,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminReferrerDetail>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminReferrerDetailQueryKey(phone);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminReferrerDetail>>
+  > = ({ signal }) =>
+    getAdminReferrerDetail(phone, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!phone,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminReferrerDetail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminReferrerDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminReferrerDetail>>
+>;
+export type GetAdminReferrerDetailQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #582] platform_admin: 특정 추천인의 가입자/베네핏 이력
+ */
+
+export function useGetAdminReferrerDetail<
+  TData = Awaited<ReturnType<typeof getAdminReferrerDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  phone: string,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminReferrerDetail>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminReferrerDetailQueryOptions(phone, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #582] platform_admin: 추천인 베네핏 지급 기록
+ */
+export const getCreateReferrerBenefitUrl = (phone: string) => {
+  return `/api/admin/referrers/${phone}/benefits`;
+};
+
+export const createReferrerBenefit = async (
+  phone: string,
+  createReferrerBenefitBody: CreateReferrerBenefitBody,
+  options?: RequestInit,
+): Promise<CreateReferrerBenefit201> => {
+  return customFetch<CreateReferrerBenefit201>(
+    getCreateReferrerBenefitUrl(phone),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createReferrerBenefitBody),
+    },
+  );
+};
+
+export const getCreateReferrerBenefitMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReferrerBenefit>>,
+    TError,
+    { phone: string; data: BodyType<CreateReferrerBenefitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReferrerBenefit>>,
+  TError,
+  { phone: string; data: BodyType<CreateReferrerBenefitBody> },
+  TContext
+> => {
+  const mutationKey = ["createReferrerBenefit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReferrerBenefit>>,
+    { phone: string; data: BodyType<CreateReferrerBenefitBody> }
+  > = (props) => {
+    const { phone, data } = props ?? {};
+
+    return createReferrerBenefit(phone, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReferrerBenefitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReferrerBenefit>>
+>;
+export type CreateReferrerBenefitMutationBody =
+  BodyType<CreateReferrerBenefitBody>;
+export type CreateReferrerBenefitMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #582] platform_admin: 추천인 베네핏 지급 기록
+ */
+export const useCreateReferrerBenefit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReferrerBenefit>>,
+    TError,
+    { phone: string; data: BodyType<CreateReferrerBenefitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createReferrerBenefit>>,
+  TError,
+  { phone: string; data: BodyType<CreateReferrerBenefitBody> },
+  TContext
+> => {
+  return useMutation(getCreateReferrerBenefitMutationOptions(options));
 };
