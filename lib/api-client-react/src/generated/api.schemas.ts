@@ -4510,6 +4510,23 @@ export const MeterReadingMeterType = {
   heating: "heating",
 } as const;
 
+export type MeterReadingReadingType =
+  (typeof MeterReadingReadingType)[keyof typeof MeterReadingReadingType];
+
+export const MeterReadingReadingType = {
+  regular: "regular",
+  interim: "interim",
+} as const;
+
+export type MeterReadingInputMethod =
+  (typeof MeterReadingInputMethod)[keyof typeof MeterReadingInputMethod];
+
+export const MeterReadingInputMethod = {
+  manual: "manual",
+  photo: "photo",
+  csv: "csv",
+} as const;
+
 export interface MeterReading {
   id: number;
   buildingId: number;
@@ -4517,16 +4534,93 @@ export interface MeterReading {
   unitId?: number | null;
   unitNumber: string;
   meterType: MeterReadingMeterType;
+  readingType: MeterReadingReadingType;
   readingDate: string;
+  /** @nullable */
+  periodStart?: string | null;
+  /** @nullable */
+  periodEnd?: string | null;
+  /** @nullable */
+  tenantId?: number | null;
   /** @nullable */
   previousReading?: string | null;
   currentReading: string;
   /** @nullable */
   usage?: string | null;
+  inputMethod: MeterReadingInputMethod;
+  /** @nullable */
+  photoObjectPath?: string | null;
   isAnomaly: boolean;
   /** @nullable */
   anomalyNote?: string | null;
+  /**
+   * [Task #630] 입력자 user.id (구 데이터는 null).
+   * @nullable
+   */
+  authorId?: number | null;
+  /**
+   * [Task #630] 입력 시점의 역할 라벨 키 (manager/accountant/facility_staff/platform_admin).
+   * @nullable
+   */
+  authorRole?: string | null;
   createdAt?: string;
+}
+
+export type UpdateMeterReadingBodyReadingType =
+  (typeof UpdateMeterReadingBodyReadingType)[keyof typeof UpdateMeterReadingBodyReadingType];
+
+export const UpdateMeterReadingBodyReadingType = {
+  regular: "regular",
+  interim: "interim",
+} as const;
+
+/**
+ * [Task #630] 부분 수정. 빈 필드는 변경하지 않는다.
+readingType, readingDate, currentReading, previousReading,
+periodStart/End, anomalyNote 등을 갱신할 수 있다.
+
+ */
+export interface UpdateMeterReadingBody {
+  readingDate?: string;
+  readingType?: UpdateMeterReadingBodyReadingType;
+  /** @nullable */
+  previousReading?: number | null;
+  currentReading?: number;
+  /** @nullable */
+  periodStart?: string | null;
+  /** @nullable */
+  periodEnd?: string | null;
+  /** @nullable */
+  tenantId?: number | null;
+  /** @nullable */
+  anomalyNote?: string | null;
+  /** 사유 (감사로그 diffSummary 에 보존). */
+  editReason?: string;
+}
+
+export type MeterReadingAuditAction =
+  (typeof MeterReadingAuditAction)[keyof typeof MeterReadingAuditAction];
+
+export const MeterReadingAuditAction = {
+  create: "create",
+  update: "update",
+  delete: "delete",
+} as const;
+
+export interface MeterReadingAudit {
+  id: number;
+  meterReadingId: number;
+  buildingId: number;
+  action: MeterReadingAuditAction;
+  /** @nullable */
+  actorId?: number | null;
+  /** @nullable */
+  actorRole?: string | null;
+  beforeJson?: unknown | null;
+  afterJson?: unknown | null;
+  /** @nullable */
+  diffSummary?: string | null;
+  createdAt: string;
 }
 
 export type CreateMeterReadingBodyMeterType =
@@ -4539,12 +4633,59 @@ export const CreateMeterReadingBodyMeterType = {
   heating: "heating",
 } as const;
 
+export type CreateMeterReadingBodyReadingType =
+  (typeof CreateMeterReadingBodyReadingType)[keyof typeof CreateMeterReadingBodyReadingType];
+
+export const CreateMeterReadingBodyReadingType = {
+  regular: "regular",
+  interim: "interim",
+} as const;
+
+export type CreateMeterReadingBodyInputMethod =
+  (typeof CreateMeterReadingBodyInputMethod)[keyof typeof CreateMeterReadingBodyInputMethod];
+
+export const CreateMeterReadingBodyInputMethod = {
+  manual: "manual",
+  photo: "photo",
+  csv: "csv",
+} as const;
+
 export interface CreateMeterReadingBody {
   unitNumber: string;
+  unitId?: number;
   meterType: CreateMeterReadingBodyMeterType;
+  readingType?: CreateMeterReadingBodyReadingType;
   readingDate: string;
+  periodStart?: string;
+  periodEnd?: string;
+  tenantId?: number;
   previousReading?: number;
   currentReading: number;
+  inputMethod?: CreateMeterReadingBodyInputMethod;
+  photoObjectPath?: string;
+}
+
+export type MeterOcrBodyMeterType =
+  (typeof MeterOcrBodyMeterType)[keyof typeof MeterOcrBodyMeterType];
+
+export const MeterOcrBodyMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export interface MeterOcrBody {
+  objectPath: string;
+  fileName?: string;
+  meterType?: MeterOcrBodyMeterType;
+}
+
+export interface MeterOcrResponse {
+  /** @nullable */
+  currentReading?: number | null;
+  confidence: number;
+  rawText: string;
 }
 
 export type MeterCsvUploadBodyMeterType =
@@ -4637,6 +4778,10 @@ export interface InterimSettlementResponse {
   proRatedFee?: number;
   specialFundRefund?: number;
   totalSettlement: number;
+  /** [Task #630] 같은 호실의 이사 시점 전후 검침을 보조 정보로 첨부.
+중간 검침이 있으면 사용자가 손으로 옮겨 적지 않게 화면에 그대로 노출한다.
+ */
+  relatedMeterReadings?: MeterReading[];
 }
 
 export interface KakaoNotifyBody {
@@ -6679,12 +6824,61 @@ export type GetCalendarEventsParams = {
 export type ListMeterReadingsParams = {
   meterType?: ListMeterReadingsMeterType;
   month?: string;
+  unitId?: number;
+  unitNumber?: string;
+  readingType?: ListMeterReadingsReadingType;
+  from?: string;
+  to?: string;
+  limit?: number;
 };
 
 export type ListMeterReadingsMeterType =
   (typeof ListMeterReadingsMeterType)[keyof typeof ListMeterReadingsMeterType];
 
 export const ListMeterReadingsMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export type ListMeterReadingsReadingType =
+  (typeof ListMeterReadingsReadingType)[keyof typeof ListMeterReadingsReadingType];
+
+export const ListMeterReadingsReadingType = {
+  regular: "regular",
+  interim: "interim",
+} as const;
+
+export type ListLatestMeterReadingsParams = {
+  meterType: ListLatestMeterReadingsMeterType;
+  /**
+   * 콤마로 구분된 unit id. 비어있으면 건물 전체.
+   */
+  unitIds?: string;
+};
+
+export type ListLatestMeterReadingsMeterType =
+  (typeof ListLatestMeterReadingsMeterType)[keyof typeof ListLatestMeterReadingsMeterType];
+
+export const ListLatestMeterReadingsMeterType = {
+  water: "water",
+  electricity: "electricity",
+  gas: "gas",
+  heating: "heating",
+} as const;
+
+export type ExportMeterReadingsParams = {
+  meterType?: ExportMeterReadingsMeterType;
+  from?: string;
+  to?: string;
+  unitNumber?: string;
+};
+
+export type ExportMeterReadingsMeterType =
+  (typeof ExportMeterReadingsMeterType)[keyof typeof ExportMeterReadingsMeterType];
+
+export const ExportMeterReadingsMeterType = {
   water: "water",
   electricity: "electricity",
   gas: "gas",

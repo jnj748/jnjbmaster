@@ -6,8 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListMeterReadingsMeterType } from "./listMeterReadingsMeterType";
+import type { ListMeterReadingsReadingType } from "./listMeterReadingsReadingType";
 
 export type ListMeterReadingsParams = {
   meterType?: ListMeterReadingsMeterType;
   month?: string;
+  unitId?: number;
+  unitNumber?: string;
+  readingType?: ListMeterReadingsReadingType;
+  from?: string;
+  to?: string;
+  limit?: number;
 };

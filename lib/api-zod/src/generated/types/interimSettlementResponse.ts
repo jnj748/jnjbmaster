@@ -5,6 +5,7 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MeterReading } from "./meterReading";
 
 export interface InterimSettlementResponse {
   unitNumber: string;
@@ -15,4 +16,8 @@ export interface InterimSettlementResponse {
   proRatedFee?: number;
   specialFundRefund?: number;
   totalSettlement: number;
+  /** [Task #630] 같은 호실의 이사 시점 전후 검침을 보조 정보로 첨부.
+중간 검침이 있으면 사용자가 손으로 옮겨 적지 않게 화면에 그대로 노출한다.
+ */
+  relatedMeterReadings?: MeterReading[];
 }

@@ -5,12 +5,21 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateMeterReadingBodyInputMethod } from "./createMeterReadingBodyInputMethod";
 import type { CreateMeterReadingBodyMeterType } from "./createMeterReadingBodyMeterType";
+import type { CreateMeterReadingBodyReadingType } from "./createMeterReadingBodyReadingType";
 
 export interface CreateMeterReadingBody {
   unitNumber: string;
+  unitId?: number;
   meterType: CreateMeterReadingBodyMeterType;
+  readingType?: CreateMeterReadingBodyReadingType;
   readingDate: string;
+  periodStart?: string;
+  periodEnd?: string;
+  tenantId?: number;
   previousReading?: number;
   currentReading: number;
+  inputMethod?: CreateMeterReadingBodyInputMethod;
+  photoObjectPath?: string;
 }

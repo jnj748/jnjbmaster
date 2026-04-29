@@ -5156,6 +5156,33 @@ paths:
           in: query
           schema:
             type: string
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: unitNumber
+          in: query
+          schema:
+            type: string
+        - name: readingType
+          in: query
+          schema:
+            type: string
+            enum: [regular, interim]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: List of meter readings
@@ -5183,6 +5210,72 @@ paths:
               schema:
                 $ref: "#/components/schemas/MeterReading"
 
+  /meters/{id}:
+    put:
+      operationId: updateMeterReading
+      tags: [meters]
+      summary: Update a meter reading
+      description: |
+        [Task #630] 입력자 본인 또는 관리소장만 수정 가능. 본부장은 읽기만 가능하므로 거부된다.
+        모든 변경은 meter_reading_audits 에 영구 보관된다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeterReadingBody"
+      responses:
+        "200":
+          description: Updated meter reading
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterReading"
+    delete:
+      operationId: deleteMeterReading
+      tags: [meters]
+      summary: Delete a meter reading
+      description: |
+        [Task #630] 관리소장만 삭제 가능. 감사 행은 삭제 후에도 영구 보관된다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meters/{id}/audits:
+    get:
+      operationId: listMeterReadingAudits
+      tags: [meters]
+      summary: List audit history for a meter reading
+      description: |
+        [Task #630] 검침 행의 모든 입력·수정·삭제 이력. 본부장도 조회 가능하다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit log entries (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeterReadingAudit"
+
   /meters/anomalies:
     get:
       operationId: listMeterAnomalies
@@ -5191,6 +5284,36 @@ paths:
       responses:
         "200":
           description: List of anomalous readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeterReading"
+
+  /meters/latest:
+    get:
+      operationId: listLatestMeterReadings
+      tags: [meters]
+      summary: List the most recent meter reading per (unit, meterType)
+      description: |
+        검침 입력 화면에서 호실 목록과 함께 "이미 입력됨/전월값" 을 한 번에 표시하기
+        위해 사용. unitIds 가 비어 있으면 건물 전체 호실에 대해 반환한다.
+      parameters:
+        - name: meterType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [water, electricity, gas, heating]
+        - name: unitIds
+          in: query
+          description: 콤마로 구분된 unit id. 비어있으면 건물 전체.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of latest readings (one per unit)
           content:
             application/json:
               schema:
@@ -5216,6 +5339,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeterCsvUploadResponse"
+
+  /meters/ocr:
+    post:
+      operationId: meterPhotoOcr
+      tags: [meters]
+      summary: Run OCR on a meter photo
+      description: |
+        업로드된 계량기 사진(objectPath)을 Gemini 로 분석해 currentReading 후보값과
+        신뢰도를 반환한다. 사용자는 화면에서 후보값을 확인·수정한 뒤 저장한다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeterOcrBody"
+      responses:
+        "200":
+          description: OCR result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterOcrResponse"
+
+  /meters/export:
+    get:
+      operationId: exportMeterReadings
+      tags: [meters]
+      summary: Export meter readings as CSV
+      parameters:
+        - name: meterType
+          in: query
+          schema:
+            type: string
+            enum: [water, electricity, gas, heating]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: unitNumber
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CSV stream (Excel-compatible, UTF-8 BOM)
+          content:
+            text/csv:
+              schema:
+                type: string
 
   /fees/calculate:
     post:
@@ -12088,18 +12266,38 @@ components:
         meterType:
           type: string
           enum: [water, electricity, gas, heating]
+        readingType:
+          type: string
+          enum: [regular, interim]
         readingDate:
           type: string
+        periodStart:
+          type: ["string", "null"]
+        periodEnd:
+          type: ["string", "null"]
+        tenantId:
+          type: ["integer", "null"]
         previousReading:
           type: ["string", "null"]
         currentReading:
           type: string
         usage:
           type: ["string", "null"]
+        inputMethod:
+          type: string
+          enum: [manual, photo, csv]
+        photoObjectPath:
+          type: ["string", "null"]
         isAnomaly:
           type: boolean
         anomalyNote:
           type: ["string", "null"]
+        authorId:
+          type: ["integer", "null"]
+          description: "[Task #630] 입력자 user.id (구 데이터는 null)."
+        authorRole:
+          type: ["string", "null"]
+          description: "[Task #630] 입력 시점의 역할 라벨 키 (manager/accountant/facility_staff/platform_admin)."
         createdAt:
           type: string
       required:
@@ -12107,29 +12305,132 @@ components:
         - buildingId
         - unitNumber
         - meterType
+        - readingType
         - readingDate
         - currentReading
+        - inputMethod
         - isAnomaly
+
+    UpdateMeterReadingBody:
+      type: object
+      description: |
+        [Task #630] 부분 수정. 빈 필드는 변경하지 않는다.
+        readingType, readingDate, currentReading, previousReading,
+        periodStart/End, anomalyNote 등을 갱신할 수 있다.
+      properties:
+        readingDate:
+          type: string
+        readingType:
+          type: string
+          enum: [regular, interim]
+        previousReading:
+          type: ["number", "null"]
+        currentReading:
+          type: number
+        periodStart:
+          type: ["string", "null"]
+        periodEnd:
+          type: ["string", "null"]
+        tenantId:
+          type: ["integer", "null"]
+        anomalyNote:
+          type: ["string", "null"]
+        editReason:
+          type: string
+          description: "사유 (감사로그 diffSummary 에 보존)."
+
+    MeterReadingAudit:
+      type: object
+      properties:
+        id:
+          type: integer
+        meterReadingId:
+          type: integer
+        buildingId:
+          type: integer
+        action:
+          type: string
+          enum: [create, update, delete]
+        actorId:
+          type: ["integer", "null"]
+        actorRole:
+          type: ["string", "null"]
+        beforeJson:
+          nullable: true
+        afterJson:
+          nullable: true
+        diffSummary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - meterReadingId
+        - buildingId
+        - action
+        - createdAt
 
     CreateMeterReadingBody:
       type: object
       properties:
         unitNumber:
           type: string
+        unitId:
+          type: integer
         meterType:
           type: string
           enum: [water, electricity, gas, heating]
+        readingType:
+          type: string
+          enum: [regular, interim]
         readingDate:
           type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        tenantId:
+          type: integer
         previousReading:
           type: number
         currentReading:
           type: number
+        inputMethod:
+          type: string
+          enum: [manual, photo, csv]
+        photoObjectPath:
+          type: string
       required:
         - unitNumber
         - meterType
         - readingDate
         - currentReading
+
+    MeterOcrBody:
+      type: object
+      properties:
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        meterType:
+          type: string
+          enum: [water, electricity, gas, heating]
+      required:
+        - objectPath
+
+    MeterOcrResponse:
+      type: object
+      properties:
+        currentReading:
+          type: ["number", "null"]
+        confidence:
+          type: number
+        rawText:
+          type: string
+      required:
+        - confidence
+        - rawText
 
     MeterCsvUploadBody:
       type: object
@@ -12309,6 +12610,13 @@ components:
           type: number
         totalSettlement:
           type: number
+        relatedMeterReadings:
+          type: array
+          description: |
+            [Task #630] 같은 호실의 이사 시점 전후 검침을 보조 정보로 첨부.
+            중간 검침이 있으면 사용자가 손으로 옮겨 적지 않게 화면에 그대로 노출한다.
+          items:
+            $ref: "#/components/schemas/MeterReading"
       required:
         - unitNumber
         - moveOutDate

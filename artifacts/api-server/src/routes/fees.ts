@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
-import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable } from "@workspace/db";
+import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable, meterReadingsTable } from "@workspace/db";
 import { runBillOcr } from "../lib/billOcr";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
@@ -331,6 +331,50 @@ router.post("/fees/interim", async (req: Request, res: Response): Promise<void> 
   const specialFundRefund = includeSpecialFund ? Math.round(monthlyFee * 0.05 * residencyDays / daysInMonth) : 0;
   const totalSettlement = proRatedFee - specialFundRefund;
 
+  // [Task #630] 같은 호실의 이사 시점 전후 검침을 반환해 화면에서 손으로 옮겨
+  //   적지 않게 한다. 우선순위:
+  //     1) 이사일 ±15일 안의 중간(interim) 검침 — 책임 분리 근거.
+  //     2) 이사일 직전 마지막 정기(regular) 검침 — 누적 지침 비교용.
+  //   둘 다 없으면 ±60일 보조 윈도우의 정기 검침 1건을 폴백으로 포함한다.
+  let relatedMeterReadings: typeof meterReadingsTable.$inferSelect[] = [];
+  const buildingId = await getUserBuildingId(req);
+  if (buildingId) {
+    const interimFrom = new Date(moveOut); interimFrom.setDate(interimFrom.getDate() - 15);
+    const interimTo = new Date(moveOut); interimTo.setDate(interimTo.getDate() + 15);
+    const fallbackFrom = new Date(moveOut); fallbackFrom.setDate(fallbackFrom.getDate() - 60);
+
+    const [interimNear, regularBefore, fallbackRegular] = await Promise.all([
+      db.select().from(meterReadingsTable).where(and(
+        eq(meterReadingsTable.buildingId, buildingId),
+        eq(meterReadingsTable.unitNumber, unitNumber),
+        eq(meterReadingsTable.readingType, "interim"),
+        gte(meterReadingsTable.readingDate, interimFrom.toISOString().slice(0, 10)),
+        lte(meterReadingsTable.readingDate, interimTo.toISOString().slice(0, 10)),
+      )).orderBy(desc(meterReadingsTable.readingDate)).limit(8),
+      db.select().from(meterReadingsTable).where(and(
+        eq(meterReadingsTable.buildingId, buildingId),
+        eq(meterReadingsTable.unitNumber, unitNumber),
+        eq(meterReadingsTable.readingType, "regular"),
+        lte(meterReadingsTable.readingDate, moveOut.toISOString().slice(0, 10)),
+      )).orderBy(desc(meterReadingsTable.readingDate)).limit(4),
+      db.select().from(meterReadingsTable).where(and(
+        eq(meterReadingsTable.buildingId, buildingId),
+        eq(meterReadingsTable.unitNumber, unitNumber),
+        eq(meterReadingsTable.readingType, "regular"),
+        gte(meterReadingsTable.readingDate, fallbackFrom.toISOString().slice(0, 10)),
+        lte(meterReadingsTable.readingDate, moveOut.toISOString().slice(0, 10)),
+      )).orderBy(desc(meterReadingsTable.readingDate)).limit(2),
+    ]);
+    const seen = new Set<number>();
+    const merged: typeof meterReadingsTable.$inferSelect[] = [];
+    for (const r of [...interimNear, ...regularBefore, ...fallbackRegular]) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      merged.push(r);
+    }
+    relatedMeterReadings = merged.slice(0, 12);
+  }
+
   res.json({
     unitNumber,
     moveOutDate,
@@ -340,6 +384,7 @@ router.post("/fees/interim", async (req: Request, res: Response): Promise<void> 
     proRatedFee,
     specialFundRefund,
     totalSettlement,
+    relatedMeterReadings,
   });
 });
 

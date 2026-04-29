@@ -408,10 +408,14 @@ export const ROUTES: RouteEntry[] = [
     sideMenu: ["accountant"],
   },
   {
+    // [Task #630] 가시성 정책 (사장 답변):
+    //   - 입력·수정 가능: 같은 건물 직원(소장·경리·시설) + 본사 어드민.
+    //   - 읽기만: 본부장(관할 건물 묶음). UI 가 자동으로 조회 전용 모드 전환.
+    //   - 비가시: 파트너 (access 에서 제외).
     path: "/erp/metering", component: ErpPhase1,
-    label: "검침/에너지", icon: Droplets, group: "accounting",
-    access: ["platform_admin", "accountant"],
-    sideMenu: ["accountant"],
+    label: "검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,

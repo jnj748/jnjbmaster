@@ -5,7 +5,9 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MeterReadingInputMethod } from "./meterReadingInputMethod";
 import type { MeterReadingMeterType } from "./meterReadingMeterType";
+import type { MeterReadingReadingType } from "./meterReadingReadingType";
 
 export interface MeterReading {
   id: number;
@@ -14,14 +16,34 @@ export interface MeterReading {
   unitId?: number | null;
   unitNumber: string;
   meterType: MeterReadingMeterType;
+  readingType: MeterReadingReadingType;
   readingDate: string;
+  /** @nullable */
+  periodStart?: string | null;
+  /** @nullable */
+  periodEnd?: string | null;
+  /** @nullable */
+  tenantId?: number | null;
   /** @nullable */
   previousReading?: string | null;
   currentReading: string;
   /** @nullable */
   usage?: string | null;
+  inputMethod: MeterReadingInputMethod;
+  /** @nullable */
+  photoObjectPath?: string | null;
   isAnomaly: boolean;
   /** @nullable */
   anomalyNote?: string | null;
+  /**
+   * [Task #630] 입력자 user.id (구 데이터는 null).
+   * @nullable
+   */
+  authorId?: number | null;
+  /**
+   * [Task #630] 입력 시점의 역할 라벨 키 (manager/accountant/facility_staff/platform_admin).
+   * @nullable
+   */
+  authorRole?: string | null;
   createdAt?: string;
 }

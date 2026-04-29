@@ -23,7 +23,7 @@ const COLOR_PALETTE = [
 
 const DESCRIPTIONS: Record<string, string> = {
   "/erp/accounting": "월 마감/전표 처리",
-  "/erp/metering": "검침 입력 및 사용량 분석",
+  "/erp/metering": "수도/전기/가스 검침 입력 (사진·CSV 지원)",
   "/erp/billing": "고지서 발급·수납 관리",
   "/erp/fees-summary": "AI OCR 기반 관리비 요약",
   "/erp/bills": "월별 청구서 OCR/편집",

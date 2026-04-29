@@ -7191,6 +7191,12 @@ export const GetCalendarEventsResponse = zod.array(
 export const ListMeterReadingsQueryParams = zod.object({
   meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
   month: zod.coerce.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  unitNumber: zod.coerce.string().optional(),
+  readingType: zod.enum(["regular", "interim"]).optional(),
+  from: zod.coerce.string().date().optional(),
+  to: zod.coerce.string().date().optional(),
+  limit: zod.coerce.number().optional(),
 });
 
 export const ListMeterReadingsResponseItem = zod.object({
@@ -7199,12 +7205,28 @@ export const ListMeterReadingsResponseItem = zod.object({
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
   meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
+  periodStart: zod.string().nullish(),
+  periodEnd: zod.string().nullish(),
+  tenantId: zod.number().nullish(),
   previousReading: zod.string().nullish(),
   currentReading: zod.string(),
   usage: zod.string().nullish(),
+  inputMethod: zod.enum(["manual", "photo", "csv"]),
+  photoObjectPath: zod.string().nullish(),
   isAnomaly: zod.boolean(),
   anomalyNote: zod.string().nullish(),
+  authorId: zod
+    .number()
+    .nullish()
+    .describe("[Task #630] 입력자 user.id (구 데이터는 null)."),
+  authorRole: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #630] 입력 시점의 역할 라벨 키 (manager\/accountant\/facility_staff\/platform_admin).",
+    ),
   createdAt: zod.string().optional(),
 });
 export const ListMeterReadingsResponse = zod.array(
@@ -7216,11 +7238,112 @@ export const ListMeterReadingsResponse = zod.array(
  */
 export const CreateMeterReadingBody = zod.object({
   unitNumber: zod.string(),
+  unitId: zod.number().optional(),
   meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingType: zod.enum(["regular", "interim"]).optional(),
   readingDate: zod.string(),
+  periodStart: zod.string().optional(),
+  periodEnd: zod.string().optional(),
+  tenantId: zod.number().optional(),
   previousReading: zod.number().optional(),
   currentReading: zod.number(),
+  inputMethod: zod.enum(["manual", "photo", "csv"]).optional(),
+  photoObjectPath: zod.string().optional(),
 });
+
+/**
+ * [Task #630] 입력자 본인 또는 관리소장만 수정 가능. 본부장은 읽기만 가능하므로 거부된다.
+모든 변경은 meter_reading_audits 에 영구 보관된다.
+
+ * @summary Update a meter reading
+ */
+export const UpdateMeterReadingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateMeterReadingBody = zod
+  .object({
+    readingDate: zod.string().optional(),
+    readingType: zod.enum(["regular", "interim"]).optional(),
+    previousReading: zod.number().nullish(),
+    currentReading: zod.number().optional(),
+    periodStart: zod.string().nullish(),
+    periodEnd: zod.string().nullish(),
+    tenantId: zod.number().nullish(),
+    anomalyNote: zod.string().nullish(),
+    editReason: zod
+      .string()
+      .optional()
+      .describe("사유 (감사로그 diffSummary 에 보존)."),
+  })
+  .describe(
+    "[Task #630] 부분 수정. 빈 필드는 변경하지 않는다.\nreadingType, readingDate, currentReading, previousReading,\nperiodStart\/End, anomalyNote 등을 갱신할 수 있다.\n",
+  );
+
+export const UpdateMeterReadingResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingType: zod.enum(["regular", "interim"]),
+  readingDate: zod.string(),
+  periodStart: zod.string().nullish(),
+  periodEnd: zod.string().nullish(),
+  tenantId: zod.number().nullish(),
+  previousReading: zod.string().nullish(),
+  currentReading: zod.string(),
+  usage: zod.string().nullish(),
+  inputMethod: zod.enum(["manual", "photo", "csv"]),
+  photoObjectPath: zod.string().nullish(),
+  isAnomaly: zod.boolean(),
+  anomalyNote: zod.string().nullish(),
+  authorId: zod
+    .number()
+    .nullish()
+    .describe("[Task #630] 입력자 user.id (구 데이터는 null)."),
+  authorRole: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #630] 입력 시점의 역할 라벨 키 (manager\/accountant\/facility_staff\/platform_admin).",
+    ),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * [Task #630] 관리소장만 삭제 가능. 감사 행은 삭제 후에도 영구 보관된다.
+
+ * @summary Delete a meter reading
+ */
+export const DeleteMeterReadingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * [Task #630] 검침 행의 모든 입력·수정·삭제 이력. 본부장도 조회 가능하다.
+
+ * @summary List audit history for a meter reading
+ */
+export const ListMeterReadingAuditsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListMeterReadingAuditsResponseItem = zod.object({
+  id: zod.number(),
+  meterReadingId: zod.number(),
+  buildingId: zod.number(),
+  action: zod.enum(["create", "update", "delete"]),
+  actorId: zod.number().nullish(),
+  actorRole: zod.string().nullish(),
+  beforeJson: zod.unknown().nullish(),
+  afterJson: zod.unknown().nullish(),
+  diffSummary: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListMeterReadingAuditsResponse = zod.array(
+  ListMeterReadingAuditsResponseItem,
+);
 
 /**
  * @summary List anomalous meter readings
@@ -7231,16 +7354,80 @@ export const ListMeterAnomaliesResponseItem = zod.object({
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
   meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
+  periodStart: zod.string().nullish(),
+  periodEnd: zod.string().nullish(),
+  tenantId: zod.number().nullish(),
   previousReading: zod.string().nullish(),
   currentReading: zod.string(),
   usage: zod.string().nullish(),
+  inputMethod: zod.enum(["manual", "photo", "csv"]),
+  photoObjectPath: zod.string().nullish(),
   isAnomaly: zod.boolean(),
   anomalyNote: zod.string().nullish(),
+  authorId: zod
+    .number()
+    .nullish()
+    .describe("[Task #630] 입력자 user.id (구 데이터는 null)."),
+  authorRole: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #630] 입력 시점의 역할 라벨 키 (manager\/accountant\/facility_staff\/platform_admin).",
+    ),
   createdAt: zod.string().optional(),
 });
 export const ListMeterAnomaliesResponse = zod.array(
   ListMeterAnomaliesResponseItem,
+);
+
+/**
+ * 검침 입력 화면에서 호실 목록과 함께 "이미 입력됨/전월값" 을 한 번에 표시하기
+위해 사용. unitIds 가 비어 있으면 건물 전체 호실에 대해 반환한다.
+
+ * @summary List the most recent meter reading per (unit, meterType)
+ */
+export const ListLatestMeterReadingsQueryParams = zod.object({
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  unitIds: zod.coerce
+    .string()
+    .optional()
+    .describe("콤마로 구분된 unit id. 비어있으면 건물 전체."),
+});
+
+export const ListLatestMeterReadingsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitNumber: zod.string(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  readingType: zod.enum(["regular", "interim"]),
+  readingDate: zod.string(),
+  periodStart: zod.string().nullish(),
+  periodEnd: zod.string().nullish(),
+  tenantId: zod.number().nullish(),
+  previousReading: zod.string().nullish(),
+  currentReading: zod.string(),
+  usage: zod.string().nullish(),
+  inputMethod: zod.enum(["manual", "photo", "csv"]),
+  photoObjectPath: zod.string().nullish(),
+  isAnomaly: zod.boolean(),
+  anomalyNote: zod.string().nullish(),
+  authorId: zod
+    .number()
+    .nullish()
+    .describe("[Task #630] 입력자 user.id (구 데이터는 null)."),
+  authorRole: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #630] 입력 시점의 역할 라벨 키 (manager\/accountant\/facility_staff\/platform_admin).",
+    ),
+  createdAt: zod.string().optional(),
+});
+export const ListLatestMeterReadingsResponse = zod.array(
+  ListLatestMeterReadingsResponseItem,
 );
 
 /**
@@ -7262,6 +7449,34 @@ export const UploadMeterCsvResponse = zod.object({
   imported: zod.number(),
   anomalies: zod.number(),
   errors: zod.array(zod.string()).optional(),
+});
+
+/**
+ * 업로드된 계량기 사진(objectPath)을 Gemini 로 분석해 currentReading 후보값과
+신뢰도를 반환한다. 사용자는 화면에서 후보값을 확인·수정한 뒤 저장한다.
+
+ * @summary Run OCR on a meter photo
+ */
+export const MeterPhotoOcrBody = zod.object({
+  objectPath: zod.string(),
+  fileName: zod.string().optional(),
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+});
+
+export const MeterPhotoOcrResponse = zod.object({
+  currentReading: zod.number().nullish(),
+  confidence: zod.number(),
+  rawText: zod.string(),
+});
+
+/**
+ * @summary Export meter readings as CSV
+ */
+export const ExportMeterReadingsQueryParams = zod.object({
+  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+  from: zod.coerce.string().date().optional(),
+  to: zod.coerce.string().date().optional(),
+  unitNumber: zod.coerce.string().optional(),
 });
 
 /**
@@ -7362,6 +7577,43 @@ export const CalculateInterimSettlementResponse = zod.object({
   proRatedFee: zod.number().optional(),
   specialFundRefund: zod.number().optional(),
   totalSettlement: zod.number(),
+  relatedMeterReadings: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        buildingId: zod.number(),
+        unitId: zod.number().nullish(),
+        unitNumber: zod.string(),
+        meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+        readingType: zod.enum(["regular", "interim"]),
+        readingDate: zod.string(),
+        periodStart: zod.string().nullish(),
+        periodEnd: zod.string().nullish(),
+        tenantId: zod.number().nullish(),
+        previousReading: zod.string().nullish(),
+        currentReading: zod.string(),
+        usage: zod.string().nullish(),
+        inputMethod: zod.enum(["manual", "photo", "csv"]),
+        photoObjectPath: zod.string().nullish(),
+        isAnomaly: zod.boolean(),
+        anomalyNote: zod.string().nullish(),
+        authorId: zod
+          .number()
+          .nullish()
+          .describe("[Task #630] 입력자 user.id (구 데이터는 null)."),
+        authorRole: zod
+          .string()
+          .nullish()
+          .describe(
+            "[Task #630] 입력 시점의 역할 라벨 키 (manager\/accountant\/facility_staff\/platform_admin).",
+          ),
+        createdAt: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe(
+      "[Task #630] 같은 호실의 이사 시점 전후 검침을 보조 정보로 첨부.\n중간 검침이 있으면 사용자가 손으로 옮겨 적지 않게 화면에 그대로 노출한다.\n",
+    ),
 });
 
 /**

@@ -148,6 +148,7 @@ import type {
   Draft,
   ExecutiveKpi,
   ExecutiveSpending,
+  ExportMeterReadingsParams,
   ExtractPlatformKnowledgeDocText200,
   ExtractPlatformKnowledgeDocTextBody,
   FacilityAlert,
@@ -205,6 +206,7 @@ import type {
   ListDelinquenciesParams,
   ListDocumentChecklistsParams,
   ListDocumentsParams,
+  ListLatestMeterReadingsParams,
   ListMaintenanceLogsParams,
   ListMeterReadingsParams,
   ListMonthlySummaryReportsParams,
@@ -236,7 +238,10 @@ import type {
   MemoOcrResult,
   MeterCsvUploadBody,
   MeterCsvUploadResponse,
+  MeterOcrBody,
+  MeterOcrResponse,
   MeterReading,
+  MeterReadingAudit,
   MonthlyPayment,
   MonthlySummaryReportItem,
   NoticeLayoutSettings,
@@ -302,6 +307,7 @@ import type {
   UpdateDraftBody,
   UpdateInspectionBody,
   UpdateMaintenanceLogBody,
+  UpdateMeterReadingBody,
   UpdateOwnerBody,
   UpdatePlatformAnnouncementBody,
   UpdatePlatformKnowledgeDocBody,
@@ -20460,6 +20466,272 @@ export const useCreateMeterReading = <
 };
 
 /**
+ * [Task #630] 입력자 본인 또는 관리소장만 수정 가능. 본부장은 읽기만 가능하므로 거부된다.
+모든 변경은 meter_reading_audits 에 영구 보관된다.
+
+ * @summary Update a meter reading
+ */
+export const getUpdateMeterReadingUrl = (id: number) => {
+  return `/api/meters/${id}`;
+};
+
+export const updateMeterReading = async (
+  id: number,
+  updateMeterReadingBody: UpdateMeterReadingBody,
+  options?: RequestInit,
+): Promise<MeterReading> => {
+  return customFetch<MeterReading>(getUpdateMeterReadingUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMeterReadingBody),
+  });
+};
+
+export const getUpdateMeterReadingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeterReading>>,
+    TError,
+    { id: number; data: BodyType<UpdateMeterReadingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMeterReading>>,
+  TError,
+  { id: number; data: BodyType<UpdateMeterReadingBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMeterReading"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMeterReading>>,
+    { id: number; data: BodyType<UpdateMeterReadingBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateMeterReading(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMeterReadingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMeterReading>>
+>;
+export type UpdateMeterReadingMutationBody = BodyType<UpdateMeterReadingBody>;
+export type UpdateMeterReadingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a meter reading
+ */
+export const useUpdateMeterReading = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeterReading>>,
+    TError,
+    { id: number; data: BodyType<UpdateMeterReadingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMeterReading>>,
+  TError,
+  { id: number; data: BodyType<UpdateMeterReadingBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMeterReadingMutationOptions(options));
+};
+
+/**
+ * [Task #630] 관리소장만 삭제 가능. 감사 행은 삭제 후에도 영구 보관된다.
+
+ * @summary Delete a meter reading
+ */
+export const getDeleteMeterReadingUrl = (id: number) => {
+  return `/api/meters/${id}`;
+};
+
+export const deleteMeterReading = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMeterReadingUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMeterReadingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeterReading>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeterReading>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMeterReading"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeterReading>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMeterReading(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMeterReadingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeterReading>>
+>;
+
+export type DeleteMeterReadingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a meter reading
+ */
+export const useDeleteMeterReading = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeterReading>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeterReading>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMeterReadingMutationOptions(options));
+};
+
+/**
+ * [Task #630] 검침 행의 모든 입력·수정·삭제 이력. 본부장도 조회 가능하다.
+
+ * @summary List audit history for a meter reading
+ */
+export const getListMeterReadingAuditsUrl = (id: number) => {
+  return `/api/meters/${id}/audits`;
+};
+
+export const listMeterReadingAudits = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MeterReadingAudit[]> => {
+  return customFetch<MeterReadingAudit[]>(getListMeterReadingAuditsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMeterReadingAuditsQueryKey = (id: number) => {
+  return [`/api/meters/${id}/audits`] as const;
+};
+
+export const getListMeterReadingAuditsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeterReadingAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listMeterReadingAudits>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMeterReadingAuditsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeterReadingAudits>>
+  > = ({ signal }) => listMeterReadingAudits(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeterReadingAudits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMeterReadingAuditsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeterReadingAudits>>
+>;
+export type ListMeterReadingAuditsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List audit history for a meter reading
+ */
+
+export function useListMeterReadingAudits<
+  TData = Awaited<ReturnType<typeof listMeterReadingAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listMeterReadingAudits>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeterReadingAuditsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List anomalous meter readings
  */
 export const getListMeterAnomaliesUrl = () => {
@@ -20526,6 +20798,109 @@ export function useListMeterAnomalies<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListMeterAnomaliesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * 검침 입력 화면에서 호실 목록과 함께 "이미 입력됨/전월값" 을 한 번에 표시하기
+위해 사용. unitIds 가 비어 있으면 건물 전체 호실에 대해 반환한다.
+
+ * @summary List the most recent meter reading per (unit, meterType)
+ */
+export const getListLatestMeterReadingsUrl = (
+  params: ListLatestMeterReadingsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/meters/latest?${stringifiedParams}`
+    : `/api/meters/latest`;
+};
+
+export const listLatestMeterReadings = async (
+  params: ListLatestMeterReadingsParams,
+  options?: RequestInit,
+): Promise<MeterReading[]> => {
+  return customFetch<MeterReading[]>(getListLatestMeterReadingsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLatestMeterReadingsQueryKey = (
+  params?: ListLatestMeterReadingsParams,
+) => {
+  return [`/api/meters/latest`, ...(params ? [params] : [])] as const;
+};
+
+export const getListLatestMeterReadingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLatestMeterReadings>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListLatestMeterReadingsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listLatestMeterReadings>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListLatestMeterReadingsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLatestMeterReadings>>
+  > = ({ signal }) =>
+    listLatestMeterReadings(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLatestMeterReadings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLatestMeterReadingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLatestMeterReadings>>
+>;
+export type ListLatestMeterReadingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the most recent meter reading per (unit, meterType)
+ */
+
+export function useListLatestMeterReadings<
+  TData = Awaited<ReturnType<typeof listLatestMeterReadings>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListLatestMeterReadingsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listLatestMeterReadings>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLatestMeterReadingsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -20619,6 +20994,195 @@ export const useUploadMeterCsv = <
 > => {
   return useMutation(getUploadMeterCsvMutationOptions(options));
 };
+
+/**
+ * 업로드된 계량기 사진(objectPath)을 Gemini 로 분석해 currentReading 후보값과
+신뢰도를 반환한다. 사용자는 화면에서 후보값을 확인·수정한 뒤 저장한다.
+
+ * @summary Run OCR on a meter photo
+ */
+export const getMeterPhotoOcrUrl = () => {
+  return `/api/meters/ocr`;
+};
+
+export const meterPhotoOcr = async (
+  meterOcrBody: MeterOcrBody,
+  options?: RequestInit,
+): Promise<MeterOcrResponse> => {
+  return customFetch<MeterOcrResponse>(getMeterPhotoOcrUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(meterOcrBody),
+  });
+};
+
+export const getMeterPhotoOcrMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meterPhotoOcr>>,
+    TError,
+    { data: BodyType<MeterOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meterPhotoOcr>>,
+  TError,
+  { data: BodyType<MeterOcrBody> },
+  TContext
+> => {
+  const mutationKey = ["meterPhotoOcr"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meterPhotoOcr>>,
+    { data: BodyType<MeterOcrBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meterPhotoOcr(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeterPhotoOcrMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meterPhotoOcr>>
+>;
+export type MeterPhotoOcrMutationBody = BodyType<MeterOcrBody>;
+export type MeterPhotoOcrMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run OCR on a meter photo
+ */
+export const useMeterPhotoOcr = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meterPhotoOcr>>,
+    TError,
+    { data: BodyType<MeterOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meterPhotoOcr>>,
+  TError,
+  { data: BodyType<MeterOcrBody> },
+  TContext
+> => {
+  return useMutation(getMeterPhotoOcrMutationOptions(options));
+};
+
+/**
+ * @summary Export meter readings as CSV
+ */
+export const getExportMeterReadingsUrl = (
+  params?: ExportMeterReadingsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/meters/export?${stringifiedParams}`
+    : `/api/meters/export`;
+};
+
+export const exportMeterReadings = async (
+  params?: ExportMeterReadingsParams,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportMeterReadingsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportMeterReadingsQueryKey = (
+  params?: ExportMeterReadingsParams,
+) => {
+  return [`/api/meters/export`, ...(params ? [params] : [])] as const;
+};
+
+export const getExportMeterReadingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportMeterReadings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportMeterReadingsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof exportMeterReadings>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportMeterReadingsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportMeterReadings>>
+  > = ({ signal }) =>
+    exportMeterReadings(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportMeterReadings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportMeterReadingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportMeterReadings>>
+>;
+export type ExportMeterReadingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Export meter readings as CSV
+ */
+
+export function useExportMeterReadings<
+  TData = Awaited<ReturnType<typeof exportMeterReadings>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportMeterReadingsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof exportMeterReadings>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportMeterReadingsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Calculate management fees for all units

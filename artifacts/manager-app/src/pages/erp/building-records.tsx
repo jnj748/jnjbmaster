@@ -7,8 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { useCalculateInterimSettlement } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
+import {
   Zap, Droplets, Flame, Gift, Receipt, Coins, Sparkles, Clipboard,
-  TrendingUp, TrendingDown, Minus, Save, FileText,
+  TrendingUp, TrendingDown, Minus, Save, FileText, Calculator, Camera, Upload,
 } from "lucide-react";
 
 type EnergyEntry = { usage: number; unit: string; amount: number; avgPerUnit: number; basicCharge?: number; usageCharge?: number } | null;
@@ -103,6 +111,7 @@ export default function BuildingRecordsPage() {
   // Editable manual fields
   const [discounts, setDiscounts] = useState<DiscountSection | null>(null);
   const [oneTime, setOneTime] = useState<OneTimeChargeSection | null>(null);
+  const [interimOpen, setInterimOpen] = useState(false);
   const [externalDepositMemo, setExternalDepositMemo] = useState<string>("");
   const [transparencyNotes, setTransparencyNotes] = useState<string>("");
 
@@ -221,6 +230,15 @@ export default function BuildingRecordsPage() {
 
   return (
     <div className="container max-w-5xl py-6 space-y-5 pb-24">
+      <InterimSettlementDialog
+        open={interimOpen}
+        onOpenChange={setInterimOpen}
+        onApply={(amount) => {
+          if (!oneTime) return;
+          const cur = oneTime.moveInOut ?? { count: 0, amount: 0 };
+          setOneTime({ ...oneTime, moveInOut: { count: cur.count + 1, amount: cur.amount + amount } });
+        }}
+      />
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
@@ -354,11 +372,19 @@ export default function BuildingRecordsPage() {
                 value={oneTime.elevatorUsage}
                 onChange={v => setOneTime({ ...oneTime, elevatorUsage: v })}
               />
-              <DiscountField
-                label="이사 정산" disabled={!data.canEdit}
-                value={oneTime.moveInOut}
-                onChange={v => setOneTime({ ...oneTime, moveInOut: v })}
-              />
+              <div className="space-y-2">
+                <DiscountField
+                  label="이사 정산" disabled={!data.canEdit}
+                  value={oneTime.moveInOut}
+                  onChange={v => setOneTime({ ...oneTime, moveInOut: v })}
+                />
+                <Button
+                  type="button" variant="outline" size="sm" className="w-full"
+                  onClick={() => setInterimOpen(true)} disabled={!data.canEdit}
+                >
+                  <Calculator className="w-4 h-4 mr-1" /> 정산 계산 (검침 자동 조회)
+                </Button>
+              </div>
               <FoodWasteField
                 disabled={!data.canEdit}
                 value={oneTime.foodWaste}
@@ -606,5 +632,127 @@ function FoodWasteField(
         </div>
       )}
     </div>
+  );
+}
+
+function InterimSettlementDialog(props: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onApply: (amount: number) => void;
+}) {
+  const { open, onOpenChange, onApply } = props;
+  const { toast } = useToast();
+  const [unitNumber, setUnitNumber] = useState("");
+  const [moveOutDate, setMoveOutDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [monthlyFee, setMonthlyFee] = useState<string>("");
+  const [includeSpecialFund, setIncludeSpecialFund] = useState(true);
+  const calc = useCalculateInterimSettlement();
+  const result = calc.data;
+
+  function reset() {
+    setUnitNumber("");
+    setMonthlyFee("");
+    setIncludeSpecialFund(true);
+    calc.reset();
+  }
+
+  function submit() {
+    const fee = Number(monthlyFee);
+    if (!unitNumber.trim() || !moveOutDate || !Number.isFinite(fee) || fee <= 0) {
+      toast({ title: "입력값 확인", description: "호실/이사일/월 관리비를 모두 입력하세요.", variant: "destructive" });
+      return;
+    }
+    calc.mutate(
+      { data: { unitNumber: unitNumber.trim(), moveOutDate, monthlyFee: fee, includeSpecialFund } },
+      { onError: (e: Error) => toast({ title: "정산 계산 실패", description: e.message, variant: "destructive" }) },
+    );
+  }
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+      <ResponsiveDialogContent className="max-w-lg">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>이사 정산 계산</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">호실 번호</Label>
+              <Input value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)} placeholder="예: 101" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">이사일</Label>
+              <Input type="date" value={moveOutDate} onChange={(e) => setMoveOutDate(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">월 관리비(원)</Label>
+              <Input type="number" min={0} value={monthlyFee} onChange={(e) => setMonthlyFee(e.target.value)} className="mt-1" />
+            </div>
+            <div className="flex items-end gap-2">
+              <input id="isf" type="checkbox" checked={includeSpecialFund} onChange={(e) => setIncludeSpecialFund(e.target.checked)} />
+              <Label htmlFor="isf" className="text-xs">장기수선충당금 환급 포함</Label>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={submit} disabled={calc.isPending}>
+              {calc.isPending ? "계산 중..." : "계산하기"}
+            </Button>
+          </div>
+
+          {result && (
+            <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>거주일 / 월 일수</div>
+                <div className="text-right font-medium">{result.residencyDays ?? "-"} / {result.daysInMonth ?? "-"}</div>
+                <div>일할 관리비</div>
+                <div className="text-right font-medium">₩{(result.proRatedFee ?? 0).toLocaleString()}</div>
+                <div>장기수선충당금 환급</div>
+                <div className="text-right font-medium">₩{(result.specialFundRefund ?? 0).toLocaleString()}</div>
+                <div className="font-semibold">총 정산액</div>
+                <div className="text-right font-semibold text-primary">₩{result.totalSettlement.toLocaleString()}</div>
+              </div>
+
+              {result.relatedMeterReadings && result.relatedMeterReadings.length > 0 && (
+                <div className="pt-2 border-t space-y-1.5">
+                  <div className="text-xs font-medium text-muted-foreground">관련 검침 (자동 조회)</div>
+                  {result.relatedMeterReadings.map((m) => (
+                    <div key={m.id} className="text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant={m.readingType === "interim" ? "default" : "secondary"} className="text-[10px]">
+                          {m.readingType === "interim" ? "중간" : "정기"}
+                        </Badge>
+                        <span className="font-medium">{m.meterType}</span>
+                        <span className="text-muted-foreground">{m.readingDate}</span>
+                        {m.inputMethod === "photo" && <Camera className="w-3 h-3 text-muted-foreground" />}
+                        {m.inputMethod === "csv" && <Upload className="w-3 h-3 text-muted-foreground" />}
+                        {m.isAnomaly && <Badge variant="destructive" className="text-[10px]">이상치</Badge>}
+                      </div>
+                      <div className="font-mono">
+                        {m.previousReading ?? "-"} → {m.currentReading}
+                        {m.usage && <span className="text-muted-foreground ml-1">({m.usage})</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {result.relatedMeterReadings && result.relatedMeterReadings.length === 0 && (
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  관련 검침이 없습니다. 검침 입력 화면에서 중간 검침을 먼저 등록하세요.
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>닫기</Button>
+                <Button size="sm" onClick={() => { onApply(result.totalSettlement); onOpenChange(false); }}>
+                  이 금액 적용
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
