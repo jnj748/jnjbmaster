@@ -33,6 +33,36 @@ export interface Quote {
   firstViewedAt?: string | null;
   /** @nullable */
   noViewRefundedAt?: string | null;
+  /**
+   * [Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])
+   * @nullable
+   */
+  lineItems?: string | null;
+  /**
+   * [Task #612] 라인 아이템 합계 (소계).
+   * @nullable
+   */
+  subtotal?: number | null;
+  /**
+   * [Task #612] 부가세.
+   * @nullable
+   */
+  vatAmount?: number | null;
+  /**
+   * [Task #612] 견적 유효기간.
+   * @nullable
+   */
+  validUntil?: string | null;
+  /**
+   * [Task #612] 보증/A/S 조건.
+   * @nullable
+   */
+  warrantyTerms?: string | null;
+  /**
+   * [Task #612] 첨부 PDF 경로.
+   * @nullable
+   */
+  attachmentUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

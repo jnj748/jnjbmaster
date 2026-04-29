@@ -25,7 +25,7 @@ import {
   Car,
   UserCheck,
 } from "lucide-react";
-import { useListMonthlySummaryReports, useListBuildings, useGetDashboardAlerts } from "@workspace/api-client-react";
+import { useListMonthlySummaryReports, useListBuildings, useGetDashboardAlerts, useGetRfqMonitoring } from "@workspace/api-client-react";
 import {
   MobileOnly,
   DesktopOnly,
@@ -437,6 +437,9 @@ export default function HqDashboard() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* [Task #612] 본사 비교견적 모니터링 — 매칭/견적/메시지/방문/마감 통계. */}
+      <RfqMonitoringSection />
 
       {/* [Task #221] 본사 관리 업무 템플릿에서 산출된 알림 (필수+제안) */}
       {templateAlerts.length > 0 && (
@@ -890,5 +893,92 @@ export default function HqDashboard() {
         </div>
       </DesktopOnly>
     </>
+  );
+}
+
+// [Task #612] 본사 비교견적 모니터링 섹션 — 전 RFQ 의 매칭/견적/메시지/방문/마감 통계.
+function RfqMonitoringSection() {
+  const { data, isLoading } = useGetRfqMonitoring();
+  if (isLoading || !data) return null;
+  const { totals, rows } = data;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileText className="w-4 h-4 text-primary" />
+          비교견적 모니터링
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="rounded border p-2 text-center">
+            <p className="text-xs text-muted-foreground">총 RFQ</p>
+            <p className="text-xl font-bold">{totals.rfqs}</p>
+          </div>
+          <div className="rounded border p-2 text-center">
+            <p className="text-xs text-muted-foreground">마감</p>
+            <p className="text-xl font-bold text-emerald-600">{totals.closed}</p>
+          </div>
+          <div className="rounded border p-2 text-center">
+            <p className="text-xs text-muted-foreground">견적 수</p>
+            <p className="text-xl font-bold">{totals.quotes}</p>
+          </div>
+          <div className="rounded border p-2 text-center">
+            <p className="text-xs text-muted-foreground">메시지</p>
+            <p className="text-xl font-bold">{totals.messages}</p>
+          </div>
+          <div className="rounded border p-2 text-center">
+            <p className="text-xs text-muted-foreground">방문 확정</p>
+            <p className="text-xl font-bold">{totals.siteVisitsConfirmed}</p>
+          </div>
+        </div>
+        {rows.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b bg-muted/50 text-left">
+                  <th className="p-2">RFQ</th>
+                  <th className="p-2">건물</th>
+                  <th className="p-2">상태</th>
+                  <th className="p-2 text-center">매칭</th>
+                  <th className="p-2 text-center">견적</th>
+                  <th className="p-2 text-center">메시지</th>
+                  <th className="p-2 text-center">방문확정</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 12).map((r) => (
+                  <tr key={r.id} className="border-b last:border-0">
+                    <td className="p-2">
+                      <div className="font-medium">{r.title}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {CATEGORY_LABELS_HQ[r.category] || r.category}
+                        {r.requiresSiteVisit && " · 현장방문"}
+                      </div>
+                    </td>
+                    <td className="p-2">{r.buildingName || "-"}</td>
+                    <td className="p-2">
+                      <Badge
+                        variant={r.closed ? "default" : r.status === "open" ? "secondary" : "outline"}
+                      >
+                        {r.closed ? "마감/계약" : r.status === "open" ? "접수중" : r.status}
+                      </Badge>
+                    </td>
+                    <td className="p-2 text-center">{r.matchedPartnerCount}</td>
+                    <td className="p-2 text-center">{r.quoteCount}</td>
+                    <td className="p-2 text-center">{r.messageCount}</td>
+                    <td className="p-2 text-center">{r.siteVisitConfirmedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-4">
+            아직 RFQ 가 없습니다.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

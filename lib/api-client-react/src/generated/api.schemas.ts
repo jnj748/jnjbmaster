@@ -898,6 +898,18 @@ export interface Rfq {
    * @nullable
    */
   noViewRefundRatio?: number | null;
+  /** [Task #612] 현장방문 견적 필요 여부. */
+  requiresSiteVisit?: boolean;
+  /**
+   * [Task #612] 견적 채택으로 RFQ 가 마감된 시각.
+   * @nullable
+   */
+  closedAt?: string | null;
+  /**
+   * [Task #612] 채택된 견적 ID.
+   * @nullable
+   */
+  closedQuoteId?: number | null;
 }
 
 export interface RfqAdminStatsRow {
@@ -926,6 +938,143 @@ export type RfqAdminStatsResponseTotals = {
 export interface RfqAdminStatsResponse {
   totals: RfqAdminStatsResponseTotals;
   rows: RfqAdminStatsRow[];
+}
+
+export interface RfqMessage {
+  id: number;
+  rfqId: number;
+  vendorId: number;
+  senderUserId: number;
+  /** @nullable */
+  senderName?: string | null;
+  senderRole: string;
+  body: string;
+  /** @nullable */
+  attachments?: string | null;
+  createdAt: string;
+}
+
+export interface PostRfqMessageBody {
+  /**
+   * 매니저가 호출할 때 필수. 파트너는 자동 추론.
+   * @nullable
+   */
+  vendorId?: number | null;
+  body: string;
+  /**
+   * JSON 직렬화된 첨부 배열 [{name, url, size}].
+   * @nullable
+   */
+  attachments?: string | null;
+}
+
+export interface RfqMessageThreadResponse {
+  vendorId: number;
+  /** @nullable */
+  readByManagerAt?: string | null;
+  /** @nullable */
+  readByPartnerAt?: string | null;
+  messages: RfqMessage[];
+}
+
+export type RfqSiteVisitStatus =
+  (typeof RfqSiteVisitStatus)[keyof typeof RfqSiteVisitStatus];
+
+export const RfqSiteVisitStatus = {
+  proposed: "proposed",
+  confirmed: "confirmed",
+  cancelled: "cancelled",
+  completed: "completed",
+} as const;
+
+export interface RfqSiteVisit {
+  id: number;
+  rfqId: number;
+  vendorId: number;
+  /** @nullable */
+  vendorName?: string | null;
+  status: RfqSiteVisitStatus;
+  /** JSON 직렬화된 ISO datetime 배열. */
+  proposedSlots: string;
+  /** @nullable */
+  confirmedSlot?: string | null;
+  /** @nullable */
+  confirmedAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRfqSiteVisitBody {
+  /**
+   * 매니저 호출 시 필수, 파트너는 자동 추론.
+   * @nullable
+   */
+  vendorId?: number | null;
+  /** ISO datetime 배열 JSON. */
+  proposedSlots: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateRfqSiteVisitBodyStatus =
+  (typeof UpdateRfqSiteVisitBodyStatus)[keyof typeof UpdateRfqSiteVisitBodyStatus];
+
+export const UpdateRfqSiteVisitBodyStatus = {
+  proposed: "proposed",
+  confirmed: "confirmed",
+  cancelled: "cancelled",
+  completed: "completed",
+} as const;
+
+export interface UpdateRfqSiteVisitBody {
+  status?: UpdateRfqSiteVisitBodyStatus;
+  /** @nullable */
+  confirmedSlot?: string | null;
+  /** @nullable */
+  proposedSlots?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface RfqMonitoringRow {
+  id: number;
+  title: string;
+  category: string;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  status: string;
+  requiresSiteVisit?: boolean;
+  /** @nullable */
+  buildingName?: string | null;
+  createdAt: string;
+  /** @nullable */
+  closedAt?: string | null;
+  /** @nullable */
+  closedQuoteId?: number | null;
+  matchedPartnerCount: number;
+  quoteCount: number;
+  /** @nullable */
+  averageQuoteAmount?: number | null;
+  messageCount: number;
+  siteVisitConfirmedCount: number;
+  closed: boolean;
+}
+
+export type RfqMonitoringResponseTotals = {
+  rfqs: number;
+  closed: number;
+  quotes: number;
+  messages: number;
+  siteVisitsConfirmed: number;
+};
+
+export interface RfqMonitoringResponse {
+  totals: RfqMonitoringResponseTotals;
+  rows: RfqMonitoringRow[];
 }
 
 export type CreateRfqBodyCategory =
@@ -989,6 +1138,8 @@ export interface CreateRfqBody {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
+  /** [Task #612] 현장방문 견적 필요 여부. */
+  requiresSiteVisit?: boolean;
 }
 
 export type UpdateRfqBodyCategory =
@@ -1091,6 +1242,36 @@ export interface Quote {
   firstViewedAt?: string | null;
   /** @nullable */
   noViewRefundedAt?: string | null;
+  /**
+   * [Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])
+   * @nullable
+   */
+  lineItems?: string | null;
+  /**
+   * [Task #612] 라인 아이템 합계 (소계).
+   * @nullable
+   */
+  subtotal?: number | null;
+  /**
+   * [Task #612] 부가세.
+   * @nullable
+   */
+  vatAmount?: number | null;
+  /**
+   * [Task #612] 견적 유효기간.
+   * @nullable
+   */
+  validUntil?: string | null;
+  /**
+   * [Task #612] 보증/A/S 조건.
+   * @nullable
+   */
+  warrantyTerms?: string | null;
+  /**
+   * [Task #612] 첨부 PDF 경로.
+   * @nullable
+   */
+  attachmentUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1111,6 +1292,21 @@ export interface CreateQuoteBody {
   /** @nullable */
   notes?: string | null;
   requiredDocsComplete?: boolean;
+  /**
+   * [Task #612] 표준 견적 라인 아이템 JSON.
+   * @nullable
+   */
+  lineItems?: string | null;
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  vatAmount?: number | null;
+  /** @nullable */
+  validUntil?: string | null;
+  /** @nullable */
+  warrantyTerms?: string | null;
+  /** @nullable */
+  attachmentUrl?: string | null;
 }
 
 export type UpdateQuoteBodyStatus =
@@ -1130,6 +1326,18 @@ export interface UpdateQuoteBody {
   contractFilePath?: string | null;
   /** @nullable */
   contractUploadedAt?: string | null;
+  /** @nullable */
+  lineItems?: string | null;
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  vatAmount?: number | null;
+  /** @nullable */
+  validUntil?: string | null;
+  /** @nullable */
+  warrantyTerms?: string | null;
+  /** @nullable */
+  attachmentUrl?: string | null;
 }
 
 export type WorkReportStatus =
@@ -3859,6 +4067,7 @@ export type CalendarEventSource =
 export const CalendarEventSource = {
   accounting: "accounting",
   facility: "facility",
+  rfq: "rfq",
 } as const;
 
 export type CalendarEventStatus =
@@ -3878,6 +4087,11 @@ export interface CalendarEvent {
   originalType: string;
   status: CalendarEventStatus;
   originalId: number;
+  /**
+   * [Task #612] 현장방문 견적 이벤트의 RFQ id (캘린더 카드 → RFQ 상세 이동용).
+   * @nullable
+   */
+  relatedRfqId?: number | null;
 }
 
 export type UnitStatus = (typeof UnitStatus)[keyof typeof UnitStatus];
@@ -5755,6 +5969,14 @@ export const ListRfqsStatus = {
   closed: "closed",
   cancelled: "cancelled",
 } as const;
+
+export type ListRfqMessagesParams = {
+  vendorId?: number;
+};
+
+export type MarkRfqMessagesReadBody = {
+  vendorId: number;
+};
 
 export type ListAlertActionsParams = {
   alertType?: string;

@@ -57,4 +57,16 @@ export interface Rfq {
    * @nullable
    */
   noViewRefundRatio?: number | null;
+  /** [Task #612] 현장방문 견적 필요 여부. */
+  requiresSiteVisit?: boolean;
+  /**
+   * [Task #612] 견적 채택으로 RFQ 가 마감된 시각.
+   * @nullable
+   */
+  closedAt?: string | null;
+  /**
+   * [Task #612] 채택된 견적 ID.
+   * @nullable
+   */
+  closedQuoteId?: number | null;
 }

@@ -17,6 +17,8 @@ const TYPE_LABELS: Record<string, string> = {
   safety_checklist: "안전점검",
   maintenance: "시설 업무",
   safety_training: "안전교육",
+  // [Task #612] 비교견적 RFQ 의 확정된 현장방문 슬롯도 일정에 노출.
+  rfq_site_visit: "현장방문 견적",
 };
 
 export default function CalendarPage() {

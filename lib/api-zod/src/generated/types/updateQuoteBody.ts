@@ -15,4 +15,16 @@ export interface UpdateQuoteBody {
   contractFilePath?: string | null;
   /** @nullable */
   contractUploadedAt?: string | null;
+  /** @nullable */
+  lineItems?: string | null;
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  vatAmount?: number | null;
+  /** @nullable */
+  validUntil?: string | null;
+  /** @nullable */
+  warrantyTerms?: string | null;
+  /** @nullable */
+  attachmentUrl?: string | null;
 }

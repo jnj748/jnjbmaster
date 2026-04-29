@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import {
   db,
   tasksTable,
@@ -8,11 +8,17 @@ import {
   safetyChecklistsTable,
   maintenanceLogsTable,
   safetyTrainingsTable,
+  rfqSiteVisitsTable,
+  rfqsTable,
+  vendorsTable,
+  usersTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getAccessibleBuildingIds, buildingScopeFilter } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
-router.use("/calendar", requireRole("manager", "platform_admin", "accountant"));
+// [Task #612] 파트너도 본인 RFQ 의 확정된 현장방문 일정을 캘린더에서 본다.
+router.use("/calendar", requireRole("manager", "platform_admin", "accountant", "hq_executive", "partner"));
 interface CalendarEvent {
   id: string;
   title: string;
@@ -235,6 +241,83 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
       status: tr.status === "completed" ? "completed" : tr.trainingDate < today ? "overdue" : "scheduled",
       originalId: tr.id,
     });
+  }
+
+  // [Task #612] 확정된 현장방문 견적 일정을 캘린더에 합쳐 노출.
+  //   - 매니저/회계: 본인 접근 가능한 건물의 RFQ 일정만 (buildingScopeFilter).
+  //   - hq_executive / platform_admin: 무제한.
+  //   - 파트너: 본인 vendorId 의 일정만.
+  const role = req.user?.role;
+  let visitRfqIds: number[] | null = null;
+  let partnerVendorId: number | null = null;
+  if (role === "partner") {
+    const [u] = await db
+      .select({ vendorId: usersTable.vendorId })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user!.userId));
+    partnerVendorId = u?.vendorId ?? null;
+    if (!partnerVendorId) {
+      events.sort((a, b) => a.date.localeCompare(b.date));
+      res.json(events);
+      return;
+    }
+  } else if (role === "manager" || role === "accountant" || role === "hq_executive") {
+    const scope = await getAccessibleBuildingIds(req);
+    const scopeWhere = buildingScopeFilter(scope, rfqsTable.buildingId);
+    if (scopeWhere === "empty") {
+      visitRfqIds = [];
+    } else if (scopeWhere) {
+      const rfqRows = await db.select({ id: rfqsTable.id }).from(rfqsTable).where(scopeWhere);
+      visitRfqIds = rfqRows.map((r) => r.id);
+      if (visitRfqIds.length === 0) visitRfqIds = [];
+    }
+  }
+
+  if (visitRfqIds === null || visitRfqIds.length > 0 || partnerVendorId != null) {
+    const conds = [
+      eq(rfqSiteVisitsTable.status, "confirmed"),
+      isNotNull(rfqSiteVisitsTable.confirmedSlot),
+      gte(rfqSiteVisitsTable.confirmedSlot, new Date(`${startDate}T00:00:00.000Z`)),
+      lte(rfqSiteVisitsTable.confirmedSlot, new Date(`${endDate}T23:59:59.999Z`)),
+    ];
+    if (visitRfqIds && visitRfqIds.length > 0) conds.push(inArray(rfqSiteVisitsTable.rfqId, visitRfqIds));
+    if (partnerVendorId != null) conds.push(eq(rfqSiteVisitsTable.vendorId, partnerVendorId));
+
+    const visits = await db.select().from(rfqSiteVisitsTable).where(and(...conds));
+
+    if (visits.length > 0) {
+      const ids = Array.from(new Set(visits.map((v) => v.rfqId)));
+      const vIds = Array.from(new Set(visits.map((v) => v.vendorId)));
+      const rfqRows = await db
+        .select({ id: rfqsTable.id, title: rfqsTable.title, buildingName: rfqsTable.buildingName })
+        .from(rfqsTable)
+        .where(inArray(rfqsTable.id, ids));
+      const rfqById = new Map(rfqRows.map((r) => [r.id, r]));
+      const vendorRows = await db
+        .select({ id: vendorsTable.id, name: vendorsTable.name })
+        .from(vendorsTable)
+        .where(inArray(vendorsTable.id, vIds));
+      const vendorById = new Map(vendorRows.map((r) => [r.id, r.name]));
+
+      for (const v of visits) {
+        if (!v.confirmedSlot) continue;
+        const dateStr = v.confirmedSlot.toISOString().split("T")[0];
+        const rfq = rfqById.get(v.rfqId);
+        const vendorName = vendorById.get(v.vendorId) ?? "파트너";
+        const titlePrefix = role === "partner"
+          ? `[현장방문] ${rfq?.buildingName ?? "건물"} - ${rfq?.title ?? "RFQ"}`
+          : `[현장방문] ${vendorName} - ${rfq?.title ?? "RFQ"}`;
+        events.push({
+          id: `rfq-visit-${v.id}`,
+          title: titlePrefix,
+          date: dateStr,
+          source: "facility",
+          originalType: "rfq_site_visit",
+          status: "scheduled",
+          originalId: v.rfqId,
+        });
+      }
+    }
   }
 
   events.sort((a, b) => a.date.localeCompare(b.date));

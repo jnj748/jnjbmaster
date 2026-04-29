@@ -13,6 +13,8 @@ export * from "./users";
 export * from "./userSocialAccounts";
 export * from "./rfqs";
 export * from "./quotes";
+export * from "./rfqMessages";
+export * from "./rfqSiteVisits";
 export * from "./workReports";
 export * from "./settlements";
 export * from "./approvals";

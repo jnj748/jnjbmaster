@@ -1076,6 +1076,166 @@ paths:
                 items:
                   $ref: "#/components/schemas/Vendor"
 
+  # ── [Task #612] RFQ Messages / Site Visits / Monitoring ────────────
+  /rfqs/{id}/messages:
+    get:
+      operationId: listRfqMessages
+      tags: [vendors]
+      summary: "[Task #612] RFQ 메시지 스레드 조회 (관리소장 또는 본사: vendorId 필요, 파트너: 자동)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: vendorId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqMessageThreadResponse"
+    post:
+      operationId: postRfqMessage
+      tags: [vendors]
+      summary: "[Task #612] RFQ 메시지 전송. 파트너는 자기 vendor, 매니저는 vendorId 명시."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostRfqMessageBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqMessage"
+
+  /rfqs/{id}/messages/read:
+    post:
+      operationId: markRfqMessagesRead
+      tags: [vendors]
+      summary: "[Task #612] 스레드를 읽음 처리한다."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vendorId]
+              properties:
+                vendorId:
+                  type: integer
+      responses:
+        "204":
+          description: Marked
+
+  /rfqs/{id}/site-visits:
+    get:
+      operationId: listRfqSiteVisits
+      tags: [vendors]
+      summary: "[Task #612] RFQ 의 현장방문 일정 조회. 파트너는 자기것만, 매니저는 전체."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Site visits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RfqSiteVisit"
+    post:
+      operationId: createRfqSiteVisit
+      tags: [vendors]
+      summary: "[Task #612] 파트너가 방문 후보 슬롯을 제안한다."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRfqSiteVisitBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqSiteVisit"
+
+  /rfqs/{rfqId}/site-visits/{id}:
+    patch:
+      operationId: updateRfqSiteVisit
+      tags: [vendors]
+      summary: "[Task #612] 매니저가 슬롯을 확정/취소하거나 파트너가 슬롯을 갱신한다."
+      parameters:
+        - name: rfqId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRfqSiteVisitBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqSiteVisit"
+
+  /rfqs/admin/monitoring:
+    get:
+      operationId: getRfqMonitoring
+      tags: [vendors]
+      summary: "[Task #612] 본사 비교견적 모니터링 — RFQ 별 매칭/견적/메시지/방문/마감 통계."
+      responses:
+        "200":
+          description: Monitoring rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RfqMonitoringResponse"
+
   # ── Alert Actions (알림 처리) ─────────────────────────
   /alert-actions:
     get:
@@ -7208,6 +7368,17 @@ components:
         noViewRefundRatio:
           type: ["number", "null"]
           description: "[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."
+        requiresSiteVisit:
+          type: boolean
+          default: false
+          description: "[Task #612] 현장방문 견적 필요 여부."
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: "[Task #612] 견적 채택으로 RFQ 가 마감된 시각."
+        closedQuoteId:
+          type: ["integer", "null"]
+          description: "[Task #612] 채택된 견적 ID."
       required:
         - id
         - title
@@ -7272,6 +7443,136 @@ components:
             $ref: "#/components/schemas/RfqAdminStatsRow"
       required: [totals, rows]
 
+    RfqMessage:
+      type: object
+      required: [id, rfqId, vendorId, senderUserId, senderRole, body, createdAt]
+      properties:
+        id: { type: integer }
+        rfqId: { type: integer }
+        vendorId: { type: integer }
+        senderUserId: { type: integer }
+        senderName: { type: ["string", "null"] }
+        senderRole: { type: string }
+        body: { type: string }
+        attachments: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    PostRfqMessageBody:
+      type: object
+      properties:
+        vendorId:
+          type: ["integer", "null"]
+          description: "매니저가 호출할 때 필수. 파트너는 자동 추론."
+        body: { type: string }
+        attachments:
+          type: ["string", "null"]
+          description: "JSON 직렬화된 첨부 배열 [{name, url, size}]."
+      required: [body]
+
+    RfqMessageThreadResponse:
+      type: object
+      required: [vendorId, messages]
+      properties:
+        vendorId: { type: integer }
+        readByManagerAt: { type: ["string", "null"], format: date-time }
+        readByPartnerAt: { type: ["string", "null"], format: date-time }
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/RfqMessage"
+
+    RfqSiteVisit:
+      type: object
+      required: [id, rfqId, vendorId, status, proposedSlots, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        rfqId: { type: integer }
+        vendorId: { type: integer }
+        vendorName: { type: ["string", "null"] }
+        status:
+          type: string
+          enum: [proposed, confirmed, cancelled, completed]
+        proposedSlots:
+          type: string
+          description: "JSON 직렬화된 ISO datetime 배열."
+        confirmedSlot: { type: ["string", "null"], format: date-time }
+        confirmedAt: { type: ["string", "null"], format: date-time }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateRfqSiteVisitBody:
+      type: object
+      required: [proposedSlots]
+      properties:
+        vendorId:
+          type: ["integer", "null"]
+          description: "매니저 호출 시 필수, 파트너는 자동 추론."
+        proposedSlots:
+          type: string
+          description: "ISO datetime 배열 JSON."
+        notes: { type: ["string", "null"] }
+
+    UpdateRfqSiteVisitBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [proposed, confirmed, cancelled, completed]
+        confirmedSlot: { type: ["string", "null"], format: date-time }
+        proposedSlots: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    RfqMonitoringRow:
+      type: object
+      required:
+        - id
+        - title
+        - category
+        - status
+        - createdAt
+        - matchedPartnerCount
+        - quoteCount
+        - messageCount
+        - siteVisitConfirmedCount
+        - closed
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        category: { type: string }
+        sido: { type: ["string", "null"] }
+        sigungu: { type: ["string", "null"] }
+        status: { type: string }
+        requiresSiteVisit: { type: boolean }
+        buildingName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: ["string", "null"], format: date-time }
+        closedQuoteId: { type: ["integer", "null"] }
+        matchedPartnerCount: { type: integer }
+        quoteCount: { type: integer }
+        averageQuoteAmount: { type: ["number", "null"] }
+        messageCount: { type: integer }
+        siteVisitConfirmedCount: { type: integer }
+        closed: { type: boolean }
+
+    RfqMonitoringResponse:
+      type: object
+      required: [totals, rows]
+      properties:
+        totals:
+          type: object
+          required: [rfqs, closed, quotes, messages, siteVisitsConfirmed]
+          properties:
+            rfqs: { type: integer }
+            closed: { type: integer }
+            quotes: { type: integer }
+            messages: { type: integer }
+            siteVisitsConfirmed: { type: integer }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RfqMonitoringRow"
+
     CreateRfqBody:
       type: object
       properties:
@@ -7309,6 +7610,10 @@ components:
           type: ["string", "null"]
         widePhotoUrl:
           type: ["string", "null"]
+        requiresSiteVisit:
+          type: boolean
+          default: false
+          description: "[Task #612] 현장방문 견적 필요 여부."
       required:
         - category
         - buildingName
@@ -7388,6 +7693,25 @@ components:
         noViewRefundedAt:
           type: ["string", "null"]
           format: date-time
+        lineItems:
+          type: ["string", "null"]
+          description: "[Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])"
+        subtotal:
+          type: ["number", "null"]
+          description: "[Task #612] 라인 아이템 합계 (소계)."
+        vatAmount:
+          type: ["number", "null"]
+          description: "[Task #612] 부가세."
+        validUntil:
+          type: ["string", "null"]
+          format: date
+          description: "[Task #612] 견적 유효기간."
+        warrantyTerms:
+          type: ["string", "null"]
+          description: "[Task #612] 보증/A/S 조건."
+        attachmentUrl:
+          type: ["string", "null"]
+          description: "[Task #612] 첨부 PDF 경로."
         createdAt:
           type: string
           format: date-time
@@ -7429,6 +7753,20 @@ components:
         requiredDocsComplete:
           type: boolean
           default: false
+        lineItems:
+          type: ["string", "null"]
+          description: "[Task #612] 표준 견적 라인 아이템 JSON."
+        subtotal:
+          type: ["number", "null"]
+        vatAmount:
+          type: ["number", "null"]
+        validUntil:
+          type: ["string", "null"]
+          format: date
+        warrantyTerms:
+          type: ["string", "null"]
+        attachmentUrl:
+          type: ["string", "null"]
       required:
         - rfqId
         - vendorId
@@ -7448,6 +7786,19 @@ components:
         contractUploadedAt:
           type: ["string", "null"]
           format: date-time
+        lineItems:
+          type: ["string", "null"]
+        subtotal:
+          type: ["number", "null"]
+        vatAmount:
+          type: ["number", "null"]
+        validUntil:
+          type: ["string", "null"]
+          format: date
+        warrantyTerms:
+          type: ["string", "null"]
+        attachmentUrl:
+          type: ["string", "null"]
 
     WorkReport:
       type: object
@@ -11064,7 +11415,7 @@ components:
           format: date
         source:
           type: string
-          enum: [accounting, facility]
+          enum: [accounting, facility, rfq]
         originalType:
           type: string
         status:
@@ -11072,6 +11423,9 @@ components:
           enum: [scheduled, completed, overdue]
         originalId:
           type: integer
+        relatedRfqId:
+          type: ["integer", "null"]
+          description: "[Task #612] 현장방문 견적 이벤트의 RFQ id (캘린더 카드 → RFQ 상세 이동용)."
 
     Unit:
       type: object

@@ -20,6 +20,18 @@ export const quotesTable = pgTable("quotes", {
   // [Task #226] 관리소장이 견적을 처음 열람한 시각. 미열람 환불 잡 판정용.
   firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
   noViewRefundedAt: timestamp("no_view_refunded_at", { withTimezone: true }),
+  // [Task #612] 표준 견적 양식 필드.
+  //   lineItems: JSON 직렬화된 배열 [{ name, qty, unitPrice, amount, notes }]
+  //   subtotal/vatAmount: 라인 합계와 부가세. 서버에서 subtotal+vatAmount≈totalAmount 일관성 검증.
+  //   validUntil: 견적 유효기간 (만료일).
+  //   warrantyTerms: 보증/A/S 조건 자유 서술.
+  //   attachmentUrl: 첨부 PDF object storage 경로.
+  lineItems: text("line_items"),
+  subtotal: real("subtotal"),
+  vatAmount: real("vat_amount"),
+  validUntil: date("valid_until"),
+  warrantyTerms: text("warranty_terms"),
+  attachmentUrl: text("attachment_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({

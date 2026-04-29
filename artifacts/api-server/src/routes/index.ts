@@ -19,6 +19,8 @@ import usersRouter from "./users";
 import approvalsRouter from "./approvals";
 import { authMiddleware, requireRole, approvalGateMiddleware } from "../middlewares/auth";
 import rfqsRouter from "./rfqs";
+import rfqMessagesRouter from "./rfqMessages";
+import rfqSiteVisitsRouter from "./rfqSiteVisits";
 import quotesRouter from "./quotes";
 import workReportsRouter from "./workReports";
 import settlementsRouter from "./settlements";
@@ -106,6 +108,10 @@ router.use(platformCampaignsRouter);
 router.use(platformKnowledgeDocsRouter);
 router.use(usersRouter);
 router.use(rfqsRouter);
+// [Task #612] 비교견적 메시지/현장방문 라우터: 매니저+파트너 양쪽이 사용하므로
+//   buildingRouter(파트너 차단) 앞에 마운트한다.
+router.use(rfqMessagesRouter);
+router.use(rfqSiteVisitsRouter);
 router.use(creditsRouter);
 router.use(buildingNoticeTemplatesRouter);
 router.use(referralsRouter);

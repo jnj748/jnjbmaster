@@ -34,4 +34,6 @@ export interface CreateRfqBody {
   closeUpPhotoUrl?: string | null;
   /** @nullable */
   widePhotoUrl?: string | null;
+  /** [Task #612] 현장방문 견적 필요 여부. */
+  requiresSiteVisit?: boolean;
 }

@@ -22,4 +22,19 @@ export interface CreateQuoteBody {
   /** @nullable */
   notes?: string | null;
   requiredDocsComplete?: boolean;
+  /**
+   * [Task #612] 표준 견적 라인 아이템 JSON.
+   * @nullable
+   */
+  lineItems?: string | null;
+  /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  vatAmount?: number | null;
+  /** @nullable */
+  validUntil?: string | null;
+  /** @nullable */
+  warrantyTerms?: string | null;
+  /** @nullable */
+  attachmentUrl?: string | null;
 }

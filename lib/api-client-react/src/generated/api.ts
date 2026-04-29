@@ -94,6 +94,7 @@ import type {
   CreateReferrerBenefit201,
   CreateReferrerBenefitBody,
   CreateRfqBody,
+  CreateRfqSiteVisitBody,
   CreateSafetyChecklistBody,
   CreateSafetyChecklistItemBody,
   CreateSafetyTrainingBody,
@@ -207,6 +208,7 @@ import type {
   ListOwnersParams,
   ListPlatformCampaignsParams,
   ListQuotesParams,
+  ListRfqMessagesParams,
   ListRfqsParams,
   ListSafetyChecklistsParams,
   ListSafetyTrainingsParams,
@@ -227,6 +229,7 @@ import type {
   ManagementContractTemplate,
   MarkAnnouncementRead200,
   MarkCampaignRead200,
+  MarkRfqMessagesReadBody,
   MemoOcrResult,
   MeterCsvUploadBody,
   MeterCsvUploadResponse,
@@ -242,6 +245,7 @@ import type {
   PlatformCampaignBody,
   PlatformKnowledgeDoc,
   PlatformSetting,
+  PostRfqMessageBody,
   PreviewContractOcrBody,
   PreviewCreditCostParams,
   ProcessApprovalStepBody,
@@ -259,6 +263,10 @@ import type {
   ReviewReportBody,
   Rfq,
   RfqAdminStatsResponse,
+  RfqMessage,
+  RfqMessageThreadResponse,
+  RfqMonitoringResponse,
+  RfqSiteVisit,
   RunMemoOcrBody,
   RunVehicleInspection200,
   SafetyChecklist,
@@ -294,6 +302,7 @@ import type {
   UpdatePlatformKnowledgeDocBody,
   UpdateQuoteBody,
   UpdateRfqBody,
+  UpdateRfqSiteVisitBody,
   UpdateSafetyChecklistBody,
   UpdateSafetyChecklistItemBody,
   UpdateSafetyTrainingBody,
@@ -4646,6 +4655,629 @@ export function useGetRfqMatchedVendors<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRfqMatchedVendorsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #612] RFQ 메시지 스레드 조회 (관리소장 또는 본사: vendorId 필요, 파트너: 자동)
+ */
+export const getListRfqMessagesUrl = (
+  id: number,
+  params?: ListRfqMessagesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/rfqs/${id}/messages?${stringifiedParams}`
+    : `/api/rfqs/${id}/messages`;
+};
+
+export const listRfqMessages = async (
+  id: number,
+  params?: ListRfqMessagesParams,
+  options?: RequestInit,
+): Promise<RfqMessageThreadResponse> => {
+  return customFetch<RfqMessageThreadResponse>(
+    getListRfqMessagesUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRfqMessagesQueryKey = (
+  id: number,
+  params?: ListRfqMessagesParams,
+) => {
+  return [`/api/rfqs/${id}/messages`, ...(params ? [params] : [])] as const;
+};
+
+export const getListRfqMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRfqMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListRfqMessagesParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listRfqMessages>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRfqMessagesQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listRfqMessages>>> = ({
+    signal,
+  }) => listRfqMessages(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRfqMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRfqMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRfqMessages>>
+>;
+export type ListRfqMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] RFQ 메시지 스레드 조회 (관리소장 또는 본사: vendorId 필요, 파트너: 자동)
+ */
+
+export function useListRfqMessages<
+  TData = Awaited<ReturnType<typeof listRfqMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListRfqMessagesParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listRfqMessages>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRfqMessagesQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #612] RFQ 메시지 전송. 파트너는 자기 vendor, 매니저는 vendorId 명시.
+ */
+export const getPostRfqMessageUrl = (id: number) => {
+  return `/api/rfqs/${id}/messages`;
+};
+
+export const postRfqMessage = async (
+  id: number,
+  postRfqMessageBody: PostRfqMessageBody,
+  options?: RequestInit,
+): Promise<RfqMessage> => {
+  return customFetch<RfqMessage>(getPostRfqMessageUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(postRfqMessageBody),
+  });
+};
+
+export const getPostRfqMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postRfqMessage>>,
+    TError,
+    { id: number; data: BodyType<PostRfqMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postRfqMessage>>,
+  TError,
+  { id: number; data: BodyType<PostRfqMessageBody> },
+  TContext
+> => {
+  const mutationKey = ["postRfqMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postRfqMessage>>,
+    { id: number; data: BodyType<PostRfqMessageBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return postRfqMessage(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostRfqMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postRfqMessage>>
+>;
+export type PostRfqMessageMutationBody = BodyType<PostRfqMessageBody>;
+export type PostRfqMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] RFQ 메시지 전송. 파트너는 자기 vendor, 매니저는 vendorId 명시.
+ */
+export const usePostRfqMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postRfqMessage>>,
+    TError,
+    { id: number; data: BodyType<PostRfqMessageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postRfqMessage>>,
+  TError,
+  { id: number; data: BodyType<PostRfqMessageBody> },
+  TContext
+> => {
+  return useMutation(getPostRfqMessageMutationOptions(options));
+};
+
+/**
+ * @summary [Task #612] 스레드를 읽음 처리한다.
+ */
+export const getMarkRfqMessagesReadUrl = (id: number) => {
+  return `/api/rfqs/${id}/messages/read`;
+};
+
+export const markRfqMessagesRead = async (
+  id: number,
+  markRfqMessagesReadBody: MarkRfqMessagesReadBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getMarkRfqMessagesReadUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(markRfqMessagesReadBody),
+  });
+};
+
+export const getMarkRfqMessagesReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markRfqMessagesRead>>,
+    TError,
+    { id: number; data: BodyType<MarkRfqMessagesReadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markRfqMessagesRead>>,
+  TError,
+  { id: number; data: BodyType<MarkRfqMessagesReadBody> },
+  TContext
+> => {
+  const mutationKey = ["markRfqMessagesRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markRfqMessagesRead>>,
+    { id: number; data: BodyType<MarkRfqMessagesReadBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return markRfqMessagesRead(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkRfqMessagesReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markRfqMessagesRead>>
+>;
+export type MarkRfqMessagesReadMutationBody = BodyType<MarkRfqMessagesReadBody>;
+export type MarkRfqMessagesReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] 스레드를 읽음 처리한다.
+ */
+export const useMarkRfqMessagesRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markRfqMessagesRead>>,
+    TError,
+    { id: number; data: BodyType<MarkRfqMessagesReadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markRfqMessagesRead>>,
+  TError,
+  { id: number; data: BodyType<MarkRfqMessagesReadBody> },
+  TContext
+> => {
+  return useMutation(getMarkRfqMessagesReadMutationOptions(options));
+};
+
+/**
+ * @summary [Task #612] RFQ 의 현장방문 일정 조회. 파트너는 자기것만, 매니저는 전체.
+ */
+export const getListRfqSiteVisitsUrl = (id: number) => {
+  return `/api/rfqs/${id}/site-visits`;
+};
+
+export const listRfqSiteVisits = async (
+  id: number,
+  options?: RequestInit,
+): Promise<RfqSiteVisit[]> => {
+  return customFetch<RfqSiteVisit[]>(getListRfqSiteVisitsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRfqSiteVisitsQueryKey = (id: number) => {
+  return [`/api/rfqs/${id}/site-visits`] as const;
+};
+
+export const getListRfqSiteVisitsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRfqSiteVisits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listRfqSiteVisits>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListRfqSiteVisitsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRfqSiteVisits>>
+  > = ({ signal }) => listRfqSiteVisits(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRfqSiteVisits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRfqSiteVisitsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRfqSiteVisits>>
+>;
+export type ListRfqSiteVisitsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] RFQ 의 현장방문 일정 조회. 파트너는 자기것만, 매니저는 전체.
+ */
+
+export function useListRfqSiteVisits<
+  TData = Awaited<ReturnType<typeof listRfqSiteVisits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listRfqSiteVisits>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRfqSiteVisitsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #612] 파트너가 방문 후보 슬롯을 제안한다.
+ */
+export const getCreateRfqSiteVisitUrl = (id: number) => {
+  return `/api/rfqs/${id}/site-visits`;
+};
+
+export const createRfqSiteVisit = async (
+  id: number,
+  createRfqSiteVisitBody: CreateRfqSiteVisitBody,
+  options?: RequestInit,
+): Promise<RfqSiteVisit> => {
+  return customFetch<RfqSiteVisit>(getCreateRfqSiteVisitUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRfqSiteVisitBody),
+  });
+};
+
+export const getCreateRfqSiteVisitMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRfqSiteVisit>>,
+    TError,
+    { id: number; data: BodyType<CreateRfqSiteVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRfqSiteVisit>>,
+  TError,
+  { id: number; data: BodyType<CreateRfqSiteVisitBody> },
+  TContext
+> => {
+  const mutationKey = ["createRfqSiteVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRfqSiteVisit>>,
+    { id: number; data: BodyType<CreateRfqSiteVisitBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createRfqSiteVisit(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRfqSiteVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRfqSiteVisit>>
+>;
+export type CreateRfqSiteVisitMutationBody = BodyType<CreateRfqSiteVisitBody>;
+export type CreateRfqSiteVisitMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] 파트너가 방문 후보 슬롯을 제안한다.
+ */
+export const useCreateRfqSiteVisit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRfqSiteVisit>>,
+    TError,
+    { id: number; data: BodyType<CreateRfqSiteVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRfqSiteVisit>>,
+  TError,
+  { id: number; data: BodyType<CreateRfqSiteVisitBody> },
+  TContext
+> => {
+  return useMutation(getCreateRfqSiteVisitMutationOptions(options));
+};
+
+/**
+ * @summary [Task #612] 매니저가 슬롯을 확정/취소하거나 파트너가 슬롯을 갱신한다.
+ */
+export const getUpdateRfqSiteVisitUrl = (rfqId: number, id: number) => {
+  return `/api/rfqs/${rfqId}/site-visits/${id}`;
+};
+
+export const updateRfqSiteVisit = async (
+  rfqId: number,
+  id: number,
+  updateRfqSiteVisitBody: UpdateRfqSiteVisitBody,
+  options?: RequestInit,
+): Promise<RfqSiteVisit> => {
+  return customFetch<RfqSiteVisit>(getUpdateRfqSiteVisitUrl(rfqId, id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateRfqSiteVisitBody),
+  });
+};
+
+export const getUpdateRfqSiteVisitMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRfqSiteVisit>>,
+    TError,
+    { rfqId: number; id: number; data: BodyType<UpdateRfqSiteVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRfqSiteVisit>>,
+  TError,
+  { rfqId: number; id: number; data: BodyType<UpdateRfqSiteVisitBody> },
+  TContext
+> => {
+  const mutationKey = ["updateRfqSiteVisit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRfqSiteVisit>>,
+    { rfqId: number; id: number; data: BodyType<UpdateRfqSiteVisitBody> }
+  > = (props) => {
+    const { rfqId, id, data } = props ?? {};
+
+    return updateRfqSiteVisit(rfqId, id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRfqSiteVisitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRfqSiteVisit>>
+>;
+export type UpdateRfqSiteVisitMutationBody = BodyType<UpdateRfqSiteVisitBody>;
+export type UpdateRfqSiteVisitMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] 매니저가 슬롯을 확정/취소하거나 파트너가 슬롯을 갱신한다.
+ */
+export const useUpdateRfqSiteVisit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRfqSiteVisit>>,
+    TError,
+    { rfqId: number; id: number; data: BodyType<UpdateRfqSiteVisitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRfqSiteVisit>>,
+  TError,
+  { rfqId: number; id: number; data: BodyType<UpdateRfqSiteVisitBody> },
+  TContext
+> => {
+  return useMutation(getUpdateRfqSiteVisitMutationOptions(options));
+};
+
+/**
+ * @summary [Task #612] 본사 비교견적 모니터링 — RFQ 별 매칭/견적/메시지/방문/마감 통계.
+ */
+export const getGetRfqMonitoringUrl = () => {
+  return `/api/rfqs/admin/monitoring`;
+};
+
+export const getRfqMonitoring = async (
+  options?: RequestInit,
+): Promise<RfqMonitoringResponse> => {
+  return customFetch<RfqMonitoringResponse>(getGetRfqMonitoringUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRfqMonitoringQueryKey = () => {
+  return [`/api/rfqs/admin/monitoring`] as const;
+};
+
+export const getGetRfqMonitoringQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRfqMonitoring>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqMonitoring>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRfqMonitoringQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRfqMonitoring>>
+  > = ({ signal }) => getRfqMonitoring({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqMonitoring>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRfqMonitoringQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRfqMonitoring>>
+>;
+export type GetRfqMonitoringQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #612] 본사 비교견적 모니터링 — RFQ 별 매칭/견적/메시지/방문/마감 통계.
+ */
+
+export function useGetRfqMonitoring<
+  TData = Awaited<ReturnType<typeof getRfqMonitoring>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getRfqMonitoring>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRfqMonitoringQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

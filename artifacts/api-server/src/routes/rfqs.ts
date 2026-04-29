@@ -1,6 +1,16 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, or, inArray, sum, count } from "drizzle-orm";
-import { db, rfqsTable, vendorsTable, usersTable, quotesTable, buildingsTable, creditLedgerTable } from "@workspace/db";
+import {
+  db,
+  rfqsTable,
+  vendorsTable,
+  usersTable,
+  quotesTable,
+  buildingsTable,
+  creditLedgerTable,
+  rfqMessagesTable,
+  rfqSiteVisitsTable,
+} from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
   getUserBuildingId,
@@ -280,6 +290,83 @@ router.get("/rfqs/admin/stats", requireRole("platform_admin", "hq_executive"), a
       refunded: acc.refunded + r.creditsRefunded,
     }),
     { matched: 0, quoted: 0, debited: 0, refunded: 0 },
+  );
+
+  res.json({ totals, rows });
+});
+
+// [Task #612] HQ 모니터링: 비교견적 워크플로우 통합 지표.
+//   - 매칭 파트너 수 / 견적 수 / 평균 견적가 / 메시지 수 / 확정 현장방문 수 / 마감 여부
+//   - hq_executive 는 관할 건물에 한정, platform_admin 은 전체.
+router.get("/rfqs/admin/monitoring", requireRole("platform_admin", "hq_executive"), async (req, res): Promise<void> => {
+  const scope = await getAccessibleBuildingIds(req);
+  const scopeWhere = buildingScopeFilter(scope, rfqsTable.buildingId);
+  if (scopeWhere === "empty") {
+    res.json({ totals: { rfqs: 0, closed: 0, quotes: 0, messages: 0, siteVisitsConfirmed: 0 }, rows: [] });
+    return;
+  }
+  const rfqs = scopeWhere
+    ? await db.select().from(rfqsTable).where(scopeWhere).orderBy(desc(rfqsTable.createdAt))
+    : await db.select().from(rfqsTable).orderBy(desc(rfqsTable.createdAt));
+  if (rfqs.length === 0) {
+    res.json({ totals: { rfqs: 0, closed: 0, quotes: 0, messages: 0, siteVisitsConfirmed: 0 }, rows: [] });
+    return;
+  }
+  const rfqIds = rfqs.map((r) => r.id);
+  const [quotes, messages, visits] = await Promise.all([
+    db.select({ rfqId: quotesTable.rfqId, totalAmount: quotesTable.totalAmount }).from(quotesTable).where(inArray(quotesTable.rfqId, rfqIds)),
+    db.select({ rfqId: rfqMessagesTable.rfqId }).from(rfqMessagesTable).where(inArray(rfqMessagesTable.rfqId, rfqIds)),
+    db.select({ rfqId: rfqSiteVisitsTable.rfqId, status: rfqSiteVisitsTable.status }).from(rfqSiteVisitsTable).where(inArray(rfqSiteVisitsTable.rfqId, rfqIds)),
+  ]);
+
+  const quoteByRfq = new Map<number, number[]>();
+  for (const q of quotes) {
+    const arr = quoteByRfq.get(q.rfqId) ?? [];
+    arr.push(Number(q.totalAmount));
+    quoteByRfq.set(q.rfqId, arr);
+  }
+  const msgCount = new Map<number, number>();
+  for (const m of messages) msgCount.set(m.rfqId, (msgCount.get(m.rfqId) ?? 0) + 1);
+  const visitConfirmed = new Map<number, number>();
+  for (const v of visits) {
+    if (v.status === "confirmed") visitConfirmed.set(v.rfqId, (visitConfirmed.get(v.rfqId) ?? 0) + 1);
+  }
+
+  const rows = rfqs.map((r) => {
+    const matched = r.vendorIds ? r.vendorIds.split(",").filter(Boolean).length : 0;
+    const arr = quoteByRfq.get(r.id) ?? [];
+    const avg = arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+    const closed = r.status === "awarded" || r.status === "closed" || r.closedAt != null;
+    return {
+      id: r.id,
+      title: r.title,
+      category: r.category,
+      sido: r.sido,
+      sigungu: r.sigungu,
+      status: r.status,
+      requiresSiteVisit: Boolean(r.requiresSiteVisit),
+      buildingName: r.buildingName,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      closedAt: r.closedAt ? (r.closedAt instanceof Date ? r.closedAt.toISOString() : r.closedAt) : null,
+      closedQuoteId: r.closedQuoteId ?? null,
+      matchedPartnerCount: matched,
+      quoteCount: arr.length,
+      averageQuoteAmount: avg,
+      messageCount: msgCount.get(r.id) ?? 0,
+      siteVisitConfirmedCount: visitConfirmed.get(r.id) ?? 0,
+      closed,
+    };
+  });
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      rfqs: acc.rfqs + 1,
+      closed: acc.closed + (r.closed ? 1 : 0),
+      quotes: acc.quotes + r.quoteCount,
+      messages: acc.messages + r.messageCount,
+      siteVisitsConfirmed: acc.siteVisitsConfirmed + r.siteVisitConfirmedCount,
+    }),
+    { rfqs: 0, closed: 0, quotes: 0, messages: 0, siteVisitsConfirmed: 0 },
   );
 
   res.json({ totals, rows });

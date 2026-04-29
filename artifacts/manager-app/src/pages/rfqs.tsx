@@ -13,6 +13,13 @@ import {
   listContracts,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
+  useListRfqMessages,
+  usePostRfqMessage,
+  useMarkRfqMessagesRead,
+  useListRfqSiteVisits,
+  useUpdateRfqSiteVisit,
+  getListRfqMessagesQueryKey,
+  getListRfqSiteVisitsQueryKey,
   type Vendor,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,6 +56,9 @@ import {
   Printer,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
+  CalendarDays,
+  Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -113,6 +123,8 @@ const categoryOptions = [
 export default function Rfqs() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [compareRfqId, setCompareRfqId] = useState<number | null>(null);
+  // [Task #612] 카드별로 메시지/현장방문 패널을 토글한다 (한 번에 하나만 열림).
+  const [commsRfqId, setCommsRfqId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
@@ -183,6 +195,7 @@ export default function Rfqs() {
     description: "",
     descriptionManuallyEdited: false,
     deadline: getDefaultDeadline(),
+    requiresSiteVisit: false,
   });
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // [Task #407] 후속조치 → 견적요청 진입 시 상세 설명을 "분야: X / 용역종류: Y" 한 줄로
@@ -249,6 +262,7 @@ export default function Rfqs() {
       description: "",
       descriptionManuallyEdited: false,
       deadline: getDefaultDeadline(),
+      requiresSiteVisit: false,
     });
     setCloseUpPhotoUrl(null);
     setWidePhotoUrl(null);
@@ -326,6 +340,7 @@ export default function Rfqs() {
       geoScope: buildingSigungu ? "sigungu" : buildingSido ? "sido" : null,
       closeUpPhotoUrl,
       widePhotoUrl,
+      requiresSiteVisit: form.requiresSiteVisit,
     };
 
     // [Task #510] 이전에는 mutateAsync 를 try/catch 없이 호출해, 서버/네트워크
@@ -601,6 +616,21 @@ export default function Rfqs() {
                 )}
               </div>
 
+              {/* [Task #612] 현장 확인이 꼭 필요한 견적이면 체크 — 파트너 화면에
+                   "현장방문 필요" 배지가 노출되고, 견적 제출 전 방문 일정 협의를
+                   유도한다. */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.requiresSiteVisit}
+                  onChange={(e) =>
+                    setForm({ ...form, requiresSiteVisit: e.target.checked })
+                  }
+                  data-testid="rfq-requires-site-visit"
+                />
+                <span>현장방문 견적 필요 (파트너에게 방문 일정 협의를 요청)</span>
+              </label>
+
               {/* [Task #449] 버튼은 항상 활성화 상태로 두고, 부족한 항목은 onClick 시점에
                   토스트로 안내한다. 잠금 사유는 버튼 위에 한 줄 안내로도 노출. */}
               {missingItems.length > 0 && (
@@ -662,6 +692,12 @@ export default function Rfqs() {
                           {rfq.geoScope === "sigungu" ? `${rfq.sido} ${rfq.sigungu}` : rfq.sido}
                         </Badge>
                       )}
+                      {rfq.requiresSiteVisit && (
+                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
+                          <CalendarDays className="w-3 h-3 mr-0.5" />
+                          현장방문 필요
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
                       <span>건물: {rfq.buildingName}</span>
@@ -692,6 +728,16 @@ export default function Rfqs() {
                     >
                       <BarChart3 className="w-3.5 h-3.5 mr-1" />
                       견적 비교
+                    </Button>
+                    {/* [Task #612] 메시지/현장방문 패널 토글 — 카드 안에 인라인으로 펼침. */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommsRfqId(commsRfqId === rfq.id ? null : rfq.id)}
+                      data-testid={`rfq-comms-toggle-${rfq.id}`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 mr-1" />
+                      소통/방문
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setRfqDocRfq({
                       title: rfq.title,
@@ -728,6 +774,10 @@ export default function Rfqs() {
                   </div>
                 </div>
 
+                {commsRfqId === rfq.id && (
+                  <RfqCommsPanel rfq={rfq} vendors={vendors || []} />
+                )}
+
                 {compareRfqId === rfq.id && (
                   <div className="mt-4 border-t pt-4">
                     <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
@@ -745,6 +795,7 @@ export default function Rfqs() {
                               <th className="text-right p-2 font-medium">견적 금액</th>
                               <th className="text-center p-2 font-medium">예상 소요일</th>
                               <th className="text-center p-2 font-medium">착수 가능일</th>
+                              <th className="text-center p-2 font-medium">유효기한</th>
                               <th className="text-left p-2 font-medium">작업 범위</th>
                               <th className="text-center p-2 font-medium">상태</th>
                               <th className="text-center p-2 font-medium">관리</th>
@@ -766,6 +817,7 @@ export default function Rfqs() {
                                 <td className="p-2 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
                                 <td className="p-2 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
                                 <td className="p-2 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
+                                <td className="p-2 text-center">{q.validUntil ? formatDate(q.validUntil) : "-"}</td>
                                 <td className="p-2 text-sm">{q.scope || "-"}</td>
                                 <td className="p-2 text-center">
                                   <Badge variant={
@@ -843,6 +895,298 @@ export default function Rfqs() {
           officeContact={building?.managementOfficePhone ? `관리사무소 ☎ ${building.managementOfficePhone}` : undefined}
           logoUrl={building?.logoUrl ?? null}
         />
+      )}
+    </div>
+  );
+}
+
+// [Task #612] 한 RFQ 안에서 매니저가 ① 응찰한 파트너를 골라 ② 메시지를 주고
+//   받고 ③ 파트너가 제안한 현장방문 슬롯을 확정/취소할 수 있는 인라인 패널.
+//   파트너별로 메시지 스레드와 site-visit 행이 분리되므로 vendor select 가 필수.
+function RfqCommsPanel({
+  rfq,
+  vendors,
+}: {
+  rfq: { id: number; requiresSiteVisit?: boolean };
+  vendors: Vendor[];
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  // 이 RFQ 에 견적을 낸 파트너만 후보로 노출 (전체 vendor 중 quote 가 있는 업체).
+  const { data: rfqQuotes } = useListQuotes({ rfqId: rfq.id });
+  const candidateVendorIds = Array.from(
+    new Set((rfqQuotes || []).map((q: any) => q.vendorId)),
+  );
+  const candidates = vendors.filter((v) => candidateVendorIds.includes(v.id));
+  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(
+    candidates[0]?.id ?? null,
+  );
+  useEffect(() => {
+    if (selectedVendorId == null && candidates[0]) {
+      setSelectedVendorId(candidates[0].id);
+    }
+  }, [candidates, selectedVendorId]);
+
+  const { data: thread } = useListRfqMessages(
+    rfq.id,
+    selectedVendorId ? { vendorId: selectedVendorId } : undefined,
+    { query: { enabled: !!selectedVendorId } },
+  );
+  const { data: visits } = useListRfqSiteVisits(rfq.id);
+  const postMsg = usePostRfqMessage();
+  const markRead = useMarkRfqMessagesRead();
+  const updateVisit = useUpdateRfqSiteVisit();
+
+  // 패널 진입 시 매니저 측 읽음 처리.
+  useEffect(() => {
+    if (!selectedVendorId || !thread) return;
+    if (thread.messages.length === 0) return;
+    if (thread.readByManagerAt) return;
+    markRead.mutate(
+      { id: rfq.id, data: { vendorId: selectedVendorId } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getListRfqMessagesQueryKey(rfq.id, { vendorId: selectedVendorId }),
+          });
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVendorId, thread?.messages.length]);
+
+  const [body, setBody] = useState("");
+  async function handleSend() {
+    if (!selectedVendorId || !body.trim()) return;
+    try {
+      await postMsg.mutateAsync({
+        id: rfq.id,
+        data: { vendorId: selectedVendorId, body: body.trim() },
+      });
+      setBody("");
+      queryClient.invalidateQueries({
+        queryKey: getListRfqMessagesQueryKey(rfq.id, { vendorId: selectedVendorId }),
+      });
+    } catch (err) {
+      toast({ title: "메시지 전송 실패", variant: "destructive" });
+    }
+  }
+
+  async function handleConfirmSlot(visitId: number, slot: string) {
+    try {
+      await updateVisit.mutateAsync({
+        rfqId: rfq.id,
+        id: visitId,
+        data: { status: "confirmed", confirmedSlot: slot },
+      });
+      queryClient.invalidateQueries({
+        queryKey: getListRfqSiteVisitsQueryKey(rfq.id),
+      });
+      toast({ title: "현장방문 일정이 확정되었습니다" });
+    } catch {
+      toast({ title: "확정 실패", variant: "destructive" });
+    }
+  }
+
+  async function handleCancelVisit(visitId: number) {
+    try {
+      await updateVisit.mutateAsync({
+        rfqId: rfq.id,
+        id: visitId,
+        data: { status: "cancelled" },
+      });
+      queryClient.invalidateQueries({
+        queryKey: getListRfqSiteVisitsQueryKey(rfq.id),
+      });
+      toast({ title: "현장방문이 취소되었습니다" });
+    } catch {
+      toast({ title: "취소 실패", variant: "destructive" });
+    }
+  }
+
+  const visitsForVendor = (visits || []).filter(
+    (v: any) => v.vendorId === selectedVendorId,
+  );
+
+  return (
+    <div className="mt-4 border-t pt-4 space-y-4">
+      <h4 className="font-medium text-sm flex items-center gap-2">
+        <MessageSquare className="w-4 h-4" />
+        파트너 소통 / 현장방문
+      </h4>
+      {candidates.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          아직 응찰한 파트너가 없습니다. 견적이 들어오면 메시지를 주고받을 수 있습니다.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs whitespace-nowrap">대화 상대</Label>
+            <Select
+              value={selectedVendorId ? String(selectedVendorId) : undefined}
+              onValueChange={(v) => setSelectedVendorId(Number(v))}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="파트너 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {candidates.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 메시지 스레드 */}
+          <div className="border rounded-md">
+            <div className="max-h-60 overflow-y-auto p-3 space-y-2 bg-muted/20">
+              {thread?.messages.length ? (
+                thread.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`flex flex-col text-sm ${
+                      m.senderRole === "manager" || m.senderRole === "platform_admin" || m.senderRole === "hq_executive"
+                        ? "items-end"
+                        : "items-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-md px-3 py-2 whitespace-pre-wrap ${
+                        m.senderRole === "manager" || m.senderRole === "platform_admin" || m.senderRole === "hq_executive"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card border"
+                      }`}
+                    >
+                      {m.body}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      {m.senderName || m.senderRole} · {new Date(m.createdAt).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  메시지가 없습니다. 첫 메시지를 보내보세요.
+                </p>
+              )}
+            </div>
+            <div className="border-t p-2 flex gap-2">
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="메시지를 입력하세요"
+                className="min-h-[44px] text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={postMsg.isPending || !body.trim()}
+              >
+                <Send className="w-3.5 h-3.5 mr-1" />
+                보내기
+              </Button>
+            </div>
+          </div>
+
+          {/* 현장방문 일정 */}
+          {(rfq.requiresSiteVisit || visitsForVendor.length > 0) && (
+            <div className="border rounded-md p-3 space-y-2">
+              <h5 className="text-sm font-medium flex items-center gap-2">
+                <CalendarDays className="w-4 h-4" />
+                현장방문 일정
+              </h5>
+              {visitsForVendor.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  파트너가 아직 방문 일정을 제안하지 않았습니다.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {visitsForVendor.map((v: any) => {
+                    let slots: string[] = [];
+                    try {
+                      slots = JSON.parse(v.proposedSlots || "[]");
+                    } catch {
+                      slots = [];
+                    }
+                    return (
+                      <div key={v.id} className="border rounded p-2 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge
+                            variant="outline"
+                            className={
+                              v.status === "confirmed"
+                                ? "border-emerald-300 text-emerald-700"
+                                : v.status === "cancelled"
+                                ? "border-red-300 text-red-700"
+                                : "border-amber-300 text-amber-700"
+                            }
+                          >
+                            {v.status === "proposed"
+                              ? "제안됨"
+                              : v.status === "confirmed"
+                              ? "확정"
+                              : v.status === "cancelled"
+                              ? "취소"
+                              : "완료"}
+                          </Badge>
+                          {v.confirmedSlot && (
+                            <span className="text-xs text-muted-foreground">
+                              확정: {new Date(v.confirmedSlot).toLocaleString("ko-KR")}
+                            </span>
+                          )}
+                        </div>
+                        {v.notes && <p className="text-xs text-muted-foreground mb-1">{v.notes}</p>}
+                        {v.status === "proposed" && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">제안된 슬롯</p>
+                            {slots.map((s) => (
+                              <div key={s} className="flex items-center justify-between gap-2">
+                                <span className="text-sm">
+                                  {new Date(s).toLocaleString("ko-KR")}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleConfirmSlot(v.id, s)}
+                                  disabled={updateVisit.isPending}
+                                >
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  이 시간으로 확정
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCancelVisit(v.id)}
+                              className="text-destructive"
+                            >
+                              <XCircle className="w-3 h-3 mr-1" />
+                              취소
+                            </Button>
+                          </div>
+                        )}
+                        {v.status === "confirmed" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCancelVisit(v.id)}
+                            className="text-destructive"
+                          >
+                            <XCircle className="w-3 h-3 mr-1" />
+                            확정 취소
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

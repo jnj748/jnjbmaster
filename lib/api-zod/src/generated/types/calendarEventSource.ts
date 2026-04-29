@@ -12,4 +12,5 @@ export type CalendarEventSource =
 export const CalendarEventSource = {
   accounting: "accounting",
   facility: "facility",
+  rfq: "rfq",
 } as const;

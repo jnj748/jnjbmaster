@@ -1275,6 +1275,8 @@ export const ListRfqsQueryParams = zod.object({
     ),
 });
 
+export const listRfqsResponseRequiresSiteVisitDefault = false;
+
 export const ListRfqsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
@@ -1342,12 +1344,24 @@ export const ListRfqsResponseItem = zod.object({
     .number()
     .nullish()
     .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
+  requiresSiteVisit: zod
+    .boolean()
+    .default(listRfqsResponseRequiresSiteVisitDefault)
+    .describe("[Task #612] 현장방문 견적 필요 여부."),
+  closedAt: zod
+    .string()
+    .datetime({})
+    .nullish()
+    .describe("[Task #612] 견적 채택으로 RFQ 가 마감된 시각."),
+  closedQuoteId: zod.number().nullish().describe("[Task #612] 채택된 견적 ID."),
 });
 export const ListRfqsResponse = zod.array(ListRfqsResponseItem);
 
 /**
  * @summary Create an RFQ
  */
+export const createRfqBodyRequiresSiteVisitDefault = false;
+
 export const CreateRfqBody = zod.object({
   title: zod.string().nullish(),
   category: zod.enum([
@@ -1387,6 +1401,10 @@ export const CreateRfqBody = zod.object({
   geoScope: zod.string().nullish(),
   closeUpPhotoUrl: zod.string().nullish(),
   widePhotoUrl: zod.string().nullish(),
+  requiresSiteVisit: zod
+    .boolean()
+    .default(createRfqBodyRequiresSiteVisitDefault)
+    .describe("[Task #612] 현장방문 견적 필요 여부."),
 });
 
 /**
@@ -1422,6 +1440,8 @@ export const GetRfqAdminStatsResponse = zod.object({
 export const GetRfqParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const getRfqResponseRequiresSiteVisitDefault = false;
 
 export const GetRfqResponse = zod.object({
   id: zod.number(),
@@ -1490,6 +1510,16 @@ export const GetRfqResponse = zod.object({
     .number()
     .nullish()
     .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
+  requiresSiteVisit: zod
+    .boolean()
+    .default(getRfqResponseRequiresSiteVisitDefault)
+    .describe("[Task #612] 현장방문 견적 필요 여부."),
+  closedAt: zod
+    .string()
+    .datetime({})
+    .nullish()
+    .describe("[Task #612] 견적 채택으로 RFQ 가 마감된 시각."),
+  closedQuoteId: zod.number().nullish().describe("[Task #612] 채택된 견적 ID."),
 });
 
 /**
@@ -1539,6 +1569,8 @@ export const UpdateRfqBody = zod.object({
   sigungu: zod.string().nullish(),
   geoScope: zod.string().nullish(),
 });
+
+export const updateRfqResponseRequiresSiteVisitDefault = false;
 
 export const UpdateRfqResponse = zod.object({
   id: zod.number(),
@@ -1607,6 +1639,16 @@ export const UpdateRfqResponse = zod.object({
     .number()
     .nullish()
     .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
+  requiresSiteVisit: zod
+    .boolean()
+    .default(updateRfqResponseRequiresSiteVisitDefault)
+    .describe("[Task #612] 현장방문 견적 필요 여부."),
+  closedAt: zod
+    .string()
+    .datetime({})
+    .nullish()
+    .describe("[Task #612] 견적 채택으로 RFQ 가 마감된 시각."),
+  closedQuoteId: zod.number().nullish().describe("[Task #612] 채택된 견적 ID."),
 });
 
 /**
@@ -1622,6 +1664,8 @@ export const DeleteRfqParams = zod.object({
 export const ExpandRfqScopeParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const expandRfqScopeResponseRequiresSiteVisitDefault = false;
 
 export const ExpandRfqScopeResponse = zod.object({
   id: zod.number(),
@@ -1690,6 +1734,16 @@ export const ExpandRfqScopeResponse = zod.object({
     .number()
     .nullish()
     .describe("[Task #226] 미열람 환불 비율 (0~1, 운영 정책 스냅샷)."),
+  requiresSiteVisit: zod
+    .boolean()
+    .default(expandRfqScopeResponseRequiresSiteVisitDefault)
+    .describe("[Task #612] 현장방문 견적 필요 여부."),
+  closedAt: zod
+    .string()
+    .datetime({})
+    .nullish()
+    .describe("[Task #612] 견적 채택으로 RFQ 가 마감된 시각."),
+  closedQuoteId: zod.number().nullish().describe("[Task #612] 채택된 견적 ID."),
 });
 
 /**
@@ -1753,6 +1807,171 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
 export const GetRfqMatchedVendorsResponse = zod.array(
   GetRfqMatchedVendorsResponseItem,
 );
+
+/**
+ * @summary [Task #612] RFQ 메시지 스레드 조회 (관리소장 또는 본사: vendorId 필요, 파트너: 자동)
+ */
+export const ListRfqMessagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListRfqMessagesQueryParams = zod.object({
+  vendorId: zod.coerce.number().optional(),
+});
+
+export const ListRfqMessagesResponse = zod.object({
+  vendorId: zod.number(),
+  readByManagerAt: zod.string().datetime({}).nullish(),
+  readByPartnerAt: zod.string().datetime({}).nullish(),
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      rfqId: zod.number(),
+      vendorId: zod.number(),
+      senderUserId: zod.number(),
+      senderName: zod.string().nullish(),
+      senderRole: zod.string(),
+      body: zod.string(),
+      attachments: zod.string().nullish(),
+      createdAt: zod.string().datetime({}),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #612] RFQ 메시지 전송. 파트너는 자기 vendor, 매니저는 vendorId 명시.
+ */
+export const PostRfqMessageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PostRfqMessageBody = zod.object({
+  vendorId: zod
+    .number()
+    .nullish()
+    .describe("매니저가 호출할 때 필수. 파트너는 자동 추론."),
+  body: zod.string(),
+  attachments: zod
+    .string()
+    .nullish()
+    .describe("JSON 직렬화된 첨부 배열 [{name, url, size}]."),
+});
+
+/**
+ * @summary [Task #612] 스레드를 읽음 처리한다.
+ */
+export const MarkRfqMessagesReadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkRfqMessagesReadBody = zod.object({
+  vendorId: zod.number(),
+});
+
+/**
+ * @summary [Task #612] RFQ 의 현장방문 일정 조회. 파트너는 자기것만, 매니저는 전체.
+ */
+export const ListRfqSiteVisitsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListRfqSiteVisitsResponseItem = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string().nullish(),
+  status: zod.enum(["proposed", "confirmed", "cancelled", "completed"]),
+  proposedSlots: zod.string().describe("JSON 직렬화된 ISO datetime 배열."),
+  confirmedSlot: zod.string().datetime({}).nullish(),
+  confirmedAt: zod.string().datetime({}).nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListRfqSiteVisitsResponse = zod.array(
+  ListRfqSiteVisitsResponseItem,
+);
+
+/**
+ * @summary [Task #612] 파트너가 방문 후보 슬롯을 제안한다.
+ */
+export const CreateRfqSiteVisitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateRfqSiteVisitBody = zod.object({
+  vendorId: zod
+    .number()
+    .nullish()
+    .describe("매니저 호출 시 필수, 파트너는 자동 추론."),
+  proposedSlots: zod.string().describe("ISO datetime 배열 JSON."),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary [Task #612] 매니저가 슬롯을 확정/취소하거나 파트너가 슬롯을 갱신한다.
+ */
+export const UpdateRfqSiteVisitParams = zod.object({
+  rfqId: zod.coerce.number(),
+  id: zod.coerce.number(),
+});
+
+export const UpdateRfqSiteVisitBody = zod.object({
+  status: zod
+    .enum(["proposed", "confirmed", "cancelled", "completed"])
+    .optional(),
+  confirmedSlot: zod.string().datetime({}).nullish(),
+  proposedSlots: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateRfqSiteVisitResponse = zod.object({
+  id: zod.number(),
+  rfqId: zod.number(),
+  vendorId: zod.number(),
+  vendorName: zod.string().nullish(),
+  status: zod.enum(["proposed", "confirmed", "cancelled", "completed"]),
+  proposedSlots: zod.string().describe("JSON 직렬화된 ISO datetime 배열."),
+  confirmedSlot: zod.string().datetime({}).nullish(),
+  confirmedAt: zod.string().datetime({}).nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary [Task #612] 본사 비교견적 모니터링 — RFQ 별 매칭/견적/메시지/방문/마감 통계.
+ */
+export const GetRfqMonitoringResponse = zod.object({
+  totals: zod.object({
+    rfqs: zod.number(),
+    closed: zod.number(),
+    quotes: zod.number(),
+    messages: zod.number(),
+    siteVisitsConfirmed: zod.number(),
+  }),
+  rows: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      category: zod.string(),
+      sido: zod.string().nullish(),
+      sigungu: zod.string().nullish(),
+      status: zod.string(),
+      requiresSiteVisit: zod.boolean().optional(),
+      buildingName: zod.string().nullish(),
+      createdAt: zod.string().datetime({}),
+      closedAt: zod.string().datetime({}).nullish(),
+      closedQuoteId: zod.number().nullish(),
+      matchedPartnerCount: zod.number(),
+      quoteCount: zod.number(),
+      averageQuoteAmount: zod.number().nullish(),
+      messageCount: zod.number(),
+      siteVisitConfirmedCount: zod.number(),
+      closed: zod.boolean(),
+    }),
+  ),
+});
 
 /**
  * @summary List alert actions
@@ -1901,6 +2120,27 @@ export const ListQuotesResponseItem = zod.object({
     .default(listQuotesResponseRequiredDocsCompleteDefault),
   firstViewedAt: zod.string().datetime({}).nullish(),
   noViewRefundedAt: zod.string().datetime({}).nullish(),
+  lineItems: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])",
+    ),
+  subtotal: zod
+    .number()
+    .nullish()
+    .describe("[Task #612] 라인 아이템 합계 (소계)."),
+  vatAmount: zod.number().nullish().describe("[Task #612] 부가세."),
+  validUntil: zod
+    .string()
+    .date()
+    .nullish()
+    .describe("[Task #612] 견적 유효기간."),
+  warrantyTerms: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 보증\/A\/S 조건."),
+  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -1924,6 +2164,15 @@ export const CreateQuoteBody = zod.object({
   requiredDocsComplete: zod
     .boolean()
     .default(createQuoteBodyRequiredDocsCompleteDefault),
+  lineItems: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 표준 견적 라인 아이템 JSON."),
+  subtotal: zod.number().nullish(),
+  vatAmount: zod.number().nullish(),
+  validUntil: zod.string().date().nullish(),
+  warrantyTerms: zod.string().nullish(),
+  attachmentUrl: zod.string().nullish(),
 });
 
 /**
@@ -1954,6 +2203,27 @@ export const GetQuoteResponse = zod.object({
     .default(getQuoteResponseRequiredDocsCompleteDefault),
   firstViewedAt: zod.string().datetime({}).nullish(),
   noViewRefundedAt: zod.string().datetime({}).nullish(),
+  lineItems: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])",
+    ),
+  subtotal: zod
+    .number()
+    .nullish()
+    .describe("[Task #612] 라인 아이템 합계 (소계)."),
+  vatAmount: zod.number().nullish().describe("[Task #612] 부가세."),
+  validUntil: zod
+    .string()
+    .date()
+    .nullish()
+    .describe("[Task #612] 견적 유효기간."),
+  warrantyTerms: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 보증\/A\/S 조건."),
+  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -1970,6 +2240,12 @@ export const UpdateQuoteBody = zod.object({
   notes: zod.string().nullish(),
   contractFilePath: zod.string().nullish(),
   contractUploadedAt: zod.string().datetime({}).nullish(),
+  lineItems: zod.string().nullish(),
+  subtotal: zod.number().nullish(),
+  vatAmount: zod.number().nullish(),
+  validUntil: zod.string().date().nullish(),
+  warrantyTerms: zod.string().nullish(),
+  attachmentUrl: zod.string().nullish(),
 });
 
 export const updateQuoteResponseRequiredDocsCompleteDefault = false;
@@ -1993,6 +2269,27 @@ export const UpdateQuoteResponse = zod.object({
     .default(updateQuoteResponseRequiredDocsCompleteDefault),
   firstViewedAt: zod.string().datetime({}).nullish(),
   noViewRefundedAt: zod.string().datetime({}).nullish(),
+  lineItems: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #612] 표준 견적 라인 아이템 (JSON 직렬화: [{name, qty, unitPrice, amount, notes}])",
+    ),
+  subtotal: zod
+    .number()
+    .nullish()
+    .describe("[Task #612] 라인 아이템 합계 (소계)."),
+  vatAmount: zod.number().nullish().describe("[Task #612] 부가세."),
+  validUntil: zod
+    .string()
+    .date()
+    .nullish()
+    .describe("[Task #612] 견적 유효기간."),
+  warrantyTerms: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 보증\/A\/S 조건."),
+  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -6859,10 +7156,16 @@ export const GetCalendarEventsResponseItem = zod.object({
   id: zod.string(),
   title: zod.string(),
   date: zod.string().date(),
-  source: zod.enum(["accounting", "facility"]),
+  source: zod.enum(["accounting", "facility", "rfq"]),
   originalType: zod.string(),
   status: zod.enum(["scheduled", "completed", "overdue"]),
   originalId: zod.number(),
+  relatedRfqId: zod
+    .number()
+    .nullish()
+    .describe(
+      "[Task #612] 현장방문 견적 이벤트의 RFQ id (캘린더 카드 → RFQ 상세 이동용).",
+    ),
 });
 export const GetCalendarEventsResponse = zod.array(
   GetCalendarEventsResponseItem,

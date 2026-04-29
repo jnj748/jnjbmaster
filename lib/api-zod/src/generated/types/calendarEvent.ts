@@ -16,4 +16,9 @@ export interface CalendarEvent {
   originalType: string;
   status: CalendarEventStatus;
   originalId: number;
+  /**
+   * [Task #612] 현장방문 견적 이벤트의 RFQ id (캘린더 카드 → RFQ 상세 이동용).
+   * @nullable
+   */
+  relatedRfqId?: number | null;
 }

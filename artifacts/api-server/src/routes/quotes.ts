@@ -187,6 +187,17 @@ router.post("/quotes", async (req, res): Promise<void> => {
     }
   }
 
+  // [Task #612] 표준 양식: subtotal+vatAmount 와 totalAmount 가 1원 이내로 일관되어야 한다.
+  //   클라이언트 자동합산 외에도 서버에서 마지막 가드. 라인아이템만 보내고 합계가 비어 있는
+  //   에지 케이스도 막는다.
+  if (body.subtotal != null && body.vatAmount != null) {
+    const sum = Number(body.subtotal) + Number(body.vatAmount);
+    if (Math.abs(sum - Number(body.totalAmount)) > 1) {
+      res.status(400).json({ error: `합계 불일치: 공급가 ${body.subtotal} + 부가세 ${body.vatAmount} ≠ 합계 ${body.totalAmount}` });
+      return;
+    }
+  }
+
   const [rfq] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, body.rfqId));
   if (!rfq) {
     res.status(404).json({ error: "RFQ를 찾을 수 없습니다" });
@@ -449,8 +460,9 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
 
   // [Task #335] 견적 채택 시 동일 RFQ 의 다른 submitted 견적은 자동으로 rejected 처리하고
   // RFQ 자체도 awarded 상태로 마감해, 매니저 대시보드의 "견적 도착" 잔여 알림이 즉시 사라지게 한다.
+  // [Task #612] 채택 시 closedAt / closedQuoteId 기록 + 거절 파트너에게도 알림.
   if (prev.status !== "accepted" && quote.status === "accepted") {
-    await db
+    const rejected = await db
       .update(quotesTable)
       .set({ status: "rejected" })
       .where(
@@ -459,11 +471,24 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
           ne(quotesTable.id, quote.id),
           eq(quotesTable.status, "submitted"),
         ),
-      );
+      )
+      .returning();
     await db
       .update(rfqsTable)
-      .set({ status: "awarded" })
+      .set({ status: "awarded", closedAt: new Date(), closedQuoteId: quote.id })
       .where(eq(rfqsTable.id, quote.rfqId));
+
+    const [rfqForNotify] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, quote.rfqId));
+    for (const r of rejected) {
+      await insertNotification({
+        recipientType: `vendor:${r.vendorId}`,
+        notificationType: "quote_rejected",
+        title: "비교견적 결과 안내",
+        message: `[${rfqForNotify?.title ?? "RFQ"}] 다른 업체 견적이 채택되었습니다.`,
+        relatedEntityType: "rfq",
+        relatedEntityId: quote.rfqId,
+      });
+    }
   }
 
   // Auto-create contract draft when quote transitions to accepted (Task #65)
