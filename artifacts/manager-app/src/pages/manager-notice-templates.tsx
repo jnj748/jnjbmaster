@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { format, parse, isValid } from "date-fns";
+import { ko } from "date-fns/locale";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useListBuildingNoticeTemplates } from "@workspace/api-client-react";
 import type { BuildingNoticeTemplate } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,7 +72,12 @@ function parseLabels(json: string | null | undefined): string[] {
 }
 
 export default function ManagerNoticeTemplatesPage() {
-  const { data, isLoading } = useListBuildingNoticeTemplates();
+  // [Task #608] HQ 관리자가 본사 화면에서 템플릿을 수정·저장하면, 매니저가
+  //   다음에 이 화면에 들어왔을 때 즉시 반영되도록 stale 처리를 하지 않고
+  //   매번 마운트 시 재요청한다.
+  const { data, isLoading } = useListBuildingNoticeTemplates({
+    query: { staleTime: 0, refetchOnMount: "always" },
+  });
   const templates: BuildingNoticeTemplate[] = data?.templates ?? [];
   const categories = useMemo(() => {
     const set = new Set(templates.map((t) => t.category));
@@ -412,15 +422,47 @@ function PreviewDialog({
     }
   }
 
+  // [Task #608] 연락처는 우리 건물의 도로명 주소(addressFull) 가 기본 토큰으로 들어가도록
+  //   addressFull 값을 함께 전달한다. (HQ 관리자가 contactTemplate 을 다른 토큰으로
+  //   바꿔둔 경우에도 동일한 vars 맵을 그대로 채운다.)
   const resolvedContact =
     contactOverride ??
     fillNoticeTemplate(noticeLayout.contactTemplate, {
       buildingName: building?.name ?? "",
+      addressFull: building?.addressFull ?? "",
       managementOfficePhone: building?.managementOfficePhone,
       feeInquiryPhone: building?.feeInquiryPhone,
       facilitySafetyPhone: building?.facilitySafetyPhone,
     });
   const resolvedPostingPeriod = postingPeriodOverride ?? noticeLayout.defaultPostingPeriod;
+
+  // [Task #608] 게시기간 종료일 캘린더 — 작성일(오늘) ~ 선택일 형식으로 자동 채움.
+  //   - 기본은 시스템 설정(보통 "상시게재") 그대로 두고, 사용자가 종료일을 고르면
+  //     "YYYY-MM-DD ~ YYYY-MM-DD" 형식으로 override 한다.
+  //   - "상시게재로 되돌리기" 버튼을 눌러 override 를 해제하면 다시 시스템 기본값으로 돌아간다.
+  const [postingPeriodOpen, setPostingPeriodOpen] = useState(false);
+  const noticeStartDate = useMemo(() => new Date(), []);
+  // override 가 "YYYY-MM-DD ~ YYYY-MM-DD" 형식이면 parsing 해서 캘린더 selected 표시.
+  const parsedEndDate = useMemo<Date | undefined>(() => {
+    if (!postingPeriodOverride) return undefined;
+    const m = postingPeriodOverride.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+    if (!m) return undefined;
+    const d = parse(m[2], "yyyy-MM-dd", new Date());
+    return isValid(d) ? d : undefined;
+  }, [postingPeriodOverride]);
+
+  function handlePickPostingEnd(d: Date | undefined) {
+    if (!d) return;
+    const start = format(noticeStartDate, "yyyy-MM-dd");
+    const end = format(d, "yyyy-MM-dd");
+    setPostingPeriodOverride(`${start} ~ ${end}`);
+    setPostingPeriodOpen(false);
+  }
+  function handleClearPostingPeriod() {
+    setPostingPeriodOverride(null);
+  }
+
+  const nonNullPhotos = useMemo(() => photos.filter((p): p is string => !!p), [photos]);
 
   return (
     <ResponsiveDialog
@@ -541,14 +583,54 @@ function PreviewDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>게시기간</Label>
-                <Input
-                  value={resolvedPostingPeriod}
-                  onChange={(e) => setPostingPeriodOverride(e.target.value)}
-                  data-testid="input-posting-period"
-                />
+                {/* [Task #608] 기본값은 "상시게재"(시스템 설정). 종료일 캘린더에서
+                    날짜를 고르면 "작성일 ~ 종료일" 형식으로 자동 채워진다. */}
+                <div className="flex gap-1.5">
+                  <Popover open={postingPeriodOpen} onOpenChange={setPostingPeriodOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 h-9 justify-start text-left font-normal px-3"
+                        data-testid="button-posting-period"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">{resolvedPostingPeriod}</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-2 pb-0 text-[11px] text-slate-500">
+                        게시 종료일을 선택하면 "{format(noticeStartDate, "yyyy-MM-dd")} ~ 종료일" 로 표시됩니다.
+                      </div>
+                      <Calendar
+                        mode="single"
+                        selected={parsedEndDate}
+                        defaultMonth={parsedEndDate ?? noticeStartDate}
+                        fromDate={noticeStartDate}
+                        onSelect={handlePickPostingEnd}
+                        locale={ko}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {postingPeriodOverride && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 px-2 shrink-0"
+                      onClick={handleClearPostingPeriod}
+                      data-testid="button-posting-period-reset"
+                      title="상시게재로 되돌리기"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div>
                 <Label>관리사무소 연락처</Label>
+                {/* [Task #608] 기본값은 우리 건물의 도로명 주소. 필요 시 직접 수정 가능. */}
                 <Input
                   value={resolvedContact}
                   onChange={(e) => setContactOverride(e.target.value)}
@@ -643,6 +725,7 @@ function PreviewDialog({
                   <NoticeLayoutFrame
                     settings={noticeLayout}
                     buildingName={building?.name ?? ""}
+                    addressFull={building?.addressFull ?? null}
                     managementOfficePhone={building?.managementOfficePhone ?? null}
                     feeInquiryPhone={building?.feeInquiryPhone ?? null}
                     facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
@@ -653,35 +736,13 @@ function PreviewDialog({
                     postingPeriod={postingPeriodOverride ?? undefined}
                     contact={contactOverride ?? undefined}
                     title={title}
+                    /*
+                      [Task #608] 첨부 사진은 NoticeLayoutFrame 이 본문 슬롯 끝과
+                        하단 푸터 슬롯에 자동 배치한다. 사진이 0장이면 어디에도
+                        placeholder 가 그려지지 않는다.
+                    */
+                    photos={nonNullPhotos}
                   >
-                    {/*
-                      [Task #583] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
-                        사진이 0/1/2 장이든 동일한 높이를 차지하므로 본문 시작 y 좌표가 흔들리지 않는다.
-                    */}
-                    <div
-                      className="grid grid-cols-2 gap-3 mb-4"
-                      data-testid="notice-photo-area"
-                      aria-label="첨부 사진 영역"
-                    >
-                      {[0, 1].map((i) => (
-                        <div
-                          key={i}
-                          className="aspect-[4/3] border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden"
-                          data-testid={`notice-photo-slot-${i}`}
-                        >
-                          {photos[i] ? (
-                            <img
-                              src={photos[i] ?? ""}
-                              alt=""
-                              className="w-full h-full object-contain bg-white"
-                            />
-                          ) : (
-                            <span className="text-[11px] text-slate-400 select-none">사진 없음</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
                     {/*
                       [Task #591] 본문 — 편집기에서 받은 raw 템플릿 HTML 을
                         renderNoticeBodyHtml 로 토큰 치환해 출력.

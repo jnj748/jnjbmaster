@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminBuildingNoticeTemplates,
@@ -27,7 +27,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
-import { NoticeBodyEditor } from "@/components/notice-body-editor";
+import {
+  NoticeBodyEditor,
+  NoticeVariablesPanel,
+  type NoticeBodyEditorHandle,
+} from "@/components/notice-body-editor";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import {
   DEFAULT_NOTICE_LAYOUT,
@@ -125,6 +129,8 @@ export default function PlatformNoticeTemplatesPage() {
   // [Task #530] 편집 모달의 우측 미리보기 패널이 매니저 미리보기와 동일한
   //   공고문 양식(NoticeLayoutFrame) 안에서 본문을 보여주도록 시스템 레이아웃을 가져온다.
   const { layout: noticeLayout } = useNoticeLayout();
+  // [Task #608] "사용 가능한 가변항목" 패널이 본문 편집기에 칩을 삽입하기 위해 ref 보관.
+  const editorRef = useRef<NoticeBodyEditorHandle>(null);
 
   function startCreate() {
     setForm(blank());
@@ -327,26 +333,42 @@ export default function PlatformNoticeTemplatesPage() {
             </div>
             <div>
               <Label>본문</Label>
-              {/* [Task #591] 위지윅 편집기 — 굵게/제목/목록/표/변수 칩 등 비개발자
-                  친화 도구로 작성한다. 입력/출력은 raw HTML + `{{token}}` 으로
-                  유지되어 백엔드 호환성이 보장된다. form.id 가 바뀌면 다른 템플릿
-                  편집으로 진입한 것이므로 key 로 강제 remount 해 초기 HTML 을 새로
-                  로드한다. */}
-              <NoticeBodyEditor
-                key={`tpl-editor-${form.id ?? "new"}`}
-                initialHtml={form.bodyHtml}
-                mode="token"
-                customLabels={{
-                  a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
-                  b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
-                  c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
-                }}
-                onChange={(html) => setForm((f) => ({ ...f, bodyHtml: html }))}
-                testIdPrefix="input-template-body"
-                minHeightClassName="min-h-[320px]"
-              />
+              {/* [Task #591/#608] 위지윅 편집기 + 항상 보이는 "사용 가능한 가변항목" 패널.
+                  편집기 폭이 좁아지지 않도록 모바일에서는 위/아래로,
+                  md+ 에서는 편집기 ⅔ + 패널 ⅓ 로 배치한다. form.id 가 바뀌면 다른
+                  템플릿 편집으로 진입한 것이므로 key 로 강제 remount 해 초기 HTML 을
+                  새로 로드한다. */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="md:col-span-2 min-w-0">
+                  <NoticeBodyEditor
+                    ref={editorRef}
+                    key={`tpl-editor-${form.id ?? "new"}`}
+                    initialHtml={form.bodyHtml}
+                    mode="token"
+                    customLabels={{
+                      a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
+                      b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
+                      c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
+                    }}
+                    onChange={(html) => setForm((f) => ({ ...f, bodyHtml: html }))}
+                    testIdPrefix="input-template-body"
+                    minHeightClassName="min-h-[320px]"
+                  />
+                </div>
+                <div className="md:col-span-1 min-w-0">
+                  <NoticeVariablesPanel
+                    customLabels={{
+                      a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
+                      b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
+                      c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
+                    }}
+                    onInsert={(token) => editorRef.current?.insertToken(token)}
+                    testIdPrefix="hq-variables-panel"
+                  />
+                </div>
+              </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                "변수 삽입" 버튼으로 건물명·연락처·날짜 등을 칩으로 넣고, 표·굵게·목록 등 툴바로 본문을 편하게 작성하세요. 칩은 매니저 화면에서 우리 건물 실제값으로 자동 치환됩니다.
+                오른쪽 "사용 가능한 가변항목" 카드를 클릭하거나 툴바의 "변수 삽입" 으로 건물명·주소·연락처·날짜 등을 칩으로 넣으세요. 칩은 매니저 화면에서 우리 건물 실제값으로 자동 치환됩니다.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -547,8 +569,9 @@ function NoticeLayoutSettingsCard() {
       <CardContent className="pt-0">
         <p className="text-xs text-slate-500 mb-3">
           이 설정은 모든 건물의 공지문 미리보기/처리완료 모달의 "공고문" 탭에서 공통으로 사용됩니다.
-          토큰: <code>{"{{buildingName}}"}</code>, <code>{"{{managementOfficePhone}}"}</code>,
-          <code>{" {{feeInquiryPhone}}"}</code>, <code>{" {{facilitySafetyPhone}}"}</code>.
+          토큰: <code>{"{{buildingName}}"}</code>, <code>{" {{addressFull}}"}</code>,
+          <code>{" {{managementOfficePhone}}"}</code>, <code>{" {{feeInquiryPhone}}"}</code>,
+          <code>{" {{facilitySafetyPhone}}"}</code>.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
@@ -575,6 +598,10 @@ function NoticeLayoutSettingsCard() {
                 onChange={(e) => patch({ contactTemplate: e.target.value })}
                 data-testid="input-layout-contact-template"
               />
+              {/* [Task #608] 기본값은 건물 도로명 주소 한 줄. 필요 시 전화번호 등으로 바꿀 수 있다. */}
+              <p className="text-[11px] text-slate-500 mt-1">
+                기본값은 우리 건물의 도로명 주소(<code>{"{{addressFull}}"}</code>)입니다.
+              </p>
             </div>
             <div>
               <Label className="text-xs">푸터 텍스트 템플릿</Label>
@@ -644,6 +671,7 @@ function NoticeLayoutSettingsCard() {
               <NoticeLayoutFrame
                 settings={draft}
                 buildingName="샘플 건물"
+                addressFull="서울특별시 샘플구 샘플로 1"
                 managementOfficePhone="02-1234-5678"
                 feeInquiryPhone="02-1234-5679"
                 facilitySafetyPhone="02-1234-5680"
@@ -713,6 +741,7 @@ function NoticeTemplateLivePreview({
     <NoticeLayoutFrame
       settings={settings}
       buildingName={sampleBuildingName}
+      addressFull="서울특별시 샘플구 샘플로 1"
       managementOfficePhone={sampleManagementPhone}
       feeInquiryPhone={sampleFeeInquiryPhone}
       facilitySafetyPhone={sampleFacilitySafetyPhone}

@@ -5167,7 +5167,12 @@ export interface NoticeLayoutSettings {
   documentTitle: string;
   /** 우측 상단 게시기간 박스 기본 문구 (예. "상시게재"). */
   defaultPostingPeriod: string;
-  /** 메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능. */
+  /** 메타표 연락처 행에 들어갈 문구. 기본값은 건물의 관리사무소 주소
+({{addressFull}}) 가 자동으로 채워진다. 매니저는 이 값을 직접
+수정할 수 있고, {{addressFull}}, {{managementOfficePhone}},
+{{feeInquiryPhone}}, {{facilitySafetyPhone}}, {{buildingName}}
+토큰을 사용할 수 있다.
+ */
   contactTemplate: string;
   /** 푸터 줄에 들어갈 문구. {{buildingName}} 토큰 사용 가능. */
   footerTemplate: string;

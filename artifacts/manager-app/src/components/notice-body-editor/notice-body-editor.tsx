@@ -72,6 +72,11 @@ export interface NoticeBodyEditorHandle {
   getTemplateHtml(): string;
   /** 내부 Tiptap 인스턴스 — 테스트/외부 명령용. */
   getEditor(): Editor | null;
+  /**
+   * [Task #608] 본문 커서 위치에 변수 칩을 삽입한다. HQ 관리자 화면의
+   *   "사용 가능한 가변항목" 패널이 외부에서 호출.
+   */
+  insertToken(token: string): void;
 }
 
 export interface NoticeBodyEditorProps {
@@ -182,6 +187,14 @@ export const NoticeBodyEditor = forwardRef<NoticeBodyEditorHandle, NoticeBodyEdi
         getEditor() {
           return editor;
         },
+        insertToken(token: string) {
+          if (!editor || !token) return;
+          editor
+            .chain()
+            .focus()
+            .insertContent({ type: "noticeToken", attrs: { token } })
+            .run();
+        },
       }),
       [editor],
     );
@@ -202,7 +215,7 @@ export const NoticeBodyEditor = forwardRef<NoticeBodyEditorHandle, NoticeBodyEdi
           )}
           data-testid={testIdPrefix}
         >
-          <Toolbar editor={editor} testIdPrefix={testIdPrefix} customLabels={customLabels} />
+          <Toolbar editor={editor} testIdPrefix={testIdPrefix} customLabels={customLabels} mode={mode} />
           <div className="border-t border-input bg-white">
             <EditorContent editor={editor} />
           </div>
@@ -216,9 +229,11 @@ interface ToolbarProps {
   editor: Editor | null;
   testIdPrefix: string;
   customLabels?: { a?: string; b?: string; c?: string };
+  /** [Task #608] 'filled' (관리소장) 모드에서는 "변수 삽입" 드롭다운을 숨긴다. */
+  mode: NoticeChipMode;
 }
 
-function Toolbar({ editor, testIdPrefix, customLabels }: ToolbarProps) {
+function Toolbar({ editor, testIdPrefix, customLabels, mode }: ToolbarProps) {
   // editor.isActive 등 변화에 맞춰 toolbar UI 가 갱신되도록 selection update 를 구독.
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -510,42 +525,50 @@ function Toolbar({ editor, testIdPrefix, customLabels }: ToolbarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs gap-1"
-            data-testid={`${testIdPrefix}-toolbar-insert-variable`}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <Variable className="w-3.5 h-3.5" />변수 삽입<ChevronDown className="w-3 h-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          className="max-h-72 overflow-y-auto"
-          onCloseAutoFocus={(e) => e.preventDefault()}
-        >
-          <DropdownMenuLabel className="text-[11px] text-slate-500">
-            클릭하면 본문에 칩으로 삽입됩니다
-          </DropdownMenuLabel>
-          {NOTICE_TOKEN_DEFS.map((def) => (
-            <DropdownMenuItem
-              key={def.token}
-              onSelect={() => handleInsertToken(def.token)}
-              data-testid={`${testIdPrefix}-insert-token-${def.token}`}
+      {/* [Task #608] 변수 삽입 도구는 본사 관리자(mode='token') 에만 노출.
+            관리소장(mode='filled') 화면은 이미 칩이 자동 치환되므로 새 변수
+            삽입이 필요 없고, "사용 가능한 가변항목" 패널은 본사 관리자
+            편집 다이얼로그가 별도로 보여준다. */}
+      {mode === "token" && (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                data-testid={`${testIdPrefix}-toolbar-insert-variable`}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <Variable className="w-3.5 h-3.5" />변수 삽입<ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-72 overflow-y-auto"
+              onCloseAutoFocus={(e) => e.preventDefault()}
             >
-              <span className="text-xs text-slate-500 mr-2 w-5 text-center">＋</span>
-              <span className="font-medium">{tokenLabels[def.token] ?? def.defaultLabel}</span>
-              <span className="ml-auto text-[10px] text-slate-400">{`{{${def.token}}}`}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuLabel className="text-[11px] text-slate-500">
+                클릭하면 본문에 칩으로 삽입됩니다
+              </DropdownMenuLabel>
+              {NOTICE_TOKEN_DEFS.map((def) => (
+                <DropdownMenuItem
+                  key={def.token}
+                  onSelect={() => handleInsertToken(def.token)}
+                  data-testid={`${testIdPrefix}-insert-token-${def.token}`}
+                >
+                  <span className="text-xs text-slate-500 mr-2 w-5 text-center">＋</span>
+                  <span className="font-medium">{tokenLabels[def.token] ?? def.defaultLabel}</span>
+                  <span className="ml-auto text-[10px] text-slate-400">{`{{${def.token}}}`}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      <Divider />
+          <Divider />
+        </>
+      )}
 
       {btn({
         icon: <Undo2 className="w-3.5 h-3.5" />,

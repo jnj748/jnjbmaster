@@ -4,6 +4,11 @@
 //     렌더링되도록 한 곳에서 관리한다.
 //   - 본문 영역은 children 으로 받아 호출자(템플릿 HTML / 처리완료 본문) 가
 //     자유롭게 채울 수 있게 한다.
+// [Task #608]
+//   - 메타표 연락처 행과 푸터 토큰 치환에 건물 주소(addressFull) 토큰을 추가했다.
+//   - photos prop 을 받아 사진이 1장 이상이면 본문 마지막에 2열 그리드로,
+//     푸터(직인생략 줄) 위치에도 같은 사진을 함께 노출한다. 사진이 한 장도
+//     없으면 빈 자리표시 박스를 일절 렌더하지 않는다.
 import type { ReactElement, ReactNode } from "react";
 import { AuthImage } from "@/components/auth-image";
 import { cn } from "@/lib/utils";
@@ -31,6 +36,8 @@ export interface NoticeLayoutFrameProps {
   managementOfficePhone?: string | null;
   feeInquiryPhone?: string | null;
   facilitySafetyPhone?: string | null;
+  /** [Task #608] 메타표 연락처 행 기본값 — 건물 관리사무소 주소(addressFull). */
+  addressFull?: string | null;
   /** 인증 필요한 building logo / 직인 이미지 URL. 호출자가 미리 가져와 넣는다. */
   logoUrl?: string | null;
   sealUrl?: string | null;
@@ -52,6 +59,12 @@ export interface NoticeLayoutFrameProps {
   title?: string;
   /** 본문 영역 (텍스트 / HTML / 추가 박스 등). */
   children?: ReactNode;
+  /**
+   * [Task #608] 첨부 사진 (data URL 또는 외부 URL). null/빈 값은 무시.
+   *   - 1장 이상이면 children 다음에 2열 그리드로 렌더되고 푸터 영역에도 함께 표시.
+   *   - 0장이면 빈 자리표시 박스를 일절 렌더하지 않는다 (자연 축소).
+   */
+  photos?: Array<string | null | undefined>;
 }
 
 /**
@@ -67,6 +80,7 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
     managementOfficePhone,
     feeInquiryPhone,
     facilitySafetyPhone,
+    addressFull,
     logoUrl,
     sealUrl,
     noticeNo,
@@ -75,10 +89,12 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
     contact,
     title,
     children,
+    photos,
   } = props;
 
   const tokens: Record<string, string | null | undefined> = {
     buildingName,
+    addressFull,
     managementOfficePhone,
     feeInquiryPhone,
     facilitySafetyPhone,
@@ -87,6 +103,12 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
   const resolvedContact = contact ?? fillNoticeTemplate(settings.contactTemplate, tokens);
   const resolvedFooter = fillNoticeTemplate(settings.footerTemplate, tokens);
   const buildingNameClass = buildingNameSizeClass(buildingName);
+
+  // [Task #608] 사진 정규화 — null/빈 문자열은 제거. 한 장도 없으면 어떤
+  //   사진 영역도 렌더하지 않는다.
+  const validPhotos = (photos ?? []).filter(
+    (p): p is string => typeof p === "string" && p.trim() !== "",
+  );
 
   // 메타표는 가시 행을 기준으로 column span 을 적응한다. 가장 단순한 방식은
   // 토글에 따라 cell 을 조건부 렌더하고, 연락처 행의 colSpan 을 동적으로 계산.
@@ -193,23 +215,73 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
 
       <div className="text-[15px] leading-8 px-2" data-testid="notice-body-slot">
         {children}
+
+        {/* [Task #608] 본문 마지막 사진 영역 — 1장 이상일 때만 2열 그리드로 노출.
+              사진이 한 장도 없으면 자리표시 박스 자체를 렌더하지 않아 본문이
+              자연 축소된다. */}
+        {validPhotos.length > 0 && (
+          <div
+            className="mt-6 grid grid-cols-2 gap-3"
+            data-testid="notice-body-photos"
+            aria-label="첨부 사진"
+          >
+            {validPhotos.slice(0, 2).map((src, i) => (
+              <div
+                key={i}
+                className="aspect-[4/3] bg-white border border-slate-200 overflow-hidden flex items-center justify-center"
+                data-testid={`notice-body-photo-${i}`}
+              >
+                <img
+                  src={src}
+                  alt={`첨부 사진 ${i + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="text-center pt-12 mt-8 space-y-3">
-        {sealUrl ? (
-          <>
-            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
-              {resolvedFooter}
-            </p>
-            <div className="flex justify-center pt-2">
-              <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
-            </div>
-          </>
-        ) : (
-          <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
-            {resolvedFooter} {settings.sealOmittedText}
-          </p>
+      <div className="pt-12 mt-8 space-y-3">
+        {/* [Task #608] 푸터(직인생략 줄) 위치에도 사진을 함께 노출.
+              사진이 한 장도 없으면 기존 텍스트 줄만 그대로 보인다. */}
+        {validPhotos.length > 0 && (
+          <div
+            className="mx-auto grid grid-cols-2 gap-3 max-w-md"
+            data-testid="notice-footer-photos"
+            aria-label="푸터 첨부 사진"
+          >
+            {validPhotos.slice(0, 2).map((src, i) => (
+              <div
+                key={i}
+                className="aspect-[4/3] bg-white border border-slate-200 overflow-hidden flex items-center justify-center"
+                data-testid={`notice-footer-photo-${i}`}
+              >
+                <img
+                  src={src}
+                  alt={`푸터 첨부 사진 ${i + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            ))}
+          </div>
         )}
+        <div className="text-center space-y-3">
+          {sealUrl ? (
+            <>
+              <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+                {resolvedFooter}
+              </p>
+              <div className="flex justify-center pt-2">
+                <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
+              </div>
+            </>
+          ) : (
+            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+              {resolvedFooter} {settings.sealOmittedText}
+            </p>
+          )}
+        </div>
       </div>
     </>
   );

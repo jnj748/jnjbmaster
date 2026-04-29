@@ -8337,7 +8337,7 @@ export const GetNoticeLayoutResponse = zod
     contactTemplate: zod
       .string()
       .describe(
-        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+        "메타표 연락처 행에 들어갈 문구. 기본값은 건물의 관리사무소 주소\n({{addressFull}}) 가 자동으로 채워진다. 매니저는 이 값을 직접\n수정할 수 있고, {{addressFull}}, {{managementOfficePhone}},\n{{feeInquiryPhone}}, {{facilitySafetyPhone}}, {{buildingName}}\n토큰을 사용할 수 있다.\n",
       ),
     footerTemplate: zod
       .string()
@@ -8371,7 +8371,7 @@ export const UpsertNoticeLayoutBody = zod
     contactTemplate: zod
       .string()
       .describe(
-        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+        "메타표 연락처 행에 들어갈 문구. 기본값은 건물의 관리사무소 주소\n({{addressFull}}) 가 자동으로 채워진다. 매니저는 이 값을 직접\n수정할 수 있고, {{addressFull}}, {{managementOfficePhone}},\n{{feeInquiryPhone}}, {{facilitySafetyPhone}}, {{buildingName}}\n토큰을 사용할 수 있다.\n",
       ),
     footerTemplate: zod
       .string()
@@ -8402,7 +8402,7 @@ export const UpsertNoticeLayoutResponse = zod
     contactTemplate: zod
       .string()
       .describe(
-        "메타표 연락처 행에 들어갈 문구. {{managementOfficePhone}} 등 토큰 사용 가능.",
+        "메타표 연락처 행에 들어갈 문구. 기본값은 건물의 관리사무소 주소\n({{addressFull}}) 가 자동으로 채워진다. 매니저는 이 값을 직접\n수정할 수 있고, {{addressFull}}, {{managementOfficePhone}},\n{{feeInquiryPhone}}, {{facilitySafetyPhone}}, {{buildingName}}\n토큰을 사용할 수 있다.\n",
       ),
     footerTemplate: zod
       .string()

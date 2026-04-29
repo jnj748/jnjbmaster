@@ -33,7 +33,10 @@ export type NoticeLayoutSettings = z.infer<typeof NoticeLayoutSchema>;
 const DEFAULT_LAYOUT: NoticeLayoutSettings = {
   documentTitle: "공 고 문",
   defaultPostingPeriod: "상시게재",
-  contactTemplate: "관리사무소 {{managementOfficePhone}}",
+  // [Task #608] 메타표 연락처 칸은 건물의 "관리사무소 주소"(addressFull) 가 기본값이 된다.
+  //   매니저 편집기에서 사용자가 직접 수정할 수 있고, 이 곳에서 본사 관리자가
+  //   템플릿 형식을 바꿀 수도 있다.
+  contactTemplate: "{{addressFull}}",
   footerTemplate: "{{buildingName}} 관리사무소",
   sealOmittedText: "직인생략",
   showNoticeNoRow: true,

@@ -11,3 +11,7 @@ export {
   type NoticeChipResolver,
 } from "./notice-chip-context";
 export { NoticeTokenChip } from "./notice-token-chip";
+export {
+  NoticeVariablesPanel,
+  type NoticeVariablesPanelProps,
+} from "./notice-variables-panel";
