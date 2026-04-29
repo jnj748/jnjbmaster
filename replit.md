@@ -64,6 +64,13 @@
   - 답은 항상 **위 6개 역할 중 누구를 가리키는지 명시** (예: "직원 공유 + 본부장 읽기 + 본사 익명 요약, 파트너 비가시"). 모호한 한국어("관계자 모두") 는 금지.
   - 답이 채워지면 task 명세 상단에 `## 가시성·연동 정책` 섹션으로 인용해 박는다. 동시에 `docs/user-roles/README.md` 와 `lib/shared/src/role-labels.ts` 를 `relevantFiles` 에 의무 첨부.
 
+- **DEV-전용 디버그 도구 가드 (프로덕션 노출 절대 금지)**: "분할 프리뷰", "역할 토글 패널", "씨앗 데이터 시드 버튼" 같은 **개발 환경 검증/시연 전용 UI·라우트·API** 는 반드시 **3중 가드** 로 잠근다. 사장님이 프로덕션 화면에서 디버그 도구를 보시는 일은 절대 없어야 한다.
+  1. **서버 라우트 가드** — `if (process.env.NODE_ENV === "production") return;` 또는 라우트 자체를 dev-only 모듈로 분리해서 production 부트에서 마운트되지 않게.
+  2. **클라이언트 빌드 가드** — `import.meta.env.DEV` 로 컴포넌트·라우트를 감싸 production 번들에서 dead code 로 제거 (lazy import + DEV 분기).
+  3. **시드 데이터 가드** — DEV 시드 함수는 진입 첫 줄에 `NODE_ENV !== "production"` early-return (이미 `seedTestUsers` 패턴). `seed`, `demo`, `test` 표식이 있는 행은 prod 마이그레이션·시드에서 절대 호출되지 않게.
+  - task 명세에는 항상 위 3가드의 **각각 어디에 들어가는지 파일 경로 단위로 명시** 한다 ("dev-only" 라는 한 단어로 끝내지 않는다).
+  - 검증: prod 빌드 산출물(`pnpm --filter @workspace/manager-app run build` → `dist/`) 에 디버그 컴포넌트 식별자가 들어 있지 않음을 grep 으로 확인하는 단계를 task 검증 항목에 포함.
+
 - **권한 SoT 체이너 (모든 신규 모듈 task 의 의무 첨부)**: 신규 모듈 task 명세를 작성할 때, 다음 두 경로는 반드시 `relevantFiles` 와 본문 인용에 함께 들어가야 한다. agent 가 권한 정책을 새로 추정하지 않고 SoT 를 따르도록 잠금:
   - `docs/user-roles/README.md` — 6개 역할 위계도 SoT
   - `lib/shared/src/role-labels.ts` — 역할 키·표시명·HQ 포털 분기 단일 정의
