@@ -44,6 +44,8 @@ interface Props {
   isEditing: boolean;
   enterEditMode: () => void;
   cancelEdit: () => void;
+  // [Task #629] 빈 placeholder 건물 여부. step-info 의 안내 박스/저장 버튼 가시성에 사용.
+  isPlaceholderBuilding: boolean;
 }
 
 export function StepAddressInfo(props: Props) {
@@ -74,6 +76,7 @@ export function StepAddressInfo(props: Props) {
         isEditing={props.isEditing}
         enterEditMode={props.enterEditMode}
         cancelEdit={props.cancelEdit}
+        isPlaceholderBuilding={props.isPlaceholderBuilding}
       />
       {/* [Task #568] 편집 여부와 관계없이 항상 읽기 전용으로 노출. registerData 가
           비어 있으면 BuildingRegisterDetailsCard 가 자체적으로 카드를 숨긴다.

@@ -105,6 +105,7 @@ export default function BuildingSetup() {
         isEditing={setup.isEditing}
         enterEditMode={setup.enterEditMode}
         cancelEdit={setup.cancelEdit}
+        isPlaceholderBuilding={setup.isPlaceholderBuilding}
       />
       </div>
 

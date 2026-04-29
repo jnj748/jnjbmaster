@@ -32,6 +32,9 @@ interface Props {
   isEditing: boolean;
   enterEditMode: () => void;
   cancelEdit: () => void;
+  // [Task #629] "빈 placeholder 건물" 여부. 훅에서 단일 SoT 로 계산해 내려준다.
+  //   - true 이면 안내 박스를 노출하고, 저장 버튼을 항상 보여 준다.
+  isPlaceholderBuilding?: boolean;
 }
 
 export function StepInfo({
@@ -46,6 +49,7 @@ export function StepInfo({
   isEditing,
   enterEditMode,
   cancelEdit,
+  isPlaceholderBuilding = false,
 }: Props) {
   // [Task #458] 읽기 전용일 때 모든 입력 필드를 비활성화한다.
   //   - 도로명 주소처럼 별도 잠금 정책이 있는 필드는 (잠금 || 읽기전용) OR 결합으로 가드.
@@ -60,6 +64,18 @@ export function StepInfo({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* [Task #629] 빈 placeholder 건물 안내. seed/회귀 등으로 사용자가 비어 있는
+              건물 행에 묶여 들어왔을 때 잠긴 화면 대신 시작 가이드를 노출한다. */}
+          {isPlaceholderBuilding && (
+            <div
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 leading-relaxed"
+              data-testid="banner-empty-building-placeholder"
+            >
+              <strong>이 건물은 정보가 비어 있습니다.</strong>{" "}
+              위쪽 ‘건물 주소’ 카드에서 <strong>주소 검색</strong>을 눌러 건축물대장을 자동으로 불러오거나,
+              아래 입력 필드에 직접 입력 후 <strong>건물 정보 저장</strong>을 눌러 시작하세요.
+            </div>
+          )}
           {building.addressLocked && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
               <strong>건물 주소가 잠겨 있습니다.</strong>{" "}
@@ -450,15 +466,18 @@ export function StepInfo({
       {/* [Task #412] "법정업무 선택" 탭 제거에 따라 선택된 법정업무 안내 박스도 제거.
           관련 자동 추가 로직은 use-building-setup.ts에 그대로 보존되어 백엔드 스케줄에 반영. */}
 
-      {/* [Task #458/#531] 편집 모드(isEditing) 또는 신규 건물(existingId === null) 일 때 저장
-          버튼을 노출한다.
+      {/* [Task #458/#531/#629] 편집 모드(isEditing) 또는 신규 건물(existingId === null),
+          또는 빈 placeholder 건물(isPlaceholderBuilding) 일 때 저장 버튼을 노출한다.
           - 신규 건물에서는 hook 이 진입 시 isEditing=true 로 두므로 두 조건 모두 만족하지만,
             방어적으로 OR 결합을 유지해 isEditing 초기값에 의존하지 않게 한다.
+          - placeholder 건물(주소·세대수·완공일 중 두 개 이상이 비어 있음)이 어떤 경로로든
+            다시 들어와도 즉시 저장 버튼을 노출해, "수정하기 → 저장" 동선이 사라지지 않게
+            한다(Task #629 의 핵심 가드 — 이전 회귀: existingId 만 보고 read-only 잠금).
           - 저장 성공 시 hook 이 isEditing 을 false 로 되돌리며, 이때 existingId 가 채워져
             ‘수정하기’ 버튼이 다시 보이는 흐름으로 자연스럽게 전환된다.
           - 취소 버튼은 신규 건물에서는 ‘되돌릴 마지막 저장 스냅샷’ 자체가 비어 있어 의미가
             없으므로 숨긴다. 기존 건물 편집 흐름에서만 노출. */}
-      {(isEditing || existingId === null) && (
+      {(isEditing || existingId === null || isPlaceholderBuilding) && (
         <div className="flex flex-col-reverse desktop:flex-row gap-2">
           {isEditing && existingId !== null && (
             <Button

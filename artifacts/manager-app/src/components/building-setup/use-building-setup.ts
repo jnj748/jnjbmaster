@@ -14,6 +14,29 @@ import type {
   InspectionDates,
 } from "@/components/building-setup/types";
 
+// [Task #629] "빈 placeholder 건물" 판정 SoT.
+//   - 기존 건물 행이 DB 에 있어도 핵심 필드(addressFull, totalUnits, completionDate)
+//     중 두 개 이상이 비어 있으면 사용자에게 사실상 "빈 건물" 이다.
+//   - 이 경우 훅은 진입과 동시에 isEditing=true 로 풀어 잠긴 화면이 뜨지 않게 하고,
+//     step-info 는 안내 박스를 노출 + 저장 버튼을 항상 보여 즉시 저장 흐름을 탈 수
+//     있게 한다(이전 회귀: seed 가 placeholder 건물 #1 에 사용자를 묶어 둬, fetch
+//     시 existingId 만 보고 read-only 로 잠겨 저장 버튼 자체가 사라졌다).
+export function isBuildingPlaceholder(data: {
+  addressFull?: string | null;
+  totalUnits?: string | number | null;
+  completionDate?: string | null;
+}): boolean {
+  const emptyAddress = !data.addressFull || String(data.addressFull).trim() === "";
+  const emptyUnits = data.totalUnits === undefined || data.totalUnits === null
+    || String(data.totalUnits).trim() === "" || String(data.totalUnits) === "0";
+  const emptyCompletion = !data.completionDate || String(data.completionDate).trim() === "";
+  let emptyCount = 0;
+  if (emptyAddress) emptyCount++;
+  if (emptyUnits) emptyCount++;
+  if (emptyCompletion) emptyCount++;
+  return emptyCount >= 2;
+}
+
 interface DaumPostcodeResult {
   roadAddress: string;
   jibunAddress: string;
@@ -323,7 +346,15 @@ export function useBuildingSetup() {
         // 새 데이터 로드 직후에는 안전관리자 분석 결과도 새로 계산되므로 기준 스냅샷을 비워둔다
         // (calculateSafety 가 끝나면 fetchBuilding 재호출 없이도 자연스럽게 갱신된다).
         lastSavedSafetyResultRef.current = null;
-        setIsEditing(false);
+        // [Task #629] 빈 placeholder 건물(예: seed 가 묶어 둔 buildings #1)이면 read-only
+        //   로 잠그지 않고 곧바로 편집 모드로 진입한다. 그래야 step-info 의 저장 버튼이
+        //   계속 노출되고, 사용자가 주소 검색 → 저장 흐름을 끝까지 탈 수 있다.
+        const placeholder = isBuildingPlaceholder({
+          addressFull: next.addressFull,
+          totalUnits: next.totalUnits,
+          completionDate: next.completionDate,
+        });
+        setIsEditing(placeholder);
         if (data.building.totalArea || data.building.totalFloors) {
           calculateSafety({
             totalArea: data.building.totalArea || "0",
@@ -804,6 +835,14 @@ export function useBuildingSetup() {
     setIsEditing(false);
   }
 
+  // [Task #629] 현재 폼 값 기준 placeholder 여부. step-info 의 안내 박스/저장 버튼
+  //   가시성 분기에서 같은 SoT 를 공유하도록 prop 으로 내려준다.
+  const isPlaceholderBuilding = isBuildingPlaceholder({
+    addressFull: building.addressFull,
+    totalUnits: building.totalUnits,
+    completionDate: building.completionDate,
+  });
+
   return {
     token,
     loading,
@@ -812,6 +851,7 @@ export function useBuildingSetup() {
     building,
     setBuilding,
     existingId,
+    isPlaceholderBuilding,
     safetyResult,
     calculatingSafety,
     schedulingInspections,

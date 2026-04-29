@@ -96,7 +96,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 
 **Backend:**
 - Built on an Express 5 API framework.
-- Employs JWT-based authentication and a comprehensive Role-Based Access Control (RBAC) system supporting 6 distinct roles.
+- Employs JWT-based authentication and a comprehensive Role-Based Access Control (RBAC) system supporting 6 distinct roles: `platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, and `partner`.
 - API definitions are managed via OpenAPI specifications, with Orval used for API client codegen and Zod for robust data validation.
 
 **Database:**
@@ -154,3 +154,4 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - @google-cloud/storage
 - papaparse
 - data.go.kr (BldRgstHubService/getBrTitleInfo, getBrRecapTitleInfo, getBrExposPubuseAreaInfo)
+- Kakao Postcode API
