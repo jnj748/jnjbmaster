@@ -119,11 +119,15 @@ export default function ManagerMainWidget() {
       {/* [Task #327 → #358 → 위젯 병합] 모바일 컴팩트 — 평탄 세로 스크롤.
           [Task #503] 매니저 모바일에서 종전 registry 단계에서 campaign-banner 직후
           렌더되던 "우리 건물 계약업체 연락망"(BuildingContractsSummaryWidget) 카드를
-          여기 MobileOnly 최상단으로 옮긴다. 데스크톱은 본 위젯의 DesktopOnly 3행
-          우측 셀에서만 렌더되므로 모바일·데스크톱 모두 단일 노출이 보장된다. */}
+          여기 MobileOnly 안으로 옮긴다. 데스크톱은 본 위젯의 DesktopOnly 3행
+          우측 셀에서만 렌더되므로 모바일·데스크톱 모두 단일 노출이 보장된다.
+          [사장님 결정 — 위치 재조정] 모바일 진입 시 사장님(소장)이 가장 먼저
+          확인해야 할 정보는 "오늘 처리해야 할 일(필수업무·제안업무·일지)" 과 그 다음
+          "들어온 비교견적" 이고, 협력업체 연락처는 평소엔 빈번히 보지 않는 참조
+          정보이므로 모바일 최하단으로 이동. 데스크톱은 한눈에 다 보이는 그리드
+          구조라 별도 조정 없이 기존 3행 우측 위치 그대로 유지. */}
       <MobileOnly>
         <div className="space-y-3">
-          <BuildingContractsSummaryWidget />
           <AlertSection
             title="필수업무"
             description="법적으로 반드시 해야하는 업무"
@@ -149,6 +153,7 @@ export default function ManagerMainWidget() {
           />
           <TodayWorkLogEntry />
           <SubmittedQuotesWidget />
+          <BuildingContractsSummaryWidget />
         </div>
       </MobileOnly>
 
