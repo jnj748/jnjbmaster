@@ -121,7 +121,12 @@ function ResponsiveDialogContent({
   }
   return (
     <DialogContent
-      className={className}
+      // [Task #606] 데스크톱 모달도 모바일 드로어와 동일하게 가로 오버플로우를 차단한다.
+      // 모바일 분기에서는 이미 내부 스크롤 영역(line 116)에 overflow-x-hidden 이 걸려
+      // 있어 가로 스크롤이 생기지 않지만, 데스크톱 DialogContent 는 max-w-lg 안에서도
+      // 자식이 의도치 않게 폭을 넘기면 가로 스크롤바가 노출되던 문제가 있었다.
+      // 모든 ResponsiveDialog 사용처에 공통 적용해 호출측에서 매번 잊지 않도록 한다.
+      className={cn("overflow-x-hidden", className)}
       style={style}
       onEscapeKeyDown={onEscapeKeyDown}
       onPointerDownOutside={onPointerDownOutside}

@@ -470,7 +470,10 @@ export function AlertActionDialog({
           </ResponsiveDialogHeader>
 
           {alert && (
-            <div className="space-y-4">
+            // [Task #606] min-w-0 + break-words 로 안내문/알림 메시지 등 긴 한국어
+            // 문장이나 grid/flex 자식이 부모(DialogContent.max-w-lg) 폭을 강제로
+            // 넘기지 않도록 한다. (DialogContent 의 overflow-x-hidden 과 함께 작동.)
+            <div className="space-y-4 min-w-0 break-words">
               <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
                 <p className="font-medium">{alert.title}</p>
                 <p className="text-muted-foreground text-xs">{alert.message}</p>
@@ -498,9 +501,12 @@ export function AlertActionDialog({
               {/* [Task #511] 알림 유형에 관계없이 항상 [처리완료, 처리예정, 연기, 비교견적]
                   4개 탭 순서로 노출. 비교견적 탭은 인라인 폼 대신 /rfqs 로 이동.
                   [Task #582] 필수업무·제안업무(task_template_*) 알림에서는 "날짜변경"
-                  탭을 추가로 노출 — 시스템 제안 기일이 실제와 다를 때 정정용. */}
-              <div className="flex gap-1 border-b overflow-x-auto">
-                {([
+                  탭을 추가로 노출 — 시스템 제안 기일이 실제와 다를 때 정정용.
+                  [Task #606] 5개 탭이 들어와도 가로 스크롤이 생기지 않도록 grid 로
+                  균등 분할한다. 좁은 모바일(약 320px) 에서도 끼이지 않도록 아이콘 위·
+                  라벨 아래로 세로 스택하고, sm 이상에서 아이콘 옆에 라벨을 둔다. */}
+              {(() => {
+                const visibleTabs = ([
                   { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle, testId: "tab-complete", show: true },
                   { key: "scheduled" as AlertActionTab, label: "처리예정", icon: CalendarDays, testId: "tab-scheduled", show: true },
                   { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock, testId: "tab-postpone", show: true },
@@ -514,22 +520,30 @@ export function AlertActionDialog({
                       alert.type === "task_template_mandatory" ||
                       alert.type === "task_template_suggested",
                   },
-                ] as const).filter((tab) => tab.show).map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActionTab(tab.key)}
-                    data-testid={tab.testId}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      actionTab === tab.key
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+                ] as const).filter((tab) => tab.show);
+                // 정적 클래스 문자열을 사용해 Tailwind 가 안전하게 keep 하도록 한다.
+                const gridColsClass =
+                  visibleTabs.length === 5 ? "grid-cols-5" : "grid-cols-4";
+                return (
+                  <div className={`grid ${gridColsClass} border-b`}>
+                    {visibleTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActionTab(tab.key)}
+                        data-testid={tab.testId}
+                        className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 px-1 sm:px-2 py-2 text-[11px] sm:text-sm font-medium border-b-2 transition-colors leading-tight ${
+                          actionTab === tab.key
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <tab.icon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate max-w-full">{tab.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {actionTab === "complete" && (() => {
                 const isOverdue = alert.dueDate && getDdayLabel(alert.dueDate).isOverdue;
