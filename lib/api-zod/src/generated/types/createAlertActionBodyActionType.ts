@@ -14,4 +14,5 @@ export const CreateAlertActionBodyActionType = {
   postponed: "postponed",
   rfq_requested: "rfq_requested",
   scheduled: "scheduled",
+  date_corrected: "date_corrected",
 } as const;

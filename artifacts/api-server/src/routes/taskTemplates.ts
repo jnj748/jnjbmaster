@@ -23,7 +23,7 @@ import {
   type TaskTemplateEligibilityRule,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { computeNextDueDate } from "../lib/taskTemplateCycle";
+import { computeNextDueDate, computeNextDueDateFromBaseline } from "../lib/taskTemplateCycle";
 
 const router: IRouter = Router();
 
@@ -671,9 +671,21 @@ export async function resolveActiveTemplateAlerts(
           ),
         )
     : [];
+  // [Task #582] 가장 최근 액션 (처리완료/연기/처리예정/비교견적/날짜변경 통합) 을 알림에
+  //   반영. 단 "날짜변경(date_corrected)" 액션은 다음 회차 due 산출용 baseline 으로만
+  //   사용하고 카드의 actionStatus 라벨로는 노출하지 않으므로 별도 맵으로 분리해
+  //   completedActionMap 에는 영향을 주지 않는다.
   const completedActionMap = new Map<string, typeof completedTemplateActions[0]>();
+  const baselineActionMap = new Map<string, typeof completedTemplateActions[0]>();
   for (const a of completedTemplateActions) {
     const key = `${a.alertType}:${a.relatedEntityId}`;
+    if (a.actionType === "date_corrected") {
+      const prev = baselineActionMap.get(key);
+      if (!prev || new Date(a.createdAt) > new Date(prev.createdAt)) {
+        baselineActionMap.set(key, a);
+      }
+      continue;
+    }
     const prev = completedActionMap.get(key);
     if (!prev || new Date(a.createdAt) > new Date(prev.createdAt)) {
       completedActionMap.set(key, a);
@@ -688,12 +700,29 @@ export async function resolveActiveTemplateAlerts(
     // [Task #305] 자격 기준이 있으면 빌딩 속성과 매칭. 미충족이면 스킵.
     const elig = (t as { eligibility?: TaskTemplateEligibilityRule[] | null }).eligibility ?? null;
     if (elig && elig.length > 0 && !evaluateEligibility(elig, buildingAttrs)) continue;
-    // [Task #304] anchored 템플릿은 빌딩 사용승인일을 컨텍스트로 전달.
-    const due = computeNextDueDate(
-      t,
-      today,
-      t.frequencyType === "anchored" ? { anchorDate } : undefined,
-    );
+    const tplCategoryForBaseline = t.category as "mandatory" | "suggested";
+    const baselineKey = `${tplCategoryForBaseline === "mandatory" ? "task_template_mandatory" : "task_template_suggested"}:${t.id}`;
+    const baselineAction = baselineActionMap.get(baselineKey);
+    // [Task #582] 사용자가 "최근 처리한 날짜" 를 등록한 경우(=date_corrected 액션),
+    //   그 날짜를 baseline 으로 다음 회차 due 를 재계산한다. 적용 가능한 frequencyType
+    //   (daily/weekly/monthly/quarterly/semiannual/annual) 일 때만 적용되며,
+    //   one_time/anchored/biweekly/monthly_nth_weekday 등은 baseline 의미가 다르므로
+    //   computeNextDueDateFromBaseline 가 null 을 돌려주거나 미지원이라 기본 계산으로 폴백한다.
+    let due: Date | null = null;
+    if (baselineAction?.completedDate) {
+      const baselineDate = new Date(baselineAction.completedDate);
+      if (!Number.isNaN(baselineDate.getTime())) {
+        due = computeNextDueDateFromBaseline(t, baselineDate, today);
+      }
+    }
+    if (!due) {
+      // [Task #304] anchored 템플릿은 빌딩 사용승인일을 컨텍스트로 전달.
+      due = computeNextDueDate(
+        t,
+        today,
+        t.frequencyType === "anchored" ? { anchorDate } : undefined,
+      );
+    }
     if (!due) continue;
     const alertWindowStart = new Date(due);
     // [Task #413] 시설관리 페이지에서는 windowDaysOverride 로 advanceAlertDays 윈도우를 풀어

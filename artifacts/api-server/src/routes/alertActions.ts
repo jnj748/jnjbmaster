@@ -79,6 +79,29 @@ router.post("/alert-actions", requireRole(
     }
   }
 
+  // [Task #582] "날짜변경"(date_corrected) 액션은 시스템이 제안한 법정/제안업무 기일이
+  //   실제와 다를 때, 사용자가 "이 업무를 마지막으로 처리한 날짜"(=baseline) 를
+  //   completedDate 자리에 넣어 다음 기일 산출의 기준일로 삼는 액션이다.
+  //   다른 엔티티의 상태를 건드리지 않으며, alert_actions 행만 남기면 된다.
+  //   resolveActiveTemplateAlerts 가 가장 최근 date_corrected 액션의 completedDate 를
+  //   baseline 으로 사용해 computeNextDueDateFromBaseline 로 다음 기일을 재계산한다.
+  //   - 적용 대상: task_template_mandatory / task_template_suggested + task_template
+  //     (다른 알림 유형은 dueDate 가 별도 엔티티에 영속되므로 본 흐름과 의미가 다름)
+  //   - completedDate 필수 (없으면 baseline 이 없어 의미 없음)
+  if (data.actionType === "date_corrected") {
+    const isTemplateAlert =
+      (data.alertType === "task_template_mandatory" || data.alertType === "task_template_suggested") &&
+      data.relatedEntityType === "task_template";
+    if (!isTemplateAlert) {
+      res.status(400).json({ error: "날짜변경은 필수업무/제안업무 알림에서만 사용할 수 있습니다." });
+      return;
+    }
+    if (!data.completedDate) {
+      res.status(400).json({ error: "최근 처리한 날짜를 입력해주세요." });
+      return;
+    }
+  }
+
   let computedNextCycleDate: string | null = null;
   let actedOnDueDate: string | null = null;
 

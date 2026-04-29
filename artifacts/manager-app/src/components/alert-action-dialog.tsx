@@ -42,6 +42,7 @@ import {
   CheckCircle,
   CalendarClock,
   CalendarDays,
+  CalendarCheck,
   FileText,
 } from "lucide-react";
 import { PhotoUploadField } from "@/components/photo-upload-field";
@@ -104,6 +105,11 @@ export function AlertActionDialog({
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [delayReason, setDelayReason] = useState("");
   const [delayReasonDetail, setDelayReasonDetail] = useState("");
+  // [Task #582] "날짜변경" 위저드 — 사용자가 "이 업무를 마지막으로 처리한 날짜" 를
+  //   입력하면 그 날짜 + 주기 만큼 더한 시점이 다음 기일이 된다. 모달은 두 단계
+  //   안내(이유 설명 → 날짜 입력)로 진행하지만 단일 화면에 함께 노출한다.
+  const [dateCorrectionLastDate, setDateCorrectionLastDate] = useState("");
+  const [dateCorrectionNotes, setDateCorrectionNotes] = useState("");
 
   const [showCompletionNotice, setShowCompletionNotice] = useState(false);
   const [completionNoticeData, setCompletionNoticeData] = useState<{
@@ -163,6 +169,10 @@ export function AlertActionDialog({
     setWidePhotoUrl(null);
     setDelayReason("");
     setDelayReasonDetail("");
+    // [Task #582] 날짜변경 폼 초기화. 마지막 처리일 기본값은 비워 둠 — 사용자가
+    //   실제로 처리한 날짜를 떠올려 입력해야 의미가 있으므로 자동 prefill 하지 않는다.
+    setDateCorrectionLastDate("");
+    setDateCorrectionNotes("");
   }, [alert]);
 
   function invalidateAfterAction() {
@@ -362,6 +372,49 @@ export function AlertActionDialog({
     setShowCompletionNotice(true);
   }
 
+  // [Task #582] "날짜변경" 액션 — 사용자가 입력한 "최근 처리한 날짜"를
+  //   alert_actions.completedDate 자리에 baseline 으로 저장한다. 서버는
+  //   actionType="date_corrected" 를 인식해 이 baseline 을 다음 회차 due 산출의
+  //   기준점으로 사용한다(computeNextDueDateFromBaseline). UI 측에선 처리완료/연기와
+  //   달리 후속 문서 생성 모달을 띄우지 않고 토스트로만 결과를 알린다.
+  async function handleDateCorrection() {
+    if (!alert) return;
+    if (!dateCorrectionLastDate) {
+      toast({ title: "최근 처리한 날짜를 입력해주세요", variant: "destructive" });
+      return;
+    }
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (dateCorrectionLastDate > todayStr) {
+      toast({ title: "오늘 이후 날짜는 입력할 수 없습니다", variant: "destructive" });
+      return;
+    }
+    try {
+      await createActionMutation.mutateAsync({
+        data: {
+          alertType: alert.type,
+          relatedEntityType: getEntityType(alert.type),
+          relatedEntityId: alert.relatedId!,
+          actionType: "date_corrected",
+          completedDate: dateCorrectionLastDate,
+          notes: dateCorrectionNotes || null,
+        },
+      });
+    } catch (err) {
+      toast({
+        title: "날짜 정정에 실패했습니다",
+        description: err instanceof Error ? err.message : "잠시 후 다시 시도해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+    invalidateAfterAction();
+    toast({
+      title: "다음 기일이 자동으로 재계산되었습니다",
+      description: `최근 처리일(${dateCorrectionLastDate}) 기준으로 다음 회차 기일이 알림 카드에 반영됩니다.`,
+    });
+    onClose();
+  }
+
   // [Task #511] 인라인 RFQ 작성 폼 대신 /rfqs?prefill=1 로 네비게이트한다.
   //   /rfqs 페이지의 prefill 효과가 모달을 자동으로 열고 카테고리·제목·사진을 채운다.
   //
@@ -443,19 +496,30 @@ export function AlertActionDialog({
                 )}
 
               {/* [Task #511] 알림 유형에 관계없이 항상 [처리완료, 처리예정, 연기, 비교견적]
-                  4개 탭 순서로 노출. 비교견적 탭은 인라인 폼 대신 /rfqs 로 이동. */}
-              <div className="flex gap-1 border-b">
-                {[
-                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle, testId: "tab-complete" },
-                  { key: "scheduled" as AlertActionTab, label: "처리예정", icon: CalendarDays, testId: "tab-scheduled" },
-                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock, testId: "tab-postpone" },
-                  { key: "rfq" as AlertActionTab, label: "비교견적", icon: FileText, testId: "tab-rfq" },
-                ].map((tab) => (
+                  4개 탭 순서로 노출. 비교견적 탭은 인라인 폼 대신 /rfqs 로 이동.
+                  [Task #582] 필수업무·제안업무(task_template_*) 알림에서는 "날짜변경"
+                  탭을 추가로 노출 — 시스템 제안 기일이 실제와 다를 때 정정용. */}
+              <div className="flex gap-1 border-b overflow-x-auto">
+                {([
+                  { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle, testId: "tab-complete", show: true },
+                  { key: "scheduled" as AlertActionTab, label: "처리예정", icon: CalendarDays, testId: "tab-scheduled", show: true },
+                  { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock, testId: "tab-postpone", show: true },
+                  { key: "rfq" as AlertActionTab, label: "비교견적", icon: FileText, testId: "tab-rfq", show: true },
+                  {
+                    key: "date-correct" as AlertActionTab,
+                    label: "날짜변경",
+                    icon: CalendarCheck,
+                    testId: "tab-date-correct",
+                    show:
+                      alert.type === "task_template_mandatory" ||
+                      alert.type === "task_template_suggested",
+                  },
+                ] as const).filter((tab) => tab.show).map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => setActionTab(tab.key)}
                     data-testid={tab.testId}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                       actionTab === tab.key
                         ? "border-primary text-primary"
                         : "border-transparent text-muted-foreground hover:text-foreground"
@@ -672,6 +736,59 @@ export function AlertActionDialog({
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     {createActionMutation.isPending ? "처리 중..." : "비교견적 요청하기"}
+                  </Button>
+                </div>
+              )}
+
+              {/* [Task #582] 날짜변경 탭 — 시스템이 제안한 법정/제안업무 기일이 실제와
+                  다를 때 정정한다. "최근에 이 업무를 마지막으로 처리한 날짜" 를 입력하면
+                  서버가 그 날짜 + 업무 주기 만큼 더한 시점을 다음 기일로 자동 산출한다.
+                  안내 문구로 두 단계(이유 → 입력) 위저드 흐름을 보여주되 한 화면에서
+                  완료하도록 구성. */}
+              {actionTab === "date-correct" && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2 text-sm">
+                    <p className="font-semibold text-blue-900 flex items-center gap-1.5">
+                      <CalendarCheck className="w-4 h-4" />
+                      시스템이 제안한 기일이 실제와 다른가요?
+                    </p>
+                    <p className="text-blue-800 text-xs leading-relaxed">
+                      이 업무를 <span className="font-semibold">마지막으로 처리하신 날짜</span>를 알려주시면,
+                      그 날짜를 기준으로 다음 회차 기일이 자동으로 다시 계산됩니다.
+                      앞으로 이 카드는 정정된 기일로 표시됩니다.
+                    </p>
+                  </div>
+                  <div>
+                    <Label>최근 처리한 날짜</Label>
+                    <Input
+                      type="date"
+                      value={dateCorrectionLastDate}
+                      onChange={(e) => setDateCorrectionLastDate(e.target.value)}
+                      max={new Date().toISOString().split("T")[0]}
+                      data-testid="alert-date-correct-last"
+                    />
+                    <p className="text-xs mt-1 text-muted-foreground">
+                      예: 작년 5월에 처리하셨다면 그 날짜를 선택해주세요.
+                    </p>
+                  </div>
+                  <div>
+                    <Label>메모 (선택)</Label>
+                    <Textarea
+                      value={dateCorrectionNotes}
+                      onChange={(e) => setDateCorrectionNotes(e.target.value)}
+                      placeholder="정정하시는 이유나 참고사항"
+                      data-testid="alert-date-correct-memo"
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    variant="default"
+                    onClick={handleDateCorrection}
+                    disabled={createActionMutation.isPending || !dateCorrectionLastDate}
+                    data-testid="btn-save-date-correct"
+                  >
+                    <CalendarCheck className="w-4 h-4 mr-2" />
+                    {createActionMutation.isPending ? "처리 중..." : "기일 자동 재계산"}
                   </Button>
                 </div>
               )}

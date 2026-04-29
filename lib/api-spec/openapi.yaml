@@ -10809,7 +10809,7 @@ components:
           type: integer
         actionType:
           type: string
-          enum: [completed, postponed, rfq_requested, scheduled]
+          enum: [completed, postponed, rfq_requested, scheduled, date_corrected]
         completedDate:
           type: ["string", "null"]
           format: date
@@ -10854,7 +10854,7 @@ components:
           type: integer
         actionType:
           type: string
-          enum: [completed, postponed, rfq_requested, scheduled]
+          enum: [completed, postponed, rfq_requested, scheduled, date_corrected]
         completedDate:
           type: ["string", "null"]
           format: date

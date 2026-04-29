@@ -32,7 +32,11 @@ export interface DashboardAlert {
 // [Task #511] 알림 처리 모달 탭 식별자.
 //   탭 노출 순서는 항상 [complete → scheduled → postpone → rfq] 이며
 //   알림 유형에 관계없이 4개 탭 모두 동일하게 표시된다.
-export type AlertActionTab = "complete" | "scheduled" | "postpone" | "rfq";
+//
+// [Task #582] "date-correct" 탭은 시스템이 제안한 법정/제안업무 기일이 실제와 다를
+//   때 사용자가 "최근 처리한 날짜" 를 입력해 다음 기일을 자동 재계산하도록 한다.
+//   필수업무·제안업무(task_template_*) 알림에서만 노출된다.
+export type AlertActionTab = "complete" | "scheduled" | "postpone" | "rfq" | "date-correct";
 
 // 알림 카드 클릭 시 처리 모달이 열리는 알림 유형.
 //   이 목록 외의 유형은 ALERT_FALLBACK_ROUTES 의 경로로 네비게이트한다.
