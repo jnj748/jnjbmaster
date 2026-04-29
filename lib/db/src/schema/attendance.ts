@@ -9,7 +9,9 @@ export const attendanceTable = pgTable("attendance", {
   checkInTime: timestamp("check_in_time", { withTimezone: true }),
   checkOutTime: timestamp("check_out_time", { withTimezone: true }),
   checkType: text("check_type", { enum: ["check_in", "check_out"] }).notNull(),
-  status: text("status", { enum: ["normal", "late", "early_leave", "absent"] }).notNull().default("normal"),
+  // [Task #609] "leave"(연차/휴가), "business_trip"(출장) 도 일보 독려 알림 면제
+  //   대상이다. 컬럼은 일반 text 라 DB 마이그레이션 없이 enum 만 확장한다.
+  status: text("status", { enum: ["normal", "late", "early_leave", "absent", "leave", "business_trip"] }).notNull().default("normal"),
   deviceType: text("device_type"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),

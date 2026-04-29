@@ -139,7 +139,34 @@ function isAnnouncement(n: Notification): boolean {
   return n.kind === "announcement" || n.notificationType === "platform_announcement";
 }
 
+// [Task #609] 일보 작성 독려 알림 클릭 → 해당 일자의 일보 화면으로 직행한다.
+//   - "evening" 알림은 그날 본인이 일보를 안 썼다는 안내 → createdAt 의 KST 일자.
+//   - "morning" 알림은 어제 일보를 채우라는 안내 → createdAt 의 KST 일자 - 1.
+//   relatedEntityId 가 정수라 날짜를 직접 못 담아 알림 type + createdAt 으로 유도.
+function pad2(n: number): string { return n < 10 ? `0${n}` : String(n); }
+function kstYmdFromIso(iso: string): string {
+  const t = new Date(iso).getTime() + 9 * 60 * 60 * 1000;
+  const d = new Date(t);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+function kstAddDaysYmd(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, d) + delta * 24 * 60 * 60 * 1000;
+  const dt = new Date(t);
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+}
+function dailyJournalReminderTargetDate(n: Notification): string | null {
+  if (n.notificationType === "daily_journal_reminder_evening") {
+    return kstYmdFromIso(String(n.createdAt));
+  }
+  if (n.notificationType === "daily_journal_reminder_morning") {
+    return kstAddDaysYmd(kstYmdFromIso(String(n.createdAt)), -1);
+  }
+  return null;
+}
+
 function NotifBell() {
+  const [, setLocation] = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [openDetail, setOpenDetail] = useState<Notification | null>(null);
   const { data: unreadCount } = useGetUnreadNotificationCount({ query: { staleTime: 30 * 1000, refetchInterval: 60 * 1000 } });
@@ -204,7 +231,13 @@ function NotifBell() {
       return;
     }
     if (!n.isRead) await handleMarkRead(n);
-  }, [handleMarkRead, markAnnouncementRead, invalidate]);
+    // [Task #609] 일보 작성 독려 알림 클릭 → 해당 일자의 일보 화면으로 이동.
+    const targetYmd = dailyJournalReminderTargetDate(n);
+    if (targetYmd) {
+      setNotifOpen(false);
+      setLocation(`/work-log?tab=daily&date=${targetYmd}`);
+    }
+  }, [handleMarkRead, markAnnouncementRead, invalidate, setLocation]);
 
   return (
     <>

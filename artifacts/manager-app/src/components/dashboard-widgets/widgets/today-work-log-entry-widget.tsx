@@ -52,11 +52,13 @@ export function TodayWorkLogEntry({ variant = "compact", className }: TodayWorkL
   // [Task #382] 일지가 아직 없는 날에는 안내를 두 줄로 분리해 시니어 사용자가
   //   "현재 상태"와 "해야 할 행동(클릭)"을 명확히 구분 인지하도록 한다.
   //   일지가 이미 있는 날은 기존 한 줄 안내 유지.
+  // [Task #609] 미작성 시 "경고/위반"이 아닌 "부드러운 독려" 톤으로 바꾼다.
+  //   빨간색 → 호박(앰버) 계열로 완화하고, 문구도 행위자 중심·가벼운 격려로 재서술.
   const messageLine1 = hasJournal
     ? "금일 업무일지가 생성완료되었습니다"
-    : "금일 업무일지 생성 전입니다.";
-  const messageLine2 = hasJournal ? null : "여기를 눌러 자동으로 생성해보세요.";
-  const messageClass = hasJournal ? "text-emerald-600" : "text-red-600";
+    : "오늘 업무일지를 아직 안 쓰셨네요.";
+  const messageLine2 = hasJournal ? null : "1분이면 충분해요. 여기를 눌러 시작해 보세요.";
+  const messageClass = hasJournal ? "text-emerald-600" : "text-amber-700";
 
   if (variant === "prominent") {
     // [Task #503] 데스크톱 강조 카드. 부모 셀(좌측 두 카드 합산 높이)에 맞춰
@@ -64,7 +66,7 @@ export function TodayWorkLogEntry({ variant = "compact", className }: TodayWorkL
     //   더 크고 또렷해지도록 크기와 색을 강조한다.
     return (
       <Card
-        className={`h-full ${hasJournal ? "border-emerald-200 bg-emerald-50/40" : "border-red-200 bg-red-50/40"} ${className ?? ""}`}
+        className={`h-full ${hasJournal ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"} ${className ?? ""}`}
       >
         <CardContent className="p-5 h-full">
           {/* [Task #503] Link 자체에도 block h-full 을 줘 카드 전체가 한 번에

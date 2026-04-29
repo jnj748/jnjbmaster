@@ -3453,6 +3453,8 @@ export const AttendanceRecordStatus = {
   late: "late",
   early_leave: "early_leave",
   absent: "absent",
+  leave: "leave",
+  business_trip: "business_trip",
 } as const;
 
 export interface AttendanceRecord {

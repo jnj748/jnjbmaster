@@ -20,6 +20,8 @@ export interface AuthUser {
   hasPassword?: boolean;
   // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리 목록. permissions.ts 의 Group 값.
   disabledCategories?: string[];
+  // [Task #609] 본인이 끌 수 있는 "일보 작성 독려 알림" 토글. undefined 이면 ON 으로 본다.
+  dailyJournalReminderEnabled?: boolean;
 }
 
 interface AuthContextType {

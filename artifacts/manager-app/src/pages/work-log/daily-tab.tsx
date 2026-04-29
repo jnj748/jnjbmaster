@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,19 @@ export function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoO
   const [wizardOpen, setWizardOpen] = useState(false);
   const [pendingAutoOpen, setPendingAutoOpen] = useState(false);
   const { call } = useApi();
+  // [Task #609] 알림 종에서 같은 페이지로 다른 날짜를 다시 push 했을 때도
+  //   날짜 상태를 URL 의 ?date= 와 동기화한다. wouter 의 location 변화를 dep 으로
+  //   사용해서 push 시점마다 평가한다.
+  const [wouterLocation] = useLocation();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const d = sp.get("date");
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== date) {
+      setDate(d);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wouterLocation]);
 
   useEffect(() => {
     if (autoOpenWizard) {
@@ -71,6 +85,14 @@ export function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoO
           {reportQ.data?.journal ? "일지 수정" : "일지 작성"}
         </Button>
       </div>
+      {/* [Task #609] 휴가/출장 등으로 그날 못 쓴 일보를 나중에 채우는 흐름을 명시.
+          날짜 선택기 바로 아래 한 줄로만 두어 시니어 사용자에게도 부담 없도록. */}
+      <p
+        className="text-xs text-muted-foreground"
+        data-testid="daily-past-date-hint"
+      >
+        휴가·출장 등으로 그날 못 쓰셨다면 위 날짜 선택기에서 지난 날짜를 골라 지금 작성하셔도 됩니다.
+      </p>
 
       {reportQ.isLoading ? (
         <div className="flex justify-center py-10"><Spinner /></div>

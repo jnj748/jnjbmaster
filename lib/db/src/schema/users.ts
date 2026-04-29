@@ -46,6 +46,10 @@ export const usersTable = pgTable("users", {
   //   본사가 referrer_phone 별로 가입 현황·베네핏 지급 이력을 집계한다.
   //   해당 번호가 플랫폼 회원의 phone 과 일치하면 사이드 패널에서 매칭 정보가 보인다.
   referrerPhone: text("referrer_phone"),
+  // [Task #609] 본인이 직접 끌 수 있는 "일보 작성 독려 알림" 토글.
+  //   기본 ON(true). 끄면 저녁/오전 소프트 리마인더가 알림 종에 뜨지 않는다.
+  //   상사·본사로의 에스컬레이션은 절대 없으며 본 토글은 본인 알림에만 영향을 준다.
+  dailyJournalReminderEnabled: boolean("daily_journal_reminder_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

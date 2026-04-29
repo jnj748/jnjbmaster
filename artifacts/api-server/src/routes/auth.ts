@@ -234,6 +234,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       portalType: user.portalType,
       roleSelected: user.roleSelected,
       approvalStatus: user.approvalStatus,
+      // [Task #609] 가입 직후 useAuth() 가 곧바로 일관된 값을 갖도록 항상 포함.
+      dailyJournalReminderEnabled: user.dailyJournalReminderEnabled !== false,
     },
   });
 });
@@ -318,6 +320,8 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
         portalType: updatedUser.portalType,
         roleSelected: updatedUser.roleSelected,
         approvalStatus: updatedUser.approvalStatus,
+        // [Task #609] 역할 확정 직후 본인 토글 기본값을 클라이언트에도 동일 노출.
+        dailyJournalReminderEnabled: updatedUser.dailyJournalReminderEnabled !== false,
       },
     });
   } catch (err) {
@@ -407,6 +411,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       buildingSigungu: user.buildingSigungu,
       roleSelected: user.roleSelected,
       approvalStatus: user.approvalStatus,
+      // [Task #609] 로그인 직후 즉시 일관된 본인 토글 값을 갖도록 항상 노출.
+      dailyJournalReminderEnabled: user.dailyJournalReminderEnabled !== false,
     },
   });
 });
@@ -468,6 +474,8 @@ router.post("/auth/auto-login", async (_req, res): Promise<void> => {
       phone: user.phone,
       vendorId: user.vendorId,
       portalType: user.portalType,
+      // [Task #609] 자동 로그인 응답에서도 동일하게 토글 값을 노출.
+      dailyJournalReminderEnabled: user.dailyJournalReminderEnabled !== false,
     },
   });
 });
@@ -497,6 +505,8 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       hasPassword: !!user.passwordHash,
       // [카테고리 메뉴 제어] 프론트엔드(layout.tsx)가 사이드바·하단 네비를 가릴 때 사용.
       disabledCategories: parseDisabledCategories(user.disabledCategories),
+      // [Task #609] 본인이 끌 수 있는 "일보 작성 독려 알림" 토글. 기본 ON(true).
+      dailyJournalReminderEnabled: user.dailyJournalReminderEnabled !== false,
     },
   });
 });
@@ -514,17 +524,32 @@ function parseDisabledCategories(value: string | null | undefined): string[] {
 
 router.put("/auth/me", authMiddleware, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
-  const { name, phone } = req.body;
+  // [Task #609] dailyJournalReminderEnabled 단독 토글 PATCH 도 지원: name 이
+  //   안 들어와도 토글만 갱신할 수 있도록 분기한다.
+  const { name, phone, dailyJournalReminderEnabled } = req.body ?? {};
+  const isReminderOnlyUpdate =
+    typeof dailyJournalReminderEnabled === "boolean" &&
+    name === undefined && phone === undefined;
 
-  if (!name || !name.trim()) {
+  if (!isReminderOnlyUpdate && (!name || !String(name).trim())) {
     res.status(400).json({ error: "이름을 입력해주세요" });
     return;
   }
 
   try {
+    const updates: Partial<typeof usersTable.$inferInsert> = {};
+    if (typeof name === "string") updates.name = name.trim();
+    if (phone !== undefined) updates.phone = (phone ?? "").toString().trim() || null;
+    if (typeof dailyJournalReminderEnabled === "boolean") {
+      updates.dailyJournalReminderEnabled = dailyJournalReminderEnabled;
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "수정할 값이 없습니다" });
+      return;
+    }
     const [updated] = await db
       .update(usersTable)
-      .set({ name: name.trim(), phone: phone?.trim() || null })
+      .set(updates)
       .where(eq(usersTable.id, userId))
       .returning();
 
@@ -535,6 +560,7 @@ router.put("/auth/me", authMiddleware, async (req, res): Promise<void> => {
         username: updated.username,
         name: updated.name,
         phone: updated.phone,
+        dailyJournalReminderEnabled: updated.dailyJournalReminderEnabled !== false,
       },
     });
   } catch {

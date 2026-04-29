@@ -17,6 +17,8 @@ import {
   Link2,
   Unlink,
   LogOut,
+  Bell,
+  Clock,
 } from "lucide-react";
 import {
   useListPlatformSettings,
@@ -92,12 +94,35 @@ function PlatformSettings() {
   const upsertRate = useUpsertCommissionRate();
 
   const findFlag = (key: string) => settings?.find((s) => s.key === key)?.value === "true";
+  const findValue = (key: string, fallback: string) =>
+    settings?.find((s) => s.key === key)?.value ?? fallback;
 
   const toggleFlag = async (key: string, enabled: boolean) => {
     await upsertSetting.mutateAsync({ data: { key, value: enabled ? "true" : "false" } });
     qc.invalidateQueries({ queryKey: getListPlatformSettingsQueryKey() });
     toast({ title: `${key} ${enabled ? "활성화" : "비활성화"}됨` });
   };
+
+  // [Task #609] 일보 작성 독려 발송 시각(저녁/오전) — HH:MM 24h.
+  //   서버 scheduler 가 KST 기준으로 비교하며, 평일에만 발송된다.
+  const eveningAtKey = "daily_journal_reminder_evening_at";
+  const morningAtKey = "daily_journal_reminder_morning_at";
+  const eveningAt = findValue(eveningAtKey, "18:00");
+  const morningAt = findValue(morningAtKey, "09:30");
+  const [eveningInput, setEveningInput] = useState(eveningAt);
+  const [morningInput, setMorningInput] = useState(morningAt);
+  useEffect(() => { setEveningInput(eveningAt); }, [eveningAt]);
+  useEffect(() => { setMorningInput(morningAt); }, [morningAt]);
+
+  async function saveReminderTime(key: string, value: string, label: string) {
+    if (!/^\d{2}:\d{2}$/.test(value)) {
+      toast({ title: `${label} 형식이 올바르지 않습니다 (예: 18:00)`, variant: "destructive" });
+      return;
+    }
+    await upsertSetting.mutateAsync({ data: { key, value } });
+    qc.invalidateQueries({ queryKey: getListPlatformSettingsQueryKey() });
+    toast({ title: `${label}이(가) ${value} 로 저장되었습니다` });
+  }
 
   return (
     <div className="space-y-6">
@@ -126,6 +151,69 @@ function PlatformSettings() {
               checked={findFlag("auto_commission_enabled")}
               onCheckedChange={(v) => toggleFlag("auto_commission_enabled", v)}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* [Task #609] 일보 작성 독려 발송 시각 — HQ 가 평일 KST 기준으로 조정.
+          본인 토글이 OFF 인 사용자, attendance="absent" 인 사용자, 이미 일보를
+          작성한 사용자에게는 시각과 무관하게 발송되지 않는다. 상사·본사로 절대
+          에스컬레이션되지 않는 본인 한정 부드러운 안내. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            일보 작성 독려 발송 시각
+          </CardTitle>
+          <CardDescription>
+            평일 KST 기준 저녁/다음날 오전 한 번씩 본인 알림 종에만 부드럽게 표시됩니다.
+            출퇴근 결근 또는 본인 토글 OFF 인 경우 자동 생략됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="flex items-center gap-1.5">저녁 (당일)</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  type="time"
+                  value={eveningInput}
+                  onChange={(e) => setEveningInput(e.target.value)}
+                  className="w-32"
+                  data-testid="input-reminder-evening-at"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => saveReminderTime(eveningAtKey, eveningInput, "저녁 발송 시각")}
+                  data-testid="button-save-reminder-evening"
+                >
+                  저장
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">기본 18:00</p>
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5">오전 (다음날 어제 일보)</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  type="time"
+                  value={morningInput}
+                  onChange={(e) => setMorningInput(e.target.value)}
+                  className="w-32"
+                  data-testid="input-reminder-morning-at"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => saveReminderTime(morningAtKey, morningInput, "오전 발송 시각")}
+                  data-testid="button-save-reminder-morning"
+                >
+                  저장
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">기본 09:30</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -632,6 +720,11 @@ function ProfileSettings() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [saving, setSaving] = useState(false);
 
+  // [Task #609] 일보 작성 독려 알림 토글(본인 알림 종에만 영향). 기본 ON(true).
+  //   undefined 이면 ON 으로 본다. 토글만 단독으로 PUT /auth/me 가능.
+  const [reminderEnabled, setReminderEnabled] = useState<boolean>(user?.dailyJournalReminderEnabled !== false);
+  const [savingReminder, setSavingReminder] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -641,8 +734,45 @@ function ProfileSettings() {
     if (user) {
       setName(user.name || "");
       setPhone(user.phone || "");
+      setReminderEnabled(user.dailyJournalReminderEnabled !== false);
     }
   }, [user]);
+
+  // [Task #609] 토글만 갱신 — name/phone 미포함 PATCH 도 서버가 받아준다.
+  async function handleToggleReminder(next: boolean) {
+    setReminderEnabled(next);
+    setSavingReminder(true);
+    try {
+      const res = await fetch(`${apiBase}/auth/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ dailyJournalReminderEnabled: next }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        if (setUser && user) {
+          setUser({ ...user, dailyJournalReminderEnabled: next });
+        }
+        toast({
+          title: next
+            ? "일보 작성 독려 알림을 받습니다"
+            : "일보 작성 독려 알림을 끄셨습니다",
+        });
+      } else {
+        // 실패 시 UI 롤백.
+        setReminderEnabled(!next);
+        toast({ title: result.error || "설정 변경에 실패했습니다", variant: "destructive" });
+      }
+    } catch {
+      setReminderEnabled(!next);
+      toast({ title: "설정 변경 중 오류가 발생했습니다", variant: "destructive" });
+    } finally {
+      setSavingReminder(false);
+    }
+  }
 
   async function handleSaveProfile() {
     if (!name.trim()) {
@@ -783,6 +913,39 @@ function ProfileSettings() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* [Task #609] 일보 작성 독려 알림 — manager/accountant/facility_staff 만 노출.
+          본인 알림 종에만 영향. 끄더라도 상사·본사로 에스컬레이션 되지 않음. */}
+      {(user?.role === "manager" || user?.role === "accountant" || user?.role === "facility_staff") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="w-4 h-4" />
+              일보 작성 독려 알림
+            </CardTitle>
+            <CardDescription>
+              그날 업무일지가 비어 있으면 저녁(기본 18:00) 한 번, 다음날 아침(기본 09:30) 한 번 부드럽게 알림 종에만 표시합니다.
+              상사·본사로 따로 보고되지 않습니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="pr-3">
+                <p className="font-medium text-sm">알림 받기</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  켜두면 일보 미작성 시 본인에게만 알림 종에 안내가 뜹니다. 끄면 더 이상 표시되지 않습니다.
+                </p>
+              </div>
+              <Switch
+                checked={reminderEnabled}
+                disabled={savingReminder}
+                onCheckedChange={(v) => handleToggleReminder(!!v)}
+                data-testid="switch-daily-journal-reminder"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {user?.portalType !== "hq" && <SocialAccountsCard />}
 
