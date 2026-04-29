@@ -1102,6 +1102,21 @@ export function getBottomNavItems(
   }
   tail.sort((a, b) => (a.entry.bottomOrder ?? 100) - (b.entry.bottomOrder ?? 100));
   for (const t of tail) items.push(t.item);
+  // [Task #607] 경리(accountant)·시설기사(facility_staff)도 manager 와 동일하게
+  //   "/__quick_entry" sentinel 을 노출 — layout.tsx 가 이 항목을 보고 모바일
+  //   가운데 + 버튼과 데스크톱 우하단 플로팅 배너 버튼을 함께 활성화한다.
+  //   group 은 dashboard(항상 노출) 로 두어 카테고리 메뉴 제어로 가려질 일이 없게 한다.
+  //   기존 다른 하단 탭 순서는 유지하고, 가운데 위치(items 길이 절반 지점)에 끼워
+  //   넣어 시각적으로 중앙에 오도록 배치한다.
+  if (role === "accountant" || role === "facility_staff") {
+    const insertAt = Math.floor(items.length / 2);
+    items.splice(insertAt, 0, {
+      path: "/__quick_entry",
+      label: "업무기록",
+      icon: Plus,
+      group: "dashboard",
+    });
+  }
   return items;
 }
 
