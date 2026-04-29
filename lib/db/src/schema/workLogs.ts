@@ -22,12 +22,23 @@ export const workLogEntriesTable = pgTable(
 
 export type WorkLogEntry = typeof workLogEntriesTable.$inferSelect;
 
+/**
+ * 직책별 일보 분리. 한 건물에 (소장/경리/시설과장) 각자 자기 일보를 갖는다.
+ * - role: 'manager' | 'accountant' | 'facility_staff'
+ * - 4개 status/memo/photo 컬럼명은 공통(security/cleaning/facility/complaint) 으로 두고
+ *   role 별로 화면에서 라벨만 다르게 매핑한다.
+ *   • manager   : 보안 / 청소 / 시설 / 민원
+ *   • accountant: 수납·연체 / 지출 / 결재·기안 / 민원
+ *   • facility_staff: 소방 / 전기 / 기계설비 / 기타
+ * - 유니크 (building_id, journal_date, role) 로 동일 건물·동일 일자에 직책당 1건 보장.
+ */
 export const dailyJournalsTable = pgTable(
   "daily_journals",
   {
     id: serial("id").primaryKey(),
     buildingId: integer("building_id").notNull(),
     journalDate: date("journal_date").notNull(),
+    role: text("role").notNull().default("manager"),
     authorId: integer("author_id").notNull(),
     authorName: text("author_name").notNull(),
     securityStatus: text("security_status").notNull().default("ok"),
@@ -47,7 +58,7 @@ export const dailyJournalsTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (t) => ({
-    uniqByBuildingDate: uniqueIndex("daily_journals_building_date_uq").on(t.buildingId, t.journalDate),
+    uniqByBuildingDateRole: uniqueIndex("daily_journals_building_date_role_uq").on(t.buildingId, t.journalDate, t.role),
   }),
 );
 

@@ -15,8 +15,9 @@ import {
   ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import {
-  useApi, todayISO, addDays, thisMonth, SECTIONS, CATEGORY_LABEL,
-  type DailyJournal, type DailyReport, type Status,
+  useApi, todayISO, addDays, thisMonth, getSectionsFor, useCurrentRole,
+  CATEGORY_LABEL, ROLE_LABEL, formatJournalDateLabel, getSectionLabelFor,
+  type DailyJournal, type DailyReport, type Status, type Role,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
 import { printIsolatedNode } from "@/lib/print-isolate";
@@ -90,6 +91,8 @@ export function DailyTab({ autoOpenWizard = false, onAutoOpenConsumed }: { autoO
 }
 
 function DailyReportPreview({ report }: { report: DailyReport }) {
+  const role = useCurrentRole();
+  const sections = getSectionsFor(role);
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
   const { toast } = useToast();
@@ -183,7 +186,9 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             </tbody>
           </table>
 
-          <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">1. 일일 일지</p>
+          <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">
+            1. 일일 일지 ({ROLE_LABEL[role]})
+          </p>
           {report.journal ? (
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -194,7 +199,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
                 </tr>
               </thead>
               <tbody>
-                {SECTIONS.map((s) => {
+                {sections.map((s) => {
                   const status = report.journal![`${s.key}Status` as const] as Status;
                   const memo = report.journal![`${s.key}Memo` as const] as string | null;
                   return (
@@ -211,6 +216,49 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             </table>
           ) : (
             <p className="text-xs text-muted-foreground border border-gray-300 rounded p-3">아직 작성되지 않았습니다.</p>
+          )}
+
+          {/* [직책별 일보 분리] 매니저 보고서 한정 — 부하 직책의 어제 분 일보가 오늘 늦게
+              들어온 경우, "M월 D일자 OO 일보" 라벨로 별도 노출. 어제 일보 자체는 그대로 유지되며
+              주보·월보 집계는 정상 날짜(journal_date) 기준으로 들어간다. */}
+          {role === "manager" && (report.lateArrivals?.length ?? 0) > 0 && (
+            <>
+              <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-amber-600 pl-2">
+                1-1. 늦게 도착한 부하 일보 ({report.lateArrivals!.length}건)
+              </p>
+              <div className="space-y-3">
+                {report.lateArrivals!.map((la, idx) => {
+                  const subSections = getSectionsFor(la.role);
+                  return (
+                    <div key={idx} className="border border-amber-300 rounded p-3 bg-amber-50/40">
+                      <div className="text-sm font-semibold mb-2">
+                        {formatJournalDateLabel(la.journal.journalDate)} {ROLE_LABEL[la.role]} 일보
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (작성자 {la.journal.authorName})
+                        </span>
+                      </div>
+                      <table className="w-full text-xs border-collapse">
+                        <tbody>
+                          {subSections.map((s) => {
+                            const status = la.journal[`${s.key}Status` as const] as Status;
+                            const memo = la.journal[`${s.key}Memo` as const] as string | null;
+                            return (
+                              <tr key={s.key}>
+                                <td className="border border-gray-300 bg-gray-50 p-1.5 font-medium w-24">{s.label}</td>
+                                <td className="border border-gray-300 p-1.5 w-20 text-center">
+                                  {status === "ok" ? "이상 없음" : "특이사항"}
+                                </td>
+                                <td className="border border-gray-300 p-1.5 whitespace-pre-line">{memo || "-"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           {/* [일보] 첨부사진을 셀 안에 명함 크기(약 85mm 폭, 16:9) 고정 틀로
@@ -238,7 +286,18 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
               <tbody>
                 {report.entries.map((e) => (
                   <tr key={e.id} className="break-inside-avoid align-middle">
-                    <td className="border border-gray-400 p-2 align-middle">{CATEGORY_LABEL[e.category]}</td>
+                    {/* [직책별 일보] 매니저 미리보기엔 부하 entries 도 같이 들어오므로
+                        분류 컬럼에 직책 라벨을 함께 표기해 누가 쓴 기록인지 즉시 식별. */}
+                    <td className="border border-gray-400 p-2 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <span>{CATEGORY_LABEL[e.category] ?? e.category}</span>
+                        {role === "manager" && e.authorRole && e.authorRole !== "manager" ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            {ROLE_LABEL[e.authorRole]}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="border border-gray-400 p-2 whitespace-pre-line break-words align-middle text-justify" style={{ textJustify: "inter-word" }}>{e.memo}</td>
                     <td className="border border-gray-400 p-1 text-center align-middle">
                       <div
@@ -317,6 +376,8 @@ export function DailyJournalWizard({
 }: { date: string; existing: DailyJournal | null; onClose: () => void; onSaved: () => void }) {
   const { call } = useApi();
   const { toast } = useToast();
+  const role = useCurrentRole();
+  const sections = getSectionsFor(role);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     securityStatus: existing?.securityStatus ?? "ok" as Status,
@@ -357,7 +418,7 @@ export function DailyJournalWizard({
   function goNext() { autoSave(); setStep(step + 1); }
   function goPrev() { autoSave(); setStep(step - 1); }
 
-  const section = SECTIONS[step];
+  const section = sections[step];
   const statusKey = `${section.key}Status` as const;
   const memoKey = `${section.key}Memo` as const;
   const photoKey = `${section.key}PhotoUrl` as const;
@@ -366,11 +427,11 @@ export function DailyJournalWizard({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{date} · 일일 일지 ({step + 1}/4)</DialogTitle>
+          <DialogTitle>{date} · 일일 일지 — {ROLE_LABEL[role]} ({step + 1}/{sections.length})</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex gap-1">
-            {SECTIONS.map((_, i) => (
+            {sections.map((_, i) => (
               <div key={i} className={`flex-1 h-1.5 rounded-full ${i <= step ? "bg-accent" : "bg-muted"}`} />
             ))}
           </div>

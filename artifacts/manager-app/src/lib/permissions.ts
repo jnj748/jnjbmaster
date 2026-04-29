@@ -231,12 +231,15 @@ export const ROUTES: RouteEntry[] = [
     bottomOrder: 20,
   },
   // [Task #182] 상시 업무기록(타임라인+FAB) + 일/주/월 보고서 자동생성
+  // [직책별 일보 분리] 소장/경리/시설과장 모두 자기 직책의 업무기록과 일보를 만든다.
+  //   각자 자기 모달로 자기 직책 일보를 채우며, 소장 일보 미리보기에는 같은 건물의
+  //   부하 직책 업무기록이 직책 라벨과 함께 자동 편입된다.
   {
     path: "/work-log", component: WorkLog,
     label: "업무일지", icon: NotebookPen, group: "reports",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager"],
-    bottomNav: ["manager"],
+    access: ["manager", "accountant", "facility_staff", "platform_admin"],
+    sideMenu: ["manager", "accountant", "facility_staff"],
+    bottomNav: ["manager", "accountant", "facility_staff"],
     bottomLabel: "업무일지",
     bottomOrder: 25,
   },

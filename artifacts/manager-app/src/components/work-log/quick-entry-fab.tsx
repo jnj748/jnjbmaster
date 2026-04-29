@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Wrench, Receipt, MessageSquareWarning, Loader2, AlertCircle, CalendarClock, CheckCircle2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Loader2, AlertCircle, CalendarClock, CheckCircle2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,40 +11,21 @@ import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/l
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 import { CompletionNotice } from "@/components/completion-notice";
 import { MemoInputFooter } from "@/components/memo-input-footer";
+import { getCategoriesFor, useCurrentRole, CATEGORY_LABEL, type Category } from "@/pages/work-log/shared";
 
-type Category = "facility" | "bill" | "complaint";
 type Status = "occurred" | "planned" | "completed";
-
-interface CategoryOption {
-  value: Category;
-  label: string;
-  icon: typeof Wrench;
-  hint: string;
-}
 
 interface StatusOption {
   value: Status;
   label: string;
-  icon: typeof AlertCircle;
+  icon: LucideIcon;
 }
-
-const CATEGORIES: CategoryOption[] = [
-  { value: "facility", label: "시설", icon: Wrench, hint: "엘리베이터·누수·전기 등" },
-  { value: "bill", label: "관리비", icon: Receipt, hint: "검침·청구·납부 메모" },
-  { value: "complaint", label: "민원", icon: MessageSquareWarning, hint: "주민 요청·소음·주차" },
-];
 
 const STATUSES: StatusOption[] = [
   { value: "occurred", label: "발생", icon: AlertCircle },
   { value: "planned", label: "처리예정", icon: CalendarClock },
   { value: "completed", label: "처리완료", icon: CheckCircle2 },
 ];
-
-const CATEGORY_LABEL: Record<Category, string> = {
-  facility: "시설",
-  bill: "관리비",
-  complaint: "민원",
-};
 
 const STATUS_LABEL: Record<Status, string> = {
   occurred: "발생",
@@ -70,7 +51,10 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
   const { token, user } = useAuth();
   const { building } = useBuilding();
   const { toast } = useToast();
-  const [category, setCategory] = useState<Category>("facility");
+  const role = useCurrentRole();
+  const CATEGORIES = useMemo(() => getCategoriesFor(role), [role]);
+  const defaultCategory = CATEGORIES[0].value as Category;
+  const [category, setCategory] = useState<Category>(defaultCategory);
   const [status, setStatus] = useState<Status>("occurred");
   const [memo, setMemo] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -92,11 +76,20 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
   function reset() {
-    setCategory("facility");
+    setCategory(defaultCategory);
     setStatus("occurred");
     setMemo("");
     setPhotoUrl(null);
     setWidePhotoUrl(null);
+  }
+
+  /** 후속조치 도메인 힌트 — 새 직책별 카테고리도 facility/complaint 로 매핑. */
+  const FACILITY_DOMAIN = new Set(["facility", "fire", "electric", "mechanical"]);
+  const COMPLAINT_DOMAIN = new Set(["complaint"]);
+  function followUpDomainHint(c: Category): "facility" | "complaint" | undefined {
+    if (FACILITY_DOMAIN.has(c)) return "facility";
+    if (COMPLAINT_DOMAIN.has(c)) return "complaint";
+    return undefined;
   }
 
   async function submit() {
@@ -141,8 +134,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
       } else {
         // 발생 / 처리예정 → 후속조치 키워드 감지 시 기안/견적 제안.
         const detection = detectFollowUp(trimmed, {
-          domainHint:
-            category === "facility" ? "facility" : category === "complaint" ? "complaint" : undefined,
+          domainHint: followUpDomainHint(category),
         });
         if (detection) {
           setFollowUpSource({

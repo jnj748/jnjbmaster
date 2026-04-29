@@ -81,11 +81,24 @@ export const GROUP_TO_CATEGORY: Record<Group, CategoryToken> = {
 
 /**
  * 업무일지 entry 카테고리 → 공통 카테고리 토큰.
- * facility(시설) · bill(관리비/회계) · complaint(민원/입주민) 셋이 한 화면에
- * 동시에 노출되므로 시각 대비를 위해 서로 다른 토큰을 부여한다.
+ * [직책별 일보 분리] 소장(facility/bill/complaint) 외에
+ *   경리(receivable/expense/draft/complaint),
+ *   시설(fire/electric/mechanical/other) 카테고리도 매핑한다.
+ * 한 화면에 여러 직책 entries 가 섞여 보이는 매니저 보고서에서도 색만 보고
+ * 직책·도메인을 구분할 수 있도록 token 을 도메인 의미 기준으로 부여했다.
  */
-export const WORK_LOG_CATEGORY_TOKEN: Record<"facility" | "bill" | "complaint", CategoryToken> = {
-  facility:  "facility",
-  bill:      "accounting",
-  complaint: "residents",
+export const WORK_LOG_CATEGORY_TOKEN: Record<string, CategoryToken> = {
+  // manager
+  facility:   "facility",
+  bill:       "accounting",
+  complaint:  "residents",
+  // accountant
+  receivable: "accounting",
+  expense:    "accounting",
+  draft:      "reports",
+  // facility_staff
+  fire:       "facility",
+  electric:   "facility",
+  mechanical: "facility",
+  other:      "system",
 };

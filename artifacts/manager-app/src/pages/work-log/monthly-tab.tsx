@@ -12,6 +12,7 @@ import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/l
 import { FollowUpSuggestionDialog, isFollowUpDismissed } from "@/components/follow-up-suggestion-dialog";
 import {
   useApi, todayISO, thisMonth, SECTIONS,
+  getCategoriesFor, useCurrentRole, CATEGORY_LABEL,
   type MonthlyReport,
 } from "./shared";
 import { ReportActionRow, withReadyDoc } from "./report-actions";
@@ -243,27 +244,43 @@ function MonthlyA4ReportBody({ report }: { report: MonthlyReport }) {
       </table>
 
       <p className="font-semibold mt-4 mb-2 text-[15px] border-l-4 border-gray-700 pl-2">4. 분류별 기록 합계</p>
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr>
-            <th className="border border-gray-400 bg-gray-100 p-2">시설</th>
-            <th className="border border-gray-400 bg-gray-100 p-2">관리비</th>
-            <th className="border border-gray-400 bg-gray-100 p-2">민원</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="border border-gray-400 p-2 text-center">{report.byCategory.facility}건</td>
-            <td className="border border-gray-400 p-2 text-center">{report.byCategory.bill}건</td>
-            <td className="border border-gray-400 p-2 text-center">{report.byCategory.complaint}건</td>
-          </tr>
-        </tbody>
-      </table>
+      <CategorySummaryTable byCategory={report.byCategory} />
 
       <div className="text-right pt-8 text-sm space-y-1">
         <p>{formatKoreanDate(todayISO())}</p>
         <p>작성자: 관리자 (서명)</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * 분류별 기록 합계 표 — weekly-tab 과 같은 동기로 직책별 카테고리 키를 동적
+ * 컬럼으로 그린다. byCategory 에 없는 키는 0으로 표기한다.
+ */
+function CategorySummaryTable({ byCategory }: { byCategory: Record<string, number> }) {
+  const role = useCurrentRole();
+  const cats = getCategoriesFor(role);
+  return (
+    <table className="w-full text-sm border-collapse">
+      <thead>
+        <tr>
+          {cats.map((c) => (
+            <th key={c.value} className="border border-gray-400 bg-gray-100 p-2">
+              {CATEGORY_LABEL[c.value] ?? c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {cats.map((c) => (
+            <td key={c.value} className="border border-gray-400 p-2 text-center">
+              {byCategory[c.value] ?? 0}건
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
   );
 }
