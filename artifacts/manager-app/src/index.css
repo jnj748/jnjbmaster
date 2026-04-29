@@ -633,3 +633,90 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
   background: hsl(var(--border));
   border-radius: 9999px;
 }
+
+/* [Task #591] 공지문 위지윅 편집기 — 변수 칩과 표 스타일.
+ *   본사 관리자 / 관리소장 두 화면 모두 동일한 룩으로 동작하도록 한 곳에 정의.
+ */
+.notice-token-chip {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 1px;
+  border-radius: 9999px;
+  background-color: rgb(219 234 254); /* sky-100 */
+  color: rgb(30 64 175);              /* blue-800 */
+  border: 1px solid rgb(147 197 253); /* blue-300 */
+  font-size: 0.85em;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: baseline;
+  user-select: all;
+}
+.notice-token-chip.is-filled {
+  background-color: rgb(220 252 231); /* green-100 */
+  color: rgb(22 101 52);              /* green-800 */
+  border-color: rgb(134 239 172);     /* green-300 */
+}
+.notice-token-chip.ProseMirror-selectednode {
+  outline: 2px solid rgb(59 130 246); /* blue-500 */
+  outline-offset: 1px;
+}
+
+/* Tiptap ProseMirror editor base */
+.ProseMirror {
+  min-height: 100%;
+  outline: none;
+}
+.ProseMirror p { margin: 0.25em 0; }
+.ProseMirror h2 { margin: 0.6em 0 0.3em; }
+.ProseMirror h3 { margin: 0.5em 0 0.25em; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0.25em 0; }
+.ProseMirror a { color: rgb(37 99 235); text-decoration: underline; }
+
+/* Tiptap table */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0.5em 0;
+  overflow: hidden;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid rgb(148 163 184); /* slate-400 */
+  padding: 6px 8px;
+  vertical-align: top;
+  position: relative;
+  min-width: 32px;
+}
+.ProseMirror table th {
+  background-color: rgb(241 245 249); /* slate-100 */
+  font-weight: 600;
+  text-align: left;
+}
+.ProseMirror table .selectedCell {
+  background-color: rgba(59, 130, 246, 0.12);
+}
+
+/* 미리보기/문서 출력 영역에서도 동일하게 보이도록 같은 스타일을 공통 셀렉터로
+ * 노출. notice-template-body 안의 표는 본문 HTML 에 포함된 그대로 출력된다.
+ */
+.notice-template-body table,
+.a4-document table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+.notice-template-body table td,
+.notice-template-body table th,
+.a4-document table td,
+.a4-document table th {
+  border: 1px solid rgb(148 163 184);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+.notice-template-body table th,
+.a4-document table th {
+  background-color: rgb(241 245 249);
+  font-weight: 600;
+  text-align: left;
+}

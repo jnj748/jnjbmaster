@@ -32,6 +32,10 @@ import {
 } from "lucide-react";
 import { A4DocumentFrame, type A4DocumentFrameHandle } from "@/components/a4-document-frame";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import {
+  NoticeBodyEditor,
+  type NoticeBodyEditorHandle,
+} from "@/components/notice-body-editor";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import { fillNoticeTemplate, renderNoticeBodyHtml } from "@/lib/notice-layout";
 import { printIsolatedNode } from "@/lib/print-isolate";
@@ -214,7 +218,6 @@ function PreviewDialog({
   const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
   // 모달 상태.
-  const [editMode, setEditMode] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [exportingDoc, setExportingDoc] = useState(false);
@@ -223,40 +226,50 @@ function PreviewDialog({
 
   const documentRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<A4DocumentFrameHandle>(null);
+  const editorRef = useRef<NoticeBodyEditorHandle>(null);
 
-  // [Task #583] 본문 HTML 토큰 치환 결과. customA/B/C 또는 date 가 바뀌면
-  //   bodyDirty=false 인 경우에만 자동 재채움 — 사용자가 한 번이라도 본문을
-  //   수정했다면 잠그고, "원본으로 되돌리기" 로만 다시 토큰 치환을 적용한다.
-  const renderedHtml = useMemo(
-    () =>
-      renderNoticeBodyHtml(template.bodyHtml, {
-        buildingName: building?.name ?? "",
-        addressFull: building?.addressFull ?? "",
-        managementOfficePhone: building?.managementOfficePhone ?? "",
-        // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
-        feeInquiryPhone: building?.feeInquiryPhone ?? "",
-        facilitySafetyPhone: building?.facilitySafetyPhone ?? "",
-        date,
-        customA,
-        customB,
-        customC,
-      }),
-    [template, building, date, customA, customB, customC],
-  );
-  const [body, setBody] = useState(renderedHtml);
+  // [Task #591] body 상태는 raw 템플릿 HTML(`{{token}}` 칩 형식 그대로) 을 저장한다.
+  //   - 편집기 안의 칩들은 NoticeChipResolverProvider 가 우리 건물 실제값으로
+  //     자동 치환해 표시하므로, 별도의 renderNoticeBodyHtml 결과를 body 에 보관할
+  //     필요가 없다.
+  //   - 미리보기(A4) 영역에서는 body 를 renderNoticeBodyHtml 로 치환해 출력한다.
+  //   - bodyDirty 는 사용자가 한 번이라도 본문 칩/문자를 직접 손봤다는 신호로
+  //     남겨, 외부 reset 트리거가 없는 한 자동으로 덮어쓰지 않게 한다(잠금).
+  const [body, setBody] = useState<string>(template.bodyHtml);
   const [bodyDirty, setBodyDirty] = useState(false);
 
-  useEffect(() => {
-    if (!bodyDirty) setBody(renderedHtml);
-  }, [renderedHtml, bodyDirty]);
+  // [Task #591] 매니저 화면의 칩 치환에 사용할 토큰 값들.
+  const tokenValues = useMemo<Record<string, string>>(
+    () => ({
+      buildingName: building?.name ?? "",
+      addressFull: building?.addressFull ?? "",
+      managementOfficePhone: building?.managementOfficePhone ?? "",
+      // [Task #399] 신규 토큰 — 관리비 문의/시설 방재실 전화번호.
+      feeInquiryPhone: building?.feeInquiryPhone ?? "",
+      facilitySafetyPhone: building?.facilitySafetyPhone ?? "",
+      date,
+      customA,
+      customB,
+      customC,
+    }),
+    [building, date, customA, customB, customC],
+  );
+
+  // 미리보기에 사용할 최종 본문 HTML (chips → 실제값 치환).
+  const renderedHtml = useMemo(
+    () => renderNoticeBodyHtml(body, tokenValues),
+    [body, tokenValues],
+  );
 
   function handleResetBody() {
-    setBody(renderedHtml);
+    // 편집기를 강제로 원본 템플릿 HTML 로 되돌리고 dirty 잠금 해제.
+    editorRef.current?.setTemplateHtml(template.bodyHtml);
+    setBody(template.bodyHtml);
     setBodyDirty(false);
   }
 
-  function handleBodyChange(v: string) {
-    setBody(v);
+  function handleBodyChange(html: string) {
+    setBody(html);
     if (!bodyDirty) setBodyDirty(true);
   }
 
@@ -315,11 +328,11 @@ function PreviewDialog({
 
   const filename = safeFilename(`${building?.name ?? "건물"}_${template.title}_${todayShort()}`);
 
-  // [Task #583] 캡처 직전 편집 모드를 닫고 A4DocumentFrame 의 transform 을
-  //   풀어주는 헬퍼 — CompletionNotice 와 동일한 패턴.
+  // [Task #583/#591] 캡처 직전 A4DocumentFrame 의 transform 을 풀어주는 헬퍼 —
+  //   CompletionNotice 와 동일한 패턴. (#591 부터는 편집 패널이 항상 보이는
+  //   2단 레이아웃이라 별도 편집 모드 토글이 없다.)
   async function withReadyDocument<T>(fn: () => Promise<T> | T): Promise<T> {
-    setEditMode(false);
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 80));
     if (frameRef.current) {
       return await frameRef.current.withFullScale(fn);
     }
@@ -416,7 +429,7 @@ function PreviewDialog({
         if (!open) onClose();
       }}
     >
-      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
+      <ResponsiveDialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto print:max-w-none print:shadow-none print:border-none">
         <ResponsiveDialogHeader className="print:hidden">
           <ResponsiveDialogTitle>
             <span className="mr-2">{template.icon ?? "📄"}</span>
@@ -424,8 +437,12 @@ function PreviewDialog({
           </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        {editMode && (
-          <div className="space-y-3 border-b pb-4 mb-2 print:hidden">
+        {/* [Task #591] 본사 관리자 모달과 동일한 좌(편집)+우(미리보기) 2단 레이아웃.
+              좁은 화면에서는 자연스럽게 위/아래로 쌓인다. 미리보기는 인쇄/캡처
+              헬퍼가 documentRef 노드를 deep-clone 해 격리된 컨테이너로 출력하므로
+              modal 내부의 sticky 위치와 무관하게 항상 좌상단 기준으로 인쇄된다. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3 px-1 print:hidden">
             <div>
               <Label>제목</Label>
               <Input
@@ -495,11 +512,19 @@ function PreviewDialog({
                   <RotateCcw className="w-3.5 h-3.5 mr-1" />원본으로 되돌리기
                 </Button>
               </div>
-              <Textarea
-                value={body}
-                onChange={(e) => handleBodyChange(e.target.value)}
-                rows={8}
-                data-testid="editable-body"
+              {/* [Task #591] 위지윅 편집기 — 'filled' 모드에서 칩이 우리 건물의
+                  실제값(건물명/주소/전화번호/날짜/사용자입력칸)으로 자동 치환되어
+                  표시되며, body 상태에는 raw `{{token}}` 형태가 보존된다. */}
+              <NoticeBodyEditor
+                ref={editorRef}
+                key={`manager-editor-${template.id}`}
+                initialHtml={template.bodyHtml}
+                mode="filled"
+                values={tokenValues}
+                customLabels={{ a: labels[0], b: labels[1], c: labels[2] }}
+                onChange={handleBodyChange}
+                testIdPrefix="editable-body"
+                minHeightClassName="min-h-[280px]"
               />
             </div>
 
@@ -601,91 +626,92 @@ function PreviewDialog({
               </div>
             </div>
           </div>
-        )}
 
-        <A4DocumentFrame ref={frameRef}>
-          <div
-            ref={documentRef}
-            className="a4-document"
-            style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
-          >
-            <NoticeLayoutFrame
-              settings={noticeLayout}
-              buildingName={building?.name ?? ""}
-              managementOfficePhone={building?.managementOfficePhone ?? null}
-              feeInquiryPhone={building?.feeInquiryPhone ?? null}
-              facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
-              logoUrl={building?.logoUrl ?? null}
-              sealUrl={null}
-              noticeNo={noticeNo}
-              noticeDate={todayShort()}
-              postingPeriod={postingPeriodOverride ?? undefined}
-              contact={contactOverride ?? undefined}
-              title={title}
+          {/* [Task #591] 우측 미리보기 패널 — md+ 에서 sticky, 모바일에서는 폼 아래. */}
+          <div className="px-1">
+            <Label className="text-xs print:hidden">미리보기</Label>
+            <div
+              className="mt-1 border rounded bg-white p-3 overflow-x-auto md:sticky md:top-0 md:max-h-[80vh] md:overflow-y-auto print:border-0 print:p-0 print:overflow-visible print:max-h-none print:static"
+              data-testid="container-template-preview"
             >
-              {/*
-                [Task #583] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
-                  사진이 0/1/2 장이든 동일한 높이를 차지하므로 본문 시작 y 좌표가 흔들리지 않는다.
-              */}
-              <div
-                className="grid grid-cols-2 gap-3 mb-4"
-                data-testid="notice-photo-area"
-                aria-label="첨부 사진 영역"
-              >
-                {[0, 1].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-[4/3] border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden"
-                    data-testid={`notice-photo-slot-${i}`}
+              <A4DocumentFrame ref={frameRef}>
+                <div
+                  ref={documentRef}
+                  className="a4-document"
+                  style={{ fontFamily: "'Noto Sans KR', 'Malgun Gothic', sans-serif" }}
+                >
+                  <NoticeLayoutFrame
+                    settings={noticeLayout}
+                    buildingName={building?.name ?? ""}
+                    managementOfficePhone={building?.managementOfficePhone ?? null}
+                    feeInquiryPhone={building?.feeInquiryPhone ?? null}
+                    facilitySafetyPhone={building?.facilitySafetyPhone ?? null}
+                    logoUrl={building?.logoUrl ?? null}
+                    sealUrl={null}
+                    noticeNo={noticeNo}
+                    noticeDate={todayShort()}
+                    postingPeriod={postingPeriodOverride ?? undefined}
+                    contact={contactOverride ?? undefined}
+                    title={title}
                   >
-                    {photos[i] ? (
-                      <img
-                        src={photos[i] ?? ""}
-                        alt=""
-                        className="w-full h-full object-contain bg-white"
-                      />
-                    ) : (
-                      <span className="text-[11px] text-slate-400 select-none">사진 없음</span>
+                    {/*
+                      [Task #583] 사진 영역 — 본문 위에 위치, 항상 2칸 분량을 점유.
+                        사진이 0/1/2 장이든 동일한 높이를 차지하므로 본문 시작 y 좌표가 흔들리지 않는다.
+                    */}
+                    <div
+                      className="grid grid-cols-2 gap-3 mb-4"
+                      data-testid="notice-photo-area"
+                      aria-label="첨부 사진 영역"
+                    >
+                      {[0, 1].map((i) => (
+                        <div
+                          key={i}
+                          className="aspect-[4/3] border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden"
+                          data-testid={`notice-photo-slot-${i}`}
+                        >
+                          {photos[i] ? (
+                            <img
+                              src={photos[i] ?? ""}
+                              alt=""
+                              className="w-full h-full object-contain bg-white"
+                            />
+                          ) : (
+                            <span className="text-[11px] text-slate-400 select-none">사진 없음</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/*
+                      [Task #591] 본문 — 편집기에서 받은 raw 템플릿 HTML 을
+                        renderNoticeBodyHtml 로 토큰 치환해 출력.
+                    */}
+                    <div
+                      className="notice-template-body"
+                      data-testid="preview-rendered"
+                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                    />
+
+                    {notesText && (
+                      <div className="mt-4 text-sm">
+                        <p className="font-semibold mb-1">■ 비고</p>
+                        <p
+                          className="whitespace-pre-line text-justify"
+                          style={{ textJustify: "inter-word" }}
+                        >
+                          {notesText}
+                        </p>
+                      </div>
                     )}
-                  </div>
-                ))}
-              </div>
-
-              {/*
-                [Task #583] 본문 — 템플릿 HTML 토큰 치환 결과를 그대로 출력.
-                  편집 모드의 textarea 가 body 상태를 갱신하면 미리보기에도 즉시 반영된다.
-              */}
-              <div
-                className="notice-template-body"
-                data-testid="preview-rendered"
-                dangerouslySetInnerHTML={{ __html: body }}
-              />
-
-              {notesText && (
-                <div className="mt-4 text-sm">
-                  <p className="font-semibold mb-1">■ 비고</p>
-                  <p
-                    className="whitespace-pre-line text-justify"
-                    style={{ textJustify: "inter-word" }}
-                  >
-                    {notesText}
-                  </p>
+                  </NoticeLayoutFrame>
                 </div>
-              )}
-            </NoticeLayoutFrame>
+              </A4DocumentFrame>
+            </div>
           </div>
-        </A4DocumentFrame>
+        </div>
 
         <div className="a4-document-actions space-y-2 print:hidden">
           <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setEditMode((v) => !v)}
-              data-testid="btn-toggle-edit"
-            >
-              {editMode ? "미리보기" : "수정"}
-            </Button>
             <Button
               size="sm"
               onClick={handlePrint}

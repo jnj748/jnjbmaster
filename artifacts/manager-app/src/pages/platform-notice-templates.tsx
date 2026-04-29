@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -28,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import { NoticeBodyEditor } from "@/components/notice-body-editor";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import {
   DEFAULT_NOTICE_LAYOUT,
@@ -326,21 +326,27 @@ export default function PlatformNoticeTemplatesPage() {
               </p>
             </div>
             <div>
-              <Label>본문 HTML</Label>
-              <Textarea
-                value={form.bodyHtml}
-                onChange={(e) => setForm({ ...form, bodyHtml: e.target.value })}
-                rows={14}
-                className="font-mono text-xs"
-                data-testid="input-template-body"
+              <Label>본문</Label>
+              {/* [Task #591] 위지윅 편집기 — 굵게/제목/목록/표/변수 칩 등 비개발자
+                  친화 도구로 작성한다. 입력/출력은 raw HTML + `{{token}}` 으로
+                  유지되어 백엔드 호환성이 보장된다. form.id 가 바뀌면 다른 템플릿
+                  편집으로 진입한 것이므로 key 로 강제 remount 해 초기 HTML 을 새로
+                  로드한다. */}
+              <NoticeBodyEditor
+                key={`tpl-editor-${form.id ?? "new"}`}
+                initialHtml={form.bodyHtml}
+                mode="token"
+                customLabels={{
+                  a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
+                  b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
+                  c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
+                }}
+                onChange={(html) => setForm((f) => ({ ...f, bodyHtml: html }))}
+                testIdPrefix="input-template-body"
+                minHeightClassName="min-h-[320px]"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                토큰: {"{{buildingName}} {{addressFull}} {{managementOfficePhone}} {{feeInquiryPhone}} {{facilitySafetyPhone}} {{date}} {{customA}} {{customB}} {{customC}}"}
-              </p>
-              {/* [Task #399] 신규 토큰 안내 — 관리비 문의/시설 방재실 전화번호. */}
-              <p className="text-[11px] text-slate-500 mt-1">
-                <b>{"{{feeInquiryPhone}}"}</b> 관리비문의 전화번호 · <b>{"{{facilitySafetyPhone}}"}</b> 시설방재실 전화번호
-                (건물정보 수정 화면에서 입력한 값으로 치환됩니다)
+                "변수 삽입" 버튼으로 건물명·연락처·날짜 등을 칩으로 넣고, 표·굵게·목록 등 툴바로 본문을 편하게 작성하세요. 칩은 매니저 화면에서 우리 건물 실제값으로 자동 치환됩니다.
               </p>
             </div>
             <div className="flex items-center gap-2">

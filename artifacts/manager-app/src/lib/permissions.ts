@@ -808,10 +808,13 @@ export function getRoutesForRole(
     return [...partnerBase, ...explicitExtra];
   }
   // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 라우트를 등록한다.
+  // [Task #591] `hidden` 은 사이드바 노출만 차단하는 플래그(주석 참조)이므로
+  //   라우트 등록에서는 제외하지 않는다. 접근 권한이 있거나 명시적으로 켜진 메뉴라면
+  //   URL 직접 진입(예: 사이드바 hub 링크에서 이동하는 /platform/notice-templates)이
+  //   catch-all redirect 로 튕기지 않고 정상 마운트되어야 한다.
   return ROUTES.filter(
     (r) =>
-      !r.hidden &&
-      (r.access.includes(role) || isMenuExplicitlyEnabled(role, r.path, overrides)),
+      r.access.includes(role) || isMenuExplicitlyEnabled(role, r.path, overrides),
   ).map((r) => ({
     path: r.path,
     component: r.component,
