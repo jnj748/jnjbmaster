@@ -67,3 +67,4 @@ export * from "./roleMenuOverrides";
 export * from "./usageEvents";
 export * from "./vendorReviews";
 export * from "./referralBenefits";
+export * from "./hqBuildingAssignments";

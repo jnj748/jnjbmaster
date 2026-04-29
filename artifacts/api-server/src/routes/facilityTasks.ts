@@ -38,6 +38,9 @@ import {
 import { LEGAL_PRESETS } from "./inspections";
 import { resolveActiveTemplateAlerts } from "./taskTemplates";
 import { requireRole } from "../middlewares/auth";
+import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import type { Request } from "express";
 
 const router: IRouter = Router();
@@ -105,22 +108,27 @@ function applyActionMeta(
 async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
   const today = new Date().toISOString().split("T")[0];
   const todayMs = new Date(today).getTime();
-  const reqUserId = req.user?.userId ?? null;
-  const reqRole = req.user?.role ?? null;
-  const isGlobalRole = reqRole === "platform_admin" || reqRole === "hq_executive";
-  let scopedBuildingId: number | null = null;
-  if (reqUserId && reqRole && !isGlobalRole) {
-    const [u] = await db
-      .select({ buildingId: usersTable.buildingId })
-      .from(usersTable)
-      .where(eq(usersTable.id, reqUserId));
-    scopedBuildingId = u?.buildingId ?? null;
-  }
-  const restrictByBuilding = !isGlobalRole && scopedBuildingId !== null;
-  // [Security] 비-관리자(매니저/시설기사 등)인데 buildingId 미할당이면 빈 응답.
-  if (!isGlobalRole && scopedBuildingId === null) {
+  // [Task #596] hq_executive 는 더 이상 전 건물 가시 super-user 가 아니다 —
+  //   hq_building_assignments 매핑된 건물 묶음에 한해서만 알림을 본다.
+  //   platform_admin 만 진정한 전 건물 가시(unrestricted).
+  //   비-관리자(매니저/시설기사 등) buildingId 미할당이면 빈 응답.
+  const scope = await getAccessibleBuildingIds(req);
+  const isGlobalRole = scope.unrestricted;
+  if (!isGlobalRole && scope.ids.length === 0) {
     return [];
   }
+  const restrictByBuilding = !isGlobalRole;
+  // 단일 건물 매니저 케이스를 빠른 경로로 보존 (기존 eq() 호환).
+  //   다중 건물 hq_executive 의 경우 null 이 되어 단일 건물 한정 분기는 비활성화된다
+  //   (예: 공고문 게시 템플릿 — 매니저용 단일 건물 흐름).
+  const scopedBuildingId: number | null =
+    restrictByBuilding && scope.ids.length === 1 ? scope.ids[0] : null;
+  // [Task #596] 다중 건물 hq_executive 도 같은 컬럼 필터로 처리할 수 있도록 헬퍼.
+  const buildingFilter = (col: AnyPgColumn): SQL =>
+    scope.ids.length === 1 ? eq(col, scope.ids[0]) : inArray(col, scope.ids);
+  // 기존 코드 호환: reqUserId, reqRole 변수가 아래에서 그대로 쓰인다.
+  const reqUserId = req.user?.userId ?? null;
+  const reqRole = req.user?.role ?? null;
 
   const alerts: BuiltAlert[] = [];
   let alertId = 1;
@@ -169,7 +177,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     .where(
       and(
         gte(inspectionsTable.nextDueDate, today),
-        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
+        ...(restrictByBuilding ? [buildingFilter(inspectionsTable.buildingId)] : []),
       ),
     );
 
@@ -224,7 +232,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
     .where(
       and(
         lt(inspectionsTable.nextDueDate, today),
-        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
+        ...(restrictByBuilding ? [buildingFilter(inspectionsTable.buildingId)] : []),
       ),
     );
 
@@ -370,7 +378,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
               isNotNull(tenantsTable.dataDestructionDate),
               sql`${tenantsTable.dataDestructionDate} >= ${today}`,
               eq(tenantsTable.status, "moved_out"),
-              eq(unitsTable.buildingId, scopedBuildingId!),
+              buildingFilter(unitsTable.buildingId),
             ),
           )
       ).map((r) => r.tenants)
@@ -395,7 +403,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
               isNotNull(ownersTable.dataDestructionDate),
               sql`${ownersTable.dataDestructionDate} >= ${today}`,
               eq(ownersTable.status, "moved_out"),
-              eq(unitsTable.buildingId, scopedBuildingId!),
+              buildingFilter(unitsTable.buildingId),
             ),
           )
       ).map((r) => r.owners)
@@ -454,7 +462,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       and(
         gte(buildingWarrantiesTable.expiryDate, today),
         ...(restrictByBuilding
-          ? [eq(buildingWarrantiesTable.buildingId, scopedBuildingId!)]
+          ? [buildingFilter(buildingWarrantiesTable.buildingId)]
           : []),
       ),
     );
@@ -562,7 +570,7 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
         isNull(quotesTable.firstViewedAt),
         eq(rfqsTable.status, "open"),
         gte(rfqsTable.deadline, today),
-        ...(restrictByBuilding ? [eq(rfqsTable.buildingId, scopedBuildingId!)] : []),
+        ...(restrictByBuilding ? [buildingFilter(rfqsTable.buildingId)] : []),
       ),
     );
   for (const q of pendingQuotes) {

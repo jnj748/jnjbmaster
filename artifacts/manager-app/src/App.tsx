@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation as useLocationForGate } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -39,6 +39,8 @@ const AccountantWizardPage = lazy(() => import("@/pages/onboarding/accountant-wi
 const FacilityWizardPage = lazy(() => import("@/pages/onboarding/facility-wizard"));
 const PartnerWizardPage = lazy(() => import("@/pages/onboarding/partner-wizard"));
 const FacilityPendingPage = lazy(() => import("@/pages/onboarding/facility-pending"));
+// [Task #596] 본부장(hq_executive) 가입 후 관할 건물 할당 대기 화면.
+const HqPendingPage = lazy(() => import("@/pages/onboarding/hq-pending"));
 // [Task #516] 호실·소유자 마스터 풀스크린 마법사. 첫 필수업무 카드에서 진입한다.
 const UnitsMasterWizardPage = lazy(() => import("@/pages/onboarding/units-master"));
 const DocumentPreviewPage = lazy(() => import("@/pages/document-preview"));
@@ -128,6 +130,44 @@ function ManagerOnboardingRedirect() {
   return null;
 }
 
+// [Task #596] 본부장(hq_executive) 가입 직후 매핑이 0건이면 /onboarding/hq-pending
+//   으로 자동 라우팅한다. platform_admin 이 hq_building_assignments 를 1건이라도
+//   부여하면 hq-pending 페이지가 자체적으로 "/" 로 진입시킨다.
+function HqAssignmentGate() {
+  const { user, token } = useAuth();
+  const [location, setLocation] = useLocationForGate();
+  const [hasAssignments, setHasAssignments] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      if (!token || user?.role !== "hq_executive") return;
+      try {
+        const BASE = (import.meta as ImportMeta & { env: { BASE_URL?: string } }).env.BASE_URL ?? "/";
+        const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
+        const res = await fetch(`${API_BASE}/hq/assigned-buildings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data: { unrestricted: boolean; assignments: unknown[] } = await res.json();
+        if (cancelled) return;
+        setHasAssignments(data.unrestricted || data.assignments.length > 0);
+      } catch {
+        /* noop — 다음 진입 시 재시도 */
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, [token, user?.role, user?.id]);
+  useEffect(() => {
+    if (user?.role !== "hq_executive") return;
+    if (hasAssignments === false && !location.startsWith("/onboarding/hq-pending")
+        && !location.startsWith("/onboarding/role-select")) {
+      setLocation("/onboarding/hq-pending");
+    }
+  }, [hasAssignments, location, setLocation, user?.role]);
+  return null;
+}
+
 function AuthenticatedRoutes() {
   const { user } = useAuth();
   const role = getEffectiveRole(user);
@@ -207,6 +247,7 @@ function AuthenticatedRoutes() {
     <BuildingProvider>
       <OnboardingProvider>
         <ManagerOnboardingRedirect />
+        <HqAssignmentGate />
         <OnboardingGate>
           <Layout>
             <Suspense fallback={null}>
@@ -241,6 +282,7 @@ function AuthenticatedRoutes() {
                 <Route path="/onboarding/accountant" component={AccountantWizardPage} />
                 <Route path="/onboarding/facility-staff" component={FacilityWizardPage} />
                 <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
+                <Route path="/onboarding/hq-pending" component={HqPendingPage} />
                 <Route path="/onboarding/partner" component={PartnerWizardPage} />
                 {/* [Task #516] 호실·소유자 마스터 풀스크린 마법사. */}
                 <Route path="/onboarding/units-master" component={UnitsMasterWizardPage} />

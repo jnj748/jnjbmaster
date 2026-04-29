@@ -4,6 +4,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, facilityStaffSignupRequestsTable, usersTable, buildingsTable } from "@workspace/db";
 import { authMiddleware, requireRole } from "../middlewares/auth";
 import { and, desc, eq } from "drizzle-orm";
+import { getHqAssignedBuildingIds } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
@@ -122,23 +123,43 @@ router.get("/facility-signup-requests", requireRole("manager", "platform_admin",
     .orderBy(desc(facilityStaffSignupRequestsTable.createdAt));
 
   // [Task #132] 관리소장은 자신을 명시적으로 가리킨 요청만 처리 가능.
-  // 미지정(매칭 실패) 요청은 platform_admin/hq_executive 큐로만 라우팅한다.
+  //   미지정(매칭 실패) 요청은 platform_admin 큐로 라우팅 (HQ 는 매핑된 건물만).
   if (user.role === "manager") {
     rows = rows.filter(r =>
       r.req.targetManagerId === user.id ||
       (user.buildingId != null && r.req.targetBuildingId === user.buildingId)
+    );
+  } else if (user.role === "hq_executive") {
+    // [Task #596] hq_executive 는 매핑된 건물 대상 신청만 본다.
+    //   미지정(targetBuildingId == null) 신청은 plat_admin 만 처리.
+    const assigned = await getHqAssignedBuildingIds(user.id);
+    const allowed = new Set(assigned);
+    rows = rows.filter(r =>
+      r.req.targetBuildingId != null && allowed.has(r.req.targetBuildingId)
     );
   }
 
   res.json({ requests: rows.map(r => ({ ...r.req, user: r.user ? { id: r.user.id, name: r.user.name, email: r.user.email, phone: r.user.phone } : null })) });
 });
 
-// 관리소장은 자기 건물/본인 매칭 또는 같은 시도에서 미지정 요청만 처리 가능.
+// 관리소장은 자기 건물/본인 매칭만 처리, hq_executive 는 매핑 건물 대상 신청만 처리.
+// platform_admin 만 무제한 (미지정 신청 포함).
 async function assertManagerCanHandle(approver: { id: number; role: string; buildingId: number | null; buildingSido: string | null }, requestId: number): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  if (approver.role === "platform_admin" || approver.role === "hq_executive") return { ok: true };
+  if (approver.role === "platform_admin") return { ok: true };
   const [reqRow] = await db.select().from(facilityStaffSignupRequestsTable).where(eq(facilityStaffSignupRequestsTable.id, requestId));
   if (!reqRow) return { ok: false, status: 404, error: "신청을 찾을 수 없습니다" };
-  // [Task #132] 관리소장은 자신을 명시적으로 가리킨 요청만 처리. 미지정 요청은 admin/HQ만.
+  if (approver.role === "hq_executive") {
+    // [Task #596] HQ 는 매핑된 건물 대상 신청만 승인/거절 가능.
+    if (reqRow.targetBuildingId == null) {
+      return { ok: false, status: 403, error: "미지정 신청은 플랫폼 관리자만 처리할 수 있습니다" };
+    }
+    const assigned = await getHqAssignedBuildingIds(approver.id);
+    if (!assigned.includes(reqRow.targetBuildingId)) {
+      return { ok: false, status: 403, error: "본 건물 관할이 아닙니다" };
+    }
+    return { ok: true };
+  }
+  // [Task #132] 관리소장은 자신을 명시적으로 가리킨 요청만 처리.
   const sameManager = reqRow.targetManagerId === approver.id;
   const sameBuilding = approver.buildingId != null && reqRow.targetBuildingId === approver.buildingId;
   if (sameManager || sameBuilding) return { ok: true };
@@ -158,9 +179,18 @@ router.post("/facility-signup-requests/:id/approve", requireRole("manager", "pla
   const [reqRowExisting] = await db.select().from(facilityStaffSignupRequestsTable)
     .where(eq(facilityStaffSignupRequestsTable.id, id));
   if (!reqRowExisting) { res.status(404).json({ error: "신청 내역을 찾을 수 없습니다" }); return; }
-  // [Task #132] 명시적 buildingId는 platform_admin/hq_executive만 허용. 관리소장은 본인 건물만 가능.
+  // [Task #132/#596] 명시적 buildingId는 platform_admin/hq_executive만 허용.
+  //   hq_executive 의 explicit buildingId 는 매핑된 건물 한도로 검증.
+  //   관리소장은 본인 건물만 가능.
   const isAdmin = approver.role === "platform_admin" || approver.role === "hq_executive";
   const explicitBuildingId: number | null = (isAdmin && Number.isInteger(req.body?.buildingId)) ? req.body.buildingId : null;
+  if (explicitBuildingId != null && approver.role === "hq_executive") {
+    const assigned = await getHqAssignedBuildingIds(approver.id);
+    if (!assigned.includes(explicitBuildingId)) {
+      res.status(403).json({ error: "본 건물 관할이 아닙니다" });
+      return;
+    }
+  }
   const finalBuildingId: number | null = explicitBuildingId
     ?? (approver.role === "manager" ? approver.buildingId : null)
     ?? reqRowExisting.targetBuildingId;

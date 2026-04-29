@@ -95,9 +95,13 @@ export default function HqDashboard() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [expandedReport, setExpandedReport] = useState<number | null>(null);
   const [expandedLegal, setExpandedLegal] = useState<number | null>(null);
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
 
-  const { data: buildings = [] } = useListBuildings();
+  const { data: buildings = [], isLoading: buildingsLoading } = useListBuildings();
+  // [Task #596] hq_executive 는 hq_building_assignments 매핑된 건물만 본다.
+  //   매핑이 비어 있는 본부장에게는 전 영역 안내 배너로 platform_admin 의 할당을 기다리게 한다.
+  const isHqWithoutAssignments =
+    currentUser?.role === "hq_executive" && !buildingsLoading && buildings.length === 0;
 
   // [Task #221] 본사 관리 업무 템플릿에서 산출된 알림을 본사 화면에서도 동일하게 노출.
   const { data: dashboardAlerts = [] } = useGetDashboardAlerts();
@@ -252,6 +256,21 @@ export default function HqDashboard() {
 
   return (
     <>
+      {/* [Task #596] 본부장 매핑이 비어 있을 때의 안내 배너.
+          - hq_executive 만 노출. platform_admin 은 항상 매핑 무관.
+          - 본문 위쪽에 띄워 모바일/데스크톱 공통으로 보이게 한다. */}
+      {isHqWithoutAssignments ? (
+        <div
+          className="mx-1 my-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-800"
+          data-testid="hq-no-assignments-banner"
+        >
+          <p className="text-sm font-semibold">아직 관할 건물이 할당되지 않았습니다</p>
+          <p className="text-xs mt-1 leading-relaxed">
+            본부장 계정은 플랫폼 관리자가 관할 건물을 지정한 뒤부터 데이터가 표시됩니다.
+            할당이 완료되면 자동으로 대시보드가 채워집니다.
+          </p>
+        </div>
+      ) : null}
       {/* [Task #327] 모바일 컴팩트 — KPI 4개 + 탭(법정점검/수납/월간보고) */}
       <MobileOnly>
         <div className="space-y-3">

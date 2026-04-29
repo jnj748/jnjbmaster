@@ -10,6 +10,10 @@ import {
   GetWeeklyReportResponse,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import {
+  getAccessibleBuildingIds,
+  buildingScopeFilter,
+} from "../middlewares/buildingScope";
 // [Task #221] 본사 관리 업무 템플릿을 단일 알림 소스로 통합한다.
 import { resolveActiveTemplateAlerts } from "./taskTemplates";
 
@@ -157,29 +161,15 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
   thirtyDaysFromNow.setDate(new Date().getDate() + 30);
   const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
 
-  // [Bugfix] 매니저/회계/시설기사는 본인 건물 데이터만 보여야 한다.
-  //   기존에는 inspections/tasks/tax/tenants/owners/warranties 모두
-  //   buildingId 필터 없이 전체를 끌어와 다른 건물의 (테스트업무) 항목까지
-  //   필수/제안업무현황에 노출되었다(과다 생성처럼 보이는 원인).
-  //   platform_admin / hq_executive 는 전체 가시성을 유지한다.
-  const reqUserId = req.user?.userId ?? null;
-  const reqRole = req.user?.role ?? null;
-  const isGlobalRole = reqRole === "platform_admin" || reqRole === "hq_executive";
-  let scopedBuildingId: number | null = null;
-  if (reqUserId && reqRole && !isGlobalRole) {
-    const [u] = await db
-      .select({ buildingId: usersTable.buildingId })
-      .from(usersTable)
-      .where(eq(usersTable.id, reqUserId));
-    scopedBuildingId = u?.buildingId ?? null;
-  }
-  const restrictByBuilding = !isGlobalRole && scopedBuildingId !== null;
-  // [Security] 비-관리자(매니저/회계/시설기사 등)인데 소속 buildingId 가
-  //   미할당이면 다른 건물 데이터가 새는 것을 방지하기 위해 빈 응답을 반환한다.
-  if (!isGlobalRole && scopedBuildingId === null) {
+  // [Bugfix/#596] 매니저/회계/시설기사 = 본인 건물만, hq_executive = 매핑된
+  //   건물 묶음, platform_admin 만 전 건물. 무할당 시 빈 응답으로 누설 차단.
+  const scope = await getAccessibleBuildingIds(req);
+  if (!scope.unrestricted && scope.ids.length === 0) {
     res.json([]);
     return;
   }
+  const buildScopeConds = (col: import("drizzle-orm").AnyColumn) =>
+    scope.unrestricted ? [] : [inArray(col, scope.ids)];
 
   const alerts: Array<{
     id: number;
@@ -272,7 +262,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       and(
         lte(inspectionsTable.nextDueDate, futureStr),
         gte(inspectionsTable.nextDueDate, today),
-        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
+        ...buildScopeConds(inspectionsTable.buildingId),
       )
     );
 
@@ -323,7 +313,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     .where(
       and(
         lt(inspectionsTable.nextDueDate, today),
-        ...(restrictByBuilding ? [eq(inspectionsTable.buildingId, scopedBuildingId!)] : []),
+        ...buildScopeConds(inspectionsTable.buildingId),
       )
     );
 
@@ -531,7 +521,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       and(
         lte(buildingWarrantiesTable.expiryDate, sixtyStr2),
         gte(buildingWarrantiesTable.expiryDate, today),
-        ...(restrictByBuilding ? [eq(buildingWarrantiesTable.buildingId, scopedBuildingId!)] : []),
+        ...buildScopeConds(buildingWarrantiesTable.buildingId),
       )
     );
 
@@ -642,7 +632,7 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         eq(rfqsTable.status, "open"),
         // [Task #335] 만료된 RFQ 의 견적 카드는 자동 정리 (auto-close 잡 지연 시에도 잔류 방지).
         gte(rfqsTable.deadline, today),
-        ...(restrictByBuilding ? [eq(rfqsTable.buildingId, scopedBuildingId!)] : []),
+        ...buildScopeConds(rfqsTable.buildingId),
       ),
     );
 

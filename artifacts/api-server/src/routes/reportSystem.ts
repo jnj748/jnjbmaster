@@ -3,6 +3,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { db, dailyReportsTable, weeklySummaryReportsTable, monthlySummaryReportsTable, usersTable, notificationsTable, inspectionsTable, inspectionLogsTable, monthlyPaymentsTable, unitsTable, tenantsTable, vehiclesTable, buildingsTable, alertActionsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
@@ -396,26 +397,32 @@ router.post("/weekly-summary-reports/:id/forward", requireRole("manager", "platf
 });
 
 router.get("/monthly-summary-reports", requireRole("manager", "platform_admin", "hq_executive"), async (req, res): Promise<void> => {
-  const user = req.user!;
   const month = req.query.month as string | undefined;
   const buildingIdParam = req.query.buildingId as string | undefined;
 
-  const userRow = await db.select().from(usersTable).where(eq(usersTable.id, user.userId)).then(r => r[0]);
-  const isHqOrAdmin = userRow?.role === "hq_executive" || userRow?.role === "platform_admin";
-
-  if (!isHqOrAdmin && !userRow?.buildingId) {
+  // [Task #596] hq_executive 는 매핑된 건물의 월간 보고서만 가시.
+  //   platform_admin 만 무제한, 매니저는 본인 건물.
+  const scope = await getAccessibleBuildingIds(req);
+  if (!scope.unrestricted && scope.ids.length === 0) {
     res.json([]);
     return;
   }
 
   let rows = await db.select().from(monthlySummaryReportsTable).orderBy(desc(monthlySummaryReportsTable.createdAt));
 
-  if (!isHqOrAdmin) {
-    rows = rows.filter((r) => r.buildingId === userRow!.buildingId);
-  } else if (buildingIdParam) {
+  if (!scope.unrestricted) {
+    const allowed = new Set(scope.ids);
+    rows = rows.filter((r) => r.buildingId != null && allowed.has(r.buildingId));
+  }
+
+  if (buildingIdParam) {
     const bid = parseInt(buildingIdParam);
     if (!Number.isInteger(bid) || bid <= 0) {
       res.status(400).json({ error: "잘못된 건물 ID입니다" });
+      return;
+    }
+    if (!scope.unrestricted && !scope.ids.includes(bid)) {
+      res.json([]);
       return;
     }
     rows = rows.filter((r) => r.buildingId === bid);

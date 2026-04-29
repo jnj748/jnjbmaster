@@ -29,7 +29,7 @@ const { pg, db, usersTable, buildingsTable, inspectionsTable, pool } = await imp
 pg.types.setTypeParser(1082, (val: string) => val); // date → 'YYYY-MM-DD' 문자열
 pg.types.setTypeParser(1114, (val: string) => new Date(val).toISOString()); // timestamp → ISO
 pg.types.setTypeParser(1184, (val: string) => new Date(val).toISOString()); // timestamptz → ISO
-const { inArray } = await import("drizzle-orm");
+const { inArray, eq } = await import("drizzle-orm");
 const { default: inspectionsRouter } = await import("../routes/inspections");
 
 let currentUser: { userId: number; role: string; email: string | null; portalType: string } | null = null;
@@ -226,18 +226,31 @@ test("[Task #558] buildingId 가 비어 있는 매니저는 빈 목록(에러 �
   assert.equal(list.length, 0);
 });
 
-test("[Task #558] platform_admin / hq_executive 는 두 건물 점검 모두 가시", async () => {
-  for (const [uid, role] of [[platformAdminId, "platform_admin"], [hqExecutiveId, "hq_executive"]] as const) {
-    asUser(uid, role);
+test("[Task #558→#596] platform_admin 은 두 건물 점검 모두 가시 / 매핑 없는 hq_executive 는 가려진다", async () => {
+  // platform_admin: 전 건물 가시(불변).
+  asUser(platformAdminId, "platform_admin");
+  {
     const res = await fetch(`${baseUrl}/inspections`);
     assert.equal(res.status, 200);
     const list = (await res.json()) as Array<{ id: number }>;
     const ids = new Set(list.map((r) => r.id));
-    assert.ok(ids.has(inspA1Id), `${role}: 건물 A 점검 봐야 함`);
-    assert.ok(ids.has(inspB1Id), `${role}: 건물 B 점검 봐야 함`);
-
+    assert.ok(ids.has(inspA1Id), "platform_admin: 건물 A 점검 봐야 함");
+    assert.ok(ids.has(inspB1Id), "platform_admin: 건물 B 점검 봐야 함");
     const detailRes = await fetch(`${baseUrl}/inspections/${inspB1Id}/logs`);
-    assert.equal(detailRes.status, 200, `${role}: 모든 건물 점검 단건 가능`);
+    assert.equal(detailRes.status, 200, "platform_admin: 모든 건물 점검 단건 가능");
+  }
+  // [Task #596] hq_executive 는 더 이상 전 건물 슈퍼유저가 아니다.
+  //   본 테스트의 hqExecutiveId 는 hq_building_assignments 매핑이 없으므로 전부 가려져야 한다.
+  asUser(hqExecutiveId, "hq_executive");
+  {
+    const res = await fetch(`${baseUrl}/inspections`);
+    assert.equal(res.status, 200);
+    const list = (await res.json()) as Array<{ id: number }>;
+    const ids = new Set(list.map((r) => r.id));
+    assert.ok(!ids.has(inspA1Id), "매핑 없는 hq_executive: 건물 A 점검 가려져야 함");
+    assert.ok(!ids.has(inspB1Id), "매핑 없는 hq_executive: 건물 B 점검 가려져야 함");
+    const detailRes = await fetch(`${baseUrl}/inspections/${inspB1Id}/logs`);
+    assert.equal(detailRes.status, 404, "매핑 없는 hq_executive: 단건 조회도 404");
   }
 });
 
@@ -273,6 +286,63 @@ test("[Task #558] POST /inspections/ai-matching 도 platform_admin / hq_executiv
     asUser(uid, role);
     const res = await fetch(`${baseUrl}/inspections/ai-matching`, { method: "POST" });
     assert.equal(res.status, 200, `${role}: 본부/관리자는 ai-matching 허용`);
+  }
+});
+
+test("[Task #596] /inspections/generate-alerts payload 는 hq_executive 매핑 범위로 좁혀진다", async () => {
+  // 매핑 0건 hq_executive — 응답에 어떤 점검도 들어가면 안 된다.
+  asUser(hqExecutiveId, "hq_executive");
+  {
+    const res = await fetch(`${baseUrl}/inspections/generate-alerts`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { alertsGenerated: number; inspections: Array<{ inspectionId: number }> };
+    assert.equal(data.alertsGenerated, 0, "매핑 0건 hq_executive: 알림 0건");
+    assert.equal(data.inspections.length, 0, "매핑 0건 hq_executive: 페이로드도 비어 있어야 함");
+  }
+  // B 매핑 hq_executive — A 의 점검(inspA1/inspA2) 이 응답에 포함되면 안 된다.
+  const { hqBuildingAssignmentsTable } = await import("@workspace/db");
+  const hqMappedBId = await createUser("hq_executive", null, "hq");
+  const [m] = await db.insert(hqBuildingAssignmentsTable).values({
+    hqUserId: hqMappedBId, buildingId: buildingBId, assignedByUserId: platformAdminId,
+  } as typeof hqBuildingAssignmentsTable.$inferInsert).returning();
+  try {
+    asUser(hqMappedBId, "hq_executive");
+    const res = await fetch(`${baseUrl}/inspections/generate-alerts`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { inspections: Array<{ inspectionId: number }> };
+    const ids = new Set(data.inspections.map((i) => i.inspectionId));
+    assert.ok(!ids.has(inspA1Id), "B 매핑 hq_executive 응답에 A 점검(inspA1) 포함 금지");
+    assert.ok(!ids.has(inspA2Id), "B 매핑 hq_executive 응답에 A 점검(inspA2) 포함 금지");
+  } finally {
+    await db.delete(hqBuildingAssignmentsTable).where(eq(hqBuildingAssignmentsTable.id, m.id));
+  }
+});
+
+test("[Task #596] /inspections/ai-matching payload 도 hq_executive 매핑 범위로 좁혀진다", async () => {
+  // 매핑 0건 hq_executive — 응답 results 가 비어 있어야 한다.
+  asUser(hqExecutiveId, "hq_executive");
+  {
+    const res = await fetch(`${baseUrl}/inspections/ai-matching`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { results: Array<{ inspectionId: number }> };
+    assert.equal(data.results.length, 0, "매핑 0건 hq_executive: results 0건");
+  }
+  // B 매핑 hq_executive — A 점검이 results 에 포함되면 안 된다.
+  const { hqBuildingAssignmentsTable } = await import("@workspace/db");
+  const hqMappedBId = await createUser("hq_executive", null, "hq");
+  const [m] = await db.insert(hqBuildingAssignmentsTable).values({
+    hqUserId: hqMappedBId, buildingId: buildingBId, assignedByUserId: platformAdminId,
+  } as typeof hqBuildingAssignmentsTable.$inferInsert).returning();
+  try {
+    asUser(hqMappedBId, "hq_executive");
+    const res = await fetch(`${baseUrl}/inspections/ai-matching`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { results: Array<{ inspectionId: number }> };
+    const ids = new Set(data.results.map((r) => r.inspectionId));
+    assert.ok(!ids.has(inspA1Id), "B 매핑 hq_executive ai-matching 결과에 A(inspA1) 포함 금지");
+    assert.ok(!ids.has(inspA2Id), "B 매핑 hq_executive ai-matching 결과에 A(inspA2) 포함 금지");
+  } finally {
+    await db.delete(hqBuildingAssignmentsTable).where(eq(hqBuildingAssignmentsTable.id, m.id));
   }
 });
 

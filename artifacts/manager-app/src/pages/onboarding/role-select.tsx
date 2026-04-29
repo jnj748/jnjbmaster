@@ -1,14 +1,17 @@
 // [Task #132] 가입 직후 역할 선택 화면. 카드 선택 시 /auth/select-role 호출 후 위저드 이동.
+// [Task #596] 본부장(hq_executive) 옵션 추가. 본부장은 platform_admin 이 관할 건물을
+//   할당해야 실제 데이터에 접근할 수 있으므로, 가입 직후에는 "관할 건물 할당 대기"
+//   상태로 안내한다.
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Building2, Calculator, Wrench, Store, Loader2 } from "lucide-react";
+import { Building2, Calculator, Wrench, Store, Loader2, Briefcase } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
 const ROLES: Array<{
-  role: "manager" | "accountant" | "facility_staff" | "partner";
+  role: "manager" | "accountant" | "facility_staff" | "partner" | "hq_executive";
   label: string;
   desc: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -18,6 +21,7 @@ const ROLES: Array<{
   { role: "manager", label: "관리소장", desc: "건물 등록·법정점검 일정 자동화", icon: Building2, color: "blue", next: "/onboarding/manager" },
   { role: "accountant", label: "경리·회계", desc: "회계/관리비 초기자료 등록", icon: Calculator, color: "emerald", next: "/onboarding/accountant" },
   { role: "facility_staff", label: "시설기사", desc: "기본 정보 등록 후 승인 대기", icon: Wrench, color: "amber", next: "/onboarding/facility-staff" },
+  { role: "hq_executive", label: "본부장(HQ)", desc: "관할 건물 할당 후 승인·관리", icon: Briefcase, color: "indigo", next: "/onboarding/hq-pending" },
   { role: "partner", label: "파트너사", desc: "사업자등록증·취급분야 등록", icon: Store, color: "violet", next: "/onboarding/partner" },
 ];
 
@@ -25,6 +29,7 @@ const COLOR: Record<string, string> = {
   blue: "bg-blue-50 text-blue-700 border-blue-100 hover:border-blue-300",
   emerald: "bg-emerald-50 text-emerald-700 border-emerald-100 hover:border-emerald-300",
   amber: "bg-amber-50 text-amber-700 border-amber-100 hover:border-amber-300",
+  indigo: "bg-indigo-50 text-indigo-700 border-indigo-100 hover:border-indigo-300",
   violet: "bg-violet-50 text-violet-700 border-violet-100 hover:border-violet-300",
 };
 

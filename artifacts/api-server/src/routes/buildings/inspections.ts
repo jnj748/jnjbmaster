@@ -10,11 +10,12 @@ import {
   inspectionsTable,
   legalAppointeesTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 // [역할 라벨 SoT] 한국어 역할 라벨은 단일 소스에서 가져온다.
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { walkForwardNextDue } from "../../lib/taskTemplateCycle";
 import { LEGAL_PRESETS } from "../../domain/statutory";
+import { canAccessBuilding, getAccessibleBuildingIds } from "../../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
@@ -33,7 +34,8 @@ router.post("/buildings/auto-schedule-inspections", async (req: Request, res: Re
     return;
   }
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user || (user.buildingId !== buildingId && !["platform_admin", "hq_executive"].includes(user.role))) {
+  // [Task #596] hq_executive 는 매핑된 건물에 한해 허용. platform_admin 은 전 건물.
+  if (!user || !(await canAccessBuilding(req, buildingId))) {
     res.status(403).json({ error: "해당 건물에 대한 권한이 없습니다" });
     return;
   }
@@ -177,7 +179,19 @@ router.get("/buildings/legal-inspections-summary", async (req: Request, res: Res
     const d7Str = d7.toISOString().split("T")[0];
     const d30Str = d30.toISOString().split("T")[0];
 
-    const buildings = await db.select({ id: buildingsTable.id, name: buildingsTable.name }).from(buildingsTable);
+    // [Task #596] hq_executive 는 매핑된 건물만, platform_admin 은 전 건물.
+    //   매핑이 비어 있는 hq_executive 는 빈 summary 를 반환한다.
+    const scope = await getAccessibleBuildingIds(req);
+    if (!scope.unrestricted && scope.ids.length === 0) {
+      res.json({ summaries: [] });
+      return;
+    }
+    const buildings = scope.unrestricted
+      ? await db.select({ id: buildingsTable.id, name: buildingsTable.name }).from(buildingsTable)
+      : await db
+          .select({ id: buildingsTable.id, name: buildingsTable.name })
+          .from(buildingsTable)
+          .where(inArray(buildingsTable.id, scope.ids));
 
     // 법정점검만 집계 (inspectionType='legal'). 완료된 건은 제외.
     const allLegal = await db
@@ -234,11 +248,8 @@ router.get("/buildings/legal-appointees", async (req: Request, res: Response) =>
       res.status(400).json({ error: "buildingId가 필요합니다" });
       return;
     }
-    if (
-      user.role !== "platform_admin" &&
-      user.role !== "hq_executive" &&
-      user.buildingId !== buildingId
-    ) {
+    // [Task #596] hq_executive 는 매핑된 건물에 한해 허용. platform_admin 은 전 건물.
+    if (!(await canAccessBuilding(req, buildingId))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }

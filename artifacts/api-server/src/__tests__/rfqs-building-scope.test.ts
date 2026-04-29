@@ -265,17 +265,19 @@ test("[Task #551] platform_admin 은 두 건물 RFQ 가 모두 보이고, ?build
   }
 });
 
-test("[Task #551] hq_executive 도 두 건물 RFQ 가 모두 보이고 단건 조회도 가능", async () => {
+// [Task #596] 본부장(hq_executive) 가시성 정합화 — 매핑 없는 본부장은 RFQ 가 모두 가려진다.
+//   과거 #551 시점의 기대(전 건물 가시)는 #596 으로 무효화되었다. 매핑 부여 후의 동작도 함께 검증.
+test("[Task #596] hq_executive — 매핑 없으면 어떤 RFQ 도 보이지 않고 단건 조회도 404 로 차단된다", async () => {
   asUser(hqExecutiveId, "hq_executive");
   const allRes = await fetch(`${baseUrl}/rfqs`);
   assert.equal(allRes.status, 200);
   const all = (await allRes.json()) as Array<{ id: number }>;
   const allIds = new Set(all.map((r) => r.id));
-  assert.ok(allIds.has(rfqA1Id));
-  assert.ok(allIds.has(rfqB1Id));
+  assert.ok(!allIds.has(rfqA1Id), "매핑 없는 본부장은 건물 A RFQ 가 보이면 안 됨");
+  assert.ok(!allIds.has(rfqB1Id), "매핑 없는 본부장은 건물 B RFQ 도 보이면 안 됨");
 
   const detailRes = await fetch(`${baseUrl}/rfqs/${rfqB1Id}`);
-  assert.equal(detailRes.status, 200, "hq_executive 는 모든 건물 RFQ 단건 조회 허용");
+  assert.equal(detailRes.status, 404, "매핑 없는 본부장 → 단건 조회도 404 로 차단");
 });
 
 test("[Task #551] 매니저 B 는 본인 건물(B) RFQ 만 보이고 건물 A 의 RFQ ID 직접 조회도 차단", async () => {

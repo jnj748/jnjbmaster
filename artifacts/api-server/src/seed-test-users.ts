@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, hqBuildingAssignmentsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { logger } from "./lib/logger";
 
 const TEST_PASSWORD = "test1234!";
@@ -39,6 +39,31 @@ export async function seedTestUsers() {
     } catch (e) {
       logger.warn({ email: u.email, err: e }, "Failed to seed test user");
     }
+  }
+
+  // [Task #596] hq@test.com 본부장은 기본 관할 건물 1번을 할당해야 e2e 가시 데이터가 나온다.
+  //   매핑이 비어 있으면 HQ 대시보드는 빈 응답을 받게 되어 회귀 테스트가 불안정해진다.
+  try {
+    const [hq] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, "hq@test.com"));
+    if (hq) {
+      const existingMapping = await db
+        .select({ id: hqBuildingAssignmentsTable.id })
+        .from(hqBuildingAssignmentsTable)
+        .where(and(
+          eq(hqBuildingAssignmentsTable.hqUserId, hq.id),
+          eq(hqBuildingAssignmentsTable.buildingId, 1),
+        ));
+      if (existingMapping.length === 0) {
+        await db.insert(hqBuildingAssignmentsTable).values({
+          hqUserId: hq.id,
+          buildingId: 1,
+          assignedByUserId: null,
+        });
+        logger.info({ hqUserId: hq.id, buildingId: 1 }, "Default HQ building assignment seeded");
+      }
+    }
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to seed default HQ building assignment");
   }
 
   if (created > 0) {

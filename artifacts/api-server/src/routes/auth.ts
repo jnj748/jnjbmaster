@@ -233,7 +233,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { role: selectedRole, facilityRequest } = req.body ?? {};
-  const allowed = ["manager", "accountant", "facility_staff", "partner"];
+  // [Task #596] 본부장(hq_executive) 자가 선택 허용. 매핑 부재 시 가시 데이터가
+  //   비어 있고 platform_admin 의 건물 할당을 대기하는 상태로 진입한다.
+  const allowed = ["manager", "accountant", "facility_staff", "partner", "hq_executive"];
   if (!allowed.includes(selectedRole)) {
     res.status(400).json({ error: "유효하지 않은 역할입니다" });
     return;
@@ -248,7 +250,11 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
     return;
   }
 
-  const newPortalType: "building" | "partner" = selectedRole === "partner" ? "partner" : "building";
+  // [Task #596] hq_executive 는 hq 포털. 본부장은 approvalGate 를 우회하지만
+  //   hq_building_assignments 매핑이 없으면 모든 데이터 조회가 빈 결과를 반환하여
+  //   사실상 platform_admin 의 명시적 할당이 데이터 가시성의 게이트가 된다.
+  const newPortalType: "building" | "partner" | "hq" =
+    selectedRole === "partner" ? "partner" : selectedRole === "hq_executive" ? "hq" : "building";
   const newApprovalStatus = selectedRole === "facility_staff" ? "pending" : "active";
 
   try {

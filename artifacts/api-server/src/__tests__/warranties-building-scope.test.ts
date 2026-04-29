@@ -25,7 +25,7 @@ const { pg, db, usersTable, buildingsTable, buildingWarrantiesTable, pool } = aw
 pg.types.setTypeParser(1082, (val: string) => val); // date → 'YYYY-MM-DD' 문자열
 pg.types.setTypeParser(1114, (val: string) => new Date(val).toISOString()); // timestamp → ISO
 pg.types.setTypeParser(1184, (val: string) => new Date(val).toISOString()); // timestamptz → ISO
-const { inArray } = await import("drizzle-orm");
+const { inArray, eq } = await import("drizzle-orm");
 const { default: warrantiesRouter } = await import("../routes/warranties");
 
 let currentUser: { userId: number; role: string; email: string | null; portalType: string } | null = null;
@@ -220,19 +220,34 @@ test("[Task #558] buildingId 없는 매니저는 본인 건물 매칭 자체가 
   assert.equal(res.status, 404);
 });
 
-test("[Task #558] platform_admin / hq_executive 는 두 건물 모두 가시", async () => {
-  for (const [uid, role] of [[platformAdminId, "platform_admin"], [hqExecutiveId, "hq_executive"]] as const) {
-    asUser(uid, role);
+test("[Task #558→#596] platform_admin 은 두 건물 모두 가시 / 매핑 없는 hq_executive 는 차단된다", async () => {
+  // platform_admin: 전 건물 가시(불변).
+  asUser(platformAdminId, "platform_admin");
+  {
     const a = await fetch(`${baseUrl}/warranties/building/${buildingAId}`);
-    assert.equal(a.status, 200, `${role}: 건물 A`);
+    assert.equal(a.status, 200, "platform_admin: 건물 A");
     const b = await fetch(`${baseUrl}/warranties/building/${buildingBId}`);
-    assert.equal(b.status, 200, `${role}: 건물 B`);
+    assert.equal(b.status, 200, "platform_admin: 건물 B");
     const patch = await fetch(`${baseUrl}/warranties/${warrantyBId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "expired" }),
     });
-    assert.equal(patch.status, 200, `${role}: 단건 PATCH 도 통과`);
+    assert.equal(patch.status, 200, "platform_admin: 단건 PATCH 도 통과");
+  }
+  // [Task #596] 매핑 없는 hq_executive 는 더 이상 전 건물 가시가 아니다.
+  asUser(hqExecutiveId, "hq_executive");
+  {
+    const a = await fetch(`${baseUrl}/warranties/building/${buildingAId}`);
+    assert.equal(a.status, 404, "매핑 없는 hq_executive: 건물 A 차단(404)");
+    const b = await fetch(`${baseUrl}/warranties/building/${buildingBId}`);
+    assert.equal(b.status, 404, "매핑 없는 hq_executive: 건물 B 차단(404)");
+    const patch = await fetch(`${baseUrl}/warranties/${warrantyBId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "expired" }),
+    });
+    assert.equal(patch.status, 404, "매핑 없는 hq_executive: 단건 PATCH 도 차단");
   }
 });
 
@@ -256,5 +271,54 @@ test("[Task #558] POST /warranties/check-alerts 는 platform_admin / hq_executiv
     asUser(uid, role);
     const res = await fetch(`${baseUrl}/warranties/check-alerts`, { method: "POST" });
     assert.equal(res.status, 200, `${role}: 본부/관리자는 허용`);
+  }
+});
+
+test("[Task #596] POST /warranties/check-alerts payload 는 hq_executive 매핑 범위로 좁혀진다", async () => {
+  // 만료 60일 안쪽의 별도 하자담보를 A·B 양쪽에 주입한다 — 그래야 스캐너가
+  // 실제로 응답에 행을 담는다(기존 fixture 는 만료가 2년 뒤라 0건).
+  const today = new Date();
+  const dueIn30 = new Date(today); dueIn30.setDate(dueIn30.getDate() + 30);
+  const startStr = today.toISOString().split("T")[0];
+  const expiryStr = dueIn30.toISOString().split("T")[0];
+  const [wAExp] = await db.insert(buildingWarrantiesTable).values({
+    buildingId: buildingAId, tradeCategory: "electrical",
+    tradeName: `만료임박-A-${crypto.randomUUID().slice(0, 6)}`,
+    warrantyYears: 1, startDate: startStr, expiryDate: expiryStr, status: "active",
+  } as typeof buildingWarrantiesTable.$inferInsert).returning();
+  const [wBExp] = await db.insert(buildingWarrantiesTable).values({
+    buildingId: buildingBId, tradeCategory: "electrical",
+    tradeName: `만료임박-B-${crypto.randomUUID().slice(0, 6)}`,
+    warrantyYears: 1, startDate: startStr, expiryDate: expiryStr, status: "active",
+  } as typeof buildingWarrantiesTable.$inferInsert).returning();
+  createdWarrantyIds.push(wAExp.id, wBExp.id);
+
+  // 매핑 0건 hq_executive — 응답에 어떤 건물 하자도 들어가면 안 된다.
+  asUser(hqExecutiveId, "hq_executive");
+  {
+    const res = await fetch(`${baseUrl}/warranties/check-alerts`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { alertsGenerated: number; warranties: Array<{ buildingId: number }> };
+    assert.equal(data.alertsGenerated, 0, "매핑 0건 hq_executive: 알림 생성 0건");
+    assert.equal(data.warranties.length, 0, "매핑 0건 hq_executive: 응답 페이로드도 비어 있어야 함");
+  }
+
+  // B 건물 매핑이 있는 hq_executive — A 의 하자가 응답에 포함되면 안 된다.
+  const { hqBuildingAssignmentsTable } = await import("@workspace/db");
+  const hqMappedBId = await createUser("hq_executive", null, "hq");
+  const [m] = await db.insert(hqBuildingAssignmentsTable).values({
+    hqUserId: hqMappedBId, buildingId: buildingBId, assignedByUserId: platformAdminId,
+  } as typeof hqBuildingAssignmentsTable.$inferInsert).returning();
+  try {
+    asUser(hqMappedBId, "hq_executive");
+    const res = await fetch(`${baseUrl}/warranties/check-alerts`, { method: "POST" });
+    assert.equal(res.status, 200);
+    const data = await res.json() as { alertsGenerated: number; warranties: Array<{ buildingId: number }> };
+    const buildingIds = new Set(data.warranties.map((w) => w.buildingId));
+    assert.ok(!buildingIds.has(buildingAId), "B 매핑 hq_executive 응답에 A 건물 하자가 포함되면 안 됨");
+    // B 건물의 하자는 들어 있을 수도 있고(만료 임박이면) 없을 수도 있는데,
+    //   핵심은 "타 건물 누설 0건" 이라는 점.
+  } finally {
+    await db.delete(hqBuildingAssignmentsTable).where(eq(hqBuildingAssignmentsTable.id, m.id));
   }
 });

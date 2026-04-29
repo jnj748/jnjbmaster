@@ -2,7 +2,13 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc, or, inArray, sum, count } from "drizzle-orm";
 import { db, rfqsTable, vendorsTable, usersTable, quotesTable, buildingsTable, creditLedgerTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { getUserBuildingId, isBuildingScopedRole } from "../middlewares/buildingScope";
+import {
+  getUserBuildingId,
+  isBuildingScopedRole,
+  getAccessibleBuildingIds,
+  buildingScopeFilter,
+  canAccessBuilding,
+} from "../middlewares/buildingScope";
 import {
   refundRfqConsumption,
   computeCreditCost,
@@ -119,7 +125,6 @@ router.get("/rfqs", async (req, res): Promise<void> => {
   const conditions = [];
   const role = req.user?.role;
   const isPartner = role === "partner";
-  const isHqOrAdmin = role === "platform_admin" || role === "hq_executive";
 
   if (isPartner) {
     const [authUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
@@ -128,22 +133,25 @@ router.get("/rfqs", async (req, res): Promise<void> => {
       return;
     }
     req.query.forVendorId = authUser.vendorId.toString();
-  } else if (isBuildingScopedRole(role)) {
-    // [Task #551] 관리소장/경리/시설기사 등 건물 단위 직원 역할은 본인이 속한
-    //   건물의 RFQ 만 볼 수 있다. 종전에는 이 분기가 빠져 있어 다른 건물의
-    //   RFQ 가 함께 노출되는 데이터 유출 버그가 있었다(Broken Access Control).
-    //   buildingId 가 비어 있으면 빈 목록을 반환한다(에러 아님).
-    const userBuildingId = await getUserBuildingId(req);
-    if (userBuildingId == null) {
-      res.json(ListRfqsResponse.parse([]));
-      return;
-    }
-    conditions.push(eq(rfqsTable.buildingId, userBuildingId));
-  } else if (isHqOrAdmin) {
-    // [Task #551] 본사/플랫폼 관리자는 전체 RFQ 를 볼 수 있되, 선택적으로
-    //   ?buildingId 쿼리 파라미터로 특정 건물만 필터할 수 있다.
+  } else {
+    // [Task #551/#596] 건물 단위 역할(매니저/회계/시설기사)과 hq_executive 는
+    //   접근 가능한 건물 ID 합집합으로 필터. platform_admin 만 무제한 가시.
+    //   ?buildingId 쿼리 파라미터로 추가 필터(권한 확인 후) 가능.
     if (params.success && params.data.buildingId != null) {
-      conditions.push(eq(rfqsTable.buildingId, Number(params.data.buildingId)));
+      const requestedBid = Number(params.data.buildingId);
+      if (!(await canAccessBuilding(req, requestedBid))) {
+        res.json(ListRfqsResponse.parse([]));
+        return;
+      }
+      conditions.push(eq(rfqsTable.buildingId, requestedBid));
+    } else {
+      const scope = await getAccessibleBuildingIds(req);
+      const scopeWhere = buildingScopeFilter(scope, rfqsTable.buildingId);
+      if (scopeWhere === "empty") {
+        res.json(ListRfqsResponse.parse([]));
+        return;
+      }
+      if (scopeWhere) conditions.push(scopeWhere);
     }
   }
 
@@ -210,8 +218,18 @@ router.get("/rfqs", async (req, res): Promise<void> => {
 
 // [Task #226] HQ 어드민 대시보드용 매칭/제출/환불 통계.
 // 운영팀이 단가 행을 조정할 때 매칭 인원·제출 건수·누적 차감/환불을 한눈에 볼 수 있어야 한다.
-router.get("/rfqs/admin/stats", requireRole("platform_admin", "hq_executive"), async (_req, res): Promise<void> => {
-  const rfqs = await db.select().from(rfqsTable).orderBy(desc(rfqsTable.createdAt));
+router.get("/rfqs/admin/stats", requireRole("platform_admin", "hq_executive"), async (req, res): Promise<void> => {
+  // [Task #596] hq_executive 는 매핑된 건물의 RFQ 만 통계로 본다.
+  //   platform_admin 만 전 건물 통계.
+  const scope = await getAccessibleBuildingIds(req);
+  const scopeWhere = buildingScopeFilter(scope, rfqsTable.buildingId);
+  if (scopeWhere === "empty") {
+    res.json({ totals: { matched: 0, quoted: 0, debited: 0, refunded: 0 }, rows: [] });
+    return;
+  }
+  const rfqs = scopeWhere
+    ? await db.select().from(rfqsTable).where(scopeWhere).orderBy(desc(rfqsTable.createdAt))
+    : await db.select().from(rfqsTable).orderBy(desc(rfqsTable.createdAt));
   if (rfqs.length === 0) {
     res.json({ totals: { matched: 0, quoted: 0, debited: 0, refunded: 0 }, rows: [] });
     return;
@@ -346,13 +364,11 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
         return;
       }
     }
-  } else if (isBuildingScopedRole(req.user?.role)) {
-    // [Task #551] 건물 단위 직원 역할은 다른 건물의 RFQ 단건 조회를 차단한다.
-    //   타 건물 RFQ ID 를 알아도 직접 URL 로 열람·비교가 불가능하도록
-    //   목록과 동일한 스코프 규칙을 적용한다(Broken Access Control 차단).
-    //   존재 자체를 노출하지 않기 위해 403 대신 목록 결과와 동일한 404 로 응답.
-    const userBuildingId = await getUserBuildingId(req);
-    if (userBuildingId == null || rfq.buildingId == null || rfq.buildingId !== userBuildingId) {
+  } else if (req.user?.role !== "platform_admin") {
+    // [Task #551/#596] 건물 단위 직원 역할 + hq_executive 는 본인 관할이 아닌
+    //   건물의 RFQ 단건 조회를 차단한다. platform_admin 만 무제한 가시.
+    //   존재 자체를 노출하지 않기 위해 403 대신 404 로 응답.
+    if (rfq.buildingId == null || !(await canAccessBuilding(req, rfq.buildingId))) {
       res.status(404).json({ error: "RFQ not found" });
       return;
     }
@@ -397,9 +413,10 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
       ? rawTitle.trim()
       : buildRfqAutoTitle(incoming.category, serviceType);
 
-  // [Task #335] 매니저가 작성하는 RFQ 는 본인이 속한 buildingId 로 강제로 스코프한다.
-  // 클라이언트가 임의의 buildingId 를 보내도 무시 (브로큰 액세스 컨트롤 방지).
-  // platform_admin / hq_executive 는 다른 건물에 RFQ 를 만들 수 있으므로 클라이언트 값을 허용.
+  // [Task #335/#596] RFQ 생성은 manager / platform_admin 전용 (managerOnly).
+  //   매니저는 본인 buildingId 로 강제 스코프 (클라이언트 input 무시).
+  //   platform_admin 만 다른 건물에 RFQ 를 직접 생성할 수 있다.
+  //   (hq_executive 는 read-only — 승인/할당 권한만 가짐.)
   let scopedBuildingId: number | null = null;
   let userBuildingId: number | null = null;
   if (req.user?.userId) {
@@ -410,7 +427,7 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     userBuildingId = u?.buildingId ?? null;
   }
   const role = req.user?.role;
-  if (role === "platform_admin" || role === "hq_executive") {
+  if (role === "platform_admin") {
     scopedBuildingId = incoming.buildingId ?? userBuildingId;
   } else {
     if (incoming.buildingId != null && userBuildingId != null && incoming.buildingId !== userBuildingId) {

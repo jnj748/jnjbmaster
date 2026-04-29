@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { db, externalDocumentsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
@@ -25,19 +26,20 @@ router.get("/external-documents", async (req, res): Promise<void> => {
     res.status(401).json({ error: "unauthorized" });
     return;
   }
-  const buildingId = await resolveBuildingId(Number(userId));
-  if (buildingId == null) {
-    // 건물 컨텍스트가 없으면 빈 배열 반환 (전체 노출 금지)
+
+  // [Task #596] hq_executive 는 매핑된 건물 묶음의 외부 문서를 조회.
+  //   platform_admin 만 전 건물 가시. 비할당 매니저/회계는 빈 배열.
+  const scope = await getAccessibleBuildingIds(req);
+  if (!scope.unrestricted && scope.ids.length === 0) {
     res.json([]);
     return;
   }
-
-  const rows = await db
-    .select()
-    .from(externalDocumentsTable)
-    .where(eq(externalDocumentsTable.buildingId, buildingId))
-    .orderBy(desc(externalDocumentsTable.createdAt))
-    .limit(50);
+  const rows = scope.unrestricted
+    ? await db.select().from(externalDocumentsTable)
+        .orderBy(desc(externalDocumentsTable.createdAt)).limit(50)
+    : await db.select().from(externalDocumentsTable)
+        .where(inArray(externalDocumentsTable.buildingId, scope.ids))
+        .orderBy(desc(externalDocumentsTable.createdAt)).limit(50);
 
   res.json(rows);
 });

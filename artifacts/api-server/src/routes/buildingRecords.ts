@@ -25,6 +25,7 @@ import {
   type EvidenceLink,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { canAccessBuilding as scopeCanAccessBuilding } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 const READ_ROLES = ["manager", "platform_admin", "accountant", "hq_executive"] as const;
@@ -604,10 +605,26 @@ async function getComparisonSnapshot(buildingId: number, month: string): Promise
 
 router.get("/building-records", async (req: Request, res: Response) => {
   const ctx = await getUserContext(req);
-  if (!ctx?.buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return; }
   const month = (req.query.month as string | undefined) ?? new Date().toISOString().slice(0, 7);
   if (!isValidMonth(month)) { res.status(400).json({ error: "month 형식 오류 (YYYY-MM)" }); return; }
-  const buildingId = ctx.buildingId;
+
+  // [Task #596] platform_admin / hq_executive 는 ?buildingId 로 임의 건물 조회 가능
+  //   (HQ 는 매핑된 건물 한도). 매니저/회계는 본인 ctx.buildingId 만.
+  const queryBid = req.query.buildingId ? Number(req.query.buildingId) : null;
+  let buildingId: number;
+  if (ctx.role === "platform_admin" || ctx.role === "hq_executive") {
+    if (queryBid == null) {
+      res.status(400).json({ error: "buildingId 쿼리 파라미터가 필요합니다" }); return;
+    }
+    if (!(await scopeCanAccessBuilding(req, queryBid))) {
+      res.status(403).json({ error: "해당 건물 접근 권한이 없습니다" }); return;
+    }
+    buildingId = queryBid;
+  } else {
+    if (!ctx.buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+    buildingId = ctx.buildingId;
+  }
 
   const building = await db.select().from(buildingsTable).where(eq(buildingsTable.id, buildingId)).then(r => r[0]);
   if (!building) { res.status(404).json({ error: "건물을 찾을 수 없습니다" }); return; }

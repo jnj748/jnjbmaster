@@ -3,21 +3,20 @@ import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, desc, isNull } from "drizzle-orm";
 import { db, warrantyPresetsTable, buildingWarrantiesTable, buildingsTable, notificationsTable, rfqsTable, vendorsTable, usersTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { getUserBuildingId, isBuildingScopedRole } from "../middlewares/buildingScope";
+import { canAccessBuilding, getAccessibleBuildingIds, buildingScopeFilter } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 router.use("/warranties", requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
 
-// [Task #558] 건물 단위 직원 역할(manager/accountant/facility_staff)이 본인
-//   소속 건물이 아닌 다른 건물의 하자담보를 직접 URL ID 로 조회·수정하는 것을
-//   막는 헬퍼. 누설 방지를 위해 403 대신 404 로 응답한다.
+// [Task #558/#596] 건물 단위 직원 역할(manager/accountant/facility_staff) 및
+//   hq_executive 가 본인 관할이 아닌 건물의 하자담보를 직접 URL ID 로
+//   조회·수정하는 것을 막는 헬퍼. 누설 방지를 위해 403 대신 404 로 응답한다.
+//   platform_admin 만 진정한 전 건물 가시.
 async function assertOwnBuildingOr404(
   req: import("express").Request,
   buildingId: number,
 ): Promise<boolean> {
-  if (!isBuildingScopedRole(req.user?.role)) return true;
-  const userBuildingId = await getUserBuildingId(req);
-  return userBuildingId != null && userBuildingId === buildingId;
+  return canAccessBuilding(req, buildingId);
 }
 const WARRANTY_PRESETS_DATA = [
   { tradeCategory: "waterproofing", tradeName: "방수공사 (옥상·외벽·지하층)", warrantyYears: 5, description: "옥상, 외벽, 지하층 방수공사", legalBasis: "주택법 시행령 별표 6" },
@@ -155,8 +154,9 @@ router.patch("/warranties/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // [Task #558] 단건 수정도 buildingId 게이트.
-  if (isBuildingScopedRole(req.user?.role)) {
+  // [Task #558/#596] 단건 수정도 buildingId 게이트.
+  //   platform_admin 만 전 건물 가시. hq_executive 도 매핑된 건물만 통과한다.
+  if (req.user?.role !== "platform_admin") {
     const [existing] = await db
       .select({ buildingId: buildingWarrantiesTable.buildingId })
       .from(buildingWarrantiesTable)
@@ -197,7 +197,7 @@ router.patch("/warranties/:id", async (req, res): Promise<void> => {
 router.post(
   "/warranties/check-alerts",
   requireRole("platform_admin", "hq_executive"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
@@ -205,13 +205,20 @@ router.post(
   sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
   const sixtyStr = sixtyDaysFromNow.toISOString().split("T")[0];
 
+  // [Task #596] hq_executive 는 본인 매핑 건물의 하자담보만 점검 대상.
+  const scope = await getAccessibleBuildingIds(req);
+  const sf = buildingScopeFilter(scope, buildingWarrantiesTable.buildingId);
+  if (sf === "empty") {
+    res.json({ alertsGenerated: 0, warranties: [] });
+    return;
+  }
+  const baseConds = [
+    lte(buildingWarrantiesTable.expiryDate, sixtyStr),
+    gte(buildingWarrantiesTable.expiryDate, todayStr),
+  ];
+  if (sf) baseConds.push(sf);
   const warranties = await db.select().from(buildingWarrantiesTable)
-    .where(
-      and(
-        lte(buildingWarrantiesTable.expiryDate, sixtyStr),
-        gte(buildingWarrantiesTable.expiryDate, todayStr)
-      )
-    );
+    .where(and(...baseConds));
 
   let alertsGenerated = 0;
 
@@ -260,13 +267,10 @@ router.post(
     }
   }
 
+  // [Task #596] 응답 페이로드도 동일한 scope 필터로 재선별 — 스캐너성 응답이
+  //   타 건물 행을 노출하지 않도록 보장한다.
   const updatedWarranties = await db.select().from(buildingWarrantiesTable)
-    .where(
-      and(
-        lte(buildingWarrantiesTable.expiryDate, sixtyStr),
-        gte(buildingWarrantiesTable.expiryDate, todayStr)
-      )
-    );
+    .where(and(...baseConds));
 
   res.json({ alertsGenerated, warranties: updatedWarranties });
   },

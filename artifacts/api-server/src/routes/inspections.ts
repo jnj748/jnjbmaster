@@ -24,7 +24,11 @@ import {
   BulkRegisterInspectionsBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
-import { isBuildingScopedRole } from "../middlewares/buildingScope";
+import {
+  getAccessibleBuildingIds,
+  buildingScopeFilter,
+  canAccessBuilding,
+} from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 router.use("/inspections", requireRole("manager", "platform_admin", "hq_executive", "facility_staff"));
@@ -47,13 +51,14 @@ async function assertOwnInspectionOr404(
     .from(inspectionsTable)
     .where(eq(inspectionsTable.id, inspectionId));
   if (!inspection) return { ok: false };
-  if (!isBuildingScopedRole(req.user?.role)) return { ok: true, inspection };
-  if (!req.user?.userId) return { ok: false };
-  const userBuildingId = await getUserBuildingId(req.user.userId);
-  if (userBuildingId == null || inspection.buildingId == null || inspection.buildingId !== userBuildingId) {
-    return { ok: false };
+  // [Task #596] platform_admin 만 전 건물 가시. hq_executive 는 매핑된 건물만,
+  //   manager/accountant/facility_staff 는 본인 building_id 만. 그 외는 차단.
+  if (req.user?.role === "platform_admin") return { ok: true, inspection };
+  if (inspection.buildingId == null) return { ok: false };
+  if (await canAccessBuilding(req, inspection.buildingId)) {
+    return { ok: true, inspection };
   }
-  return { ok: true, inspection };
+  return { ok: false };
 }
 
 import { LEGAL_PRESETS } from "../domain/statutory";
@@ -95,18 +100,13 @@ function normalizeInspectionRow<T extends Record<string, unknown>>(row: T): T {
 }
 
 router.get("/inspections", async (req, res): Promise<void> => {
-  // [Task #558] 건물 단위 역할은 본인 건물 점검만, 그 외(platform_admin /
-  //   hq_executive) 는 전 건물 점검이 보이도록 한다. buildingId 미지정 계정은
-  //   빈 배열(에러 아님).
+  // [Task #558/#596] 건물 단위 역할은 본인 건물 점검만 보이고, hq_executive 는
+  //   매핑된 건물 묶음만, platform_admin 만 전 건물 가시. 비할당 계정은 빈 배열.
   const conds: Array<ReturnType<typeof eq>> = [];
-  if (isBuildingScopedRole(req.user?.role)) {
-    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
-    if (userBuildingId == null) {
-      res.json([]);
-      return;
-    }
-    conds.push(eq(inspectionsTable.buildingId, userBuildingId));
-  }
+  const scope = await getAccessibleBuildingIds(req);
+  const sf = buildingScopeFilter(scope, inspectionsTable.buildingId);
+  if (sf === "empty") { res.json([]); return; }
+  if (sf) conds.push(sf as ReturnType<typeof eq>);
   const inspections = await db
     .select()
     .from(inspectionsTable)
@@ -437,18 +437,29 @@ router.get("/inspections/:id/logs", async (req, res): Promise<void> => {
   res.json(ListInspectionLogsResponse.parse(logs));
 });
 
-// [Task #558] generate-alerts 는 모든 건물의 점검을 순회하며 알림/지출품의서를
-//   생성하는 스케줄러성 엔드포인트라 매니저/시설직원이 직접 호출하면 응답으로
-//   타 건물 점검 정보가 그대로 노출된다. platform_admin / hq_executive 만
-//   허용해 BAC 누설을 차단한다.
+// [Task #558/#596] generate-alerts 는 점검을 순회하며 알림/지출품의서를 생성하는
+//   스케줄러성 엔드포인트. 매니저/시설직원이 직접 호출하면 응답으로 타 건물 점검
+//   정보가 그대로 노출되므로 platform_admin / hq_executive 만 허용한다.
+//   [#596] hq_executive 도 더 이상 super-user 가 아니다 — 본인이 매핑된 건물의
+//   점검만 알림 대상이 되도록 scope 필터를 적용한다(매핑 0건이면 빈 결과).
 router.post(
   "/inspections/generate-alerts",
   requireRole("platform_admin", "hq_executive"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentDay = today.getDate();
-  const inspections = await db.select().from(inspectionsTable);
+  const scope = await getAccessibleBuildingIds(req);
+  const sf = buildingScopeFilter(scope, inspectionsTable.buildingId);
+  if (sf === "empty") {
+    res.json(GenerateInspectionAlertsResponse.parse({
+      alertsGenerated: 0, draftsGenerated: 0, inspections: [],
+    }));
+    return;
+  }
+  const inspections = sf
+    ? await db.select().from(inspectionsTable).where(sf)
+    : await db.select().from(inspectionsTable);
 
   const alertInspections: Array<{ inspectionId: number; name: string; nextDueDate: string; draftId: number | null }> = [];
   let draftsGenerated = 0;
@@ -564,19 +575,20 @@ router.get("/inspections/upcoming", async (req, res): Promise<void> => {
   const todayStr = today.toISOString().split("T")[0];
   const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
 
-  // [Task #558] 다가오는 점검 알림 위젯도 건물 단위 역할은 본인 건물만.
+  // [Task #558/#596] 다가오는 점검 알림 위젯도 건물 단위 가시성에 묶는다.
+  //   platform_admin → 전 건물, hq_executive → 매핑된 건물,
+  //   manager/accountant/facility_staff → 본인 건물.
   const conds = [
     lte(inspectionsTable.nextDueDate, futureStr),
     gte(inspectionsTable.nextDueDate, todayStr),
   ];
-  if (isBuildingScopedRole(req.user?.role)) {
-    const userBuildingId = req.user?.userId ? await getUserBuildingId(req.user.userId) : null;
-    if (userBuildingId == null) {
-      res.json([]);
-      return;
-    }
-    conds.push(eq(inspectionsTable.buildingId, userBuildingId));
+  const scope = await getAccessibleBuildingIds(req);
+  const sf = buildingScopeFilter(scope, inspectionsTable.buildingId);
+  if (sf === "empty") {
+    res.json([]);
+    return;
   }
+  if (sf) conds.push(sf);
 
   const inspections = await db
     .select()
@@ -687,7 +699,7 @@ ${vendorList}
 router.post(
   "/inspections/ai-matching",
   requireRole("platform_admin", "hq_executive"),
-  async (_req, res): Promise<void> => {
+  async (req, res): Promise<void> => {
   try {
   const today = new Date();
   const thirtyDaysFromNow = new Date();
@@ -696,15 +708,24 @@ router.post(
   const todayStr = today.toISOString().split("T")[0];
   const futureStr = thirtyDaysFromNow.toISOString().split("T")[0];
 
+  // [Task #596] hq_executive 는 본인 매핑 건물의 점검만 매칭 대상에 포함.
+  const scope = await getAccessibleBuildingIds(req);
+  const sf = buildingScopeFilter(scope, inspectionsTable.buildingId);
+  if (sf === "empty") {
+    res.json({
+      results: [], totalInspections: 0, draftsGenerated: 0, notificationsCreated: 0,
+    });
+    return;
+  }
+  const conds = [
+    lte(inspectionsTable.nextDueDate, futureStr),
+    gte(inspectionsTable.nextDueDate, todayStr),
+  ];
+  if (sf) conds.push(sf);
   const upcomingInspections = await db
     .select()
     .from(inspectionsTable)
-    .where(
-      and(
-        lte(inspectionsTable.nextDueDate, futureStr),
-        gte(inspectionsTable.nextDueDate, todayStr)
-      )
-    )
+    .where(and(...conds))
     .orderBy(inspectionsTable.nextDueDate);
 
   const results: Array<{

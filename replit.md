@@ -3,6 +3,29 @@
 ## Overview
 관리의달인 (Manager Master) is an AI-powered property management work tool designed for Korean apartment and building managers, specifically for collective buildings under 150 units. The platform aims to revolutionize property management by streamlining operations, enhancing efficiency, and providing comprehensive, data-driven insights. Key capabilities include centralized task and schedule management, tenant/owner/vehicle administration, automated document generation, vendor management, robust multi-step approval workflows, and facility/attendance management. The business vision is to become the leading digital assistant in the Korean property management sector, significantly reducing administrative burdens and enabling more proactive management decisions through automation and intelligent features.
 
+## 유저 유형 관계도 (Source of Truth)
+플랫폼의 6개 역할과 상하 관계는 **`docs/user-roles/README.md`** 가 단일 출처(SoT) 다.
+손그림 원본은 `docs/user-roles/user-role-diagram.jpg` 에 보관된다.
+
+```
+관리자(platform_admin)              ← 전 건물 수퍼유저(본사)
+└─ 본부장(hq_executive)             ← hq_building_assignments 매핑된 건물만
+   └─ 관리소장(manager)             ← 자기 건물 1개의 모든 직원/데이터
+      ├─ 경리(accountant)           ← 자기 건물 안의 본인 데이터
+      └─ 시설기사(facility_staff)   ← 자기 건물 안의 본인 데이터
+파트너사(partner)                   ← vendor_id 기반 ACL, 도메인 분리
+```
+
+- 본부장(`hq_executive`)은 **전 건물 수퍼유저가 아니다**. 자신에게 할당된
+  `hq_building_assignments` 행 안의 건물 묶음에서만 데이터를 보고 조작한다.
+  매핑이 비어 있으면 빈 결과 + 안내 메시지를 받는다.
+- 모든 신규 기능은 본 관계도를 기준선으로 설계·구현한다. 6개 역할 외 신규 역할
+  추가가 필요한 경우 `docs/user-roles/README.md` 를 먼저 갱신한다.
+- 권한 경계 SoT: `lib/shared/src/role-labels.ts`,
+  `lib/db/src/schema/hqBuildingAssignments.ts`,
+  `artifacts/api-server/src/middlewares/buildingScope.ts`
+  (`getAccessibleBuildingIds`, `getHqAssignedBuildingIds`).
+
 ## User Preferences
 - I prefer clear and concise communication.
 - I like to see detailed explanations for complex features.

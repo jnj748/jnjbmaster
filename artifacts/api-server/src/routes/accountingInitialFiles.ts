@@ -2,32 +2,50 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, accountingInitialFilesTable, usersTable } from "@workspace/db";
 import { authMiddleware, requireRole } from "../middlewares/auth";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+  canAccessBuilding as scopeCanAccessBuilding,
+  getAccessibleBuildingIds,
+} from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
 router.use("/accounting-initial-files", authMiddleware, requireRole("manager", "accountant", "platform_admin", "hq_executive"));
 
-// 다른 건물 자료에 접근하려면 platform_admin/hq_executive 만 허용. 그 외는 본인 buildingId 만.
-function canAccessBuilding(user: { role: string; buildingId: number | null } | undefined, buildingId: number) {
-  if (!user) return false;
-  if (user.role === "platform_admin" || user.role === "hq_executive") return true;
-  return user.buildingId === buildingId;
+// [Task #596] hq_executive 는 hq_building_assignments 매핑된 건물에 한해 접근.
+//   platform_admin 만 전 건물 가시. 매니저/회계는 본인 건물만.
+async function canAccessBuilding(req: Request, buildingId: number): Promise<boolean> {
+  return scopeCanAccessBuilding(req, buildingId);
 }
 
 router.get("/accounting-initial-files", async (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user?.buildingId && user?.role !== "platform_admin" && user?.role !== "hq_executive") {
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  // [Task #596] buildingId 미지정 시: hq_executive 는 매핑된 건물 전체 합집합을
+  //   반환, 매니저/회계는 본인 건물만, platform_admin 은 전 건물.
+  const queryBid = req.query.buildingId ? Number(req.query.buildingId) : null;
+  if (queryBid != null) {
+    if (!(await canAccessBuilding(req, queryBid))) {
+      res.status(403).json({ error: "이 건물의 회계 자료에 접근할 수 없습니다" }); return;
+    }
+    const rows = await db.select().from(accountingInitialFilesTable)
+      .where(eq(accountingInitialFilesTable.buildingId, queryBid))
+      .orderBy(desc(accountingInitialFilesTable.createdAt));
+    res.json({ files: rows });
+    return;
+  }
+
+  const scope = await getAccessibleBuildingIds(req);
+  if (!scope.unrestricted && scope.ids.length === 0) {
     res.json({ files: [] }); return;
   }
-  const buildingId = req.query.buildingId ? Number(req.query.buildingId) : user!.buildingId!;
-  if (!canAccessBuilding(user, buildingId)) {
-    res.status(403).json({ error: "이 건물의 회계 자료에 접근할 수 없습니다" }); return;
-  }
-  const rows = await db.select().from(accountingInitialFilesTable)
-    .where(eq(accountingInitialFilesTable.buildingId, buildingId))
-    .orderBy(desc(accountingInitialFilesTable.createdAt));
+  const rows = scope.unrestricted
+    ? await db.select().from(accountingInitialFilesTable).orderBy(desc(accountingInitialFilesTable.createdAt))
+    : await db.select().from(accountingInitialFilesTable)
+        .where(inArray(accountingInitialFilesTable.buildingId, scope.ids))
+        .orderBy(desc(accountingInitialFilesTable.createdAt));
   res.json({ files: rows });
 });
 
@@ -38,7 +56,7 @@ router.post("/accounting-initial-files", async (req: Request, res: Response) => 
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   const buildingId = bodyBid ? Number(bodyBid) : user?.buildingId;
   if (!buildingId) { res.status(400).json({ error: "buildingId가 필요합니다" }); return; }
-  if (!canAccessBuilding(user, buildingId)) {
+  if (!(await canAccessBuilding(req, buildingId))) {
     res.status(403).json({ error: "이 건물에 자료를 업로드할 권한이 없습니다" }); return;
   }
   const [row] = await db.insert(accountingInitialFilesTable).values({

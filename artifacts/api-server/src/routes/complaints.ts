@@ -1,6 +1,6 @@
 import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, sql, inArray } from "drizzle-orm";
 import { db, complaintsTable, usersTable, unitsTable, notificationsTable, buildingsTable } from "@workspace/db";
 import { SENSITIVE_CATEGORIES, RISK_KEYWORDS, complaintSensitivities } from "@workspace/db";
 import {
@@ -8,6 +8,7 @@ import {
   UpdateComplaintBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { getAccessibleBuildingIds, canAccessBuilding } from "../middlewares/buildingScope";
 
 type ComplaintSensitivity = (typeof complaintSensitivities)[number];
 
@@ -118,21 +119,19 @@ async function createHqNotification(complaint: { id: number; title: string; cate
 }
 
 router.get("/complaints", async (req: Request, res: Response): Promise<void> => {
-  const userRole = req.user?.role;
-  let buildingId: number | null = null;
-
-  if (userRole !== "hq_executive" && userRole !== "platform_admin") {
-    buildingId = await getUserBuildingId(req);
-    if (!buildingId) { res.json([]); return; }
-  }
-
   const { category, status, sensitivity, isRecurring, escalatedToHq } = req.query as {
     category?: string; status?: string; sensitivity?: string;
     isRecurring?: string; escalatedToHq?: string;
   };
 
+  // [Task #596] hq_executive 는 매핑된 건물 묶음에만 가시. platform_admin 만 전체.
+  const scope = await getAccessibleBuildingIds(req);
   const conditions = [];
-  if (buildingId) conditions.push(eq(complaintsTable.buildingId, buildingId));
+  if (!scope.unrestricted) {
+    if (scope.ids.length === 0) { res.json([]); return; }
+    if (scope.ids.length === 1) conditions.push(eq(complaintsTable.buildingId, scope.ids[0]));
+    else conditions.push(inArray(complaintsTable.buildingId, scope.ids));
+  }
   // category/status/sensitivity 는 enum 컬럼이라 string 인자를 넘기려면 좁은 타입으로 단언한다.
   if (category) conditions.push(eq(complaintsTable.category, category as never));
   if (status) conditions.push(eq(complaintsTable.status, status as never));
@@ -292,12 +291,10 @@ router.get("/complaints/:id/history", async (req: Request, res: Response): Promi
     return;
   }
 
-  if (userRole !== "hq_executive" && userRole !== "platform_admin") {
-    const buildingId = await getUserBuildingId(req);
-    if (!buildingId || complaint.buildingId !== buildingId) {
-      res.status(403).json({ error: "접근 권한이 없습니다" });
-      return;
-    }
+  // [Task #596] hq_executive 는 매핑된 건물 묶음에 한해 접근 허용.
+  if (!(await canAccessBuilding(req, complaint.buildingId))) {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
   }
 
   const history = await db
@@ -316,8 +313,27 @@ router.get("/complaints/:id/history", async (req: Request, res: Response): Promi
   res.json(history);
 });
 
-async function handleComplaintAnalytics(_req: Request, res: Response): Promise<void> {
-  const allComplaints = await db.select().from(complaintsTable).orderBy(desc(complaintsTable.createdAt));
+async function handleComplaintAnalytics(req: Request, res: Response): Promise<void> {
+  // [Task #596] hq_executive 는 매핑된 건물 묶음의 민원만 분석. platform_admin 만 무제한.
+  const scope = await getAccessibleBuildingIds(req);
+  if (!scope.unrestricted && scope.ids.length === 0) {
+    res.json({
+      sensitiveComplaintRate: 0,
+      recurringAvgResolutionDays: null,
+      totalComplaints: 0,
+      sensitiveCount: 0,
+      recurringCount: 0,
+      unresolvedSensitiveComplaints: [],
+      categoryTrend: [],
+      buildingSummary: [],
+    });
+    return;
+  }
+  const allComplaints = scope.unrestricted
+    ? await db.select().from(complaintsTable).orderBy(desc(complaintsTable.createdAt))
+    : await db.select().from(complaintsTable)
+        .where(inArray(complaintsTable.buildingId, scope.ids))
+        .orderBy(desc(complaintsTable.createdAt));
 
   const sensitiveCount = allComplaints.filter(c =>
     c.sensitivity === "sensitive" || c.sensitivity === "urgent"

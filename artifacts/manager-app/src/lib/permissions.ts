@@ -572,6 +572,11 @@ export const ROUTES: RouteEntry[] = [
   { path: "/platform/hq-executives", component: PlatformRoleHq,
     label: `${SHARED_ROLE_LABELS.hq_executive} 현황`, icon: Shield, group: "dashboard",
     access: ["platform_admin"], hidden: true },
+  // [Task #596] hq_executive ↔ 건물 매핑 관리(platform_admin 전용).
+  { path: "/platform/hq-assignments",
+    component: lazy(() => import("@/pages/platform-hq-assignments")),
+    label: `${SHARED_ROLE_LABELS.hq_executive} 관할 건물`, icon: Shield, group: "dashboard",
+    access: ["platform_admin"], hidden: true },
   { path: "/platform/partners", component: PlatformRolePartners,
     label: "파트너사 현황", icon: Package, group: "dashboard",
     access: ["platform_admin"], hidden: true },
@@ -859,7 +864,11 @@ function platformAdminSidebar(): NavSection[] {
     },
     {
       title: SHARED_ROLE_LABELS.hq_executive,
-      items: [{ path: "/platform/hq-executives", label: "현황", icon: Shield }],
+      items: [
+        { path: "/platform/hq-executives", label: "현황", icon: Shield },
+        // [Task #596] 본부장 관할 건물 매핑 관리.
+        { path: "/platform/hq-assignments", label: "관할 건물", icon: Building2 },
+      ],
     },
     {
       title: SHARED_ROLE_LABELS.partner,

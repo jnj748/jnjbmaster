@@ -9,6 +9,7 @@ import {
   isDuplicateCheckRole,
   findExistingActiveUserForAddress,
 } from "./duplicates";
+import { canAccessBuilding } from "../../middlewares/buildingScope";
 
 const router: IRouter = Router();
 
@@ -19,7 +20,8 @@ router.post("/buildings/:id/lock-address", async (req: Request, res: Response) =
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
-  if (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role)) {
+  // [Task #596] hq_executive 는 매핑된 건물에 한해 허용. platform_admin 은 전 건물.
+  if (!(await canAccessBuilding(req, id))) {
     res.status(403).json({ error: "이 건물을 잠글 권한이 없습니다" }); return;
   }
   // [Task #227/#341] 주소 잠금 시점에서도 최종 안전장치로 동일 역할의 중복을 검사한다.
@@ -54,7 +56,9 @@ router.put("/buildings/:id/area-basis", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
-  if (!user || (user.buildingId !== id && !["platform_admin", "hq_executive"].includes(user.role))) {
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  // [Task #596] hq_executive 는 매핑된 건물에 한해 허용.
+  if (!(await canAccessBuilding(req, id))) {
     res.status(403).json({ error: "권한이 없습니다" }); return;
   }
   const [b] = await db.update(buildingsTable).set({ areaBasis }).where(eq(buildingsTable.id, id)).returning();
