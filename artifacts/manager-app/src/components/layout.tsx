@@ -599,11 +599,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         /* [Task #327] 6 역할 대시보드 모바일/데스크탑 분기용 헬퍼 클래스.
            모바일은 ≤899px (layout 의 다른 분기와 동일 breakpoint),
-           데스크탑은 ≥900px. JS viewport 측정 없이 CSS-only. */
+           데스크탑은 ≥900px. JS viewport 측정 없이 CSS-only.
+           [Task #559] hover/pointer 조건 추가 — Chrome "데스크톱 사이트" 모드를 켜도
+           폰의 터치 입력 특성(hover:none, pointer:coarse) 은 변하지 않으므로
+           모바일 디바이스에서는 항상 모바일 layout 이 유지된다. */
         .dash-mobile-only { display: none; }
         .dash-desktop-only { display: block; }
 
-        @media (max-width: 899px) {
+        @media (max-width: 899px), (hover: none), (pointer: coarse) {
           /* [Task #모바일 앱화] 모바일에서는 헤더+컨텐츠+하단네비 가 한 화면에 고정.
              컨텐츠가 짧으면 스크롤이 전혀 발생하지 않고, 길면 컨텐츠 영역 안에서만 스크롤된다. */
           .layout-grid {
@@ -630,7 +633,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           .dash-desktop-only { display: none; }
         }
 
-        @media (min-width: 900px) {
+        @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
           .layout-grid {
             display: block;
             padding-left: 220px;

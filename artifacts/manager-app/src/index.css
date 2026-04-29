@@ -204,7 +204,9 @@
     min-width: 32px;
   }
 
-  @media (min-width: 900px) {
+  /* [Task #559] hover/pointer 조건 추가 — 모바일에서 Chrome "데스크톱 사이트"
+     모드가 켜져 있어도 터치 타겟 최소 크기(44px)를 유지한다. */
+  @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
     button, a, [role="button"], input[type="submit"], input[type="button"] {
       min-height: unset;
       min-width: unset;
@@ -525,7 +527,9 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
  * 검사가 후손 선택자도 오탐으로 잡아 빌드를 차단함). 매핑은 body 에
  * 있는 data-role 속성을 그대로 매칭하므로 동작은 동일하다.
  */
-@media (min-width: 900px) {
+/* [Task #559] hover/pointer 조건 — layout-sidebar 자체가 같은 조건에서만
+   렌더되므로 일관성 유지를 위해 동일한 미디어 쿼리를 사용. */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
   [data-role="manager"] aside.layout-sidebar nav a .w-4 { width: 1.25rem; }
   [data-role="manager"] aside.layout-sidebar nav a .h-4 { height: 1.25rem; }
 }

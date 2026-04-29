@@ -244,13 +244,16 @@ export default function AiAssistantPage() {
           margin: -12px;
           height: calc(100% + 24px);
         }
-        @media (min-width: 640px) and (max-width: 899px) {
+        @media (min-width: 640px) and (max-width: 899px), (min-width: 640px) and (hover: none), (min-width: 640px) and (pointer: coarse) {
           .ai-assistant-fill {
             margin: -24px;
             height: calc(100% + 48px);
           }
         }
-        @media (min-width: 900px) {
+        /* [Task #559] hover/pointer 조건 — layout-sidebar 와 같은 분기에서만
+           데스크탑 채팅 layout 적용. 모바일 PWA 가 "데스크톱 사이트" 모드여도
+           모바일 채팅 layout 이 유지된다. */
+        @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
           .ai-assistant-fill {
             /* desktop: 사이드바만 있고 하단 네비가 없어 본문이 body 스크롤. dvh 기반 유지. */
             margin: -24px;
