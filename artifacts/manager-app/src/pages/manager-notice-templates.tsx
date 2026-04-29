@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   ResponsiveDialog,
@@ -42,7 +41,7 @@ import {
   type NoticeBodyEditorHandle,
 } from "@/components/notice-body-editor";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
-import { fillNoticeTemplate, renderNoticeBodyHtml } from "@/lib/notice-layout";
+import { renderNoticeBodyHtml } from "@/lib/notice-layout";
 import { printIsolatedNode } from "@/lib/print-isolate";
 
 // [Task #323] 관리소장 공지문 템플릿
@@ -422,18 +421,9 @@ function PreviewDialog({
     }
   }
 
-  // [Task #608] 연락처는 우리 건물의 도로명 주소(addressFull) 가 기본 토큰으로 들어가도록
-  //   addressFull 값을 함께 전달한다. (HQ 관리자가 contactTemplate 을 다른 토큰으로
-  //   바꿔둔 경우에도 동일한 vars 맵을 그대로 채운다.)
-  const resolvedContact =
-    contactOverride ??
-    fillNoticeTemplate(noticeLayout.contactTemplate, {
-      buildingName: building?.name ?? "",
-      addressFull: building?.addressFull ?? "",
-      managementOfficePhone: building?.managementOfficePhone,
-      feeInquiryPhone: building?.feeInquiryPhone,
-      facilitySafetyPhone: building?.facilitySafetyPhone,
-    });
+  // [Task #624] 사용 모달에서 연락처 입력 칸이 제거되어 contactOverride 는
+  //   항상 null 이다. 우측 미리보기는 contact prop 을 undefined 로 받아
+  //   NoticeLayoutFrame 내부에서 시스템 contactTemplate 을 토큰 치환해 사용한다.
   const resolvedPostingPeriod = postingPeriodOverride ?? noticeLayout.defaultPostingPeriod;
 
   // [Task #608] 게시기간 종료일 캘린더 — 작성일(오늘) ~ 선택일 형식으로 자동 채움.
@@ -494,51 +484,53 @@ function PreviewDialog({
               />
             </div>
 
-            {labels.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {labels[0] && (
-                  <div>
-                    <Label className="text-xs">{labels[0]}</Label>
-                    <Input
-                      value={customA}
-                      onChange={(e) => setCustomA(e.target.value)}
-                      placeholder={labels[0]}
-                      data-testid="input-custom-a"
+            {/* [Task #624] 게시기간을 제목 바로 아래 단독 행(폭 100%)으로 배치.
+                  - 기본값은 "상시게재"(시스템 설정). 종료일 캘린더에서 날짜를
+                    고르면 "작성일 ~ 종료일" 형식으로 자동 채워진다. */}
+            <div>
+              <Label>게시기간</Label>
+              <div className="flex gap-1.5">
+                <Popover open={postingPeriodOpen} onOpenChange={setPostingPeriodOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 h-9 justify-start text-left font-normal px-3"
+                      data-testid="button-posting-period"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">{resolvedPostingPeriod}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-2 pb-0 text-[11px] text-slate-500">
+                      게시 종료일을 선택하면 "{format(noticeStartDate, "yyyy-MM-dd")} ~ 종료일" 로 표시됩니다.
+                    </div>
+                    <Calendar
+                      mode="single"
+                      selected={parsedEndDate}
+                      defaultMonth={parsedEndDate ?? noticeStartDate}
+                      fromDate={noticeStartDate}
+                      onSelect={handlePickPostingEnd}
+                      locale={ko}
+                      initialFocus
                     />
-                  </div>
-                )}
-                {labels[1] && (
-                  <div>
-                    <Label className="text-xs">{labels[1]}</Label>
-                    <Input
-                      value={customB}
-                      onChange={(e) => setCustomB(e.target.value)}
-                      placeholder={labels[1]}
-                      data-testid="input-custom-b"
-                    />
-                  </div>
-                )}
-                {labels[2] && (
-                  <div className="sm:col-span-2">
-                    <Label className="text-xs">{labels[2]}</Label>
-                    <Input
-                      value={customC}
-                      onChange={(e) => setCustomC(e.target.value)}
-                      placeholder={labels[2]}
-                      data-testid="input-custom-c"
-                    />
-                  </div>
+                  </PopoverContent>
+                </Popover>
+                {postingPeriodOverride && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 px-2 shrink-0"
+                    onClick={handleClearPostingPeriod}
+                    data-testid="button-posting-period-reset"
+                    title="상시게재로 되돌리기"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </Button>
                 )}
               </div>
-            )}
-
-            <div>
-              <Label className="text-xs">날짜</Label>
-              <Input
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                data-testid="input-date"
-              />
             </div>
 
             <div>
@@ -557,6 +549,9 @@ function PreviewDialog({
               {/* [Task #591] 위지윅 편집기 — 'filled' 모드에서 칩이 우리 건물의
                   실제값(건물명/주소/전화번호/날짜/사용자입력칸)으로 자동 치환되어
                   표시되며, body 상태에는 raw `{{token}}` 형태가 보존된다. */}
+              {/* [Task #624] customA/B/C·date·notes·contact override 입력 칸은
+                  사용 모달에서 제거됐다. 해당 상태값(기본값/공란)은 내부에 그대로
+                  남겨 토큰 치환·미리보기·인쇄가 깨지지 않게 유지한다. */}
               <NoticeBodyEditor
                 ref={editorRef}
                 key={`manager-editor-${template.id}`}
@@ -568,75 +563,6 @@ function PreviewDialog({
                 testIdPrefix="editable-body"
                 minHeightClassName="min-h-[280px]"
               />
-            </div>
-
-            <div>
-              <Label>비고</Label>
-              <Textarea
-                value={notesText}
-                onChange={(e) => setNotesText(e.target.value)}
-                rows={2}
-                data-testid="input-notes"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>게시기간</Label>
-                {/* [Task #608] 기본값은 "상시게재"(시스템 설정). 종료일 캘린더에서
-                    날짜를 고르면 "작성일 ~ 종료일" 형식으로 자동 채워진다. */}
-                <div className="flex gap-1.5">
-                  <Popover open={postingPeriodOpen} onOpenChange={setPostingPeriodOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1 h-9 justify-start text-left font-normal px-3"
-                        data-testid="button-posting-period"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="truncate">{resolvedPostingPeriod}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <div className="p-2 pb-0 text-[11px] text-slate-500">
-                        게시 종료일을 선택하면 "{format(noticeStartDate, "yyyy-MM-dd")} ~ 종료일" 로 표시됩니다.
-                      </div>
-                      <Calendar
-                        mode="single"
-                        selected={parsedEndDate}
-                        defaultMonth={parsedEndDate ?? noticeStartDate}
-                        fromDate={noticeStartDate}
-                        onSelect={handlePickPostingEnd}
-                        locale={ko}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {postingPeriodOverride && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-9 px-2 shrink-0"
-                      onClick={handleClearPostingPeriod}
-                      data-testid="button-posting-period-reset"
-                      title="상시게재로 되돌리기"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label>관리사무소 연락처</Label>
-                {/* [Task #608] 기본값은 우리 건물의 도로명 주소. 필요 시 직접 수정 가능. */}
-                <Input
-                  value={resolvedContact}
-                  onChange={(e) => setContactOverride(e.target.value)}
-                  data-testid="input-contact"
-                />
-              </div>
             </div>
 
             {/* [Task #583] 사진 첨부 컨트롤 — 캡처 영역 밖에 두어 컨트롤 자체가 PNG/PDF/docx 에 포함되지 않게 한다. */}
