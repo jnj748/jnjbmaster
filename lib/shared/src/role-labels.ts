@@ -52,3 +52,19 @@ export const PORTAL_LABELS: Record<PortalType, string> = {
   hq: ROLE_LABELS.hq_executive,
   partner: ROLE_LABELS.partner,
 };
+
+/**
+ * 본사(HQ) 포털 소속 역할들의 단일 정의.
+ *
+ * 시설기사 가입 승인 게이트(`approvalGateMiddleware`)는 시설기사 온보딩 흐름을
+ * 위해 만들어진 것이므로, 본사 포털 역할(관리자/본부장)은 게이트의 차단 대상에서
+ * 제외해야 한다. 향후 HQ 포털에 새 역할이 추가되면 이 배열에만 더하면 된다.
+ *
+ * 사용처: `artifacts/api-server/src/middlewares/auth.ts`
+ */
+export const HQ_PORTAL_ROLES = ["platform_admin", "hq_executive"] as const satisfies readonly AppRole[];
+export type HqPortalRole = (typeof HQ_PORTAL_ROLES)[number];
+
+export function isHqPortalRole(role: string | null | undefined): role is HqPortalRole {
+  return !!role && (HQ_PORTAL_ROLES as readonly string[]).includes(role);
+}

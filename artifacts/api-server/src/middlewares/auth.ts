@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { isHqPortalRole } from "@workspace/shared/role-labels";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -75,12 +76,20 @@ export async function approvalGateMiddleware(req: Request, res: Response, next: 
   if (!req.user) { next(); return; }
   try {
     const [u] = await db.select({
+      role: usersTable.role,
       approvalStatus: usersTable.approvalStatus,
       roleSelected: usersTable.roleSelected,
     })
       .from(usersTable)
       .where(eq(usersTable.id, req.user.userId));
     if (!u) { next(); return; }
+    // [Task #590] 본사(HQ) 포털 역할(관리자/본부장)은 시설기사 승인 흐름의 대상이
+    // 아니다. 이들은 기본적으로 approvalStatus=null 인 경우가 많아 게이트의 차단
+    // 조건(approvalStatus !== "active")에 잘못 걸려 /platform/* 화면이 403 으로
+    // 막히고 있었다. HQ 역할은 게이트에서 즉시 통과시킨다.
+    // (단, roleSelected=false 인 사용자는 회원가입 직후 placeholder 로 facility_staff
+    //  역할이 들어가므로 이 분기에 도달하지 않는다.)
+    if (isHqPortalRole(u.role)) { next(); return; }
     // [Task #132] 차단 조건: roleSelected=false (역할 미선택) 또는 approvalStatus !== "active".
     const needsGate = u.roleSelected === false || u.approvalStatus !== "active";
     if (!needsGate) { next(); return; }
