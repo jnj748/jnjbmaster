@@ -469,10 +469,13 @@ export const ROUTES: RouteEntry[] = [
     sideMenu: ["accountant"],
   },
   {
+    // [Task #637] "계약 성사까지만 매칭" 정책에 맞춰 partner 분리.
+    //   /commissions 페이지 자체는 accountant·platform_admin 가 계속 사용하며,
+    //   파트너는 사이드바·하단 네비·라우트 모두에서 차단.
     path: "/commissions", component: Commissions,
     label: "수수료", icon: Coins, group: "accounting",
-    access: ["platform_admin", "accountant", "partner"],
-    sideMenu: ["accountant", "partner"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
 
   // ── Reports / approvals group ───────────────────────────────────
@@ -778,12 +781,11 @@ const PARTNER_HOME_LABEL = "홈";
 const PARTNER_RFQ_LABEL = "견적 요청";
 const PARTNER_QUOTES_LABEL = "내 견적·작업";
 const PARTNER_CREDITS_LABEL = "크레딧";
-const PARTNER_COMMISSIONS_LABEL = "정산·수수료";
+// [Task #637] PARTNER_COMMISSIONS_* 라벨/아이콘은 정산·수수료 메뉴 분리에 따라 제거됨.
 const PARTNER_MY_VENDOR_LABEL = "내 업체 정보";
 const PARTNER_RFQ_ICON: LucideIcon = FileText;
 const PARTNER_QUOTES_ICON: LucideIcon = Send;
 const PARTNER_CREDITS_ICON: LucideIcon = Coins;
-const PARTNER_COMMISSIONS_ICON: LucideIcon = DollarSign;
 const PARTNER_MY_VENDOR_ICON: LucideIcon = Building2;
 
 export interface NavItem {
@@ -836,9 +838,10 @@ export function getRoutesForRole(
     // [Task #290] 파트너는 협력업체 풀(`/vendors`) 대신 본인 업체 전용 페이지
     //   (`/me/vendor`)와 크레딧 페이지(`/me/credits`)에만 접근한다.
     //   /settings 는 의도적으로 노출하지 않는다.
+    // [Task #637] 정산·수수료(`/commissions`)는 "계약 성사까지만 매칭" 정책에 따라
+    //   파트너 라우트에서 제외 — 직링크 진입 시 catch-all 이 홈으로 리다이렉트한다.
     const partnerBase: { path: string; component: AnyComponent }[] = [
       { path: "/rfqs", component: VendorPortal },
-      { path: "/commissions", component: Commissions },
       { path: "/me/vendor", component: PartnerVendorProfile },
       { path: "/me/credits", component: PartnerCredits },
       // [Task #319] 토스 결제 콜백.
@@ -846,10 +849,13 @@ export function getRoutesForRole(
       { path: "/me/credits/topup/fail", component: PartnerCreditsTopupFail },
     ];
     // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴는 라우트도 함께 등록한다.
+    // [Task #637] 단, /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
+    const PARTNER_BLOCKED_PATHS = new Set<string>(["/commissions"]);
     const explicitExtra = ROUTES.filter(
       (r) =>
         !r.hidden &&
         !r.access.includes("partner") &&
+        !PARTNER_BLOCKED_PATHS.has(r.path) &&
         isMenuExplicitlyEnabled("partner", r.path, overrides) &&
         !partnerBase.some((p) => p.path === r.path),
     ).map((r) => ({ path: r.path, component: r.component }));
@@ -1007,21 +1013,25 @@ export function getSidebarSections(
   if (role === "platform_admin") return platformAdminSidebar();
   if (role === "partner") {
     // [Task #290] 파트너 사이드바 — 협력업체 풀(/vendors) 제거, 본인 업체 정보 + 크레딧 추가.
-    //   동선: 홈 → 견적 요청 → 내 견적·작업 → 크레딧 → 정산·수수료 → 내 업체 정보.
+    // [Task #637] 정산·수수료(/commissions) 제거 — "계약 성사까지만 매칭" 정책에 따라
+    //   계약 이후 운영(검수·정산·수수료)은 파트너 화면에서 분리한다.
+    //   동선: 홈 → 견적 요청 → 내 견적·작업 → 크레딧 → 내 업체 정보.
     //   [meno-overrides] HEAD 의 isMenuBlockEnabled 필터링 동작 유지: 루트("/")는 항상 노출.
     const partnerItems: NavItem[] = [
       { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
       { path: "/rfqs", label: PARTNER_RFQ_LABEL, icon: PARTNER_RFQ_ICON },
       { path: "/rfqs", query: { tab: "quotes" }, label: PARTNER_QUOTES_LABEL, icon: PARTNER_QUOTES_ICON },
       { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
-      { path: "/commissions", label: PARTNER_COMMISSIONS_LABEL, icon: PARTNER_COMMISSIONS_ICON },
       { path: "/me/vendor", label: PARTNER_MY_VENDOR_LABEL, icon: PARTNER_MY_VENDOR_ICON },
     ];
     // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴를 사이드바 끝에 함께 노출.
-    //   기본 6 항목과 path 가 겹치지 않는 ROUTES 항목만 추가.
+    //   기본 항목과 path 가 겹치지 않는 ROUTES 항목만 추가.
+    // [Task #637] /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
+    const PARTNER_BLOCKED_PATHS = new Set<string>(["/commissions"]);
     const explicitExtra: NavItem[] = [];
     for (const entry of ROUTES) {
       if (entry.hidden) continue;
+      if (PARTNER_BLOCKED_PATHS.has(entry.path)) continue;
       if (partnerItems.some((it) => it.path === entry.path)) continue;
       if (!isMenuExplicitlyEnabled("partner", entry.path, overrides)) continue;
       explicitExtra.push({
@@ -1100,14 +1110,15 @@ export function getBottomNavItems(
     ];
   }
   if (role === "partner") {
-    // [Task #290] 파트너 하단 네비 — 사이드바 6 항목과 동일한 동선.
+    // [Task #290] 파트너 하단 네비 — 사이드바 항목과 동일한 동선.
     //   "내 견적·작업" 까지 노출하고, 내 업체 정보는 더보기 드로어로 빠진다.
+    // [Task #637] 정산·수수료(/commissions) 제거 — "계약 성사까지만 매칭" 정책에 따라
+    //   계약 이후 운영(검수·정산·수수료)은 파트너 화면에서 분리한다.
     return [
       { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
       { path: "/rfqs", label: "견적", icon: PARTNER_RFQ_ICON },
       { path: "/rfqs", query: { tab: "quotes" }, label: "내 견적", icon: PARTNER_QUOTES_ICON },
       { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
-      { path: "/commissions", label: "수수료", icon: PARTNER_COMMISSIONS_ICON },
     ];
   }
   // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 업무기록(+) / AI비서 / 더보기.
@@ -1192,7 +1203,9 @@ export function canAccess(
 ): boolean {
   if (path === "/") return true;
   if (role === "partner") {
-    if (["/rfqs", "/vendors", "/commissions"].some((p) => path === p || path.startsWith(p + "/"))) {
+    // [Task #637] /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
+    if (path === "/commissions" || path.startsWith("/commissions/")) return false;
+    if (["/rfqs", "/vendors"].some((p) => path === p || path.startsWith(p + "/"))) {
       return true;
     }
     // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴도 접근 허용.

@@ -1,20 +1,16 @@
 import {
-  useListCommissions,
   useGetCreditWallet,
   useListCreditLedger,
   useListRfqs,
   useListQuotes,
-  useListWorkReports,
-  useListSettlements,
+  useListContracts,
   useListPlatformSettings,
 } from "@workspace/api-client-react";
 import type {
-  Commission,
+  Contract,
   CreditLedgerEntry,
   Quote,
   Rfq,
-  Settlement,
-  WorkReport,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,16 +18,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
-  Coins,
   ArrowRight,
   Wallet,
   Gift,
   Bell,
   MapPin,
-  FileText,
   Send,
-  ClipboardCheck,
   Plus,
+  TrendingUp,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -51,19 +46,15 @@ const categoryLabel = (c: string) => {
   return map[c] || c;
 };
 
-// [Task #290] 파트너 대시보드 — 협력업체 풀(/vendors) 카드/리스트 제거.
-//   섹션 순서:
-//   1) 기다리는 견적 요청
-//   2) 크레딧 잔액(+충전하기) / 활동 포인트(+최근 차감·환불)
-//   3) 진행 요약(제출 견적 / 채택 견적 / 대기 작업보고 / 대기 정산)
-//   4) 최근 크레딧 사용 내역 / 최근 수수료
-//   "전체 협력업체" 와 "등록 업체 현황" 섹션은 본사 관리자 영역으로 이동.
+// [Task #637] 파트너 대시보드 — "계약 성사까지만 매칭" 정책에 맞춰 KPI 재구성.
+//   - 채택률(제출/채택) 카드는 시작 단계 파트너의 이탈 동기가 되어 제거.
+//   - 작업보고/정산/수수료 카드와 메뉴는 분쟁 책임이 플랫폼으로 흐를 위험이 있어 분리.
+//   - 대신 "이번 달 성사 금액 / 누적 성사 금액 / 진행 중 견적 / 신규 요청" 4개 KPI 로
+//     계약 성사 동기를 전면에 노출.
 export default function PartnerDashboard() {
   const { user } = useAuth();
   const vendorId = user?.vendorId ?? undefined;
 
-  // [Task #290] 호출 패턴은 vendor-portal.tsx 와 동일 — orval-generated 훅의
-  //   options 타입 호환을 위해 inline 객체 리터럴을 사용한다.
   const { data: wallet, isLoading: walletLoading } = useGetCreditWallet(
     vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
@@ -77,15 +68,12 @@ export default function PartnerDashboard() {
     vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
   );
-  const { data: myReports } = useListWorkReports(
+  // [Task #637] 본인 vendorId 로 계약 합계를 계산. 별도 서버 집계 API 없이
+  //   클라이언트에서 합산한다(진행 중·만료 모두 포함).
+  const { data: myContracts } = useListContracts(
     vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } },
   );
-  const { data: mySettlements } = useListSettlements(
-    vendorId ? { vendorId } : undefined,
-    { query: { enabled: !!vendorId } },
-  );
-  const { data: commissions } = useListCommissions();
   const { data: platformSettings } = useListPlatformSettings();
 
   const refundDays = Number(
@@ -101,24 +89,42 @@ export default function PartnerDashboard() {
   const waitingRfqs: Rfq[] = ((openRfqs ?? []) as Rfq[])
     .filter((r) => r.status === "open" && !quotedRfqIds.has(r.id))
     .slice(0, 5);
+  const waitingRfqCount = ((openRfqs ?? []) as Rfq[]).filter(
+    (r) => r.status === "open" && !quotedRfqIds.has(r.id),
+  ).length;
 
   const quotesArr = (myQuotes ?? []) as Quote[];
-  const reportsArr = (myReports ?? []) as WorkReport[];
-  const settlementsArr = (mySettlements ?? []) as Settlement[];
-  const commissionsArr = (commissions ?? []) as Commission[];
+  const contractsArr = (myContracts ?? []) as Contract[];
   const ledgerArr = (ledger ?? []) as CreditLedgerEntry[];
 
   const submittedQuotes = quotesArr.filter((q) => q.status === "submitted").length;
-  const acceptedQuotes = quotesArr.filter((q) => q.status === "accepted").length;
-  const pendingReports = reportsArr.filter((r) => r.status === "submitted").length;
-  const pendingSettlements = settlementsArr.filter(
-    (s) => s.status !== "paid" && s.status !== "cancelled",
-  ).length;
-  const pendingCommissions = commissionsArr.filter((c) => c.status === "pending").length;
+
+  // [Task #637] 계약 합계 — startDate 기준 이번 달 / 전체.
+  //   contractAmount 가 null 인 계약은 0 으로 합산.
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+  const sumContract = (c: Contract) => c.contractAmount ?? 0;
+  const monthlyContractTotal = contractsArr
+    .filter((c) => {
+      if (!c.startDate) return false;
+      const d = new Date(c.startDate);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    })
+    .reduce((sum, c) => sum + sumContract(c), 0);
+  const totalContractTotal = contractsArr.reduce((sum, c) => sum + sumContract(c), 0);
+  const hasContracts = contractsArr.length > 0;
 
   const recentDeducts = ledgerArr.filter(
     (e) => e.kind === "consumption" || e.kind === "refund" || e.kind === "manual_debit",
   );
+
+  const formatMoney = (n: number) => `${n.toLocaleString()}원`;
+  const formatMoneyShort = (n: number) => {
+    if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(n % 100_000_000 === 0 ? 0 : 1)}억`;
+    if (n >= 10_000) return `${(n / 10_000).toFixed(n % 10_000 === 0 ? 0 : 1)}만`;
+    return n.toLocaleString();
+  };
 
   if (walletLoading) {
     return (
@@ -133,8 +139,8 @@ export default function PartnerDashboard() {
     );
   }
 
-  // [Task #327] 모바일 컴팩트 KPI/탭 — 데이터 hooks 는 위에서 이미 호출됐으므로
-  // 여기서는 표시 전용. 데스크탑 뷰는 아래 <DesktopOnly> 안에 그대로 유지.
+  // [Task #637] 모바일 KPI 4개 — 크레딧 / 신규 요청 / 진행 중 견적 / 이번 달 성사 금액.
+  //   기존 "대기 정산" KPI 는 정산 도메인 분리에 따라 제거.
   const mobileKpis: KpiItem[] = [
     {
       key: "credit",
@@ -150,33 +156,33 @@ export default function PartnerDashboard() {
     {
       key: "waiting",
       label: "신규 요청",
-      value: waitingRfqs.length,
-      hint: waitingRfqs.length > 0 ? "탭에서 확인" : "대기 중 없음",
+      value: waitingRfqCount,
+      hint: waitingRfqCount > 0 ? "탭에서 확인" : "대기 중 없음",
       icon: Bell,
       iconClass: "text-white",
       iconBg: "bg-teal-500",
-      highlight: waitingRfqs.length > 0 ? "good" : "default",
+      href: "/rfqs",
+      highlight: waitingRfqCount > 0 ? "good" : "default",
     },
     {
-      key: "quotes",
-      label: "진행 견적",
-      value: submittedQuotes + acceptedQuotes,
-      hint: `제출 ${submittedQuotes} · 채택 ${acceptedQuotes}`,
+      key: "in-progress-quotes",
+      label: "진행 중 견적",
+      value: submittedQuotes,
+      hint: submittedQuotes > 0 ? "선정 결과 대기" : "현재 없음",
       icon: Send,
       iconClass: "text-white",
       iconBg: "bg-blue-500",
       href: "/rfqs?tab=quotes",
     },
     {
-      key: "settle",
-      label: "대기 정산",
-      value: pendingSettlements + pendingCommissions,
-      hint: `보고서 ${pendingReports} 대기`,
-      icon: Coins,
+      key: "monthly-contract",
+      label: "이번 달 성사 금액",
+      value: monthlyContractTotal > 0 ? `${formatMoneyShort(monthlyContractTotal)}원` : "—",
+      hint: monthlyContractTotal > 0 ? "이번 달 계약 합계" : "다음 한 건이면 시작",
+      icon: TrendingUp,
       iconClass: "text-white",
-      iconBg: "bg-purple-500",
-      href: "/commissions",
-      highlight: pendingSettlements + pendingCommissions > 0 ? "warn" : "default",
+      iconBg: "bg-emerald-500",
+      highlight: monthlyContractTotal > 0 ? "good" : "default",
     },
   ];
 
@@ -270,41 +276,6 @@ export default function PartnerDashboard() {
                   </div>
                 ),
               },
-              {
-                key: "commissions",
-                label: "정산",
-                content: commissionsArr.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-4 text-center">
-                    수수료 내역이 없습니다
-                  </p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {commissionsArr.slice(0, 6).map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex items-center justify-between p-2 rounded border bg-card"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-medium truncate">{c.vendorName}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {c.commissionAmount?.toLocaleString()}원
-                          </p>
-                        </div>
-                        <Badge
-                          variant={c.status === "completed" ? "default" : "secondary"}
-                          className="text-[9px] h-4 px-1.5"
-                        >
-                          {c.status === "pending" && "대기"}
-                          {c.status === "billed" && "청구"}
-                          {c.status === "collected" && "수금"}
-                          {c.status === "completed" && "완료"}
-                          {c.status === "cancelled" && "취소"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ),
-              },
             ]}
           />
         </div>
@@ -312,13 +283,13 @@ export default function PartnerDashboard() {
 
       <DesktopOnly>
         <div className="space-y-6">
-      {/* 1) 기다리는 견적 요청 */}
+      {/* 1) 기다리는 견적 요청 — 헤드라인은 시작 단계 파트너 동기부여를 위한 긍정 카피. */}
       {vendorId && (
         <Card className="border-teal-200 bg-teal-50/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Bell className="w-4 h-4 text-teal-600" />
-              파트너님을 기다리는 요청이 들어왔어요
+              견적이 필요한 건물이 생겼어요
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -447,65 +418,100 @@ export default function PartnerDashboard() {
         </div>
       )}
 
-      {/* 3) 진행 중인 내 견적·작업·정산 요약 */}
+      {/* 3) 계약 성사 KPI 4종 — 채택률 대신 성사 금액을 전면 노출.
+          [Task #637 spec] "성사 금액 카드는 클릭 시 본인 계약 목록(존재한다면)으로,
+          없으면 비활성화 표시." 현재 파트너 role 에는 계약 목록 페이지 access 가 없으므로
+          (canAccess 화이트리스트 + getRoutesForRole 참조) 두 카드는 명시적 비활성 상태로
+          렌더링한다 — cursor:default · aria-disabled · 안내 툴팁 동반. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 이번 달 성사 금액 — 클릭 가능한 계약 목록 페이지가 없어 비활성. */}
+        <Card
+          aria-disabled="true"
+          title="계약 목록 페이지는 아직 준비 중입니다"
+          className={`cursor-default select-none ${hasContracts ? "opacity-95" : "opacity-90"}`}
+          data-testid="kpi-monthly-contract"
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-emerald-100">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">이번 달 성사 금액</p>
+                <p className="text-xl font-bold truncate">
+                  {monthlyContractTotal > 0 ? formatMoney(monthlyContractTotal) : "—"}
+                </p>
+                {monthlyContractTotal === 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    다음 한 건이면 시작
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 누적 성사 금액 — 동일 사유로 비활성. */}
+        <Card
+          aria-disabled="true"
+          title="계약 목록 페이지는 아직 준비 중입니다"
+          className="cursor-default select-none opacity-95"
+          data-testid="kpi-total-contract"
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-amber-100">
+                <Trophy className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">누적 성사 금액</p>
+                <p className="text-xl font-bold truncate">
+                  {totalContractTotal > 0 ? formatMoney(totalContractTotal) : "—"}
+                </p>
+                {totalContractTotal === 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    첫 계약을 기다려요
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 진행 중 견적 — submitted 상태(선정 결과 대기). */}
         <Link href="/rfqs?tab=quotes">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            data-testid="kpi-in-progress-quotes"
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-lg bg-blue-100">
                   <Send className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">제출한 견적</p>
+                  <p className="text-xs text-muted-foreground">진행 중 견적</p>
                   <p className="text-xl font-bold">{submittedQuotes}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </Link>
-        <Link href="/rfqs?tab=quotes">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+
+        {/* 신규 요청 — 본인이 아직 견적 안 낸 open RFQ. */}
+        <Link href="/rfqs">
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            data-testid="kpi-new-rfqs"
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-emerald-100">
-                  <FileText className="w-4 h-4 text-emerald-600" />
+                <div className="p-2 rounded-lg bg-teal-100">
+                  <Bell className="w-4 h-4 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">채택된 견적</p>
-                  <p className="text-xl font-bold">{acceptedQuotes}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/rfqs?tab=reports">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-amber-100">
-                  <ClipboardCheck className="w-4 h-4 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">대기 작업보고</p>
-                  <p className="text-xl font-bold">{pendingReports}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/commissions">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-purple-100">
-                  <Coins className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">대기 정산</p>
-                  <p className="text-xl font-bold">
-                    {pendingSettlements + pendingCommissions}
-                  </p>
+                  <p className="text-xs text-muted-foreground">신규 요청</p>
+                  <p className="text-xl font-bold">{waitingRfqCount}</p>
                 </div>
               </div>
             </CardContent>
@@ -513,9 +519,9 @@ export default function PartnerDashboard() {
         </Link>
       </div>
 
-      {/* 4) 최근 크레딧 사용 내역 + 최근 수수료 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {vendorId && (
+      {/* 4) 최근 크레딧 사용 내역 — 1열로 단순화 (최근 수수료 카드 제거). */}
+      {vendorId && (
+        <div className="grid grid-cols-1 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -566,57 +572,11 @@ export default function PartnerDashboard() {
               )}
             </CardContent>
           </Card>
-        )}
-
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Coins className="w-4 h-4 text-emerald-500" />
-                최근 수수료
-              </CardTitle>
-              <Link href="/commissions">
-                <span className="text-xs text-primary hover:underline cursor-pointer flex items-center gap-1">
-                  전체보기 <ArrowRight className="w-3 h-3" />
-                </span>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {commissionsArr.length > 0 ? (
-              commissionsArr.slice(0, 5).map((commission) => (
-                <div
-                  key={commission.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{commission.vendorName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {commission.commissionAmount?.toLocaleString()}원
-                    </p>
-                  </div>
-                  <Badge
-                    variant={commission.status === "completed" ? "default" : "secondary"}
-                    className="text-xs"
-                  >
-                    {commission.status === "pending" && "대기"}
-                    {commission.status === "billed" && "청구됨"}
-                    {commission.status === "collected" && "수금완료"}
-                    {commission.status === "completed" && "정산완료"}
-                    {commission.status === "cancelled" && "취소"}
-                  </Badge>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                수수료 내역이 없습니다
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      )}
         </div>
       </DesktopOnly>
     </div>
   );
 }
+

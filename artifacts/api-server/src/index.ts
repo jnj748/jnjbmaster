@@ -8,6 +8,7 @@ import { startScheduler, stopScheduler } from "./scheduler";
 import { seedTestUsers } from "./seed-test-users";
 import { seedPlatformAdmins } from "./seed-platform-admin";
 import { seedPartnerBm } from "./seed-partner-bm";
+import { seedPartnerMenuDefaults } from "./seed-partner-menu";
 import { seedVendorCategories } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
@@ -182,6 +183,14 @@ async function bootstrap() {
       logger.info("Partner BM defaults seeded");
     } catch (e) {
       logger.warn({ err: e }, "Failed to seed partner BM defaults");
+    }
+
+    // [Task #637] 파트너 사이드바 핵심 메뉴(/rfqs) 가 OFF 로 저장된 환경을 부팅 시 1회 보정.
+    try {
+      await seedPartnerMenuDefaults();
+      logger.info("Partner menu defaults restored");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to restore partner menu defaults");
     }
 
     try {

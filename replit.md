@@ -3,29 +3,6 @@
 ## Overview
 관리의달인 (Manager Master) is an AI-powered property management work tool designed for Korean apartment and building managers, specifically for collective buildings under 150 units. The platform aims to revolutionize property management by streamlining operations, enhancing efficiency, and providing comprehensive, data-driven insights. Key capabilities include centralized task and schedule management, tenant/owner/vehicle administration, automated document generation, vendor management, robust multi-step approval workflows, and facility/attendance management. The business vision is to become the leading digital assistant in the Korean property management sector, significantly reducing administrative burdens and enabling more proactive management decisions through automation and intelligent features.
 
-## 유저 유형 관계도 (Source of Truth)
-플랫폼의 6개 역할과 상하 관계는 **`docs/user-roles/README.md`** 가 단일 출처(SoT) 다.
-손그림 원본은 `docs/user-roles/user-role-diagram.jpg` 에 보관된다.
-
-```
-관리자(platform_admin)              ← 전 건물 수퍼유저(본사)
-└─ 본부장(hq_executive)             ← hq_building_assignments 매핑된 건물만
-   └─ 관리소장(manager)             ← 자기 건물 1개의 모든 직원/데이터
-      ├─ 경리(accountant)           ← 자기 건물 안의 본인 데이터
-      └─ 시설기사(facility_staff)   ← 자기 건물 안의 본인 데이터
-파트너사(partner)                   ← vendor_id 기반 ACL, 도메인 분리
-```
-
-- 본부장(`hq_executive`)은 **전 건물 수퍼유저가 아니다**. 자신에게 할당된
-  `hq_building_assignments` 행 안의 건물 묶음에서만 데이터를 보고 조작한다.
-  매핑이 비어 있으면 빈 결과 + 안내 메시지를 받는다.
-- 모든 신규 기능은 본 관계도를 기준선으로 설계·구현한다. 6개 역할 외 신규 역할
-  추가가 필요한 경우 `docs/user-roles/README.md` 를 먼저 갱신한다.
-- 권한 경계 SoT: `lib/shared/src/role-labels.ts`,
-  `lib/db/src/schema/hqBuildingAssignments.ts`,
-  `artifacts/api-server/src/middlewares/buildingScope.ts`
-  (`getAccessibleBuildingIds`, `getHqAssignedBuildingIds`).
-
 ## User Preferences
 - I prefer clear and concise communication.
 - I like to see detailed explanations for complex features.
@@ -98,8 +75,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - Built with React, Vite, and Tailwind CSS, using shadcn/ui for components.
 - Features distinct portals for `building` managers, `hq` (headquarters), and `partner` vendors, each with role-based dashboards.
 - Implements a mobile-first design approach with a custom 900px desktop breakpoint and UI text exclusively in Korean.
-- Supports data export functionalities, leveraging `jsPDF` for PDF generation.
-- Mobile layouts are designed as a "fixed shell" while desktop retains body scrolling.
+- Supports data export functionalities.
 - Performance optimization includes React.lazy code splitting, Vite manualChunks, and React Query optimizations.
 
 **Backend:**
@@ -117,6 +93,7 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Automated Document Generation:** Supports generating various reports and notices.
 - **Multi-step Approval Workflows:** Implements flexible approval processes (up to 5 levels) for tasks, inspections, RFQs, and work reports, including detailed tracking and deep-linking.
 - **AI Integration:** Incorporates AI for commission record generation and intelligent vendor matching.
+- **Role-Based Access Control (RBAC):** Defined by `docs/user-roles/README.md` as the single source of truth for user roles and hierarchy.
 - **BuildingContext:** Provides a global context for building-specific information.
 - **Dynamic Dashboards:** Role-based dashboards with mobile navigation and desktop sidebar.
 - **Integrated Calendar:** Aggregates and color-codes accounting and facility management events.
@@ -141,23 +118,10 @@ The project utilizes a pnpm workspace monorepo structure, built with Node.js 24 
 - **Building Setup & Integration:** Integrates with the Korean `건축물대장` (Building Register) API and Kakao Postcode.
 - **Usage Analytics Dashboard:** Tracks user activity for platform administrators.
 - **Onboarding Automation:** Streamlined first-time manager login and guided setup.
-- **Role Display Labels (Single Source):** All role display names are centrally defined in `lib/shared/src/role-labels.ts` for consistency across front and backend.
-- **Unified Alert Action Modal (#511):** All alert types share the same modal with four tabs — 처리완료 / 처리예정 / 연기 / 비교견적. The 비교견적 tab no longer hosts an inline RFQ form; it routes to `/rfqs?prefill=1&...`. 처리예정 actions store a `scheduled_date` on `alert_actions`; alerts remain visible on the dashboard with a yellow `예정 D-N` badge (red `예정 경과 N일` after the date passes).
-- **Per-role Daily Journals:** Within one building, manager / accountant / facility_staff each maintain their own daily journals (DB unique key `(building_id, journal_date, role)`). The 4 journal sections share columns `security/cleaning/facility/complaint` but display role-specific labels (manager: 보안/청소/시설/민원, accountant: 수납·연체/지출/결재·기안/민원, facility_staff: 소방/전기/기계설비/기타). Work-log categories are also role-scoped (manager: facility/bill/complaint, accountant: receivable/expense/draft/complaint, facility_staff: fire/electric/mechanical/other). The manager preview auto-includes subordinate work-log entries for the same date with role labels, and surfaces "M월 D일자 OO 일보" lateArrivals when subordinates back-date a journal. Weekly/monthly reports stay journal-date based. Permissions: manager sees all building entries; subordinates only see their own.
+- **Unified Alert Action Modal:** All alert types share a common modal with four tabs for different actions, routing RFQ actions to a dedicated page. Scheduled actions are tracked with badges.
+- **Per-role Daily Journals:** Manager, accountant, and facility staff each maintain their own daily journals with role-specific column labels and work-log categories. Managers can view subordinate entries.
 
 ## External Dependencies
-- Node.js
-- TypeScript
-- pnpm
-- React
-- Vite
-- Tailwind CSS
-- shadcn/ui
-- Express
-- PostgreSQL
-- Drizzle ORM
-- Zod
-- Orval
 - jsPDF
 - @google-cloud/storage
 - papaparse
