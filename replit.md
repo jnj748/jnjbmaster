@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and comprehensive facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -61,31 +61,31 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
+The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-- Developed with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
-- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
-- Optimizes performance with React.lazy, Vite manualChunks, and React Query.
+- Developed using React, Vite, Tailwind CSS, and shadcn/ui.
+- Mobile-first design with a 900px desktop breakpoint.
+- Distinct, role-based portals for building managers, headquarters, and partner vendors.
+- Performance optimized with React.lazy, Vite manualChunks, and React Query.
 
 **Backend:**
-- Built on an Express 5 API framework with JWT authentication and a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
-- API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
+- Uses an Express 5 API framework.
+- Implements JWT authentication and a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
+- API definitions adhere to OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
 
 **Database:**
-- PostgreSQL is the primary data store, managed via Drizzle ORM.
+- PostgreSQL serves as the primary data store, managed via Drizzle ORM.
 - Supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
 - Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**
-- **Modular Monorepo Structure:** Ensures clear separation of concerns and maintainability.
-- **AI Integration:** Used for specific functionalities like commission records and vendor matching.
+- **Modular Monorepo Structure:** Ensures clear separation of concerns.
+- **AI Integration:** For commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
 - **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles.
-- **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
-- **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
+- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles, including ERP-style accounting, facility management, and usage analytics.
 - **Attendance Management:** Supports PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
@@ -98,7 +98,6 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 - **Unit Management:** Provides CRUD operations for building units, including bulk import.
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
 - **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
-- **Usage Analytics Dashboard:** Dedicated dashboard for platform administrators.
 - **Onboarding Automation:** Streamlines the manager setup process.
 - **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
 - **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.

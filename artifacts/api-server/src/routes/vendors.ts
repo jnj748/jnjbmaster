@@ -24,6 +24,7 @@ import {
   UpdateMyVendorBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
 
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
@@ -73,8 +74,23 @@ function serializeVendor<T extends typeof vendorsTable.$inferSelect>(
   createdAt: string;
   updatedAt: string;
 } {
+  // [Task #698] 옛 자유입력 시절의 한글 vendor.category("방수/도장" 등)는
+  //   현재 enum (영문 코드) 응답 모델을 통과 못 해 ListVendorsResponse.parse 가
+  //   500 으로 깨진다. matched-vendors 와 동일한 잠복 버그이므로, 모든 vendor
+  //   응답이 통과하는 이 헬퍼에서 일괄 정규화한다(원본 DB 는 무변경).
+  //   subCategories 콤마 리스트도 같이 영문 코드로 통일.
+  const normalizedCategory = (normalizeRfqCategory(v.category) ?? v.category) as T["category"];
+  const normalizedSubCategories = v.subCategories
+    ? (v.subCategories
+        .split(",")
+        .map((p) => normalizeRfqCategory(p) ?? p.trim())
+        .filter((p) => p.length > 0)
+        .join(",") as T["subCategories"])
+    : v.subCategories;
   return {
     ...v,
+    category: normalizedCategory,
+    subCategories: normalizedSubCategories,
     joinedAt: v.joinedAt ? v.joinedAt.toISOString() : null,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),

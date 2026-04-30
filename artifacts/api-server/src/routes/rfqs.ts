@@ -31,6 +31,7 @@ import {
   isCreditsEnabled,
 } from "../lib/credits";
 import { buildRfqAutoTitle, RFQ_SERVICE_TYPES, rfqCategoryLabel, rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
+import { vendorMatchesRfq, normalizeRfqCategory, type VendorMatchProfile, type RfqMatchProfile } from "@workspace/shared/rfq-vendor-matching";
 import { insertNotification } from "../lib/notificationRecipient";
 import { sendMail, isMailEnabled } from "../lib/mail";
 import {
@@ -255,22 +256,21 @@ router.get("/rfqs", async (req, res): Promise<void> => {
     }
 
     const vendorIdStr = forVendorId.toString();
+    // [Task #698] 단일 매칭 진입점(vendorMatchesRfq) 사용. 옛날 단일값 비교 대신
+    //   subCategories(다중) + serviceArea.nationwide/bySido(JSON) 까지 본다.
+    const vendorProfile: VendorMatchProfile = vendor;
     const filtered = rfqs.filter((r) => {
       const isDirectlyInvited =
         r.vendorIds && r.vendorIds.split(",").includes(vendorIdStr);
       if (isDirectlyInvited) return true;
-
-      if (r.status === "open" && vendor.category && vendor.sido) {
-        const categoryMatch = r.category === vendor.category;
-        if (!categoryMatch) return false;
-        if (!r.sido) return true;
-        if (r.sido !== vendor.sido) return false;
-        if (r.geoScope === "sigungu" && r.sigungu && vendor.sigungu) {
-          return r.sigungu === vendor.sigungu;
-        }
-        return true;
-      }
-      return false;
+      if (r.status !== "open") return false;
+      const rfqProfile: RfqMatchProfile = {
+        category: r.category,
+        sido: r.sido,
+        sigungu: r.sigungu,
+        geoScope: r.geoScope,
+      };
+      return vendorMatchesRfq(vendorProfile, rfqProfile);
     });
     const enriched = await enrichWithExpectedCredits(filtered);
     res.json(ListRfqsResponse.parse(enriched.map(serializeRfqRow)));
@@ -443,25 +443,52 @@ router.get("/rfqs/:id/matched-vendors", managerOnly, async (req, res): Promise<v
     return;
   }
 
-  const conditions = [
-    eq(vendorsTable.type, "platform"),
-    eq(vendorsTable.category, rfq.category),
-  ];
-
-  if (rfq.geoScope === "sigungu" && rfq.sido && rfq.sigungu) {
-    conditions.push(eq(vendorsTable.sido, rfq.sido));
-    conditions.push(eq(vendorsTable.sigungu, rfq.sigungu));
-  } else if (rfq.sido) {
-    conditions.push(eq(vendorsTable.sido, rfq.sido));
-  }
-
-  const matchedVendors = await db
+  // [Task #698] 매칭 룰을 단일 헬퍼(vendorMatchesRfq) 로 통일.
+  //   SQL eq() 만으로는 subCategories(콤마 리스트) / serviceArea(JSON) /
+  //   카테고리 한글-영문 정규화를 표현할 수 없어, 후보 vendor(platform 전부)
+  //   를 한 번에 가져와 in-memory 필터로 매칭한다. vendor 모수가 작아 OK.
+  const candidateVendors = await db
     .select()
     .from(vendorsTable)
-    .where(and(...conditions))
+    .where(eq(vendorsTable.type, "platform"))
     .orderBy(desc(vendorsTable.rating));
 
-  res.json(GetRfqMatchedVendorsResponse.parse(matchedVendors));
+  const rfqProfile: RfqMatchProfile = {
+    category: rfq.category,
+    sido: rfq.sido,
+    sigungu: rfq.sigungu,
+    geoScope: rfq.geoScope,
+  };
+  const matchedVendors = candidateVendors.filter((v) => vendorMatchesRfq(v, rfqProfile));
+
+  // [Task #698] GetRfqMatchedVendorsResponse 는 createdAt/updatedAt/joinedAt 을
+  //   ISO 문자열로, category 를 영문 enum 으로 기대한다. 옛 매칭이 사실상 0건만
+  //   반환하던 시절에는 잠복돼 있던 두 버그가 매칭이 정상 작동하면서 노출된다:
+  //   1) Date → string 직렬화 누락 → Zod 500.
+  //   2) vendor.category 에 옛 한글값("방수/도장") 이 남아 있는 vendor 가 매칭
+  //      되면 enum violation → Zod 500.
+  //   화면 표시 안전을 위해 매칭 시점에만 정규화해 응답한다(원본 DB 는 무변경).
+  //   subCategories 콤마 리스트도 영문 코드로 통일.
+  const serialized = matchedVendors.map((v) => {
+    const normalizedCategory = normalizeRfqCategory(v.category) ?? v.category;
+    const normalizedSubCategories = v.subCategories
+      ? v.subCategories
+          .split(",")
+          .map((p) => normalizeRfqCategory(p) ?? p.trim())
+          .filter((p) => p.length > 0)
+          .join(",")
+      : v.subCategories;
+    return {
+      ...v,
+      category: normalizedCategory,
+      subCategories: normalizedSubCategories,
+      joinedAt: v.joinedAt ? v.joinedAt.toISOString() : null,
+      createdAt: v.createdAt.toISOString(),
+      updatedAt: v.updatedAt.toISOString(),
+    };
+  });
+
+  res.json(GetRfqMatchedVendorsResponse.parse(serialized));
 });
 
 router.get("/rfqs/:id", async (req, res): Promise<void> => {
@@ -495,12 +522,21 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
-      const categoryAndSidoMatch = rfq.status === "open" && rfq.category === vendor.category && rfq.sido === vendor.sido;
-      if (!categoryAndSidoMatch) {
+      // [Task #698] 단건 RFQ 조회 권한도 단일 매칭 헬퍼로 통일.
+      //   "open" 상태이고 카테고리/지역이 매칭되면 통과. 직접 초대(isInvited)
+      //   는 위에서 이미 체크. 옛 단일값 정확비교는 신규 vendor 의 nationwide/
+      //   subCategories 를 못 읽어 매번 403 을 반환하던 잠복 버그가 있었다.
+      if (rfq.status !== "open") {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
-      if (rfq.geoScope === "sigungu" && rfq.sigungu && vendor.sigungu && rfq.sigungu !== vendor.sigungu) {
+      const ok = vendorMatchesRfq(vendor as VendorMatchProfile, {
+        category: rfq.category,
+        sido: rfq.sido,
+        sigungu: rfq.sigungu,
+        geoScope: rfq.geoScope,
+      });
+      if (!ok) {
         res.status(403).json({ error: "접근 권한이 없습니다" });
         return;
       }
@@ -594,23 +630,24 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
   }
 
   if (data.sido) {
-    const geoConditions = [
-      eq(vendorsTable.type, "platform"),
-      eq(vendorsTable.category, data.category),
-      eq(vendorsTable.sido, data.sido),
-    ];
-
-    if (data.geoScope === "sigungu" && data.sigungu) {
-      geoConditions.push(eq(vendorsTable.sigungu, data.sigungu));
-    }
-
-    const matchedVendors = await db
-      .select({ id: vendorsTable.id })
+    // [Task #698] vendor_ids fan-out 매칭도 단일 헬퍼로 통일. SQL eq() 조건
+    //   대신 platform vendor 를 모두 가져와서 in-memory 매칭한다 — 그래야
+    //   vendor.subCategories / serviceArea.nationwide 까지 일관되게 본다.
+    const candidateVendors = await db
+      .select()
       .from(vendorsTable)
-      .where(and(...geoConditions));
+      .where(eq(vendorsTable.type, "platform"));
+
+    const rfqProfile: RfqMatchProfile = {
+      category: data.category,
+      sido: data.sido,
+      sigungu: data.sigungu,
+      geoScope: data.geoScope,
+    };
+    const matched = candidateVendors.filter((v) => vendorMatchesRfq(v, rfqProfile));
 
     const manualIds = data.vendorIds ? data.vendorIds.split(",") : [];
-    const geoIds = matchedVendors.map((v) => v.id.toString());
+    const geoIds = matched.map((v) => v.id.toString());
     const allIds = [...new Set([...manualIds, ...geoIds])];
 
     if (allIds.length > 0) {
@@ -765,16 +802,21 @@ router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<vo
     return;
   }
 
-  const matchedVendors = await db
-    .select({ id: vendorsTable.id })
+  // [Task #698] 범위 확대도 같은 단일 헬퍼로 매칭.
+  //   기존 SQL eq() 는 시도 단위만 풀어 줬는데, 단일 헬퍼는 vendor 의
+  //   subCategories / serviceArea.nationwide 까지 자동으로 본다.
+  const candidateVendors = await db
+    .select()
     .from(vendorsTable)
-    .where(
-      and(
-        eq(vendorsTable.type, "platform"),
-        eq(vendorsTable.category, rfq.category),
-        eq(vendorsTable.sido, rfq.sido)
-      )
-    );
+    .where(eq(vendorsTable.type, "platform"));
+
+  const expandedRfq: RfqMatchProfile = {
+    category: rfq.category,
+    sido: rfq.sido,
+    sigungu: rfq.sigungu,
+    geoScope: "sido", // 시도 단위로 풀어서 매칭
+  };
+  const matchedVendors = candidateVendors.filter((v) => vendorMatchesRfq(v, expandedRfq));
 
   const existingIds = rfq.vendorIds ? rfq.vendorIds.split(",") : [];
   const newGeoIds = matchedVendors.map((v) => v.id.toString());
