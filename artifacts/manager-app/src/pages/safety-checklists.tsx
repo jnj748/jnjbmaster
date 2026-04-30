@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearch } from "wouter";
 import {
   useListSafetyChecklists,
   useCreateSafetyChecklist,
@@ -66,6 +67,16 @@ type EffectiveCategory = {
 export default function SafetyChecklists() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  // [Task #669] 시설담당 대시보드 "금주 안전점검 작성" 위젯이 카테고리 슬러그를
+  //   넘겨 진입할 때 자동으로 상단 카테고리 필터를 그 값으로 맞춘다. 사용자가
+  //   이후 수동으로 필터를 다시 바꾸면 그 선택을 우선해 무한 덮어쓰기를 방지한다.
+  const search = useSearch();
+  const requestedCategory = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const v = params.get("category");
+    return v && v.length > 0 ? v : null;
+  }, [search]);
+  const appliedCategoryRef = useRef<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
   const { toast } = useToast();
@@ -112,6 +123,23 @@ export default function SafetyChecklists() {
     items: [] as { itemName: string; checked: boolean; custom?: boolean }[],
   });
   const [customItemInput, setCustomItemInput] = useState("");
+
+  // [Task #669] URL 의 ?category= 슬러그가 effectiveCategories 안에 있으면
+  //   상단 카테고리 필터를 그 값으로 한 번 자동 선택한다. 이후 사용자가 다시
+  //   필터를 바꾸면 ref 가 잠겨 있어 같은 슬러그를 두 번 적용하지 않는다.
+  //   슬러그가 없거나 카테고리 목록에 없으면 기본값("all") 그대로 둔다.
+  useEffect(() => {
+    if (!requestedCategory) return;
+    if (effectiveCategories.length === 0) return;
+    if (appliedCategoryRef.current === requestedCategory) return;
+    const exists = effectiveCategories.some((c) => c.value === requestedCategory);
+    if (!exists) {
+      appliedCategoryRef.current = requestedCategory;
+      return;
+    }
+    appliedCategoryRef.current = requestedCategory;
+    setFilterCategory(requestedCategory);
+  }, [requestedCategory, effectiveCategories]);
 
   // 효과 템플릿이 처음 도착했거나 사용자 묶음이 갱신된 경우, 폼이 비어 있으면
   //   현재 카테고리의 기본 항목으로 자동 채워준다(직원 입력 중인 항목은 보존).

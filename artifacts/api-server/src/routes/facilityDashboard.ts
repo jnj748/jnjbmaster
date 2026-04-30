@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc, sql, count, ne } from "drizzle-orm";
-import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, safetyTrainingsTable, inspectionsTable, inspectionLogsTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, safetyTrainingsTable, inspectionsTable } from "@workspace/db";
 import {
   GetFacilityDashboardResponse,
   GetFacilityScheduledAlertsResponse,
@@ -463,17 +463,20 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
 });
 
 // [Task #658] 시설담당 대시보드 우측 상단 "금주 안전점검 작성" 위젯 전용.
-//   - 카운트 기준: inspection_logs 의 inspectionDate (점검 작성/완료 시점). 점검 정의 자체가 아닌
-//     실제 작성 이벤트만 본다.
+// [Task #669] 카운트 소스를 inspection_logs(법정점검 작성 이벤트) 에서
+//   safety_checklists(안전점검표) 단일 테이블 집계로 교체. 위젯이 가리키는
+//   화면도 /inspections → /safety-checklists 로 바뀌었으므로 카운트 소스도
+//   안전점검표 작성 건수와 일치해야 한다. 응답 스키마는 변경 없음(키 동일).
+//   - 카운트 기준: safety_checklists.inspectionDate (안전점검표 작성일).
 //   - 주 경계: KST 월요일 00:00 ~ 일요일 23:59:59 (kstDateParts 와 동일한 KST 가산 방식).
-//   - 카테고리 매핑(스케치 6칸):
+//   - 카테고리 매핑(스케치 6칸 → safety_checklist_template_categories.value 슬러그):
 //       전기      → electrical
 //       소방      → fire_safety
 //       기계      → mechanical
-//       통신      → communication = inspections.category === "telecom"
+//       통신      → communication = safety_checklists.category === "telecom"
 //       승강기    → elevator
-//       기타      → 그 외 (water_tank/gas/septic/playground/safety_check/hygiene/
-//                          building_safety/administrative/disinfection/other ...)
+//       기타      → 위 5개에 속하지 않는 모든 카테고리(본사 admin 이 추가한
+//                   사용자 정의 카테고리 포함).
 //   - 권한: 시설담당 본인 건물만(`getUserBuildingId`). 본사·플랫폼 관리자는
 //     라우트 가드는 통과하지만 buildingId 가 없으면 모든 버킷 0 으로 응답한다
 //     (호출 자체를 안 한다는 task 가이드와 부합 — 빈 응답을 안전한 기본값으로).
@@ -517,19 +520,19 @@ router.get("/facility/weekly-inspection-counts", async (req, res): Promise<void>
     return;
   }
 
-  // inspection_logs ⨯ inspections (본인 건물 한정). inspectionDate 가 [월, 일] 구간.
+  // [Task #669] safety_checklists 단일 테이블 집계로 교체. 본인 건물 한정,
+  //   inspectionDate 가 이번 주 [월, 일] 구간에 든 행만 카테고리별로 GROUP BY.
   const rows = await db
-    .select({ category: inspectionsTable.category, c: count() })
-    .from(inspectionLogsTable)
-    .innerJoin(inspectionsTable, eq(inspectionLogsTable.inspectionId, inspectionsTable.id))
+    .select({ category: safetyChecklistsTable.category, c: count() })
+    .from(safetyChecklistsTable)
     .where(
       and(
-        eq(inspectionsTable.buildingId, buildingId),
-        gte(inspectionLogsTable.inspectionDate, weekStartStr),
-        lte(inspectionLogsTable.inspectionDate, weekEndStr),
+        eq(safetyChecklistsTable.buildingId, buildingId),
+        gte(safetyChecklistsTable.inspectionDate, weekStartStr),
+        lte(safetyChecklistsTable.inspectionDate, weekEndStr),
       ),
     )
-    .groupBy(inspectionsTable.category);
+    .groupBy(safetyChecklistsTable.category);
 
   const buckets = { ...emptyBuckets };
   for (const r of rows) {
@@ -544,7 +547,7 @@ router.get("/facility/weekly-inspection-counts", async (req, res): Promise<void>
       case "mechanical":
         buckets.mechanical += n;
         break;
-      // [Task #658] 스케치의 "통신" 버킷은 inspections.category 의 telecom 값에 매핑.
+      // [Task #658] 스케치의 "통신" 버킷은 안전점검표 카테고리 슬러그 telecom 에 매핑.
       case "telecom":
         buckets.communication += n;
         break;

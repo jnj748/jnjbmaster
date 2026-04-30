@@ -9,7 +9,11 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { canAccess, getEffectiveRole } from "@/lib/permissions";
 
-const FACILITY_MANDATORY_TASKS_PATH = "/facility-mandatory-tasks";
+// [Task #669] permissions.ts 의 라우트 path 는 "/facility/mandatory-tasks" 인데
+//   기존 #658 코드에서 하이픈 형태("/facility-mandatory-tasks")로 잘못 적혀
+//   canAccess 가 항상 false 를 반환해 시설담당 대시보드에서 카드가 한 번도 노출되지
+//   않았다. 스케치(필수업무 1행 좌측) 와 일치시키기 위해 정식 라우트 path 로 정정.
+const FACILITY_MANDATORY_TASKS_PATH = "/facility/mandatory-tasks";
 
 export default function FacilityMandatoryTasksEntryWidget() {
   const { user } = useAuth();

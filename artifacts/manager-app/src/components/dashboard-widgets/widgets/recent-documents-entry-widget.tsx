@@ -6,13 +6,19 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { FolderOpen, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { canAccess, getEffectiveRole } from "@/lib/permissions";
 
+// [Task #669] /recent-documents 는 permissions.ts 의 ROUTES 화이트리스트에 등록돼
+//   있지 않아 canAccess() 가 항상 false 를 돌려줘 시설담당 대시보드에서 카드가
+//   한 번도 노출되지 않았다. 해당 페이지(App.tsx)는 별도 역할 가드 없이 모든
+//   로그인 사용자에게 라우트가 열려 있으므로(다른 페이지에서도 동일하게 Link 로
+//   바로 진입), 위젯 가드는 "로그인 여부" 만으로 충분하다. ROUTES 자체에 항목을
+//   추가하면 사이드바·하단탭 메타에까지 영향이 가므로, 위젯 단에서 user 존재만
+//   확인하는 방식이 가장 안전한 최소 변경이다.
 const RECENT_DOCUMENTS_PATH = "/recent-documents";
 
 export default function RecentDocumentsEntryWidget() {
   const { user } = useAuth();
-  if (!user || !canAccess(getEffectiveRole(user), RECENT_DOCUMENTS_PATH)) {
+  if (!user) {
     return null;
   }
 

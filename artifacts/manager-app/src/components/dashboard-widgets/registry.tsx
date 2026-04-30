@@ -56,6 +56,10 @@ const WorkLogActivityEntryWidget = lazy(
 const WeeklyInspectionsWidget = lazy(
   () => import("./widgets/weekly-inspections-widget"),
 );
+// [Task #669] 시설담당 좌측 2행 — 최근문서함 + 처리내역 스택 묶음.
+const FacilityLeftColumnStackWidget = lazy(
+  () => import("./widgets/facility-left-column-stack-widget"),
+);
 
 // Role-specific main wrappers (legacy page bodies)
 // [Task #495] manager-main 은 페이지 파일이 아니라 dashboard-widgets/widgets/
@@ -200,6 +204,15 @@ export const WIDGETS = {
     span: "half",
     label: "금주 안전점검 작성",
   },
+  // [Task #669] 시설담당 좌측 2행 — 최근문서함 + 처리내역을 한 half 셀 안에
+  //   위·아래로 묶어 보여 준다. 우측 셀의 "오늘 업무일지" 강조 카드와 한 행을
+  //   이루도록 같은 row 의 half 슬롯에 배치한다.
+  "facility-left-column-stack": {
+    key: "facility-left-column-stack",
+    component: FacilityLeftColumnStackWidget,
+    span: "half",
+    label: "최근문서함 · 처리 내역",
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 export type CatalogWidgetKey = keyof typeof WIDGETS;
@@ -234,27 +247,30 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     //   delinquency-summary 는 본 레이아웃에서 제거한다(다른 역할에는 영향 없음).
     widgets: ["campaign-banner", "building-info", "accountant-main"],
   },
-  // [Task #658] 시설담당 대시보드를 2열 + 하단 풀폭 레이아웃으로 재구성.
+  // [Task #669] 시설담당 대시보드 — 스케치(좌/우 3행 + 하단 풀폭) 정합화.
   //   shell 의 데스크탑 그리드는 xl:grid-cols-4, span:"half" = col-span-2, span:"full" = col-span-4.
   //   따라서 half 두 개가 한 행을 채우고 full 한 개가 다음 행 전체를 차지한다.
   //   배치(스케치 그대로):
-  //     행1  필수업무 (L)              | 금주 안전점검 (R)
-  //     행2  최근문서함 (L)            | 오늘 업무일지 (R)
-  //     행3  처리 내역 (L)             | 계약업체 연락망 (R)
-  //     행4  공고문 템플릿 (L)         | (빈 칸)
-  //     행5  건물정보 (full width)
-  //   - building-contracts-summary 는 다른 역할의 풀폭 동작을 보존하기 위해 별도 half 키
-  //     ("building-contracts-summary-half") 로 등록해 사용한다.
+  //     행1  필수업무 (L)                                 | 금주 안전점검 (R)
+  //     행2  최근문서함 + 처리 내역 (L, 한 셀 안 세로 스택) | 오늘 업무일지 (R)
+  //     행3  공고문 템플릿 (L)                            | 계약업체 연락망 (R)
+  //     행4  건물정보 (full width)
+  //   - 좌측 2행은 facility-left-column-stack 가 한 half 셀 안에 두 진입 위젯
+  //     (recent-documents-entry / work-log-activity-entry) 을 위·아래로 쌓아
+  //     보여 주므로 별도 행으로 분리하지 않는다.
+  //   - 스케치의 "공구렌탈리스트"는 이번 범위가 아니라 "공고문 템플릿" 카드를
+  //     3행 좌측 슬롯에 둔다.
+  //   - building-contracts-summary 는 다른 역할의 풀폭 동작을 보존하기 위해 별도
+  //     half 키("building-contracts-summary-half") 로 등록해 사용한다.
   //   - campaign-banner / facility-main 은 사용자 요구에 따라 시설담당에서만 제거.
   facility_staff: {
     widgets: [
       "facility-mandatory-tasks-entry",
       "weekly-inspections",
-      "recent-documents-entry",
+      "facility-left-column-stack",
       "today-work-log-entry",
-      "work-log-activity-entry",
-      "building-contracts-summary-half",
       "notice-templates-entry",
+      "building-contracts-summary-half",
       "building-info",
     ],
   },

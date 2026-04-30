@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to significantly enhance operational efficiency and provide data-driven insights. The platform centralizes task management, administers tenants, owners, and vehicles, automates document generation, streamlines vendor management, facilitates multi-step approval workflows, and manages facilities and attendance. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -72,12 +72,12 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured i
 
 **Backend:**
 - Built on an Express 5 API framework with JWT authentication.
-- Implements a Role-Based Access Control (RBAC) system for 6 roles (`platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, and `partner`), with `docs/user-roles/README.md` as the Single Source of Truth.
-- API definitions follow OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
+- Implements a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` serving as the Single Source of Truth for role hierarchy.
+- API definitions adhere to OpenAPI specifications, leveraging Orval for client code generation and Zod for validation.
 
 **Database:**
 - PostgreSQL is the primary data store, managed via Drizzle ORM.
-- The schema supports core entities such as users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
+- The schema supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
 - Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**
@@ -86,7 +86,9 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured i
 - **Automated Document Generation:** Supports various reports and notices.
 - **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles, including ERP-style accounting and facility management.
+- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles.
+- **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
+- **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
 - **Attendance Management:** Supports PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
