@@ -77,10 +77,13 @@ export const approvalsTable = pgTable("approvals", {
   // 계약 기간.
   contractStartDate: date("contract_start_date"),
   contractEndDate: date("contract_end_date"),
-  // [Task #707] 분납 스케줄 — 부속명세서 자리표시. 1월에 1년치 1,200만원으로
-  //   결재된 보험료가 매월 100만원씩 빠질 때 그 달의 100만원이 무엇의 분납인지를
-  //   설명할 근거를 보관한다. 본 태스크 범위에선 컬럼·표시까지만 하고, 부속명세서
-  //   자체의 발행/관리는 후속 작업에서 다룬다.
+  // [Task #707] 분리부과 스케줄 — 부속명세서 자리표시. 1월에 1년치 1,200만원으로
+  //   결재된 보험료가 매월 100만원씩 분리부과될 때 그 달의 100만원이 어떤 지출결의서
+  //   로부터 어떤 기간/방식으로 분리부과되는지를 설명할 근거를 보관한다. 본 태스크
+  //   범위에선 컬럼·표시까지만 하고, 부속명세서 자체의 발행/관리는 후속 작업에서 다룬다.
+  // [용어 주의] 본 컬럼은 "분납(installment)" 이 아니라 "분리부과(split allocation)"
+  //   에 해당한다. 컬럼 식별자의 `installment` 접두사는 레거시 명칭이며, 의미상으로는
+  //   분리부과 스케줄을 보관한다 (replit.md 의 "부속명세서" 섹션 참조).
   installmentTotalAmount: real("installment_total_amount"),
   installmentMonths: integer("installment_months"),
   installmentMonthlyAmount: real("installment_monthly_amount"),

@@ -1,11 +1,12 @@
 // [Task #707] 결재 라인 최종 승인 후 "계약·증빙 등록" 단계 폼.
 //   - 입력: 업체명, 계약서 파일, 세금계산서 파일(또는 미발행 사유), 계약 기간,
-//     선택적 분납 스케줄(총액·개월수·시작/종료일).
+//     선택적 분리부과 스케줄(총액·개월수·시작/종료일).
 //   - POST /approvals/:id/register-contract-evidence 가 voucher/request 발행
 //     (또는 긴급집행 라인의 경우 메타 갱신) 트리거를 담당한다.
 //
-// 부속명세서 placeholder: 분납 스케줄 입력은 향후 월말 관리비 부과 시
+// 부속명세서 placeholder: 분리부과 스케줄 입력은 향후 월말 관리비 부과 시
 //   "부속명세서" 자동 생성을 위한 자리표시. 본 태스크에서는 컬럼 + 표시만 추가.
+//   (분리부과 ≠ 분납. replit.md 의 "부속명세서" 섹션 참조)
 import { useRef, useState } from "react";
 import { useUpload } from "@workspace/object-storage-web";
 import { Button } from "@/components/ui/button";
@@ -152,8 +153,8 @@ export default function ContractEvidenceRegistration({
       </div>
       <p className="text-xs text-amber-800">
         {urgentExecution
-          ? "긴급집행으로 이미 발행된 지출결의서·입금요청서의 업체·계약·세금계산서·기간·분납 메타를 입력합니다."
-          : "업체·계약서·세금계산서·기간·분납을 입력하면 지출결의서·입금요청서가 발행됩니다."}
+          ? "긴급집행으로 이미 발행된 지출결의서·입금요청서의 업체·계약·세금계산서·기간·분리부과 메타를 입력합니다."
+          : "업체·계약서·세금계산서·기간·분리부과를 입력하면 지출결의서·입금요청서가 발행됩니다."}
       </p>
 
       <div className="space-y-2">
@@ -309,13 +310,13 @@ export default function ContractEvidenceRegistration({
       </div>
 
       <div className="rounded-md border border-amber-200 bg-white/60 p-3 space-y-2">
-        <p className="text-xs font-medium text-amber-900">분납 (선택) — 부속명세서 자리표시</p>
+        <p className="text-xs font-medium text-amber-900">분리부과 (선택) — 부속명세서 자리표시</p>
         <p className="text-[11px] text-muted-foreground">
           입력 시 월말 관리비 부과의 부속명세서 근거로 사용됩니다 (자동 생성은 후속 태스크).
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs">총 분납 금액</Label>
+            <Label className="text-xs">총 분리부과 금액</Label>
             <Input
               type="number"
               value={installmentTotalAmount}
@@ -335,7 +336,7 @@ export default function ContractEvidenceRegistration({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">분납 시작</Label>
+            <Label className="text-xs">분리부과 시작</Label>
             <Input
               type="date"
               value={installmentStartDate}
@@ -343,7 +344,7 @@ export default function ContractEvidenceRegistration({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">분납 종료</Label>
+            <Label className="text-xs">분리부과 종료</Label>
             <Input
               type="date"
               value={installmentEndDate}

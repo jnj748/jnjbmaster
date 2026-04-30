@@ -252,7 +252,7 @@ async function thresholdForHqAndBuilding(hqUserId: number, buildingId: number | 
 //     이미 존재하면 멱등 skip 후 알림도 생략.
 //   - mode="update-from-evidence": "계약·증빙 등록" 단계에서 호출.
 //     ① voucher/request 가 아직 없으면 (정상 흐름) 새로 생성.
-//     ② 이미 존재하면 (긴급집행 사후등록) 분납·업체명·금액 메타를 갱신만 한다.
+//     ② 이미 존재하면 (긴급집행 사후등록) 분리부과·업체명·금액 메타를 갱신만 한다.
 async function issueDownstreamDocuments(
   approval: typeof approvalsTable.$inferSelect,
   awaitingPostApproval: boolean,
@@ -262,7 +262,8 @@ async function issueDownstreamDocuments(
   tx?: Parameters<Parameters<typeof db.transaction>[0]>[0],
 ): Promise<void> {
   const dbx = tx ?? db;
-  // 분납 메타는 결재 본체 컬럼에 저장된 값을 그대로 복사한다.
+  // 분리부과 메타는 결재 본체 컬럼에 저장된 값을 그대로 복사한다.
+  //   (필드명의 `installment` 은 레거시 명칭. 의미상 분리부과. replit.md 참조)
   const installmentPayload = {
     installmentTotalAmount: approval.installmentTotalAmount ?? null,
     installmentMonths: approval.installmentMonths ?? null,
@@ -529,13 +530,13 @@ router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
       })
       .returning();
     // [Task #707] 긴급집행도 계약·증빙 사후 등록이 필요하다 — 별도 필수업무로
-    //   자동 등록해 관리소장이 "업체·계약서·세금계산서·기간·분납"을 사후 입력하면
+    //   자동 등록해 관리소장이 "업체·계약서·세금계산서·기간·분리부과"를 사후 입력하면
     //   register-contract-evidence 엔드포인트가 voucher/request 메타를 업데이트한다.
     const [evidenceTask] = await db
       .insert(tasksTable)
       .values({
         title: `긴급지출 계약·증빙 사후등록 — ${existing.title}`,
-        description: `긴급집행 라인은 즉시 발행됐지만, 업체 계약서·세금계산서·기간·분납 메타는 사후 입력이 필요합니다.\n\n원본 기안 라인 ID: ${id}`,
+        description: `긴급집행 라인은 즉시 발행됐지만, 업체 계약서·세금계산서·기간·분리부과 메타는 사후 입력이 필요합니다.\n\n원본 기안 라인 ID: ${id}`,
         category: "approval",
         priority: "high",
         status: "pending",
@@ -565,7 +566,7 @@ router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
       recipientType: `user:${updated.requesterId}`,
       notificationType: "approval_contract_evidence_pending",
       title: "긴급지출 계약·증빙 사후등록 필요",
-      message: `${existing.title} — 업체·계약서·세금계산서·기간·분납을 사후 입력해주세요`,
+      message: `${existing.title} — 업체·계약서·세금계산서·기간·분리부과를 사후 입력해주세요`,
       relatedEntityType: "approval",
       relatedEntityId: id,
     });
@@ -1023,7 +1024,7 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
   });
 
   // [Task #707] 라인 최종 승인은 더 이상 issueDownstreamDocuments 를 호출하지
-  //   않는다. 관리소장(또는 같은 건물 경리)이 업체·계약서·세금계산서·기간·분납을
+  //   않는다. 관리소장(또는 같은 건물 경리)이 업체·계약서·세금계산서·기간·분리부과를
   //   입력한 register-contract-evidence 단계에서 발행한다. 긴급집행 라인은 이미
   //   submit-line 에서 즉시 발행됐으므로 여기서도 건너뛴다.
   if (!finalApproval.urgentExecution) {
@@ -1053,7 +1054,7 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
 
 // 4b) ─── Contract & evidence registration (계약·증빙 등록) ─────────────────
 //   [Task #707] 결재 라인 최종 승인 후, 관리소장(또는 같은 건물 경리)이 업체·계약서·
-//   세금계산서·기간·분납 메타를 입력해 voucher/request 발행 트리거를 누르는 단계.
+//   세금계산서·기간·분리부과 메타를 입력해 voucher/request 발행 트리거를 누르는 단계.
 //   긴급집행 라인은 발행이 이미 끝났으므로 메타 갱신만 수행한다.
 router.post("/approvals/:id/register-contract-evidence", async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
@@ -1145,7 +1146,7 @@ router.post("/approvals/:id/register-contract-evidence", async (req, res): Promi
     return;
   }
 
-  // 분납 입력은 선택. 입력 시 멱등성 검산.
+  // 분리부과 입력은 선택. 입력 시 멱등성 검산.
   const months = body.installmentMonths ? Number(body.installmentMonths) : null;
   const totalAmount = body.installmentTotalAmount ? Number(body.installmentTotalAmount) : null;
   let monthlyAmount = body.installmentMonthlyAmount ? Number(body.installmentMonthlyAmount) : null;

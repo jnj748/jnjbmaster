@@ -35,7 +35,8 @@ interface ExpenseVoucher {
   sourceEntityId: number | null;
   sourceApprovalId: number | null;
   sourceApprovalTitle: string | null;
-  // [Task #707] 분납 스케줄 — 부속명세서 자리표시.
+  // [Task #707] 분리부과 스케줄 — 부속명세서 자리표시.
+  //   (필드명의 `installment` 은 레거시 명칭. 의미상 분리부과. replit.md 참조)
   installmentTotalAmount?: number | string | null;
   installmentMonths?: number | null;
   installmentMonthlyAmount?: number | string | null;
@@ -255,7 +256,7 @@ function VoucherCard({
   readOnly?: boolean;
 }) {
   const amount = typeof voucher.amount === "string" ? Number(voucher.amount) : voucher.amount;
-  // [Task #707] 분납 메타 — 결재 라인의 "계약·증빙 등록" 단계에서 입력된 값을
+  // [Task #707] 분리부과 메타 — 결재 라인의 "계약·증빙 등록" 단계에서 입력된 값을
   //   그대로 복사. 표시 전에 안전하게 number 로 정규화.
   const installmentTotal = voucher.installmentTotalAmount != null
     ? Number(voucher.installmentTotalAmount)
@@ -333,7 +334,7 @@ function VoucherCard({
                 data-testid={`voucher-installment-badge-${voucher.id}`}
                 title="월말 관리비 부과 시 부속명세서의 근거 자료"
               >
-                분납 — 부속명세서 근거
+                분리부과 — 부속명세서 근거
               </Badge>
             ) : null}
           </div>
@@ -344,7 +345,7 @@ function VoucherCard({
             data-testid={`voucher-installment-table-${voucher.id}`}
           >
             <p className="mb-1 text-xs font-medium text-amber-900">
-              분납 스케줄 (부속명세서 자리표시)
+              분리부과 스케줄 (부속명세서 자리표시)
             </p>
             <table className="w-full text-xs">
               <tbody>

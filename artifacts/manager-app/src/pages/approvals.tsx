@@ -967,7 +967,7 @@ export default function Approvals() {
                   </div>
                   {(selectedApproval.installmentMonths || selectedApproval.installmentTotalAmount) && (
                     <div className="rounded border border-amber-200 bg-white/60 p-2 mt-2" data-testid="contract-evidence-installment-summary">
-                      <p className="text-xs font-medium text-amber-900 mb-1">분납 (부속명세서 자리표시)</p>
+                      <p className="text-xs font-medium text-amber-900 mb-1">분리부과 (부속명세서 자리표시)</p>
                       <div className="grid grid-cols-2 gap-1 text-[11px]">
                         {selectedApproval.installmentTotalAmount != null && (
                           <div>총액: {Number(selectedApproval.installmentTotalAmount).toLocaleString()}원</div>
