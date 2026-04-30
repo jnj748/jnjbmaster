@@ -64,22 +64,28 @@ const API_BASE = `${BASE}api`;
 //
 //   - DEV 한정 (import.meta.env.DEV). prod 빌드에서는 항상 "auth_token" 으로 컴파일됨
 //     (dead code 제거).
-//   - URL 의 ?devAs=<email> 을 한번 읽어 sessionStorage 에 박아 둔다 — 격자 셀
-//     안에서 navigate 후에도 키 분기가 유지되도록.
-//   - sessionStorage 는 iframe 별 분리 — 격자 사이 컨텍스트가 섞이지 않는다.
+//   - **URL ?devAs= 를 항상 우선시한다.** sessionStorage 가 같은 origin iframe 들
+//     사이에서 분리될지(브라우저별/모드별 보장 안 됨), 마지막 iframe 의 setItem 이
+//     앞 iframe 의 값을 덮어쓸 수 있다 → 4셀 모두 같은 사용자(마지막 마운트된 셀)
+//     화면이 보이는 회귀가 사장님 환경에서 재현됨. URL 은 iframe 마다 src 가 다르므로
+//     충돌 없이 권위 있는 신호.
+//   - URL 우선 + 자기 URL 값으로 매번 sessionStorage 를 강제 갱신 → 다른 iframe 이
+//     덮어쓴 잘못된 값을 자기 시점에선 자기 값으로 회복.
+//   - sessionStorage 는 fallback — 사용자가 셀 안에서 ?devAs= 가 빠진 경로로 navigate
+//     했을 때 컨텍스트 유지 목적. 이 경우 다른 iframe 의 값이 섞일 위험은 남아 있음
+//     (별 작업: wouter Router wrapper 로 ?devAs= 를 모든 navigation 에 보존).
 const DEV_AS_SESSION_KEY = "__dev_as__";
 function getAuthStorageKey(): string {
   if (!import.meta.env.DEV) return "auth_token";
   if (typeof window === "undefined") return "auth_token";
-  let devAs = window.sessionStorage.getItem(DEV_AS_SESSION_KEY);
-  if (!devAs) {
-    const fromUrl = new URLSearchParams(window.location.search).get("devAs");
-    if (fromUrl) {
-      window.sessionStorage.setItem(DEV_AS_SESSION_KEY, fromUrl);
-      devAs = fromUrl;
-    }
+  const fromUrl = new URLSearchParams(window.location.search).get("devAs");
+  if (fromUrl) {
+    // URL 권위 — sessionStorage 도 자기 값으로 강제 동기화 (다른 iframe 이 덮어쓴 값 회복).
+    window.sessionStorage.setItem(DEV_AS_SESSION_KEY, fromUrl);
+    return `auth_token__dev__${fromUrl}`;
   }
-  return devAs ? `auth_token__dev__${devAs}` : "auth_token";
+  const fromSession = window.sessionStorage.getItem(DEV_AS_SESSION_KEY);
+  return fromSession ? `auth_token__dev__${fromSession}` : "auth_token";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -18,9 +18,12 @@ import "./index.css";
 //     `scripts/check-no-dev-leak.mjs` 가 빌드 후 자동으로 grep 검증한다.
 if (import.meta.env.DEV) {
   setAuthTokenGetter(() => {
-    const devAs =
-      window.sessionStorage.getItem("__dev_as__") ||
-      new URLSearchParams(window.location.search).get("devAs");
+    // **URL ?devAs= 우선** (auth-context.tsx#getAuthStorageKey 와 같은 규약).
+    //   sessionStorage 가 같은 origin iframe 사이에서 분리되지 않거나 마지막
+    //   iframe 의 setItem 이 앞 iframe 의 값을 덮어쓰는 환경에서, 격자 4셀이 모두
+    //   같은 사용자 토큰을 사용하는 회귀를 방지. URL 은 iframe 별 고유.
+    const fromUrl = new URLSearchParams(window.location.search).get("devAs");
+    const devAs = fromUrl || window.sessionStorage.getItem("__dev_as__");
     return localStorage.getItem(devAs ? `auth_token__dev__${devAs}` : "auth_token");
   });
 } else {
