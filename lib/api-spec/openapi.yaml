@@ -831,6 +831,193 @@ paths:
               schema:
                 $ref: "#/components/schemas/Vendor"
 
+  /vendors/onboarding:
+    post:
+      operationId: onboardPartnerVendor
+      tags: [vendors]
+      summary: Partner onboarding wizard - create or update self vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorOnboardingBody"
+      responses:
+        "200":
+          description: Onboarded vendor (wrapped)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vendor:
+                    $ref: "#/components/schemas/Vendor"
+                required:
+                  - vendor
+
+  /me/vendor:
+    get:
+      operationId: getMyVendor
+      tags: [vendors]
+      summary: Get the vendor profile of the currently authenticated partner
+      responses:
+        "200":
+          description: My vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: No vendor linked
+    patch:
+      operationId: updateMyVendor
+      tags: [vendors]
+      summary: Update the editable fields of the partner's own vendor
+      description: |
+        Locked fields (name, businessRegNumber, representativeName, category,
+        subCategories) are stripped server-side and must be changed via
+        /me/vendor/change-requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMyVendorBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /me/vendor/change-requests:
+    post:
+      operationId: createMyVendorChangeRequest
+      tags: [vendors]
+      summary: Submit a business-info change request for the partner's vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVendorChangeRequestBody"
+      responses:
+        "201":
+          description: Created (wrapped)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/VendorChangeRequest"
+                required:
+                  - request
+        "409":
+          description: A pending request already exists for this vendor
+
+  /me/vendor/change-requests/active:
+    get:
+      operationId: getMyActiveVendorChangeRequest
+      tags: [vendors]
+      summary: Latest change request (any status) for the partner's vendor
+      responses:
+        "200":
+          description: Active change request, or null if none
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    oneOf:
+                      - $ref: "#/components/schemas/VendorChangeRequest"
+                      - type: "null"
+
+  /admin/vendor-change-requests:
+    get:
+      operationId: listVendorChangeRequests
+      tags: [vendors]
+      summary: HQ admin queue of vendor change requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/VendorChangeRequestRow"
+                required:
+                  - requests
+
+  /admin/vendor-change-requests/{id}/approve:
+    post:
+      operationId: approveVendorChangeRequest
+      tags: [vendors]
+      summary: Approve a vendor change request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorChangeRequestDecisionBody"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/VendorChangeRequest"
+
+  /admin/vendor-change-requests/{id}/reject:
+    post:
+      operationId: rejectVendorChangeRequest
+      tags: [vendors]
+      summary: Reject a vendor change request (reason required)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorChangeRequestDecisionBody"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request:
+                    $ref: "#/components/schemas/VendorChangeRequest"
+
   # ── Commissions (수수료) ───────────────────────────────────
   /commissions:
     get:
@@ -7757,6 +7944,9 @@ components:
           type: ["string", "null"]
         profileImageUrl:
           type: ["string", "null"]
+        intro:
+          type: ["string", "null"]
+          description: 짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)
         joinedAt:
           type: ["string", "null"]
           format: date-time
@@ -7829,6 +8019,9 @@ components:
           type: ["string", "null"]
         sigungu:
           type: ["string", "null"]
+        intro:
+          type: ["string", "null"]
+          description: 짧은 업체 소개글
         contractBuildingName:
           type: ["string", "null"]
         contractStartDate:
@@ -7880,6 +8073,9 @@ components:
           type: ["string", "null"]
         profileImageUrl:
           type: ["string", "null"]
+        intro:
+          type: ["string", "null"]
+          description: 짧은 업체 소개글
         contractBuildingName:
           type: ["string", "null"]
         contractStartDate:
@@ -7924,6 +8120,179 @@ components:
         - businessRegNumber
         - representativeName
         - serviceArea
+
+    VendorOnboardingBody:
+      type: object
+      description: |
+        파트너 가입 위저드에서 호출되는 self-create/update payload.
+        서버는 categories[0] 을 vendors.category 로, 나머지를 subCategories 로 저장하고
+        businessRegUrl 은 vendors.notes 에 "사업자등록증: <url>" 으로 기록한다.
+      properties:
+        name:
+          type: string
+        businessNumber:
+          type: string
+          description: 사업자등록번호 (vendors.businessRegNumber 로 저장)
+        representativeName:
+          type: string
+        phone:
+          type: ["string", "null"]
+        businessRegUrl:
+          type: string
+          description: 업로드된 사업자등록증 파일 경로
+        categories:
+          type: array
+          description: 위저드에서 선택한 분야 코드 목록 (1개 이상). [0] 이 primary, 나머지는 sub.
+          items:
+            type: string
+        intro:
+          type: ["string", "null"]
+        profileImageUrl:
+          type: ["string", "null"]
+      required:
+        - name
+        - businessNumber
+        - representativeName
+        - businessRegUrl
+        - categories
+
+    UpdateMyVendorBody:
+      type: object
+      description: |
+        파트너 본인이 수정 가능한 필드. 잠금 필드(name, businessRegNumber,
+        representativeName, category, subCategories)는 서버에서 제거된다.
+      properties:
+        contactName:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        serviceArea:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        intro:
+          type: ["string", "null"]
+        profileImageUrl:
+          type: ["string", "null"]
+
+    VendorChangeRequestFieldChange:
+      type: object
+      properties:
+        field:
+          type: string
+          enum: [name, businessRegNumber, representativeName, category]
+        before:
+          type: ["string", "null"]
+        after:
+          type: ["string", "null"]
+      required:
+        - field
+
+    CreateVendorChangeRequestBody:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorChangeRequestFieldChange"
+        bizCertUrl:
+          type: string
+          description: 새 사업자등록증 파일 경로 (storage/objects/...)
+        reason:
+          type: ["string", "null"]
+      required:
+        - fields
+        - bizCertUrl
+
+    VendorChangeRequestDecisionBody:
+      type: object
+      properties:
+        reason:
+          type: ["string", "null"]
+
+    VendorChangeRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        requestedBy:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorChangeRequestFieldChange"
+        bizCertUrl:
+          type: string
+        reason:
+          type: ["string", "null"]
+        decidedBy:
+          type: ["integer", "null"]
+        decidedAt:
+          type: ["string", "null"]
+          format: date-time
+        decisionReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - vendorId
+        - requestedBy
+        - status
+        - fields
+        - bizCertUrl
+        - createdAt
+        - updatedAt
+
+    VendorChangeRequestRow:
+      type: object
+      description: HQ 검토 큐 행 — 신청 + 업체/신청자 요약 메타.
+      properties:
+        request:
+          $ref: "#/components/schemas/VendorChangeRequest"
+        vendor:
+          oneOf:
+            - type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                profileImageUrl:
+                  type: ["string", "null"]
+              required: [id, name]
+            - type: "null"
+        requester:
+          oneOf:
+            - type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                email:
+                  type: ["string", "null"]
+              required: [id, name]
+            - type: "null"
+      required:
+        - request
 
     Commission:
       type: object

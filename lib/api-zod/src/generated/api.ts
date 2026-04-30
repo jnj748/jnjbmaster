@@ -896,6 +896,10 @@ export const ListVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
   joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
@@ -952,6 +956,7 @@ export const CreateVendorBody = zod.object({
   subCategories: zod.string().nullish(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
+  intro: zod.string().nullish().describe("짧은 업체 소개글"),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
@@ -999,6 +1004,7 @@ export const UpdateVendorBody = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
+  intro: zod.string().nullish().describe("짧은 업체 소개글"),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
@@ -1040,6 +1046,10 @@ export const UpdateVendorResponse = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
   joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
@@ -1106,6 +1116,10 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
   joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
@@ -1155,6 +1169,432 @@ export const RegisterPlatformVendorBody = zod.object({
   serviceArea: zod.string(),
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
+});
+
+/**
+ * @summary Partner onboarding wizard - create or update self vendor
+ */
+export const OnboardPartnerVendorBody = zod
+  .object({
+    name: zod.string(),
+    businessNumber: zod
+      .string()
+      .describe("사업자등록번호 (vendors.businessRegNumber 로 저장)"),
+    representativeName: zod.string(),
+    phone: zod.string().nullish(),
+    businessRegUrl: zod.string().describe("업로드된 사업자등록증 파일 경로"),
+    categories: zod
+      .array(zod.string())
+      .describe(
+        "위저드에서 선택한 분야 코드 목록 (1개 이상). [0] 이 primary, 나머지는 sub.",
+      ),
+    intro: zod.string().nullish(),
+    profileImageUrl: zod.string().nullish(),
+  })
+  .describe(
+    '파트너 가입 위저드에서 호출되는 self-create\/update payload.\n서버는 categories[0] 을 vendors.category 로, 나머지를 subCategories 로 저장하고\nbusinessRegUrl 은 vendors.notes 에 \"사업자등록증: <url>\" 으로 기록한다.\n',
+  );
+
+export const onboardPartnerVendorResponseVendorReviewCountDefault = 0;
+
+export const OnboardPartnerVendorResponse = zod.object({
+  vendor: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    category: zod.enum([
+      "elevator",
+      "water_tank",
+      "fire_safety",
+      "electrical",
+      "gas",
+      "septic",
+      "cleaning",
+      "security",
+      "waterproofing",
+      "maintenance_repair",
+      "defect_diagnosis",
+      "building_maintenance",
+      "mechanical",
+      "other",
+    ]),
+    type: zod.enum(["contracted", "platform"]),
+    contactName: zod.string().nullish(),
+    phone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    address: zod.string().nullish(),
+    rating: zod.number().nullish(),
+    isRecommended: zod.boolean(),
+    notes: zod.string().nullish(),
+    businessRegNumber: zod.string().nullish(),
+    representativeName: zod.string().nullish(),
+    serviceArea: zod.string().nullish(),
+    subCategories: zod.string().nullish(),
+    sido: zod.string().nullish(),
+    sigungu: zod.string().nullish(),
+    profileImageUrl: zod.string().nullish(),
+    intro: zod
+      .string()
+      .nullish()
+      .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
+    joinedAt: zod.string().datetime({}).nullish(),
+    contractBuildingName: zod.string().nullish(),
+    contractStartDate: zod.string().date().nullish(),
+    contractEndDate: zod.string().date().nullish(),
+    avgRating: zod
+      .number()
+      .nullish()
+      .describe("누적된 평가의 평균 별점 (없으면 null)"),
+    reviewCount: zod
+      .number()
+      .default(onboardPartnerVendorResponseVendorReviewCountDefault)
+      .describe("누적 평가 건수"),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary Get the vendor profile of the currently authenticated partner
+ */
+export const getMyVendorResponseReviewCountDefault = 0;
+
+export const GetMyVendorResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
+    "other",
+  ]),
+  type: zod.enum(["contracted", "platform"]),
+  contactName: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  rating: zod.number().nullish(),
+  isRecommended: zod.boolean(),
+  notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
+  joinedAt: zod.string().datetime({}).nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(getMyVendorResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Locked fields (name, businessRegNumber, representativeName, category,
+subCategories) are stripped server-side and must be changed via
+/me/vendor/change-requests.
+
+ * @summary Update the editable fields of the partner's own vendor
+ */
+export const UpdateMyVendorBody = zod
+  .object({
+    contactName: zod.string().nullish(),
+    phone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    address: zod.string().nullish(),
+    sido: zod.string().nullish(),
+    sigungu: zod.string().nullish(),
+    serviceArea: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    intro: zod.string().nullish(),
+    profileImageUrl: zod.string().nullish(),
+  })
+  .describe(
+    "파트너 본인이 수정 가능한 필드. 잠금 필드(name, businessRegNumber,\nrepresentativeName, category, subCategories)는 서버에서 제거된다.\n",
+  );
+
+export const updateMyVendorResponseReviewCountDefault = 0;
+
+export const UpdateMyVendorResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
+    "other",
+  ]),
+  type: zod.enum(["contracted", "platform"]),
+  contactName: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  rating: zod.number().nullish(),
+  isRecommended: zod.boolean(),
+  notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
+  joinedAt: zod.string().datetime({}).nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(updateMyVendorResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Submit a business-info change request for the partner's vendor
+ */
+export const CreateMyVendorChangeRequestBody = zod.object({
+  fields: zod.array(
+    zod.object({
+      field: zod.enum([
+        "name",
+        "businessRegNumber",
+        "representativeName",
+        "category",
+      ]),
+      before: zod.string().nullish(),
+      after: zod.string().nullish(),
+    }),
+  ),
+  bizCertUrl: zod
+    .string()
+    .describe("새 사업자등록증 파일 경로 (storage\/objects\/...)"),
+  reason: zod.string().nullish(),
+});
+
+/**
+ * @summary Latest change request (any status) for the partner's vendor
+ */
+export const GetMyActiveVendorChangeRequestResponse = zod.object({
+  request: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        vendorId: zod.number(),
+        requestedBy: zod.number(),
+        status: zod.enum(["pending", "approved", "rejected"]),
+        fields: zod.array(
+          zod.object({
+            field: zod.enum([
+              "name",
+              "businessRegNumber",
+              "representativeName",
+              "category",
+            ]),
+            before: zod.string().nullish(),
+            after: zod.string().nullish(),
+          }),
+        ),
+        bizCertUrl: zod.string(),
+        reason: zod.string().nullish(),
+        decidedBy: zod.number().nullish(),
+        decidedAt: zod.string().datetime({}).nullish(),
+        decisionReason: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+});
+
+/**
+ * @summary HQ admin queue of vendor change requests
+ */
+export const listVendorChangeRequestsQueryStatusDefault = `pending`;
+
+export const ListVendorChangeRequestsQueryParams = zod.object({
+  status: zod
+    .enum(["pending", "approved", "rejected", "all"])
+    .default(listVendorChangeRequestsQueryStatusDefault),
+});
+
+export const ListVendorChangeRequestsResponse = zod.object({
+  requests: zod.array(
+    zod
+      .object({
+        request: zod.object({
+          id: zod.number(),
+          vendorId: zod.number(),
+          requestedBy: zod.number(),
+          status: zod.enum(["pending", "approved", "rejected"]),
+          fields: zod.array(
+            zod.object({
+              field: zod.enum([
+                "name",
+                "businessRegNumber",
+                "representativeName",
+                "category",
+              ]),
+              before: zod.string().nullish(),
+              after: zod.string().nullish(),
+            }),
+          ),
+          bizCertUrl: zod.string(),
+          reason: zod.string().nullish(),
+          decidedBy: zod.number().nullish(),
+          decidedAt: zod.string().datetime({}).nullish(),
+          decisionReason: zod.string().nullish(),
+          createdAt: zod.string().datetime({}),
+          updatedAt: zod.string().datetime({}),
+        }),
+        vendor: zod
+          .union([
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+              profileImageUrl: zod.string().nullish(),
+            }),
+            zod.null(),
+          ])
+          .optional(),
+        requester: zod
+          .union([
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+              email: zod.string().nullish(),
+            }),
+            zod.null(),
+          ])
+          .optional(),
+      })
+      .describe("HQ 검토 큐 행 — 신청 + 업체\/신청자 요약 메타."),
+  ),
+});
+
+/**
+ * @summary Approve a vendor change request
+ */
+export const ApproveVendorChangeRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveVendorChangeRequestBody = zod.object({
+  reason: zod.string().nullish(),
+});
+
+export const ApproveVendorChangeRequestResponse = zod.object({
+  request: zod
+    .object({
+      id: zod.number(),
+      vendorId: zod.number(),
+      requestedBy: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      fields: zod.array(
+        zod.object({
+          field: zod.enum([
+            "name",
+            "businessRegNumber",
+            "representativeName",
+            "category",
+          ]),
+          before: zod.string().nullish(),
+          after: zod.string().nullish(),
+        }),
+      ),
+      bizCertUrl: zod.string(),
+      reason: zod.string().nullish(),
+      decidedBy: zod.number().nullish(),
+      decidedAt: zod.string().datetime({}).nullish(),
+      decisionReason: zod.string().nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Reject a vendor change request (reason required)
+ */
+export const RejectVendorChangeRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RejectVendorChangeRequestBody = zod.object({
+  reason: zod.string().nullish(),
+});
+
+export const RejectVendorChangeRequestResponse = zod.object({
+  request: zod
+    .object({
+      id: zod.number(),
+      vendorId: zod.number(),
+      requestedBy: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      fields: zod.array(
+        zod.object({
+          field: zod.enum([
+            "name",
+            "businessRegNumber",
+            "representativeName",
+            "category",
+          ]),
+          before: zod.string().nullish(),
+          after: zod.string().nullish(),
+        }),
+      ),
+      bizCertUrl: zod.string(),
+      reason: zod.string().nullish(),
+      decidedBy: zod.number().nullish(),
+      decidedAt: zod.string().datetime({}).nullish(),
+      decisionReason: zod.string().nullish(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+    })
+    .optional(),
 });
 
 /**
@@ -1707,6 +2147,10 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
   sido: zod.string().nullish(),
   sigungu: zod.string().nullish(),
   profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
   joinedAt: zod.string().datetime({}).nullish(),
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),

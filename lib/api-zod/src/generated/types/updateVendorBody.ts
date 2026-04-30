@@ -39,6 +39,11 @@ export interface UpdateVendorBody {
   sigungu?: string | null;
   /** @nullable */
   profileImageUrl?: string | null;
+  /**
+   * 짧은 업체 소개글
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */

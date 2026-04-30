@@ -630,6 +630,11 @@ export interface Vendor {
   sigungu?: string | null;
   /** @nullable */
   profileImageUrl?: string | null;
+  /**
+   * 짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   joinedAt?: string | null;
   /** @nullable */
@@ -706,6 +711,11 @@ export interface CreateVendorBody {
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
+  /**
+   * 짧은 업체 소개글
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
@@ -773,6 +783,11 @@ export interface UpdateVendorBody {
   sigungu?: string | null;
   /** @nullable */
   profileImageUrl?: string | null;
+  /**
+   * 짧은 업체 소개글
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */
@@ -816,6 +831,139 @@ export interface RegisterPlatformVendorBody {
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
+}
+
+/**
+ * 파트너 가입 위저드에서 호출되는 self-create/update payload.
+서버는 categories[0] 을 vendors.category 로, 나머지를 subCategories 로 저장하고
+businessRegUrl 은 vendors.notes 에 "사업자등록증: <url>" 으로 기록한다.
+
+ */
+export interface VendorOnboardingBody {
+  name: string;
+  /** 사업자등록번호 (vendors.businessRegNumber 로 저장) */
+  businessNumber: string;
+  representativeName: string;
+  /** @nullable */
+  phone?: string | null;
+  /** 업로드된 사업자등록증 파일 경로 */
+  businessRegUrl: string;
+  /** 위저드에서 선택한 분야 코드 목록 (1개 이상). [0] 이 primary, 나머지는 sub. */
+  categories: string[];
+  /** @nullable */
+  intro?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
+}
+
+/**
+ * 파트너 본인이 수정 가능한 필드. 잠금 필드(name, businessRegNumber,
+representativeName, category, subCategories)는 서버에서 제거된다.
+
+ */
+export interface UpdateMyVendorBody {
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  intro?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
+}
+
+export type VendorChangeRequestFieldChangeField =
+  (typeof VendorChangeRequestFieldChangeField)[keyof typeof VendorChangeRequestFieldChangeField];
+
+export const VendorChangeRequestFieldChangeField = {
+  name: "name",
+  businessRegNumber: "businessRegNumber",
+  representativeName: "representativeName",
+  category: "category",
+} as const;
+
+export interface VendorChangeRequestFieldChange {
+  field: VendorChangeRequestFieldChangeField;
+  /** @nullable */
+  before?: string | null;
+  /** @nullable */
+  after?: string | null;
+}
+
+export interface CreateVendorChangeRequestBody {
+  fields: VendorChangeRequestFieldChange[];
+  /** 새 사업자등록증 파일 경로 (storage/objects/...) */
+  bizCertUrl: string;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface VendorChangeRequestDecisionBody {
+  /** @nullable */
+  reason?: string | null;
+}
+
+export type VendorChangeRequestStatus =
+  (typeof VendorChangeRequestStatus)[keyof typeof VendorChangeRequestStatus];
+
+export const VendorChangeRequestStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface VendorChangeRequest {
+  id: number;
+  vendorId: number;
+  requestedBy: number;
+  status: VendorChangeRequestStatus;
+  fields: VendorChangeRequestFieldChange[];
+  bizCertUrl: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  decidedBy?: number | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  decisionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VendorChangeRequestRowVendor = {
+  id: number;
+  name: string;
+  /** @nullable */
+  profileImageUrl?: string | null;
+} | null;
+
+export type VendorChangeRequestRowRequester = {
+  id: number;
+  name: string;
+  /** @nullable */
+  email?: string | null;
+} | null;
+
+/**
+ * HQ 검토 큐 행 — 신청 + 업체/신청자 요약 메타.
+ */
+export interface VendorChangeRequestRow {
+  request: VendorChangeRequest;
+  vendor?: VendorChangeRequestRowVendor;
+  requester?: VendorChangeRequestRowRequester;
 }
 
 export type CommissionStatus =
@@ -6234,6 +6382,44 @@ export const ListVendorsType = {
 
 export type GetRecommendedVendorsParams = {
   category: string;
+};
+
+export type OnboardPartnerVendor200 = {
+  vendor: Vendor;
+};
+
+export type CreateMyVendorChangeRequest201 = {
+  request: VendorChangeRequest;
+};
+
+export type GetMyActiveVendorChangeRequest200 = {
+  request?: VendorChangeRequest | null;
+};
+
+export type ListVendorChangeRequestsParams = {
+  status?: ListVendorChangeRequestsStatus;
+};
+
+export type ListVendorChangeRequestsStatus =
+  (typeof ListVendorChangeRequestsStatus)[keyof typeof ListVendorChangeRequestsStatus];
+
+export const ListVendorChangeRequestsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;
+
+export type ListVendorChangeRequests200 = {
+  requests: VendorChangeRequestRow[];
+};
+
+export type ApproveVendorChangeRequest200 = {
+  request?: VendorChangeRequest;
+};
+
+export type RejectVendorChangeRequest200 = {
+  request?: VendorChangeRequest;
 };
 
 export type ListRfqsParams = {

@@ -2,6 +2,7 @@ export * from "./tasks";
 export * from "./inspections";
 export * from "./taxSchedules";
 export * from "./vendors";
+export * from "./vendorChangeRequests";
 export * from "./commissions";
 export * from "./drafts";
 export * from "./tenants";

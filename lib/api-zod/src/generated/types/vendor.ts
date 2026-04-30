@@ -40,6 +40,11 @@ export interface Vendor {
   sigungu?: string | null;
   /** @nullable */
   profileImageUrl?: string | null;
+  /**
+   * 짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   joinedAt?: string | null;
   /** @nullable */

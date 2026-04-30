@@ -65,19 +65,28 @@
 The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured into `api-server`, `web`, `db`, and `api-spec` packages.
 
 **Frontend:**
-- Developed with React, Vite, Tailwind CSS, and shadcn/ui.
-- Features a mobile-first design with a 900px desktop breakpoint.
+- Built with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
 - Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
 - Optimizes performance with React.lazy, Vite manualChunks, and React Query.
 
 **Backend:**
 - Built on an Express 5 API framework with JWT authentication.
+<<<<<<< HEAD
 - Implements a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` serving as the Single Source of Truth for role hierarchy.
 - API definitions adhere to OpenAPI specifications, leveraging Orval for client code generation and Zod for validation.
 
 **Database:**
+<<<<<<< HEAD
 - PostgreSQL is the primary data store, managed via Drizzle ORM.
 - The schema supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
+=======
+- Implements a Role-Based Access Control (RBAC) system for 6 roles (`platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, `partner`).
+- API definitions adhere to OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
+
+**Database:**
+- PostgreSQL is the primary data store, managed through Drizzle ORM.
+- The schema supports core entities such as users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
+>>>>>>> a5abf0db ([Task #661] 파트너 위저드/내 정보 재구성 + 사업자정보 변경 신청 흐름)
 - Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**
@@ -88,7 +97,11 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured i
 - **BuildingContext:** Manages building-specific data globally.
 - **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles.
 - **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
+<<<<<<< HEAD
 - **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
+=======
+- **Facility Management Dashboard:** Centralizes tasks related to inspection, safety, and maintenance.
+>>>>>>> a5abf0db ([Task #661] 파트너 위저드/내 정보 재구성 + 사업자정보 변경 신청 흐름)
 - **Attendance Management:** Supports PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.

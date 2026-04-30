@@ -37,6 +37,11 @@ export interface CreateVendorBody {
   sido?: string | null;
   /** @nullable */
   sigungu?: string | null;
+  /**
+   * 짧은 업체 소개글
+   * @nullable
+   */
+  intro?: string | null;
   /** @nullable */
   contractBuildingName?: string | null;
   /** @nullable */

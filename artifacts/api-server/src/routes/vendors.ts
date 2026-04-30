@@ -1,6 +1,15 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { db, vendorsTable, usersTable, platformConsentsTable, vendorReviewsTable, contractsTable } from "@workspace/db";
+import {
+  db,
+  vendorsTable,
+  usersTable,
+  platformConsentsTable,
+  vendorReviewsTable,
+  contractsTable,
+  vendorChangeRequestsTable,
+  type VendorChangeRequestFieldChange,
+} from "@workspace/db";
 import {
   ListVendorsQueryParams,
   ListVendorsResponse,
@@ -12,6 +21,7 @@ import {
   GetRecommendedVendorsQueryParams,
   GetRecommendedVendorsResponse,
   RegisterPlatformVendorBody,
+  UpdateMyVendorBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 
@@ -269,6 +279,13 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
   const phone = typeof req.body?.phone === "string" ? req.body.phone.trim() : "";
   const businessRegUrl = typeof req.body?.businessRegUrl === "string" ? req.body.businessRegUrl : null;
   const categories: string[] = Array.isArray(req.body?.categories) ? req.body.categories.filter((c: unknown) => typeof c === "string") : [];
+  // [Task #661] 위저드에서 1줄 소개글·프로필 사진을 선택적으로 받는다.
+  //   소개글은 trim 후 30자 초과면 잘라 저장한다(클라이언트에서도 30자 제한).
+  const introRaw = typeof req.body?.intro === "string" ? req.body.intro.trim() : "";
+  const intro = introRaw ? introRaw.slice(0, 30) : null;
+  const profileImageUrl = typeof req.body?.profileImageUrl === "string" && req.body.profileImageUrl
+    ? req.body.profileImageUrl
+    : null;
 
   if (!name || !businessNumber || !representativeName) { res.status(400).json({ error: "회사명·사업자등록번호·대표자명은 필수입니다" }); return; }
   // [Task #132] 사업자등록증 업로드는 필수.
@@ -294,6 +311,9 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
         phone,
         notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
         type: "platform",
+        // [Task #661] 위저드에서 받은 소개글·프로필 사진을 vendor 행에 함께 저장.
+        intro,
+        profileImageUrl,
       })
       .where(eq(vendorsTable.id, user.vendorId))
       .returning();
@@ -310,6 +330,8 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
         notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
         type: "platform",
         joinedAt: new Date(),
+        intro,
+        profileImageUrl,
       })
       .returning();
     vendorRow = inserted;
@@ -345,6 +367,17 @@ router.get("/me/vendor", async (req: Request, res: Response): Promise<void> => {
   res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
 
+// [Task #661] 사업자 정보(상호·등록번호·대표자명·분야)는 PATCH /me/vendor 로 변경
+//   불가. 본 핸들러는 잠금 항목을 제거한 뒤 저장하고, 추가로 vendors.intro 도
+//   수용한다(Zod UpdateVendorBody 에는 없으므로 별도 처리).
+const LOCKED_VENDOR_FIELDS = [
+  "name",
+  "businessRegNumber",
+  "representativeName",
+  "category",
+  "subCategories",
+] as const;
+
 router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -357,16 +390,26 @@ router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> =>
     res.status(404).json({ error: "연결된 업체가 없습니다" });
     return;
   }
-  const parsed = UpdateVendorBody.safeParse(req.body);
+  // [Task #661] 파트너 본인 수정 전용 스키마. 잠금 필드(name/businessRegNumber/
+  //   representativeName/category/subCategories) 자체가 schema 에 없어 zod 단계에서 제거되며,
+  //   추가 안전망으로 LOCKED_VENDOR_FIELDS 도 한 번 더 정리한다.
+  const parsed = UpdateMyVendorBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  // type 필드는 파트너가 변경할 수 없도록 강제로 platform 으로 고정.
-  const safe = { ...parsed.data, type: "platform" as const };
+  const cleaned: Record<string, unknown> = { ...parsed.data, type: "platform" as const };
+  for (const f of LOCKED_VENDOR_FIELDS) {
+    delete cleaned[f];
+  }
+  // intro 는 30자 클램프(스키마에 길이 제한이 없으므로 서버에서 보장).
+  if (typeof cleaned.intro === "string") {
+    const trimmed = cleaned.intro.trim();
+    cleaned.intro = trimmed ? trimmed.slice(0, 30) : null;
+  }
   const [vendor] = await db
     .update(vendorsTable)
-    .set(safe)
+    .set(cleaned)
     .where(eq(vendorsTable.id, user.vendorId))
     .returning();
   if (!vendor) {
@@ -375,6 +418,307 @@ router.patch("/me/vendor", async (req: Request, res: Response): Promise<void> =>
   }
   res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [Task #661] 파트너 사업자정보 변경 신청.
+//   - POST /me/vendor/change-requests : 신청 생성. 동일 vendor 에 pending 1건 제한.
+//   - GET  /me/vendor/change-requests/active : 본인의 가장 최근 신청 1건(상태 무관) 조회.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHANGE_REQUEST_FIELDS = [
+  "name",
+  "businessRegNumber",
+  "representativeName",
+  "category",
+] as const;
+type ChangeRequestField = (typeof CHANGE_REQUEST_FIELDS)[number];
+
+function isChangeRequestField(v: unknown): v is ChangeRequestField {
+  return typeof v === "string" && (CHANGE_REQUEST_FIELDS as readonly string[]).includes(v);
+}
+
+router.post("/me/vendor/change-requests", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || user.role !== "partner") {
+    res.status(403).json({ error: "파트너 계정만 사용할 수 있습니다" });
+    return;
+  }
+  if (!user.vendorId) {
+    res.status(404).json({ error: "연결된 업체가 없습니다" });
+    return;
+  }
+  const [vendor] = await db.select().from(vendorsTable).where(eq(vendorsTable.id, user.vendorId));
+  if (!vendor) { res.status(404).json({ error: "Vendor not found" }); return; }
+
+  const bizCertUrl = typeof req.body?.bizCertUrl === "string" ? req.body.bizCertUrl.trim() : "";
+  if (!bizCertUrl) {
+    res.status(400).json({ error: "새 사업자등록증을 업로드해 주세요" });
+    return;
+  }
+
+  const rawFields: unknown = req.body?.fields;
+  if (!Array.isArray(rawFields) || rawFields.length === 0) {
+    res.status(400).json({ error: "변경할 항목을 1개 이상 선택해 주세요" });
+    return;
+  }
+  const fields: VendorChangeRequestFieldChange[] = [];
+  for (const item of rawFields) {
+    if (!item || typeof item !== "object") continue;
+    const f = (item as Record<string, unknown>).field;
+    if (!isChangeRequestField(f)) {
+      res.status(400).json({ error: `허용되지 않은 항목: ${String(f)}` });
+      return;
+    }
+    const afterRaw = (item as Record<string, unknown>).after;
+    let after: string | null;
+    if (afterRaw == null || afterRaw === "") {
+      after = null;
+    } else if (typeof afterRaw === "string") {
+      after = afterRaw.trim();
+    } else {
+      res.status(400).json({ error: `${f} 의 변경 후 값이 올바르지 않습니다` });
+      return;
+    }
+    if (!after) {
+      res.status(400).json({ error: `${f} 의 변경 후 값을 입력해 주세요` });
+      return;
+    }
+    // before 는 신청 시점 vendor row 의 현재값(서버 단일 SoT).
+    let before: string | null;
+    switch (f) {
+      case "name": before = vendor.name; break;
+      case "businessRegNumber": before = vendor.businessRegNumber; break;
+      case "representativeName": before = vendor.representativeName; break;
+      case "category": {
+        const subs = vendor.subCategories ? vendor.subCategories.split(",").filter(Boolean) : [];
+        const all = [vendor.category, ...subs.filter((s) => s !== vendor.category)];
+        before = all.join(",");
+        break;
+      }
+    }
+    fields.push({ field: f, before, after });
+  }
+  if (fields.length === 0) {
+    res.status(400).json({ error: "변경할 항목을 1개 이상 선택해 주세요" });
+    return;
+  }
+
+  const reasonRaw = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const reason = reasonRaw ? reasonRaw.slice(0, 1000) : null;
+
+  // 동일 vendor 에 pending 신청이 이미 있으면 새 신청 차단(서버 + DB partial unique).
+  const [existingPending] = await db
+    .select()
+    .from(vendorChangeRequestsTable)
+    .where(and(
+      eq(vendorChangeRequestsTable.vendorId, vendor.id),
+      eq(vendorChangeRequestsTable.status, "pending"),
+    ))
+    .limit(1);
+  if (existingPending) {
+    res.status(409).json({ error: "이미 검토 중인 변경 신청이 있습니다", request: existingPending });
+    return;
+  }
+
+  try {
+    const [created] = await db
+      .insert(vendorChangeRequestsTable)
+      .values({
+        vendorId: vendor.id,
+        requestedBy: userId,
+        status: "pending",
+        fields,
+        bizCertUrl,
+        reason,
+      })
+      .returning();
+    res.status(201).json({ request: created });
+  } catch (err) {
+    // partial unique index 충돌 → 동일 vendor pending 중복.
+    res.status(409).json({ error: "이미 검토 중인 변경 신청이 있습니다" });
+    return;
+  }
+});
+
+router.get("/me/vendor/change-requests/active", async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || user.role !== "partner") {
+    res.status(403).json({ error: "파트너 계정만 사용할 수 있습니다" });
+    return;
+  }
+  if (!user.vendorId) {
+    res.json({ request: null });
+    return;
+  }
+  // 가장 최근 1건. pending 이 있으면 그 건이 가장 위. 없으면 가장 최근에 결정된 건을
+  //   그대로 노출해 클라이언트가 "승인 완료 / 반려 사유" 안내를 그릴 수 있게 한다.
+  const [latest] = await db
+    .select()
+    .from(vendorChangeRequestsTable)
+    .where(eq(vendorChangeRequestsTable.vendorId, user.vendorId))
+    .orderBy(desc(vendorChangeRequestsTable.createdAt))
+    .limit(1);
+  res.json({ request: latest ?? null });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [Task #661] 본사 관리자용 변경 신청 큐.
+//   - GET  /admin/vendor-change-requests?status=pending|approved|rejected|all
+//   - POST /admin/vendor-change-requests/:id/approve
+//   - POST /admin/vendor-change-requests/:id/reject  (사유 필수)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ADMIN_VENDOR_CHANGE_ROLES = ["platform_admin", "hq_executive"] as const;
+const requireVendorChangeAdmin = requireRole(...ADMIN_VENDOR_CHANGE_ROLES);
+
+router.get(
+  "/admin/vendor-change-requests",
+  requireVendorChangeAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const status = typeof req.query?.status === "string" ? req.query.status : "pending";
+    const conditions = [];
+    if (status === "pending" || status === "approved" || status === "rejected") {
+      conditions.push(eq(vendorChangeRequestsTable.status, status));
+    }
+    const rows = await db
+      .select({
+        request: vendorChangeRequestsTable,
+        vendor: vendorsTable,
+        requester: {
+          id: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+        },
+      })
+      .from(vendorChangeRequestsTable)
+      .leftJoin(vendorsTable, eq(vendorsTable.id, vendorChangeRequestsTable.vendorId))
+      .leftJoin(usersTable, eq(usersTable.id, vendorChangeRequestsTable.requestedBy))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(vendorChangeRequestsTable.createdAt));
+    res.json({ requests: rows });
+  },
+);
+
+router.post(
+  "/admin/vendor-change-requests/:id/approve",
+  requireVendorChangeAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const idParam = req.params.id;
+    const id = Number.parseInt(typeof idParam === "string" ? idParam : "", 10);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "잘못된 신청 id" }); return; }
+    const [request] = await db
+      .select()
+      .from(vendorChangeRequestsTable)
+      .where(eq(vendorChangeRequestsTable.id, id));
+    if (!request) { res.status(404).json({ error: "신청을 찾을 수 없습니다" }); return; }
+    if (request.status !== "pending") {
+      res.status(409).json({ error: "이미 처리된 신청입니다" });
+      return;
+    }
+    const [vendor] = await db
+      .select()
+      .from(vendorsTable)
+      .where(eq(vendorsTable.id, request.vendorId));
+    if (!vendor) { res.status(404).json({ error: "대상 업체를 찾을 수 없습니다" }); return; }
+
+    // 변경값을 vendor 컬럼으로 매핑.
+    const updates: Partial<typeof vendorsTable.$inferInsert> = {};
+    for (const change of request.fields ?? []) {
+      switch (change.field) {
+        case "name":
+          if (change.after) updates.name = change.after;
+          break;
+        case "businessRegNumber":
+          updates.businessRegNumber = change.after;
+          break;
+        case "representativeName":
+          updates.representativeName = change.after;
+          break;
+        case "category": {
+          const codes = (change.after ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+          if (codes.length > 0) {
+            updates.category = codes[0];
+            updates.subCategories = codes.length > 1 ? codes.slice(1).join(",") : null;
+          }
+          break;
+        }
+      }
+    }
+    // 새 사업자등록증 URL 도 함께 vendor.notes 에 반영(기존 패턴: notes 에 "사업자등록증: <url>")
+    //   기존 notes 에 사업자등록증 정보가 들어 있으면 갈아끼우고, 그 외 메모는 보존.
+    const cert = `사업자등록증: ${request.bizCertUrl}`;
+    const existingNotes = (vendor.notes ?? "").trim();
+    const cleanedNotes = existingNotes
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("사업자등록증:"))
+      .join("\n")
+      .trim();
+    updates.notes = cleanedNotes ? `${cert}\n${cleanedNotes}` : cert;
+
+    await db.transaction(async (tx) => {
+      if (Object.keys(updates).length > 0) {
+        await tx.update(vendorsTable).set(updates).where(eq(vendorsTable.id, vendor.id));
+      }
+      await tx
+        .update(vendorChangeRequestsTable)
+        .set({
+          status: "approved",
+          decidedBy: userId,
+          decidedAt: new Date(),
+          decisionReason: typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 1000) || null : null,
+        })
+        .where(eq(vendorChangeRequestsTable.id, request.id));
+    });
+    const [updatedRequest] = await db
+      .select()
+      .from(vendorChangeRequestsTable)
+      .where(eq(vendorChangeRequestsTable.id, request.id));
+    res.json({ request: updatedRequest });
+  },
+);
+
+router.post(
+  "/admin/vendor-change-requests/:id/reject",
+  requireVendorChangeAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const idParam = req.params.id;
+    const id = Number.parseInt(typeof idParam === "string" ? idParam : "", 10);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "잘못된 신청 id" }); return; }
+    const reasonRaw = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (!reasonRaw) {
+      res.status(400).json({ error: "반려 사유는 필수입니다" });
+      return;
+    }
+    const [request] = await db
+      .select()
+      .from(vendorChangeRequestsTable)
+      .where(eq(vendorChangeRequestsTable.id, id));
+    if (!request) { res.status(404).json({ error: "신청을 찾을 수 없습니다" }); return; }
+    if (request.status !== "pending") {
+      res.status(409).json({ error: "이미 처리된 신청입니다" });
+      return;
+    }
+    const [updated] = await db
+      .update(vendorChangeRequestsTable)
+      .set({
+        status: "rejected",
+        decidedBy: userId,
+        decidedAt: new Date(),
+        decisionReason: reasonRaw.slice(0, 1000),
+      })
+      .where(eq(vendorChangeRequestsTable.id, request.id))
+      .returning();
+    res.json({ request: updated });
+  },
+);
 
 router.post("/vendors/register", requireVendorWriter, async (req, res): Promise<void> => {
   const parsed = RegisterPlatformVendorBody.safeParse(req.body);

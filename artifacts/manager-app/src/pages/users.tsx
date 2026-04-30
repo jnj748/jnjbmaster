@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { Plus, Pencil, Trash2, X, Search } from "lucide-react";
 import { ROLE_LABELS, PORTAL_LABELS, type AppRole } from "@workspace/shared/role-labels";
 import { formatPhoneNumber, formatPhoneNumberPartial } from "@/lib/format-korean";
+import { VendorChangeRequestsAdminSection } from "@/components/vendor-change-requests-admin";
 
 interface UserRecord {
   id: number;
@@ -527,6 +528,11 @@ export default function Users() {
         </table>
        </div>
       </div>
+
+      {/* [Task #661] 본사 관리자 전용 — 파트너 사업자정보 변경 신청 검토 큐. */}
+      {currentUser && ["platform_admin", "hq_executive"].includes(currentUser.role) && token && (
+        <VendorChangeRequestsAdminSection token={token} apiBase={API_BASE} />
+      )}
 
       {showModal && (
         <UserModal

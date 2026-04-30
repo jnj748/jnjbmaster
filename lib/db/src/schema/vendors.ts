@@ -21,6 +21,8 @@ export const vendorsTable = pgTable("vendors", {
   sido: text("sido"),
   sigungu: text("sigungu"),
   profileImageUrl: text("profile_image_url"),
+  // [Task #661] 파트너 1줄 소개글(최대 30자, NULL 허용). 가입 위저드/내 정보에서 자유 수정.
+  intro: text("intro"),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
   contractBuildingName: text("contract_building_name"),
   contractStartDate: date("contract_start_date"),

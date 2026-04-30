@@ -1,4 +1,11 @@
-import { useEffect, useState } from "react";
+// [Task #661] 파트너 "내 정보" 페이지.
+//   - 편집 가능 섹션: 프로필 사진 / 한줄 소개 / 담당자·연락처·이메일 / 주소 /
+//     서비스가능지역 / 비고  → PATCH /me/vendor 로 즉시 저장.
+//   - 잠금 섹션: 상호 / 사업자등록번호 / 대표자명 / 분야(카테고리)
+//     · 직접 편집 불가, "변경 신청" 시트를 통해 본사 검토 후 반영.
+//     · pending 신청이 있으면 다시 신청할 수 없고, 진행 상태/반려 사유를 표시.
+//   - VendorAvatar 공용 컴포넌트로 사진/실루엣을 일관되게 노출.
+import { useEffect, useMemo, useState } from "react";
 import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Vendor, VendorCategory } from "@workspace/api-client-react";
@@ -13,6 +20,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Building2,
   AlertCircle,
   MapPin,
@@ -22,11 +37,17 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Lock,
+  CheckCircle2,
+  XCircle,
+  Upload,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
-import { AuthImage } from "@/components/auth-image";
+import { VendorAvatar } from "@/components/vendor-avatar";
 
 const categoryOptions: { value: VendorCategory; label: string }[] = [
   { value: "elevator", label: "승강기" },
@@ -44,17 +65,41 @@ const categoryOptions: { value: VendorCategory; label: string }[] = [
   { value: "mechanical", label: "기계설비" },
   { value: "other", label: "기타" },
 ];
+const categoryLabel = (code: string) =>
+  categoryOptions.find((c) => c.value === (code as VendorCategory))?.label ?? code;
 
 const BASE = (import.meta.env.BASE_URL ?? "/") as string;
 const API_BASE = `${BASE}api`;
 const ME_VENDOR_QUERY_KEY = ["me", "vendor"] as const;
+const ME_VENDOR_CHANGE_REQ_KEY = ["me", "vendor", "changeRequest"] as const;
+const INTRO_MAX = 30;
+
+// 변경 신청에서 다룰 잠금 항목 코드.
+const LOCKED_FIELD_LABEL: Record<string, string> = {
+  name: "상호 (업체명)",
+  businessRegNumber: "사업자등록번호",
+  representativeName: "대표자명",
+  category: "분야",
+};
+
+interface ChangeRequestRecord {
+  id: number;
+  vendorId: number;
+  status: "pending" | "approved" | "rejected";
+  fields: Array<{ field: string; before: string | null; after: string | null }>;
+  bizCertUrl: string;
+  reason: string | null;
+  decidedBy: number | null;
+  decidedAt: string | null;
+  decisionReason: string | null;
+  createdAt: string;
+}
 
 // [Task #328] 서비스가능지역은 시/도별 시/군/구 다중 선택을 JSON 으로 직렬화해
 //   serviceArea 필드(텍스트)에 저장한다. 이전 단일 sido/sigungu 컬럼은 첫
 //   선택값을 채워 기존 화면(목록/검색)과의 호환을 유지.
 type ServiceAreaState = {
   nationwide: boolean;
-  // sido -> Set of sigungu (빈 Set 이면 시/도 전체 선택)
   bySido: Record<string, string[]>;
 };
 
@@ -92,16 +137,13 @@ function summarizeServiceArea(s: ServiceAreaState): string {
   return parts.join(" · ") || "선택 없음";
 }
 
-// [Task #290/328] 파트너 전용 — 본인 소속 업체 한 건만 조회·편집한다.
-//   풀 목록(/vendors)을 받지 않고 서버의 GET /api/me/vendor 를 호출하여
-//   다른 업체 데이터가 클라이언트에 노출되지 않도록 한다(데이터 격리).
 export default function PartnerVendorProfile() {
   const { user, token } = useAuth();
   const vendorId = user?.vendorId ?? null;
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  // [Task #507] 갤러리 단일 입력이던 프로필 사진 업로드를 공용 시트(촬영/앨범에서 선택)로 통일.
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
+  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
 
   const meVendorQuery = useQuery<Vendor | null>({
     queryKey: ME_VENDOR_QUERY_KEY,
@@ -116,7 +158,22 @@ export default function PartnerVendorProfile() {
     },
   });
 
-  const updateMutation = useMutation<Vendor, Error, Partial<Vendor>>({
+  // [Task #661] 가장 최근 변경 신청 1건 조회. pending 이면 잠금 섹션에 안내 노출,
+  //   approved/rejected 면 결과 안내 띠 노출(닫기 버튼 없이 다음 신청 시 자동 갱신).
+  const changeRequestQuery = useQuery<ChangeRequestRecord | null>({
+    queryKey: ME_VENDOR_CHANGE_REQ_KEY,
+    enabled: !!vendorId && !!token,
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/me/vendor/change-requests/active`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`변경 신청 정보를 불러오지 못했습니다 (${res.status})`);
+      const data = await res.json();
+      return (data?.request ?? null) as ChangeRequestRecord | null;
+    },
+  });
+
+  const updateMutation = useMutation<Vendor, Error, Record<string, unknown>>({
     mutationFn: async (payload) => {
       const res = await fetch(`${API_BASE}/me/vendor`, {
         method: "PATCH",
@@ -143,10 +200,6 @@ export default function PartnerVendorProfile() {
 
   const me = meVendorQuery.data ?? null;
 
-  // [Task #328] 분야: 다중 선택. 첫 항목이 대표 분야(category, notNull)로 저장됨.
-  //   기존 데이터: category + subCategories(쉼표 구분)을 합쳐 초기화.
-  const [selectedCategories, setSelectedCategories] = useState<VendorCategory[]>([]);
-
   const [serviceArea, setServiceArea] = useState<ServiceAreaState>({
     nationwide: false,
     bySido: {},
@@ -158,54 +211,46 @@ export default function PartnerVendorProfile() {
   const [photoError, setPhotoError] = useState<string>("");
 
   const [form, setForm] = useState<{
-    name: string;
+    intro: string;
     contactName: string;
     phone: string;
     email: string;
     address: string;
     notes: string;
-    businessRegNumber: string;
-    representativeName: string;
   }>({
-    name: "",
+    intro: "",
     contactName: "",
     phone: "",
     email: "",
     address: "",
     notes: "",
-    businessRegNumber: "",
-    representativeName: "",
   });
+
+  // 잠금 항목의 현재값(읽기전용 표시용). 변경 신청 시트에 before 로도 사용.
+  const lockedView = useMemo(() => {
+    const subs = (me?.subCategories ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const cats = me?.category ? [me.category, ...subs.filter((s) => s !== me.category)] : subs;
+    return {
+      name: me?.name ?? "",
+      businessRegNumber: me?.businessRegNumber ?? "",
+      representativeName: me?.representativeName ?? "",
+      categories: cats,
+    };
+  }, [me]);
 
   useEffect(() => {
     if (!me) return;
     setForm({
-      name: me.name ?? "",
+      intro: me.intro ?? "",
       contactName: me.contactName ?? "",
       phone: me.phone ?? "",
       email: me.email ?? "",
       address: me.address ?? "",
       notes: me.notes ?? "",
-      businessRegNumber: me.businessRegNumber ?? "",
-      representativeName: me.representativeName ?? "",
     });
-    // 분야 초기화: category(대표) + subCategories(CSV) → 중복 제거 + valid 만
-    const validCodes = new Set(categoryOptions.map((c) => c.value));
-    const cats: VendorCategory[] = [];
-    if (me.category && validCodes.has(me.category as VendorCategory)) {
-      cats.push(me.category as VendorCategory);
-    }
-    const sub = (me.subCategories ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const s of sub) {
-      if (validCodes.has(s as VendorCategory) && !cats.includes(s as VendorCategory)) {
-        cats.push(s as VendorCategory);
-      }
-    }
-    setSelectedCategories(cats);
-    // 서비스 가능 지역 — JSON 우선, 그 외엔 sido/sigungu 단일 값으로 fallback
     const parsed = parseServiceArea(me.serviceArea);
     if (parsed.nationwide || Object.keys(parsed.bySido).length > 0) {
       setServiceArea(parsed);
@@ -258,17 +303,10 @@ export default function PartnerVendorProfile() {
     );
   }
 
-  function toggleCategory(code: VendorCategory) {
-    setSelectedCategories((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
-    );
-  }
-
   function toggleSidoExpand(sido: string) {
     setExpandedSido((prev) => (prev === sido ? null : sido));
   }
 
-  // 시/도 체크 = 시/군/구 비우고(전역) 등록 / 해제 = 제거
   function toggleSidoAll(sido: string) {
     setServiceArea((prev) => {
       const next = { ...prev, bySido: { ...prev.bySido } };
@@ -288,7 +326,6 @@ export default function PartnerVendorProfile() {
       if (current.includes(sigungu)) {
         const filtered = current.filter((s) => s !== sigungu);
         if (filtered.length === 0) {
-          // 전역으로 변환할지 vs 제거할지 — 사용자가 명시적으로 토글한 거라 제거.
           delete next.bySido[sido];
         } else {
           next.bySido[sido] = filtered;
@@ -356,17 +393,6 @@ export default function PartnerVendorProfile() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!me) return;
-    if (selectedCategories.length === 0) {
-      toast({
-        title: "분야를 선택해 주세요",
-        description: "1개 이상의 분야를 선택해야 합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const primary = selectedCategories[0];
-    const subs = selectedCategories.slice(1).join(",");
-    // sido/sigungu 단일 컬럼은 첫 선택값을 보존(기존 검색/목록 호환)
     const firstSido = serviceArea.nationwide
       ? null
       : Object.keys(serviceArea.bySido)[0] ?? null;
@@ -375,30 +401,25 @@ export default function PartnerVendorProfile() {
         ? serviceArea.bySido[firstSido][0]
         : null;
 
+    // [Task #661] 잠금 항목(name/businessRegNumber/representativeName/category/subCategories)
+    //   은 PATCH 본문에 포함하지 않는다. 서버가 추가로 차단하지만 클라이언트에서도
+    //   명시적으로 분리해 의도가 드러나도록 한다.
     updateMutation.mutate({
-      name: form.name,
-      category: primary,
+      intro: form.intro.trim().slice(0, INTRO_MAX) || null,
       contactName: form.contactName || null,
       phone: form.phone || null,
       email: form.email || null,
       address: form.address || null,
       notes: form.notes || null,
-      businessRegNumber: form.businessRegNumber || null,
-      representativeName: form.representativeName || null,
       serviceArea: serializeServiceArea(serviceArea),
-      subCategories: subs || null,
       sido: firstSido,
       sigungu: firstSigungu,
       profileImageUrl: profileImageUrl,
     });
   }
 
-  // 프로필 이미지 표시용 URL — 저장된 objectPath 는 private 라우트로 인증 fetch.
-  //   /storage/objects/{path} 형태로 변환해 AuthImage 가 토큰 헤더로 가져오게 한다.
-  const photoSrc = profileImageUrl
-    ? `${API_BASE}/storage/objects/${profileImageUrl.replace(/^\/objects\//, "")}`
-    : null;
-  const initials = (form.name || "업").slice(0, 2);
+  const activeRequest = changeRequestQuery.data ?? null;
+  const hasPendingRequest = activeRequest?.status === "pending";
 
   return (
     <div className="space-y-6" data-testid="page-partner-vendor-profile">
@@ -412,29 +433,50 @@ export default function PartnerVendorProfile() {
         </div>
       </div>
 
+      {/* 결과 안내(가장 최근 신청이 결정된 상태일 때 결과를 알려준다) */}
+      {activeRequest && activeRequest.status !== "pending" && (
+        <div
+          className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${
+            activeRequest.status === "approved"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}
+          data-testid="vendor-change-request-result"
+        >
+          {activeRequest.status === "approved" ? (
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+          ) : (
+            <XCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          )}
+          <div className="flex-1">
+            <p className="font-medium">
+              {activeRequest.status === "approved"
+                ? "최근 사업자정보 변경 신청이 승인되었습니다."
+                : "최근 사업자정보 변경 신청이 반려되었습니다."}
+            </p>
+            {activeRequest.decisionReason && (
+              <p className="mt-1 text-xs opacity-80">사유: {activeRequest.decisionReason}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ───────── 편집 가능 영역 ───────── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">기본 정보</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* 프로필 사진 */}
+            {/* 프로필 사진 + 한줄 소개 */}
             <div className="flex items-start gap-4">
               <div className="relative">
-                <div
-                  className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-lg"
-                  data-testid="vendor-photo-preview"
-                >
-                  {photoSrc ? (
-                    <AuthImage
-                      src={photoSrc}
-                      alt="프로필 사진"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
-                </div>
+                <VendorAvatar
+                  profileImageUrl={profileImageUrl}
+                  alt={lockedView.name || "프로필"}
+                  size="xl"
+                  testId="vendor-photo-preview"
+                />
                 {photoUploading && (
                   <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center">
                     <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -453,9 +495,9 @@ export default function PartnerVendorProfile() {
                     data-testid="button-vendor-photo-upload"
                   >
                     <Camera className="w-4 h-4 mr-1.5" />
-                    {photoSrc ? "사진 변경" : "사진 첨부"}
+                    {profileImageUrl ? "사진 변경" : "사진 첨부"}
                   </Button>
-                  {photoSrc && (
+                  {profileImageUrl && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -484,68 +526,23 @@ export default function PartnerVendorProfile() {
             </div>
 
             <div>
-              <Label>상호 (업체명)</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                data-testid="input-vendor-name"
-              />
-            </div>
-
-            {/* 분야 — 다중 체크 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>분야 (복수 선택)</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="vendor-intro">한줄 소개</Label>
                 <span className="text-[11px] text-muted-foreground">
-                  선택됨 {selectedCategories.length}개
-                  {selectedCategories.length > 0 && " · 첫 항목이 대표 분야"}
+                  {form.intro.length}/{INTRO_MAX}
                 </span>
               </div>
-              <div
-                className="grid grid-cols-2 sm:grid-cols-3 gap-2"
-                data-testid="vendor-category-grid"
-              >
-                {categoryOptions.map((c) => {
-                  const active = selectedCategories.includes(c.value);
-                  const isPrimary = active && selectedCategories[0] === c.value;
-                  return (
-                    <button
-                      key={c.value}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={active}
-                      onClick={() => toggleCategory(c.value)}
-                      data-testid={`vendor-category-${c.value}`}
-                      className={`relative px-3 py-2 rounded-lg border text-sm transition-colors text-left ${
-                        active
-                          ? "border-teal-400 bg-teal-50 text-teal-700 font-medium"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className={`inline-block w-3.5 h-3.5 rounded border ${
-                            active
-                              ? "bg-teal-500 border-teal-500"
-                              : "bg-white border-slate-300"
-                          } shrink-0`}
-                          aria-hidden
-                        />
-                        {c.label}
-                      </span>
-                      {isPrimary && (
-                        <Badge
-                          variant="secondary"
-                          className="absolute -top-1.5 -right-1 text-[9px] h-4 px-1 bg-teal-100 text-teal-700"
-                        >
-                          대표
-                        </Badge>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              <Input
+                id="vendor-intro"
+                value={form.intro}
+                maxLength={INTRO_MAX}
+                onChange={(e) => setForm({ ...form, intro: e.target.value.slice(0, INTRO_MAX) })}
+                placeholder="예) 강남권 응급 출동 30분 내 대응"
+                data-testid="input-vendor-intro"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                발주처 매칭 화면에 노출되는 1줄 소개 문구입니다.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -554,6 +551,7 @@ export default function PartnerVendorProfile() {
                 <Input
                   value={form.contactName}
                   onChange={(e) => setForm({ ...form, contactName: e.target.value })}
+                  data-testid="input-vendor-contact-name"
                 />
               </div>
               <div>
@@ -562,6 +560,7 @@ export default function PartnerVendorProfile() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="010-0000-0000"
+                  data-testid="input-vendor-phone"
                 />
               </div>
             </div>
@@ -574,6 +573,7 @@ export default function PartnerVendorProfile() {
                   inputMode="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  data-testid="input-vendor-email"
                 />
               </div>
               <div>
@@ -581,6 +581,7 @@ export default function PartnerVendorProfile() {
                 <Input
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  data-testid="input-vendor-address"
                 />
               </div>
             </div>
@@ -596,7 +597,6 @@ export default function PartnerVendorProfile() {
                   {summarizeServiceArea(serviceArea)}
                 </span>
               </div>
-              {/* 전국 토글 */}
               <button
                 type="button"
                 role="checkbox"
@@ -620,7 +620,6 @@ export default function PartnerVendorProfile() {
                 전국 서비스 가능
               </button>
 
-              {/* 시/도 + 시/군/구 트리 (전국이면 비활성화) */}
               <div
                 className={`space-y-1 ${serviceArea.nationwide ? "opacity-40 pointer-events-none" : ""}`}
                 aria-disabled={serviceArea.nationwide}
@@ -722,31 +721,12 @@ export default function PartnerVendorProfile() {
               </div>
             </div>
 
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-muted-foreground mb-3">사업자 정보</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>사업자등록번호</Label>
-                  <BusinessNumberInput
-                    value={form.businessRegNumber}
-                    onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>대표자명</Label>
-                  <Input
-                    value={form.representativeName}
-                    onChange={(e) => setForm({ ...form, representativeName: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-
             <div>
               <Label>비고</Label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                data-testid="input-vendor-notes"
               />
             </div>
 
@@ -762,6 +742,433 @@ export default function PartnerVendorProfile() {
           </form>
         </CardContent>
       </Card>
+
+      {/* ───────── 잠금 영역: 사업자 정보 ───────── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Lock className="w-4 h-4 text-slate-500" />
+            사업자 정보
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 mb-3 flex items-start gap-2">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>
+              이 항목은 본사 검토 후 변경됩니다. 변경이 필요하면 아래 "변경 신청" 버튼을 눌러
+              새 사업자등록증과 함께 신청해 주세요.
+            </span>
+          </div>
+
+          <dl className="space-y-3 text-sm" data-testid="vendor-locked-section">
+            <LockedRow label="상호 (업체명)" value={lockedView.name} />
+            <LockedRow label="사업자등록번호" value={lockedView.businessRegNumber} />
+            <LockedRow label="대표자명" value={lockedView.representativeName} />
+            <div>
+              <dt className="text-xs text-muted-foreground mb-1">분야</dt>
+              <dd>
+                {lockedView.categories.length === 0 ? (
+                  <span className="text-slate-400">미입력</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {lockedView.categories.map((c, i) => (
+                      <Badge
+                        key={c}
+                        variant={i === 0 ? "default" : "secondary"}
+                        className={i === 0 ? "bg-teal-600" : ""}
+                      >
+                        {categoryLabel(c)}
+                        {i === 0 && <span className="ml-1 text-[9px]">대표</span>}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </dd>
+            </div>
+          </dl>
+
+          <div className="mt-4 flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setChangeRequestOpen(true)}
+              disabled={hasPendingRequest}
+              data-testid="button-open-change-request"
+            >
+              {hasPendingRequest ? (
+                <>
+                  <Clock className="w-4 h-4 mr-1.5" />
+                  검토 중인 변경 신청
+                </>
+              ) : (
+                "변경 신청"
+              )}
+            </Button>
+            {hasPendingRequest && activeRequest && (
+              <span className="text-xs text-muted-foreground">
+                {new Date(activeRequest.createdAt).toLocaleString("ko-KR")} 접수 · 본사 검토 대기 중
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <VendorChangeRequestSheet
+        open={changeRequestOpen}
+        onOpenChange={setChangeRequestOpen}
+        token={token}
+        currentValues={lockedView}
+        onSubmitted={() => {
+          setChangeRequestOpen(false);
+          queryClient.invalidateQueries({ queryKey: ME_VENDOR_CHANGE_REQ_KEY });
+          toast({ title: "변경 신청을 접수했습니다", description: "본사 검토 후 알림으로 안내드립니다." });
+        }}
+      />
     </div>
+  );
+}
+
+// 잠금 정보 표시용 row.
+function LockedRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground mb-0.5">{label}</dt>
+      <dd className="text-slate-800">
+        {value ? value : <span className="text-slate-400">미입력</span>}
+      </dd>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 변경 신청 시트
+// ═════════════════════════════════════════════════════════════════════════════
+
+interface ChangeRequestSheetProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  token: string | null | undefined;
+  currentValues: {
+    name: string;
+    businessRegNumber: string;
+    representativeName: string;
+    categories: string[];
+  };
+  onSubmitted: () => void;
+}
+
+function VendorChangeRequestSheet({
+  open,
+  onOpenChange,
+  token,
+  currentValues,
+  onSubmitted,
+}: ChangeRequestSheetProps) {
+  const [name, setName] = useState(currentValues.name);
+  const [businessRegNumber, setBusinessRegNumber] = useState(currentValues.businessRegNumber);
+  const [representativeName, setRepresentativeName] = useState(currentValues.representativeName);
+  const [categories, setCategories] = useState<string[]>(currentValues.categories);
+  const [reason, setReason] = useState("");
+  const [bizCertUrl, setBizCertUrl] = useState<string | null>(null);
+  const [bizCertName, setBizCertName] = useState<string | null>(null);
+  const [bizCertSize, setBizCertSize] = useState<number | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // 시트가 열릴 때 currentValues 로 폼을 초기화하고, 닫힐 때 첨부/사유 초기화.
+  useEffect(() => {
+    if (open) {
+      setName(currentValues.name);
+      setBusinessRegNumber(currentValues.businessRegNumber);
+      setRepresentativeName(currentValues.representativeName);
+      setCategories(currentValues.categories);
+      setReason("");
+      setBizCertUrl(null);
+      setBizCertName(null);
+      setBizCertSize(null);
+      setUploadError("");
+      setSubmitError("");
+    }
+  }, [open, currentValues]);
+
+  function toggleCategory(code: string) {
+    setCategories((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
+    );
+  }
+
+  async function handleUpload(file: File) {
+    setUploadError("");
+    if (!/^image\/|application\/pdf$/.test(file.type) && !/\.(pdf|jpg|jpeg|png|webp|heic)$/i.test(file.name)) {
+      setUploadError("이미지(JPG/PNG/WebP) 또는 PDF 파일만 업로드 가능합니다");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setUploadError("파일 크기는 20MB 이하여야 합니다");
+      return;
+    }
+    setUploading(true);
+    try {
+      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
+      const { uploadURL, objectPath } = await signRes.json();
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("파일 업로드 실패");
+      await fetch(`${API_BASE}/storage/uploads/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ objectPath }),
+      });
+      setBizCertUrl(objectPath);
+      setBizCertName(file.name);
+      setBizCertSize(file.size);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // 사용자가 입력한 값과 현재값을 비교해 변경된 항목만 신청 본문에 담는다.
+  function buildFields(): Array<{ field: string; after: string }> {
+    const out: Array<{ field: string; after: string }> = [];
+    if (name.trim() && name.trim() !== currentValues.name) {
+      out.push({ field: "name", after: name.trim() });
+    }
+    if (businessRegNumber.trim() && businessRegNumber.trim() !== currentValues.businessRegNumber) {
+      out.push({ field: "businessRegNumber", after: businessRegNumber.trim() });
+    }
+    if (representativeName.trim() && representativeName.trim() !== currentValues.representativeName) {
+      out.push({ field: "representativeName", after: representativeName.trim() });
+    }
+    const before = currentValues.categories.join(",");
+    const after = categories.join(",");
+    if (after && after !== before) {
+      out.push({ field: "category", after });
+    }
+    return out;
+  }
+
+  async function handleSubmit() {
+    setSubmitError("");
+    const fields = buildFields();
+    if (fields.length === 0) {
+      setSubmitError("변경된 항목이 없습니다");
+      return;
+    }
+    if (!bizCertUrl) {
+      setSubmitError("새 사업자등록증을 첨부해 주세요");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/me/vendor/change-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          fields,
+          bizCertUrl,
+          reason: reason.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.error || `신청 실패 (${res.status})`);
+      }
+      onSubmitted();
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "신청 중 오류가 발생했습니다");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>사업자정보 변경 신청</SheetTitle>
+          <SheetDescription>
+            변경할 항목만 수정한 뒤 새 사업자등록증을 첨부해 주세요. 본사 검토 후 반영됩니다.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-5 mt-4 pb-4" data-testid="change-request-form">
+          <div>
+            <Label>{LOCKED_FIELD_LABEL.name}</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              data-testid="change-request-name"
+            />
+          </div>
+          <div>
+            <Label>{LOCKED_FIELD_LABEL.businessRegNumber}</Label>
+            <BusinessNumberInput
+              value={businessRegNumber}
+              onChange={(e) => setBusinessRegNumber(e.target.value)}
+              data-testid="change-request-bizreg"
+            />
+          </div>
+          <div>
+            <Label>{LOCKED_FIELD_LABEL.representativeName}</Label>
+            <Input
+              value={representativeName}
+              onChange={(e) => setRepresentativeName(e.target.value)}
+              data-testid="change-request-representative"
+            />
+          </div>
+
+          <div>
+            <Label>{LOCKED_FIELD_LABEL.category} (복수 선택)</Label>
+            <p className="text-[11px] text-muted-foreground mb-1.5">
+              첫 번째로 선택한 분야가 대표 분야가 됩니다.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="change-request-categories">
+              {categoryOptions.map((c) => {
+                const active = categories.includes(c.value);
+                const isPrimary = active && categories[0] === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={active}
+                    onClick={() => toggleCategory(c.value)}
+                    data-testid={`change-request-category-${c.value}`}
+                    className={`relative px-3 py-2 rounded-lg border text-sm text-left ${
+                      active
+                        ? "border-teal-400 bg-teal-50 text-teal-700 font-medium"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-block w-3.5 h-3.5 rounded border ${
+                          active ? "bg-teal-500 border-teal-500" : "bg-white border-slate-300"
+                        } shrink-0`}
+                        aria-hidden
+                      />
+                      {c.label}
+                    </span>
+                    {isPrimary && (
+                      <Badge
+                        variant="secondary"
+                        className="absolute -top-1.5 -right-1 text-[9px] h-4 px-1 bg-teal-100 text-teal-700"
+                      >
+                        대표
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <Label>새 사업자등록증 (필수)</Label>
+            {uploadError && (
+              <div className="rounded-lg bg-red-50 text-red-700 p-2 text-xs my-1.5" role="alert">
+                {uploadError}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              disabled={uploading}
+              className="mt-1 w-full block border-2 border-dashed border-slate-300 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 transition-colors disabled:cursor-default"
+              data-testid="change-request-bizcert-button"
+            >
+              {uploading ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  업로드 중...
+                </div>
+              ) : bizCertUrl ? (
+                <div className="flex flex-col items-center gap-1 text-sm text-emerald-700">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="font-medium">{bizCertName}</span>
+                  {bizCertSize != null && (
+                    <span className="text-[11px] text-slate-500">
+                      {(bizCertSize / 1024).toFixed(1)} KB · 다른 파일로 교체하려면 클릭
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500">
+                  <Upload className="w-5 h-5 mx-auto mb-1 text-slate-400" />
+                  사업자등록증 첨부 (PDF · JPG · PNG · WebP, 최대 20MB)
+                </div>
+              )}
+            </button>
+            <AttachmentPickerSheet
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
+              title="새 사업자등록증"
+              description="JPG · PNG · WebP · PDF, 최대 20MB"
+              onPick={handleUpload}
+              fileOption={{
+                accept: "application/pdf",
+                label: "파일에서 선택",
+                description: "PDF 사업자등록증",
+              }}
+              testId="change-request-bizcert-picker"
+            />
+          </div>
+
+          <div>
+            <Label>변경 사유 (선택)</Label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={1000}
+              placeholder="예) 상호 변경 및 대표자 교체 (등기일 2026-04-01)"
+              data-testid="change-request-reason"
+            />
+          </div>
+
+          {submitError && (
+            <div className="rounded-lg bg-red-50 text-red-700 p-2 text-xs" role="alert">
+              {submitError}
+            </div>
+          )}
+        </div>
+
+        <SheetFooter className="flex-row gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => onOpenChange(false)}
+          >
+            취소
+          </Button>
+          <Button
+            type="button"
+            className="flex-1"
+            onClick={handleSubmit}
+            disabled={submitting}
+            data-testid="change-request-submit"
+          >
+            {submitting ? "신청 중..." : "신청"}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

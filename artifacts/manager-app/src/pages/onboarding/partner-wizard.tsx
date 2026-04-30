@@ -6,10 +6,11 @@
 //   4) 파트너 약관 동의 + 최종 검토 → 등록 완료
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { CheckCircle2, Loader2, Upload, FileText } from "lucide-react";
+import { CheckCircle2, Loader2, Upload, FileText, Camera, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { WizardShell } from "@/components/wizard/wizard-shell";
 import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
+import { VendorAvatar } from "@/components/vendor-avatar";
 import {
   ConsentSection,
   buildDecisions,
@@ -20,7 +21,10 @@ import { formatBusinessNumber, formatPhoneNumberPartial } from "@/lib/format-kor
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
-const STORAGE_KEY = "partnerWizard:draft:v1";
+// [Task #661] 위저드에 intro/profileImageUrl 필드를 추가하면서 임시저장 키를 v2 로 올린다.
+//   v1 의 draft 는 자동 무시되어 새 가입자만 영향을 받는다.
+const STORAGE_KEY = "partnerWizard:draft:v2";
+const INTRO_MAX = 30;
 
 interface Category {
   id: number;
@@ -39,6 +43,9 @@ interface DraftState {
   bizCertUrl: string | null;
   bizCertName: string | null;
   bizCertSize: number | null;
+  // [Task #661] 위저드에서 받는 추가(선택) 필드.
+  intro: string;
+  profileImageUrl: string | null;
 }
 
 const TOTAL_STEPS = 4;
@@ -93,6 +100,13 @@ export default function PartnerWizardPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  // [Task #661] 1줄 소개글(선택, 30자 클램프) + 프로필 사진(선택). Step 3 에 배치.
+  const [intro, setIntro] = useState((initial.intro ?? "").slice(0, INTRO_MAX));
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(initial.profileImageUrl ?? null);
+  const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+  const [profileUploading, setProfileUploading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
   const [consentDocs, setConsentDocs] = useState<ConsentDocument[]>([]);
   const [consentValue, setConsentValue] = useState<Record<string, boolean>>({});
 
@@ -135,6 +149,8 @@ export default function PartnerWizardPage() {
       bizCertUrl,
       bizCertName,
       bizCertSize,
+      intro,
+      profileImageUrl,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
@@ -151,6 +167,8 @@ export default function PartnerWizardPage() {
     bizCertUrl,
     bizCertName,
     bizCertSize,
+    intro,
+    profileImageUrl,
   ]);
 
   // Step 1 검증 ──
@@ -192,6 +210,50 @@ export default function PartnerWizardPage() {
       else n.add(code);
       return n;
     });
+  }
+
+  // [Task #661] 프로필 사진 업로드. 같은 storage 절차를 사용하지만
+  //   이미지 전용·10MB 제한으로 빠르게 검증한다.
+  async function handleProfileUpload(file: File) {
+    setProfileError("");
+    if (!/^image\//.test(file.type)) {
+      setProfileError("이미지(JPG/PNG/WebP) 파일만 업로드할 수 있습니다");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setProfileError("이미지 크기는 10MB 이하여야 합니다");
+      return;
+    }
+    setProfileUploading(true);
+    try {
+      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
+      const { uploadURL, objectPath } = await signRes.json();
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("이미지 업로드 실패");
+      await fetch(`${API_BASE}/storage/uploads/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ objectPath }),
+      });
+      setProfileImageUrl(objectPath);
+    } catch (e) {
+      setProfileError(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
+    } finally {
+      setProfileUploading(false);
+    }
   }
 
   async function handleUpload(file: File) {
@@ -283,6 +345,9 @@ export default function PartnerWizardPage() {
         email: contactEmail.trim(),
         businessRegUrl: bizCertUrl,
         categories: Array.from(selectedCategories),
+        // [Task #661] 선택값. 비어 있으면 서버에서 null 처리.
+        intro: intro.trim().slice(0, INTRO_MAX) || null,
+        profileImageUrl: profileImageUrl,
       };
       const res = await fetch(`${API_BASE}/vendors/onboarding`, {
         method: "POST",
@@ -457,23 +522,94 @@ export default function PartnerWizardPage() {
     );
   }
 
-  // ───────── Step 3: 사업자등록증 업로드 ─────────
+  // ───────── Step 3: 프로필 + 사업자등록증 업로드 ─────────
+  //   [Task #661] 프로필 사진/소개글(선택) 입력을 같은 단계에 배치.
+  //   사업자등록증 업로드만 next 진행 조건(step3Valid).
   if (step === 3) {
     return (
       <WizardShell
-        title="사업자등록증 업로드"
-        subtitle="견적 매칭 시 발주처에 제공되는 증빙 서류입니다."
+        title="프로필 · 사업자등록증"
+        subtitle="프로필은 발주처 매칭 화면에 노출됩니다. 사업자등록증은 본사 검토용 필수 항목입니다."
         currentStep={3}
         totalSteps={TOTAL_STEPS}
         onPrev={() => setStep(2)}
         onNext={() => setStep(4)}
         nextDisabled={!step3Valid}
       >
+        {/* 프로필 영역 — 선택 입력. 우리 측 발주 매칭 화면에 미리 보여줄 정보. */}
+        <section className="mb-5 rounded-xl border border-slate-200 bg-white p-3">
+          <div className="flex items-start gap-3">
+            <VendorAvatar
+              profileImageUrl={profileImageUrl}
+              alt={companyName || "프로필"}
+              size="lg"
+              testId="partner-wizard-avatar"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-700">프로필 사진 (선택)</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">JPG · PNG · WebP, 10MB 이하</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProfilePickerOpen(true)}
+                  disabled={profileUploading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  data-testid="partner-wizard-photo-button"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {profileUploading ? "업로드 중..." : profileImageUrl ? "사진 변경" : "사진 첨부"}
+                </button>
+                {profileImageUrl && !profileUploading && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileImageUrl(null)}
+                    className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700"
+                    data-testid="partner-wizard-photo-remove"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    삭제
+                  </button>
+                )}
+              </div>
+              {profileError && (
+                <p className="mt-1 text-[11px] text-red-600">{profileError}</p>
+              )}
+            </div>
+          </div>
+          <div className="mt-3">
+            <label htmlFor="partner-wizard-intro" className="text-sm font-medium text-slate-700">
+              한줄 소개 <span className="text-[11px] text-slate-400">(선택, 최대 {INTRO_MAX}자)</span>
+            </label>
+            <input
+              id="partner-wizard-intro"
+              type="text"
+              maxLength={INTRO_MAX}
+              value={intro}
+              onChange={(e) => setIntro(e.target.value.slice(0, INTRO_MAX))}
+              placeholder="예) 강남권 응급 출동 30분 내 대응"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="partner-wizard-intro"
+            />
+            <p className="mt-1 text-[11px] text-slate-400 text-right">
+              {intro.length}/{INTRO_MAX}
+            </p>
+          </div>
+          <AttachmentPickerSheet
+            open={profilePickerOpen}
+            onOpenChange={setProfilePickerOpen}
+            title="프로필 사진"
+            description="JPG · PNG · WebP · 10MB 이하"
+            onPick={handleProfileUpload}
+            testId="partner-wizard-photo-picker"
+          />
+        </section>
+
         {uploadError && (
           <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3" role="alert">
             {uploadError}
           </div>
         )}
+        <p className="mb-2 text-sm font-medium text-slate-700">사업자등록증 <span className="text-red-500">*</span></p>
         <button
           type="button"
           onClick={() => setBizCertPickerOpen(true)}
@@ -548,6 +684,21 @@ export default function PartnerWizardPage() {
 
       {/* 최종 검토 요약 */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-4 text-xs space-y-1.5">
+        {/* [Task #661] 프로필 사진 + 한줄 소개 — 모두 선택값. */}
+        <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+          <VendorAvatar
+            profileImageUrl={profileImageUrl}
+            alt={companyName || "프로필"}
+            size="md"
+            testId="partner-wizard-summary-avatar"
+          />
+          <div className="min-w-0">
+            <p className="font-medium text-slate-700 truncate">{companyName || "—"}</p>
+            <p className="text-slate-500 truncate">
+              {intro.trim() || <span className="text-slate-400">한줄 소개 미입력</span>}
+            </p>
+          </div>
+        </div>
         <SummaryRow label="사업자명" value={companyName} />
         <SummaryRow label="사업자등록번호" value={businessNumber} />
         <SummaryRow label="대표자명" value={representativeName} />

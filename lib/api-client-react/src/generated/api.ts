@@ -34,6 +34,7 @@ import type {
   ApprovalStepItem,
   ApproveMatchingBody,
   ApproveMatchingResponse,
+  ApproveVendorChangeRequest200,
   AttendanceRecord,
   AttendanceStats,
   AutoSettleCommissionBody,
@@ -87,6 +88,7 @@ import type {
   CreateInspectionBody,
   CreateMaintenanceLogBody,
   CreateMeterReadingBody,
+  CreateMyVendorChangeRequest201,
   CreateOwnerBody,
   CreatePlatformAnnouncementBody,
   CreatePlatformKnowledgeDocBody,
@@ -110,6 +112,7 @@ import type {
   CreateUnitBody,
   CreateVehicleBody,
   CreateVendorBody,
+  CreateVendorChangeRequestBody,
   CreateVendorReviewBody,
   CreateVoteBody,
   CreateWorkReportBody,
@@ -178,6 +181,7 @@ import type {
   GetCreditWalletParams,
   GetExecutiveSpendingParams,
   GetManagementContractTemplateParams,
+  GetMyActiveVendorChangeRequest200,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
   GetResponsibleStaffParams,
@@ -233,6 +237,8 @@ import type {
   ListTenantsParams,
   ListUnitsParams,
   ListVehiclesParams,
+  ListVendorChangeRequests200,
+  ListVendorChangeRequestsParams,
   ListVendorReviewsParams,
   ListVendorsParams,
   ListWeeklySummaryReportsParams,
@@ -255,6 +261,7 @@ import type {
   NoticeLayoutSettings,
   NoticeOutput,
   Notification,
+  OnboardPartnerVendor200,
   Owner,
   OwnerLookupResponse,
   PatchSafetyChecklistCategoryBody,
@@ -279,6 +286,7 @@ import type {
   RegisterNoticeOutputBody,
   RegisterPlatformVendorBody,
   RejectApprovalBody,
+  RejectVendorChangeRequest200,
   RenameAiSessionBody,
   ResetSafetyChecklistUserTemplate200,
   ResponsibleStaffResponse,
@@ -320,6 +328,7 @@ import type {
   UpdateInspectionBody,
   UpdateMaintenanceLogBody,
   UpdateMeterReadingBody,
+  UpdateMyVendorBody,
   UpdateOwnerBody,
   UpdatePlatformAnnouncementBody,
   UpdatePlatformKnowledgeDocBody,
@@ -360,6 +369,8 @@ import type {
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
+  VendorChangeRequestDecisionBody,
+  VendorOnboardingBody,
   VendorReview,
   VendorReviewWithContext,
   VerifyTenantBody,
@@ -3679,6 +3690,713 @@ export const useRegisterPlatformVendor = <
   TContext
 > => {
   return useMutation(getRegisterPlatformVendorMutationOptions(options));
+};
+
+/**
+ * @summary Partner onboarding wizard - create or update self vendor
+ */
+export const getOnboardPartnerVendorUrl = () => {
+  return `/api/vendors/onboarding`;
+};
+
+export const onboardPartnerVendor = async (
+  vendorOnboardingBody: VendorOnboardingBody,
+  options?: RequestInit,
+): Promise<OnboardPartnerVendor200> => {
+  return customFetch<OnboardPartnerVendor200>(getOnboardPartnerVendorUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vendorOnboardingBody),
+  });
+};
+
+export const getOnboardPartnerVendorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof onboardPartnerVendor>>,
+    TError,
+    { data: BodyType<VendorOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof onboardPartnerVendor>>,
+  TError,
+  { data: BodyType<VendorOnboardingBody> },
+  TContext
+> => {
+  const mutationKey = ["onboardPartnerVendor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof onboardPartnerVendor>>,
+    { data: BodyType<VendorOnboardingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return onboardPartnerVendor(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type OnboardPartnerVendorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof onboardPartnerVendor>>
+>;
+export type OnboardPartnerVendorMutationBody = BodyType<VendorOnboardingBody>;
+export type OnboardPartnerVendorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Partner onboarding wizard - create or update self vendor
+ */
+export const useOnboardPartnerVendor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof onboardPartnerVendor>>,
+    TError,
+    { data: BodyType<VendorOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof onboardPartnerVendor>>,
+  TError,
+  { data: BodyType<VendorOnboardingBody> },
+  TContext
+> => {
+  return useMutation(getOnboardPartnerVendorMutationOptions(options));
+};
+
+/**
+ * @summary Get the vendor profile of the currently authenticated partner
+ */
+export const getGetMyVendorUrl = () => {
+  return `/api/me/vendor`;
+};
+
+export const getMyVendor = async (options?: RequestInit): Promise<Vendor> => {
+  return customFetch<Vendor>(getGetMyVendorUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyVendorQueryKey = () => {
+  return [`/api/me/vendor`] as const;
+};
+
+export const getGetMyVendorQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyVendor>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMyVendor>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyVendorQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyVendor>>> = ({
+    signal,
+  }) => getMyVendor({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyVendor>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyVendorQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyVendor>>
+>;
+export type GetMyVendorQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the vendor profile of the currently authenticated partner
+ */
+
+export function useGetMyVendor<
+  TData = Awaited<ReturnType<typeof getMyVendor>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMyVendor>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyVendorQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Locked fields (name, businessRegNumber, representativeName, category,
+subCategories) are stripped server-side and must be changed via
+/me/vendor/change-requests.
+
+ * @summary Update the editable fields of the partner's own vendor
+ */
+export const getUpdateMyVendorUrl = () => {
+  return `/api/me/vendor`;
+};
+
+export const updateMyVendor = async (
+  updateMyVendorBody: UpdateMyVendorBody,
+  options?: RequestInit,
+): Promise<Vendor> => {
+  return customFetch<Vendor>(getUpdateMyVendorUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMyVendorBody),
+  });
+};
+
+export const getUpdateMyVendorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyVendor>>,
+    TError,
+    { data: BodyType<UpdateMyVendorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyVendor>>,
+  TError,
+  { data: BodyType<UpdateMyVendorBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyVendor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyVendor>>,
+    { data: BodyType<UpdateMyVendorBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyVendor(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyVendorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyVendor>>
+>;
+export type UpdateMyVendorMutationBody = BodyType<UpdateMyVendorBody>;
+export type UpdateMyVendorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the editable fields of the partner's own vendor
+ */
+export const useUpdateMyVendor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyVendor>>,
+    TError,
+    { data: BodyType<UpdateMyVendorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyVendor>>,
+  TError,
+  { data: BodyType<UpdateMyVendorBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyVendorMutationOptions(options));
+};
+
+/**
+ * @summary Submit a business-info change request for the partner's vendor
+ */
+export const getCreateMyVendorChangeRequestUrl = () => {
+  return `/api/me/vendor/change-requests`;
+};
+
+export const createMyVendorChangeRequest = async (
+  createVendorChangeRequestBody: CreateVendorChangeRequestBody,
+  options?: RequestInit,
+): Promise<CreateMyVendorChangeRequest201> => {
+  return customFetch<CreateMyVendorChangeRequest201>(
+    getCreateMyVendorChangeRequestUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createVendorChangeRequestBody),
+    },
+  );
+};
+
+export const getCreateMyVendorChangeRequestMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyVendorChangeRequest>>,
+    TError,
+    { data: BodyType<CreateVendorChangeRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMyVendorChangeRequest>>,
+  TError,
+  { data: BodyType<CreateVendorChangeRequestBody> },
+  TContext
+> => {
+  const mutationKey = ["createMyVendorChangeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMyVendorChangeRequest>>,
+    { data: BodyType<CreateVendorChangeRequestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMyVendorChangeRequest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMyVendorChangeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMyVendorChangeRequest>>
+>;
+export type CreateMyVendorChangeRequestMutationBody =
+  BodyType<CreateVendorChangeRequestBody>;
+export type CreateMyVendorChangeRequestMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit a business-info change request for the partner's vendor
+ */
+export const useCreateMyVendorChangeRequest = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMyVendorChangeRequest>>,
+    TError,
+    { data: BodyType<CreateVendorChangeRequestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMyVendorChangeRequest>>,
+  TError,
+  { data: BodyType<CreateVendorChangeRequestBody> },
+  TContext
+> => {
+  return useMutation(getCreateMyVendorChangeRequestMutationOptions(options));
+};
+
+/**
+ * @summary Latest change request (any status) for the partner's vendor
+ */
+export const getGetMyActiveVendorChangeRequestUrl = () => {
+  return `/api/me/vendor/change-requests/active`;
+};
+
+export const getMyActiveVendorChangeRequest = async (
+  options?: RequestInit,
+): Promise<GetMyActiveVendorChangeRequest200> => {
+  return customFetch<GetMyActiveVendorChangeRequest200>(
+    getGetMyActiveVendorChangeRequestUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMyActiveVendorChangeRequestQueryKey = () => {
+  return [`/api/me/vendor/change-requests/active`] as const;
+};
+
+export const getGetMyActiveVendorChangeRequestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyActiveVendorChangeRequestQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>
+  > = ({ signal }) =>
+    getMyActiveVendorChangeRequest({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyActiveVendorChangeRequestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>
+>;
+export type GetMyActiveVendorChangeRequestQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Latest change request (any status) for the partner's vendor
+ */
+
+export function useGetMyActiveVendorChangeRequest<
+  TData = Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMyActiveVendorChangeRequest>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyActiveVendorChangeRequestQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary HQ admin queue of vendor change requests
+ */
+export const getListVendorChangeRequestsUrl = (
+  params?: ListVendorChangeRequestsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/vendor-change-requests?${stringifiedParams}`
+    : `/api/admin/vendor-change-requests`;
+};
+
+export const listVendorChangeRequests = async (
+  params?: ListVendorChangeRequestsParams,
+  options?: RequestInit,
+): Promise<ListVendorChangeRequests200> => {
+  return customFetch<ListVendorChangeRequests200>(
+    getListVendorChangeRequestsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListVendorChangeRequestsQueryKey = (
+  params?: ListVendorChangeRequestsParams,
+) => {
+  return [
+    `/api/admin/vendor-change-requests`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListVendorChangeRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVendorChangeRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListVendorChangeRequestsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listVendorChangeRequests>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListVendorChangeRequestsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listVendorChangeRequests>>
+  > = ({ signal }) =>
+    listVendorChangeRequests(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listVendorChangeRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListVendorChangeRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listVendorChangeRequests>>
+>;
+export type ListVendorChangeRequestsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary HQ admin queue of vendor change requests
+ */
+
+export function useListVendorChangeRequests<
+  TData = Awaited<ReturnType<typeof listVendorChangeRequests>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListVendorChangeRequestsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listVendorChangeRequests>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListVendorChangeRequestsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Approve a vendor change request
+ */
+export const getApproveVendorChangeRequestUrl = (id: number) => {
+  return `/api/admin/vendor-change-requests/${id}/approve`;
+};
+
+export const approveVendorChangeRequest = async (
+  id: number,
+  vendorChangeRequestDecisionBody?: VendorChangeRequestDecisionBody,
+  options?: RequestInit,
+): Promise<ApproveVendorChangeRequest200> => {
+  return customFetch<ApproveVendorChangeRequest200>(
+    getApproveVendorChangeRequestUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(vendorChangeRequestDecisionBody),
+    },
+  );
+};
+
+export const getApproveVendorChangeRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveVendorChangeRequest>>,
+    TError,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveVendorChangeRequest>>,
+  TError,
+  { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+  TContext
+> => {
+  const mutationKey = ["approveVendorChangeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveVendorChangeRequest>>,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return approveVendorChangeRequest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveVendorChangeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveVendorChangeRequest>>
+>;
+export type ApproveVendorChangeRequestMutationBody =
+  BodyType<VendorChangeRequestDecisionBody>;
+export type ApproveVendorChangeRequestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve a vendor change request
+ */
+export const useApproveVendorChangeRequest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveVendorChangeRequest>>,
+    TError,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveVendorChangeRequest>>,
+  TError,
+  { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+  TContext
+> => {
+  return useMutation(getApproveVendorChangeRequestMutationOptions(options));
+};
+
+/**
+ * @summary Reject a vendor change request (reason required)
+ */
+export const getRejectVendorChangeRequestUrl = (id: number) => {
+  return `/api/admin/vendor-change-requests/${id}/reject`;
+};
+
+export const rejectVendorChangeRequest = async (
+  id: number,
+  vendorChangeRequestDecisionBody: VendorChangeRequestDecisionBody,
+  options?: RequestInit,
+): Promise<RejectVendorChangeRequest200> => {
+  return customFetch<RejectVendorChangeRequest200>(
+    getRejectVendorChangeRequestUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(vendorChangeRequestDecisionBody),
+    },
+  );
+};
+
+export const getRejectVendorChangeRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectVendorChangeRequest>>,
+    TError,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectVendorChangeRequest>>,
+  TError,
+  { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+  TContext
+> => {
+  const mutationKey = ["rejectVendorChangeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectVendorChangeRequest>>,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rejectVendorChangeRequest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectVendorChangeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectVendorChangeRequest>>
+>;
+export type RejectVendorChangeRequestMutationBody =
+  BodyType<VendorChangeRequestDecisionBody>;
+export type RejectVendorChangeRequestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reject a vendor change request (reason required)
+ */
+export const useRejectVendorChangeRequest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectVendorChangeRequest>>,
+    TError,
+    { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectVendorChangeRequest>>,
+  TError,
+  { id: number; data: BodyType<VendorChangeRequestDecisionBody> },
+  TContext
+> => {
+  return useMutation(getRejectVendorChangeRequestMutationOptions(options));
 };
 
 /**
