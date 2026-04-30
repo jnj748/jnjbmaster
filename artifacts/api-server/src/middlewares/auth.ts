@@ -68,6 +68,12 @@ const FACILITY_PENDING_ALLOWLIST: Array<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/auth\/logout\/?$/ },
   { method: "GET", path: /^\/facility-signup-requests\/me\/?$/ },
   { method: "PATCH", path: /^\/facility-signup-requests\/me\/?$/ },
+  // [Task #651] 위저드 step2(담당자 확인)에서 호출. 가입 대기 중인 시설담당/경리도
+  // 본부장·관리소장 정보를 조회할 수 있어야 한다.
+  { method: "GET", path: /^\/buildings\/responsible-staff\/?$/ },
+  // [Task #651] accountant 위저드 step2 에서 "1건물 1경리" 사전 점검을 위해 호출.
+  // 가입 대기 중에도 사전 점검이 가능해야 신청 단계에서 즉시 차단할 수 있다.
+  { method: "GET", path: /^\/buildings\/check-manager\/?$/ },
   { method: "GET", path: /^\/platform\/consents(\/.*)?$/ },
   { method: "POST", path: /^\/platform\/consents(\/.*)?$/ },
 ];

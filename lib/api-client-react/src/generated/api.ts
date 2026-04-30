@@ -179,6 +179,7 @@ import type {
   GetManagementContractTemplateParams,
   GetMyAttendanceParams,
   GetRecommendedVendorsParams,
+  GetResponsibleStaffParams,
   GetSeasonalSuggestionsParams,
   GetUnit200,
   GetUnitsSummary200,
@@ -279,6 +280,7 @@ import type {
   RejectApprovalBody,
   RenameAiSessionBody,
   ResetSafetyChecklistUserTemplate200,
+  ResponsibleStaffResponse,
   ReviewReportBody,
   Rfq,
   RfqAdminStatsResponse,
@@ -10557,6 +10559,117 @@ export const useLookupOwners = <
 > => {
   return useMutation(getLookupOwnersMutationOptions(options));
 };
+
+/**
+ * 시설담당·경리 가입 위저드 step2 에서 사용. 입력한 주소(jibun) 또는
+buildingId 로 매칭되는 건물의 본부장(role=hq_executive)과
+관리소장(role=manager) 이름·존재 여부를 반환한다. 가입 대기 중인
+사용자도 호출할 수 있도록 approval gate 화이트리스트에 포함되어 있다.
+
+ * @summary 주소 또는 buildingId 로 본부장·관리소장 정보를 조회 (온보딩 위저드용)
+ */
+export const getGetResponsibleStaffUrl = (
+  params?: GetResponsibleStaffParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/buildings/responsible-staff?${stringifiedParams}`
+    : `/api/buildings/responsible-staff`;
+};
+
+export const getResponsibleStaff = async (
+  params?: GetResponsibleStaffParams,
+  options?: RequestInit,
+): Promise<ResponsibleStaffResponse> => {
+  return customFetch<ResponsibleStaffResponse>(
+    getGetResponsibleStaffUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetResponsibleStaffQueryKey = (
+  params?: GetResponsibleStaffParams,
+) => {
+  return [
+    `/api/buildings/responsible-staff`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetResponsibleStaffQueryOptions = <
+  TData = Awaited<ReturnType<typeof getResponsibleStaff>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetResponsibleStaffParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getResponsibleStaff>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetResponsibleStaffQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getResponsibleStaff>>
+  > = ({ signal }) =>
+    getResponsibleStaff(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getResponsibleStaff>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetResponsibleStaffQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getResponsibleStaff>>
+>;
+export type GetResponsibleStaffQueryError = ErrorType<void>;
+
+/**
+ * @summary 주소 또는 buildingId 로 본부장·관리소장 정보를 조회 (온보딩 위저드용)
+ */
+
+export function useGetResponsibleStaff<
+  TData = Awaited<ReturnType<typeof getResponsibleStaff>>,
+  TError = ErrorType<void>,
+>(
+  params?: GetResponsibleStaffParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getResponsibleStaff>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetResponsibleStaffQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List warranty period presets by construction trade

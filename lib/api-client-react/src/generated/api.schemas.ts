@@ -4330,6 +4330,37 @@ export interface OwnerLookupResponse {
   rows: OwnerLookupRow[];
 }
 
+/**
+ * @nullable
+ */
+export type ResponsibleStaffResponseBuilding = {
+  id: number;
+  name: string;
+  /** @nullable */
+  addressFull?: string | null;
+  /** @nullable */
+  addressJibun?: string | null;
+} | null;
+
+export type ResponsibleStaffResponseManager = {
+  exists: boolean;
+  /** @nullable */
+  name?: string | null;
+};
+
+export type ResponsibleStaffResponseHqExecutive = {
+  exists: boolean;
+  /** @nullable */
+  name?: string | null;
+};
+
+export interface ResponsibleStaffResponse {
+  /** @nullable */
+  building?: ResponsibleStaffResponseBuilding;
+  manager: ResponsibleStaffResponseManager;
+  hqExecutive: ResponsibleStaffResponseHqExecutive;
+}
+
 export type CreateUnitBodyStatus =
   (typeof CreateUnitBodyStatus)[keyof typeof CreateUnitBodyStatus];
 
@@ -6359,6 +6390,14 @@ export type LookupOwnersBodyTargetsItem = {
 
 export type LookupOwnersBody = {
   targets: LookupOwnersBodyTargetsItem[];
+};
+
+export type GetResponsibleStaffParams = {
+  /**
+   * 지번 주소(우선). buildingId 와 둘 중 하나는 필수.
+   */
+  addressJibun?: string;
+  buildingId?: number;
 };
 
 export type ListContractsParams = {

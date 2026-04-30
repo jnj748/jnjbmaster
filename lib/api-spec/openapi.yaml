@@ -2541,6 +2541,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/OwnerLookupResponse"
 
+  # ── [Task #651] 시설·경리 온보딩 위저드 step2 (담당자 확인) ───────────
+  /buildings/responsible-staff:
+    get:
+      operationId: getResponsibleStaff
+      tags: [buildings]
+      summary: 주소 또는 buildingId 로 본부장·관리소장 정보를 조회 (온보딩 위저드용)
+      description: |
+        시설담당·경리 가입 위저드 step2 에서 사용. 입력한 주소(jibun) 또는
+        buildingId 로 매칭되는 건물의 본부장(role=hq_executive)과
+        관리소장(role=manager) 이름·존재 여부를 반환한다. 가입 대기 중인
+        사용자도 호출할 수 있도록 approval gate 화이트리스트에 포함되어 있다.
+      parameters:
+        - name: addressJibun
+          in: query
+          required: false
+          schema: { type: string }
+          description: 지번 주소(우선). buildingId 와 둘 중 하나는 필수.
+        - name: buildingId
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: 담당자 조회 결과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsibleStaffResponse"
+        "400":
+          description: addressJibun 또는 buildingId 가 모두 비어 있음.
+
   # ── Warranty Management ──────────────────────────────────
   /warranties/presets:
     get:
@@ -12401,6 +12432,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OwnerLookupRow"
+
+    # [Task #651] /buildings/responsible-staff 응답.
+    ResponsibleStaffResponse:
+      type: object
+      required: [manager, hqExecutive]
+      properties:
+        building:
+          type: ["object", "null"]
+          required: [id, name]
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            addressFull: { type: ["string", "null"] }
+            addressJibun: { type: ["string", "null"] }
+        manager:
+          type: object
+          required: [exists]
+          properties:
+            exists: { type: boolean }
+            name: { type: ["string", "null"] }
+        hqExecutive:
+          type: object
+          required: [exists]
+          properties:
+            exists: { type: boolean }
+            name: { type: ["string", "null"] }
 
     CreateUnitBody:
       type: object

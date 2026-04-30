@@ -22,6 +22,10 @@ export interface AuthUser {
   disabledCategories?: string[];
   // [Task #609] 본인이 끌 수 있는 "일보 작성 독려 알림" 토글. undefined 이면 ON 으로 본다.
   dailyJournalReminderEnabled?: boolean;
+  // [Task #651 round-5] 활성 경리가 부과면적/회계초기자료 셋업을 마치지
+  //   않은 상태이면 true. App.tsx 의 AccountantSetupGate 가 이 값을 보고
+  //   /onboarding/accountant-setup 으로 강제 라우팅한다.
+  accountantSetupRequired?: boolean;
 }
 
 interface AuthContextType {

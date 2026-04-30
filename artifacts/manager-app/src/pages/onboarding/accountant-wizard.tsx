@@ -1,444 +1,422 @@
-// [Task #132] 경리·회계 위저드. 주소 확인 → 부과면적 기준 선택 → 회계 초기 자료 업로드.
+// [Task #651] 경리·회계 위저드 (가입 신청 단계).
+//   새 흐름: 주소검색 → 담당자 확인 → 완료(승인 대기).
+//   기존 부과면적/OCR/회계자료 단계는 승인 후 /onboarding/accountant-setup 으로 이동.
 import { useEffect, useState } from "react";
-import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
 import { useLocation } from "wouter";
-import { Loader2, Upload, FileText, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, MapPin, UserCheck, AlertTriangle, PhoneCall } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { WizardShell } from "@/components/wizard/wizard-shell";
-import { OcrProgressBar } from "@/components/ocr-progress-bar";
+import { formatPhoneNumberPartial } from "@/lib/format-korean";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 
-const FILE_CATEGORIES: Array<{ value: string; label: string; hint: string }> = [
-  { value: "monthly_bill", label: "최근 관리비 고지서", hint: "PDF/이미지 모두 가능" },
-  { value: "bank_transactions", label: "통장 거래내역", hint: "최근 3개월 권장" },
-  { value: "energy_meter", label: "에너지 검침자료", hint: "전기/수도/가스 검침표" },
-  { value: "extra_service", label: "부가서비스 자료", hint: "주차/임대 등" },
-  { value: "accounting_evidence", label: "회계 증빙자료", hint: "영수증 / 계약서 등" },
-  { value: "other", label: "기타 행정자료", hint: "필요한 경우 첨부" },
-];
+interface DaumResult {
+  roadAddress: string;
+  jibunAddress: string;
+  zonecode: string;
+  sido: string;
+  sigungu: string;
+  bname: string;
+  buildingName: string;
+  bcode: string;
+  address: string;
+}
 
-const AREA_BASIS_OPTIONS = [
-  { value: "standard", label: "전용 + 공용 (표준)", desc: "전용면적과 공용면적을 모두 부과 기준에 포함" },
-  { value: "exclusive", label: "전용면적만", desc: "분양면적/등기면적을 사용하지 않고 전용면적만 사용" },
-  { value: "common", label: "공용면적만", desc: "공용 시설 부과 위주의 단지" },
-];
+type Step = 1 | 2;
+const TOTAL_STEPS = 2;
 
-type Step = 1 | 2 | 3 | 4;
-const TOTAL_STEPS = 4;
-
-type BillSummaryPreview = {
-  id: number;
-  billingMonth: string;
-  totalAmount: number;
-  unitCount: number | null;
-  lineItems: Record<string, number>;
-};
+interface ResponsibleStaff {
+  building: { id: number; name: string | null; addressFull: string | null } | null;
+  manager: { exists: boolean; name: string | null };
+  hqExecutive: { exists: boolean; name: string | null };
+}
 
 export default function AccountantWizardPage() {
-  const { token } = useAuth();
+  const { token, user, setUser } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<Step>(1);
-  const [building, setBuilding] = useState<{ id: number; name: string; addressFull: string | null; areaBasis: string | null } | null>(null);
-  const [areaBasis, setAreaBasis] = useState<string>("standard");
-  const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [postcodeReady, setPostcodeReady] = useState(false);
+  const [addressFull, setAddressFull] = useState("");
+  const [addressJibun, setAddressJibun] = useState("");
+  const [sido, setSido] = useState("");
+  const [sigungu, setSigungu] = useState("");
+  const [staff, setStaff] = useState<ResponsibleStaff | null>(null);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
-  const [uploads, setUploads] = useState<Record<string, { name: string; uploading: boolean; saved: boolean }>>({});
-  const [billPreview, setBillPreview] = useState<BillSummaryPreview | null>(null);
-  // [Task #472] OCR 진행도 가로바를 위한 단계별 진행 상태.
-  // useUpload 의 (isUploading, progress, isOcrPending) 패턴과 동일하게 흘려준다.
-  const [billUploadProgress, setBillUploadProgress] = useState(0);
-  const [billUploading, setBillUploading] = useState(false);
-  const [billOcrPending, setBillOcrPending] = useState(false);
-  // [Task #472] 가로 진행바를 실패 시 즉시 숨기기 위한 신호.
-  const [billOcrFailed, setBillOcrFailed] = useState(false);
-  const billOcrLoading = billUploading || billOcrPending;
-  // [Task #341] 본인이 연결되려는 건물에 이미 다른 활성 경리가 있을 때 차단 안내.
-  const [dupMessage, setDupMessage] = useState<string | null>(null);
-  // [Task #507] 촬영/갤러리·파일 분리 버튼을 단일 트리거 + 공용 시트로 통일.
-  const [billPickerOpen, setBillPickerOpen] = useState(false);
+  // [Task #651] 신청 단계에서 동일 건물 활성 경리 존재 여부를 미리 안내한다.
+  //   서버는 승인 시점에도 partial unique index 로 동시성을 차단하지만, 사용자에게
+  //   불필요한 신청 후 거절을 유도하지 않도록 위저드에서 즉시 막는다.
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    exists: boolean;
+    conflictBuildingName: string | null;
+    checkFailed: boolean;
+  } | null>(null);
+  const [duplicateChecking, setDuplicateChecking] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API_BASE}/buildings/my`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then(async (d) => {
-        setBuilding(d.building);
-        if (d.building?.areaBasis) setAreaBasis(d.building.areaBasis);
-        // [Task #341] 본인이 이미 연결된 건물이 있는 경우, 그 건물에 이미 다른 활성 경리가 있는지 사전 점검.
-        if (d.building?.id) {
-          try {
-            const params = new URLSearchParams({
-              role: "accountant",
-              buildingId: String(d.building.id),
-            });
-            const r = await fetch(`${API_BASE}/buildings/check-manager?${params}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const j = await r.json().catch(() => ({}));
-            if (r.ok && j?.exists) {
-              // [Task #642] 충돌 건물명(부분 마스킹) 이 함께 오면 한 줄로 같이 보여준다.
-              const baseMsg = j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416";
-              const ctx = typeof j?.conflictBuildingName === "string" && j.conflictBuildingName
-                ? ` (충돌 건물: ${j.conflictBuildingName})`
-                : "";
-              setDupMessage(`${baseMsg}${ctx}`);
-            } else {
-              setDupMessage(null);
-            }
-          } catch {/* 사전 점검 실패는 무시하고 서버단 검증으로 폴백 */}
-        }
-      });
-  }, [token]);
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
+    const ensureReady = () => {
+      if (cancelled) return;
+      const w = window as Window & { daum?: { Postcode?: unknown } };
+      if (w.daum?.Postcode) { setPostcodeReady(true); return; }
+      attempts += 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        toast({ title: "주소검색 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.", variant: "destructive" });
+        return;
+      }
+      window.setTimeout(ensureReady, 100);
+    };
+    if (!document.getElementById("daum-postcode-script")) {
+      const s = document.createElement("script");
+      s.id = "daum-postcode-script";
+      s.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+      s.onload = ensureReady;
+      s.onerror = () => {
+        if (cancelled) return;
+        toast({ title: "주소검색 모듈을 불러오지 못했습니다.", variant: "destructive" });
+      };
+      document.head.appendChild(s);
+    } else {
+      ensureReady();
+    }
+    return () => { cancelled = true; };
+  }, [toast]);
 
-  async function uploadFile(category: string, file: File) {
-    if (!building) return;
-    setUploads((u) => ({ ...u, [category]: { name: file.name, uploading: true, saved: false } }));
+  function openPostcode() {
+    if (!window.daum?.Postcode) {
+      toast({ title: "주소 검색 모듈을 로딩 중입니다. 잠시 후 다시 시도해 주세요." });
+      return;
+    }
+    new window.daum.Postcode({
+      oncomplete: async (d: DaumResult) => {
+        const full = d.roadAddress || d.address;
+        setAddressFull(full);
+        setAddressJibun(d.jibunAddress || "");
+        setSido(d.sido || "");
+        setSigungu(d.sigungu || "");
+        setStep(2);
+        await loadResponsibleStaff(d.jibunAddress || "");
+      },
+    }).open();
+  }
+
+  async function loadResponsibleStaff(jibun: string) {
+    if (!token || !jibun) return;
+    setStaffLoading(true);
+    setStaff(null);
+    setDuplicateCheck(null);
+    setDuplicateChecking(true);
     try {
-      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+      const r = await fetch(`${API_BASE}/buildings/responsible-staff?addressJibun=${encodeURIComponent(jibun)}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
-      const { uploadURL, objectPath } = await signRes.json();
-      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-      if (!putRes.ok) throw new Error("파일 업로드 실패");
-      await fetch(`${API_BASE}/storage/uploads/finalize`, {
-        method: "POST",
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) setStaff(j);
+      else toast({ title: j?.error ?? "담당자 조회 실패", variant: "destructive" });
+      // [Task #651] 동일 건물에 활성 경리가 이미 있으면 신청 단계에서 즉시 차단.
+      //   사전 점검이 실패하면 fail-closed: 진행 자체를 막아 1800-0416 안내로 유도.
+      //   (서버는 partial unique index 로도 최종 차단하지만, 사용자에게 신청 후
+      //    거절 흐름을 보이지 않도록 위저드에서 미리 막는다.)
+      try {
+        const dup = await fetch(
+          `${API_BASE}/buildings/check-manager?role=accountant&addressJibun=${encodeURIComponent(jibun)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const dj = await dup.json().catch(() => ({}));
+        if (dup.ok) {
+          setDuplicateCheck({
+            exists: !!dj?.exists,
+            conflictBuildingName: dj?.conflictBuildingName ?? null,
+            checkFailed: false,
+          });
+        } else {
+          setDuplicateCheck({
+            exists: false,
+            conflictBuildingName: null,
+            checkFailed: true,
+          });
+        }
+      } catch {
+        setDuplicateCheck({
+          exists: false,
+          conflictBuildingName: null,
+          checkFailed: true,
+        });
+      }
+    } finally {
+      setStaffLoading(false);
+      setDuplicateChecking(false);
+    }
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setErr("");
+    try {
+      if (phone && phone !== user?.phone) {
+        await fetch(`${API_BASE}/auth/me`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: user?.name, phone }),
+        });
+      }
+      const patchRes = await fetch(`${API_BASE}/facility-signup-requests/me`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ objectPath }),
+        body: JSON.stringify({
+          requestedAddress: addressFull.trim() || "(주소 미지정)",
+          sido: sido.trim() || null,
+          sigungu: sigungu.trim() || null,
+          // [Task #651 round-4] step2 에서 확정된 buildingId 를 함께 전송 → 서버가
+          //   주소 fallback 없이 동일 건물을 라우팅 대상으로 고정한다.
+          buildingId: staff?.building?.id ?? null,
+        }),
       });
-      const saveRes = await fetch(`${API_BASE}/accounting-initial-files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ category, fileUrl: objectPath, originalName: file.name, buildingId: building.id }),
-      });
-      if (!saveRes.ok) throw new Error("저장 실패");
-      setUploads((u) => ({ ...u, [category]: { name: file.name, uploading: false, saved: true } }));
+      if (!patchRes.ok) {
+        const d = await patchRes.json().catch(() => ({}));
+        throw new Error(d?.error || "신청 정보 저장에 실패했습니다");
+      }
+      if (user) setUser({ ...user, phone });
+      // [Task #651] 가입 신청 완료 → 시설담당과 동일한 승인 대기 화면으로 이동.
+      setLocation("/onboarding/facility-pending");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "오류");
-      setUploads((u) => ({ ...u, [category]: { name: file.name, uploading: false, saved: false } }));
+    } finally {
+      setSubmitting(false);
     }
   }
 
   if (step === 1) {
-    const hasBuilding = !!building?.id;
-    // [Task #341] 동일 건물에 이미 활성 경리가 있다면 다음 단계 진행 차단.
-    const blockedByDup = !!dupMessage;
     return (
       <WizardShell
-        title="건물 주소 확인"
-        subtitle="회계 자료가 적용될 건물을 확인하거나 주소로 조회합니다."
+        title="담당하실 건물 주소를 알려주세요"
+        subtitle="주소를 검색하면 본부장·관리소장에게 가입 승인 요청이 자동 전달됩니다."
         currentStep={1}
         totalSteps={TOTAL_STEPS}
-        nextDisabled={blockedByDup}
-        onNext={() => {
-          if (blockedByDup) return;
-          if (hasBuilding) setStep(2);
-          else setLocation("/onboarding?returnTo=/onboarding/accountant");
-        }}
-        nextLabel={hasBuilding ? "다음" : "주소 입력·대장 조회"}
+        nextLabel="주소 검색"
+        nextDisabled={!postcodeReady}
+        onNext={openPostcode}
       >
         <div className="space-y-3 text-sm">
-          {!building && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-xs">
-              아직 연결된 건물이 없습니다. 주소를 입력하면 건축물대장 조회 후 등록을 마칠 수 있습니다.
-            </div>
-          )}
-          {building && (
-            <div className="rounded-lg border border-slate-200 p-4 bg-white">
-              <div className="text-xs text-slate-500">대상 건물</div>
-              <div className="mt-1 text-base font-semibold text-slate-900">{building.name || "(이름 미설정)"}</div>
-              <div className="text-xs text-slate-600 mt-0.5">{building.addressFull || "(주소 미입력)"}</div>
-            </div>
-          )}
-          {/* [Task #341] 경리 1주소 1인 차단 안내 */}
-          {dupMessage && (
-            <div
-              role="alert"
-              data-testid="accountant-duplicate-notice"
-              className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 leading-relaxed"
-            >
-              {dupMessage}
-            </div>
-          )}
-          <p className="text-xs text-slate-500">
-            건물 주소는 관리소장 위저드에서 잠긴 후로 변경할 수 없습니다. 변경이 필요한 경우 1800-0416으로 연락해 주세요.
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">연락처</label>
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={14}
+              value={phone}
+              onChange={(e) => setPhone(formatPhoneNumberPartial(e.target.value))}
+              placeholder="010-0000-0000"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={openPostcode}
+            disabled={!postcodeReady}
+            className="w-full px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 disabled:opacity-50 flex items-center justify-center gap-2 text-slate-700"
+            data-testid="accountant-address-trigger"
+          >
+            {postcodeReady ? <MapPin className="w-5 h-5" /> : <Loader2 className="w-5 h-5 animate-spin" />}
+            <span className="text-sm font-medium">{postcodeReady ? "주소 검색 시작" : "주소 검색 모듈 로딩 중…"}</span>
+          </button>
+          <p className="text-[11px] text-slate-500">
+            한 건물에는 한 명의 경리만 등록할 수 있습니다. 같은 건물에 이미 활성 경리가 있으면 가입 승인이 차단됩니다.
           </p>
         </div>
       </WizardShell>
     );
   }
 
-  async function uploadBillForOcr(file: File) {
-    if (!building) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "파일이 너무 큽니다", description: "최대 10MB까지 업로드 가능합니다.", variant: "destructive" });
-      return;
-    }
-    // [Task #472] useUpload 와 동일한 0→30→80→100 단계로 직접 갱신해
-    // OcrProgressBar 가 같은 가로바를 그릴 수 있게 한다.
-    // 가로바가 0% 부터 채워지도록 시작 시 progress 를 0 으로 초기화한 뒤
-    // 사인 URL 발급 직전에 10% 로 올린다(다음 마이크로태스크에서 별도 렌더).
-    setBillUploading(true);
-    setBillOcrPending(false);
-    setBillOcrFailed(false);
-    setBillUploadProgress(0);
-    try {
-      // 다음 프레임에 0% → 10% 가 별도로 렌더되도록 잠깐 양보한다.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      setBillUploadProgress(10);
-      const signRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
-      });
-      if (!signRes.ok) throw new Error("업로드 URL 발급 실패");
-      setBillUploadProgress(30);
-      const { uploadURL, objectPath } = await signRes.json();
-      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-      if (!putRes.ok) throw new Error("파일 업로드 실패");
-      setBillUploadProgress(80);
-      await fetch(`${API_BASE}/storage/uploads/finalize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ objectPath }),
-      });
-      setBillUploadProgress(100);
-      // Also save as accounting initial file so original is preserved.
-      void fetch(`${API_BASE}/accounting-initial-files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ category: "monthly_bill", fileUrl: objectPath, originalName: file.name, buildingId: building.id }),
-      }).catch(() => {});
-      // 업로드 완료 → OCR 인식 단계로 전환.
-      setBillOcrPending(true);
-      setBillUploading(false);
-      const ocrRes = await fetch(`${API_BASE}/fees/bill-ocr`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ objectPath, fileName: file.name }),
-      });
-      const body = await ocrRes.json().catch(() => ({}));
-      if (ocrRes.status === 202) {
-        // OCR 실패하지만 원본은 보관됨. preview는 비우고 재시도 안내.
-        setBillPreview(null);
-        setBillOcrFailed(true);
-        toast({
-          title: "OCR 인식 실패 — 다시 시도해 주세요",
-          description: (body && body.error) || "고지서 메뉴에서 ‘다시 인식’으로 재시도할 수 있습니다.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (!ocrRes.ok) {
-        throw new Error((body && body.error) || "OCR 실패");
-      }
-      // 정상 응답은 id/billingMonth가 있는 summary 행.
-      if (!body || typeof body.id !== "number" || typeof body.billingMonth !== "string") {
-        throw new Error("응답 형식이 올바르지 않습니다");
-      }
-      setBillPreview(body);
-      toast({ title: "OCR 완료", description: `${body.billingMonth} 청구서가 등록되었습니다.` });
-    } catch (e) {
-      setBillOcrFailed(true);
-      toast({ title: "고지서 처리 실패", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
-    } finally {
-      setBillUploading(false);
-      setBillOcrPending(false);
-      setBillUploadProgress(0);
-    }
-  }
-
-  async function confirmBillPreview() {
-    if (!billPreview || typeof billPreview.id !== "number") return;
-    try {
-      await fetch(`${API_BASE}/fees/bill-summaries/${billPreview.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ confirmed: true }),
-      });
-    } catch { /* non-blocking */ }
-  }
-
-  if (step === 2) {
-    return (
-      <WizardShell
-        title="부과면적 기준 선택"
-        subtitle="관리비 부과의 기준이 될 면적 산정 방식을 선택합니다."
-        currentStep={2}
-        totalSteps={TOTAL_STEPS}
-        onPrev={() => setStep(1)}
-        loading={loading}
-        allowSkip
-        onSkip={() => setStep(3)}
-        onNext={async () => {
-          if (!building) return;
-          setLoading(true);
-          try {
-            const res = await fetch(`${API_BASE}/buildings/${building.id}/area-basis`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ areaBasis }),
-            });
-            if (!res.ok) throw new Error("저장 실패");
-            setStep(3);
-          } catch (e) {
-            setErr(e instanceof Error ? e.message : "오류");
-          } finally {
-            setLoading(false);
-          }
-        }}
-      >
-        {err && <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3">{err}</div>}
-        <div className="space-y-2">
-          {AREA_BASIS_OPTIONS.map((opt) => (
-            <label
-              key={opt.value}
-              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer ${
-                areaBasis === opt.value ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <input
-                type="radio"
-                className="mt-1"
-                checked={areaBasis === opt.value}
-                onChange={() => setAreaBasis(opt.value)}
-              />
-              <div>
-                <div className="text-sm font-medium text-slate-900">{opt.label}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      </WizardShell>
-    );
-  }
-
-  if (step === 3) {
-    const totalAmount = billPreview ? Math.round(billPreview.totalAmount).toLocaleString() : "-";
-    return (
-      <WizardShell
-        title="최근 관리비 고지서 (선택)"
-        subtitle="가장 최근 한 달치 고지서 1장을 올리면 즉시 OCR로 항목·금액을 인식해 첫날부터 데이터가 채워집니다."
-        currentStep={3}
-        totalSteps={TOTAL_STEPS}
-        onPrev={() => setStep(2)}
-        allowSkip
-        onSkip={() => setStep(4)}
-        loading={billOcrLoading}
-        onNext={async () => {
-          if (billPreview) await confirmBillPreview();
-          setStep(4);
-        }}
-        nextLabel={billPreview ? "확정 후 다음" : "다음"}
-      >
-        {/* [Task #507] 단일 트리거 + 공용 시트(촬영/앨범에서 선택/파일에서 선택). */}
-        <AttachmentPickerSheet
-          open={billPickerOpen}
-          onOpenChange={setBillPickerOpen}
-          title="고지서 첨부"
-          description="JPG · PNG · HEIC · PDF, 최대 10MB"
-          onPick={(f) => uploadBillForOcr(f)}
-          fileOption={{
-            accept: "application/pdf",
-            label: "파일에서 선택",
-            description: "PDF 고지서",
-          }}
-          testId="accountant-bill-picker"
-        />
-        <div className="space-y-3 text-sm">
-          {billOcrLoading ? (
-            <div className="w-full p-6 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 flex flex-col items-center gap-3">
-              <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setBillPickerOpen(true)}
-              className="w-full p-5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-slate-100 transition flex flex-col items-center gap-2"
-              data-testid="accountant-bill-trigger"
-            >
-              <Upload className="w-6 h-6 text-slate-600" />
-              <span className="text-xs text-slate-700 font-medium">고지서 첨부</span>
-              <span className="text-[10px] text-slate-500">촬영 · 앨범에서 선택 · 파일에서 선택 · 최대 10MB</span>
-            </button>
-          )}
-          {/* [Task #472] 가로 진행바는 조건부 컨테이너 밖에 항상 렌더한다.
-              billOcrLoading 이 false 가 되어도 done(100%) 단계가 보이도록
-              하고, 시각화 여부는 훅의 active 가 직접 결정한다. */}
-          <OcrProgressBar
-            isUploading={billUploading}
-            uploadProgress={billUploadProgress}
-            isOcrPending={billOcrPending}
-            isError={billOcrFailed}
-            testId="accountant-bill-ocr-progress"
-          />
-          {billPreview && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-semibold text-emerald-800">{billPreview.billingMonth} 인식 완료</span>
-              </div>
-              <div className="text-xs text-slate-700">총액 <span className="font-mono font-bold">₩{totalAmount}</span>{billPreview.unitCount ? ` · ${billPreview.unitCount}세대` : ""}</div>
-              {Object.keys(billPreview.lineItems || {}).length > 0 && (
-                <div className="text-[11px] text-slate-600">{Object.entries(billPreview.lineItems).slice(0, 5).map(([k, v]) => `${k} ₩${Math.round(v).toLocaleString()}`).join(" · ")}</div>
-              )}
-              <p className="text-[11px] text-emerald-700">"확정 후 다음"을 누르면 결과가 확정되며, 회계 메뉴 &gt; 관리비 고지서에서 언제든 수정할 수 있습니다.</p>
-            </div>
-          )}
-          <p className="text-[11px] text-slate-500">건너뛰어도 나중에 회계 메뉴에서 추가할 수 있습니다.</p>
-        </div>
-      </WizardShell>
-    );
-  }
+  const buildingExists = !!staff?.building;
+  const managerName = staff?.manager?.name ?? null;
+  const hqName = staff?.hqExecutive?.name ?? null;
+  // [Task #651] 본부장 또는 관리소장 중 한 명이라도 비어 있으면 신청 진행 자체를 차단.
+  //   요구사항: "어느 한 쪽이라도 미배정이면 hard-stop · 1800-0416 안내".
+  const noContacts = !managerName || !hqName;
+  // [Task #651] 같은 건물에 이미 활성 경리가 있으면 신청 단계에서 차단.
+  const duplicateBlocked = !!duplicateCheck?.exists;
+  // [Task #651] 사전 점검(check-manager) 자체가 실패한 경우에도 fail-closed:
+  //   상태가 불확실하면 진행시키지 않고 1800-0416 안내로 유도한다.
+  const duplicateCheckFailed = !!duplicateCheck?.checkFailed;
+  const proceedAllowed =
+    buildingExists && !noContacts && !duplicateBlocked && !duplicateCheckFailed;
 
   return (
     <WizardShell
-      title="회계 초기 자료 업로드"
-      subtitle="필수 자료가 없다면 건너뛰고 나중에 등록할 수 있습니다."
-      currentStep={4}
+      title="담당자 확인"
+      subtitle="검색하신 건물의 본부장·관리소장이 맞는지 확인해 주세요."
+      currentStep={2}
       totalSteps={TOTAL_STEPS}
-      onPrev={() => setStep(3)}
-      onNext={() => setLocation("/")}
-      nextLabel="완료하고 시작하기"
-      allowSkip
-      onSkip={() => setLocation("/")}
+      onPrev={() => setStep(1)}
+      loading={submitting}
     >
       {err && <div className="rounded-lg bg-red-50 text-red-700 p-3 text-xs mb-3">{err}</div>}
-      <div className="space-y-3">
-        {FILE_CATEGORIES.map((cat) => {
-          const u = uploads[cat.value];
-          return (
-            <div key={cat.value} className="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg bg-white">
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-slate-900">{cat.label}</div>
-                <div className="text-xs text-slate-500 truncate">{u?.saved ? `등록됨 · ${u.name}` : cat.hint}</div>
-              </div>
-              <label className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-slate-300 rounded-md cursor-pointer hover:bg-slate-50">
-                {u?.uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : u?.saved ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <Upload className="w-3 h-3" />}
-                {u?.saved ? "교체" : "파일 선택"}
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) uploadFile(cat.value, f);
-                  }}
-                />
-              </label>
+      <div className="space-y-3 text-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-3">
+          <div className="text-xs text-slate-500">선택한 주소</div>
+          <div className="mt-0.5 text-sm font-semibold text-slate-900">{addressFull || "-"}</div>
+        </div>
+
+        {staffLoading && (
+          <div className="rounded-lg border border-slate-200 p-3 flex items-center gap-2 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> 담당자 정보를 조회하고 있어요…
+          </div>
+        )}
+
+        {!staffLoading && duplicateBlocked && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-900">
+              <AlertTriangle className="w-4 h-4" />
+              이미 해당 건물에 경리가 등록되어 있습니다
             </div>
-          );
-        })}
+            <p className="text-xs text-rose-900">
+              {duplicateCheck?.conflictBuildingName
+                ? <>건물명: <span className="font-semibold">{duplicateCheck.conflictBuildingName}</span></>
+                : <>같은 건물의 활성 경리가 이미 등록되어 있어 신청을 진행할 수 없습니다.</>}
+            </p>
+            <p className="text-[11px] text-rose-800">
+              한 건물에는 한 명의 경리만 등록할 수 있습니다. 자세한 문의는 <span className="font-semibold">1800-0416</span> 으로 연락해 주세요.
+            </p>
+            <a
+              href="tel:1800-0416"
+              className="mt-1 inline-flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-rose-600 text-white text-sm font-medium hover:bg-rose-700"
+              data-testid="accountant-duplicate-call"
+            >
+              <PhoneCall className="w-4 h-4" />
+              1800-0416 상담 전화
+            </a>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
+              data-testid="accountant-duplicate-back"
+            >
+              주소 다시 검색
+            </button>
+          </div>
+        )}
+
+        {!staffLoading && !duplicateBlocked && duplicateChecking && (
+          <div className="rounded-lg border border-slate-200 p-3 flex items-center gap-2 text-xs text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> 동일 건물 경리 등록 여부를 확인하고 있어요…
+          </div>
+        )}
+
+        {!staffLoading && !duplicateBlocked && (
+          <div className="space-y-2">
+            {proceedAllowed ? (
+              <>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                    <UserCheck className="w-4 h-4" />
+                    이 건물의 담당자
+                  </div>
+                  <div className="text-xs text-emerald-900">
+                    본부장: <span className="font-semibold">{hqName ?? "(미배정)"}</span>
+                  </div>
+                  <div className="text-xs text-emerald-900">
+                    관리소장: <span className="font-semibold">{managerName ?? "(미배정)"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+                  data-testid="accountant-confirm-yes"
+                >
+                  {submitting ? "제출 중…" : "맞습니다 — 가입 신청 제출"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
+                  data-testid="accountant-confirm-no"
+                >
+                  다릅니다 — 주소 다시 검색
+                </button>
+                <a
+                  href="tel:1800-0416"
+                  className="w-full px-4 py-3 rounded-lg border border-rose-200 bg-rose-50 text-sm text-rose-700 text-center font-medium hover:bg-rose-100 inline-flex items-center justify-center gap-2"
+                  data-testid="accountant-confirm-call"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  담당자 정보가 다릅니다 · 1800-0416 상담
+                </a>
+              </>
+            ) : duplicateCheckFailed ? (
+              <div className="space-y-2">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                    <AlertTriangle className="w-4 h-4" />
+                    경리 등록 여부를 확인하지 못했습니다
+                  </div>
+                  <p className="text-xs text-amber-900">
+                    한 건물에는 한 명의 경리만 등록할 수 있어 사전 점검 없이는 진행할 수 없습니다. <span className="font-semibold">1800-0416</span> 으로 연락해 주세요.
+                  </p>
+                </div>
+                <a
+                  href="tel:1800-0416"
+                  className="w-full px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium text-center inline-flex items-center justify-center gap-2 hover:bg-amber-600"
+                  data-testid="accountant-checkfailed-call"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  1800-0416 상담 전화
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
+                  data-testid="accountant-checkfailed-back"
+                >
+                  주소 다시 검색
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                    <AlertTriangle className="w-4 h-4" />
+                    {buildingExists ? "이 건물의 담당자 정보가 없습니다" : "해당 주소로 등록된 건물이 없습니다"}
+                  </div>
+                  <p className="text-xs text-amber-900">
+                    플랫폼이 본부장·관리소장 배정을 도와드립니다. <span className="font-semibold">1800-0416</span> 으로 연락해 주세요.
+                  </p>
+                  <p className="text-[11px] text-amber-800">
+                    담당자 정보가 확인되어야 가입 신청을 진행할 수 있습니다.
+                  </p>
+                </div>
+                <a
+                  href="tel:1800-0416"
+                  className="w-full px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium text-center inline-flex items-center justify-center gap-2 hover:bg-amber-600"
+                  data-testid="accountant-no-building-call"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  1800-0416 상담 전화
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="w-full px-4 py-3 rounded-lg border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
+                  data-testid="accountant-no-building-back"
+                >
+                  주소 다시 검색
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <p className="mt-3 text-[11px] text-slate-500 flex items-center gap-1">
-        <FileText className="w-3 h-3" /> 업로드한 파일은 회계 메뉴 &gt; 초기 자료 보관함에서 관리됩니다.
-      </p>
     </WizardShell>
   );
 }

@@ -25,6 +25,8 @@ import ownerLookupRouter from "./owner-lookup";
 import safetyRouter from "./safety";
 import inspectionsRouter from "./inspections";
 import addressLockRouter from "./address-lock";
+// [Task #651] 시설·경리 위저드 "담당자 확인" 단계 조회 엔드포인트.
+import responsibleStaffRouter from "./responsible-staff";
 
 const router: IRouter = Router();
 router.use("/buildings", requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
@@ -39,6 +41,7 @@ router.use(ownerLookupRouter);
 router.use(safetyRouter);
 router.use(inspectionsRouter);
 router.use(addressLockRouter);
+router.use(responsibleStaffRouter);
 
 // [Task #496] 외부 라우터(facilitySignupRequests.ts) 가 import 하는 공개 심볼.
 //   routes/buildings 모듈의 기존 공개 표면을 그대로 유지한다.

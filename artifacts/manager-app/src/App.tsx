@@ -175,6 +175,23 @@ function HqAssignmentGate() {
   return null;
 }
 
+// [Task #651 round-5] 활성 경리는 자기 건물의 부과면적(area_basis) 이 설정될
+//   때까지 /onboarding/accountant-setup 으로 강제 라우팅된다. 서버 /auth/me
+//   가 산출한 user.accountantSetupRequired 를 단일 출처(SSOT)로 사용한다.
+function AccountantSetupGate() {
+  const { user } = useAuth();
+  const [location, setLocation] = useLocationForGate();
+  useEffect(() => {
+    if (user?.role !== "accountant") return;
+    if (user?.approvalStatus !== "active") return;
+    if (!user?.accountantSetupRequired) return;
+    if (location.startsWith("/onboarding/accountant-setup")) return;
+    if (location.startsWith("/onboarding/role-select")) return;
+    setLocation("/onboarding/accountant-setup");
+  }, [user?.role, user?.approvalStatus, user?.accountantSetupRequired, location, setLocation]);
+  return null;
+}
+
 function AuthenticatedRoutes() {
   const { user } = useAuth();
   const role = getEffectiveRole(user);
@@ -216,12 +233,15 @@ function AuthenticatedRoutes() {
   }
 
   // [Task #132] 시설기사 가입 미활성(pending/rejected):
-  // - 위저드(/onboarding/role-select, /onboarding/facility-staff)와 대기화면(/onboarding/facility-pending)은 통과
+  // [Task #651] 경리(accountant) 도 동일한 승인 큐를 공유하므로 같은 게이트로 가둔다.
+  // - 위저드(/onboarding/role-select, /onboarding/facility-staff, /onboarding/accountant)
+  //   와 대기화면(/onboarding/facility-pending) 은 통과.
   // - 그 외 모든 경로는 대기화면으로 강제 이동 (rejected도 동일하게 가두어 백엔드 403과 정합)
-  if (user?.role === "facility_staff" && user?.approvalStatus !== "active") {
+  if ((user?.role === "facility_staff" || user?.role === "accountant") && user?.approvalStatus !== "active") {
     const allowedPrefixes = [
       "/onboarding/facility-pending",
       "/onboarding/facility-staff",
+      "/onboarding/accountant",
       "/onboarding/role-select",
     ];
     const isAllowed = allowedPrefixes.some((p) => location.startsWith(p));
@@ -231,6 +251,7 @@ function AuthenticatedRoutes() {
           <Switch>
             <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
             <Route path="/onboarding/facility-staff" component={lazy(() => import("@/pages/onboarding/facility-wizard"))} />
+            <Route path="/onboarding/accountant" component={lazy(() => import("@/pages/onboarding/accountant-wizard"))} />
             <Route path="/onboarding/role-select" component={lazy(() => import("@/pages/onboarding/role-select"))} />
             <Route>
               <Redirect to="/onboarding/facility-pending" />
@@ -244,6 +265,7 @@ function AuthenticatedRoutes() {
         <Switch>
           <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
           <Route path="/onboarding/facility-staff" component={lazy(() => import("@/pages/onboarding/facility-wizard"))} />
+          <Route path="/onboarding/accountant" component={lazy(() => import("@/pages/onboarding/accountant-wizard"))} />
           <Route path="/onboarding/role-select" component={lazy(() => import("@/pages/onboarding/role-select"))} />
         </Switch>
       </Suspense>
@@ -255,6 +277,7 @@ function AuthenticatedRoutes() {
       <OnboardingProvider>
         <ManagerOnboardingRedirect />
         <HqAssignmentGate />
+        <AccountantSetupGate />
         <OnboardingGate>
           <Layout>
             <Suspense fallback={null}>
@@ -287,6 +310,8 @@ function AuthenticatedRoutes() {
                 <Route path="/onboarding/role-select" component={RoleSelectPage} />
                 <Route path="/onboarding/manager" component={ManagerWizardPage} />
                 <Route path="/onboarding/accountant" component={AccountantWizardPage} />
+                {/* [Task #651] 경리 승인 후 사후 설정 위저드 (부과면적/OCR/회계자료). */}
+                <Route path="/onboarding/accountant-setup" component={lazy(() => import("@/pages/onboarding/accountant-setup"))} />
                 <Route path="/onboarding/facility-staff" component={FacilityWizardPage} />
                 <Route path="/onboarding/facility-pending" component={FacilityPendingPage} />
                 <Route path="/onboarding/hq-pending" component={HqPendingPage} />

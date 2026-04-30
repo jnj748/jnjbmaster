@@ -149,7 +149,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   // [Task #132] 시설기사 placeholder 가입은 active. 역할 선택 시 pending 으로 전환.
-  const initialApprovalStatus = roleSelected && role === "facility_staff" ? "pending" : "active";
+  // [Task #651] 경리(accountant) 도 시설담당과 동일한 신청·승인 큐로 통합 — pending 으로 시작.
+  const initialApprovalStatus = roleSelected && (role === "facility_staff" || role === "accountant") ? "pending" : "active";
 
   const passwordHash = await bcrypt.hash(password, 10);
   let user;
@@ -185,16 +186,22 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       }
 
       // [Task #132] 역할이 가입 시점에 확정된 경우에만 시설기사 신청 레코드 생성.
+      // [Task #651] 경리도 동일 큐(facility_staff_signup_requests, requested_role='accountant') 사용.
       let createdSignupRequestId: number | null = null;
-      if (roleSelected && role === "facility_staff") {
-        const requestedAddress: string = (req.body?.facilityRequest?.address ?? "").trim();
-        const sido: string | null = req.body?.facilityRequest?.sido ?? null;
-        const sigungu: string | null = req.body?.facilityRequest?.sigungu ?? null;
+      if (roleSelected && (role === "facility_staff" || role === "accountant")) {
+        const payload = role === "accountant" ? req.body?.accountantRequest : req.body?.facilityRequest;
+        const requestedAddress: string = (payload?.address ?? "").trim();
+        const sido: string | null = payload?.sido ?? null;
+        const sigungu: string | null = payload?.sigungu ?? null;
+        const licensePhotoUrl: string | null =
+          role === "facility_staff" && typeof payload?.licensePhotoUrl === "string" ? payload.licensePhotoUrl : null;
         const [reqRow] = await tx.insert(facilityStaffSignupRequestsTable).values({
           userId: createdUser.id,
+          requestedRole: role as "facility_staff" | "accountant",
           requestedAddress: requestedAddress || "(주소 미지정)",
           sido,
           sigungu,
+          licensePhotoUrl,
           status: "pending",
         }).returning();
         createdSignupRequestId = reqRow?.id ?? null;
@@ -266,7 +273,8 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
   //   사실상 platform_admin 의 명시적 할당이 데이터 가시성의 게이트가 된다.
   const newPortalType: "building" | "partner" | "hq" =
     selectedRole === "partner" ? "partner" : selectedRole === "hq_executive" ? "hq" : "building";
-  const newApprovalStatus = selectedRole === "facility_staff" ? "pending" : "active";
+  // [Task #651] 경리도 시설담당과 동일하게 가입 후 본부장·관리소장 승인 대기 큐로 들어간다.
+  const newApprovalStatus = (selectedRole === "facility_staff" || selectedRole === "accountant") ? "pending" : "active";
 
   try {
     const updated = await db.transaction(async (tx) => {
@@ -278,15 +286,22 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
       }).where(eq(usersTable.id, userId)).returning();
 
       let createdSignupRequestId: number | null = null;
-      if (selectedRole === "facility_staff") {
-        const requestedAddress: string = (facilityRequest?.address ?? "").trim();
-        const sido: string | null = facilityRequest?.sido ?? null;
-        const sigungu: string | null = facilityRequest?.sigungu ?? null;
+      if (selectedRole === "facility_staff" || selectedRole === "accountant") {
+        // [Task #651] facilityRequest / accountantRequest 둘 다 지원. 위저드에서 다음 단계로
+        //   넘어가며 PATCH 로 갱신할 수도 있으므로 빈 값으로 시작해도 무방하다.
+        const payload = selectedRole === "accountant" ? req.body?.accountantRequest : facilityRequest;
+        const requestedAddress: string = (payload?.address ?? "").trim();
+        const sido: string | null = payload?.sido ?? null;
+        const sigungu: string | null = payload?.sigungu ?? null;
+        const licensePhotoUrl: string | null =
+          selectedRole === "facility_staff" && typeof payload?.licensePhotoUrl === "string" ? payload.licensePhotoUrl : null;
         const [reqRow] = await tx.insert(facilityStaffSignupRequestsTable).values({
           userId: u.id,
+          requestedRole: selectedRole as "facility_staff" | "accountant",
           requestedAddress: requestedAddress || "(주소 미지정)",
           sido,
           sigungu,
+          licensePhotoUrl,
           status: "pending",
         }).returning();
         createdSignupRequestId = reqRow?.id ?? null;
@@ -487,6 +502,24 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #651 round-5] 활성 경리는 첫 진입 시 부과면적/회계초기자료 셋업이
+  //   완료될 때까지 /onboarding/accountant-setup 으로 강제된다.
+  //   완료 신호 = 자기 건물의 area_basis 가 NULL 이 아님 (관리소장이 미리
+  //   설정해 두었다면 즉시 통과).
+  let accountantSetupRequired = false;
+  if (user.role === "accountant" && user.approvalStatus === "active") {
+    if (user.buildingId == null) {
+      // 매핑이 누락된 비정상 상태 — 셋업으로 보내 안내한다.
+      accountantSetupRequired = true;
+    } else {
+      const [b] = await db
+        .select({ areaBasis: buildingsTable.areaBasis })
+        .from(buildingsTable)
+        .where(eq(buildingsTable.id, user.buildingId));
+      accountantSetupRequired = !b || b.areaBasis == null;
+    }
+  }
+
   res.json({
     user: {
       id: user.id,
@@ -507,6 +540,8 @@ router.get("/auth/me", authMiddleware, async (req, res): Promise<void> => {
       disabledCategories: parseDisabledCategories(user.disabledCategories),
       // [Task #609] 본인이 끌 수 있는 "일보 작성 독려 알림" 토글. 기본 ON(true).
       dailyJournalReminderEnabled: user.dailyJournalReminderEnabled !== false,
+      // [Task #651 round-5] 경리 셋업 강제 라우팅 게이트.
+      accountantSetupRequired,
     },
   });
 });

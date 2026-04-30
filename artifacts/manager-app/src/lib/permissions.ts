@@ -670,11 +670,12 @@ export const ROUTES: RouteEntry[] = [
     access: ["platform_admin"], hidden: true },
   {
     // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼)
+    // [Task #651] 경리 가입 승인도 동일 페이지에서 탭으로 처리한다.
+    //   라벨/사이드바 노출을 매니저까지 확대.
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
-    label: "시설기사 승인", icon: UserCheck, group: "settings",
+    label: "경리·시설담당 가입 승인", icon: UserCheck, group: "settings",
     access: ["manager", "platform_admin", "hq_executive"],
-    // [관리소장 메뉴 숨김] 사이드바에서는 플랫폼/본사만 노출.
-    sideMenu: ["platform_admin", "hq_executive"],
+    sideMenu: ["manager", "platform_admin", "hq_executive"],
   },
   {
     path: "/document-templates", component: DocumentTemplates,
@@ -919,7 +920,7 @@ function platformAdminSidebar(): NavSection[] {
       title: SHARED_ROLE_LABELS.facility_staff,
       items: [
         { path: "/platform/facility-staff", label: "현황", icon: HardHat },
-        { path: "/facility-approvals", label: `${SHARED_ROLE_LABELS.facility_staff} 승인`, icon: UserCheck },
+        { path: "/facility-approvals", label: "경리·시설담당 가입 승인", icon: UserCheck },
       ],
     },
     {
