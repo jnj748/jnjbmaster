@@ -201,7 +201,11 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
   //   같은 그룹의 다른 항목(견적/계약 등)은 access 가 facility_staff 를 포함하지 않으므로
   //   사이드바에 자동으로 나타나지 않는다 — 주소록 항목만 보인다.
-  facility_staff: ["dashboard", "facility", "marketplace"],
+  // [Task #649] 시설기사 사이드바에도 "보고·전자결재" 그룹을 추가해 업무일지(/work-log)가
+  //   노출되도록 한다. 같은 그룹의 다른 보고 항목들(/drafts, /approvals, /report-system,
+  //   /reports)은 sideMenu 에 facility_staff 가 없어 자동으로 숨겨지므로, 이 변경 만으로
+  //   "업무일지" 한 항목만 시설기사 사이드바에 노출된다.
+  facility_staff: ["dashboard", "facility", "reports", "marketplace"],
   hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
   // [Task #611] 관리인 — 결재함과 입금요청함만 노출. 그 외 화면은 access 자체가 없다.
