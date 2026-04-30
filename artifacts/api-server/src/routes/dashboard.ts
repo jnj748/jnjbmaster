@@ -16,6 +16,12 @@ import {
 } from "../middlewares/buildingScope";
 // [Task #221] 본사 관리 업무 템플릿을 단일 알림 소스로 통합한다.
 import { resolveActiveTemplateAlerts } from "./taskTemplates";
+// [Task #697] 비템플릿 자동 알림에 역할 라우팅 메타를 부여하기 위한 단일 SoT.
+import {
+  DEFAULT_ALERT_TARGET_ROLES,
+  categoryToTargetRoles,
+  inspectionTargetRoles,
+} from "@workspace/shared/role-routing";
 
 const router: IRouter = Router();
 router.use(["/dashboard","/reports"], requireRole("manager", "platform_admin", "hq_executive", "accountant", "facility_staff"));
@@ -310,6 +316,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       inspectionType: inspection.inspectionType ?? null,
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
+      // [Task #697] administrative 점검은 소장 단독, 그 외(legal/seasonal 등)는 시설+소장 카드에 노출.
+      targetRoles: inspectionTargetRoles(inspection.inspectionType),
       createdAt: new Date().toISOString(),
     };
     applyScheduledMeta(inspectionAlert, action);
@@ -356,6 +364,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       inspectionType: inspection.inspectionType ?? null,
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
+      // [Task #697] 같은 분기 — 마감초과 inspection 도 동일한 역할 라우팅을 따른다.
+      targetRoles: inspectionTargetRoles(inspection.inspectionType),
       createdAt: new Date().toISOString(),
     };
     applyScheduledMeta(overdueInspectionAlert, action);
@@ -397,6 +407,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         hasDraft: false,
         actionStatus: taxAction?.actionType || null,
         dueDate: tax.dueDate,
+        // [Task #697] 세무는 경리·소장 카드.
+        targetRoles: DEFAULT_ALERT_TARGET_ROLES.tax_due,
         penaltyInfo: null,
         createdAt: new Date().toISOString(),
       };
@@ -447,6 +459,13 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       // [Task #681] 경리(accountant) 카드 분류용. tasks.category 가
       //   accounting/tax/finance 면 회계 필수업무현황에 노출된다.
       category: task.category ?? null,
+      // [Task #697] task 자체에 targetRoles 가 지정돼 있으면 그대로,
+      //   비어 있으면 카테고리 기반 기본값을 흘려보낸다 → 시설/회계 카드도
+      //   카테고리 분기를 신뢰할 수 있다.
+      targetRoles:
+        Array.isArray(task.targetRoles) && task.targetRoles.length > 0
+          ? task.targetRoles
+          : categoryToTargetRoles(task.category),
       createdAt: new Date().toISOString(),
     };
     applyScheduledMeta(taskAlert, taskAction);
@@ -492,6 +511,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       actionStatus: null,
       dueDate: tenant.dataDestructionDate,
       penaltyInfo: null,
+      // [Task #697] 자료파기는 소장 책임 영역.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.data_destruction,
       createdAt: new Date().toISOString(),
     });
   }
@@ -511,6 +532,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       actionStatus: null,
       dueDate: owner.dataDestructionDate,
       penaltyInfo: null,
+      // [Task #697] 자료파기는 소장 책임 영역.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.data_destruction,
       createdAt: new Date().toISOString(),
     });
   }
@@ -556,6 +579,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       actionStatus: warrantyAction?.actionType || null,
       dueDate: warranty.expiryDate,
       penaltyInfo: null,
+      // [Task #697] 하자담보는 시설 점검·시공자 협의가 동시에 필요하므로 소장+시설+본부장 모두 노출.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.warranty_expiry,
       createdAt: new Date().toISOString(),
     };
     applyScheduledMeta(warrantyAlert, warrantyAction);
@@ -665,6 +690,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       actionStatus: null,
       dueDate: deadlineStr,
       penaltyInfo: null,
+      // [Task #697] 견적 도착은 발주 라인(소장).
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.quote_received,
       createdAt: q.submittedAt?.toISOString() ?? new Date().toISOString(),
     });
   }
@@ -768,6 +795,8 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
         actionStatus: action?.actionType || null,
         dueDate: occurrence,
         penaltyInfo: null,
+        // [Task #697] 공고문 게시는 소장 책임 영역.
+        targetRoles: DEFAULT_ALERT_TARGET_ROLES.notice_posting,
         createdAt: new Date().toISOString(),
       };
       applyScheduledMeta(noticeAlert, action);

@@ -39,6 +39,12 @@ import { LEGAL_PRESETS } from "./inspections";
 import { resolveActiveTemplateAlerts } from "./taskTemplates";
 import { requireRole } from "../middlewares/auth";
 import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
+// [Task #697] 비템플릿 자동 알림 빌더에 일관된 역할 라우팅 메타를 부여하기 위한 단일 SoT.
+import {
+  DEFAULT_ALERT_TARGET_ROLES,
+  categoryToTargetRoles,
+  inspectionTargetRoles,
+} from "@workspace/shared/role-routing";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import type { Request } from "express";
@@ -84,6 +90,11 @@ interface BuiltAlert {
   // [Task #511] 비교견적 prefill 자동 채움용. 가장 최근 액션에 첨부된 사진 URL.
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
+  // [Task #697] 클라이언트 splitDashboardAlerts 가 같은 알림을 시설/회계/관리 카드 중
+  //   어디에 노출할지 결정하는 데 쓴다. dashboard.ts 와 동일한 시그니처.
+  taskType?: string | null;
+  targetRoles?: string[] | null;
+  category?: string | null;
   createdAt: string;
 }
 
@@ -228,6 +239,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       inspectionType: inspection.inspectionType ?? null,
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
+      // [Task #697] administrative→소장 단독, 그 외→시설+소장.
+      targetRoles: inspectionTargetRoles(inspection.inspectionType),
       createdAt: new Date().toISOString(),
     };
     applyActionMeta(inspAlert, action);
@@ -276,6 +289,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       inspectionType: inspection.inspectionType ?? null,
       cycleMonths: inspection.legalCycleMonths ?? null,
       intervalDays: inspection.intervalDays ?? null,
+      // [Task #697] 마감초과 inspection 도 동일한 역할 라우팅을 따른다.
+      targetRoles: inspectionTargetRoles(inspection.inspectionType),
       createdAt: new Date().toISOString(),
     };
     applyActionMeta(overdueInspAlert, action);
@@ -319,6 +334,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: taxAction?.actionType || null,
       dueDate: tax.dueDate,
       penaltyInfo: null,
+      // [Task #697] 세무는 경리·소장 카드.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.tax_due,
       createdAt: new Date().toISOString(),
     };
     applyActionMeta(taxAlert, taxAction);
@@ -362,6 +379,13 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: taskAction?.actionType || null,
       dueDate: task.dueDate,
       penaltyInfo: null,
+      // [Task #697] task 자체에 targetRoles 가 지정돼 있으면 그대로,
+      //   비어 있으면 카테고리 기반 기본값을 흘려보낸다.
+      category: task.category ?? null,
+      targetRoles:
+        Array.isArray(task.targetRoles) && task.targetRoles.length > 0
+          ? task.targetRoles
+          : categoryToTargetRoles(task.category),
       createdAt: new Date().toISOString(),
     };
     applyActionMeta(taskAlert, taskAction);
@@ -436,6 +460,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: null,
       dueDate: tenant.dataDestructionDate,
       penaltyInfo: null,
+      // [Task #697] 자료파기는 소장 책임 영역.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.data_destruction,
       createdAt: new Date().toISOString(),
     });
   }
@@ -454,6 +480,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: null,
       dueDate: owner.dataDestructionDate,
       penaltyInfo: null,
+      // [Task #697] 자료파기는 소장 책임 영역.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.data_destruction,
       createdAt: new Date().toISOString(),
     });
   }
@@ -501,6 +529,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: warrantyAction?.actionType ?? null,
       dueDate: warranty.expiryDate,
       penaltyInfo: null,
+      // [Task #697] 하자담보는 시설+소장+본부장 모두 노출.
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.warranty_expiry,
       createdAt: new Date().toISOString(),
     };
     applyActionMeta(warrantyAlert, warrantyAction);
@@ -551,6 +581,12 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       scheduledNotes: a.scheduledNotes ?? null,
       closeUpPhotoUrl: a.closeUpPhotoUrl ?? null,
       widePhotoUrl: a.widePhotoUrl ?? null,
+      // [Task #697] 같은 템플릿 알림이라도 시설/회계/관리 카드 중 어디에 들어갈지
+      //   분류할 수 있도록 taskType 과 targetRoles 를 같이 흘려보낸다.
+      //   기존 dashboard.ts 는 이미 같은 매핑을 하고 있고, facility 페이지에서 빠져 있던
+      //   부분을 같이 맞춰 회귀를 막는다.
+      taskType: a.taskType ?? null,
+      targetRoles: a.targetRoles ?? null,
     });
   }
   alertId += 1000 + templateAlerts.length;
@@ -594,6 +630,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
       actionStatus: null,
       dueDate: deadlineStr,
       penaltyInfo: null,
+      // [Task #697] 견적 도착은 발주 라인(소장).
+      targetRoles: DEFAULT_ALERT_TARGET_ROLES.quote_received,
       createdAt: q.submittedAt?.toISOString() ?? new Date().toISOString(),
     });
   }
@@ -685,6 +723,8 @@ async function buildAllUpcomingAlerts(req: Request): Promise<BuiltAlert[]> {
         actionStatus: action?.actionType || null,
         dueDate: occurrence,
         penaltyInfo: null,
+        // [Task #697] 공고문 게시는 소장 책임 영역.
+        targetRoles: DEFAULT_ALERT_TARGET_ROLES.notice_posting,
         createdAt: new Date().toISOString(),
       });
     }

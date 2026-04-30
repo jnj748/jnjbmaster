@@ -18,4 +18,6 @@ export interface UpdateTaskBody {
   status?: UpdateTaskBodyStatus;
   /** @nullable */
   dueDate?: string | null;
+  /** @nullable */
+  targetRoles?: string[] | null;
 }

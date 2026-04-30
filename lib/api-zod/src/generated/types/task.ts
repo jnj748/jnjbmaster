@@ -21,6 +21,7 @@ export interface Task {
   dueDate?: string | null;
   /** @nullable */
   completedAt?: string | null;
+  targetRoles: string[];
   createdAt: string;
   updatedAt: string;
 }

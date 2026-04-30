@@ -108,3 +108,11 @@ The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 - papaparse
 - data.go.kr (BldRgstHubService API)
 - Kakao Postcode API
+# 변경 이력 — Task #697 (역할별 필수업무현황 분배)
+- `tasks.target_roles text[] not null default '{}'` 컬럼 추가. 빈 배열이면 서버가 카테고리 기반 기본값으로 채운다.
+- 단일 출처: `lib/shared/src/role-routing.ts` — 카테고리/타입 → 기본 역할 매핑, FACILITY/ACCOUNTING 화이트리스트, `targetRolesIncludes` 헬퍼.
+- 자동 알림(inspection_due, tax_due, task_overdue/followup, warranty_expiry, data_destruction, quote_received, notice_posting, task_template_*) 모두 `targetRoles` 를 응답에 흘려보낸다.
+- 클라이언트 분류기(`dashboard-alert-filters.ts`) 는 explicit `targetRoles` 를 카테고리/타입 추정보다 먼저 신뢰한다.
+- 수동업무 등록 화면(`pages/tasks.tsx`) 에 역할 다중선택 체크박스 추가. 비워두면 서버가 카테고리 기본값으로 자동 채움.
+- 진단/백필 스크립트: `pnpm --filter @workspace/scripts run audit-role-coverage` / `backfill-task-target-roles [-- --dry-run]`.
+- 회귀 차단: `artifacts/manager-app/src/lib/dashboard-alert-filters.test.ts` (7 tests) — manager 동작 동결 + facility/accountant 분리 + explicit targetRoles 우선.

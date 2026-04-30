@@ -38,6 +38,7 @@ export const ListTasksResponseItem = zod.object({
   status: zod.enum(["pending", "in_progress", "completed"]),
   dueDate: zod.string().date().nullish(),
   completedAt: zod.string().datetime({}).nullish(),
+  targetRoles: zod.array(zod.string()),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -58,6 +59,7 @@ export const CreateTaskBody = zod.object({
   ]),
   priority: zod.enum(["high", "medium", "low"]),
   dueDate: zod.string().date().nullish(),
+  targetRoles: zod.array(zod.string()).nullish(),
 });
 
 /**
@@ -82,6 +84,7 @@ export const GetTaskResponse = zod.object({
   status: zod.enum(["pending", "in_progress", "completed"]),
   dueDate: zod.string().date().nullish(),
   completedAt: zod.string().datetime({}).nullish(),
+  targetRoles: zod.array(zod.string()),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -102,6 +105,7 @@ export const UpdateTaskBody = zod.object({
   priority: zod.enum(["high", "medium", "low"]).optional(),
   status: zod.enum(["pending", "in_progress", "completed"]).optional(),
   dueDate: zod.string().date().nullish(),
+  targetRoles: zod.array(zod.string()).nullish(),
 });
 
 export const UpdateTaskResponse = zod.object({
@@ -119,6 +123,7 @@ export const UpdateTaskResponse = zod.object({
   status: zod.enum(["pending", "in_progress", "completed"]),
   dueDate: zod.string().date().nullish(),
   completedAt: zod.string().datetime({}).nullish(),
+  targetRoles: zod.array(zod.string()),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -3135,6 +3140,24 @@ export const GetDashboardAlertsResponseItem = zod.object({
     .nullish()
     .describe(
       "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
+    ),
+  category: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 task\/template 의 category. 클라이언트가 알림을 시설\/회계\/관리 카드로 분류할 때 사용.",
+    ),
+  taskType: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 template 의 taskType(facility\/security\/cleaning\/accounting\/fee\/other). 카드 분류의 보조 신호.",
+    ),
+  targetRoles: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "[Task #697] 알림이 노출돼야 하는 역할 화이트리스트(manager\/facility_staff\/accountant\/partner\/hq_executive). 비어 있거나 null 이면 클라이언트가 category\/type 으로 추정한다.",
     ),
   createdAt: zod.string().datetime({}),
 });
@@ -7652,6 +7675,24 @@ export const GetFacilityMandatoryTasksResponseItem = zod.object({
     .describe(
       "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
     ),
+  category: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 task\/template 의 category. 클라이언트가 알림을 시설\/회계\/관리 카드로 분류할 때 사용.",
+    ),
+  taskType: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 template 의 taskType(facility\/security\/cleaning\/accounting\/fee\/other). 카드 분류의 보조 신호.",
+    ),
+  targetRoles: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "[Task #697] 알림이 노출돼야 하는 역할 화이트리스트(manager\/facility_staff\/accountant\/partner\/hq_executive). 비어 있거나 null 이면 클라이언트가 category\/type 으로 추정한다.",
+    ),
   createdAt: zod.string().datetime({}),
 });
 export const GetFacilityMandatoryTasksResponse = zod.array(
@@ -7739,6 +7780,24 @@ export const GetFacilitySuggestedTasksResponseItem = zod.object({
     .nullish()
     .describe(
       "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다.",
+    ),
+  category: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 task\/template 의 category. 클라이언트가 알림을 시설\/회계\/관리 카드로 분류할 때 사용.",
+    ),
+  taskType: zod
+    .string()
+    .nullish()
+    .describe(
+      "[Task #697] 원본 template 의 taskType(facility\/security\/cleaning\/accounting\/fee\/other). 카드 분류의 보조 신호.",
+    ),
+  targetRoles: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "[Task #697] 알림이 노출돼야 하는 역할 화이트리스트(manager\/facility_staff\/accountant\/partner\/hq_executive). 비어 있거나 null 이면 클라이언트가 category\/type 으로 추정한다.",
     ),
   createdAt: zod.string().datetime({}),
 });

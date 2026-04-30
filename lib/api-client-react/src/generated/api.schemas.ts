@@ -191,6 +191,7 @@ export interface Task {
   dueDate?: string | null;
   /** @nullable */
   completedAt?: string | null;
+  targetRoles: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -223,6 +224,8 @@ export interface CreateTaskBody {
   priority: CreateTaskBodyPriority;
   /** @nullable */
   dueDate?: string | null;
+  /** @nullable */
+  targetRoles?: string[] | null;
 }
 
 export type UpdateTaskBodyCategory =
@@ -263,6 +266,8 @@ export interface UpdateTaskBody {
   status?: UpdateTaskBodyStatus;
   /** @nullable */
   dueDate?: string | null;
+  /** @nullable */
+  targetRoles?: string[] | null;
 }
 
 export type InspectionCategory =
@@ -1922,6 +1927,21 @@ export interface Alert {
    * @nullable
    */
   widePhotoUrl?: string | null;
+  /**
+   * [Task #697] 원본 task/template 의 category. 클라이언트가 알림을 시설/회계/관리 카드로 분류할 때 사용.
+   * @nullable
+   */
+  category?: string | null;
+  /**
+   * [Task #697] 원본 template 의 taskType(facility/security/cleaning/accounting/fee/other). 카드 분류의 보조 신호.
+   * @nullable
+   */
+  taskType?: string | null;
+  /**
+   * [Task #697] 알림이 노출돼야 하는 역할 화이트리스트(manager/facility_staff/accountant/partner/hq_executive). 비어 있거나 null 이면 클라이언트가 category/type 으로 추정한다.
+   * @nullable
+   */
+  targetRoles?: string[] | null;
   createdAt: string;
 }
 

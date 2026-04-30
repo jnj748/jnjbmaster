@@ -7,10 +7,13 @@
     "hello": "tsx ./src/hello.ts",
     "cleanup-building-duplicates": "tsx ./src/cleanup-building-duplicates.ts",
     "cleanup-duplicate-units": "tsx ./src/cleanup-duplicate-units.ts",
+    "backfill-task-target-roles": "tsx ./src/backfill-task-target-roles.ts",
+    "audit-role-coverage": "tsx ./src/audit-role-coverage.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "@workspace/shared": "workspace:*",
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {

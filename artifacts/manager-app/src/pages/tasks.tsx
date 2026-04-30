@@ -32,6 +32,10 @@ import { Plus, Check, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { VoiceInputButton } from "@/components/voice-input-dialog";
+// [Task #697] 역할 다중선택 UI 의 단일 출처. 라벨은 ROLE_LABELS, 기본값
+//   계산은 categoryToTargetRoles 를 사용해 서버/클라이언트가 같은 SoT 를 본다.
+import { ROLE_LABELS, type AppRole } from "@workspace/shared/role-labels";
+import { categoryToTargetRoles } from "@workspace/shared/role-routing";
 
 const categoryOptions = [
   { value: "daily_check", label: "일일 점검" },
@@ -39,6 +43,14 @@ const categoryOptions = [
   { value: "administrative", label: "행정업무" },
   { value: "tax", label: "세무" },
   { value: "other", label: "기타" },
+];
+
+// [Task #697] 건물 포털 3개 역할만 라우팅 대상. (본부장/관리자/파트너/관리인은
+//   대시보드 "필수업무현황" 카드에 노출되지 않으므로 수동업무 라우팅 대상이 아님.)
+const TASK_ROLE_OPTIONS: { value: AppRole; label: string }[] = [
+  { value: "manager", label: ROLE_LABELS.manager },
+  { value: "accountant", label: ROLE_LABELS.accountant },
+  { value: "facility_staff", label: ROLE_LABELS.facility_staff },
 ];
 
 const priorityOptions = [
@@ -72,29 +84,81 @@ export default function Tasks() {
   const updateMutation = useUpdateTask();
   const deleteMutation = useDeleteTask();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    title: string;
+    description: string;
+    category: string;
+    priority: string;
+    dueDate: string;
+    // [Task #697] 빈 배열은 "카테고리 기반 기본값 사용" 을 의미. 사용자가 한 개라도
+    //   체크하면 그 값이 그대로 서버로 전송돼 우선 적용된다.
+    targetRoles: AppRole[];
+    // [Task #697] 사용자가 체크박스를 한번이라도 만진 적이 있는지 추적. 만지지
+    //   않았다면 카테고리 변경에 따라 기본값이 자동으로 따라가게 한다.
+    targetRolesTouched: boolean;
+  }>({
     title: "",
     description: "",
     category: "daily_check",
     priority: "medium",
     dueDate: "",
+    targetRoles: categoryToTargetRoles("daily_check"),
+    targetRolesTouched: false,
   });
 
   function resetForm() {
-    setForm({ title: "", description: "", category: "daily_check", priority: "medium", dueDate: "" });
+    setForm({
+      title: "",
+      description: "",
+      category: "daily_check",
+      priority: "medium",
+      dueDate: "",
+      targetRoles: categoryToTargetRoles("daily_check"),
+      targetRolesTouched: false,
+    });
     setEditingTask(null);
   }
 
   function openEdit(task: any) {
     setEditingTask(task);
+    const existing: AppRole[] = Array.isArray(task.targetRoles)
+      ? (task.targetRoles as AppRole[])
+      : [];
     setForm({
       title: task.title,
       description: task.description || "",
       category: task.category,
       priority: task.priority,
       dueDate: task.dueDate || "",
+      // [Task #697] 기존 업무에 targetRoles 가 비어있으면 카테고리 기반 기본값을
+      //   미리 채워 사용자에게 보여준다. (수정 시 빈값으로 보내면 서버가 카테고리
+      //   기본값으로 재설정하지만, UI 상으로는 미리 보이는 편이 명확함.)
+      targetRoles: existing.length > 0 ? existing : categoryToTargetRoles(task.category),
+      targetRolesTouched: existing.length > 0,
     });
     setDialogOpen(true);
+  }
+
+  function onCategoryChange(value: string) {
+    setForm((prev) => ({
+      ...prev,
+      category: value,
+      // 사용자가 직접 체크박스를 만지지 않은 동안에는 카테고리 변경에 맞춰
+      // 기본 역할도 따라가도록 자동 갱신.
+      targetRoles: prev.targetRolesTouched
+        ? prev.targetRoles
+        : categoryToTargetRoles(value),
+    }));
+  }
+
+  function toggleRole(role: AppRole) {
+    setForm((prev) => {
+      const has = prev.targetRoles.includes(role);
+      const next = has
+        ? prev.targetRoles.filter((r) => r !== role)
+        : [...prev.targetRoles, role];
+      return { ...prev, targetRoles: next, targetRolesTouched: true };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -105,6 +169,9 @@ export default function Tasks() {
       category: form.category as any,
       priority: form.priority as any,
       dueDate: form.dueDate || null,
+      // [Task #697] 빈 배열을 보내면 서버는 "카테고리 기반 기본값으로 재설정"
+      //   으로 해석한다. 한 개 이상 체크돼 있으면 그 배열을 그대로 저장한다.
+      targetRoles: form.targetRoles,
     };
 
     if (editingTask) {
@@ -203,7 +270,7 @@ export default function Tasks() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>분류</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                  <Select value={form.category} onValueChange={onCategoryChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {categoryOptions.map((o) => (
@@ -231,6 +298,35 @@ export default function Tasks() {
                   value={form.dueDate}
                   onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 />
+              </div>
+              {/* [Task #697] 역할별 노출 체크박스. 빈 상태로 두면 카테고리 기반
+                   기본값(시설→소장+시설기사, 회계→소장+경리, 그 외→소장)이
+                   서버에서 자동 적용된다. 기본은 항상 관리소장(manager) 포함. */}
+              <div>
+                <Label>대상 역할</Label>
+                <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                  체크된 역할의 대시보드 "필수업무현황" 카드에 노출됩니다. 비워두면 분류에 따라 자동 지정됩니다.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {TASK_ROLE_OPTIONS.map((opt) => {
+                    const checked = form.targetRoles.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 text-sm cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-primary"
+                          checked={checked}
+                          onChange={() => toggleRole(opt.value)}
+                          data-testid={`task-role-${opt.value}`}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               <Button type="submit" className="w-full">
                 {editingTask ? "수정" : "등록"}

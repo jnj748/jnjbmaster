@@ -12,6 +12,7 @@ import {
   UpdateTaskResponse,
   DeleteTaskParams,
 } from "@workspace/api-zod";
+import { categoryToTargetRoles } from "@workspace/shared/role-routing";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -65,7 +66,18 @@ router.post("/tasks", async (req, res): Promise<void> => {
     }
   }
 
-  const [task] = await db.insert(tasksTable).values(parsed.data).returning();
+  // [Task #697] targetRoles 가 비었거나 누락이면 카테고리 기반 기본값으로 채워서 저장.
+  //   "관리소장 카드에는 보이는데 시설/경리 카드에서는 사라진" 회귀를 막기 위함.
+  const submittedRoles = parsed.data.targetRoles;
+  const targetRoles =
+    Array.isArray(submittedRoles) && submittedRoles.length > 0
+      ? submittedRoles
+      : categoryToTargetRoles(parsed.data.category);
+
+  const [task] = await db
+    .insert(tasksTable)
+    .values({ ...parsed.data, targetRoles })
+    .returning();
   res.status(201).json(GetTaskResponse.parse(task));
 });
 
@@ -105,6 +117,30 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
   const updateData: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.status === "completed") {
     updateData.completedAt = new Date();
+  }
+  // [Task #697] targetRoles 정규화.
+  //   OpenAPI 스키마는 ["array", "null"] 이라 클라이언트가 명시적으로 null
+  //   또는 [] 을 보낼 수 있다. 컬럼은 NOT NULL DEFAULT '{}' 이므로 그대로
+  //   넘기면 NOT NULL 위반 500 이 난다. 두 케이스 모두 "기본값으로 되돌리기"
+  //   의도로 해석해 카테고리 기반 기본값으로 재계산한다.
+  const submittedRoles = parsed.data.targetRoles;
+  const wantsReset =
+    submittedRoles === null ||
+    (Array.isArray(submittedRoles) && submittedRoles.length === 0);
+  if (wantsReset) {
+    if (parsed.data.category) {
+      updateData.targetRoles = categoryToTargetRoles(parsed.data.category);
+    } else {
+      // category 가 함께 안 왔으면 기존 row 의 카테고리에서 다시 계산.
+      const [existing] = await db
+        .select({ category: tasksTable.category })
+        .from(tasksTable)
+        .where(eq(tasksTable.id, params.data.id));
+      // 기존 row 도 못 찾으면 빈 배열(=DB 디폴트) 로 안전하게 떨어뜨린다.
+      updateData.targetRoles = existing
+        ? categoryToTargetRoles(existing.category)
+        : [];
+    }
   }
 
   const [task] = await db

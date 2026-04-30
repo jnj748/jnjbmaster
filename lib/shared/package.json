@@ -12,6 +12,7 @@
     "./rfq-vendor-matching": "./src/rfq-vendor-matching.ts",
     "./role-labels": "./src/role-labels.ts",
     "./contract-renewal": "./src/contract-renewal.ts",
-    "./derive-region": "./src/derive-region.ts"
+    "./derive-region": "./src/derive-region.ts",
+    "./role-routing": "./src/role-routing.ts"
   }
 }

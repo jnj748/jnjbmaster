@@ -16,4 +16,6 @@ export interface CreateTaskBody {
   priority: CreateTaskBodyPriority;
   /** @nullable */
   dueDate?: string | null;
+  /** @nullable */
+  targetRoles?: string[] | null;
 }

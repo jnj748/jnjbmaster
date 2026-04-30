@@ -4,8 +4,24 @@
 //   카드를 관리소장 패턴(같은 섹션·페이지네이션·D-day 신호등·액션 모달) 으로
 //   통일하기 위해 split 함수가 role 인자를 받아 역할별로 다른 필터를 적용하도록
 //   확장한다. role 미지정(=manager) 일 때는 기존 동작이 그대로 유지된다.
+// [Task #697] 카테고리/타입 화이트리스트는 서버와 같은 SoT
+//   (`@workspace/shared/role-routing`) 를 사용한다. 분류 우선순위:
+//
+//   1. `alert.targetRoles` 가 비어있지 않으면 **그 배열만 보고** 결정한다.
+//      (= 본부/관리자 가 명시 지정한 역할 라우팅이 서버 추정보다 무조건 우선)
+//   2. 비어있거나 누락이면 type/category/taskType 휴리스틱으로 폴백.
+//
+//   이렇게 분리해야 "이 알림은 시설기사 카드에서 빼고 소장만 봐라" 같은 명시
+//   지정이 type 기반 fallback 에 묻혀 다시 시설기사 카드로 새는 회귀를 막을
+//   수 있다.
 
 import type { DashboardAlert } from "@/lib/alert-utils";
+import {
+  ACCOUNTING_TASK_CATEGORIES,
+  ACCOUNTING_TASK_TYPES,
+  FACILITY_TASK_CATEGORIES,
+  FACILITY_TASK_TYPES,
+} from "@workspace/shared/role-routing";
 
 // [Task #184] 점검 알림을 inspectionType 기준으로 분리한다.
 //  - 필수업무현황: legal 점검 + 비점검 알림(세무·기한초과·하자만료·자료파기 등)
@@ -18,22 +34,6 @@ const PROPOSED_INSPECTION_TYPES = new Set([
   "administrative",
 ]);
 
-// [Task #681] 역할별 필터에 사용하는 카테고리/유형 집합. 한 곳에서 관리한다.
-const ACCOUNTING_TASK_CATEGORIES = new Set(["accounting", "tax", "finance"]);
-const ACCOUNTING_TASK_TYPES = new Set(["accounting", "fee"]);
-const FACILITY_TASK_TYPES = new Set(["facility", "security", "cleaning"]);
-// [Task #681 코드리뷰 반영] 시설 task_overdue/task_followup 필터를 "회계 제외"
-//   negative 방식에서 "시설 카테고리 화이트리스트" positive 방식으로 변경한다.
-//   범위가 모호한 category=null/other 항목이 시설 카드로 새는 회귀를 막기 위함.
-const FACILITY_TASK_CATEGORIES = new Set([
-  "facility",
-  "security",
-  "cleaning",
-  "maintenance",
-  "inspection",
-  "safety",
-]);
-
 export interface SplitDashboardAlerts {
   legalAlerts: DashboardAlert[];
   proposedAlerts: DashboardAlert[];
@@ -42,51 +42,63 @@ export interface SplitDashboardAlerts {
 // [Task #681] 역할 식별자. 필요한 세 역할만 지원하며 그 외/미지정은 manager 동작.
 export type DashboardAlertRole = "manager" | "accountant" | "facility_staff";
 
-function targetRolesIncludes(
+/**
+ * [Task #697] explicit `targetRoles` 만 보고 inclusion 을 결정한다.
+ * 비어있거나 배열이 아니면 `null` 을 반환해 호출자가 휴리스틱 폴백으로 갈 수
+ * 있도록 신호한다.
+ */
+function decideByTargetRoles(
   alert: DashboardAlert,
   role: DashboardAlertRole,
-): boolean {
+): boolean | null {
   const list = alert.targetRoles;
-  if (!Array.isArray(list) || list.length === 0) return false;
+  if (!Array.isArray(list) || list.length === 0) return null;
   return list.includes(role);
 }
 
-// [Task #681] 경리 카드 필터.
-//   - tax_due: 모두 노출 (세무 일정 = 경리의 핵심 업무)
-//   - task_overdue / task_followup: tasks.category ∈ {accounting/tax/finance} 만
-//   - task_template_mandatory: 템플릿 taskType ∈ {accounting/fee} 또는
-//     targetRoles 에 accountant 가 포함된 경우만
-//   - 그 외(시설 점검·하자·자료파기·공고문 등) 는 모두 제외
+// [Task #681/#697] 경리 카드 필터.
+//   1) explicit targetRoles 가 있으면 그것만 본다 (포함되면 노출, 아니면 제외).
+//   2) 없으면 type 기반 fallback:
+//      - tax_due: 모두 노출 (세무 일정 = 경리의 핵심 업무)
+//      - task_overdue / task_followup: tasks.category ∈ 회계 화이트리스트
+//      - task_template_mandatory: 템플릿 taskType ∈ {accounting/fee}
+//      - 그 외(시설 점검·하자·자료파기·공고문 등) 는 모두 제외
 function isAccountantLegalAlert(alert: DashboardAlert): boolean {
+  const explicit = decideByTargetRoles(alert, "accountant");
+  if (explicit !== null) return explicit;
+
   if (alert.type === "tax_due") return true;
   if (alert.type === "task_overdue" || alert.type === "task_followup") {
     const cat = alert.category ?? null;
     return !!cat && ACCOUNTING_TASK_CATEGORIES.has(cat);
   }
   if (alert.type === "task_template_mandatory") {
-    if (targetRolesIncludes(alert, "accountant")) return true;
     const tt = alert.taskType ?? null;
     return !!tt && ACCOUNTING_TASK_TYPES.has(tt);
   }
   return false;
 }
 
-// [Task #681] 시설 카드 필터.
-//   - inspection_due: 모두 노출 (legal/self_regular/biweekly/seasonal/administrative
-//     모두 시설담당의 시야에 들어가야 한다. 시설 대시보드는 "필수업무현황" 단일
-//     섹션만 사용하므로, 매니저처럼 legal vs self_regular 를 분리하지 않는다).
-//   - warranty_expiry: 모두 노출 (하자 만료 = 시설 핵심 업무)
-//   - task_template_mandatory: 템플릿 taskType ∈ {facility/security/cleaning}
-//     또는 targetRoles 에 facility_staff 포함된 경우만
-//   - task_overdue / task_followup: tasks.category ∈ {facility/security/cleaning/
-//     maintenance/inspection/safety} 인 것만 (시설 카테고리 화이트리스트).
-//     category=null/other 처럼 모호한 항목은 시설 카드로 새지 않게 한다.
-//   - 그 외(tax_due·data_destruction·공고문 등) 는 제외
+// [Task #681/#697] 시설 카드 필터.
+//   1) explicit targetRoles 가 있으면 그것만 본다.
+//   2) 없으면 type 기반 fallback:
+//      - inspection_due: administrative 외 모두 노출
+//        (시설 대시보드는 "필수업무현황" 단일 섹션만 사용. administrative 는
+//         소장 단독 영역으로 간주.)
+//      - warranty_expiry: 모두 노출
+//      - task_template_mandatory: taskType ∈ 시설 화이트리스트
+//      - task_overdue / task_followup: category ∈ 시설 화이트리스트
+//        (category=null/other 처럼 모호한 항목은 시설 카드로 새지 않게 한다.)
+//      - 그 외(tax_due·data_destruction·공고문 등) 는 제외
 function isFacilityLegalAlert(alert: DashboardAlert): boolean {
-  if (alert.type === "inspection_due") return true;
+  const explicit = decideByTargetRoles(alert, "facility_staff");
+  if (explicit !== null) return explicit;
+
+  if (alert.type === "inspection_due") {
+    return alert.inspectionType !== "administrative";
+  }
   if (alert.type === "warranty_expiry") return true;
   if (alert.type === "task_template_mandatory") {
-    if (targetRolesIncludes(alert, "facility_staff")) return true;
     const tt = alert.taskType ?? null;
     return !!tt && FACILITY_TASK_TYPES.has(tt);
   }

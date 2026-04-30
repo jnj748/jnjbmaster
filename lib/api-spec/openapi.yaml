@@ -7636,6 +7636,11 @@ components:
         completedAt:
           type: ["string", "null"]
           format: date-time
+        # [Task #697] 역할별 노출 제어. 빈 배열은 "기본 라우팅"(category 기반)과 동일하게 동작.
+        targetRoles:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -7648,6 +7653,7 @@ components:
         - category
         - priority
         - status
+        - targetRoles
         - createdAt
         - updatedAt
 
@@ -7667,6 +7673,11 @@ components:
         dueDate:
           type: ["string", "null"]
           format: date
+        # [Task #697] 생략 시 서버가 카테고리에서 기본 역할을 채워 저장한다.
+        targetRoles:
+          type: ["array", "null"]
+          items:
+            type: string
       required:
         - title
         - category
@@ -7691,6 +7702,11 @@ components:
         dueDate:
           type: ["string", "null"]
           format: date
+        # [Task #697] 빈 배열을 명시 보내면 "기본값으로 되돌리기"로 처리된다.
+        targetRoles:
+          type: ["array", "null"]
+          items:
+            type: string
 
     Inspection:
       type: object
@@ -9399,6 +9415,17 @@ components:
         widePhotoUrl:
           type: ["string", "null"]
           description: "[Task #511] 알림에 첨부된 원경 사진 URL. 비교견적 prefill 자동 채움에 사용된다."
+        category:
+          type: ["string", "null"]
+          description: "[Task #697] 원본 task/template 의 category. 클라이언트가 알림을 시설/회계/관리 카드로 분류할 때 사용."
+        taskType:
+          type: ["string", "null"]
+          description: "[Task #697] 원본 template 의 taskType(facility/security/cleaning/accounting/fee/other). 카드 분류의 보조 신호."
+        targetRoles:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: "[Task #697] 알림이 노출돼야 하는 역할 화이트리스트(manager/facility_staff/accountant/partner/hq_executive). 비어 있거나 null 이면 클라이언트가 category/type 으로 추정한다."
         createdAt:
           type: string
           format: date-time
