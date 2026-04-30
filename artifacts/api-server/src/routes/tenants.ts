@@ -18,7 +18,14 @@ import { requireRole } from "../middlewares/auth";
 import { getUserBuildingId } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
-router.use("/tenants", requireRole("manager", "platform_admin", "accountant"));
+// 시설담당자 대시보드 "호실정보조회" 카드가 입주자 검색에도 같은 엔드포인트를
+// 사용하므로 GET 진입은 facility_staff 까지 허용한다. 입주자 생성/수정/삭제/
+// 본인확인은 각 라우트에서 별도 가드로 기존 화이트리스트만 유지한다.
+router.use(
+  "/tenants",
+  requireRole("manager", "platform_admin", "accountant", "facility_staff"),
+);
+const requireWriteAccess = requireRole("manager", "platform_admin", "accountant");
 // Sub-select of unit IDs scoped to the caller's building.
 function unitIdsInBuilding(buildingId: number) {
   return db.select({ id: unitsTable.id }).from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
@@ -96,7 +103,7 @@ router.get("/tenants", async (req: Request, res): Promise<void> => {
   res.json(ListTenantsResponse.parse(tenants));
 });
 
-router.post("/tenants", async (req: Request, res): Promise<void> => {
+router.post("/tenants", requireWriteAccess, async (req: Request, res): Promise<void> => {
   const parsed = CreateTenantBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -166,7 +173,7 @@ router.get("/tenants/:id", async (req: Request, res): Promise<void> => {
   res.json(GetTenantResponse.parse(tenant));
 });
 
-router.patch("/tenants/:id", async (req: Request, res): Promise<void> => {
+router.patch("/tenants/:id", requireWriteAccess, async (req: Request, res): Promise<void> => {
   const params = UpdateTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -236,7 +243,7 @@ router.patch("/tenants/:id", async (req: Request, res): Promise<void> => {
   res.json(UpdateTenantResponse.parse(tenant));
 });
 
-router.delete("/tenants/:id", async (req: Request, res): Promise<void> => {
+router.delete("/tenants/:id", requireWriteAccess, async (req: Request, res): Promise<void> => {
   const params = DeleteTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -264,7 +271,7 @@ router.delete("/tenants/:id", async (req: Request, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.post("/tenants/:id/verify", async (req: Request, res): Promise<void> => {
+router.post("/tenants/:id/verify", requireWriteAccess, async (req: Request, res): Promise<void> => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

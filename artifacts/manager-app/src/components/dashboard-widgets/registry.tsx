@@ -210,7 +210,7 @@ export const WIDGETS = {
     key: "weekly-inspections",
     component: WeeklyInspectionsWidget,
     span: "half",
-    label: "금주 안전점검 작성",
+    label: "금주 안전점검표 작성",
   },
   // [Task #669] 시설담당 좌측 2행 — 최근문서함 + 처리내역을 한 half 셀 안에
   //   위·아래로 묶어 보여 준다. 우측 셀의 "오늘 업무일지" 강조 카드와 한 행을

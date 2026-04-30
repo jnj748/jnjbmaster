@@ -13,7 +13,15 @@ import {
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
-router.use("/units", requireRole("manager", "platform_admin", "accountant"));
+// 시설담당자 대시보드의 "호실정보조회" 카드(검색→호실 진입)도 같은 라우터를
+// 사용하므로 GET 진입은 facility_staff 까지 허용한다. 등록/수정/삭제(POST/
+// PATCH/DELETE) 는 각 라우트에서 별도 가드로 기존 화이트리스트(매니저/본사/
+// 경리) 만 유지해 시설담당자가 호실 데이터를 변경할 수 없도록 한다.
+router.use(
+  "/units",
+  requireRole("manager", "platform_admin", "accountant", "facility_staff"),
+);
+const requireWriteAccess = requireRole("manager", "platform_admin", "accountant");
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;
   if (!userId) return null;
@@ -163,7 +171,7 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
   res.json({ ...unit, tenants, owners, vehicles });
 });
 
-router.post("/units/bulk", async (req: Request, res: Response): Promise<void> => {
+router.post("/units/bulk", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) {
     res.status(403).json({ error: "건물이 등록되지 않았습니다" });
@@ -223,7 +231,7 @@ router.post("/units/bulk", async (req: Request, res: Response): Promise<void> =>
   res.status(201).json({ created, errors });
 });
 
-router.post("/units/generate", async (req: Request, res: Response): Promise<void> => {
+router.post("/units/generate", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) {
     res.status(403).json({ error: "건물이 등록되지 않았습니다" });
@@ -270,7 +278,7 @@ router.post("/units/generate", async (req: Request, res: Response): Promise<void
   res.status(201).json({ created: rows.length });
 });
 
-router.post("/units", async (req: Request, res: Response): Promise<void> => {
+router.post("/units", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) {
     res.status(403).json({ error: "건물이 등록되지 않았습니다" });
@@ -307,7 +315,7 @@ router.post("/units", async (req: Request, res: Response): Promise<void> => {
   res.status(201).json(unit);
 });
 
-router.patch("/units/:id", async (req: Request, res: Response): Promise<void> => {
+router.patch("/units/:id", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) {
     res.status(403).json({ error: "건물이 등록되지 않았습니다" });
@@ -357,7 +365,7 @@ router.patch("/units/:id", async (req: Request, res: Response): Promise<void> =>
   res.json(unit);
 });
 
-router.delete("/units/:id", async (req: Request, res: Response): Promise<void> => {
+router.delete("/units/:id", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) {
     res.status(403).json({ error: "건물이 등록되지 않았습니다" });

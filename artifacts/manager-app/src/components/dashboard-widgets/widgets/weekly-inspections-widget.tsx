@@ -1,7 +1,6 @@
-// [Task #658] 시설담당 대시보드 우측 1행 위젯 — "금주 안전점검 작성".
+// [Task #658] 시설담당 대시보드 우측 1행 위젯 — "금주 안전점검표 작성".
 //   6개 카테고리(전기/소방/기계/통신/승강기/기타) 버튼 그리드.
 //   각 버튼은 카테고리 라벨 + 이번 주(KST 월~일) 작성 건수 큰 숫자를 보여 준다.
-//   0건일 때는 시각적으로 강조(빨간 점 + 강조 색)해 시설담당이 즉시 알아본다.
 //
 // [Task #669] 위젯이 가리키는 화면을 법정점검(/inspections) → 안전점검표
 //   (/safety-checklists) 로 교정. 카드 본문 안내 문구도 "안전점검표 작성 건수"
@@ -9,6 +8,9 @@
 //   안전점검표 화면을 연다. 카운트 자체는 서버 라우트에서 safety_checklists 단일
 //   테이블 집계로 바뀌었지만 응답 스키마(키 구성)는 그대로이므로 이 컴포넌트의
 //   훅 사용은 변경 없음.
+//
+// [요청] 0건 항목의 빨강 강조(테두리/배경/글자색/빨간 점) 모두 제거 — 모든
+//   카테고리 버튼이 동일한 기본 스타일로 보인다.
 
 import { useLocation } from "wouter";
 import { useGetFacilityWeeklyInspectionCounts } from "@workspace/api-client-react";
@@ -62,56 +64,31 @@ export default function WeeklyInspectionsWidget() {
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          금주 안전점검 작성
+          금주 안전점검표 작성
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           이번 주(월~일) 우리 건물의 안전점검표 작성 건수입니다.
-          0건인 항목은 빨간 점으로 강조됩니다.
         </p>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-3 gap-2">
           {BUCKETS.map((b) => {
             const count = buckets?.[b.key] ?? 0;
-            const isZero = !isLoading && count === 0;
             return (
               <button
                 key={b.key}
                 type="button"
                 onClick={() => handleClick(b)}
                 data-testid={`weekly-inspection-bucket-${b.key}`}
-                className={
-                  "relative flex flex-col items-center justify-center gap-1 rounded-lg border py-3 px-2 transition-colors hover-elevate active-elevate-2 " +
-                  (isZero
-                    ? "border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-900/20"
-                    : "border-border bg-card")
-                }
+                className="relative flex flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card py-3 px-2 transition-colors hover-elevate active-elevate-2"
               >
-                {isZero && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500"
-                  />
-                )}
                 <span
-                  className={
-                    "text-2xl font-bold leading-none " +
-                    (isZero
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-foreground")
-                  }
+                  className="text-2xl font-bold leading-none text-foreground"
                   data-testid={`weekly-inspection-count-${b.key}`}
                 >
                   {isLoading ? "·" : count}
                 </span>
-                <span
-                  className={
-                    "text-xs font-medium " +
-                    (isZero
-                      ? "text-rose-700 dark:text-rose-300"
-                      : "text-muted-foreground")
-                  }
-                >
+                <span className="text-xs font-medium text-muted-foreground">
                   {b.label}
                 </span>
               </button>

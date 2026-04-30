@@ -310,7 +310,10 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/units", component: Units,
     label: "호실 관리", icon: Building, group: "residents",
-    access: ["manager", "accountant", "platform_admin"],
+    // [요청] 시설담당 대시보드 "호실정보조회" 카드에서 검색 결과 클릭 시 호실관리
+    //   페이지로 이동하므로 시설담당자도 라우트 진입을 허용한다. 사이드바에는
+    //   별도 노출하지 않고(아래 sideMenu 그대로), 카드 클릭 동선으로만 진입.
+    access: ["manager", "accountant", "platform_admin", "facility_staff"],
     sideMenu: ["manager", "accountant"],
     // [모바일 5탭 단순화] 경리 모바일 하단탭에서 "호실" 제거 — 사이드바·더보기로 진입.
     bottomNav: [],
@@ -318,7 +321,11 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/tenants", component: Tenants,
     label: "입주민 관리", icon: Users, group: "residents",
-    access: ["manager", "accountant", "platform_admin"],
+    // [요청] 시설담당 대시보드 "호실정보조회" 위젯이 입주자 검색 API 도 호출하므로
+    //   라우트 진입 자체는 허용한다(검색 결과는 호실 페이지로 이동하므로 시설담당이
+    //   입주민 페이지를 직접 열 일은 거의 없지만, 수동 URL 진입을 차단하지 않음).
+    //   사이드바는 그대로 매니저/경리만.
+    access: ["manager", "accountant", "platform_admin", "facility_staff"],
     sideMenu: ["manager", "accountant"],
   },
   {
@@ -867,7 +874,7 @@ const ROOT_LABELS: Record<Role, string> = {
   platform_admin: `${SHARED_ROLE_LABELS.platform_admin} 관리`,
   hq_executive: `${SHARED_ROLE_LABELS.hq_executive} 대시보드`,
   accountant: "대시보드",
-  facility_staff: "일일 업무",
+  facility_staff: "대시보드",
   partner: "대시보드",
   custodian: "결재함",
 };

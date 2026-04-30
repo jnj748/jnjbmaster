@@ -7,11 +7,19 @@
 //   같은 이유로 manager-main-widget 안에서 `md:grid-cols-2` 를 사용한다).
 //
 //   레이아웃(데스크톱):
-//     1행: 필수업무현황(AlertSection role=facility_staff)  | 금주 안전점검(WeeklyInspectionsWidget)
+//     1행: 필수업무현황(AlertSection role=facility_staff, pageSize=5)
+//          | [세로 스택] 금주 안전점검표(WeeklyInspectionsWidget)
+//                       + 호실정보조회(AccountantMemberSearchWidget)
 //     2행: 최근문서함 + 처리내역(FacilityLeftColumnStack)   | 오늘 업무일지(prominent)
 //     3행: 공고문 템플릿(NoticeTemplatesEntryWidget)        | 우리 건물 계약업체(BuildingContractsSummaryWidget)
 //
 //   모바일은 단일 칼럼으로 펼쳐 보여 세로 스크롤로 동일한 정보를 노출한다.
+//
+// [요청] 시설담당 대시보드 우측 1행이 "금주 안전점검표" 카드 한 칸이라 좌측
+//   필수업무현황(5건 페이지네이션) 옆에 빈 공간이 남았다. 그 자리에 경리
+//   대시보드와 동일한 "호실정보조회" 카드를 세로 스택으로 함께 배치해
+//   시설담당자가 호실/수리 이력 조회로 즉시 진입할 수 있게 한다. 카드 자체는
+//   AccountantMemberSearchWidget 컴포넌트(검색→호실관리 진입)를 그대로 재사용.
 
 import { useState } from "react";
 import {
@@ -35,6 +43,7 @@ import WeeklyInspectionsWidget from "./weekly-inspections-widget";
 import FacilityLeftColumnStackWidget from "./facility-left-column-stack-widget";
 import NoticeTemplatesEntryWidget from "./notice-templates-entry-widget";
 import BuildingContractsSummaryWidget from "./building-contracts-summary-widget";
+import AccountantMemberSearchWidget from "./accountant-member-search-widget";
 
 export default function FacilityMainWidget() {
   const { user } = useAuth();
@@ -70,6 +79,7 @@ export default function FacilityMainWidget() {
             sectionKind="mandatory"
           />
           <WeeklyInspectionsWidget />
+          <AccountantMemberSearchWidget />
           <FacilityLeftColumnStackWidget />
           <TodayWorkLogEntry variant="prominent" />
           <NoticeTemplatesEntryWidget />
@@ -79,9 +89,11 @@ export default function FacilityMainWidget() {
 
       <DesktopOnly>
         <div className="space-y-6">
-          {/* 1행: 필수업무현황 / 금주 안전점검.
+          {/* 1행: 필수업무현황(좌) / 금주 안전점검표 + 호실정보조회 세로 스택(우).
               매니저 본문과 동일하게 `md:grid-cols-2` 를 직접 사용해 900~1279px
-              구간(DesktopOnly = .dash-desktop-only ≥900px) 에서도 2열을 유지한다. */}
+              구간(DesktopOnly = .dash-desktop-only ≥900px) 에서도 2열을 유지한다.
+              우측 셀은 안전점검표 카드(상)와 호실정보조회 카드(하)를 세로로 쌓아
+              필수업무현황 5건 페이지네이션 옆 빈 공간을 채운다. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <AlertSection
               title="필수업무현황"
@@ -96,7 +108,10 @@ export default function FacilityMainWidget() {
               sectionKind="mandatory"
               pageSize={5}
             />
-            <WeeklyInspectionsWidget />
+            <div className="space-y-6">
+              <WeeklyInspectionsWidget />
+              <AccountantMemberSearchWidget />
+            </div>
           </div>
 
           {/* 2행: 최근문서함 + 처리내역(좌, 한 셀 안 세로 스택) /
