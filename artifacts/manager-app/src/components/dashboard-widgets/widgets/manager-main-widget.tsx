@@ -61,7 +61,14 @@ import { AlertSection } from "./alert-section-widget";
 import { TodayWorkLogEntry } from "./today-work-log-entry-widget";
 import { FeesSummaryWidget } from "./fees-summary-widget";
 import { DataDestructionSection } from "./data-destruction-section";
-import { DocumentsLinkPair } from "./documents-link-pair";
+// [요청] 관리소장 2행 좌측을 시설/경리와 동일한 두 진입 카드(최근문서함 +
+//   처리 내역) 세로 스택으로 통일. 이전에는 DocumentsLinkPair(한 박스 안에 두
+//   행을 욱여넣은 페어 카드) 를 썼는데, 보조 설명 텍스트가 truncate 되어
+//   "기안·견적·공지·일지 보고서·외부..." 처럼 잘려 보였다. 시설 화면이 이미
+//   사용 중인 FacilityLeftColumnStackWidget 을 그대로 재사용해 같은 두 카드를
+//   분리된 형태로 노출한다(컴포넌트 이름은 facility- 로 시작하지만 내부는 두
+//   범용 진입 위젯의 세로 스택일 뿐이다).
+import FacilityLeftColumnStackWidget from "./facility-left-column-stack-widget";
 import NoticeTemplatesEntryWidget from "./notice-templates-entry-widget";
 import BuildingContractsSummaryWidget from "./building-contracts-summary-widget";
 
@@ -197,9 +204,12 @@ export default function ManagerMainWidget() {
               [Task #706] 우측 "오늘 업무일지" 카드를 컴팩트 가로 카드로 축소했으므로
               우측 카드를 좌측 합산 높이만큼 늘려 맞추는 `items-stretch` 대신
               `items-start` 로 정렬해 우측 카드가 자연스럽게 짧게 보이도록 한다.
+              [요청] 좌측 페어 카드(DocumentsLinkPair)를 시설/경리와 같은 분리된
+              두 진입 카드로 환원. 한 박스 안에 두 행을 욱여넣어 보조 설명이
+              잘리던 문제를 해결한다.
               breakpoint: 위 1행과 동일한 이유로 `md:` 사용. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <DocumentsLinkPair />
+            <FacilityLeftColumnStackWidget />
             <TodayWorkLogEntry />
           </div>
 
