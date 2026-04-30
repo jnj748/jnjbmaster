@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, AlertCircle, CalendarClock, CheckCircle2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/l
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 import { CompletionNotice } from "@/components/completion-notice";
 import { MemoInputFooter } from "@/components/memo-input-footer";
-import { getCategoriesFor, useCurrentRole, CATEGORY_LABEL, type Category } from "@/pages/work-log/shared";
+import { getCategoriesFor, useCurrentRole, CATEGORY_LABEL, type Category, type Role } from "@/pages/work-log/shared";
 
 type Status = "occurred" | "planned" | "completed";
 
@@ -54,7 +54,31 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
   const role = useCurrentRole();
   const CATEGORIES = useMemo(() => getCategoriesFor(role), [role]);
   const defaultCategory = CATEGORIES[0].value as Category;
+  const allowedCategoryValues = useMemo(
+    () => new Set<Category>(CATEGORIES.map((c) => c.value)),
+    [CATEGORIES],
+  );
+  // [Task #641] role 이 늦게 결정되는 회귀 가드.
+  // useState 초기값은 첫 렌더의 defaultCategory (보통 user 미로딩 → "manager" 폴백 →
+  // "facility") 로 굳는다. 두 가지 경우 모두 category 상태를 새 직책의 첫 카테고리로
+  // 결정적으로 재설정한다:
+  //   1) role 자체가 바뀐 직후 — 인증 응답이 돌아와 사용자의 실제 직책이 확정되거나
+  //      dev 격자에서 셀별 사용자가 결정된 시점. 카테고리 키가 직책끼리 겹치는 경우
+  //      (예: complaint 는 manager·accountant 양쪽에 있음) 에도 무조건 새 직책의
+  //      기본값(receivable 등) 으로 리셋해 직책별 기본 선택을 보장한다.
+  //   2) role 변동 없이도 어떤 경로로든 category 가 허용 집합 밖이면 보정.
   const [category, setCategory] = useState<Category>(defaultCategory);
+  const prevRoleRef = useRef<Role>(role);
+  useEffect(() => {
+    if (prevRoleRef.current !== role) {
+      prevRoleRef.current = role;
+      setCategory(defaultCategory);
+      return;
+    }
+    if (!allowedCategoryValues.has(category)) {
+      setCategory(defaultCategory);
+    }
+  }, [role, allowedCategoryValues, defaultCategory, category]);
   const [status, setStatus] = useState<Status>("occurred");
   const [memo, setMemo] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -97,6 +121,14 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
       toast({ title: "메모를 입력해주세요", variant: "destructive" });
       return;
     }
+    // [Task #641] 클라이언트 회귀 가드 — 직책에 허용되지 않은 카테고리가 들어가
+    // 서버 화이트리스트에 막혀 400 이 떨어지는 일을 막는다. 어긋나 있으면 자동으로
+    // 현재 직책의 첫 카테고리로 보정한 뒤 그 값으로 저장한다.
+    let safeCategory: Category = category;
+    if (!allowedCategoryValues.has(safeCategory)) {
+      safeCategory = defaultCategory;
+      setCategory(defaultCategory);
+    }
     setSubmitting(true);
     let ok = false;
     try {
@@ -107,7 +139,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          category,
+          category: safeCategory,
           memo: memo.trim(),
           photoUrl,
           status,
@@ -119,7 +151,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
 
       const today = new Date().toISOString().slice(0, 10);
       const trimmed = memo.trim();
-      const title = `[${CATEGORY_LABEL[category]}] ${trimmed.split("\n")[0].slice(0, 80)}`;
+      const title = `[${CATEGORY_LABEL[safeCategory]}] ${trimmed.split("\n")[0].slice(0, 80)}`;
 
       if (status === "completed") {
         // 처리완료 → 공고문/보고서 작성으로 이어진다.
@@ -134,7 +166,7 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
       } else {
         // 발생 / 처리예정 → 후속조치 키워드 감지 시 기안/견적 제안.
         const detection = detectFollowUp(trimmed, {
-          domainHint: followUpDomainHint(category),
+          domainHint: followUpDomainHint(safeCategory),
         });
         if (detection) {
           setFollowUpSource({
