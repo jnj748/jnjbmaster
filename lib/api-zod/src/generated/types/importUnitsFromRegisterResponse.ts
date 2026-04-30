@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ImportUnitPreviewItem } from "./importUnitPreviewItem";
+import type { ImportUnitsFromRegisterResponseNoUnitData } from "./importUnitsFromRegisterResponseNoUnitData";
 
 export interface ImportUnitsFromRegisterResponse {
   dryRun: boolean;
@@ -18,4 +19,5 @@ export interface ImportUnitsFromRegisterResponse {
   ownerLookupEnabled?: boolean;
   ownerLookupAttempted?: number;
   ownerLookupHit?: number;
+  noUnitData?: ImportUnitsFromRegisterResponseNoUnitData;
 }

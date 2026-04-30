@@ -119,6 +119,12 @@ export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBu
         const k = q.queryKey?.[0];
         return typeof k === "string" && (k.includes("Unit") || k.includes("unit") || k.includes("Building"));
       }});
+      // [Task #689] 일반건축물·빈 응답이면 안내 토스트만 띄우고 다이얼로그를 닫지 않는다.
+      //   이렇게 해야 사용자가 안내 메시지를 읽고 수기 등록/엑셀 업로드로 자연스럽게 이어갈 수 있다.
+      if (res.noUnitData) {
+        toast({ title: "가져올 호실 자료가 없습니다", description: res.noUnitData.message });
+        return;
+      }
       toast({
         title: "가져오기 완료",
         description: `신규 ${res.created} · 갱신 ${res.updated} · 유지 ${res.skipped}`,
@@ -150,7 +156,11 @@ export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBu
               <RefreshCw className="w-4 h-4 mr-2" />
               미리보기 가져오기
             </Button>
-            <Button onClick={runApply} disabled={importMutation.isPending || !preview}>
+            {/* [Task #689] noUnitData 가 잡힌 미리보기에서는 적용해도 들어올 호실이 없으므로 버튼을 잠근다. */}
+            <Button
+              onClick={runApply}
+              disabled={importMutation.isPending || !preview || Boolean(preview?.noUnitData)}
+            >
               {importMutation.isPending && preview && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <CheckCircle2 className="w-4 h-4 mr-2" />
               확정 적용
@@ -159,53 +169,71 @@ export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBu
 
           {preview && (
             <div className="space-y-3">
-              <div className="flex flex-wrap gap-2 text-sm">
-                <Badge className="bg-emerald-100 text-emerald-700">신규 {preview.created}건</Badge>
-                <Badge className="bg-amber-100 text-amber-700">갱신 {preview.updated}건</Badge>
-                <Badge className="bg-slate-100 text-slate-600">유지 {preview.skipped}건</Badge>
-                {applied?.lastSyncedAt && (
-                  <Badge variant="outline">
-                    마지막 동기화: {new Date(applied.lastSyncedAt).toLocaleString("ko-KR")}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="border rounded-md overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">구분</th>
-                      <th className="px-3 py-2 text-left font-medium">층</th>
-                      <th className="px-3 py-2 text-left font-medium">호실</th>
-                      <th className="px-3 py-2 text-right font-medium">전용면적(㎡)</th>
-                      <th className="px-3 py-2 text-right font-medium">공용면적(㎡)</th>
-                      <th className="px-3 py-2 text-left font-medium">용도</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.items.map((it, i) => {
-                      const b = ACTION_BADGE[it.action];
-                      return (
-                        <tr key={`${it.floor}-${it.unitNumber}-${i}`} className="border-t">
-                          <td className="px-3 py-2"><Badge className={b.cls}>{b.label}</Badge></td>
-                          <td className="px-3 py-2">{it.floor}</td>
-                          <td className="px-3 py-2">{it.unitNumber}</td>
-                          <td className="px-3 py-2 text-right">{it.exclusiveArea.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">{it.commonArea.toFixed(2)}</td>
-                          <td className="px-3 py-2">{it.usage ?? "-"}</td>
-                        </tr>
-                      );
-                    })}
-                    {preview.items.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
-                          가져올 호실 단위 면적 정보가 없습니다.
-                        </td>
-                      </tr>
+              {/* [Task #689] 일반건축물(다가구·단독)·빈 응답 케이스는 표 대신 안내 카드를 노출.
+                  API 오류와 분명히 구분되도록 메시지 + 수기/엑셀 업로드 진입을 함께 보여 준다. */}
+              {preview.noUnitData ? (
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription className="space-y-2">
+                    <p data-testid="text-no-unit-data">{preview.noUnitData.message}</p>
+                    {onGoToBuildingSettings && (
+                      <div className="text-xs text-muted-foreground">
+                        호실 관리 페이지에서 ‘직접 추가’ 또는 ‘엑셀 업로드’ 로 호실을 등록할 수 있습니다.
+                      </div>
                     )}
-                  </tbody>
-                </table>
-              </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Badge className="bg-emerald-100 text-emerald-700">신규 {preview.created}건</Badge>
+                    <Badge className="bg-amber-100 text-amber-700">갱신 {preview.updated}건</Badge>
+                    <Badge className="bg-slate-100 text-slate-600">유지 {preview.skipped}건</Badge>
+                    {applied?.lastSyncedAt && (
+                      <Badge variant="outline">
+                        마지막 동기화: {new Date(applied.lastSyncedAt).toLocaleString("ko-KR")}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">구분</th>
+                          <th className="px-3 py-2 text-left font-medium">층</th>
+                          <th className="px-3 py-2 text-left font-medium">호실</th>
+                          <th className="px-3 py-2 text-right font-medium">전용면적(㎡)</th>
+                          <th className="px-3 py-2 text-right font-medium">공용면적(㎡)</th>
+                          <th className="px-3 py-2 text-left font-medium">용도</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.items.map((it, i) => {
+                          const b = ACTION_BADGE[it.action];
+                          return (
+                            <tr key={`${it.floor}-${it.unitNumber}-${i}`} className="border-t">
+                              <td className="px-3 py-2"><Badge className={b.cls}>{b.label}</Badge></td>
+                              <td className="px-3 py-2">{it.floor}</td>
+                              <td className="px-3 py-2">{it.unitNumber}</td>
+                              <td className="px-3 py-2 text-right">{it.exclusiveArea.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right">{it.commonArea.toFixed(2)}</td>
+                              <td className="px-3 py-2">{it.usage ?? "-"}</td>
+                            </tr>
+                          );
+                        })}
+                        {preview.items.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                              가져올 호실 단위 면적 정보가 없습니다.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </CardContent>

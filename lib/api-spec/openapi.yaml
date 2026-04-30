@@ -12846,6 +12846,25 @@ components:
           type: integer
         ownerLookupHit:
           type: integer
+        # [Task #689] 건축물대장에 호실 단위 자료가 없을 때(=일반건축물 또는 비어 있는 응답)
+        # API 오류와 구분해 안내 메시지를 함께 200 으로 돌려준다. items 가 비어 있을 때만
+        # 채워지며, 클라이언트는 이 필드가 있으면 빈 표 대신 안내 카드를 보여 준다.
+        noUnitData:
+          type: object
+          required: [kind, message]
+          properties:
+            # 'general' = regstrGbCdNm == "일반" (=다가구·단독). 전유부 자료 자체가 공공 API
+            #   에 없는 케이스. 'empty' = 응답은 있었지만 호실 단위 행이 0건.
+            kind:
+              type: string
+              enum: [general, empty]
+            message:
+              type: string
+            # 'land-code' = 토지 식별자 1회 호출, 'pk-fallback' = 동(棟) PK 순회 폴백,
+            # 'none' = 식별자/PK 모두 없어 호출 자체를 못 한 케이스. 운영 로그/지원 진단용.
+            source:
+              type: string
+              enum: [land-code, pk-fallback, none]
 
     # [Task #516] 소유자 자동 조회 결과 한 행. 외부 API 가 비어있는 필드는 생략된다.
     OwnerLookupRow:

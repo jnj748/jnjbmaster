@@ -9,8 +9,8 @@ import { eq } from "drizzle-orm";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import {
   type AreaInfoRow,
-  fetchAreaInfoFromRegister,
-  fetchAreaInfoForAllDongs,
+  type RegisterBuildingKind,
+  loadAreaInfoForBuilding,
 } from "./register-lookup";
 import { lookupOwnersBestEffort, type OwnerLookupRow } from "./owner-lookup";
 
@@ -68,31 +68,23 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     return;
   }
 
-  // [Task #516] 동(棟)별 PK 캐시(register_dong_pks) 가 있으면 모든 동을 순회한다.
-  //   캐시가 없는 기존 건물은 단일 buildingRegisterPk 로 폴백.
-  const dongPks = (building.registerDongPks ?? []).map((d) => d.mgmBldrgstPk).filter(Boolean);
-  const fallbackPk = building.buildingRegisterPk ?? "";
-  const pksToFetch = dongPks.length > 0 ? dongPks : (fallbackPk ? [fallbackPk] : []);
-
-  if (pksToFetch.length === 0) {
-    res.status(400).json({
-      error: "건물에 등록된 관리건축물대장PK가 없습니다. 먼저 주소로 건축물대장을 조회해 주세요.",
-    });
-    return;
-  }
-
+  // [Task #689] 단일 진입점 — loadAreaInfoForBuilding 이 토지 식별자(시군구·법정동·본번·부번)
+  //   기반 1회 호출을 우선하고, 그 결과가 비어 있거나 식별자가 없을 때만 PK 폴백을 시도한다.
+  //   호출 결과의 kind 로 일반건축물('일반')과 진짜 오류를 구분해 안내한다.
   let areas: AreaInfoRow[];
+  let kind: RegisterBuildingKind = "unknown";
+  let source: "land-code" | "pk-fallback" | "none" = "none";
   try {
-    if (pksToFetch.length === 1) {
-      // 단일 동 폴백: 기존 동작 그대로.
-      const single = await fetchAreaInfoFromRegister(pksToFetch[0]);
-      areas = single ?? [];
-    } else {
-      // [Task #516] 다동 페이징: 동별 응답이 빈 body 라도 다음 동을 계속 진행. 결과/실패 로그 누적.
-      areas = await fetchAreaInfoForAllDongs(pksToFetch, (info) => {
-        req.log.info({ buildingId, ...info }, "Register area info fetched per dong");
-      });
-    }
+    const loaded = await loadAreaInfoForBuilding(building, (info) => {
+      req.log.info({ buildingId, ...info }, "Register area info fetched per dong (fallback)");
+    });
+    areas = loaded.areas;
+    kind = loaded.kind;
+    source = loaded.source;
+    req.log.info(
+      { buildingId, kind, source, totalRows: areas.length },
+      "Loaded area info from register",
+    );
   } catch (e) {
     if (e instanceof Error && e.message === "API_KEY_MISSING") {
       res.status(500).json({ error: "건축물대장 API 키가 설정되지 않았습니다." });
@@ -103,15 +95,34 @@ router.post("/buildings/units/import-from-register", async (req: Request, res: R
     return;
   }
 
-  if (areas.length === 0) {
-    res.status(404).json({ error: "건축물대장에서 면적 정보를 찾을 수 없습니다." });
-    return;
-  }
-
-  // hoNm(호실번호)가 비어 있는 행은 층 합계 행이므로 호실 단위 데이터로는 사용하지 않는다.
+  // [Task #689] hoNm(호실번호)가 비어 있는 행은 층 합계 행이므로 호실 단위 데이터로는 사용하지 않는다.
   const rows = areas.filter((a) => deriveUnitNumber(a) !== "");
+
+  // [Task #689] 일반건축물(다가구·단독 등)은 전유부 단위 자료가 공공 API 에 사실상 없다.
+  //   API 오류가 아니라 "해당 없음" 으로 분류해 안내 메시지를 함께 200 응답으로 돌려준다.
+  //   - kind = "general": 즉시 안내 (PK 응답 비어 있어도 정상 케이스).
+  //   - kind = "collective"/"unknown" + 실제 0건: 데이터 자체가 없는 케이스로 동일 안내,
+  //     단 reason 만 다르게 두어 운영자가 로그로 구분할 수 있게 한다.
   if (rows.length === 0) {
-    res.status(404).json({ error: "건축물대장에서 호실 단위 면적 정보를 찾을 수 없습니다." });
+    const isGeneral = kind === "general";
+    res.json({
+      dryRun,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      items: [],
+      lastSyncedAt: dryRun ? null : new Date().toISOString(),
+      ownerLookupEnabled: false,
+      ownerLookupAttempted: 0,
+      ownerLookupHit: 0,
+      noUnitData: {
+        kind: isGeneral ? "general" : "empty",
+        message: isGeneral
+          ? "건축물대장에 호실 단위 자료가 없는 건물입니다. 호실은 직접 등록하거나 엑셀 업로드를 사용해 주세요."
+          : "건축물대장에서 호실 단위 면적 정보를 찾지 못했습니다. 호실은 직접 등록하거나 엑셀 업로드를 사용해 주세요.",
+        source,
+      },
+    });
     return;
   }
 

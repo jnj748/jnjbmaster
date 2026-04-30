@@ -4442,6 +4442,29 @@ export interface ImportUnitPreviewItem {
   action: ImportUnitPreviewItemAction;
 }
 
+export type ImportUnitsFromRegisterResponseNoUnitDataKind =
+  (typeof ImportUnitsFromRegisterResponseNoUnitDataKind)[keyof typeof ImportUnitsFromRegisterResponseNoUnitDataKind];
+
+export const ImportUnitsFromRegisterResponseNoUnitDataKind = {
+  general: "general",
+  empty: "empty",
+} as const;
+
+export type ImportUnitsFromRegisterResponseNoUnitDataSource =
+  (typeof ImportUnitsFromRegisterResponseNoUnitDataSource)[keyof typeof ImportUnitsFromRegisterResponseNoUnitDataSource];
+
+export const ImportUnitsFromRegisterResponseNoUnitDataSource = {
+  "land-code": "land-code",
+  "pk-fallback": "pk-fallback",
+  none: "none",
+} as const;
+
+export type ImportUnitsFromRegisterResponseNoUnitData = {
+  kind: ImportUnitsFromRegisterResponseNoUnitDataKind;
+  message: string;
+  source?: ImportUnitsFromRegisterResponseNoUnitDataSource;
+};
+
 export interface ImportUnitsFromRegisterResponse {
   dryRun: boolean;
   created: number;
@@ -4453,6 +4476,7 @@ export interface ImportUnitsFromRegisterResponse {
   ownerLookupEnabled?: boolean;
   ownerLookupAttempted?: number;
   ownerLookupHit?: number;
+  noUnitData?: ImportUnitsFromRegisterResponseNoUnitData;
 }
 
 export interface OwnerLookupRow {

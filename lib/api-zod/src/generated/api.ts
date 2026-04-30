@@ -4011,6 +4011,13 @@ export const ImportUnitsFromRegisterResponse = zod.object({
   ownerLookupEnabled: zod.boolean().optional(),
   ownerLookupAttempted: zod.number().optional(),
   ownerLookupHit: zod.number().optional(),
+  noUnitData: zod
+    .object({
+      kind: zod.enum(["general", "empty"]),
+      message: zod.string(),
+      source: zod.enum(["land-code", "pk-fallback", "none"]).optional(),
+    })
+    .optional(),
 });
 
 /**
