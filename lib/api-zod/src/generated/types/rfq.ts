@@ -5,17 +5,15 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { RfqCategory } from "./rfqCategory";
 import type { RfqExpectedCreditScope } from "./rfqExpectedCreditScope";
-import type { RfqServiceType } from "./rfqServiceType";
 import type { RfqStatus } from "./rfqStatus";
 
 export interface Rfq {
   id: number;
   title: string;
-  category: RfqCategory;
+  category: string;
   /** @nullable */
-  serviceType?: RfqServiceType;
+  serviceType?: string | null;
   /** @nullable */
   description?: string | null;
   buildingName: string;

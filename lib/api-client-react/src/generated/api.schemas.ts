@@ -892,40 +892,6 @@ export interface UpdateCommissionBody {
   notes?: string | null;
 }
 
-export type RfqCategory = (typeof RfqCategory)[keyof typeof RfqCategory];
-
-export const RfqCategory = {
-  elevator: "elevator",
-  water_tank: "water_tank",
-  fire_safety: "fire_safety",
-  electrical: "electrical",
-  gas: "gas",
-  septic: "septic",
-  cleaning: "cleaning",
-  security: "security",
-  waterproofing: "waterproofing",
-  maintenance_repair: "maintenance_repair",
-  defect_diagnosis: "defect_diagnosis",
-  building_maintenance: "building_maintenance",
-  mechanical: "mechanical",
-  other: "other",
-} as const;
-
-/**
- * @nullable
- */
-export type RfqServiceType =
-  | (typeof RfqServiceType)[keyof typeof RfqServiceType]
-  | null;
-
-export const RfqServiceType = {
-  breakdown: "breakdown",
-  defect: "defect",
-  replacement: "replacement",
-  inspection: "inspection",
-  other: "other",
-} as const;
-
 export type RfqStatus = (typeof RfqStatus)[keyof typeof RfqStatus];
 
 export const RfqStatus = {
@@ -951,9 +917,9 @@ export const RfqExpectedCreditScope = {
 export interface Rfq {
   id: number;
   title: string;
-  category: RfqCategory;
+  category: string;
   /** @nullable */
-  serviceType?: RfqServiceType;
+  serviceType?: string | null;
   /** @nullable */
   description?: string | null;
   buildingName: string;

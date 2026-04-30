@@ -30,7 +30,9 @@ import {
   getNoViewRefundRatio,
   isCreditsEnabled,
 } from "../lib/credits";
-import { buildRfqAutoTitle, RFQ_SERVICE_TYPES } from "@workspace/shared/rfq-service-types";
+import { buildRfqAutoTitle, RFQ_SERVICE_TYPES, rfqCategoryLabel, rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
+import { insertNotification } from "../lib/notificationRecipient";
+import { sendMail, isMailEnabled } from "../lib/mail";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -117,7 +119,35 @@ function toIsoDate(d: Date | string | null | undefined): string | null {
 //   500 을 받고 사용자 입장에서는 "버튼이 죽은 것 처럼" 보였다 (견적 요청 모달
 //   제출 무반응 이슈). 응답 스키마는 건드리지 않고, 직렬화 단계에서만
 //   Date → ISO string / YYYY-MM-DD 로 정규화한다.
+//
+// [Task #668] 추가로 category / serviceType 가 strict enum 밖의 레거시 값
+//   ("방수/도장", "옥상 방수" 등)일 때, 응답 한 줄이 zod 파싱을 깨고 GET
+//   /api/rfqs 가 통째로 500 으로 나오던 사고를 방지하기 위해, 직렬화 단계에서
+//   안전한 기본값으로 정규화한다. 응답 스키마(OpenAPI Rfq) 도 이미 string 으로
+//   완화되어 있어 이 가드는 "방어선 1" 역할을 한다.
+const RFQ_CATEGORY_VALUES: ReadonlySet<string> = new Set([
+  "elevator", "water_tank", "fire_safety", "electrical", "gas", "septic",
+  "cleaning", "security", "waterproofing", "maintenance_repair",
+  "defect_diagnosis", "building_maintenance", "mechanical", "other",
+]);
+
+const RFQ_SERVICE_TYPE_VALUES: ReadonlySet<string> = new Set(RFQ_SERVICE_TYPES);
+
+const warnedRfqEnumIds = new Set<string>();
+function warnLegacyRfqEnumOnce(rfqId: number, field: string, original: string): void {
+  const key = `${rfqId}:${field}`;
+  if (warnedRfqEnumIds.has(key)) return;
+  warnedRfqEnumIds.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[rfqs] legacy enum value normalized — rfqId=${rfqId} field=${field} original=${JSON.stringify(original)}`,
+  );
+}
+
 type RfqRowDateFields = {
+  id?: number;
+  category?: string | null;
+  serviceType?: string | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
   deadline?: Date | string | null;
@@ -125,8 +155,20 @@ type RfqRowDateFields = {
 };
 
 function serializeRfqRow<T extends RfqRowDateFields>(row: T): T {
+  let category = row.category ?? null;
+  let serviceType = row.serviceType ?? null;
+  if (category != null && !RFQ_CATEGORY_VALUES.has(category)) {
+    if (typeof row.id === "number") warnLegacyRfqEnumOnce(row.id, "category", category);
+    category = "other";
+  }
+  if (serviceType != null && !RFQ_SERVICE_TYPE_VALUES.has(serviceType)) {
+    if (typeof row.id === "number") warnLegacyRfqEnumOnce(row.id, "serviceType", serviceType);
+    serviceType = null;
+  }
   return {
     ...row,
+    category: category as T["category"],
+    serviceType: serviceType as T["serviceType"],
     desiredDate: toIsoDate(row.desiredDate),
     deadline: toIsoDate(row.deadline),
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
@@ -140,13 +182,19 @@ router.get("/rfqs", async (req, res): Promise<void> => {
   const role = req.user?.role;
   const isPartner = role === "partner";
 
+  // [Task #668] Express 5 부터 req.query 가 read-only 게터가 되어 직접 할당이
+  //   조용히 무시된다. 기존 코드가 `req.query.forVendorId = X` 로 강제 주입을
+  //   했지만 이것이 no-op 이 되어 파트너 시점 GET /rfqs 가 사실상 무필터로
+  //   "모든 RFQ" 를 돌려주고 있었다. (자기 vendor 와 매칭되지 않는 RFQ 도 노출.)
+  //   로컬 변수로 교체해 의도대로 forVendorId 필터가 걸리도록 한다.
+  let partnerForVendorId: string | null = null;
   if (isPartner) {
     const [authUser] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
     if (!authUser?.vendorId) {
       res.json(ListRfqsResponse.parse([]));
       return;
     }
-    req.query.forVendorId = authUser.vendorId.toString();
+    partnerForVendorId = authUser.vendorId.toString();
   } else {
     // [Task #551/#596] 건물 단위 역할(매니저/회계/시설기사)과 hq_executive 는
     //   접근 가능한 건물 ID 합집합으로 필터. platform_admin 만 무제한 가시.
@@ -190,7 +238,9 @@ router.get("/rfqs", async (req, res): Promise<void> => {
     return;
   }
 
-  const forVendorIdParam = isPartner ? req.query.forVendorId : (params.success && params.data.forVendorId ? params.data.forVendorId.toString() : null);
+  const forVendorIdParam = isPartner
+    ? partnerForVendorId
+    : (params.success && params.data.forVendorId ? params.data.forVendorId.toString() : null);
   if (forVendorIdParam) {
     const forVendorId = parseInt(forVendorIdParam as string, 10);
     const vendor = await db
@@ -604,12 +654,94 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     });
     throw e;
   }
+  // [Task #668] 매칭 파트너에게 인앱 알림 + (가능하면) 안내 이메일 fan-out.
+  //   알림 fan-out 실패는 RFQ 생성 자체를 실패시키지 않도록 try/catch.
+  try {
+    await fanOutNewRfqToVendors(rfq);
+  } catch (err) {
+    console.error("[rfqs] vendor notification fan-out failed:", err);
+  }
+
   // [Task #510] drizzle 가 timestamp/date 컬럼을 Date 객체로 돌려주기 때문에
   //   응답 스키마(UpdateRfqResponse) 의 string 기대치와 어긋나 INSERT 성공
   //   직후 ZodError → 500 이 발생했었다. serializeRfqRow 로 Date → ISO string
   //   정규화만 거친 뒤 .parse 에 넘긴다.
   res.status(201).json(UpdateRfqResponse.parse(serializeRfqRow(rfq)));
 });
+
+// [Task #668] 매칭 파트너에게 사내 알림(+ best-effort 이메일) 을 fan-out 한다.
+//   - vendor:<vendorId> 정규형으로 1행씩 적재 → 파트너 벨이 즉시 인지.
+//   - 메일 어댑터(SMTP 환경 변수)가 활성화된 경우에만 동일 요약을 메일로 발송.
+//   - 어떤 단계가 실패해도 다른 vendor 의 fan-out 은 계속 진행 (best-effort).
+async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promise<void> {
+  const ids = (rfq.vendorIds ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (ids.length === 0) return;
+
+  const catLabel = rfqCategoryLabel(rfq.category) || rfq.category;
+  const svcLabel = rfqServiceTypeLabel(rfq.serviceType ?? null);
+  const titleSuffix = svcLabel ? `${catLabel} / ${svcLabel}` : catLabel;
+  const title = `새 견적 요청 — ${titleSuffix}`;
+
+  const deadline = toIsoDate(rfq.deadline) ?? "";
+  const region = [rfq.sido, rfq.sigungu].filter(Boolean).join(" ");
+  const summaryParts = [
+    rfq.buildingName ? `건물: ${rfq.buildingName}` : null,
+    region ? `지역: ${region}` : null,
+    deadline ? `마감: ${deadline}` : null,
+    rfq.requiresSiteVisit ? "현장방문 필요" : null,
+  ].filter(Boolean) as string[];
+  const message = summaryParts.join(" · ") || "새 견적 요청이 도착했습니다.";
+
+  const mailEnabled = isMailEnabled();
+  // 파트너 소유 user 의 email 을 한 번에 조회 (vendorId 별 1건 이상일 수 있으므로 grouping).
+  const owners = mailEnabled
+    ? await db
+        .select({ vendorId: usersTable.vendorId, email: usersTable.email })
+        .from(usersTable)
+        .where(inArray(usersTable.vendorId, ids))
+    : [];
+  const emailsByVendor = new Map<number, string[]>();
+  for (const o of owners) {
+    if (o.vendorId == null || !o.email) continue;
+    const arr = emailsByVendor.get(o.vendorId) ?? [];
+    arr.push(o.email);
+    emailsByVendor.set(o.vendorId, arr);
+  }
+
+  const portalLink = `/rfqs?id=${rfq.id}`;
+  for (const vendorId of ids) {
+    try {
+      await insertNotification({
+        recipientType: `vendor:${vendorId}`,
+        notificationType: "rfq_new",
+        title,
+        message,
+        relatedEntityType: "rfq",
+        relatedEntityId: rfq.id,
+      });
+    } catch (err) {
+      console.error("[rfqs] insertNotification failed for vendor", vendorId, err);
+    }
+
+    if (mailEnabled) {
+      const emails = emailsByVendor.get(vendorId) ?? [];
+      for (const to of emails) {
+        try {
+          const text =
+            `${title}\n\n` +
+            `${message}\n\n` +
+            `포털에서 자세히 보기: ${portalLink}\n`;
+          await sendMail({ to, subject: title, text });
+        } catch (err) {
+          console.error("[rfqs] sendMail failed for vendor", vendorId, to, err);
+        }
+      }
+    }
+  }
+}
 
 router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<void> => {
   const params = ExpandRfqScopeParams.safeParse(req.params);

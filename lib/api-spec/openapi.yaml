@@ -8028,12 +8028,21 @@ components:
           type: integer
         title:
           type: string
+        # [Task #668] 응답 스키마는 strict enum 을 풀고 자유 string 으로 둔다.
+        #   레거시 행(자유 입력 시절의 "방수/도장" 등)이 응답 한 줄을 깨뜨려
+        #   GET /rfqs 가 통째로 500 이 되는 사고를 방지하기 위함.
+        #   요청 스키마(CreateRfqBody / UpdateRfqBody)는 그대로 strict enum 을
+        #   유지하므로 신규 데이터는 계속 정규 enum 만 들어온다.
+        #   참고 enum: elevator, water_tank, fire_safety, electrical, gas,
+        #             septic, cleaning, security, waterproofing,
+        #             maintenance_repair, defect_diagnosis, building_maintenance,
+        #             mechanical, other
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+        # [Task #668] 동일 사유로 자유 string|null. 참고 enum: breakdown, defect,
+        #   replacement, inspection, other.
         serviceType:
           type: ["string", "null"]
-          enum: [breakdown, defect, replacement, inspection, other, null]
         description:
           type: ["string", "null"]
         buildingName:
