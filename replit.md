@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. Its primary goal is to enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project aims to become the leading digital assistant in Korean property management, significantly reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -61,44 +61,43 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9, ensuring a modular and scalable architecture.
+The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, designed for modularity and scalability.
 
 **Frontend:**
-- Developed using React, Vite, Tailwind CSS, and shadcn/ui.
-- Employs a mobile-first design philosophy with a desktop breakpoint at 900px.
-- Features distinct, role-based portals for managers, headquarters, and vendors, providing tailored user experiences.
-- Performance is optimized through techniques like React.lazy for lazy loading, Vite manualChunks for improved code splitting, and React Query for efficient data fetching and caching.
-- UI/UX includes ERP-style dashboards for accounting, facility management, and usage analytics, complemented by intuitive mobile navigation.
+- **Technologies:** React, Vite, Tailwind CSS, shadcn/ui.
+- **UI/UX:** Mobile-first design (desktop breakpoint at 900px), role-based portals (managers, HQ, vendors), ERP-style dashboards for accounting, facility management, and usage analytics.
+- **Performance:** React.lazy for lazy loading, Vite manualChunks for code splitting, React Query for data fetching and caching.
 
 **Backend:**
-- Built on the Express 5 API framework.
-- Incorporates JWT authentication and a robust Role-Based Access Control (RBAC) system for 6 distinct roles, with `docs/user-roles/README.md` serving as the Single Source of Truth for role definitions.
-- API definitions adhere to OpenAPI specifications, utilizing Orval for generating client-side code and Zod for comprehensive request and response validation.
+- **Framework:** Express 5 API.
+- **Security:** JWT authentication, Role-Based Access Control (RBAC) for 6 roles (`docs/user-roles/README.md` as SoT).
+- **API:** OpenAPI specifications, Orval for client code generation, Zod for request/response validation.
 
 **Database:**
-- PostgreSQL is used as the primary data store, managed through Drizzle ORM.
-- The database supports core entities such as users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and complex approval processes.
-- Automated schema migrations are executed upon API server boot to maintain database consistency.
+- **Type:** PostgreSQL.
+- **ORM:** Drizzle ORM.
+- **Entities:** Users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, approval processes.
+- **Maintenance:** Automated schema migrations on API server boot.
 
 **Core Features & Design Patterns:**
-- **Modular Monorepo Structure:** Promotes separation of concerns and efficient code management.
-- **AI Integration:** Leveraged for advanced functionalities like commission record analysis and optimized vendor matching.
-- **Automated Document Generation:** Supports the creation of various reports and official notices.
-- **Multi-step Approval Workflows:** Configurable for up to 5 levels of approval.
-- **BuildingContext:** A global context management system for building-specific data.
-- **Attendance Management:** Comprehensive PC/mobile check-in/out functionalities.
-- **In-app Notification System:** Provides real-time alerts and communications.
-- **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
-- **Meter Reading Management:** Features bulk upload, manual entry, and anomaly detection.
-- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
-- **Complaints Management:** A structured workflow with status tracking and auto-escalation.
-- **Electronic Voting:** Manages agendas, participation, and result tabulation.
-- **Partner Marketplace:** Extended vendor categories, warranty tracking, and geo-based matching.
-- **Object Storage Integration:** Manages attachments using presigned URLs for secure access.
-- **Unit Management:** Provides CRUD operations for building units, including bulk import capabilities.
-- **Digital Tenant Card:** Enables token-based self-registration for tenants with manager verification.
-- **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
-- **Onboarding Automation:** Streamlines the setup process for new managers.
+- **Modular Monorepo:** Enforces separation of concerns.
+- **AI Integration:** For commission analysis and vendor matching.
+- **Automated Document Generation:** Creates reports and notices.
+- **Multi-step Approval Workflows:** Configurable up to 5 levels.
+- **BuildingContext:** Global context for building-specific data.
+- **Attendance Management:** PC/mobile check-in/out.
+- **In-app Notification System:** Real-time alerts.
+- **Legal Compliance:** Integrates Korean privacy data auto-destruction.
+- **Meter Reading Management:** Bulk upload, manual entry, anomaly detection.
+- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, delinquency detection.
+- **Complaints Management:** Structured workflow with tracking and auto-escalation.
+- **Electronic Voting:** Manages agendas, participation, and results.
+- **Partner Marketplace:** Extended vendor categories, warranty tracking, geo-based matching.
+- **Object Storage Integration:** Manages attachments via presigned URLs.
+- **Unit Management:** CRUD operations, bulk import.
+- **Digital Tenant Card:** Token-based self-registration with manager verification.
+- **Building Setup & Integration:** Connects to external APIs for building registers and postcode services.
+- **Onboarding Automation:** Streamlines manager setup.
 
 # External Dependencies
 - jsPDF
