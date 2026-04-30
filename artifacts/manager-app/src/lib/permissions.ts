@@ -214,37 +214,45 @@ export const GROUP_TITLES: Record<Group, string> = {
   settings: "내 손에 맞춘 설정",
 };
 
+// [Task #725] GROUP_ORDER_BY_ROLE 의 의미를 "표시 순서"로 좁힌다.
+//   더 이상 "노출 게이트"가 아니다 — 사이드바 노출은 ROUTES.sideMenu 와 본사 그리드
+//   명시적 ON 만으로 결정된다(getSidebarSections 단일 진리 원천). 여기서는 단지
+//   각 역할의 그룹이 어떤 순서로 정렬되는지를 정의할 뿐이며, 정의되지 않은 그룹은
+//   FALLBACK_GROUP_ORDER 로 뒤에 자연스럽게 이어 붙는다.
+//
+//   ※ 과거 Task #416/#583/#649 에서 그룹을 추가했던 이유는 당시 코드가 그룹 목록을
+//     노출 게이트로 사용했기 때문이다. 지금도 그룹은 그대로 유지하지만, 사유는
+//     "표시 순서 우선 지정" 으로 바뀌었다(누군가 그룹을 빼면 사이드바 노출이 끊기는
+//     게 아니라, fallback 순서로 밀려 정렬만 달라진다).
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   manager: ["dashboard", "facility", "reports", "accounting", "residents", "marketplace", "settings"],
-  // [플랫폼 메뉴 구조조정] 플랫폼는 개별 건물 실무를 직접 수행하지
-  //   않으므로 dashboard/residents/facility/accounting 그룹의 사이드바 노출을
-  //   전부 제거하고, "보고/마켓플레이스/설정" 3 그룹만 사용한다. 통합 대시보드
-  //   ("/")는 ROOT_DASHBOARDS 로 항상 진입 가능하므로 영향 없음.
+  // [플랫폼 메뉴 구조조정] 플랫폼 사이드바는 platformAdminSidebar() 가 직접 구성하므로
+  //   여기 값은 fallback 용도일 뿐이다.
   platform_admin: ["marketplace", "reports", "settings"],
-  // [Task #416] 경리도 marketplace 그룹의 "협력업체 주소록"(/building/vendor-directory)
-  //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
-  //   기존 marketplace 항목들 중 access 가 accountant 를 포함하는 것만 자동 노출되며,
-  //   주소록 항목은 access 에 accountant 가 포함되어 있어 사이드바에 보인다.
-  // [Task #583] 공지문 템플릿(/notices/templates) 의 sideMenu 에 accountant 가
-  //   포함되어 있어 사이드바에 노출되어야 하는데 facility 그룹이 빠져 있어
-  //   실제로는 보이지 않았다. facility 그룹을 추가해 노출되게 한다 — 같은
-  //   그룹의 다른 시설 항목들은 sideMenu 에 accountant 가 없으므로 자동으로
-  //   감춰져, 경리 사이드바의 시설관리 섹션에는 "공지문 템플릿" 한 항목만 노출된다.
   accountant: ["dashboard", "accounting", "facility", "reports", "residents", "marketplace"],
-  // [Task #416] 시설기사도 marketplace 그룹의 "협력업체 주소록"(/building/vendor-directory)
-  //   에 사이드바로 진입할 수 있도록 marketplace 그룹을 노출 그룹에 추가.
-  //   같은 그룹의 다른 항목(견적/계약 등)은 access 가 facility_staff 를 포함하지 않으므로
-  //   사이드바에 자동으로 나타나지 않는다 — 주소록 항목만 보인다.
-  // [Task #649] 시설기사 사이드바에도 "보고·전자결재" 그룹을 추가해 업무일지(/work-log)가
-  //   노출되도록 한다. 같은 그룹의 다른 보고 항목들(/drafts, /approvals, /report-system,
-  //   /reports)은 sideMenu 에 facility_staff 가 없어 자동으로 숨겨지므로, 이 변경 만으로
-  //   "업무일지" 한 항목만 시설기사 사이드바에 노출된다.
-  facility_staff: ["dashboard", "facility", "reports", "marketplace"],
+  // [Task #725] facility_staff 에 accounting 그룹을 명시적으로 추가 — 검침/관리비
+  //   응대 자료 등 시설담당이 access·sideMenu 에 포함된 회계 항목들이 "시설관리"
+  //   다음, "보고" 앞에 합리적으로 정렬되도록 한다. (그룹을 빼더라도 fallback 순서로
+  //   사이드바 끝에 붙어서 노출은 보장되지만, 시각적 정렬을 위해 명시적으로 둔다.)
+  facility_staff: ["dashboard", "facility", "accounting", "reports", "marketplace"],
   hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
   // [Task #611] 관리인 — 결재함과 입금요청함만 노출. 그 외 화면은 access 자체가 없다.
   custodian: ["reports", "accounting"],
 };
+
+// [Task #725] 역할별 그룹 순서에 빠진 그룹의 fallback 정렬 — manager 의 순서를
+//   기준으로 자연스러운 카테고리 흐름(대시보드 → 시설 → 회계 → 보고 → 입주민 →
+//   마켓 → 설정)을 사용한다. 단, "dashboard" 그룹은 rootItem 을 자동으로 끼워주는
+//   특수 그룹이라 fallback 으로 자동 추가하지 않는다(역할이 명시적으로 옵트인한 경우만).
+const FALLBACK_GROUP_ORDER: readonly Group[] = [
+  "facility",
+  "accounting",
+  "reports",
+  "residents",
+  "marketplace",
+  "settings",
+];
 
 const ALL_BUILDING: Role[] = ["manager", "accountant", "facility_staff", "platform_admin"];
 const FULL_OPS: Role[] = ["manager", "platform_admin"];
@@ -826,7 +834,14 @@ export const ROUTES: RouteEntry[] = [
     //   설정 → 건물정보 수정으로 이관됨에 따라, 기존에 호실관리에서 같은 작업을
     //   할 수 있던 경리(accountant)도 이 화면에 진입할 수 있어야 한다.
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "platform_admin", "accountant"],
+    // [Task #725] 사이드바 게이트 단일화 이전에는 accountant 의 GROUP_ORDER 에
+    //   "settings" 가 빠져 있어 sideMenu 에 accountant 를 넣어두어도 실제로는 보이지
+    //   않았다. 이번 구조 수정으로 노출이 살아나면 의도하지 않은 신규 노출이 되므로
+    //   기존 사이드바 동작을 유지하기 위해 accountant 를 sideMenu 에서 명시적으로 제거.
+    //   접근 권한(access)은 그대로 — 호실관리 화면의 "건물 정보 수정하러 가기" 동선은
+    //   그대로 동작한다. 경리에게 사이드바 노출을 정책적으로 추가하려면 본사 그리드의
+    //   "유저유형별 메뉴 활성화" 에서 ON 으로 토글하면 된다.
+    sideMenu: ["manager", "platform_admin"],
   },
   {
     // [Task #485] 플랫폼 BM (수익화 정책·크레딧·수수료) 단독 페이지.
@@ -1134,26 +1149,26 @@ export function getSidebarSections(
     return [{ items: [home, ...tail.map((t) => t.item)] }];
   }
 
-  const groups = GROUP_ORDER_BY_ROLE[role];
-  const sections: NavSection[] = [];
-
-  for (const group of groups) {
-    // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리는 사이드바에서 숨김.
-    if (!isCategoryEnabled(group, disabledCategories)) continue;
-    const items: NavItem[] = [];
-    if (group === "dashboard") {
-      items.push(rootItem(role));
-    }
-    for (const entry of ROUTES) {
-      if (entry.group !== group) continue;
-      if (entry.hidden) continue;
-      const visibleTo = entry.sideMenu ?? entry.access;
-      // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 노출한다.
-      const explicit = isMenuExplicitlyEnabled(role, blockIdOf(entry), overrides);
-      if (!visibleTo.includes(role) && !explicit) continue;
-      // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
-      if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
-      items.push({
+  // [Task #725] 사이드바 노출 단일 진리 원천 — ROUTES.sideMenu (기본값: access) 와
+  //   본사 그리드의 명시적 ON 만으로 후보를 결정한다. GROUP_ORDER_BY_ROLE 는 더 이상
+  //   "어떤 그룹을 보여줄지" 결정하지 않으며, 단지 "그룹의 표시 순서"만 정한다.
+  //   그 결과: 본사가 그리드에서 켠 메뉴는 그 메뉴가 어떤 그룹에 속해 있든(역할의
+  //   GROUP_ORDER_BY_ROLE 에 그 그룹이 없어도) 사이드바에 즉시 등장하며, sideMenu 에
+  //   포함된 메뉴는 추가 코드 수정 없이 기본값으로도 노출된다.
+  //
+  //   기존의 "차단" 정책(hidden / isMenuBlockEnabled=false / 카테고리 끄기 / 파트너
+  //   영구 차단)은 그대로 유지 — 노출 권한만 늘어나며, 어떠한 차단도 우회되지 않는다.
+  const candidates: { entry: RouteEntry; item: NavItem }[] = [];
+  for (const entry of ROUTES) {
+    if (entry.hidden) continue;
+    if (!isCategoryEnabled(entry.group, disabledCategories)) continue;
+    const visibleTo = entry.sideMenu ?? entry.access;
+    const explicit = isMenuExplicitlyEnabled(role, blockIdOf(entry), overrides);
+    if (!visibleTo.includes(role) && !explicit) continue;
+    if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
+    candidates.push({
+      entry,
+      item: {
         path: entry.path,
         // [Task #665] query 가 지정된 보조 엔트리(예: /rfqs?tab=quotes)도 sidebar 에서 동작.
         query: entry.query,
@@ -1161,18 +1176,65 @@ export function getSidebarSections(
         icon: entry.icon,
         // [Task #256] 사이드바 아이콘에 카테고리 색을 입히기 위해 그룹을 함께 전달.
         group: entry.group,
-      });
+      },
+    });
+  }
+
+  // 후보를 그룹별로 묶는다(원본 ROUTES 순서 보존).
+  const byGroup = new Map<Group, NavItem[]>();
+  for (const c of candidates) {
+    const arr = byGroup.get(c.entry.group);
+    if (arr) arr.push(c.item);
+    else byGroup.set(c.entry.group, [c.item]);
+  }
+
+  // 그룹 순서: 역할의 명시적 GROUP_ORDER_BY_ROLE 를 우선, 거기에 없는 그룹은
+  //   FALLBACK_GROUP_ORDER 로 뒤에 자연 순서로 이어 붙인다. "dashboard" 는 rootItem 을
+  //   끼워주는 특수 그룹이므로 fallback 으로 자동 추가하지 않는다(예: custodian 처럼
+  //   dashboard 를 의도적으로 노출하지 않는 역할에 대시보드 헤더가 갑툭튀 하지 않게).
+  //   단, 본사 그리드에서 dashboard 그룹 메뉴를 명시적 ON 한 경우(예: custodian 에게
+  //   /calendar 를 ON)에는 그 의지를 존중하기 위해 dashboard 그룹도 fallback 에
+  //   포함한다 — 이때는 rootItem(/) 은 sideMenu 로 결정되므로 헤더만 추가될 뿐
+  //   기본 노출 정책을 우회하지 않는다.
+  const orderedGroups: Group[] = [];
+  const seenGroups = new Set<Group>();
+  for (const g of GROUP_ORDER_BY_ROLE[role]) {
+    if (!seenGroups.has(g)) {
+      orderedGroups.push(g);
+      seenGroups.add(g);
     }
-    if (items.length > 0) {
-      const section: NavSection = { title: GROUP_TITLES[group], items };
-      if (group === "facility") {
-        const facilityHub = ROUTES.find((r) => r.path === "/facility");
-        if (facilityHub && facilityHub.access.includes(role)) {
-          section.headerHref = "/facility";
-        }
+  }
+  for (const g of FALLBACK_GROUP_ORDER) {
+    if (seenGroups.has(g)) continue;
+    if (!byGroup.has(g)) continue; // 후보가 없는 그룹은 추가하지 않음.
+    orderedGroups.push(g);
+    seenGroups.add(g);
+  }
+  // dashboard 그룹은 명시적 ON 후보가 있을 때만 fallback 으로 추가.
+  if (!seenGroups.has("dashboard") && byGroup.has("dashboard")) {
+    orderedGroups.push("dashboard");
+    seenGroups.add("dashboard");
+  }
+
+  const sections: NavSection[] = [];
+  for (const group of orderedGroups) {
+    // [카테고리 메뉴 제어] 플랫폼이 끈 카테고리는 헤더 자체를 숨김(후보 단계에서도 이미 걸러짐).
+    if (!isCategoryEnabled(group, disabledCategories)) continue;
+    const items: NavItem[] = [];
+    if (group === "dashboard") {
+      items.push(rootItem(role));
+    }
+    const groupItems = byGroup.get(group);
+    if (groupItems) items.push(...groupItems);
+    if (items.length === 0) continue;
+    const section: NavSection = { title: GROUP_TITLES[group], items };
+    if (group === "facility") {
+      const facilityHub = ROUTES.find((r) => r.path === "/facility");
+      if (facilityHub && facilityHub.access.includes(role)) {
+        section.headerHref = "/facility";
       }
-      sections.push(section);
     }
+    sections.push(section);
   }
   return sections;
 }
