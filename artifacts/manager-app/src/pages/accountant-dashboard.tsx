@@ -16,6 +16,7 @@ import {
   useGetBillingList,
   useGetDashboardAlerts,
 } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -445,6 +446,33 @@ export default function AccountantDashboard() {
     useListApprovals({ status: "pending" });
   const pendingApprovalsCount = (pendingApprovals ?? []).length;
 
+  // [Task #703] 지출결의서 처리 카드의 "대기 N건" 은 결재 대기 기안서가 아니라
+  //   이미 발행되어 출납기록을 기다리는 지출결의서(status === "pending") 의
+  //   건수를 보여줘야 한다. 지출결의서함(/expense-vouchers) 과 동일한
+  //   엔드포인트(GET /api/expense-vouchers?status=pending) 를 사용해 두 화면의
+  //   숫자가 항상 일치하도록 한다.
+  const apiBase = useMemo(() => {
+    const base = (import.meta.env.BASE_URL ?? "/") as string;
+    return `${base}api`.replace(/\/+/g, "/");
+  }, []);
+  const {
+    data: pendingVouchers,
+    isLoading: pendingVouchersLoading,
+  } = useQuery<unknown[]>({
+    // user.id 를 키에 포함시켜, 같은 SPA 세션에서 계정이 바뀌었을 때
+    // 이전 사용자의 캐시가 잠시라도 남아 잘못된 건수가 보이는 일을 막는다.
+    queryKey: ["expense-vouchers", "pending", user?.id ?? null],
+    enabled: !!token,
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/expense-vouchers?status=pending`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`지출결의서 로드 실패 (${res.status})`);
+      return (await res.json()) as unknown[];
+    },
+  });
+  const pendingVouchersCount = (pendingVouchers ?? []).length;
+
   // [Task #681] 매니저/시설과 동일한 단일 출처(/api/dashboard/alerts) 에서
   //   알림을 가져오고, splitDashboardAlerts(role:"accountant") 가 회계
   //   카테고리(tax_due, accounting/tax/finance task, accounting/fee 템플릿,
@@ -681,8 +709,8 @@ export default function AccountantDashboard() {
               <ActivityEntryCard />
               <TaxCalendarCard />
               <ExpenseVoucherEntryCard
-                pendingCount={pendingApprovalsCount}
-                loading={approvalsLoading}
+                pendingCount={pendingVouchersCount}
+                loading={pendingVouchersLoading}
               />
             </div>
 
