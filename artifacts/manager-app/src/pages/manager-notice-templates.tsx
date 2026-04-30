@@ -792,7 +792,7 @@ function PreviewDialog({
           </div>
           {/* [Task #610] 공고문 → 기안서로 만들기 표준 진입.
               recordOutput("share") 으로 documents/notice_outputs upsert 후
-              prefill 페이로드를 들고 /approval-create 로 이동한다. */}
+              prefill 페이로드를 들고 /approvals/create 로 이동한다. */}
           <div className="flex justify-end">
             <Button
               variant="outline"
@@ -807,7 +807,7 @@ function PreviewDialog({
                   buildingId: building?.id ?? null,
                   metadata: { templateId: template.id, outputDate: todayYmd() },
                 });
-                navigate(`/approval-create?${qs.toString()}`);
+                navigate(`/approvals/create?${qs.toString()}`);
               }}
             >
               <FileText className="w-4 h-4 mr-1" />

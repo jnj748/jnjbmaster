@@ -833,7 +833,7 @@ export default function Rfqs() {
               onDelete={() => handleDelete(rfq.id)}
               onCreateApproval={() => {
                 // [Task #682] RFQ → 기안 prefill. 카테고리는 RFQ 분류와 직접
-                //   대응되지 않으므로 maintenance 로 시작(approval-create 에서 변경 가능).
+                //   대응되지 않으므로 maintenance 로 시작(/approvals/create 에서 변경 가능).
                 const url = buildApprovalPrefillUrl({
                   kind: "rfq",
                   sourceTable: "rfqs",

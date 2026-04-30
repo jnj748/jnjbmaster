@@ -149,7 +149,7 @@ export function MonthlyTab() {
             title: `월간업무보고서_${data.buildingName ?? ""}_${data.month}`,
             metadata: { month: data.month },
           });
-          navigate(`/approval-create?${qs.toString()}`);
+          navigate(`/approvals/create?${qs.toString()}`);
         } : undefined}
         saving={saving}
         sharing={sharing}

@@ -520,7 +520,7 @@ export function AlertActionDialog({
                     },
                   });
                   onClose();
-                  navigate(`/approval-create?${qs.toString()}`);
+                  navigate(`/approvals/create?${qs.toString()}`);
                 }}
               >
                 <FileText className="w-4 h-4 mr-2" />

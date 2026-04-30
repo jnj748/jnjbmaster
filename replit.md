@@ -46,7 +46,7 @@
 - **권한 SoT 체이너 (모든 신규 모듈 task 의 의무 첨부)**: 신규 모듈 task 명세를 작성할 때, 다음 두 경로는 반드시 `relevantFiles` 와 본문 인용에 함께 들어가야 한다. agent 가 권한 정책을 새로 추정하지 않고 SoT 를 따르도록 잠금:
   - `docs/user-roles/README.md` — 6개 역할 위계도 SoT
   - `lib/shared/src/role-labels.ts` — 역할 키·표시명·HQ 포털 분기 단일 정의
-  - 추가로 모듈이 가시성 스코프 미들웨어를 사용한다면 `artifacts/api-server/src/services/approvalPipeline.ts` 의 `accessibleBuildingIds` 헬퍼 도 명시적으로 가리킨다 (본부장 매핑 패턴의 정본).
+  - 추가로 모듈이 가시성 스코프 미들웨어을 사용한다면 `artifacts/api-server/src/services/approvalPipeline.ts` 의 `accessibleBuildingIds` 헬퍼 도 명시적으로 가리킨다 (본부장 매핑 패턴의 정본).
 - **사장님 지시 해석 — 약어 사전(코드/UI 변경 아님, 의미 해석 규칙)**: 다음 약어들은 사장님이 평소 대화·지시·요구사항에서 줄여 부르시는 표현이다. 이 표현이 보이면 즉시 아래 정의로 풀어 해석하고 작업 범위를 잡는다. **사용자 노출 화면 라벨이 아니라 사장님-에이전트 사이의 협업 약어**이므로, 이 정의 자체로 코드/UI 텍스트를 일괄 치환하지 않는다.
   - **"직원"** = `manager`(관리소장) + `accountant`(경리) + `facility_staff`(시설담당) **3개 직책 모드 묶음**. 예: "이 기능을 직원에게 적용해 줘" = "관리소장·경리·시설담당 3개 모드에 모두 적용해 줘". `partner`(파트너사)·`hq_executive`(본부장)·`platform_admin`(본사) 은 직원이 **아니다**.
   - 약어를 다룰 때 모호하면 어느 모드까지 포함하는지 한 줄로 재확인한 뒤 진행한다.

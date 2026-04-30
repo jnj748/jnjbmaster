@@ -188,7 +188,7 @@ function DailyReportPreview({ report }: { report: DailyReport }) {
             title: `일일업무보고서_${report.buildingName ?? ""}_${report.date}`,
             metadata: { date: report.date },
           });
-          navigate(`/approval-create?${qs.toString()}`);
+          navigate(`/approvals/create?${qs.toString()}`);
         }}
         saving={saving}
         sharing={sharing}

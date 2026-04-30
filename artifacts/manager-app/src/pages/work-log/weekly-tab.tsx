@@ -105,7 +105,7 @@ export function WeeklyTab() {
             title: `주간업무보고서_${data.buildingName ?? ""}_${data.weekStart}_${data.weekEnd}`,
             metadata: { weekStart: data.weekStart, weekEnd: data.weekEnd },
           });
-          navigate(`/approval-create?${qs.toString()}`);
+          navigate(`/approvals/create?${qs.toString()}`);
         } : undefined}
         saving={saving}
         sharing={sharing}

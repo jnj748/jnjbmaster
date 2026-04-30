@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts && node scripts/check-viewport.mjs && node scripts/check-no-dev-leak.mjs",
+    "build": "vite build --config vite.config.ts && node scripts/check-viewport.mjs && node scripts/check-no-dev-leak.mjs && node scripts/check-no-legacy-approval-route.mjs",
     "check:viewport": "node scripts/check-viewport.mjs",
     "check:no-dev-leak": "node scripts/check-no-dev-leak.mjs",
+    "check:no-legacy-approval-route": "node scripts/check-no-legacy-approval-route.mjs",
+    "e2e": "playwright test --config playwright.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts src/lib/follow-up-prefill.test.ts src/lib/empty-quote-suggestion.test.ts src/lib/contract-renewal-window.test.ts src/lib/format-korean.test.ts src/lib/rfq-building-ready.test.ts src/lib/building-register-labels.test.ts src/lib/pdf-page-break.test.ts src/lib/dashboard-alert-filters.test.ts src/lib/print-overflow-rules.test.ts src/lib/sidebar-snapshot.test.ts"
+    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts src/lib/follow-up-prefill.test.ts src/lib/empty-quote-suggestion.test.ts src/lib/contract-renewal-window.test.ts src/lib/format-korean.test.ts src/lib/rfq-building-ready.test.ts src/lib/building-register-labels.test.ts src/lib/pdf-page-break.test.ts src/lib/dashboard-alert-filters.test.ts src/lib/print-overflow-rules.test.ts src/lib/sidebar-snapshot.test.ts src/lib/approval-prefill.test.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@radix-ui/react-accordion": "^1.2.4",
     "@radix-ui/react-alert-dialog": "^1.1.7",
     "@radix-ui/react-avatar": "^1.1.4",

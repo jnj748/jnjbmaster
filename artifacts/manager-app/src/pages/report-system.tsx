@@ -70,7 +70,7 @@ export default function ReportSystem() {
       sourceId: id,
       title,
     });
-    navigate(`/approval-create?${qs.toString()}`);
+    navigate(`/approvals/create?${qs.toString()}`);
   }
 
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly">("weekly");

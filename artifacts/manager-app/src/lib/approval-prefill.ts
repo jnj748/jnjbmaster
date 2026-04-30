@@ -34,7 +34,7 @@ export interface ApprovalPrefillSource {
 }
 
 export interface ApprovalPrefillPayload {
-  /** approval-create 가 읽는 표준 쿼리스트링 키들. */
+  /** /approvals/create 페이지가 읽는 표준 쿼리스트링 키들. */
   prefill: "1";
   source_kind?: string;
   source_table?: string;

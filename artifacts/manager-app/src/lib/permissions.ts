@@ -558,7 +558,17 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/approvals/create", component: ApprovalCreate,
     label: "결재 상신", icon: ClipboardList, group: "reports",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #719] 알림 다이얼로그(AlertActionDialog)·일/주/월간 보고서·공고문 템플릿 등
+    //   "기안서로 만들기" 진입점은 모든 건물 역할(관리소장/경리/시설기사/관리인)에서
+    //   공유되므로, 작성 화면 access 도 4 역할 모두 포함한다. 사이드바에는 hidden 으로
+    //   숨겨 자유 진입 메뉴는 만들지 않고, 알림/보고서 등 표준 진입점에서만 접근.
+    access: [
+      "manager",
+      "platform_admin",
+      "accountant",
+      "facility_staff",
+      "custodian",
+    ],
     hidden: true,
   },
   // [Task #611] 지출결의서함 — 경리 전용. 본부장/관리인 라인 통과 후 자동 발행된 항목을
