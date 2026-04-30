@@ -90,7 +90,7 @@ export default function AccountantMemberSearchWidget() {
           호실정보조회
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={enabled ? "space-y-3" : "pb-4"}>
         <div className="relative">
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -102,11 +102,9 @@ export default function AccountantMemberSearchWidget() {
           />
         </div>
 
-        {!enabled ? (
-          <p className="text-xs text-muted-foreground py-2">
-            동/호수, 입주자 이름 또는 연락처 일부를 입력하면 결과가 바로 보여집니다. 결과를 누르면 해당 호실로 이동합니다.
-          </p>
-        ) : isLoading ? (
+        {/* [Task #706] 검색어 미입력 시 회색 안내 문장을 제거해 빈 카드 세로 길이를
+            헤더 + 검색 인풋만큼으로 줄였다. 로딩/빈 결과/결과 분기는 그대로 유지. */}
+        {!enabled ? null : isLoading ? (
           <div className="space-y-2">
             {[1, 2].map((i) => (
               <Skeleton key={i} className="h-10 rounded-lg" />

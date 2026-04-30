@@ -4,8 +4,14 @@
 //   당일 일지 존재 여부에 따라 안내 문구/색을 달리해 시니어 사용자 인지를 돕는다.
 //
 //   [Task #503] 데스크톱 매니저 2열 레이아웃의 우측 강조 카드로도 사용된다.
-//   variant="prominent" 일 때 아이콘/문구를 키우고 카드를 부모 그리드 셀의
-//   세로 높이에 꽉 차도록 늘려 좌측(최근 문서함 + 처리 내역) 합산 높이와 맞춘다.
+//
+//   [Task #706] prominent / compact 두 갈래를 단일 가로 컴팩트 카드로 통합한다.
+//   세 역할(소장/시설/경리) 의 모든 대시보드에서 동일한 모양·동일한 문구를
+//   본다 — 왼쪽 작은 원형 아이콘 + 오른쪽 굵은 한 줄 제목 + 안내 두 줄.
+//   prominent variant 는 더 이상 부모 셀 높이를 채우지 않는다(`h-full` 제거).
+//   문구도 다음으로 통일:
+//     - 미작성: "금일 업무일지 생성 전입니다." / "여기를 눌러 자동생성해보세요."
+//     - 작성완료: 기존 한 줄 안내 "금일 업무일지가 생성완료되었습니다" 유지.
 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -16,15 +22,15 @@ import { CATEGORY_ICON_CLASS, CATEGORY_BG_CLASS } from "@/lib/category-colors";
 
 export interface TodayWorkLogEntryProps {
   /**
-   * - "compact"(기본): 모바일/세로 스크롤용 한 줄 카드.
-   * - "prominent": 데스크톱 2열 레이아웃의 우측 강조 카드. 아이콘·문구를 키우고
-   *   부모 그리드 셀 높이를 채우도록 카드를 세로로 늘린다.
+   * [Task #706] prominent / compact 모두 동일한 가로 컴팩트 레이아웃을 사용한다.
+   * 세 역할 대시보드에서 같은 카드가 보이도록 하는 통합 결과로, prop 값은
+   * 호환을 위해 남겨두지만 시각적 차이는 없다.
    */
   variant?: "compact" | "prominent";
   className?: string;
 }
 
-export function TodayWorkLogEntry({ variant = "compact", className }: TodayWorkLogEntryProps = {}) {
+export function TodayWorkLogEntry({ variant: _variant = "compact", className }: TodayWorkLogEntryProps = {}) {
   const { token } = useAuth();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
@@ -49,66 +55,16 @@ export function TodayWorkLogEntry({ variant = "compact", className }: TodayWorkL
   });
 
   const hasJournal = !!data;
-  // [Task #382] 일지가 아직 없는 날에는 안내를 두 줄로 분리해 시니어 사용자가
-  //   "현재 상태"와 "해야 할 행동(클릭)"을 명확히 구분 인지하도록 한다.
-  //   일지가 이미 있는 날은 기존 한 줄 안내 유지.
-  // [Task #609] 미작성 시 "경고/위반"이 아닌 "부드러운 독려" 톤으로 바꾼다.
-  //   빨간색 → 호박(앰버) 계열로 완화하고, 문구도 행위자 중심·가벼운 격려로 재서술.
+  // [Task #706] 미작성 안내 두 줄 / 작성완료 한 줄 — 세 역할에서 동일.
   const messageLine1 = hasJournal
     ? "금일 업무일지가 생성완료되었습니다"
-    : "오늘 업무일지를 아직 안 쓰셨네요.";
-  const messageLine2 = hasJournal ? null : "1분이면 충분해요. 여기를 눌러 시작해 보세요.";
+    : "금일 업무일지 생성 전입니다.";
+  const messageLine2 = hasJournal ? null : "여기를 눌러 자동생성해보세요.";
   const messageClass = hasJournal ? "text-emerald-600" : "text-amber-700";
 
-  if (variant === "prominent") {
-    // [Task #503] 데스크톱 강조 카드. 부모 셀(좌측 두 카드 합산 높이)에 맞춰
-    //   세로로 꽉 차도록 h-full + flex 로 컨텐츠를 중앙 정렬한다. 아이콘/문구가
-    //   더 크고 또렷해지도록 크기와 색을 강조한다.
-    return (
-      <Card
-        className={`h-full ${hasJournal ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/40"} ${className ?? ""}`}
-      >
-        <CardContent className="p-5 h-full">
-          {/* [Task #503] Link 자체에도 block h-full 을 줘 카드 전체가 한 번에
-              클릭/포커스 가능한 영역이 되도록 한다(stretch 그리드 셀에서). */}
-          <Link href="/work-log?openDaily=1" className="block h-full">
-            <button
-              type="button"
-              data-testid="dashboard-today-worklog"
-              className="w-full h-full flex flex-col items-center justify-center gap-4 py-4 px-3 hover-elevate active-elevate-2 rounded-lg text-center"
-            >
-              <span
-                className={`w-20 h-20 rounded-full ${CATEGORY_BG_CLASS.reports} flex items-center justify-center shrink-0`}
-              >
-                <NotebookPen className={`w-10 h-10 ${CATEGORY_ICON_CLASS.reports}`} />
-              </span>
-              <span className="flex flex-col items-center gap-2 min-w-0">
-                <span className="text-xl sm:text-2xl font-bold leading-tight">
-                  오늘 업무일지 자동 작성하기
-                </span>
-                <span
-                  className={`text-base sm:text-lg font-semibold leading-snug ${messageClass}`}
-                  data-testid="dashboard-today-worklog-status"
-                >
-                  {isLoading ? (
-                    "확인 중..."
-                  ) : (
-                    <>
-                      <span className="block">{messageLine1}</span>
-                      {messageLine2 && <span className="block">{messageLine2}</span>}
-                    </>
-                  )}
-                </span>
-              </span>
-            </button>
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // [Task #246] 컴팩트 가로 레이아웃: 왼쪽 아이콘 + 오른쪽 2줄 텍스트.
-  // 화면 점유율을 줄이기 위해 아이콘/폰트 크기를 절반 수준으로 축소했다.
+  // [Task #706] 컴팩트 가로 레이아웃: 왼쪽 작은 원형 아이콘 + 오른쪽 굵은 한 줄
+  //   제목 + 안내 2줄. prominent 분기를 제거해 세 역할 대시보드에서 동일한
+  //   카드를 보여 주고, 부모 셀 높이를 채우지 않도록 h-full 도 사용하지 않는다.
   return (
     <Card className={className}>
       <CardContent className="p-3">
@@ -123,9 +79,7 @@ export function TodayWorkLogEntry({ variant = "compact", className }: TodayWorkL
               <NotebookPen className={`w-4 h-4 ${CATEGORY_ICON_CLASS.reports}`} />
             </span>
             <span className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-semibold">오늘 업무일지 자동 작성하기</span>
-              {/* [Task #382] 안내 문구는 상태(있음/없음)에 따라 1~2 줄로 표시한다.
-                  block + leading-snug 으로 두 줄이 깔끔히 쌓이도록 한다. */}
+              <span className="text-sm font-bold">오늘 업무일지 자동 작성하기</span>
               <span
                 className={`text-[11px] font-medium leading-snug ${messageClass}`}
                 data-testid="dashboard-today-worklog-status"

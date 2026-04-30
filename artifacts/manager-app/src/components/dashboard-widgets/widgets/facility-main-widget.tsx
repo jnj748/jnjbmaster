@@ -81,7 +81,7 @@ export default function FacilityMainWidget() {
           <WeeklyInspectionsWidget />
           <AccountantMemberSearchWidget />
           <FacilityLeftColumnStackWidget />
-          <TodayWorkLogEntry variant="prominent" />
+          <TodayWorkLogEntry />
           <NoticeTemplatesEntryWidget />
           <BuildingContractsSummaryWidget />
         </div>
@@ -115,10 +115,12 @@ export default function FacilityMainWidget() {
           </div>
 
           {/* 2행: 최근문서함 + 처리내역(좌, 한 셀 안 세로 스택) /
-              오늘 업무일지(우, prominent 강조). */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+              오늘 업무일지(우, 컴팩트 가로 카드).
+              [Task #706] 우측 카드를 컴팩트로 줄였으므로 `items-stretch` 대신
+              `items-start` 로 정렬해 우측 카드가 자연스럽게 짧게 보이도록 한다. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <FacilityLeftColumnStackWidget />
-            <TodayWorkLogEntry variant="prominent" />
+            <TodayWorkLogEntry />
           </div>
 
           {/* 3행: 공고문 템플릿 / 우리 건물 계약업체 연락망. */}

@@ -193,11 +193,14 @@ export default function ManagerMainWidget() {
           </div>
 
           {/* [Task #503] 2행: (최근 문서함 + 처리 내역 세로 스택) /
-              오늘 업무일지 자동 작성하기(강조). 두 칼럼 높이를 동일하게 맞춘다.
+              오늘 업무일지 자동 작성하기(강조).
+              [Task #706] 우측 "오늘 업무일지" 카드를 컴팩트 가로 카드로 축소했으므로
+              우측 카드를 좌측 합산 높이만큼 늘려 맞추는 `items-stretch` 대신
+              `items-start` 로 정렬해 우측 카드가 자연스럽게 짧게 보이도록 한다.
               breakpoint: 위 1행과 동일한 이유로 `md:` 사용. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <DocumentsLinkPair />
-            <TodayWorkLogEntry variant="prominent" />
+            <TodayWorkLogEntry />
           </div>
 
           {/* [Task #503] 3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망.

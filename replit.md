@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to significantly enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -65,14 +65,17 @@ The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
 - Developed using React, Vite, Tailwind CSS, and shadcn/ui.
-- Mobile-first design with a 900px desktop breakpoint.
-- Distinct, role-based portals for building managers, headquarters, and partner vendors.
-- Performance optimized with React.lazy, Vite manualChunks, and React Query.
+- Features a mobile-first design with a 900px desktop breakpoint.
+- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
+- Performance is optimized using React.lazy, Vite manualChunks, and React Query.
+- UI/UX decisions include ERP-style accounting, facility management, and usage analytics dashboards with mobile navigation.
+- A unified alert action modal is used for alerts, routing RFQ actions to a dedicated page.
+- Role-specific daily journals are provided for managers, accountants, and facility staff.
 
 **Backend:**
-- Uses an Express 5 API framework.
+- Utilizes an Express 5 API framework.
 - Implements JWT authentication and a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
-- API definitions adhere to OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
+- API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
 
 **Database:**
 - PostgreSQL serves as the primary data store, managed via Drizzle ORM.
@@ -81,11 +84,10 @@ The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 
 **Core Features & Design Patterns:**
 - **Modular Monorepo Structure:** Ensures clear separation of concerns.
-- **AI Integration:** For commission records and vendor matching.
+- **AI Integration:** Applied for commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
 - **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles, including ERP-style accounting, facility management, and usage analytics.
 - **Attendance Management:** Supports PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
@@ -99,8 +101,6 @@ The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
 - **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
 - **Onboarding Automation:** Streamlines the manager setup process.
-- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
-- **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.
 
 # External Dependencies
 - jsPDF
@@ -108,11 +108,3 @@ The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 - papaparse
 - data.go.kr (BldRgstHubService API)
 - Kakao Postcode API
-# 변경 이력 — Task #697 (역할별 필수업무현황 분배)
-- `tasks.target_roles text[] not null default '{}'` 컬럼 추가. 빈 배열이면 서버가 카테고리 기반 기본값으로 채운다.
-- 단일 출처: `lib/shared/src/role-routing.ts` — 카테고리/타입 → 기본 역할 매핑, FACILITY/ACCOUNTING 화이트리스트, `targetRolesIncludes` 헬퍼.
-- 자동 알림(inspection_due, tax_due, task_overdue/followup, warranty_expiry, data_destruction, quote_received, notice_posting, task_template_*) 모두 `targetRoles` 를 응답에 흘려보낸다.
-- 클라이언트 분류기(`dashboard-alert-filters.ts`) 는 explicit `targetRoles` 를 카테고리/타입 추정보다 먼저 신뢰한다.
-- 수동업무 등록 화면(`pages/tasks.tsx`) 에 역할 다중선택 체크박스 추가. 비워두면 서버가 카테고리 기본값으로 자동 채움.
-- 진단/백필 스크립트: `pnpm --filter @workspace/scripts run audit-role-coverage` / `backfill-task-target-roles [-- --dry-run]`.
-- 회귀 차단: `artifacts/manager-app/src/lib/dashboard-alert-filters.test.ts` (7 tests) — manager 동작 동결 + facility/accountant 분리 + explicit targetRoles 우선.
