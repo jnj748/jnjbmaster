@@ -9,7 +9,7 @@ import { seedTestUsers } from "./seed-test-users";
 import { seedPlatformAdmins } from "./seed-platform-admin";
 import { seedPartnerBm } from "./seed-partner-bm";
 import { seedPartnerMenuDefaults } from "./seed-partner-menu";
-import { seedVendorCategories } from "./routes/vendorCategories";
+import { seedVendorCategories, reloadCategoryParentMap } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
@@ -199,6 +199,16 @@ async function bootstrap() {
       logger.info("Vendor categories seeded");
     } catch (e) {
       logger.warn({ err: e }, "Failed to seed vendor categories");
+    }
+
+    // [Task #734] 카테고리 자식 → 부모맵 주입. 매칭 함수가 자식 vendor 를
+    //   부모 RFQ 로 통과시키도록 한다. 실패해도 매칭은 부모 자동 포함 없이
+    //   기존 동작으로 fallback.
+    try {
+      await reloadCategoryParentMap();
+      logger.info("Vendor category parent map loaded");
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to load vendor category parent map");
     }
 
     try {

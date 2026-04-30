@@ -31,6 +31,11 @@ interface Category {
   code: string;
   label: string;
   sortOrder: number;
+  // [Task #734] 2단 카테고리. null = 대분류, 값 = 부모 code.
+  //   본 화면(현행 평면 1단)은 T3 가입 흐름 재구성 전까지 자식 항목을 숨겨
+  //   기존과 동일한 대분류 9~12개만 노출한다.
+  parentCode?: string | null;
+  active?: boolean;
 }
 
 interface DraftState {
@@ -124,7 +129,9 @@ export default function PartnerWizardPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
       .then((d) => {
         if (cancelled) return;
-        const list: Category[] = Array.isArray(d?.categories) ? d.categories : [];
+        const raw: Category[] = Array.isArray(d?.categories) ? d.categories : [];
+        // [Task #734] 임시: 자식(소분류) 은 T3 가입 흐름 재구성 전까지 숨김.
+        const list = raw.filter((c) => !c.parentCode);
         list.sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, "ko"));
         setCategories(list);
       })

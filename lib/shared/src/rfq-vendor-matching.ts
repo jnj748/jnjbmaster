@@ -71,6 +71,23 @@ const KOREAN_LABEL_TO_CODE: Record<string, string> = {
 // 알려진 영문 코드(라벨 매핑의 값들). normalize 시 "이미 코드" 인지 빠르게 판별.
 const KNOWN_CODES: Set<string> = new Set(Object.values(KOREAN_LABEL_TO_CODE));
 
+// [Task #734] 카테고리 자식 → 부모 매핑.
+//   2단 카테고리(대분류·자식) 도입에 따라, vendor 가 자식만 선택해도 RFQ 가
+//   부모 대분류로 들어오면 매칭되도록 한다. 호출 측(api-server 부팅)이
+//   vendor_categories 마스터를 한 번 읽어 setCategoryParentMap() 으로 주입한다.
+//   본사 관리자가 카테고리를 추가/수정/비활성하면 routes/vendorCategories.ts
+//   에서 reloadCategoryParentMap() 으로 즉시 갱신한다.
+//   주입 전(빈 맵)에는 자동 부모 포함 없이 기존 동작과 동일하게 작동한다.
+let CATEGORY_PARENT_MAP: Record<string, string> = {};
+
+export function setCategoryParentMap(map: Record<string, string>): void {
+  CATEGORY_PARENT_MAP = { ...map };
+}
+
+export function getCategoryParentMap(): Readonly<Record<string, string>> {
+  return CATEGORY_PARENT_MAP;
+}
+
 /**
  * 카테고리 정규화. 한글 라벨이면 영문 코드로 매핑, 영문 코드면 그대로.
  * 모르는 값은 trimmed 원문 그대로(엄격하지 않게 — 미래 enum 추가에 견고).
@@ -87,6 +104,13 @@ export function normalizeRfqCategory(value: string | null | undefined): string |
 /**
  * vendor 가 커버하는 카테고리 코드 집합.
  *   = normalize(vendor.category) ∪ normalize(vendor.subCategories 콤마 분리)
+ *   ∪ [Task #734] 각 코드의 부모 대분류 (CATEGORY_PARENT_MAP 으로 자동 확장)
+ *
+ * 부모 자동 확장 의도:
+ *   - vendor 가 자식만 선택(예: 'cl_window' 유리창청소)해도 RFQ 가 부모만
+ *     적어 오면(예: 'cleaning' 청소) 매칭 통과.
+ *   - 반대 방향(부모만 가진 vendor 가 자식 RFQ 매칭) 은 의도적으로 막는다 —
+ *     특화 서비스 매칭 정밀도 보존.
  */
 export function getVendorCategoryCodes(vendor: VendorMatchProfile): Set<string> {
   const codes = new Set<string>();
@@ -97,6 +121,11 @@ export function getVendorCategoryCodes(vendor: VendorMatchProfile): Set<string> 
       const code = normalizeRfqCategory(piece);
       if (code) codes.add(code);
     }
+  }
+  // [Task #734] 자식 → 부모 자동 추가. 부모도 다시 부모 가질 일 없음(2단 고정).
+  for (const code of Array.from(codes)) {
+    const parent = CATEGORY_PARENT_MAP[code];
+    if (parent) codes.add(parent);
   }
   return codes;
 }
