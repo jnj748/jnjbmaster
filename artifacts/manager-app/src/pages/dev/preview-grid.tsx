@@ -73,11 +73,13 @@ export default function DevPreviewGrid() {
   );
   // [URL 제어] `?view=mobile|desktop|both` 로 초기 viewMode 결정 — 즐겨찾기/스크린샷
   //   검증을 위해. 토글 변경 시 URL 도 함께 업데이트한다(replaceState — 히스토리 안 쌓음).
+  // [기본값 — 사장님 결정] 데스크톱(웹) 2×2 가 기본. 사장님이 평소 검수하는 화면이 데스크톱
+  //   레이아웃이고, 모바일은 ?view=mobile 로 명시할 때만 본다.
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("view");
     return fromUrl === "mobile" || fromUrl === "desktop" || fromUrl === "both"
       ? fromUrl
-      : "mobile";
+      : "desktop";
   });
   function setViewMode(next: ViewMode) {
     setViewModeState(next);
