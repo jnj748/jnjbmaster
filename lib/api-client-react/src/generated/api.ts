@@ -96,7 +96,9 @@ import type {
   CreateRfqBody,
   CreateRfqSiteVisitBody,
   CreateSafetyChecklistBody,
+  CreateSafetyChecklistCategory200,
   CreateSafetyChecklistItemBody,
+  CreateSafetyChecklistTemplateItem200,
   CreateSafetyTrainingBody,
   CreateSettlementBody,
   CreateSignatureBody,
@@ -132,6 +134,8 @@ import type {
   DeletePlatformAnnouncement200,
   DeletePlatformCampaign200,
   DeletePlatformKnowledgeDoc200,
+  DeleteSafetyChecklistCategory200,
+  DeleteSafetyChecklistTemplateItem200,
   DeleteSignature200,
   DeleteVote200,
   DelinquencyAction,
@@ -196,6 +200,7 @@ import type {
   ListAdminCreditTopupOrdersParams,
   ListAdminReferrers200,
   ListAdminReferrersParams,
+  ListAdminSafetyChecklistCategories200,
   ListAlertActionsParams,
   ListApprovalsParams,
   ListBuildingNoticeTemplates200,
@@ -206,6 +211,7 @@ import type {
   ListDelinquenciesParams,
   ListDocumentChecklistsParams,
   ListDocumentsParams,
+  ListEffectiveSafetyChecklistTemplates200,
   ListLatestMeterReadingsParams,
   ListMaintenanceLogsParams,
   ListMeterReadingsParams,
@@ -249,6 +255,8 @@ import type {
   Notification,
   Owner,
   OwnerLookupResponse,
+  PatchSafetyChecklistCategoryBody,
+  PatchSafetyChecklistTemplateItemBody,
   PlatformAnnouncement,
   PlatformCampaign,
   PlatformCampaignBody,
@@ -270,6 +278,7 @@ import type {
   RegisterPlatformVendorBody,
   RejectApprovalBody,
   RenameAiSessionBody,
+  ResetSafetyChecklistUserTemplate200,
   ReviewReportBody,
   Rfq,
   RfqAdminStatsResponse,
@@ -315,7 +324,9 @@ import type {
   UpdateRfqBody,
   UpdateRfqSiteVisitBody,
   UpdateSafetyChecklistBody,
+  UpdateSafetyChecklistCategory200,
   UpdateSafetyChecklistItemBody,
+  UpdateSafetyChecklistTemplateItem200,
   UpdateSafetyTrainingBody,
   UpdateSettlementBody,
   UpdateTaskBody,
@@ -339,6 +350,10 @@ import type {
   UpsertManagementContractTemplateBody,
   UpsertPlatformSettingBody,
   UpsertQuoteTypePolicyCategoryBody,
+  UpsertSafetyChecklistCategoryBody,
+  UpsertSafetyChecklistTemplateItemBody,
+  UpsertSafetyChecklistUserTemplate200,
+  UpsertSafetyChecklistUserTemplateBody,
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
@@ -18752,6 +18767,904 @@ export const useUpdateSafetyChecklistItem = <
   TContext
 > => {
   return useMutation(getUpdateSafetyChecklistItemMutationOptions(options));
+};
+
+/**
+ * @summary [Task #650] 활성 카테고리 + (사용자 묶음 ?? 본사 기본) 항목
+ */
+export const getListEffectiveSafetyChecklistTemplatesUrl = () => {
+  return `/api/safety-checklist-templates/effective`;
+};
+
+export const listEffectiveSafetyChecklistTemplates = async (
+  options?: RequestInit,
+): Promise<ListEffectiveSafetyChecklistTemplates200> => {
+  return customFetch<ListEffectiveSafetyChecklistTemplates200>(
+    getListEffectiveSafetyChecklistTemplatesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEffectiveSafetyChecklistTemplatesQueryKey = () => {
+  return [`/api/safety-checklist-templates/effective`] as const;
+};
+
+export const getListEffectiveSafetyChecklistTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListEffectiveSafetyChecklistTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>
+  > = ({ signal }) =>
+    listEffectiveSafetyChecklistTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEffectiveSafetyChecklistTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>
+>;
+export type ListEffectiveSafetyChecklistTemplatesQueryError =
+  ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] 활성 카테고리 + (사용자 묶음 ?? 본사 기본) 항목
+ */
+
+export function useListEffectiveSafetyChecklistTemplates<
+  TData = Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listEffectiveSafetyChecklistTemplates>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions =
+    getListEffectiveSafetyChecklistTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #650] platform_admin: 모든 카테고리(비활성 포함) + 항목
+ */
+export const getListAdminSafetyChecklistCategoriesUrl = () => {
+  return `/api/safety-checklist-templates/admin/categories`;
+};
+
+export const listAdminSafetyChecklistCategories = async (
+  options?: RequestInit,
+): Promise<ListAdminSafetyChecklistCategories200> => {
+  return customFetch<ListAdminSafetyChecklistCategories200>(
+    getListAdminSafetyChecklistCategoriesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminSafetyChecklistCategoriesQueryKey = () => {
+  return [`/api/safety-checklist-templates/admin/categories`] as const;
+};
+
+export const getListAdminSafetyChecklistCategoriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminSafetyChecklistCategoriesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>
+  > = ({ signal }) =>
+    listAdminSafetyChecklistCategories({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminSafetyChecklistCategoriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>
+>;
+export type ListAdminSafetyChecklistCategoriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 모든 카테고리(비활성 포함) + 항목
+ */
+
+export function useListAdminSafetyChecklistCategories<
+  TData = Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSafetyChecklistCategories>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions =
+    getListAdminSafetyChecklistCategoriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 생성
+ */
+export const getCreateSafetyChecklistCategoryUrl = () => {
+  return `/api/safety-checklist-templates/admin/categories`;
+};
+
+export const createSafetyChecklistCategory = async (
+  upsertSafetyChecklistCategoryBody: UpsertSafetyChecklistCategoryBody,
+  options?: RequestInit,
+): Promise<CreateSafetyChecklistCategory200> => {
+  return customFetch<CreateSafetyChecklistCategory200>(
+    getCreateSafetyChecklistCategoryUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertSafetyChecklistCategoryBody),
+    },
+  );
+};
+
+export const getCreateSafetyChecklistCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklistCategory>>,
+    TError,
+    { data: BodyType<UpsertSafetyChecklistCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSafetyChecklistCategory>>,
+  TError,
+  { data: BodyType<UpsertSafetyChecklistCategoryBody> },
+  TContext
+> => {
+  const mutationKey = ["createSafetyChecklistCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSafetyChecklistCategory>>,
+    { data: BodyType<UpsertSafetyChecklistCategoryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSafetyChecklistCategory(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSafetyChecklistCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSafetyChecklistCategory>>
+>;
+export type CreateSafetyChecklistCategoryMutationBody =
+  BodyType<UpsertSafetyChecklistCategoryBody>;
+export type CreateSafetyChecklistCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 생성
+ */
+export const useCreateSafetyChecklistCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklistCategory>>,
+    TError,
+    { data: BodyType<UpsertSafetyChecklistCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSafetyChecklistCategory>>,
+  TError,
+  { data: BodyType<UpsertSafetyChecklistCategoryBody> },
+  TContext
+> => {
+  return useMutation(getCreateSafetyChecklistCategoryMutationOptions(options));
+};
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 수정
+ */
+export const getUpdateSafetyChecklistCategoryUrl = (id: number) => {
+  return `/api/safety-checklist-templates/admin/categories/${id}`;
+};
+
+export const updateSafetyChecklistCategory = async (
+  id: number,
+  patchSafetyChecklistCategoryBody: PatchSafetyChecklistCategoryBody,
+  options?: RequestInit,
+): Promise<UpdateSafetyChecklistCategory200> => {
+  return customFetch<UpdateSafetyChecklistCategory200>(
+    getUpdateSafetyChecklistCategoryUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(patchSafetyChecklistCategoryBody),
+    },
+  );
+};
+
+export const getUpdateSafetyChecklistCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistCategory>>,
+    TError,
+    { id: number; data: BodyType<PatchSafetyChecklistCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetyChecklistCategory>>,
+  TError,
+  { id: number; data: BodyType<PatchSafetyChecklistCategoryBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetyChecklistCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetyChecklistCategory>>,
+    { id: number; data: BodyType<PatchSafetyChecklistCategoryBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSafetyChecklistCategory(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetyChecklistCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetyChecklistCategory>>
+>;
+export type UpdateSafetyChecklistCategoryMutationBody =
+  BodyType<PatchSafetyChecklistCategoryBody>;
+export type UpdateSafetyChecklistCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 수정
+ */
+export const useUpdateSafetyChecklistCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistCategory>>,
+    TError,
+    { id: number; data: BodyType<PatchSafetyChecklistCategoryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetyChecklistCategory>>,
+  TError,
+  { id: number; data: BodyType<PatchSafetyChecklistCategoryBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSafetyChecklistCategoryMutationOptions(options));
+};
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 삭제 (항목 동시 삭제)
+ */
+export const getDeleteSafetyChecklistCategoryUrl = (id: number) => {
+  return `/api/safety-checklist-templates/admin/categories/${id}`;
+};
+
+export const deleteSafetyChecklistCategory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteSafetyChecklistCategory200> => {
+  return customFetch<DeleteSafetyChecklistCategory200>(
+    getDeleteSafetyChecklistCategoryUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteSafetyChecklistCategoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSafetyChecklistCategory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSafetyChecklistCategory(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSafetyChecklistCategoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>
+>;
+
+export type DeleteSafetyChecklistCategoryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 삭제 (항목 동시 삭제)
+ */
+export const useDeleteSafetyChecklistCategory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSafetyChecklistCategory>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSafetyChecklistCategoryMutationOptions(options));
+};
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 기본 항목 추가
+ */
+export const getCreateSafetyChecklistTemplateItemUrl = (categoryId: number) => {
+  return `/api/safety-checklist-templates/admin/categories/${categoryId}/items`;
+};
+
+export const createSafetyChecklistTemplateItem = async (
+  categoryId: number,
+  upsertSafetyChecklistTemplateItemBody: UpsertSafetyChecklistTemplateItemBody,
+  options?: RequestInit,
+): Promise<CreateSafetyChecklistTemplateItem200> => {
+  return customFetch<CreateSafetyChecklistTemplateItem200>(
+    getCreateSafetyChecklistTemplateItemUrl(categoryId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertSafetyChecklistTemplateItemBody),
+    },
+  );
+};
+
+export const getCreateSafetyChecklistTemplateItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>,
+    TError,
+    {
+      categoryId: number;
+      data: BodyType<UpsertSafetyChecklistTemplateItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>,
+  TError,
+  { categoryId: number; data: BodyType<UpsertSafetyChecklistTemplateItemBody> },
+  TContext
+> => {
+  const mutationKey = ["createSafetyChecklistTemplateItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>,
+    {
+      categoryId: number;
+      data: BodyType<UpsertSafetyChecklistTemplateItemBody>;
+    }
+  > = (props) => {
+    const { categoryId, data } = props ?? {};
+
+    return createSafetyChecklistTemplateItem(categoryId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSafetyChecklistTemplateItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>
+>;
+export type CreateSafetyChecklistTemplateItemMutationBody =
+  BodyType<UpsertSafetyChecklistTemplateItemBody>;
+export type CreateSafetyChecklistTemplateItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 기본 항목 추가
+ */
+export const useCreateSafetyChecklistTemplateItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>,
+    TError,
+    {
+      categoryId: number;
+      data: BodyType<UpsertSafetyChecklistTemplateItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSafetyChecklistTemplateItem>>,
+  TError,
+  { categoryId: number; data: BodyType<UpsertSafetyChecklistTemplateItemBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateSafetyChecklistTemplateItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 수정
+ */
+export const getUpdateSafetyChecklistTemplateItemUrl = (id: number) => {
+  return `/api/safety-checklist-templates/admin/items/${id}`;
+};
+
+export const updateSafetyChecklistTemplateItem = async (
+  id: number,
+  patchSafetyChecklistTemplateItemBody: PatchSafetyChecklistTemplateItemBody,
+  options?: RequestInit,
+): Promise<UpdateSafetyChecklistTemplateItem200> => {
+  return customFetch<UpdateSafetyChecklistTemplateItem200>(
+    getUpdateSafetyChecklistTemplateItemUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(patchSafetyChecklistTemplateItemBody),
+    },
+  );
+};
+
+export const getUpdateSafetyChecklistTemplateItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>,
+    TError,
+    { id: number; data: BodyType<PatchSafetyChecklistTemplateItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>,
+  TError,
+  { id: number; data: BodyType<PatchSafetyChecklistTemplateItemBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSafetyChecklistTemplateItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>,
+    { id: number; data: BodyType<PatchSafetyChecklistTemplateItemBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSafetyChecklistTemplateItem(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSafetyChecklistTemplateItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>
+>;
+export type UpdateSafetyChecklistTemplateItemMutationBody =
+  BodyType<PatchSafetyChecklistTemplateItemBody>;
+export type UpdateSafetyChecklistTemplateItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 수정
+ */
+export const useUpdateSafetyChecklistTemplateItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>,
+    TError,
+    { id: number; data: BodyType<PatchSafetyChecklistTemplateItemBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSafetyChecklistTemplateItem>>,
+  TError,
+  { id: number; data: BodyType<PatchSafetyChecklistTemplateItemBody> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateSafetyChecklistTemplateItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 삭제
+ */
+export const getDeleteSafetyChecklistTemplateItemUrl = (id: number) => {
+  return `/api/safety-checklist-templates/admin/items/${id}`;
+};
+
+export const deleteSafetyChecklistTemplateItem = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteSafetyChecklistTemplateItem200> => {
+  return customFetch<DeleteSafetyChecklistTemplateItem200>(
+    getDeleteSafetyChecklistTemplateItemUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteSafetyChecklistTemplateItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSafetyChecklistTemplateItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSafetyChecklistTemplateItem(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSafetyChecklistTemplateItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>
+>;
+
+export type DeleteSafetyChecklistTemplateItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 삭제
+ */
+export const useDeleteSafetyChecklistTemplateItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSafetyChecklistTemplateItem>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteSafetyChecklistTemplateItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리별 항목 묶음 저장
+ */
+export const getUpsertSafetyChecklistUserTemplateUrl = (category: string) => {
+  return `/api/safety-checklist-templates/user/${category}`;
+};
+
+export const upsertSafetyChecklistUserTemplate = async (
+  category: string,
+  upsertSafetyChecklistUserTemplateBody: UpsertSafetyChecklistUserTemplateBody,
+  options?: RequestInit,
+): Promise<UpsertSafetyChecklistUserTemplate200> => {
+  return customFetch<UpsertSafetyChecklistUserTemplate200>(
+    getUpsertSafetyChecklistUserTemplateUrl(category),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertSafetyChecklistUserTemplateBody),
+    },
+  );
+};
+
+export const getUpsertSafetyChecklistUserTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>,
+    TError,
+    { category: string; data: BodyType<UpsertSafetyChecklistUserTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>,
+  TError,
+  { category: string; data: BodyType<UpsertSafetyChecklistUserTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertSafetyChecklistUserTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>,
+    { category: string; data: BodyType<UpsertSafetyChecklistUserTemplateBody> }
+  > = (props) => {
+    const { category, data } = props ?? {};
+
+    return upsertSafetyChecklistUserTemplate(category, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertSafetyChecklistUserTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>
+>;
+export type UpsertSafetyChecklistUserTemplateMutationBody =
+  BodyType<UpsertSafetyChecklistUserTemplateBody>;
+export type UpsertSafetyChecklistUserTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리별 항목 묶음 저장
+ */
+export const useUpsertSafetyChecklistUserTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>,
+    TError,
+    { category: string; data: BodyType<UpsertSafetyChecklistUserTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertSafetyChecklistUserTemplate>>,
+  TError,
+  { category: string; data: BodyType<UpsertSafetyChecklistUserTemplateBody> },
+  TContext
+> => {
+  return useMutation(
+    getUpsertSafetyChecklistUserTemplateMutationOptions(options),
+  );
+};
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리 묶음 삭제 (본사 기본값으로 복원)
+ */
+export const getResetSafetyChecklistUserTemplateUrl = (category: string) => {
+  return `/api/safety-checklist-templates/user/${category}`;
+};
+
+export const resetSafetyChecklistUserTemplate = async (
+  category: string,
+  options?: RequestInit,
+): Promise<ResetSafetyChecklistUserTemplate200> => {
+  return customFetch<ResetSafetyChecklistUserTemplate200>(
+    getResetSafetyChecklistUserTemplateUrl(category),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getResetSafetyChecklistUserTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>,
+    TError,
+    { category: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>,
+  TError,
+  { category: string },
+  TContext
+> => {
+  const mutationKey = ["resetSafetyChecklistUserTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>,
+    { category: string }
+  > = (props) => {
+    const { category } = props ?? {};
+
+    return resetSafetyChecklistUserTemplate(category, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetSafetyChecklistUserTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>
+>;
+
+export type ResetSafetyChecklistUserTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리 묶음 삭제 (본사 기본값으로 복원)
+ */
+export const useResetSafetyChecklistUserTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>,
+    TError,
+    { category: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetSafetyChecklistUserTemplate>>,
+  TError,
+  { category: string },
+  TContext
+> => {
+  return useMutation(
+    getResetSafetyChecklistUserTemplateMutationOptions(options),
+  );
 };
 
 /**

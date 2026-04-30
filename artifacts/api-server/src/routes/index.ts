@@ -25,6 +25,8 @@ import quotesRouter from "./quotes";
 import workReportsRouter from "./workReports";
 import settlementsRouter from "./settlements";
 import safetyChecklistsRouter from "./safetyChecklists";
+// [Task #650] 안전점검표 템플릿(본사 관리 + 사용자 묶음) — buildingRouter 안에 마운트.
+import safetyChecklistTemplatesRouter from "./safetyChecklistTemplates";
 import maintenanceLogsRouter from "./maintenanceLogs";
 import safetyTrainingsRouter from "./safetyTrainings";
 import facilityDashboardRouter from "./facilityDashboard";
@@ -159,6 +161,7 @@ buildingRouter.use(signaturesRouter);
 buildingRouter.use(documentTemplatesRouter);
 buildingRouter.use(reportSystemRouter);
 buildingRouter.use(safetyChecklistsRouter);
+buildingRouter.use(safetyChecklistTemplatesRouter);
 buildingRouter.use(maintenanceLogsRouter);
 buildingRouter.use(safetyTrainingsRouter);
 buildingRouter.use(facilityDashboardRouter);

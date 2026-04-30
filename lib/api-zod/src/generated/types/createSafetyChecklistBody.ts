@@ -5,11 +5,11 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateSafetyChecklistBodyCategory } from "./createSafetyChecklistBodyCategory";
 import type { CreateSafetyChecklistBodyItemsItem } from "./createSafetyChecklistBodyItemsItem";
 
 export interface CreateSafetyChecklistBody {
-  category: CreateSafetyChecklistBodyCategory;
+  /** [Task #650] HQ-managed dynamic category value (no fixed enum). */
+  category: string;
   title: string;
   inspectionDate: string;
   inspector: string;

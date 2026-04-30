@@ -6264,21 +6264,18 @@ export const GetDashboardAnalyticsResponse = zod.object({
  * @summary List safety checklists
  */
 export const ListSafetyChecklistsQueryParams = zod.object({
-  category: zod
-    .enum(["electrical", "fire_safety", "generator", "water_tank", "other"])
-    .optional(),
+  category: zod.coerce
+    .string()
+    .optional()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   status: zod.enum(["pending", "completed", "issue_found"]).optional(),
 });
 
 export const ListSafetyChecklistsResponseItem = zod.object({
   id: zod.number(),
-  category: zod.enum([
-    "electrical",
-    "fire_safety",
-    "generator",
-    "water_tank",
-    "other",
-  ]),
+  category: zod
+    .string()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   title: zod.string(),
   inspectionDate: zod.string().date(),
   inspector: zod.string(),
@@ -6297,13 +6294,9 @@ export const ListSafetyChecklistsResponse = zod.array(
  * @summary Create a safety checklist
  */
 export const CreateSafetyChecklistBody = zod.object({
-  category: zod.enum([
-    "electrical",
-    "fire_safety",
-    "generator",
-    "water_tank",
-    "other",
-  ]),
+  category: zod
+    .string()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   title: zod.string(),
   inspectionDate: zod.string().date(),
   inspector: zod.string(),
@@ -6331,13 +6324,9 @@ export const GetSafetyChecklistParams = zod.object({
 
 export const GetSafetyChecklistResponse = zod.object({
   id: zod.number(),
-  category: zod.enum([
-    "electrical",
-    "fire_safety",
-    "generator",
-    "water_tank",
-    "other",
-  ]),
+  category: zod
+    .string()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   title: zod.string(),
   inspectionDate: zod.string().date(),
   inspector: zod.string(),
@@ -6369,8 +6358,9 @@ export const UpdateSafetyChecklistParams = zod.object({
 
 export const UpdateSafetyChecklistBody = zod.object({
   category: zod
-    .enum(["electrical", "fire_safety", "generator", "water_tank", "other"])
-    .optional(),
+    .string()
+    .optional()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   title: zod.string().optional(),
   inspectionDate: zod.string().date().optional(),
   inspector: zod.string().optional(),
@@ -6382,13 +6372,9 @@ export const UpdateSafetyChecklistBody = zod.object({
 
 export const UpdateSafetyChecklistResponse = zod.object({
   id: zod.number(),
-  category: zod.enum([
-    "electrical",
-    "fire_safety",
-    "generator",
-    "water_tank",
-    "other",
-  ]),
+  category: zod
+    .string()
+    .describe("[Task #650] HQ-managed dynamic category value (no fixed enum)."),
   title: zod.string(),
   inspectionDate: zod.string().date(),
   inspector: zod.string(),
@@ -6442,6 +6428,199 @@ export const UpdateSafetyChecklistItemResponse = zod.object({
   result: zod.string().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary [Task #650] 활성 카테고리 + (사용자 묶음 ?? 본사 기본) 항목
+ */
+export const ListEffectiveSafetyChecklistTemplatesResponse = zod.object({
+  categories: zod.array(
+    zod.object({
+      value: zod.string(),
+      label: zod.string(),
+      items: zod.array(zod.string()),
+      source: zod.enum(["user", "default"]),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 모든 카테고리(비활성 포함) + 항목
+ */
+export const ListAdminSafetyChecklistCategoriesResponse = zod.object({
+  categories: zod.array(
+    zod.object({
+      id: zod.number(),
+      value: zod.string(),
+      label: zod.string(),
+      sortOrder: zod.number(),
+      isActive: zod.boolean(),
+      items: zod.array(
+        zod.object({
+          id: zod.number(),
+          categoryId: zod.number(),
+          itemName: zod.string(),
+          sortOrder: zod.number(),
+          isActive: zod.boolean(),
+          createdAt: zod.string().datetime({}),
+          updatedAt: zod.string().datetime({}),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 생성
+ */
+export const CreateSafetyChecklistCategoryBody = zod.object({
+  value: zod.string(),
+  label: zod.string(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const CreateSafetyChecklistCategoryResponse = zod.object({
+  category: zod.object({
+    id: zod.number(),
+    value: zod.string(),
+    label: zod.string(),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 수정
+ */
+export const UpdateSafetyChecklistCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSafetyChecklistCategoryBody = zod.object({
+  value: zod.string().optional(),
+  label: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateSafetyChecklistCategoryResponse = zod.object({
+  category: zod.object({
+    id: zod.number(),
+    value: zod.string(),
+    label: zod.string(),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 삭제 (항목 동시 삭제)
+ */
+export const DeleteSafetyChecklistCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteSafetyChecklistCategoryResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 카테고리 기본 항목 추가
+ */
+export const CreateSafetyChecklistTemplateItemParams = zod.object({
+  categoryId: zod.coerce.number(),
+});
+
+export const CreateSafetyChecklistTemplateItemBody = zod.object({
+  itemName: zod.string(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const CreateSafetyChecklistTemplateItemResponse = zod.object({
+  item: zod.object({
+    id: zod.number(),
+    categoryId: zod.number(),
+    itemName: zod.string(),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 수정
+ */
+export const UpdateSafetyChecklistTemplateItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSafetyChecklistTemplateItemBody = zod.object({
+  itemName: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateSafetyChecklistTemplateItemResponse = zod.object({
+  item: zod.object({
+    id: zod.number(),
+    categoryId: zod.number(),
+    itemName: zod.string(),
+    sortOrder: zod.number(),
+    isActive: zod.boolean(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary [Task #650] platform_admin: 기본 항목 삭제
+ */
+export const DeleteSafetyChecklistTemplateItemParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteSafetyChecklistTemplateItemResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리별 항목 묶음 저장
+ */
+export const UpsertSafetyChecklistUserTemplateParams = zod.object({
+  category: zod.coerce.string(),
+});
+
+export const UpsertSafetyChecklistUserTemplateBody = zod.object({
+  items: zod.array(zod.string()),
+});
+
+export const UpsertSafetyChecklistUserTemplateResponse = zod.object({
+  template: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    category: zod.string(),
+    items: zod.array(zod.string()),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+});
+
+/**
+ * @summary [Task #650] 직원 본인의 카테고리 묶음 삭제 (본사 기본값으로 복원)
+ */
+export const ResetSafetyChecklistUserTemplateParams = zod.object({
+  category: zod.coerce.string(),
+});
+
+export const ResetSafetyChecklistUserTemplateResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**

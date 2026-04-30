@@ -1,7 +1,7 @@
 import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable, usersTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, notificationsTable, usersTable, safetyChecklistTemplateCategoriesTable } from "@workspace/db";
 import {
   ListSafetyChecklistsQueryParams,
   ListSafetyChecklistsResponse,
@@ -38,10 +38,28 @@ const CATEGORY_TO_MAINTENANCE: Record<string, string> = {
 };
 
 const router: IRouter = Router();
-router.use("/safety-checklists", requireRole("manager", "platform_admin", "facility_staff"));
+// [Task #650] 경리(accountant) 역할도 안전점검표 페이지에 접근할 수 있도록 허용한다.
+router.use("/safety-checklists", requireRole("manager", "platform_admin", "facility_staff", "accountant"));
 async function getUserBuildingId(userId: number): Promise<number | null> {
   const user = await db.select({ buildingId: usersTable.buildingId }).from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   return user?.buildingId ?? null;
+}
+
+// [Task #650] HQ 가 관리하는 활성 카테고리 목록에 속하는지 검증한다.
+//   OpenAPI/Zod 의 category 필드가 enum → string 으로 완화되었기 때문에
+//   서버는 템플릿 카테고리 테이블을 단일 진실 원천으로 사용해 직접 호출도 막는다.
+async function isActiveTemplateCategory(value: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: safetyChecklistTemplateCategoriesTable.id })
+    .from(safetyChecklistTemplateCategoriesTable)
+    .where(
+      and(
+        eq(safetyChecklistTemplateCategoriesTable.value, value),
+        eq(safetyChecklistTemplateCategoriesTable.isActive, true),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 // [Task #558] rfqs.ts 의 serializeRfqRow 와 동일한 의도. drizzle 의 timestamp/
@@ -134,6 +152,12 @@ router.post("/safety-checklists", async (req, res): Promise<void> => {
     return;
   }
 
+  // [Task #650] 직접 호출 방지: 카테고리는 HQ 가 관리하는 활성 템플릿이어야 한다.
+  if (!(await isActiveTemplateCategory(parsed.data.category))) {
+    res.status(400).json({ error: "유효하지 않은 카테고리입니다" });
+    return;
+  }
+
   const { items, ...checklistData } = parsed.data;
   const buildingId = await getUserBuildingId(req.user!.userId);
 
@@ -186,6 +210,16 @@ router.patch("/safety-checklists/:id", async (req, res): Promise<void> => {
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  // [Task #650] category 필드가 본문에 포함된 경우에는 빈 문자열도 거부하고
+  //   반드시 활성 템플릿이어야 한다. (truthy 체크만 하면 ""가 우회한다.)
+  if (Object.prototype.hasOwnProperty.call(parsed.data, "category")) {
+    const cat = parsed.data.category;
+    if (!cat || !(await isActiveTemplateCategory(cat))) {
+      res.status(400).json({ error: "유효하지 않은 카테고리입니다" });
+      return;
+    }
   }
 
   const gate = await assertOwnChecklistOr404(req, params.data.id);

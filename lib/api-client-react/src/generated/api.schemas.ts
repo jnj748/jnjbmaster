@@ -2893,17 +2893,6 @@ export interface Approval {
   updatedAt: string;
 }
 
-export type SafetyChecklistCategory =
-  (typeof SafetyChecklistCategory)[keyof typeof SafetyChecklistCategory];
-
-export const SafetyChecklistCategory = {
-  electrical: "electrical",
-  fire_safety: "fire_safety",
-  generator: "generator",
-  water_tank: "water_tank",
-  other: "other",
-} as const;
-
 export type SafetyChecklistStatus =
   (typeof SafetyChecklistStatus)[keyof typeof SafetyChecklistStatus];
 
@@ -2915,7 +2904,8 @@ export const SafetyChecklistStatus = {
 
 export interface SafetyChecklist {
   id: number;
-  category: SafetyChecklistCategory;
+  /** [Task #650] HQ-managed dynamic category value (no fixed enum). */
+  category: string;
   title: string;
   inspectionDate: string;
   inspector: string;
@@ -2929,17 +2919,6 @@ export interface SafetyChecklist {
   createdAt: string;
   updatedAt: string;
 }
-
-export type SafetyChecklistDetailCategory =
-  (typeof SafetyChecklistDetailCategory)[keyof typeof SafetyChecklistDetailCategory];
-
-export const SafetyChecklistDetailCategory = {
-  electrical: "electrical",
-  fire_safety: "fire_safety",
-  generator: "generator",
-  water_tank: "water_tank",
-  other: "other",
-} as const;
 
 export type SafetyChecklistDetailStatus =
   (typeof SafetyChecklistDetailStatus)[keyof typeof SafetyChecklistDetailStatus];
@@ -2964,7 +2943,8 @@ export interface SafetyChecklistItem {
 
 export interface SafetyChecklistDetail {
   id: number;
-  category: SafetyChecklistDetailCategory;
+  /** [Task #650] HQ-managed dynamic category value (no fixed enum). */
+  category: string;
   title: string;
   inspectionDate: string;
   inspector: string;
@@ -2980,17 +2960,6 @@ export interface SafetyChecklistDetail {
   updatedAt: string;
 }
 
-export type CreateSafetyChecklistBodyCategory =
-  (typeof CreateSafetyChecklistBodyCategory)[keyof typeof CreateSafetyChecklistBodyCategory];
-
-export const CreateSafetyChecklistBodyCategory = {
-  electrical: "electrical",
-  fire_safety: "fire_safety",
-  generator: "generator",
-  water_tank: "water_tank",
-  other: "other",
-} as const;
-
 export type CreateSafetyChecklistBodyItemsItem = {
   itemName: string;
   checked?: boolean;
@@ -3001,7 +2970,8 @@ export type CreateSafetyChecklistBodyItemsItem = {
 };
 
 export interface CreateSafetyChecklistBody {
-  category: CreateSafetyChecklistBodyCategory;
+  /** [Task #650] HQ-managed dynamic category value (no fixed enum). */
+  category: string;
   title: string;
   inspectionDate: string;
   inspector: string;
@@ -3014,17 +2984,6 @@ export interface CreateSafetyChecklistBody {
   items?: CreateSafetyChecklistBodyItemsItem[];
 }
 
-export type UpdateSafetyChecklistBodyCategory =
-  (typeof UpdateSafetyChecklistBodyCategory)[keyof typeof UpdateSafetyChecklistBodyCategory];
-
-export const UpdateSafetyChecklistBodyCategory = {
-  electrical: "electrical",
-  fire_safety: "fire_safety",
-  generator: "generator",
-  water_tank: "water_tank",
-  other: "other",
-} as const;
-
 export type UpdateSafetyChecklistBodyStatus =
   (typeof UpdateSafetyChecklistBodyStatus)[keyof typeof UpdateSafetyChecklistBodyStatus];
 
@@ -3035,7 +2994,8 @@ export const UpdateSafetyChecklistBodyStatus = {
 } as const;
 
 export interface UpdateSafetyChecklistBody {
-  category?: UpdateSafetyChecklistBodyCategory;
+  /** [Task #650] HQ-managed dynamic category value (no fixed enum). */
+  category?: string;
   title?: string;
   inspectionDate?: string;
   inspector?: string;
@@ -3063,6 +3023,70 @@ export interface UpdateSafetyChecklistItemBody {
   result?: string | null;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface SafetyChecklistTemplateCategory {
+  id: number;
+  value: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SafetyChecklistTemplateItem {
+  id: number;
+  categoryId: number;
+  itemName: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SafetyChecklistTemplateCategoryWithItems {
+  id: number;
+  value: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  items: SafetyChecklistTemplateItem[];
+}
+
+export interface UpsertSafetyChecklistCategoryBody {
+  value: string;
+  label: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface PatchSafetyChecklistCategoryBody {
+  value?: string;
+  label?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpsertSafetyChecklistTemplateItemBody {
+  itemName: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface PatchSafetyChecklistTemplateItemBody {
+  itemName?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface SafetyChecklistUserTemplate {
+  id: number;
+  userId: number;
+  category: string;
+  items: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type MaintenanceLogCategory =
@@ -6755,20 +6779,12 @@ export const ListDocumentChecklistsEntityType = {
 } as const;
 
 export type ListSafetyChecklistsParams = {
-  category?: ListSafetyChecklistsCategory;
+  /**
+   * [Task #650] HQ-managed dynamic category value (no fixed enum).
+   */
+  category?: string;
   status?: ListSafetyChecklistsStatus;
 };
-
-export type ListSafetyChecklistsCategory =
-  (typeof ListSafetyChecklistsCategory)[keyof typeof ListSafetyChecklistsCategory];
-
-export const ListSafetyChecklistsCategory = {
-  electrical: "electrical",
-  fire_safety: "fire_safety",
-  generator: "generator",
-  water_tank: "water_tank",
-  other: "other",
-} as const;
 
 export type ListSafetyChecklistsStatus =
   (typeof ListSafetyChecklistsStatus)[keyof typeof ListSafetyChecklistsStatus];
@@ -6778,6 +6794,65 @@ export const ListSafetyChecklistsStatus = {
   completed: "completed",
   issue_found: "issue_found",
 } as const;
+
+export type ListEffectiveSafetyChecklistTemplates200CategoriesItemSource =
+  (typeof ListEffectiveSafetyChecklistTemplates200CategoriesItemSource)[keyof typeof ListEffectiveSafetyChecklistTemplates200CategoriesItemSource];
+
+export const ListEffectiveSafetyChecklistTemplates200CategoriesItemSource = {
+  user: "user",
+  default: "default",
+} as const;
+
+export type ListEffectiveSafetyChecklistTemplates200CategoriesItem = {
+  value: string;
+  label: string;
+  items: string[];
+  source: ListEffectiveSafetyChecklistTemplates200CategoriesItemSource;
+};
+
+export type ListEffectiveSafetyChecklistTemplates200 = {
+  categories: ListEffectiveSafetyChecklistTemplates200CategoriesItem[];
+};
+
+export type ListAdminSafetyChecklistCategories200 = {
+  categories: SafetyChecklistTemplateCategoryWithItems[];
+};
+
+export type CreateSafetyChecklistCategory200 = {
+  category: SafetyChecklistTemplateCategory;
+};
+
+export type UpdateSafetyChecklistCategory200 = {
+  category: SafetyChecklistTemplateCategory;
+};
+
+export type DeleteSafetyChecklistCategory200 = {
+  ok?: boolean;
+};
+
+export type CreateSafetyChecklistTemplateItem200 = {
+  item: SafetyChecklistTemplateItem;
+};
+
+export type UpdateSafetyChecklistTemplateItem200 = {
+  item: SafetyChecklistTemplateItem;
+};
+
+export type DeleteSafetyChecklistTemplateItem200 = {
+  ok?: boolean;
+};
+
+export type UpsertSafetyChecklistUserTemplateBody = {
+  items: string[];
+};
+
+export type UpsertSafetyChecklistUserTemplate200 = {
+  template: SafetyChecklistUserTemplate;
+};
+
+export type ResetSafetyChecklistUserTemplate200 = {
+  ok?: boolean;
+};
 
 export type ListMaintenanceLogsParams = {
   category?: ListMaintenanceLogsCategory;

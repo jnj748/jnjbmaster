@@ -4640,9 +4640,9 @@ paths:
       parameters:
         - name: category
           in: query
+          description: "[Task #650] HQ-managed dynamic category value (no fixed enum)."
           schema:
             type: string
-            enum: [electrical, fire_safety, generator, water_tank, other]
         - name: status
           in: query
           schema:
@@ -4785,6 +4785,261 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SafetyChecklistItem"
+
+  # ── [Task #650] 안전점검표 템플릿 (본사 관리 + 사용자 개인 묶음) ──
+  /safety-checklist-templates/effective:
+    get:
+      operationId: listEffectiveSafetyChecklistTemplates
+      tags: [safetyChecklists]
+      summary: "[Task #650] 활성 카테고리 + (사용자 묶음 ?? 본사 기본) 항목"
+      responses:
+        "200":
+          description: Categories with effective items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        value:
+                          type: string
+                        label:
+                          type: string
+                        items:
+                          type: array
+                          items:
+                            type: string
+                        source:
+                          type: string
+                          enum: [user, default]
+                      required: [value, label, items, source]
+                required: [categories]
+
+  /safety-checklist-templates/admin/categories:
+    get:
+      operationId: listAdminSafetyChecklistCategories
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 모든 카테고리(비활성 포함) + 항목"
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SafetyChecklistTemplateCategoryWithItems"
+                required: [categories]
+    post:
+      operationId: createSafetyChecklistCategory
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 카테고리 생성"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertSafetyChecklistCategoryBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category:
+                    $ref: "#/components/schemas/SafetyChecklistTemplateCategory"
+                required: [category]
+
+  /safety-checklist-templates/admin/categories/{id}:
+    patch:
+      operationId: updateSafetyChecklistCategory
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 카테고리 수정"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchSafetyChecklistCategoryBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category:
+                    $ref: "#/components/schemas/SafetyChecklistTemplateCategory"
+                required: [category]
+    delete:
+      operationId: deleteSafetyChecklistCategory
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 카테고리 삭제 (항목 동시 삭제)"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /safety-checklist-templates/admin/categories/{categoryId}/items:
+    post:
+      operationId: createSafetyChecklistTemplateItem
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 카테고리 기본 항목 추가"
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertSafetyChecklistTemplateItemBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item:
+                    $ref: "#/components/schemas/SafetyChecklistTemplateItem"
+                required: [item]
+
+  /safety-checklist-templates/admin/items/{id}:
+    patch:
+      operationId: updateSafetyChecklistTemplateItem
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 기본 항목 수정"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchSafetyChecklistTemplateItemBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item:
+                    $ref: "#/components/schemas/SafetyChecklistTemplateItem"
+                required: [item]
+    delete:
+      operationId: deleteSafetyChecklistTemplateItem
+      tags: [safetyChecklists]
+      summary: "[Task #650] platform_admin: 기본 항목 삭제"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /safety-checklist-templates/user/{category}:
+    put:
+      operationId: upsertSafetyChecklistUserTemplate
+      tags: [safetyChecklists]
+      summary: "[Task #650] 직원 본인의 카테고리별 항목 묶음 저장"
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: string
+              required: [items]
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: "#/components/schemas/SafetyChecklistUserTemplate"
+                required: [template]
+    delete:
+      operationId: resetSafetyChecklistUserTemplate
+      tags: [safetyChecklists]
+      summary: "[Task #650] 직원 본인의 카테고리 묶음 삭제 (본사 기본값으로 복원)"
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
 
   # ── Maintenance Logs (시설 업무 일지) ──────────────────────
   /maintenance-logs:
@@ -10066,7 +10321,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [electrical, fire_safety, generator, water_tank, other]
+          description: "[Task #650] HQ-managed dynamic category value (no fixed enum)."
         title:
           type: string
         inspectionDate:
@@ -10106,7 +10361,7 @@ components:
           type: integer
         category:
           type: string
-          enum: [electrical, fire_safety, generator, water_tank, other]
+          description: "[Task #650] HQ-managed dynamic category value (no fixed enum)."
         title:
           type: string
         inspectionDate:
@@ -10174,7 +10429,7 @@ components:
       properties:
         category:
           type: string
-          enum: [electrical, fire_safety, generator, water_tank, other]
+          description: "[Task #650] HQ-managed dynamic category value (no fixed enum)."
         title:
           type: string
         inspectionDate:
@@ -10214,7 +10469,7 @@ components:
       properties:
         category:
           type: string
-          enum: [electrical, fire_safety, generator, water_tank, other]
+          description: "[Task #650] HQ-managed dynamic category value (no fixed enum)."
         title:
           type: string
         inspectionDate:
@@ -10255,6 +10510,166 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+
+    # [Task #650] 안전점검표 템플릿 ──
+    SafetyChecklistTemplateCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        value:
+          type: string
+        label:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - value
+        - label
+        - sortOrder
+        - isActive
+        - createdAt
+        - updatedAt
+
+    SafetyChecklistTemplateItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        itemName:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - categoryId
+        - itemName
+        - sortOrder
+        - isActive
+        - createdAt
+        - updatedAt
+
+    SafetyChecklistTemplateCategoryWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        value:
+          type: string
+        label:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyChecklistTemplateItem"
+      required:
+        - id
+        - value
+        - label
+        - sortOrder
+        - isActive
+        - items
+
+    UpsertSafetyChecklistCategoryBody:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required:
+        - value
+        - label
+
+    # [Task #650] PATCH 본문은 부분 업데이트라 모든 필드가 선택적이다.
+    PatchSafetyChecklistCategoryBody:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    UpsertSafetyChecklistTemplateItemBody:
+      type: object
+      properties:
+        itemName:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+      required:
+        - itemName
+
+    # [Task #650] PATCH 본문은 부분 업데이트라 itemName 도 선택적이다.
+    PatchSafetyChecklistTemplateItemBody:
+      type: object
+      properties:
+        itemName:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    SafetyChecklistUserTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        category:
+          type: string
+        items:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - category
+        - items
+        - createdAt
+        - updatedAt
 
     MaintenanceLog:
       type: object

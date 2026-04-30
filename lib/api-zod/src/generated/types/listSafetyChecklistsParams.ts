@@ -5,10 +5,12 @@
  * 관리의달인 API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ListSafetyChecklistsCategory } from "./listSafetyChecklistsCategory";
 import type { ListSafetyChecklistsStatus } from "./listSafetyChecklistsStatus";
 
 export type ListSafetyChecklistsParams = {
-  category?: ListSafetyChecklistsCategory;
+  /**
+   * [Task #650] HQ-managed dynamic category value (no fixed enum).
+   */
+  category?: string;
   status?: ListSafetyChecklistsStatus;
 };

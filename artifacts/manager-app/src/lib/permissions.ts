@@ -344,10 +344,11 @@ export const ROUTES: RouteEntry[] = [
     bottomNav: [],
   },
   {
+    // [Task #650] 경리(accountant) 역할도 안전점검표 페이지에 접근할 수 있도록 access 에 추가.
     path: "/safety-checklists", component: SafetyChecklists,
     label: "안전점검표", icon: ClipboardCheck, group: "facility",
-    access: ["manager", "platform_admin", "facility_staff"],
-    sideMenu: ["manager", "facility_staff"],
+    access: ["manager", "platform_admin", "facility_staff", "accountant"],
+    sideMenu: ["manager", "facility_staff", "accountant"],
   },
   {
     path: "/maintenance-logs", component: MaintenanceLogs,
@@ -661,6 +662,12 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-notice-templates")),
     label: "공지문 템플릿 관리", icon: FileText, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #650] 안전점검표 템플릿 관리 — 사이드바는 platformAdminSidebar() 의 "공통·시스템"
+  //   그룹에서 직접 추가. ROUTES 에는 hidden 상태로만 등록해 직접 URL 진입을 보존.
+  { path: "/platform/safety-checklist-templates",
+    component: lazy(() => import("@/pages/platform-safety-checklist-templates")),
+    label: "안전점검표 템플릿 관리", icon: FileText, group: "settings",
+    access: ["platform_admin"], hidden: true },
   {
     // [Task #132] 시설기사 가입 승인 (관리소장/본사/플랫폼)
     path: "/facility-approvals", component: lazy(() => import("@/pages/facility-approvals")),
@@ -951,6 +958,8 @@ function platformAdminSidebar(): NavSection[] {
         // [Task #582] 추천인 관리 대시보드 — 가입 시 입력된 추천인 휴대폰 단위로 집계.
         { path: "/platform/referrers", label: "추천인 관리", icon: Users },
         { path: "/document-templates", label: "서식 관리", icon: FileText },
+        // [Task #650] 안전점검표(직원 일일점검표) 카테고리/기본 항목을 본사가 직접 관리.
+        { path: "/platform/safety-checklist-templates", label: "안전점검표 템플릿 관리", icon: FileText },
         { path: "/report-system", label: "보고 체계", icon: BarChart3 },
         // [Task #296] 유저유형별 이용현황 분석 대시보드.
         { path: "/platform/usage-analytics", label: "유저유형별 이용현황", icon: BarChart3 },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useListSafetyChecklists,
   useCreateSafetyChecklist,
@@ -6,8 +6,13 @@ import {
   useDeleteSafetyChecklist,
   useGetSafetyChecklist,
   useUpdateSafetyChecklistItem,
+  useListEffectiveSafetyChecklistTemplates,
+  useUpsertSafetyChecklistUserTemplate,
+  useResetSafetyChecklistUserTemplate,
   getListSafetyChecklistsQueryKey,
   getGetSafetyChecklistQueryKey,
+  getListEffectiveSafetyChecklistTemplatesQueryKey,
+  listEffectiveSafetyChecklistTemplates,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,20 +39,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
-import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench } from "lucide-react";
+import { Plus, ClipboardCheck, Trash2, Eye, AlertTriangle, Wrench, Settings, RotateCcw, ArrowUp, ArrowDown } from "lucide-react";
 import { OfficialDocumentTriggers } from "@/components/official-document-triggers";
 import type { OfficialDocumentInput } from "@/lib/official-document";
 import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { PhotoUploadField } from "@/components/photo-upload-field";
 import { AuthImage } from "@/components/auth-image";
 
-const CATEGORIES = [
-  { value: "electrical", label: "전기설비" },
-  { value: "fire_safety", label: "소방시설" },
-  { value: "generator", label: "비상발전기" },
-  { value: "water_tank", label: "저수조" },
-  { value: "other", label: "기타" },
-];
+// [Task #650] 카테고리/기본 항목은 더 이상 코드 상수가 아니라 서버 API 가 단일 소스.
+//   useListEffectiveSafetyChecklistTemplates 가 (사용자 묶음 ?? 본사 기본) 항목을 돌려주며,
+//   본사 admin 화면(/platform/safety-checklist-templates)에서 카테고리·기본 항목을 관리한다.
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "대기", variant: "outline" },
@@ -55,12 +56,11 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
   issue_found: { label: "이상발견", variant: "destructive" },
 };
 
-const DEFAULT_ITEMS: Record<string, string[]> = {
-  electrical: ["누전차단기 동작 확인", "절연저항 측정", "접지 상태 확인", "배전반 점검", "전선 피복 상태"],
-  fire_safety: ["소화기 점검", "스프링클러 동작 확인", "화재감지기 점검", "비상구 표시등", "방화문 상태"],
-  generator: ["엔진오일 점검", "냉각수 확인", "배터리 상태", "연료량 확인", "시운전 결과"],
-  water_tank: ["수질 검사", "수조 내부 청결", "배관 누수 확인", "소독 상태", "수위 확인"],
-  other: [],
+type EffectiveCategory = {
+  value: string;
+  label: string;
+  items: string[];
+  source: "user" | "default";
 };
 
 export default function SafetyChecklists() {
@@ -80,8 +80,29 @@ export default function SafetyChecklists() {
   const updateMutation = useUpdateSafetyChecklist();
   const deleteMutation = useDeleteSafetyChecklist();
 
+  // [Task #650] 본사 기본 + 사용자 묶음이 합쳐진 효과 템플릿. 카테고리 셀렉트와
+  //   "새 점검표" 자동 채움이 모두 이 데이터를 단일 소스로 사용한다.
+  const { data: effectiveData } = useListEffectiveSafetyChecklistTemplates();
+  const effectiveCategories: EffectiveCategory[] = useMemo(
+    () => effectiveData?.categories ?? [],
+    [effectiveData],
+  );
+  const itemsByCategory = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const c of effectiveCategories) m.set(c.value, c.items);
+    return m;
+  }, [effectiveCategories]);
+  const labelByCategory = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of effectiveCategories) m.set(c.value, c.label);
+    return m;
+  }, [effectiveCategories]);
+
+  const [editTplOpen, setEditTplOpen] = useState(false);
+  const initialCategory = effectiveCategories[0]?.value ?? "electrical";
+
   const [form, setForm] = useState({
-    category: "electrical",
+    category: initialCategory,
     title: "",
     inspectionDate: new Date().toISOString().split("T")[0],
     inspector: "",
@@ -92,9 +113,28 @@ export default function SafetyChecklists() {
   });
   const [customItemInput, setCustomItemInput] = useState("");
 
+  // 효과 템플릿이 처음 도착했거나 사용자 묶음이 갱신된 경우, 폼이 비어 있으면
+  //   현재 카테고리의 기본 항목으로 자동 채워준다(직원 입력 중인 항목은 보존).
+  useEffect(() => {
+    if (effectiveCategories.length === 0) return;
+    setForm((f) => {
+      const cur = effectiveCategories.find((c) => c.value === f.category)
+        ? f.category
+        : effectiveCategories[0]!.value;
+      if (f.items.length === 0) {
+        const items = (itemsByCategory.get(cur) ?? []).map((name) => ({
+          itemName: name,
+          checked: false,
+        }));
+        return { ...f, category: cur, items };
+      }
+      return cur === f.category ? f : { ...f, category: cur };
+    });
+  }, [effectiveCategories, itemsByCategory]);
+
   function handleCategoryChange(cat: string) {
     setForm((f) => {
-      const defaults = (DEFAULT_ITEMS[cat] || []).map((name) => ({
+      const defaults = (itemsByCategory.get(cat) ?? []).map((name) => ({
         itemName: name,
         checked: false,
       }));
@@ -144,8 +184,9 @@ export default function SafetyChecklists() {
 
     queryClient.invalidateQueries({ queryKey: getListSafetyChecklistsQueryKey() });
     setCreateOpen(false);
+    // [Task #650] HQ 카테고리가 본사에서 동적으로 관리되므로 폼 리셋도 첫 번째 활성 카테고리로 맞춘다.
     setForm({
-      category: "electrical",
+      category: effectiveCategories[0]?.value ?? form.category,
       title: "",
       inspectionDate: new Date().toISOString().split("T")[0],
       inspector: "",
@@ -179,9 +220,20 @@ export default function SafetyChecklists() {
             전기설비, 소방시설, 비상발전기, 저수조 등 카테고리별 안전점검
           </p>
         </div>
+        <div className="flex gap-2 flex-wrap">
+          {/* [Task #650] 본인의 카테고리별 항목 묶음을 저장해 다음 점검부터 그대로 쓰게 한다. */}
+          <Button variant="outline" onClick={() => setEditTplOpen(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            일일점검표 항목 수정하기
+          </Button>
         <ResponsiveDialog open={createOpen} onOpenChange={setCreateOpen}>
           <ResponsiveDialogTrigger asChild>
-            <Button onClick={() => handleCategoryChange("electrical")}>
+            <Button
+              onClick={() => {
+                const first = effectiveCategories[0]?.value ?? "electrical";
+                handleCategoryChange(first);
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               점검표 작성
             </Button>
@@ -196,7 +248,7 @@ export default function SafetyChecklists() {
                 <Select value={form.category} onValueChange={handleCategoryChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => (
+                    {effectiveCategories.map((c) => (
                       <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -314,14 +366,23 @@ export default function SafetyChecklists() {
             </div>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
+        </div>
       </div>
+
+      {/* [Task #650] 일일점검표 본인 묶음 편집 다이얼로그 */}
+      {editTplOpen && (
+        <UserTemplateDialog
+          categories={effectiveCategories}
+          onClose={() => setEditTplOpen(false)}
+        />
+      )}
 
       <div className="hidden desktop:flex gap-3">
         <Select value={filterCategory} onValueChange={setFilterCategory}>
           <SelectTrigger className="w-[160px] h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 카테고리</SelectItem>
-            {CATEGORIES.map((c) => (
+            {effectiveCategories.map((c) => (
               <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
             ))}
           </SelectContent>
@@ -343,7 +404,7 @@ export default function SafetyChecklists() {
             <SelectTrigger className="w-full h-11"><SelectValue placeholder="카테고리" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">전체 카테고리</SelectItem>
-              {CATEGORIES.map((c) => (
+              {effectiveCategories.map((c) => (
                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
             </SelectContent>
@@ -371,7 +432,7 @@ export default function SafetyChecklists() {
         <div className="space-y-3">
           {checklists.map((cl) => {
             const statusInfo = STATUS_MAP[cl.status] || STATUS_MAP.pending;
-            const catLabel = CATEGORIES.find((c) => c.value === cl.category)?.label || cl.category;
+            const catLabel = labelByCategory.get(cl.category) ?? cl.category;
             return (
               <Card key={cl.id}>
                 <CardContent className="p-4">
@@ -443,11 +504,219 @@ export default function SafetyChecklists() {
   );
 }
 
+// [Task #650] 직원이 본인의 카테고리별 항목 묶음을 추가/삭제/정렬하고 저장하는 다이얼로그.
+//   저장은 PUT /safety-checklist-templates/user/:category, 되돌리기는 DELETE.
+function UserTemplateDialog({
+  categories,
+  onClose,
+}: {
+  categories: EffectiveCategory[];
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const upsert = useUpsertSafetyChecklistUserTemplate();
+  const reset = useResetSafetyChecklistUserTemplate();
+
+  const [activeCategory, setActiveCategory] = useState<string>(
+    categories[0]?.value ?? "",
+  );
+  // 카테고리별 편집 중인 항목들. 다이얼로그가 열린 동안 카테고리 전환 시에도 보존된다.
+  const [drafts, setDrafts] = useState<Record<string, string[]>>(() => {
+    const seed: Record<string, string[]> = {};
+    for (const c of categories) seed[c.value] = [...c.items];
+    return seed;
+  });
+  const [newItem, setNewItem] = useState("");
+
+  const items = drafts[activeCategory] ?? [];
+  const activeMeta = categories.find((c) => c.value === activeCategory);
+
+  function setItems(next: string[]) {
+    setDrafts((d) => ({ ...d, [activeCategory]: next }));
+  }
+
+  function addItem() {
+    const name = newItem.trim();
+    if (!name) return;
+    if (items.includes(name)) {
+      toast({ title: "이미 추가된 항목입니다", variant: "destructive" });
+      return;
+    }
+    setItems([...items, name]);
+    setNewItem("");
+  }
+
+  function removeItem(idx: number) {
+    setItems(items.filter((_, i) => i !== idx));
+  }
+
+  function moveItem(idx: number, dir: -1 | 1) {
+    const next = [...items];
+    const j = idx + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[idx], next[j]] = [next[j]!, next[idx]!];
+    setItems(next);
+  }
+
+  async function handleSave() {
+    if (!activeCategory) return;
+    await upsert.mutateAsync({
+      category: activeCategory,
+      data: { items },
+    });
+    queryClient.invalidateQueries({
+      queryKey: getListEffectiveSafetyChecklistTemplatesQueryKey(),
+    });
+    toast({ title: `"${activeMeta?.label ?? activeCategory}" 항목 묶음이 저장되었습니다` });
+  }
+
+  async function handleReset() {
+    if (!activeCategory) return;
+    if (!confirm("본사 기본 템플릿으로 되돌리시겠습니까?")) return;
+    await reset.mutateAsync({ category: activeCategory });
+    // 되돌리기 후 본사 기본 항목으로 초안을 다시 채운다.
+    queryClient.invalidateQueries({
+      queryKey: getListEffectiveSafetyChecklistTemplatesQueryKey(),
+    });
+    // [Task #650] 생성된 API 함수를 직접 호출해 최신 effective template 을 가져온다.
+    //   queryClient.fetchQuery({ queryKey }) 만 쓰면 queryFn 이 등록돼 있을 때만
+    //   동작해 fragile 하므로 codegen 함수를 명시적으로 사용한다.
+    const fresh = await listEffectiveSafetyChecklistTemplates();
+    const cat = fresh.categories.find((c) => c.value === activeCategory);
+    if (cat) setItems([...cat.items]);
+    toast({ title: "본사 기본 템플릿으로 되돌렸습니다" });
+  }
+
+  return (
+    <ResponsiveDialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <ResponsiveDialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>일일점검표 항목 수정</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            카테고리별로 본인이 매일 쓰는 항목을 저장하면 다음 점검표부터 그대로 채워집니다.
+            저장하지 않은 카테고리는 본사 기본 템플릿이 그대로 사용됩니다.
+          </p>
+          <div>
+            <Label>카테고리</Label>
+            <Select value={activeCategory} onValueChange={setActiveCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                    {c.source === "user" ? " (저장됨)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {activeMeta && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {activeMeta.source === "user"
+                  ? "현재 본인이 저장한 항목 묶음을 사용 중입니다."
+                  : "현재 본사 기본 템플릿을 사용 중입니다. 저장 시 본인 묶음으로 전환됩니다."}
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>점검 항목</Label>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">항목이 없습니다.</p>
+            ) : (
+              <ul className="divide-y border rounded mt-1">
+                {items.map((it, idx) => (
+                  <li key={`${it}-${idx}`} className="flex items-center gap-1 px-2 py-1.5">
+                    <div className="flex flex-col gap-0.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        disabled={idx === 0}
+                        onClick={() => moveItem(idx, -1)}
+                        aria-label="위로"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        disabled={idx === items.length - 1}
+                        onClick={() => moveItem(idx, 1)}
+                        aria-label="아래로"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <span className="flex-1 text-sm">{it}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeItem(idx)}
+                      aria-label="삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2 mt-2">
+              <Input
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addItem();
+                  }
+                }}
+                placeholder="새 항목 입력"
+              />
+              <Button type="button" variant="outline" onClick={addItem}>
+                추가
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2 flex-wrap">
+            <Button onClick={handleSave} disabled={upsert.isPending} className="flex-1">
+              {upsert.isPending ? "저장 중..." : "이 카테고리 저장"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              disabled={reset.isPending || activeMeta?.source !== "user"}
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              기본값으로 되돌리기
+            </Button>
+            <Button variant="ghost" onClick={onClose}>닫기</Button>
+          </div>
+        </div>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  );
+}
+
 function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const { data: detail, isLoading } = useGetSafetyChecklist(id);
   const updateItem = useUpdateSafetyChecklistItem();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // [Task #650] 카테고리 라벨 변환은 더 이상 코드 상수가 아니라 효과 템플릿 응답에서 가져온다.
+  const { data: effectiveData } = useListEffectiveSafetyChecklistTemplates();
+  const labelByCategory = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of effectiveData?.categories ?? []) m.set(c.value, c.label);
+    return m;
+  }, [effectiveData]);
 
   async function handleToggleItem(itemId: number, checked: boolean) {
     await updateItem.mutateAsync({ itemId, data: { checked } });
@@ -484,7 +753,7 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-muted-foreground">카테고리:</span>{" "}
-                {CATEGORIES.find((c) => c.value === detail.category)?.label}
+                {labelByCategory.get(detail.category) ?? detail.category}
               </div>
               <div>
                 <span className="text-muted-foreground">점검일:</span> {formatDate(detail.inspectionDate)}
@@ -559,7 +828,7 @@ function ChecklistDetailDialog({ id, onClose }: { id: number; onClose: () => voi
                   const goodCount = items.filter((i) => i.status === "good").length;
                   const badCount = items.filter((i) => i.status === "bad").length;
                   const catLabel =
-                    CATEGORIES.find((c) => c.value === detail.category)?.label ??
+                    labelByCategory.get(detail.category) ??
                     detail.category;
                   return {
                     source: "safety-checklists",
