@@ -46,8 +46,16 @@ import type { Request } from "express";
 const router: IRouter = Router();
 // [Task #413] requireRole 은 buildingRouter 의 buildingOnly 와 별도로 한 번 더 가드.
 //   manager / facility_staff / platform_admin 만 접근 허용.
+// [Task #681] 경리(accountant) 대시보드 "필수업무현황" 카드의 "모두보기" 링크가
+//   /facility/mandatory-tasks 로 향하므로 백엔드 가드도 accountant 를 함께 허용해야
+//   프론트와 일치한다(프론트만 열고 백엔드를 잠그면 목록 API 가 403 으로 깨진다).
+//   /facility/suggested-tasks 는 매니저/시설/플랫폼 관리자 전용으로 그대로 유지.
 router.use(
-  ["/facility/mandatory-tasks", "/facility/suggested-tasks"],
+  "/facility/mandatory-tasks",
+  requireRole("manager", "facility_staff", "platform_admin", "accountant"),
+);
+router.use(
+  "/facility/suggested-tasks",
   requireRole("manager", "facility_staff", "platform_admin"),
 );
 

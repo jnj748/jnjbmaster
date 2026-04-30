@@ -70,7 +70,15 @@ const ManagerMainWidget = lazy(
 );
 const HqMainWidget = lazy(() => import("@/pages/hq-dashboard"));
 const AccountantMainWidget = lazy(() => import("@/pages/accountant-dashboard"));
-const FacilityMainWidget = lazy(() => import("@/pages/facility-worktool"));
+// [Task #681] 시설담당 본문도 매니저 패턴(필수업무현황 AlertSection +
+//   md:grid-cols-2 직접 사용) 으로 통일하기 위해 별도 합성 위젯으로 교체.
+//   기존에는 facility-worktool(출퇴근 + 일일 점검표) 페이지가 facility-main
+//   에 매핑돼 있었으나, ROLE_LAYOUTS.facility_staff 가 그 키를 사용하지 않아
+//   사실상 dead code 였다. 본 작업으로 새 위젯을 facility-main 슬롯에 연결하고
+//   facility_staff 레이아웃이 이를 사용하도록 재배선한다.
+const FacilityMainWidget = lazy(
+  () => import("./widgets/facility-main-widget"),
+);
 const PartnerMainWidget = lazy(() => import("@/pages/partner-dashboard"));
 const AdminMainWidget = lazy(() => import("@/pages/admin-dashboard"));
 const CampaignBannerWidget = lazy(() =>
@@ -245,34 +253,18 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     //   결재/연체/계약업체/협력업체 진입을 모두 담당한다. 같은 위젯이 위쪽에 다시
     //   노출되면 중복되므로 building-contracts-summary / pending-approvals /
     //   delinquency-summary 는 본 레이아웃에서 제거한다(다른 역할에는 영향 없음).
-    widgets: ["campaign-banner", "building-info", "accountant-main"],
+    // [Task #681] "우리 건물 한눈에"(building-info) 카드는 페이지 최하단으로
+    //   이동(매니저 레이아웃과 동일 위치). 캠페인 배너 → 본문 → 건물정보 순.
+    widgets: ["campaign-banner", "accountant-main", "building-info"],
   },
-  // [Task #669] 시설담당 대시보드 — 스케치(좌/우 3행 + 하단 풀폭) 정합화.
-  //   shell 의 데스크탑 그리드는 xl:grid-cols-4, span:"half" = col-span-2, span:"full" = col-span-4.
-  //   따라서 half 두 개가 한 행을 채우고 full 한 개가 다음 행 전체를 차지한다.
-  //   배치(스케치 그대로):
-  //     행1  필수업무 (L)                                 | 금주 안전점검 (R)
-  //     행2  최근문서함 + 처리 내역 (L, 한 셀 안 세로 스택) | 오늘 업무일지 (R)
-  //     행3  공고문 템플릿 (L)                            | 계약업체 연락망 (R)
-  //     행4  건물정보 (full width)
-  //   - 좌측 2행은 facility-left-column-stack 가 한 half 셀 안에 두 진입 위젯
-  //     (recent-documents-entry / work-log-activity-entry) 을 위·아래로 쌓아
-  //     보여 주므로 별도 행으로 분리하지 않는다.
-  //   - 스케치의 "공구렌탈리스트"는 이번 범위가 아니라 "공고문 템플릿" 카드를
-  //     3행 좌측 슬롯에 둔다.
-  //   - building-contracts-summary 는 다른 역할의 풀폭 동작을 보존하기 위해 별도
-  //     half 키("building-contracts-summary-half") 로 등록해 사용한다.
-  //   - campaign-banner / facility-main 은 사용자 요구에 따라 시설담당에서만 제거.
+  // [Task #681] 시설담당 본문은 facility-main(=facility-main-widget) 안에서
+  //   `md:grid-cols-2` 그리드로 직접 합성한다. shell 의 xl:grid-cols-4 + span:"half"
+  //   조합은 1024~1279px(lg) 구간에서 half 위젯이 풀폭으로 떨어져 1열 회귀가 있어
+  //   매니저 본문(manager-main-widget) 과 동일한 패턴으로 통일한다.
+  //   배치는 facility-main-widget 내부 주석 참고.
+  //   "우리 건물 한눈에"(building-info) 는 페이지 최하단 풀폭으로 그대로 둔다.
   facility_staff: {
-    widgets: [
-      "facility-mandatory-tasks-entry",
-      "weekly-inspections",
-      "facility-left-column-stack",
-      "today-work-log-entry",
-      "notice-templates-entry",
-      "building-contracts-summary-half",
-      "building-info",
-    ],
+    widgets: ["facility-main", "building-info"],
   },
   // [Task #267] 통합 대시보드 단순화: 5역할 카드 + 파트너 크레딧 패널만 노출.
   //   admin-main 위젯이 ROLE_CARDS + VendorCreditsPanel 을 렌더하므로

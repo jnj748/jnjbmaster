@@ -26,6 +26,15 @@ export interface DashboardAlert {
   //   비교견적 탭에서 /rfqs?prefill 의 closeUpPhoto/widePhoto 쿼리로 그대로 전달된다.
   closeUpPhotoUrl?: string | null;
   widePhotoUrl?: string | null;
+  // [Task #681] 역할별 알림 분류용 메타데이터.
+  //   - taskType: task_template_mandatory/suggested 알림에서 템플릿의 업무유형
+  //     (facility/fee/accounting/security/cleaning/etc).
+  //   - targetRoles: 템플릿이 특정 역할만 노출하도록 지정된 경우의 역할 배열.
+  //   - category: task_overdue/task_followup 알림에서 원본 task 의 카테고리.
+  //     (accounting/tax/finance 등 회계 분류 식별용)
+  taskType?: string | null;
+  targetRoles?: string[] | null;
+  category?: string | null;
   createdAt: string;
 }
 

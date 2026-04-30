@@ -9,14 +9,15 @@
 // 각 카드는 "요약 위젯 + 진입" 깊이로 구현하고, 카드 내 인라인 액션은
 // 미납관리비(문자 발송)와 회원정보조회(검색 결과) 두 곳에만 둔다.
 
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import {
   useListApprovals,
   useGetBillingList,
+  useGetDashboardAlerts,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,6 @@ import {
   ChevronRight,
   Calculator,
   PlayCircle,
-  NotebookPen,
 } from "lucide-react";
 import {
   MobileOnly,
@@ -46,6 +46,12 @@ import {
 } from "@/components/dashboard-widgets/mobile-compact";
 import { TodayWorkLogEntry } from "@/components/dashboard-widgets/widgets/today-work-log-entry-widget";
 import BuildingContractsSummaryWidget from "@/components/dashboard-widgets/widgets/building-contracts-summary-widget";
+// [Task #681] 경리 필수업무 카드도 매니저/시설과 동일한 AlertSection 패턴으로 통일.
+import { AlertSection } from "@/components/dashboard-widgets/widgets/alert-section-widget";
+import { AlertActionDialog } from "@/components/alert-action-dialog";
+import { type DashboardAlert } from "@/lib/alert-utils";
+import { splitDashboardAlerts } from "@/lib/dashboard-alert-filters";
+import { useAlertClickHandler } from "@/hooks/use-alert-click-handler";
 
 // 무거운 위젯은 lazy 로드해 첫 렌더 비용을 분산한다.
 const AccountantMemberSearchWidget = lazy(
@@ -143,157 +149,50 @@ function thisMonthIso(): string {
 // 인라인 카드들
 // ─────────────────────────────────────────────────────────────────────────
 
-interface EssentialItem {
-  key: string;
-  title: string;
-  hint?: string;
-  href: string;
-  badge?: { text: string; variant: "destructive" | "default" | "outline" };
-  icon: typeof ClipboardCheck;
-}
-
-function EssentialTasksCard({
-  pendingApprovalsCount,
-  pendingApprovalsLoading,
-  hasTodayJournal,
-  todayJournalLoading,
-  billingStarted,
-  billingLoading,
+// [Task #681] 결재 대기 진입 — 기존 EssentialTasksCard 의 "결재 대기 처리"
+//   슬롯이 AlertSection 으로 대체되며 사라지면서, 결재함 진입을 한 줄
+//   카드로 별도 노출해 회귀(딥링크 분실) 를 막는다.
+function PendingApprovalsEntryCard({
+  pendingCount,
+  loading,
 }: {
-  pendingApprovalsCount: number;
-  pendingApprovalsLoading: boolean;
-  hasTodayJournal: boolean;
-  todayJournalLoading: boolean;
-  billingStarted: boolean;
-  billingLoading: boolean;
+  pendingCount: number;
+  loading: boolean;
 }) {
-  const items = useMemo<EssentialItem[]>(() => {
-    const arr: EssentialItem[] = [];
-
-    if (pendingApprovalsCount > 0) {
-      arr.push({
-        key: "approvals",
-        title: "결재 대기 처리",
-        hint: `결재 대기 ${pendingApprovalsCount}건`,
-        href: "/approvals",
-        badge: { text: `${pendingApprovalsCount}건`, variant: "destructive" },
-        icon: ClipboardCheck,
-      });
-    }
-
-    const urgent = TAX_EVENTS.filter(
-      (e) => !e.done && e.daysUntil >= 0 && e.daysUntil <= 3,
-    );
-    for (const e of urgent) {
-      arr.push({
-        key: `tax-${e.day}-${e.title}`,
-        title: e.title,
-        hint:
-          e.daysUntil === 0
-            ? "오늘 마감"
-            : `D-${e.daysUntil} (${e.day}일까지)`,
-        href: "/tax-schedules",
-        badge: {
-          text: e.daysUntil === 0 ? "D-Day" : `D-${e.daysUntil}`,
-          variant: "destructive",
-        },
-        icon: CalendarDays,
-      });
-    }
-
-    if (!hasTodayJournal && !todayJournalLoading) {
-      arr.push({
-        key: "today-journal",
-        title: "오늘 업무일지 작성",
-        hint: "오늘자 일지가 아직 없습니다",
-        href: "/work-log?openDaily=1",
-        icon: NotebookPen,
-      });
-    }
-
-    if (!billingStarted && !billingLoading) {
-      arr.push({
-        key: "billing-start",
-        title: "이번달 관리비 부과 시작",
-        hint: "이번 달 부과가 아직 시작되지 않았습니다",
-        href: "/erp/billing",
-        icon: PlayCircle,
-      });
-    }
-
-    return arr.slice(0, 6);
-  }, [
-    pendingApprovalsCount,
-    hasTodayJournal,
-    todayJournalLoading,
-    billingStarted,
-    billingLoading,
-  ]);
-
-  const isLoading =
-    pendingApprovalsLoading || todayJournalLoading || billingLoading;
-
+  if (loading) {
+    return <Skeleton className="h-14 rounded-lg" />;
+  }
   return (
-    <Card data-testid="accountant-essential-tasks">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <ListChecks className="w-4 h-4 text-amber-600" />
-          필수업무
-          {items.length > 0 && (
-            <Badge variant="destructive" className="text-[10px] h-5">
-              {items.length}
+    <Link href="/approvals">
+      <Card
+        className="hover-elevate active-elevate-2 cursor-pointer"
+        data-testid="accountant-pending-approvals-entry"
+      >
+        <CardContent className="py-3 px-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+            <ClipboardCheck className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">결재 대기 처리</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {pendingCount > 0
+                ? `결재 대기 ${pendingCount}건`
+                : "처리할 결재가 없습니다"}
+            </p>
+          </div>
+          {pendingCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="text-[10px] shrink-0"
+              data-testid="accountant-pending-approvals-badge"
+            >
+              {pendingCount}건
             </Badge>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {isLoading && items.length === 0 ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-12 rounded-lg" />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            이번 주 처리해야 할 필수업무가 없습니다.
-          </p>
-        ) : (
-          items.map((it) => {
-            const Icon = it.icon;
-            return (
-              <Link key={it.key} href={it.href}>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border hover-elevate active-elevate-2 text-left"
-                  data-testid={`essential-task-${it.key}`}
-                >
-                  <span className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-amber-600" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{it.title}</p>
-                    {it.hint && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {it.hint}
-                      </p>
-                    )}
-                  </div>
-                  {it.badge && (
-                    <Badge
-                      variant={it.badge.variant}
-                      className="text-[10px] shrink-0"
-                    >
-                      {it.badge.text}
-                    </Badge>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                </button>
-              </Link>
-            );
-          })
-        )}
-      </CardContent>
-    </Card>
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -538,35 +437,27 @@ function BillingStatusEntryCard({
 // ─────────────────────────────────────────────────────────────────────────
 
 export default function AccountantDashboard() {
-  const { token } = useAuth();
-  const BASE = import.meta.env.BASE_URL ?? "/";
-  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+  const { token, user } = useAuth();
+  const { building } = useBuilding();
 
   // 결재 대기
   const { data: pendingApprovals, isLoading: approvalsLoading } =
     useListApprovals({ status: "pending" });
   const pendingApprovalsCount = (pendingApprovals ?? []).length;
 
-  // 오늘 일지 작성 여부
-  const todayKst = useMemo(() => {
-    const ms = Date.now() + 9 * 60 * 60 * 1000;
-    return new Date(ms).toISOString().split("T")[0];
-  }, []);
-
-  const { data: todayJournal, isLoading: todayJournalLoading } = useQuery({
-    queryKey: ["accountant-today-journal", todayKst],
-    queryFn: async () => {
-      const res = await fetch(`${apiBase}/daily-journals/${todayKst}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!res.ok) return null;
-      if (res.status === 204) return null;
-      return (await res.json()) as { id: number } | null;
-    },
-    staleTime: 60 * 1000,
-    enabled: !!token,
-  });
-  const hasTodayJournal = !!todayJournal;
+  // [Task #681] 매니저/시설과 동일한 단일 출처(/api/dashboard/alerts) 에서
+  //   알림을 가져오고, splitDashboardAlerts(role:"accountant") 가 회계
+  //   카테고리(tax_due, accounting/tax/finance task, accounting/fee 템플릿,
+  //   targetRoles=accountant 템플릿) 만 골라낸다.
+  const { data: alerts, isLoading: alertsLoading } = useGetDashboardAlerts();
+  const { legalAlerts: accountantAlerts } = splitDashboardAlerts(
+    alerts as DashboardAlert[] | null | undefined,
+    "accountant",
+  );
+  const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(
+    null,
+  );
+  const handleAlertClick = useAlertClickHandler(setSelectedAlert);
 
   // 이번 달 부과 상태 — /api/fees/billing?month=YYYY-MM
   const month = thisMonthIso();
@@ -582,7 +473,6 @@ export default function AccountantDashboard() {
     if (paid === total) return "complete";
     return "in_progress";
   }, [billingItems]);
-  const billingStarted = billingStatus !== "not_started";
 
   // 모바일 KPI
   const nextEvent = TAX_EVENTS.find((e) => !e.done);
@@ -749,7 +639,13 @@ export default function AccountantDashboard() {
         </div>
       </MobileOnly>
 
-      {/* [Task #660] 데스크톱 — 손스케치 기반 2칼럼 레이아웃 */}
+      {/* [Task #660 → #681] 데스크톱 — 2칼럼 레이아웃.
+          [Task #681] "필수업무" 슬롯을 매니저/시설과 동일한 AlertSection 패턴으로
+          교체(페이지당 5개 + 페이지네이션 + 모두보기 + D-day 신호등 + 액션 모달).
+          그 외 카드 위치는 기존 #660 배치를 그대로 유지한다(코드 리뷰 반영 —
+          BuildingContractsSummaryWidget 등 기존 카드의 우측 칼럼 위치는 변경하지
+          않는다). "우리 건물 한눈에"(building-info) 만 ROLE_LAYOUTS 에서 페이지
+          최하단으로 이동(목표 #2). */}
       <DesktopOnly>
         <div className="space-y-4">
           {urgentCount > 0 && (
@@ -764,13 +660,22 @@ export default function AccountantDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
             {/* ─── 왼쪽 칼럼 ─── */}
             <div className="space-y-4">
-              <EssentialTasksCard
-                pendingApprovalsCount={pendingApprovalsCount}
-                pendingApprovalsLoading={approvalsLoading}
-                hasTodayJournal={hasTodayJournal}
-                todayJournalLoading={todayJournalLoading}
-                billingStarted={billingStarted}
-                billingLoading={billingLoading}
+              <AlertSection
+                title="필수업무현황"
+                description="법적으로 반드시 해야하는 업무"
+                icon={ClipboardCheck}
+                iconClassName="text-amber-600"
+                alerts={accountantAlerts}
+                loading={alertsLoading}
+                placeholderZero="현재 60일 내 예정된 회계 필수업무가 없습니다"
+                placeholderOne="30일 내 예정된 회계 필수업무가 없습니다"
+                onAlertClick={handleAlertClick}
+                sectionKind="mandatory"
+                pageSize={5}
+              />
+              <PendingApprovalsEntryCard
+                pendingCount={pendingApprovalsCount}
+                loading={approvalsLoading}
               />
               <RecentDocumentsEntryCard />
               <ActivityEntryCard />
@@ -798,6 +703,14 @@ export default function AccountantDashboard() {
               />
             </div>
           </div>
+
+          {/* [Task #681] 알림 처리 다이얼로그 — 매니저/시설 본문과 동일한 흐름. */}
+          <AlertActionDialog
+            alert={selectedAlert}
+            onClose={() => setSelectedAlert(null)}
+            building={building}
+            user={user}
+          />
         </div>
       </DesktopOnly>
     </>

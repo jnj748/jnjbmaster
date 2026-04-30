@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to significantly enhance operational efficiency and provide data-driven insights. The platform centralizes task management, administers tenants, owners, and vehicles, automates document generation, streamlines vendor management, facilitates multi-step approval workflows, and manages facilities and attendance. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and comprehensive facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -61,17 +61,17 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured into `api-server`, `web`, `db`, and `api-spec` packages.
+The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-- Built with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
-- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
+- Developed with React, Vite, Tailwind CSS, and shadcn/ui.
+- Features a mobile-first responsive design and distinct, role-based portals for managers, headquarters, and vendors.
 - Optimizes performance with React.lazy, Vite manualChunks, and React Query.
 
 **Backend:**
 - Built on an Express 5 API framework with JWT authentication.
-- Implements a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` serving as the Single Source of Truth for role hierarchy.
-- API definitions adhere to OpenAPI specifications, leveraging Orval for client code generation and Zod for validation.
+- Implements a robust Role-Based Access Control (RBAC) system supporting 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
+- API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
 
 **Database:**
 - PostgreSQL is the primary data store, managed via Drizzle ORM.
@@ -80,7 +80,7 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured i
 
 **Core Features & Design Patterns:**
 - **Modular Monorepo Structure:** Ensures clear separation of concerns and maintainability.
-- **AI Integration:** Utilized for specific functionalities like commission records and vendor matching.
+- **AI Integration:** Used for specific functionalities like commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
 - **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
@@ -100,9 +100,6 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured i
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
 - **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
 - **Usage Analytics Dashboard:** Dedicated dashboard for platform administrators.
-- **Onboarding Automation:** Streamlines the manager setup process.
-- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
-- **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.
 - **Onboarding Automation:** Streamlines the manager setup process.
 - **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
 - **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.

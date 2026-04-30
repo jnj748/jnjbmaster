@@ -13,7 +13,19 @@ import { getUserBuildingId } from "../middlewares/buildingScope";
 import { computeTodayProgress, emptyTodayProgress } from "@workspace/shared/facility-today-progress";
 
 const router: IRouter = Router();
-router.use("/facility", requireRole("manager", "platform_admin", "facility_staff", "hq_executive"));
+// [Task #681] 이 라우터는 buildingRouter 안에서 다른 /facility/* 라우터(facilityTasksRouter
+//   등)보다 먼저 등록되므로, "/facility" 전체를 가드하면 같은 prefix 의 다른 라우터로
+//   넘어가야 할 요청까지 막힌다. 실제로 이 파일이 정의한 핸들러 경로만 가드한다.
+router.use(
+  [
+    "/facility/dashboard",
+    "/facility/defect-trends",
+    "/facility/scheduled-alerts",
+    "/facility/status-summary",
+    "/facility/weekly-inspection-counts",
+  ],
+  requireRole("manager", "platform_admin", "facility_staff", "hq_executive"),
+);
 router.get("/facility/dashboard", async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const currentYear = new Date().getFullYear();

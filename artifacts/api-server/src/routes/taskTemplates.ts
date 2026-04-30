@@ -520,6 +520,11 @@ export interface ResolvedTemplateAlert {
   //   채움(/rfqs?prefill&closeUpPhoto=&widePhoto=)에 사용된다. 첨부가 없으면 null.
   closeUpPhotoUrl: string | null;
   widePhotoUrl: string | null;
+  // [Task #681] 역할별 알림 분류 단일 출처(클라이언트 splitDashboardAlerts) 가
+  //   사용. taskType: 템플릿 업무유형(facility/fee/accounting/etc), targetRoles:
+  //   템플릿이 특정 역할만 노출하도록 지정된 경우의 역할 배열.
+  taskType: string | null;
+  targetRoles: string[] | null;
 }
 
 export interface TemplateAlertContext {
@@ -815,6 +820,13 @@ export async function resolveActiveTemplateAlerts(
       //   비교견적 탭이 /rfqs?prefill 의 closeUpPhoto/widePhoto 쿼리에 그대로 사용한다.
       closeUpPhotoUrl: recentAction?.closeUpPhotoUrl ?? null,
       widePhotoUrl: recentAction?.widePhotoUrl ?? null,
+      // [Task #681] 역할별 알림 분류용 메타. 클라이언트 splitDashboardAlerts 가
+      //   "이 알림이 어느 역할 카드(필수업무현황) 에 노출돼야 하는지" 판정에 쓴다.
+      taskType: (t as { taskType?: string | null }).taskType ?? null,
+      targetRoles:
+        ((t as { targetRoles?: string[] | null }).targetRoles ?? null) as
+          | string[]
+          | null,
     });
   }
 

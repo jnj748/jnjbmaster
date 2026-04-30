@@ -194,6 +194,15 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
     //   있으면 그 URL 을 노출, 없으면 null. /rfqs?prefill 에 그대로 전달된다.
     closeUpPhotoUrl?: string | null;
     widePhotoUrl?: string | null;
+    // [Task #681] 역할별 알림 분류 메타. 클라이언트 splitDashboardAlerts 가
+    //   세 역할(소장/경리/시설) 의 "필수업무현황" 카드에 어떤 알림을 보여줄지
+    //   결정하는 데 쓴다.
+    //   - taskType: task_template_mandatory/suggested 의 템플릿 업무유형.
+    //   - targetRoles: 같은 템플릿이 특정 역할로만 노출되도록 지정된 경우의 역할 배열.
+    //   - category: task_overdue/task_followup 의 원본 task 카테고리(accounting/tax 등).
+    taskType?: string | null;
+    targetRoles?: string[] | null;
+    category?: string | null;
     createdAt: string;
   }> = [];
 
@@ -435,6 +444,9 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       actionStatus: taskAction?.actionType || null,
       dueDate: task.dueDate,
       penaltyInfo: null,
+      // [Task #681] 경리(accountant) 카드 분류용. tasks.category 가
+      //   accounting/tax/finance 면 회계 필수업무현황에 노출된다.
+      category: task.category ?? null,
       createdAt: new Date().toISOString(),
     };
     applyScheduledMeta(taskAlert, taskAction);
@@ -599,6 +611,10 @@ router.get("/dashboard/alerts", async (req, res): Promise<void> => {
       scheduledNotes: a.scheduledNotes ?? null,
       closeUpPhotoUrl: a.closeUpPhotoUrl ?? null,
       widePhotoUrl: a.widePhotoUrl ?? null,
+      // [Task #681] 역할별 분류 메타. 클라이언트 splitDashboardAlerts 에서
+      //   "이 템플릿이 시설/회계 카드 중 어디에 속하는가" 를 판정한다.
+      taskType: a.taskType ?? null,
+      targetRoles: a.targetRoles ?? null,
     });
   }
 

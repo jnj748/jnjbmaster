@@ -361,10 +361,14 @@ export const ROUTES: RouteEntry[] = [
   // [Task #413] 사용자 건물의 모든 필수/제안 업무를 60일 컷오프 없이 보여주는 전용 페이지.
   //   매니저/시설담당자/플랫폼 관리자가 사이드바·하단탭에서 진입한다.
   //   하단탭은 facility_staff 본업 화면이라 표시(매니저는 사이드바에서만 노출).
+  // [Task #681] 경리(accountant) 대시보드 "필수업무현황" 카드의 "모두보기" 링크가
+  //   /facility/mandatory-tasks 로 향한다(공용 목록). 경리도 access 에 포함해야
+  //   링크 클릭 시 권한 차단이 발생하지 않는다. sideMenu/bottomNav 에는 추가하지
+  //   않아 경리의 메뉴 구조는 그대로 둔다(대시보드 카드를 통해서만 진입).
   {
     path: "/facility/mandatory-tasks", component: FacilityMandatoryTasks,
     label: "필수업무", icon: AlertTriangle, group: "facility",
-    access: ["manager", "platform_admin", "facility_staff"],
+    access: ["manager", "platform_admin", "facility_staff", "accountant"],
     sideMenu: ["manager", "facility_staff", "platform_admin"],
     // [모바일 5탭 단순화] 시설기사 모바일 하단탭에서 "필수업무" 제거 — 사이드바·더보기로 진입.
     bottomNav: [],
