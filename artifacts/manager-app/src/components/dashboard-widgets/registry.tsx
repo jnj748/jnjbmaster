@@ -228,15 +228,11 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     ],
   },
   accountant: {
-    widgets: [
-      "campaign-banner",
-      "building-info",
-      // [Task #450] 경리도 협력업체 주소록 진입 버튼을 상단에 노출.
-      "building-contracts-summary",
-      "pending-approvals",
-      "delinquency-summary",
-      "accountant-main",
-    ],
+    // [Task #660] 경리 대시보드는 accountant-main 페이지 자체가 2칼럼 레이아웃에서
+    //   결재/연체/계약업체/협력업체 진입을 모두 담당한다. 같은 위젯이 위쪽에 다시
+    //   노출되면 중복되므로 building-contracts-summary / pending-approvals /
+    //   delinquency-summary 는 본 레이아웃에서 제거한다(다른 역할에는 영향 없음).
+    widgets: ["campaign-banner", "building-info", "accountant-main"],
   },
   // [Task #658] 시설담당 대시보드를 2열 + 하단 풀폭 레이아웃으로 재구성.
   //   shell 의 데스크탑 그리드는 xl:grid-cols-4, span:"half" = col-span-2, span:"full" = col-span-4.

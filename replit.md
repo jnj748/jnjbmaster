@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -94,7 +94,7 @@ The project is a pnpm monorepo utilizing Node.js 24 and TypeScript 5.9, structur
 - **Meter Reading Management:** Bulk upload, manual entry, and anomaly detection.
 - **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
 - **Complaints Management:** Enhanced workflow with status tracking and auto-escalation.
-- **Electronic Voting:** Manages agendas, participation tracking, and results.
+- **Electronic Voting:** Manages agendas, participation tracking, and result tabulation.
 - **Partner Marketplace:** Features extended vendor categories and warranty tracking with geo-based matching.
 - **Object Storage Integration:** Manages attachments using presigned URLs.
 - **Unit Management:** Provides CRUD operations for building units, including bulk import.
