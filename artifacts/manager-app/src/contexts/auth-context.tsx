@@ -1,4 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+// [Task #657] DEV 격자 단일 진실 — 모듈 스코프 핀.
+//   prod 빌드에서는 항상 "auth_token" literal 만 반환하고, 본 import 의 다른
+//   분기는 dead-code 제거된다. (scripts/check-no-dev-leak.mjs 가 grep 으로 재검증.)
+import { getAuthStorageKey } from "@/lib/dev-auth";
 
 export interface AuthUser {
   id: number;
@@ -62,35 +66,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`;
 
-// [DEV 분할 프리뷰 격자] iframe 마다 다른 사용자로 띄울 수 있게 localStorage 키를
-//   사용자별로 분기한다. 같은 origin 의 iframe 4개는 localStorage 를 공유하지만,
-//   토큰 키만 다르면 서로 충돌하지 않고 각자 자기 사용자 컨텍스트로 동작한다.
-//
-//   - DEV 한정 (import.meta.env.DEV). prod 빌드에서는 항상 "auth_token" 으로 컴파일됨
-//     (dead code 제거).
-//   - **URL ?devAs= 를 항상 우선시한다.** sessionStorage 가 같은 origin iframe 들
-//     사이에서 분리될지(브라우저별/모드별 보장 안 됨), 마지막 iframe 의 setItem 이
-//     앞 iframe 의 값을 덮어쓸 수 있다 → 4셀 모두 같은 사용자(마지막 마운트된 셀)
-//     화면이 보이는 회귀가 사장님 환경에서 재현됨. URL 은 iframe 마다 src 가 다르므로
-//     충돌 없이 권위 있는 신호.
-//   - URL 우선 + 자기 URL 값으로 매번 sessionStorage 를 강제 갱신 → 다른 iframe 이
-//     덮어쓴 잘못된 값을 자기 시점에선 자기 값으로 회복.
-//   - sessionStorage 는 fallback — 사용자가 셀 안에서 ?devAs= 가 빠진 경로로 navigate
-//     했을 때 컨텍스트 유지 목적. 이 경우 다른 iframe 의 값이 섞일 위험은 남아 있음
-//     (별 작업: wouter Router wrapper 로 ?devAs= 를 모든 navigation 에 보존).
-const DEV_AS_SESSION_KEY = "__dev_as__";
-function getAuthStorageKey(): string {
-  if (!import.meta.env.DEV) return "auth_token";
-  if (typeof window === "undefined") return "auth_token";
-  const fromUrl = new URLSearchParams(window.location.search).get("devAs");
-  if (fromUrl) {
-    // URL 권위 — sessionStorage 도 자기 값으로 강제 동기화 (다른 iframe 이 덮어쓴 값 회복).
-    window.sessionStorage.setItem(DEV_AS_SESSION_KEY, fromUrl);
-    return `auth_token__dev__${fromUrl}`;
-  }
-  const fromSession = window.sessionStorage.getItem(DEV_AS_SESSION_KEY);
-  return fromSession ? `auth_token__dev__${fromSession}` : "auth_token";
-}
+// [Task #657] DEV 격자 토큰 키 분기는 `lib/dev-auth.ts` 의 모듈 스코프 핀 으로
+//   완전히 위임한다. (과거에는 본 파일에서 매 호출 URL/sessionStorage 를 다시
+//   읽어 키를 만들었고, 같은 origin iframe 들의 sessionStorage 공유/덮어쓰기로
+//   manager 셀이 facility 토큰을 들고 RFQ 를 치는 회귀가 발생했다.)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);

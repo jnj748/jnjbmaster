@@ -23,6 +23,23 @@ const FORBIDDEN_TOKENS = [
     token: "/__dev/",
     reason: "DEV 전용 라우트 prefix 가 prod 번들에 누출",
   },
+  // [Task #657] dev-auth.ts 모듈 스코프 핀 + history pushState 래핑이 prod 에서
+  //   완전히 dead-code 제거됐는지 검증한다. `getDevAsPin` / `patchedPushState`
+  //   심볼이나 ?devAs= 쿼리 키 문자열이 한 글자라도 prod 번들에 남으면 차단.
+  {
+    token: "getDevAsPin",
+    reason: "DEV-only dev-auth.ts 모듈 export 가 prod 번들에 누출 (dead-code 제거 실패)",
+  },
+  {
+    token: "patchedPushState",
+    reason: "DEV-only history pushState 래퍼가 prod 번들에 누출 (dead-code 제거 실패)",
+  },
+  {
+    // 격자 셀이 iframe src 와 history 래퍼에서 사용하는 쿼리 키. URL 기반의
+    // 사용자 핀 자체가 prod 에 절대 노출되면 안 된다는 acceptance criteria.
+    token: "?devAs=",
+    reason: "DEV 격자 사용자 핀 쿼리 키가 prod 번들에 누출 (dead-code 제거 실패)",
+  },
 ];
 
 const SCAN_EXTENSIONS = new Set([".html", ".js", ".mjs", ".css"]);

@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to boost operational efficiency and provide data-driven insights through centralized task management, tenant/owner/vehicle administration, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -65,49 +65,49 @@
 The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, divided into `api-server`, `web`, `db`, and `api-spec` packages.
 
 **Frontend:**
-- Built with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design (900px desktop breakpoint).
-- Provides distinct, role-based portals for `building` managers, `hq` (headquarters), and `partner` vendors.
+- Developed with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
+- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
 - Leverages React.lazy, Vite manualChunks, and React Query for performance optimization.
 
 **Backend:**
-- Uses an Express 5 API framework with JWT authentication.
-- Implements a robust Role-Based Access Control (RBAC) system for 6 roles (`platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, `partner`), with `docs/user-roles/README.md` as the Single Source of Truth.
-- API definitions adhere to OpenAPI specifications, utilizing Orval for client codegen and Zod for validation.
+- Built on an Express 5 API framework with JWT authentication.
+- Implements a Role-Based Access Control (RBAC) system for 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth.
+- API definitions follow OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
 
 **Database:**
-- PostgreSQL is the primary database, managed by Drizzle ORM.
-- The schema supports users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approvals.
-- Automated schema migration is performed on API server boot.
+- PostgreSQL is the primary data store, managed via Drizzle ORM.
+- The schema supports core entities such as users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
+- Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**
-- **Modular Monorepo Structure:** Ensures clear separation of concerns.
-- **AI Integration:** For commission records and vendor matching.
+- **Modular Monorepo:** Ensures clear separation of concerns.
+- **AI Integration:** For specific functionalities like commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
-- **Multi-step Approval Workflows:** Flexible, supporting up to 5 levels.
-- **BuildingContext:** Provides global context for building-specific data.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation for different user roles.
-- **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculations.
-- **Facility Management Dashboard:** Central hub for inspections, safety, and maintenance.
-- **Attendance Management:** PC/mobile check-in/out features.
-- **In-app Notification System:** Provides real-time alerts.
+- **Multi-step Approval Workflows:** Configurable for up to 5 levels.
+- **BuildingContext:** Manages building-specific data globally.
+- **Role-based Dashboards:** Dynamic dashboards with mobile navigation.
+- **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
+- **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
+- **Attendance Management:** PC/mobile check-in/out.
+- **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
-- **Meter Reading Management:** Supports bulk upload, manual entry, and anomaly detection.
+- **Meter Reading Management:** Bulk upload, manual entry, and anomaly detection.
 - **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
 - **Complaints Management:** Enhanced workflow with status tracking and auto-escalation.
-- **Electronic Voting:** Manages agendas, participation tracking, and results.
-- **Partner Marketplace:** Features extended vendor categories and warranty tracking with geo-based matching.
-- **Object Storage Integration:** Uses presigned URLs for attachment handling.
+- **Electronic Voting:** Agenda management, participation tracking, and results.
+- **Partner Marketplace:** Extended vendor categories and warranty tracking with geo-based matching.
+- **Object Storage Integration:** Manages attachments using presigned URLs.
 - **Unit Management:** CRUD operations for building units, including bulk import.
-- **Digital Tenant Card:** Token-based self-registration with manager verification.
-- **Building Setup & Integration:** Connects with Korean `건축물대장` API and Kakao Postcode.
+- **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
+- **Building Setup & Integration:** Connects with external APIs for `건축물대장` (building register) and Kakao Postcode.
 - **Usage Analytics Dashboard:** For platform administrators.
 - **Onboarding Automation:** Streamlines manager setup.
-- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
-- **Per-role Daily Journals:** Role-specific journals for manager, accountant, and facility staff.
+- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions.
+- **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.
 
 # External Dependencies
 - jsPDF
 - @google-cloud/storage
 - papaparse
-- data.go.kr (BldRgstHubService API for building register info)
+- data.go.kr (BldRgstHubService API)
 - Kakao Postcode API

@@ -40,15 +40,18 @@ type ViewMode = "mobile" | "desktop" | "both";
 interface Cell {
   email: string;
   label: string;
+  // [Task #657] 토큰 무결성 검증용 — 발급된 JWT payload.role 이 이 값과
+  //   다르면 즉시 1회 재발급. 그래도 다르면 셀 헤더에 빨간 경고 표시.
+  expectedRole: "manager" | "accountant" | "facility_staff" | "partner";
   // 셀 진입 시 기본 경로. 사용자가 셀 안에서 자유롭게 이동 가능 (그 경로는 격자가 모름).
   defaultPath: string;
 }
 
 const CELLS: Cell[] = [
-  { email: "manager@test.com", label: "관리소장 (manager)", defaultPath: "/" },
-  { email: "accountant@test.com", label: "경리 (accountant)", defaultPath: "/" },
-  { email: "facility@test.com", label: "시설기사 (facility)", defaultPath: "/" },
-  { email: "partner@test.com", label: "파트너 (partner)", defaultPath: "/" },
+  { email: "manager@test.com", label: "관리소장 (manager)", expectedRole: "manager", defaultPath: "/" },
+  { email: "accountant@test.com", label: "경리 (accountant)", expectedRole: "accountant", defaultPath: "/" },
+  { email: "facility@test.com", label: "시설기사 (facility)", expectedRole: "facility_staff", defaultPath: "/" },
+  { email: "partner@test.com", label: "파트너 (partner)", expectedRole: "partner", defaultPath: "/" },
 ];
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -59,10 +62,35 @@ interface PrepState {
   error?: string;
 }
 
+// [Task #657] 셀별 토큰 페이로드 검증 결과. 회귀가 발생했을 때 셀 헤더에 빨간
+//   경고를 띄워 "조용히 잘못된 토큰" 상태를 즉시 보이게 한다.
+type TokenWarning = { role: string | null; email: string | null; message: string };
+
+// JWT payload 디코드 (서명 검증 X — 단순히 role/email 추출용 디버그 용도).
+function decodeJwtPayload(token: string): {
+  userId?: number;
+  role?: string;
+  email?: string | null;
+} | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    // base64url → base64
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export default function DevPreviewGrid() {
   if (!import.meta.env.DEV) return null;
 
   const [prep, setPrep] = useState<PrepState>({ status: "loading" });
+  // [Task #657] 셀별 토큰 무결성 경고. 키=email, 값=경고 사유. 비어 있으면 정상.
+  const [tokenWarnings, setTokenWarnings] = useState<Record<string, TokenWarning>>({});
   // 셀별 새로고침 트리거 — 변경 시 iframe key 가 바뀌어 강제 리마운트.
   const [reloadCounters, setReloadCounters] = useState<Record<string, number>>(
     () => Object.fromEntries(CELLS.map((c) => [c.email, 0])),
@@ -92,24 +120,78 @@ export default function DevPreviewGrid() {
     let cancelled = false;
     (async () => {
       try {
+        const warnings: Record<string, TokenWarning> = {};
         for (const cell of CELLS) {
-          // 이미 토큰이 있으면 재사용 — 격자를 새로고침해도 매번 로그인 호출하지 않음.
           const key = `auth_token__dev__${cell.email}`;
-          if (window.localStorage.getItem(key)) continue;
 
-          const res = await fetch(`${API_BASE}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ identifier: cell.email, password: TEST_PASSWORD }),
-          });
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(`${cell.email} 로그인 실패: ${res.status} ${txt}`);
+          // [Task #657] 토큰 무결성 가드 — 캐시된 토큰을 그대로 신뢰하지 않고
+          //   JWT payload.role 이 기대값과 일치하는지 검증한다. 과거 회귀 시나리오:
+          //   캐시된 토큰이 실제로는 다른 사용자(facility/accountant)의 것이었던
+          //   상태로 묵묵히 사용되어 manager 셀에서 403 이 났다.
+          async function issueAndVerify(): Promise<{ token: string; payload: ReturnType<typeof decodeJwtPayload> }> {
+            const res = await fetch(`${API_BASE}/auth/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ identifier: cell.email, password: TEST_PASSWORD }),
+            });
+            if (!res.ok) {
+              const txt = await res.text();
+              throw new Error(`${cell.email} 로그인 실패: ${res.status} ${txt}`);
+            }
+            const data = await res.json();
+            return { token: data.token as string, payload: decodeJwtPayload(data.token) };
           }
-          const data = await res.json();
-          window.localStorage.setItem(key, data.token);
+
+          // [Task #657] 토큰 무결성은 role 단독이 아니라 (userId, role, email) 세
+          //   필드로 종합 검증한다. role 만 보면 같은 role 의 다른 사용자(예: 다른
+          //   manager) 토큰이 섞였을 때 못 잡는다. email 까지 봐야 셀 매핑이 100%
+          //   확실해진다.
+          function isPayloadValid(p: ReturnType<typeof decodeJwtPayload>): boolean {
+            if (!p) return false;
+            if (typeof p.userId !== "number") return false;
+            if (p.role !== cell.expectedRole) return false;
+            // email 은 username 가입자라 null 일 수 있으므로 NULL 도 허용.
+            // 단, 값이 있으면 대소문자 무시로 cell.email 과 일치해야 함.
+            if (p.email && p.email.toLowerCase() !== cell.email.toLowerCase()) return false;
+            return true;
+          }
+
+          let token = window.localStorage.getItem(key);
+          let payload = token ? decodeJwtPayload(token) : null;
+          let valid = isPayloadValid(payload);
+
+          if (!valid) {
+            // 캐시된 토큰이 잘못됐거나 없음 → 새로 발급해 본다 (1차).
+            const issued = await issueAndVerify();
+            token = issued.token;
+            payload = issued.payload;
+            valid = isPayloadValid(payload);
+          }
+
+          if (token) window.localStorage.setItem(key, token);
+
+          if (!valid) {
+            // 새로 발급한 토큰조차 기대값과 다르면 셀 헤더에 빨간 경고.
+            //   (서버 시드 데이터가 바뀌었거나 test 계정이 어긋난 경우)
+            const reasons: string[] = [];
+            if (typeof payload?.userId !== "number") reasons.push("userId 누락");
+            if (payload?.role !== cell.expectedRole) {
+              reasons.push(`role=${payload?.role ?? "?"} (기대 ${cell.expectedRole})`);
+            }
+            if (payload?.email && payload.email.toLowerCase() !== cell.email.toLowerCase()) {
+              reasons.push(`email=${payload.email} (기대 ${cell.email})`);
+            }
+            warnings[cell.email] = {
+              role: payload?.role ?? null,
+              email: payload?.email ?? null,
+              message: `토큰 무결성 실패: ${reasons.join(", ")}`,
+            };
+          }
         }
-        if (!cancelled) setPrep({ status: "ready" });
+        if (!cancelled) {
+          setTokenWarnings(warnings);
+          setPrep({ status: "ready" });
+        }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         if (!cancelled) setPrep({ status: "error", error: msg });
@@ -216,6 +298,7 @@ export default function DevPreviewGrid() {
                 iframeSrc={buildIframeSrc(cell)}
                 reloadKey={reloadCounters[cell.email] ?? 0}
                 pathValue={pathOverrides[cell.email] ?? cell.defaultPath}
+                tokenWarning={tokenWarnings[cell.email] ?? null}
                 onPathChange={(v) =>
                   setPathOverrides((prev) => ({ ...prev, [cell.email]: v }))
                 }
@@ -232,6 +315,7 @@ export default function DevPreviewGrid() {
                 iframeSrc={buildIframeSrc(cell)}
                 reloadKey={reloadCounters[cell.email] ?? 0}
                 pathValue={pathOverrides[cell.email] ?? cell.defaultPath}
+                tokenWarning={tokenWarnings[cell.email] ?? null}
                 onPathChange={(v) =>
                   setPathOverrides((prev) => ({ ...prev, [cell.email]: v }))
                 }
@@ -249,6 +333,7 @@ export default function DevPreviewGrid() {
               iframeSrc={buildIframeSrc(cell)}
               reloadKey={reloadCounters[cell.email] ?? 0}
               pathValue={pathOverrides[cell.email] ?? cell.defaultPath}
+              tokenWarning={tokenWarnings[cell.email] ?? null}
               onPathChange={(v) =>
                 setPathOverrides((prev) => ({ ...prev, [cell.email]: v }))
               }
@@ -268,6 +353,8 @@ interface CellPanelProps {
   iframeSrc: string;
   reloadKey: number;
   pathValue: string;
+  // [Task #657] 토큰 무결성 경고. null 이면 정상.
+  tokenWarning: TokenWarning | null;
   onPathChange: (v: string) => void;
   onReload: () => void;
 }
@@ -279,12 +366,27 @@ function CellPanel({
   iframeSrc,
   reloadKey,
   pathValue,
+  tokenWarning,
   onPathChange,
   onReload,
 }: CellPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="flex min-h-0 min-w-0 flex-col bg-white">
+    <div
+      className={`flex min-h-0 min-w-0 flex-col bg-white ${
+        tokenWarning ? "ring-2 ring-rose-500" : ""
+      }`}
+      data-testid={`preview-cell-${cell.expectedRole}`}
+    >
+      {tokenWarning && (
+        <div
+          className="border-b border-rose-300 bg-rose-50 px-2 py-1 text-[11px] text-rose-700"
+          data-testid={`preview-cell-${cell.expectedRole}-token-warning`}
+        >
+          ⚠️ {tokenWarning.message} (받은 role: {tokenWarning.role ?? "?"} / email:{" "}
+          {tokenWarning.email ?? "?"})
+        </div>
+      )}
       <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1 text-xs">
         <span className="font-semibold text-slate-700">{cell.label}</span>
         <span
