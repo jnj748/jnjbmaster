@@ -24,11 +24,15 @@
 //     "101호" 는 자동 매칭에 포함되지 않는다. 사용자는 검색창에서 직접 추가.
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Plus, Search } from "lucide-react";
+import { X, Plus, Search, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useListUnits, type Unit } from "@workspace/api-client-react";
-import { matchUnitsInMemo } from "@workspace/shared/unit-parser";
+import {
+  matchUnitsInMemo,
+  extractUnitTokens,
+} from "@workspace/shared/unit-parser";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Props {
   memo: string;
@@ -55,7 +59,21 @@ function unitLabel(u: Pick<Unit, "dong" | "unitNumber">): string {
   return u.dong ? `${u.dong}동 ${u.unitNumber}호` : `${u.unitNumber}호`;
 }
 
+/** [Task #713] 서버 추천 응답 타입. */
+interface SuggestedCandidate {
+  unitId: number;
+  dong: string;
+  unitNumber: string;
+  score: number;
+  reasons: string[];
+}
+interface AmbiguousSuggestion {
+  unitNumberRaw: string;
+  candidates: SuggestedCandidate[];
+}
+
 export function UnitChipPicker({ memo, onChange, initialUnitIds, initialKey }: Props) {
+  const { token } = useAuth();
   // 빌딩 호실 — useListUnits 는 현재 사용자 빌딩 스코프로 알아서 필터됨.
   const { data: units } = useListUnits(undefined, {
     query: { staleTime: 60 * 1000 },
@@ -113,6 +131,63 @@ export function UnitChipPicker({ memo, onChange, initialUnitIds, initialKey }: P
     });
   }, [autoIds]);
 
+  // [Task #713] 모호 호실 추천.
+  //  - 메모에 동(棟) 정보 없이 호수만 적혀 있고, 같은 호번이 빌딩 내 여러 동에
+  //    존재해 자동 매칭이 건너뛴 경우 서버에 추천 후보를 묻는다.
+  //  - 응답은 회색 칩(추천: ㅇ동 ㅇ호) 으로 표시되고, 사용자가 탭하면 manual 로
+  //    링크된다(=수동 추가).
+  //  - 메모 디바운스가 끝났을 때만 호출 → 입력 중 매번 호출되는 것을 방지.
+  //  - 클라이언트는 빌딩 내 호실 목록 캐시(useListUnits) 가 항상 최신이라고
+  //    단정할 수 없으므로(staleTime/새 호실 임포트 직후 등), 모호 판정은 서버에
+  //    맡긴다. 호출 게이트는 "메모에 동 미명시 토큰이 1개라도 있는가" 만 본다.
+  const noDongTokenKey = useMemo(() => {
+    const tokens = extractUnitTokens(debouncedMemo);
+    const noDong = tokens
+      .filter((t) => t.dongRaw === null)
+      .map((t) => t.unitNumberRaw)
+      .sort();
+    return noDong.length > 0 ? noDong.join(",") : "";
+  }, [debouncedMemo]);
+
+  const [suggestions, setSuggestions] = useState<AmbiguousSuggestion[]>([]);
+  // [Task #713] 사용자가 X 로 닫은 추천 unit id — 같은 메모로 다시 추천이 와도
+  // 잡음을 만들지 않도록 세션 동안 유지한다(다이얼로그 닫고 다시 열면 초기화).
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<Set<number>>(
+    new Set(),
+  );
+  useEffect(() => {
+    if (!noDongTokenKey) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const BASE = import.meta.env.BASE_URL ?? "/";
+    const apiBase = `${BASE}api`.replace(/\/+/g, "/");
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/work-logs/unit-suggestions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ memo: debouncedMemo }),
+        });
+        if (!res.ok) {
+          if (!cancelled) setSuggestions([]);
+          return;
+        }
+        const data = (await res.json()) as { suggestions?: AmbiguousSuggestion[] };
+        if (!cancelled) setSuggestions(data.suggestions ?? []);
+      } catch {
+        if (!cancelled) setSuggestions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [noDongTokenKey, debouncedMemo, token]);
+
   // 부모 통지 — 합집합 + 권위적 전송 가능 여부(ready). 호실 목록이 로드되고
   // 디바운스도 끝났고(현재 입력 중 X) 편집 모드라면 시드도 완료된 상태여야
   // ready=true. ready=false 일 때 부모는 unitIdsMode 권위적 모드를 끄고 서버
@@ -141,6 +216,22 @@ export function UnitChipPicker({ memo, onChange, initialUnitIds, initialKey }: P
   const activeAutoIds = autoIds.filter((id) => !excludedAutoIds.has(id));
   const activeManualIds = Array.from(manualIds);
 
+  // [Task #713] 화면에 그릴 추천 칩 — 이미 링크된 호실/사용자가 X 로 스킵한
+  // 호실(dismissedSuggestionIds) 은 제외하고, 점수 순으로 토큰당 1~3개만 보여 준다.
+  const visibleSuggestions = useMemo(() => {
+    return suggestions
+      .map((s) => ({
+        unitNumberRaw: s.unitNumberRaw,
+        candidates: s.candidates.filter(
+          (c) =>
+            !manualIds.has(c.unitId) &&
+            !autoIds.includes(c.unitId) &&
+            !dismissedSuggestionIds.has(c.unitId),
+        ),
+      }))
+      .filter((s) => s.candidates.length > 0);
+  }, [suggestions, manualIds, autoIds, dismissedSuggestionIds]);
+
   const searchResults = useMemo(() => {
     if (!search.trim() || !units) return [] as Unit[];
     const q = search.trim().toLowerCase();
@@ -154,7 +245,12 @@ export function UnitChipPicker({ memo, onChange, initialUnitIds, initialKey }: P
   }, [search, units, manualIds, autoIds]);
 
   if (!units || units.length === 0) return null;
-  if (activeAutoIds.length === 0 && activeManualIds.length === 0 && !search) {
+  if (
+    activeAutoIds.length === 0 &&
+    activeManualIds.length === 0 &&
+    visibleSuggestions.length === 0 &&
+    !search
+  ) {
     // 칩이 하나도 없으면 검색창만 작게 — 화면 잡음 최소화.
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="unit-chip-picker-empty">
@@ -230,6 +326,54 @@ export function UnitChipPicker({ memo, onChange, initialUnitIds, initialKey }: P
             </Badge>
           );
         })}
+        {/* [Task #713] 모호 호실 추천 칩 — 회색. 탭하면 manual 로 추가, X 면 dismiss. */}
+        {visibleSuggestions.map((s) =>
+          s.candidates.map((c) => {
+            const reason = c.reasons[0];
+            return (
+              <Badge
+                key={`suggest-${s.unitNumberRaw}-${c.unitId}`}
+                variant="secondary"
+                className="gap-1 bg-muted text-muted-foreground hover:bg-muted/80 border border-dashed border-muted-foreground/30"
+                data-testid={`unit-chip-suggestion-${c.unitId}`}
+                title={reason ? `추천 근거: ${reason}` : "추천 호실"}
+              >
+                <Sparkles className="w-3 h-3" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(c.unitId);
+                      return next;
+                    });
+                  }}
+                  className="font-medium"
+                  data-testid={`unit-chip-suggestion-accept-${c.unitId}`}
+                  aria-label={`${c.dong ? `${c.dong}동 ` : ""}${c.unitNumber}호 로 연결`}
+                >
+                  {c.dong ? `${c.dong}동 ${c.unitNumber}호` : `${c.unitNumber}호`}
+                  <span className="ml-1 text-[10px] opacity-70">추천</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDismissedSuggestionIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(c.unitId);
+                      return next;
+                    })
+                  }
+                  className="hover:text-foreground"
+                  aria-label="추천 닫기"
+                  data-testid={`unit-chip-suggestion-dismiss-${c.unitId}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            );
+          }),
+        )}
       </div>
       <div className="relative">
         <div className="flex items-center gap-2 border rounded px-2 py-1">

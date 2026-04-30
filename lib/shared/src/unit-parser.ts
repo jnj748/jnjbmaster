@@ -106,6 +106,61 @@ export function extractUnitTokens(memo: string): ParsedUnitToken[] {
 }
 
 /**
+ * [Task #713] 메모에 동(棟) 정보 없이 호수만 있고, 빌딩 내에서 동일 호번을 가진
+ * 호실이 여러 개라 자동 매칭되지 않은 토큰들을 찾는다.
+ *
+ * 호출자(서버 추천 엔드포인트, 클라이언트 칩 UI)는 이 결과로 각 토큰의 후보
+ * 호실 ids 를 알 수 있고, 별도 신호(작성자 과거 이력 / 최근 활동) 로 가장
+ * 가능성 높은 후보를 추천한다.
+ *
+ * 반환: 각 모호 토큰별 { unitNumberRaw, candidates(같은 호번의 unit id 들) }
+ */
+export interface AmbiguousUnitToken {
+  /** 메모에서 인식된 호수 원문 (정규화 전). */
+  unitNumberRaw: string;
+  /** 같은 호번을 갖는 빌딩 내 호실 id 목록 (메모에 동이 명시되지 않아 모호). */
+  candidateUnitIds: number[];
+}
+
+export function findAmbiguousUnitTokens(
+  memo: string,
+  units: ReadonlyArray<UnitRef>,
+): AmbiguousUnitToken[] {
+  const tokens = extractUnitTokens(memo);
+  if (tokens.length === 0 || units.length === 0) return [];
+
+  // 빌딩 전체가 단일 동인 경우엔 모호 자체가 없다(호번 중복 시 데이터 이상).
+  let allSingleDong = true;
+  const byNumber = new Map<string, UnitRef[]>();
+  for (const u of units) {
+    const n = normalizeUnit(u.unitNumber);
+    if (!n) continue;
+    const arr = byNumber.get(n) ?? [];
+    arr.push(u);
+    byNumber.set(n, arr);
+    if (u.dong && u.dong.length > 0) allSingleDong = false;
+  }
+  if (allSingleDong) return [];
+
+  const seen = new Set<string>();
+  const out: AmbiguousUnitToken[] = [];
+  for (const t of tokens) {
+    if (t.dongRaw !== null) continue; // 동이 명시된 토큰은 모호하지 않음.
+    const num = normalizeUnit(t.unitNumberRaw);
+    if (!num) continue;
+    if (seen.has(num)) continue;
+    const candidates = byNumber.get(num) ?? [];
+    if (candidates.length < 2) continue; // 유일 매칭은 자동으로 잡힘.
+    seen.add(num);
+    out.push({
+      unitNumberRaw: t.unitNumberRaw,
+      candidateUnitIds: candidates.map((u) => u.id),
+    });
+  }
+  return out;
+}
+
+/**
  * 빌딩의 units 목록과 메모를 매칭해 일치하는 unit id 배열을 반환.
  * 결과는 매칭 순서대로, 중복 없이 나온다.
  */

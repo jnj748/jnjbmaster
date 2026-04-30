@@ -61,7 +61,7 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
+The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
 - Built with React, Vite, Tailwind CSS, and shadcn/ui.
@@ -72,10 +72,10 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 **Backend:**
 - Express 5 API framework.
 - Implements JWT authentication and Role-Based Access Control (RBAC) for 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth.
-- API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
+- API definitions adhere to OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
 
 **Database:**
-- PostgreSQL as the primary data store, managed via Drizzle ORM.
+- PostgreSQL is the primary data store, managed via Drizzle ORM.
 - Supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
 - Automated schema migrations on API server boot.
 

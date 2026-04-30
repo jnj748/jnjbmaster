@@ -15,7 +15,11 @@ import {
   maintenanceLogsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { matchUnitsInMemo, type UnitRef } from "@workspace/shared/unit-parser";
+import {
+  matchUnitsInMemo,
+  findAmbiguousUnitTokens,
+  type UnitRef,
+} from "@workspace/shared/unit-parser";
 // [Task #610] 2층 단일 통로 — 일일 업무일지 commit 후 documents 레지스트리에 등록.
 import { saveProducingDocument } from "../repo/producingDocuments";
 import { buildDocumentName } from "@workspace/document-naming";
@@ -271,6 +275,160 @@ router.get("/work-logs", async (req, res): Promise<void> => {
   // [Task #708] 한 쿼리로 entry → linkedUnits 매핑 후 직렬화 단계에서 합친다.
   const linkedMap = await loadEntryLinkedUnits(rows.map((r) => r.id));
   res.json(rows.map((r) => serializeEntry(r, linkedMap.get(r.id) ?? [])));
+});
+
+// ---------------- [Task #713] 모호 호실 추천 ----------------
+
+const UnitSuggestionsBody = z.object({
+  memo: z.string().min(1).max(2000),
+});
+
+interface SuggestedCandidate {
+  unitId: number;
+  dong: string;
+  unitNumber: string;
+  score: number;
+  reasons: string[];
+}
+
+interface AmbiguousSuggestion {
+  unitNumberRaw: string;
+  candidates: SuggestedCandidate[];
+}
+
+/**
+ * [Task #713] 메모에 "101호" 만 적혀 있고 같은 호번이 여러 동에 존재해 자동
+ * 매칭이 건너뛴 토큰에 대해, 작성자 과거 이력 / 최근 활동 신호로 가장 가능성
+ * 높은 호실 1~3개를 추천한다.
+ *
+ * 점수 부여 규칙(결정적, 외부 LLM 호출 없음):
+ *  - 본인이 최근 90일 내 그 호실에 work_log 를 남긴 적이 있으면 작성 횟수 × 5점
+ *    (최대 25점). "이 작성자에게 익숙한 호실" 신호.
+ *  - 본인이 최근 7일 내 작성한 적이 있으면 + 5점 추가 (최근성 가중).
+ *  - 같은 빌딩의 누구든 최근 30일 내 그 호실에 work_log 를 남긴 적이 있으면
+ *    + 2점 (호실 활성도 신호 — 보일러 누수 처럼 진행 중인 사안 유추).
+ *  - 모든 후보의 점수가 0 이면 (=완전 신규) 후보 자체가 의미 있는 추천이
+ *    되기 어려우므로 응답에서 그 토큰은 빈 candidates 로 돌려준다. 호출자
+ *    (UnitChipPicker) 는 추천 칩을 그리지 않고 사용자 검색 입력으로 유도한다.
+ *
+ * 추천은 score 내림차순 → 동/호번 사전순으로 정렬해 결정적이다. 최대 3개.
+ */
+router.post("/work-logs/unit-suggestions", async (req, res): Promise<void> => {
+  const parsed = UnitSuggestionsBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const ctx = await getCtx(req.user!.userId);
+  if (!ctx) { res.status(404).json({ error: "user not found" }); return; }
+  if (!ctx.buildingId) { res.json({ suggestions: [] }); return; }
+
+  const units = await loadBuildingUnitsForMatch(ctx.buildingId);
+  const ambiguous = findAmbiguousUnitTokens(parsed.data.memo, units);
+  if (ambiguous.length === 0) { res.json({ suggestions: [] }); return; }
+
+  // 모호 토큰의 모든 후보 unit id 합집합 — 한 번의 쿼리로 이력을 가져온다.
+  const allCandidateIds = Array.from(
+    new Set(ambiguous.flatMap((a) => a.candidateUnitIds)),
+  );
+  if (allCandidateIds.length === 0) { res.json({ suggestions: [] }); return; }
+
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // 본 작성자가 후보 호실에 남긴 work_log 링크 (최근 90일).
+  const authorLinks = await db
+    .select({
+      unitId: workLogEntryUnitsTable.unitId,
+      occurredAt: workLogEntryUnitsTable.occurredAt,
+    })
+    .from(workLogEntryUnitsTable)
+    .innerJoin(
+      workLogEntriesTable,
+      eq(workLogEntriesTable.id, workLogEntryUnitsTable.workLogEntryId),
+    )
+    .where(
+      and(
+        eq(workLogEntryUnitsTable.buildingId, ctx.buildingId),
+        inArray(workLogEntryUnitsTable.unitId, allCandidateIds),
+        eq(workLogEntriesTable.authorId, ctx.id),
+        gte(workLogEntryUnitsTable.occurredAt, ninetyDaysAgo),
+      ),
+    );
+
+  // 같은 빌딩의 누구든 최근 30일 활동.
+  const recentBuildingLinks = await db
+    .select({
+      unitId: workLogEntryUnitsTable.unitId,
+      occurredAt: workLogEntryUnitsTable.occurredAt,
+    })
+    .from(workLogEntryUnitsTable)
+    .where(
+      and(
+        eq(workLogEntryUnitsTable.buildingId, ctx.buildingId),
+        inArray(workLogEntryUnitsTable.unitId, allCandidateIds),
+        gte(workLogEntryUnitsTable.occurredAt, thirtyDaysAgo),
+      ),
+    );
+
+  const authorCount = new Map<number, number>();
+  const authorRecent = new Set<number>();
+  for (const r of authorLinks) {
+    authorCount.set(r.unitId, (authorCount.get(r.unitId) ?? 0) + 1);
+    if (r.occurredAt && r.occurredAt >= sevenDaysAgo) authorRecent.add(r.unitId);
+  }
+  const buildingActive = new Set<number>();
+  for (const r of recentBuildingLinks) buildingActive.add(r.unitId);
+
+  // 호실 메타(dong/unitNumber) 빠른 조회용.
+  const unitMeta = new Map<number, { dong: string; unitNumber: string }>();
+  for (const u of units) unitMeta.set(u.id, { dong: u.dong, unitNumber: u.unitNumber });
+
+  function scoreUnit(unitId: number): { score: number; reasons: string[] } {
+    let score = 0;
+    const reasons: string[] = [];
+    const cnt = authorCount.get(unitId) ?? 0;
+    if (cnt > 0) {
+      const add = Math.min(cnt * 5, 25);
+      score += add;
+      reasons.push(`최근 90일 내 본인 작성 ${cnt}건`);
+    }
+    if (authorRecent.has(unitId)) {
+      score += 5;
+      reasons.push("최근 7일 본인 활동");
+    }
+    if (buildingActive.has(unitId)) {
+      score += 2;
+      if (cnt === 0) reasons.push("최근 30일 같은 호실 작성 이력");
+    }
+    return { score, reasons };
+  }
+
+  const suggestions: AmbiguousSuggestion[] = ambiguous.map((token) => {
+    const scored: SuggestedCandidate[] = token.candidateUnitIds
+      .map((unitId) => {
+        const meta = unitMeta.get(unitId) ?? { dong: "", unitNumber: "" };
+        const { score, reasons } = scoreUnit(unitId);
+        return {
+          unitId,
+          dong: meta.dong,
+          unitNumber: meta.unitNumber,
+          score,
+          reasons,
+        };
+      })
+      // score 0 인 후보는 유의미한 신호가 없는 추측이라 추천 대상에서 제외.
+      .filter((c) => c.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        // 결정적 순서: 동 → 호번 사전순.
+        if (a.dong !== b.dong) return a.dong.localeCompare(b.dong);
+        return a.unitNumber.localeCompare(b.unitNumber);
+      })
+      .slice(0, 3);
+    return { unitNumberRaw: token.unitNumberRaw, candidates: scored };
+  });
+
+  res.json({ suggestions });
 });
 
 router.post("/work-logs", async (req, res): Promise<void> => {
