@@ -25,7 +25,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   ClipboardCheck,
   Check,
@@ -115,6 +115,10 @@ interface SignatureItem {
 export default function Approvals() {
   const { user, token } = useAuth();
   const [, setLocation] = useLocation();
+  // [Task #682 review-fix #2] /approvals?focus=N 으로 진입 시 해당 카드를 자동 스크롤·강조.
+  const search = useSearch();
+  const focusParam = new URLSearchParams(search).get("focus");
+  const focusApprovalId = focusParam ? Number(focusParam) : null;
   const isManager = user?.role === "manager";
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
@@ -141,6 +145,36 @@ export default function Approvals() {
       ? { status: statusFilter as ListApprovalsParams["status"] }
       : {},
   );
+
+  // [Task #682 review-fix #2] focus 파라미터로 들어오면 해당 카드를 자동으로 스크롤·하이라이트.
+  useEffect(() => {
+    if (!focusApprovalId || !approvals || (approvals as ApprovalItem[]).length === 0) return;
+    let cancelled = false;
+    let tries = 0;
+    const tick = () => {
+      if (cancelled) return;
+      const el = document.querySelector(
+        `[data-testid="approval-card-${focusApprovalId}"]`,
+      ) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("ring-2", "ring-primary", "ring-offset-2");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+        }, 2400);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("focus");
+        window.history.replaceState({}, "", url.toString());
+      } else if (tries < 12) {
+        tries += 1;
+        setTimeout(tick, 150);
+      }
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusApprovalId, approvals]);
 
   useEffect(() => {
     if (showDrafts) {
@@ -427,6 +461,7 @@ export default function Approvals() {
           {(approvals as ApprovalItem[]).map((approval) => (
             <Card
               key={approval.id}
+              data-testid={`approval-card-${approval.id}`}
               className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => setSelectedApproval(approval)}
             >

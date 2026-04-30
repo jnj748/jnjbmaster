@@ -5,6 +5,7 @@ import {
   useListQuotes,
   useListContracts,
   useListPlatformSettings,
+  useGetMyVendor,
 } from "@workspace/api-client-react";
 import type {
   Contract,
@@ -28,6 +29,7 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
+import { PartnerProfileDiagnostic } from "@/components/vendor-portal/partner-profile-diagnostic";
 import { useAuth } from "@/contexts/auth-context";
 import {
   MobileOnly,
@@ -75,6 +77,11 @@ export default function PartnerDashboard() {
     { query: { enabled: !!vendorId } },
   );
   const { data: platformSettings } = useListPlatformSettings();
+  // [Task #682] 파트너 본인의 vendor 프로필 — 빈 상태 진단 배너에서
+  //   현재 카테고리/활동지역을 그대로 노출해 "왜 RFQ 가 안 보이는지" 즉시 알게 한다.
+  const { data: myVendor } = useGetMyVendor({
+    query: { enabled: !!vendorId },
+  });
 
   const refundDays = Number(
     platformSettings?.find((s) => s.key === "no_view_refund_days")?.value ?? 7,
@@ -186,10 +193,32 @@ export default function PartnerDashboard() {
     },
   ];
 
+  // [Task #682] 진단 배너 노출 여부.
+  //   - vendorId 가 있어야 한다(파트너 계정만).
+  //   - 카테고리/활동지역 정보가 부족해서 매칭이 약하거나, waiting 큐가 비어 있어서
+  //     "내 설정이 맞는지" 확인이 필요한 케이스에 안내 톤으로 노출.
+  const subCatList = (myVendor?.subCategories ?? "")
+    .split(/[,\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const regionLabel =
+    [myVendor?.sido, myVendor?.sigungu].filter(Boolean).join(" ") || null;
+  const noProfileSetup =
+    !!myVendor && (!myVendor.category || !regionLabel);
+  const showDiagnostic = !!vendorId && (waitingRfqCount === 0 || noProfileSetup);
+
   return (
     <div data-testid="page-partner-dashboard">
       <MobileOnly>
         <div className="space-y-3">
+          {showDiagnostic && myVendor && (
+            <PartnerProfileDiagnostic
+              vendor={myVendor}
+              subCatList={subCatList}
+              regionLabel={regionLabel}
+              compact
+            />
+          )}
           <MobileKpiStrip items={mobileKpis} />
           <MobileTabPanels
             sections={[
@@ -283,6 +312,13 @@ export default function PartnerDashboard() {
 
       <DesktopOnly>
         <div className="space-y-6">
+      {showDiagnostic && myVendor && (
+        <PartnerProfileDiagnostic
+          vendor={myVendor}
+          subCatList={subCatList}
+          regionLabel={regionLabel}
+        />
+      )}
       {/* 1) 기다리는 견적 요청 — 헤드라인은 시작 단계 파트너 동기부여를 위한 긍정 카피. */}
       {vendorId && (
         <Card className="border-teal-200 bg-teal-50/50">
@@ -579,4 +615,8 @@ export default function PartnerDashboard() {
     </div>
   );
 }
+
+// [Task #682 review-fix #2] PartnerProfileDiagnostic 는
+//   `@/components/vendor-portal/partner-profile-diagnostic` 로 분리되어
+//   파트너 RFQ 탭의 빈 상태에서도 재사용된다.
 

@@ -13,7 +13,7 @@
 // 모든 라우트는 `authMiddleware` 적용 후의 사용자(req.user) 가 들어온다는 전제다.
 
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, inArray } from "drizzle-orm";
 import {
   db,
   approvalsTable,
@@ -70,6 +70,51 @@ function serializePaymentRequest(r: typeof paymentRequestsTable.$inferSelect) {
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
+}
+
+// [Task #682] 인박스(지출결의서함/입금요청함) 행에 source(예: rfq#123) 백링크를
+//   부착해 경리·관리인이 어느 RFQ 에서 출발한 청구인지 즉시 알 수 있게 한다.
+//   approvalId 단일 컬럼만으로는 출처 RFQ 를 모르므로 approvals 1회 batch 조회.
+async function attachApprovalSource<
+  T extends { approvalId: number | null }
+>(rows: T[]): Promise<(T & {
+  sourceEntityType: string | null;
+  sourceEntityId: number | null;
+  sourceApprovalId: number | null;
+  sourceApprovalTitle: string | null;
+})[]> {
+  const approvalIds = Array.from(
+    new Set(rows.map((r) => r.approvalId).filter((id): id is number => typeof id === "number")),
+  );
+  if (approvalIds.length === 0) {
+    return rows.map((r) => ({
+      ...r,
+      sourceEntityType: null,
+      sourceEntityId: null,
+      sourceApprovalId: r.approvalId ?? null,
+      sourceApprovalTitle: null,
+    }));
+  }
+  const approvals = await db
+    .select({
+      id: approvalsTable.id,
+      title: approvalsTable.title,
+      sourceEntityType: approvalsTable.sourceEntityType,
+      sourceEntityId: approvalsTable.sourceEntityId,
+    })
+    .from(approvalsTable)
+    .where(inArray(approvalsTable.id, approvalIds));
+  const byId = new Map(approvals.map((a) => [a.id, a]));
+  return rows.map((r) => {
+    const a = r.approvalId != null ? byId.get(r.approvalId) ?? null : null;
+    return {
+      ...r,
+      sourceEntityType: a?.sourceEntityType ?? null,
+      sourceEntityId: a?.sourceEntityId ?? null,
+      sourceApprovalId: a?.id ?? r.approvalId ?? null,
+      sourceApprovalTitle: a?.title ?? null,
+    };
+  });
 }
 
 // 1) ─── HQ approval thresholds ───────────────────────────────────────────
@@ -931,7 +976,9 @@ router.get("/expense-vouchers", async (req, res): Promise<void> => {
     });
   }
   if (status) rows = rows.filter((r) => r.status === status);
-  res.json(rows.map(serializeVoucher));
+  // [Task #682] 인박스 행에 출처 RFQ 등 백링크 부착.
+  const enriched = await attachApprovalSource(rows.map(serializeVoucher));
+  res.json(enriched);
 });
 
 router.get(
@@ -1057,7 +1104,9 @@ router.get("/payment-requests", async (req, res): Promise<void> => {
     });
   }
   if (status) rows = rows.filter((r) => r.status === status);
-  res.json(rows.map(serializePaymentRequest));
+  // [Task #682] 인박스 행에 출처 RFQ 등 백링크 부착.
+  const enriched = await attachApprovalSource(rows.map(serializePaymentRequest));
+  res.json(enriched);
 });
 
 router.get(

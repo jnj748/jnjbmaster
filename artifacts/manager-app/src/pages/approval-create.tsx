@@ -118,6 +118,33 @@ export default function ApprovalCreate() {
   const prefillSourceDocId = urlParams.get("source_doc_id") ?? "";
   const prefillBuildingId = urlParams.get("building_id") ?? "";
 
+  // [Task #682] RFQ 카드 등에서 추가로 채워 넣는 prefill 키.
+  //   - vendor_name → 업체명, amount → 예상 금액, description → 본문 첫 문단.
+  //   - source_entity_type / source_entity_id → approvals row 에 보존되어
+  //     RFQ 카드의 "기안 결재 진행 중" 배지·중복 기안 방지에 쓰인다.
+  const prefillVendorName = urlParams.get("vendor_name") ?? "";
+  const prefillAmount = urlParams.get("amount") ?? "";
+  const prefillDescription = urlParams.get("description") ?? "";
+  const prefillSourceEntityType = urlParams.get("source_entity_type") ?? "";
+  const prefillSourceEntityId = urlParams.get("source_entity_id") ?? "";
+  // [Task #682 review-fix #2] 원본 RFQ 링크 + 첨부 사진 (JSON 직렬화 된 URL 배열).
+  //   결재 화면 상단의 "원본" 패널에 표시한다.
+  const prefillSourceUrl = urlParams.get("source_url") ?? "";
+  const prefillSourcePhotosRaw = urlParams.get("source_photos") ?? "";
+  let prefillSourcePhotos: string[] = [];
+  if (prefillSourcePhotosRaw) {
+    try {
+      const parsed = JSON.parse(prefillSourcePhotosRaw);
+      if (Array.isArray(parsed)) {
+        prefillSourcePhotos = parsed.filter(
+          (u): u is string => typeof u === "string" && u.length > 0,
+        );
+      }
+    } catch {
+      // 잘못된 직렬화는 조용히 무시(원본 패널만 빈 채로 표시).
+    }
+  }
+
   // FollowUpSource.type 으로 변환 (없으면 빈 문자열).
   const SOURCE_KIND_TO_FOLLOWUP_TYPE: Record<string, FollowUpSource["type"]> = {
     journal: "daily_journal",
@@ -137,30 +164,46 @@ export default function ApprovalCreate() {
 
   const [title, setTitle] = useState(isPrefill ? prefillTitle : "");
   // [Task #610] 출처 표시는 두 명세 모두 지원.
+  // [Task #682] sourceEntityType="rfq" 인 경우 사용자가 알아보기 쉬운 출처 라벨로 노출.
+  const sourceLabel =
+    prefillSourceEntityType === "rfq"
+      ? `RFQ #${prefillSourceEntityId} (견적요청)`
+      : prefillSourceEntityType
+        ? `${prefillSourceEntityType} #${prefillSourceEntityId}`
+        : null;
   const sourceAnnotation =
     prefillSourceType
       ? `\n\n──────────\n[자동 제안] 출처: ${prefillSourceType} #${prefillSourceId} (${prefillSourceDate})` +
         (prefillKeywords ? `\n감지 키워드: ${prefillKeywords}` : "")
-      : prefillSourceKind
-        ? `\n\n──────────\n[기안서 작성] 출처: ${prefillSourceKind}` +
-          (prefillSourceTable ? `/${prefillSourceTable}` : "") +
-          (prefillSourceIdNew ? `#${prefillSourceIdNew}` : "") +
-          (prefillSourceDocId ? ` (doc#${prefillSourceDocId})` : "")
-        : "";
-  const [description, setDescription] = useState(
-    isPrefill ? prefillBody + sourceAnnotation : "",
-  );
+      : sourceLabel
+        ? `\n\n──────────\n[기안서 작성] 출처: ${sourceLabel}`
+        : prefillSourceKind
+          ? `\n\n──────────\n[기안서 작성] 출처: ${prefillSourceKind}` +
+            (prefillSourceTable ? `/${prefillSourceTable}` : "") +
+            (prefillSourceIdNew ? `#${prefillSourceIdNew}` : "") +
+            (prefillSourceDocId ? ` (doc#${prefillSourceDocId})` : "")
+          : "";
+  // [Task #682] description prefill 우선, 없으면 body 폴백.
+  const initialDescription = isPrefill
+    ? (prefillDescription || prefillBody) + sourceAnnotation
+    : "";
+  const [description, setDescription] = useState(initialDescription);
   const validApprovalCategories = ["maintenance", "inspection", "facility", "equipment", "other"];
   const [category, setCategory] = useState(
     isPrefill && validApprovalCategories.includes(prefillCategory) ? prefillCategory : "other",
   );
-  const [estimatedAmount, setEstimatedAmount] = useState("");
+  // [Task #682] amount/vendor_name prefill — 빈 문자열이면 기본값 유지.
+  const [estimatedAmount, setEstimatedAmount] = useState(
+    isPrefill && prefillAmount ? prefillAmount : "",
+  );
   // [Task #611] 본부장→관리인 자동 라인 사용 여부.
   //   기본값 ON — 안건 금액과 본부장 임계 금액에 따라 1·2단계가 자동으로 결정된다.
   const [useHqLine, setUseHqLine] = useState(true);
   const [urgentExecution, setUrgentExecution] = useState(false);
   const [urgentConsentMemo, setUrgentConsentMemo] = useState("");
-  const [vendorName, setVendorName] = useState("");
+  const [vendorName, setVendorName] = useState(
+    isPrefill && prefillVendorName ? prefillVendorName : "",
+  );
   const [vendorQuoteDetails, setVendorQuoteDetails] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -315,6 +358,11 @@ export default function ApprovalCreate() {
   }
 
   function buildPayload() {
+    // [Task #682] RFQ → 기안 사슬 보존: source_entity_type/id, building_id 를
+    //   서버 payload 에 포함시켜 approvals row 에 저장한다. 사용자가 prefill 없이
+    //   직접 진입한 경우엔 모두 비어 정상 동작.
+    const sourceEntityIdNum = prefillSourceEntityId ? Number(prefillSourceEntityId) : null;
+    const buildingIdNum = prefillBuildingId ? Number(prefillBuildingId) : null;
     return {
       title: title.trim(),
       description: description.trim(),
@@ -325,6 +373,13 @@ export default function ApprovalCreate() {
       vendorQuoteDetails: vendorQuoteDetails.trim() || null,
       approvalSteps: approvalSteps.length > 0 ? approvalSteps : undefined,
       recipients: recipients.length > 0 ? recipients : undefined,
+      sourceEntityType: prefillSourceEntityType || undefined,
+      sourceEntityId:
+        sourceEntityIdNum != null && Number.isFinite(sourceEntityIdNum)
+          ? sourceEntityIdNum
+          : undefined,
+      buildingId:
+        buildingIdNum != null && Number.isFinite(buildingIdNum) ? buildingIdNum : undefined,
     };
   }
 
@@ -500,6 +555,56 @@ export default function ApprovalCreate() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* [Task #682 review-fix #2] RFQ 등 원본에서 prefill 로 들어온 경우, 결재
+              화면 상단에 "원본 RFQ 보러 가기" 링크와 첨부 사진 썸네일을 함께 노출.
+              경리/본부장이 결재 본문 외에 사진/원본까지 한 번에 확인할 수 있도록. */}
+          {(prefillSourceUrl || prefillSourcePhotos.length > 0) && (
+            <Card data-testid="approval-source-context">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  원본
+                  {sourceLabel ? (
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {sourceLabel}
+                    </span>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {prefillSourceUrl ? (
+                  <a
+                    href={prefillSourceUrl}
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                    data-testid="approval-source-link"
+                  >
+                    <FileText className="w-3 h-3" />
+                    원본 문서로 이동
+                  </a>
+                ) : null}
+                {prefillSourcePhotos.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {prefillSourcePhotos.map((url, idx) => (
+                      <a
+                        key={`${url}-${idx}`}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded border"
+                        data-testid={`approval-source-photo-${idx}`}
+                      >
+                        <img
+                          src={url}
+                          alt={`원본 첨부 ${idx + 1}`}
+                          className="h-24 w-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">

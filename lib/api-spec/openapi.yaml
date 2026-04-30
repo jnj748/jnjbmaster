@@ -10714,6 +10714,16 @@ components:
           type: ["integer", "null"]
         relatedInspectionId:
           type: ["integer", "null"]
+        # [Task #682] RFQ → 기안 → 결재 → 지출/입금 사슬을 연결하는 출처 키.
+        # sourceEntityType 예: "rfq" / "quote" / "voucher" / "payment".
+        # frontend(rfqs.tsx) 가 sourceEntityType="rfq" + sourceEntityId=<rfqId>
+        # 로 필터해 카드에 "기안 결재 진행 중" 같은 파이프라인 상태 배지를 띄운다.
+        buildingId:
+          type: ["integer", "null"]
+        sourceEntityType:
+          type: ["string", "null"]
+        sourceEntityId:
+          type: ["integer", "null"]
         rejectionReason:
           type: ["string", "null"]
         approvedAt:

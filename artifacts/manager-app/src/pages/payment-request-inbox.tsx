@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send } from "lucide-react";
+import { Send, FileText } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface PaymentRequest {
   id: number;
@@ -30,6 +31,11 @@ interface PaymentRequest {
   remittedByName: string | null;
   remitMemo: string | null;
   createdAt: string;
+  // [Task #682] 출처 백링크.
+  sourceEntityType: string | null;
+  sourceEntityId: number | null;
+  sourceApprovalId: number | null;
+  sourceApprovalTitle: string | null;
 }
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -38,6 +44,7 @@ const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 export default function PaymentRequestInboxPage() {
   const { token } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [rows, setRows] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -144,6 +151,7 @@ export default function PaymentRequestInboxPage() {
                   key={r.id}
                   request={r}
                   busy={busyId === r.id}
+                  onOpenSource={(href) => setLocation(href)}
                   memo={memos[r.id] ?? ""}
                   onChangeMemo={(m) => setMemos((map) => ({ ...map, [r.id]: m }))}
                   remittedAt={remitDates[r.id] ?? today}
@@ -160,7 +168,14 @@ export default function PaymentRequestInboxPage() {
             {remitted.length === 0 ? (
               <EmptyMsg text="송금 완료된 항목이 없습니다." />
             ) : (
-              remitted.map((r) => <PaymentCard key={r.id} request={r} readOnly />)
+              remitted.map((r) => (
+                <PaymentCard
+                  key={r.id}
+                  request={r}
+                  onOpenSource={(href) => setLocation(href)}
+                  readOnly
+                />
+              ))
             )}
           </Section>
         </>
@@ -202,6 +217,7 @@ function PaymentCard({
   remittedAt,
   onChangeRemittedAt,
   onRemit,
+  onOpenSource,
   readOnly,
 }: {
   request: PaymentRequest;
@@ -211,17 +227,55 @@ function PaymentCard({
   remittedAt?: string;
   onChangeRemittedAt?: (s: string) => void;
   onRemit?: () => void;
+  onOpenSource?: (href: string) => void;
   readOnly?: boolean;
 }) {
   const amount =
     typeof request.amount === "string" ? Number(request.amount) : request.amount;
+  // [Task #682] 출처 백링크.
+  const sourceHref =
+    request.sourceEntityType === "rfq" && request.sourceEntityId
+      ? `/rfqs?focus=${request.sourceEntityId}`
+      : null;
+  const sourceLabel = request.sourceEntityType
+    ? request.sourceEntityType === "rfq"
+      ? `관련 RFQ #${request.sourceEntityId}`
+      : `관련 ${request.sourceEntityType} #${request.sourceEntityId}`
+    : null;
   return (
     <Card>
       <CardContent className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-medium">{request.title}</p>
-            <p className="text-xs text-gray-500">결재 #{request.approvalId}</p>
+            {/* [Task #682 review-fix #2] 결재 #N 도 클릭 가능한 백링크로 노출. */}
+            <button
+              type="button"
+              onClick={() => onOpenSource?.(`/approvals?focus=${request.sourceApprovalId ?? request.approvalId}`)}
+              className="text-xs text-blue-600 hover:underline"
+              data-testid={`payment-approval-link-${request.id}`}
+            >
+              결재 #{request.sourceApprovalId ?? request.approvalId}
+              {request.sourceApprovalTitle ? ` — ${request.sourceApprovalTitle}` : ""}
+            </button>
+            {sourceLabel ? (
+              sourceHref ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenSource?.(sourceHref)}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  data-testid={`payment-source-link-${request.id}`}
+                >
+                  <FileText className="h-3 w-3" />
+                  {sourceLabel}
+                </button>
+              ) : (
+                <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500">
+                  <FileText className="h-3 w-3" />
+                  {sourceLabel}
+                </p>
+              )
+            ) : null}
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold">

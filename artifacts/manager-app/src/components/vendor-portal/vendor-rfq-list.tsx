@@ -11,7 +11,13 @@ import {
   useCreateRfqSiteVisit,
   getListRfqMessagesQueryKey,
   getListRfqSiteVisitsQueryKey,
+  useGetMyVendor,
 } from "@workspace/api-client-react";
+// [Task #682 review-fix #2] 빈 상태에서 카테고리/지역 진단 + 업체 정보 수정 CTA 노출.
+import {
+  PartnerProfileDiagnostic,
+  deriveDiagnosticInputs,
+} from "@/components/vendor-portal/partner-profile-diagnostic";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -299,12 +305,20 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">수신된 견적 요청이 없습니다</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-3" data-testid="vendor-rfq-empty">
+          <Card>
+            <CardContent className="py-12 text-center">
+              <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-muted-foreground">수신된 견적 요청이 없습니다</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                관리소장은 같은 분야·활동지역의 협력사에게만 RFQ 를 보냅니다.
+              </p>
+            </CardContent>
+          </Card>
+          {/* [Task #682 review-fix #2] 어떤 카테고리/지역으로 등록되어 있어 RFQ 가
+              안 들어오는지 사실 그대로 노출하고, 업체 정보 수정으로 바로 이동시킨다. */}
+          <VendorEmptyDiagnostic />
+        </div>
       )}
 
       {/* 표준 견적 제출 다이얼로그 — 라인 아이템 + 부가세 + 유효기한 + A/S */}
@@ -518,6 +532,21 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
         />
       )}
     </div>
+  );
+}
+
+// [Task #682 review-fix #2] 파트너 RFQ 탭 빈 상태에서 표시되는 진단 배너.
+//   /me/vendor 의 카테고리/지역을 가져와 PartnerProfileDiagnostic 으로 노출한다.
+function VendorEmptyDiagnostic() {
+  const { data: myVendor } = useGetMyVendor({ query: { staleTime: 60_000 } });
+  if (!myVendor) return null;
+  const { subCatList, regionLabel } = deriveDiagnosticInputs(myVendor);
+  return (
+    <PartnerProfileDiagnostic
+      vendor={myVendor}
+      subCatList={subCatList}
+      regionLabel={regionLabel}
+    />
   );
 }
 

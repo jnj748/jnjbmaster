@@ -50,13 +50,21 @@ async function ensureDemoVendorAndPartnerMapping(): Promise<number | null> {
 
   if (existingVendor) {
     vendorId = existingVendor.id;
+    // [Task #682] 매칭 파이프라인(/rfqs/:id/matched-vendors)이 type="platform" 으로
+    //   필터링하므로 demo vendor 도 platform 타입이어야 RFQ 카드에 매칭 수가 잡힌다.
+    //   기존에 contracted 로 시드된 행이 있으면 platform 으로 보정한다.
+    await db
+      .update(vendorsTable)
+      .set({ type: "platform", category: "방수/도장", sido: "서울특별시", sigungu: "강남구" })
+      .where(eq(vendorsTable.id, vendorId));
   } else {
     const [inserted] = await db
       .insert(vendorsTable)
       .values({
         name: DEMO_VENDOR_NAME,
         category: "방수/도장",
-        type: "contracted",
+        // [Task #682] platform 매칭 파이프라인에서 잡히도록 platform 으로 시드.
+        type: "platform",
         contactName: "테스트파트너 담당자",
         phone: "010-0000-0000",
         email: "partner@test.com",

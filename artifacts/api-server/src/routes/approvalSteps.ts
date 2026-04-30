@@ -426,6 +426,17 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
     return;
   }
 
+  // [Task #682] 출처 보존 (rfq → 기안 → 결재 → 지출/입금 사슬을 잇는다).
+  const sourceEntityType =
+    typeof body.sourceEntityType === "string" && body.sourceEntityType.length > 0
+      ? body.sourceEntityType
+      : null;
+  const sourceEntityIdRaw = body.sourceEntityId;
+  const sourceEntityId =
+    typeof sourceEntityIdRaw === "number" && Number.isFinite(sourceEntityIdRaw)
+      ? sourceEntityIdRaw
+      : null;
+
   // [Task #610] 2층 단일 통로 — 임시저장 INSERT + documents upsert 헬퍼 위임.
   let row: typeof approvalsTable.$inferSelect;
   try {
@@ -446,6 +457,8 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
             requesterId: user.userId,
             requesterName: userName,
             buildingId,
+            sourceEntityType,
+            sourceEntityId,
             status: "draft",
             isDraft: true,
             totalSteps: steps.length || 1,
@@ -538,6 +551,15 @@ router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res):
             typeof body.buildingId === "number" && Number.isFinite(body.buildingId)
               ? body.buildingId
               : existing.buildingId,
+          // [Task #682] 출처 정보도 갱신 가능 — 비어있으면 기존값 보존.
+          sourceEntityType:
+            typeof body.sourceEntityType === "string" && body.sourceEntityType.length > 0
+              ? body.sourceEntityType
+              : existing.sourceEntityType,
+          sourceEntityId:
+            typeof body.sourceEntityId === "number" && Number.isFinite(body.sourceEntityId)
+              ? body.sourceEntityId
+              : existing.sourceEntityId,
           totalSteps: steps.length || existing.totalSteps,
         })
         .where(eq(approvalsTable.id, id))

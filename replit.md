@@ -64,18 +64,17 @@
 The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-- Developed with React, Vite, Tailwind CSS, and shadcn/ui.
-- Features a mobile-first responsive design and distinct, role-based portals for managers, headquarters, and vendors.
+- Developed with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
+- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
 - Optimizes performance with React.lazy, Vite manualChunks, and React Query.
 
 **Backend:**
-- Built on an Express 5 API framework with JWT authentication.
-- Implements a robust Role-Based Access Control (RBAC) system supporting 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
+- Built on an Express 5 API framework with JWT authentication and a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
 - API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
 
 **Database:**
 - PostgreSQL is the primary data store, managed via Drizzle ORM.
-- The schema supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
+- Supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
 - Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**

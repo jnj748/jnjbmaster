@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt } from "lucide-react";
+import { Receipt, FileText } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface ExpenseVoucher {
   id: number;
@@ -29,6 +30,11 @@ interface ExpenseVoucher {
   recordedByName: string | null;
   settlementId: number | null;
   createdAt: string;
+  // [Task #682] 인박스 행에 출처(예: RFQ #N) 백링크.
+  sourceEntityType: string | null;
+  sourceEntityId: number | null;
+  sourceApprovalId: number | null;
+  sourceApprovalTitle: string | null;
 }
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -37,6 +43,7 @@ const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
 export default function ExpenseVoucherInboxPage() {
   const { token } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [rows, setRows] = useState<ExpenseVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -148,6 +155,7 @@ export default function ExpenseVoucherInboxPage() {
                   key={v.id}
                   voucher={v}
                   busy={busyId === v.id}
+                  onOpenSource={(href) => setLocation(href)}
                   voucherNo={voucherNos[v.id] ?? ""}
                   onChangeNo={(no) => setVoucherNos((m) => ({ ...m, [v.id]: no }))}
                   paidAt={paidDates[v.id] ?? today}
@@ -171,7 +179,12 @@ export default function ExpenseVoucherInboxPage() {
               <EmptyMsg text="기록된 지출결의서가 없습니다." />
             ) : (
               recorded.map((v) => (
-                <VoucherCard key={v.id} voucher={v} readOnly />
+                <VoucherCard
+                  key={v.id}
+                  voucher={v}
+                  onOpenSource={(href) => setLocation(href)}
+                  readOnly
+                />
               ))
             )}
           </Section>
@@ -218,6 +231,7 @@ function VoucherCard({
   accountMemo,
   onChangeAccountMemo,
   onRecord,
+  onOpenSource,
   readOnly,
 }: {
   voucher: ExpenseVoucher;
@@ -231,16 +245,55 @@ function VoucherCard({
   accountMemo?: string;
   onChangeAccountMemo?: (s: string) => void;
   onRecord?: () => void;
+  onOpenSource?: (href: string) => void;
   readOnly?: boolean;
 }) {
   const amount = typeof voucher.amount === "string" ? Number(voucher.amount) : voucher.amount;
+  // [Task #682] 출처 백링크 — 현재는 RFQ 만 라우팅 지원, 그 외엔 라벨만.
+  const sourceHref =
+    voucher.sourceEntityType === "rfq" && voucher.sourceEntityId
+      ? `/rfqs?focus=${voucher.sourceEntityId}`
+      : null;
+  const sourceLabel = voucher.sourceEntityType
+    ? voucher.sourceEntityType === "rfq"
+      ? `관련 RFQ #${voucher.sourceEntityId}`
+      : `관련 ${voucher.sourceEntityType} #${voucher.sourceEntityId}`
+    : null;
   return (
     <Card>
       <CardContent className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-medium">{voucher.title}</p>
-            <p className="text-xs text-gray-500">결재 #{voucher.approvalId}</p>
+            {/* [Task #682 review-fix #2] 결재 #N 도 클릭 가능한 백링크로 노출.
+                /approvals?focus=N 으로 이동해 결재함에서 해당 안건이 자동 강조된다. */}
+            <button
+              type="button"
+              onClick={() => onOpenSource?.(`/approvals?focus=${voucher.sourceApprovalId ?? voucher.approvalId}`)}
+              className="text-xs text-blue-600 hover:underline"
+              data-testid={`voucher-approval-link-${voucher.id}`}
+            >
+              결재 #{voucher.sourceApprovalId ?? voucher.approvalId}
+              {voucher.sourceApprovalTitle ? ` — ${voucher.sourceApprovalTitle}` : ""}
+            </button>
+            {sourceLabel ? (
+              sourceHref ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenSource?.(sourceHref)}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  data-testid={`voucher-source-link-${voucher.id}`}
+                >
+                  <FileText className="h-3 w-3" />
+                  {sourceLabel}
+                </button>
+              ) : (
+                <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500">
+                  <FileText className="h-3 w-3" />
+                  {sourceLabel}
+                </p>
+              )
+            ) : null}
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold">

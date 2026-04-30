@@ -3000,6 +3000,12 @@ export interface Approval {
   /** @nullable */
   relatedInspectionId?: number | null;
   /** @nullable */
+  buildingId?: number | null;
+  /** @nullable */
+  sourceEntityType?: string | null;
+  /** @nullable */
+  sourceEntityId?: number | null;
+  /** @nullable */
   rejectionReason?: string | null;
   /** @nullable */
   approvedAt?: string | null;

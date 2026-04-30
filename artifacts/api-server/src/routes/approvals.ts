@@ -18,6 +18,8 @@ const router: IRouter = Router();
 function serializeApproval(r: typeof approvalsTable.$inferSelect) {
   return {
     ...r,
+    // [Task #682] buildingId, sourceEntityType, sourceEntityId 등은 이미 spread 로
+    //   포함된다. 명시적으로 keep 한다는 사실을 readability 차원에서 코멘트로 박는다.
     approvedAt: r.approvedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -97,6 +99,24 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
     return;
   }
 
+  // [Task #682] RFQ 카드의 "기안서 작성" 진입에서 출처(rfq/quote/voucher 등)를
+  //   approval row 에 함께 보존한다 — buildingId 도 같이 받아두어야 본부장 라인이
+  //   자동 결정될 때 임계 매칭이 정확해진다.
+  const buildingIdRaw = body.buildingId;
+  const buildingIdValue =
+    typeof buildingIdRaw === "number" && Number.isFinite(buildingIdRaw)
+      ? buildingIdRaw
+      : null;
+  const sourceEntityType =
+    typeof body.sourceEntityType === "string" && body.sourceEntityType.length > 0
+      ? body.sourceEntityType
+      : null;
+  const sourceEntityIdRaw = body.sourceEntityId;
+  const sourceEntityId =
+    typeof sourceEntityIdRaw === "number" && Number.isFinite(sourceEntityIdRaw)
+      ? sourceEntityIdRaw
+      : null;
+
   // [Task #610] 2층 단일 통로 — 결재 INSERT + documents upsert 헬퍼 위임.
   let row: typeof approvalsTable.$inferSelect;
   try {
@@ -116,6 +136,9 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
             relatedInspectionId: body.relatedInspectionId ?? null,
             requesterId: user.userId,
             requesterName: userName,
+            buildingId: buildingIdValue,
+            sourceEntityType,
+            sourceEntityId,
             status: steps.length > 0 ? "in_progress" : "pending",
             isDraft: false,
             totalSteps: Math.max(steps.length, 1),

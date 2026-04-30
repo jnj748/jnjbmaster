@@ -10,6 +10,8 @@ import {
   useUpdateQuote,
   useExpandRfqScope,
   useGetQuote,
+  useGetRfqMatchedVendors,
+  useListApprovals,
   listContracts,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
@@ -22,7 +24,7 @@ import {
   getListRfqSiteVisitsQueryKey,
   type Vendor,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +61,27 @@ import {
   MessageSquare,
   CalendarDays,
   Send,
+  MoreVertical,
+  Users,
+  AlertTriangle,
+  ClipboardList,
+  Receipt,
+  HelpCircle,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { buildApprovalPrefillUrl } from "@/lib/approval-prefill";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import {
@@ -451,6 +473,105 @@ export default function Rfqs() {
   // [Task #407] 폼에서 "추가 발송 업체" 선택 목록이 제거되어 platformVendors 는 더 이상 사용되지 않음.
   const vendorById = new Map<number, Vendor>((vendors || []).map((v) => [v.id, v]));
 
+  // [Task #682] 모든 결재를 한 번에 가져와 RFQ 별 파이프라인 배지에 사용한다.
+  //   서버는 sourceEntityType/sourceEntityId 를 응답에 포함시키므로 (T001),
+  //   카드 컴포넌트가 자기 RFQ 와 연결된 결재만 골라 배지를 그릴 수 있다.
+  const { data: allApprovals } = useListApprovals();
+  const approvalsByRfqId = new Map<number, any[]>();
+  for (const ap of (allApprovals as any[] | undefined) ?? []) {
+    if (ap?.sourceEntityType === "rfq" && ap.sourceEntityId != null) {
+      const list = approvalsByRfqId.get(Number(ap.sourceEntityId)) ?? [];
+      list.push(ap);
+      approvalsByRfqId.set(Number(ap.sourceEntityId), list);
+    }
+  }
+  // 결재 안에서 최신순으로 정렬해 두면 카드가 가장 최근 결재 1건 기준으로 배지를 그릴 수 있다.
+  for (const list of approvalsByRfqId.values()) {
+    list.sort((a, b) => Number(b.id ?? 0) - Number(a.id ?? 0));
+  }
+
+  // [Task #682 review-fix] 결재가 통과되어 자동 발행된 지출결의/입금요청을
+  //   RFQ 카드에서 직접 보여 주고, "기안서 작성" 중복 트리거를 막기 위해 한 번에 가져온다.
+  //   매니저 역할은 GET /api/expense-vouchers, GET /api/payment-requests 에 접근 권한이 있다.
+  // [Task #682 review-fix #2] 백엔드는 Bearer 토큰 인증이라 fetch 에 Authorization 헤더가 반드시 필요.
+  //   token 이 없을 때(로그인 직전 등)는 enabled=false 로 호출 자체를 보류한다.
+  const { data: vouchers } = useQuery<any[]>({
+    queryKey: ["/api/expense-vouchers", "for-rfqs", token ? "auth" : "anon"],
+    enabled: !!token,
+    queryFn: async () => {
+      const res = await fetch("/api/expense-vouchers", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return [] as any[];
+      return (await res.json()) as any[];
+    },
+    staleTime: 30_000,
+  });
+  const { data: paymentReqs } = useQuery<any[]>({
+    queryKey: ["/api/payment-requests", "for-rfqs", token ? "auth" : "anon"],
+    enabled: !!token,
+    queryFn: async () => {
+      const res = await fetch("/api/payment-requests", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) return [] as any[];
+      return (await res.json()) as any[];
+    },
+    staleTime: 30_000,
+  });
+  const vouchersByRfqId = new Map<number, any[]>();
+  for (const v of (vouchers as any[] | undefined) ?? []) {
+    if (v?.sourceEntityType === "rfq" && v.sourceEntityId != null) {
+      const list = vouchersByRfqId.get(Number(v.sourceEntityId)) ?? [];
+      list.push(v);
+      vouchersByRfqId.set(Number(v.sourceEntityId), list);
+    }
+  }
+  const paymentReqsByRfqId = new Map<number, any[]>();
+  for (const p of (paymentReqs as any[] | undefined) ?? []) {
+    if (p?.sourceEntityType === "rfq" && p.sourceEntityId != null) {
+      const list = paymentReqsByRfqId.get(Number(p.sourceEntityId)) ?? [];
+      list.push(p);
+      paymentReqsByRfqId.set(Number(p.sourceEntityId), list);
+    }
+  }
+
+  // [Task #682 review-fix] 인박스에서 "관련 RFQ" 백링크 클릭 → /rfqs?focus=N 로
+  //   진입했을 때 해당 카드를 자동 스크롤한다. 카드가 그려진 직후를 보장하기 위해
+  //   small timeout + retry. 한 번 동작하면 focus 파라미터는 URL 에서 제거.
+  const focusParam = new URLSearchParams(search).get("focus");
+  const focusRfqId = focusParam ? Number(focusParam) : null;
+  useEffect(() => {
+    if (!focusRfqId || !rfqs || rfqs.length === 0) return;
+    let cancelled = false;
+    let tries = 0;
+    const tick = () => {
+      if (cancelled) return;
+      const el = document.querySelector(
+        `[data-testid="rfq-card-${focusRfqId}"]`,
+      ) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("ring-2", "ring-primary", "ring-offset-2");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+        }, 2400);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("focus");
+        window.history.replaceState({}, "", url.toString());
+      } else if (tries < 12) {
+        tries += 1;
+        setTimeout(tick, 150);
+      }
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusRfqId, rfqs]);
+
   return (
     <div className="space-y-6">
       {/* [Task #226] HQ 어드민(본사 관리자/임원)에게는 RFQ 목록 위에 매칭/견적/크레딧 통계를 노출한다. */}
@@ -676,104 +797,65 @@ export default function Rfqs() {
       ) : rfqs && rfqs.length > 0 ? (
         <div className="space-y-3">
           {rfqs.map((rfq: any) => (
-            <Card key={rfq.id}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <FileText className="w-4 h-4 text-primary" />
-                      <h3 className="font-medium">{rfq.title}</h3>
-                      <Badge variant={statusColor(rfq.status) as any}>
-                        {statusLabel(rfq.status)}
-                      </Badge>
-                      {rfq.geoScope && (
-                        <Badge variant="outline" className="text-xs">
-                          <MapPin className="w-3 h-3 mr-0.5" />
-                          {rfq.geoScope === "sigungu" ? `${rfq.sido} ${rfq.sigungu}` : rfq.sido}
-                        </Badge>
-                      )}
-                      {rfq.requiresSiteVisit && (
-                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
-                          <CalendarDays className="w-3 h-3 mr-0.5" />
-                          현장방문 필요
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
-                      <span>건물: {rfq.buildingName}</span>
-                      <span>분류: {categoryLabel(rfq.category)}</span>
-                      {rfq.serviceType && <span>용역: {rfqServiceTypeLabel(rfq.serviceType)}</span>}
-                      <span>마감: {formatDate(rfq.deadline)}</span>
-                      {rfq.desiredDate && <span>희망일: {formatDate(rfq.desiredDate)}</span>}
-                    </div>
-                    {rfq.description && (
-                      <p className="text-sm text-muted-foreground mt-2">{rfq.description}</p>
-                    )}
-                    {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
-                      <div className="flex gap-2 mt-2">
-                        {rfq.closeUpPhotoUrl && (
-                          <AuthImage src={rfq.closeUpPhotoUrl} alt="근경" className="w-16 h-16 rounded border object-cover" />
-                        )}
-                        {rfq.widePhotoUrl && (
-                          <AuthImage src={rfq.widePhotoUrl} alt="원경" className="w-16 h-16 rounded border object-cover" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-1 flex-wrap justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCompareRfqId(compareRfqId === rfq.id ? null : rfq.id)}
-                    >
-                      <BarChart3 className="w-3.5 h-3.5 mr-1" />
-                      견적 비교
-                    </Button>
-                    {/* [Task #612] 메시지/현장방문 패널 토글 — 카드 안에 인라인으로 펼침. */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCommsRfqId(commsRfqId === rfq.id ? null : rfq.id)}
-                      data-testid={`rfq-comms-toggle-${rfq.id}`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                      소통/방문
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setRfqDocRfq({
-                      title: rfq.title,
-                      category: rfq.category,
-                      serviceType: rfq.serviceType,
-                      description: rfq.description,
-                      buildingName: rfq.buildingName,
-                      desiredDate: rfq.desiredDate,
-                      deadline: rfq.deadline,
-                      sido: rfq.sido,
-                      sigungu: rfq.sigungu,
-                      closeUpPhotoUrl: rfq.closeUpPhotoUrl,
-                      widePhotoUrl: rfq.widePhotoUrl,
-                      createdAt: rfq.createdAt,
-                    })}>
-                      <Printer className="w-3.5 h-3.5 mr-1" />
-                      의뢰서
-                    </Button>
-                    {rfq.status === "open" && rfq.geoScope === "sigungu" && (
-                      <Button variant="outline" size="sm" onClick={() => handleExpandScope(rfq.id)}>
-                        <Expand className="w-3.5 h-3.5 mr-1" />
-                        범위 확대
-                      </Button>
-                    )}
-                    {rfq.status === "open" && (
-                      <Button variant="outline" size="sm" onClick={() => handleCloseRfq(rfq.id)}>
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                        마감
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(rfq.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-
+            <RfqCard
+              key={rfq.id}
+              rfq={rfq}
+              relatedApprovals={approvalsByRfqId.get(rfq.id) ?? []}
+              relatedVouchers={vouchersByRfqId.get(rfq.id) ?? []}
+              relatedPaymentReqs={paymentReqsByRfqId.get(rfq.id) ?? []}
+              vendors={vendors || []}
+              compareOpen={compareRfqId === rfq.id}
+              commsOpen={commsRfqId === rfq.id}
+              onToggleCompare={() =>
+                setCompareRfqId(compareRfqId === rfq.id ? null : rfq.id)
+              }
+              onToggleComms={() =>
+                setCommsRfqId(commsRfqId === rfq.id ? null : rfq.id)
+              }
+              onOpenDoc={() =>
+                setRfqDocRfq({
+                  title: rfq.title,
+                  category: rfq.category,
+                  serviceType: rfq.serviceType,
+                  description: rfq.description,
+                  buildingName: rfq.buildingName,
+                  desiredDate: rfq.desiredDate,
+                  deadline: rfq.deadline,
+                  sido: rfq.sido,
+                  sigungu: rfq.sigungu,
+                  closeUpPhotoUrl: rfq.closeUpPhotoUrl,
+                  widePhotoUrl: rfq.widePhotoUrl,
+                  createdAt: rfq.createdAt,
+                })
+              }
+              onExpandScope={() => handleExpandScope(rfq.id)}
+              onCloseRfq={() => handleCloseRfq(rfq.id)}
+              onDelete={() => handleDelete(rfq.id)}
+              onCreateApproval={() => {
+                // [Task #682] RFQ → 기안 prefill. 카테고리는 RFQ 분류와 직접
+                //   대응되지 않으므로 maintenance 로 시작(approval-create 에서 변경 가능).
+                const url = buildApprovalPrefillUrl({
+                  kind: "rfq",
+                  sourceTable: "rfqs",
+                  sourceId: rfq.id,
+                  title: `[비교견적] ${rfq.title}`,
+                  buildingId: rfq.buildingId ?? null,
+                  vendorName: null,
+                  description: rfq.description ?? null,
+                  sourceEntityType: "rfq",
+                  sourceEntityId: rfq.id,
+                  // [Task #682 review-fix #2] 결재 화면이 원본 RFQ 와 첨부 사진을
+                  //   바로 보여 줄 수 있도록 함께 전달.
+                  sourceUrl: `/rfqs?focus=${rfq.id}`,
+                  photos: [rfq.closeUpPhotoUrl, rfq.widePhotoUrl],
+                  metadata: { category: "maintenance" },
+                });
+                setLocation(url);
+              }}
+              statusLabel={statusLabel}
+              statusColor={statusColor}
+              categoryLabel={categoryLabel}
+            >
                 {commsRfqId === rfq.id && (
                   <RfqCommsPanel rfq={rfq} vendors={vendors || []} />
                 )}
@@ -829,12 +911,47 @@ export default function Rfqs() {
                                 </td>
                                 <td className="p-2 text-center">
                                   {q.status === "submitted" && (
-                                    <div className="flex gap-1 justify-center">
+                                    <div className="flex flex-wrap gap-1 justify-center">
                                       {/* [Task #335] 견적 채택은 곧바로 업체선정 품의·계약을 자동 생성하므로
                                           CTA 문구를 "수락하고 계약 진행" 으로 명시한다. */}
                                       <Button size="sm" variant="outline" onClick={() => handleAcceptQuote(q.id)}>
                                         <CheckCircle className="w-3 h-3 mr-1" />
                                         수락하고 계약 진행
+                                      </Button>
+                                      {/* [Task #682 review-fix] 채택 직전에 본부장/총괄 라인이 필요한 경우를 위해
+                                          행 단위 "기안서 작성" 도 제공. 업체명/금액/예상 소요일을 prefill 한다. */}
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        data-testid={`quote-create-approval-${q.id}`}
+                                        onClick={() => {
+                                          const url = buildApprovalPrefillUrl({
+                                            kind: "rfq",
+                                            sourceTable: "rfqs",
+                                            sourceId: rfq.id,
+                                            title: `[비교견적] ${rfq.title} — ${q.vendorName}`,
+                                            buildingId: rfq.buildingId ?? null,
+                                            vendorName: q.vendorName ?? null,
+                                            estimatedAmount: typeof q.totalAmount === "number" ? q.totalAmount : Number(q.totalAmount ?? 0) || null,
+                                            description: [
+                                              `RFQ #${rfq.id} ${rfq.title}`,
+                                              `업체: ${q.vendorName} (견적 #${q.id})`,
+                                              `금액: ${Number(q.totalAmount ?? 0).toLocaleString()}원`,
+                                              q.estimatedDays ? `예상 소요: ${q.estimatedDays}일` : null,
+                                              q.scope ? `범위: ${q.scope}` : null,
+                                            ].filter(Boolean).join("\n"),
+                                            sourceEntityType: "rfq",
+                                            sourceEntityId: rfq.id,
+                                            // [Task #682 review-fix #2] 원본 RFQ 링크 + 첨부 사진을 결재 화면에 전달.
+                                            sourceUrl: `/rfqs?focus=${rfq.id}`,
+                                            photos: [rfq.closeUpPhotoUrl, rfq.widePhotoUrl],
+                                            metadata: { category: "maintenance" },
+                                          });
+                                          setLocation(url);
+                                        }}
+                                      >
+                                        <ClipboardList className="w-3 h-3 mr-1" />
+                                        기안서 작성
                                       </Button>
                                       <Button size="sm" variant="ghost" onClick={() => handleRejectQuote(q.id)}>
                                         <XCircle className="w-3 h-3" />
@@ -861,23 +978,52 @@ export default function Rfqs() {
                     )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </RfqCard>
           ))}
         </div>
       ) : (
         // [Task #388] 적합한 알림이 잡히면 비교 견적 유도 카드, 없으면 기존 빈 상태.
-        <EmptyQuoteRfqSuggestion
-          variant="rfqs-page"
-          fallback={
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-muted-foreground">견적 요청이 없습니다</p>
-              </CardContent>
-            </Card>
-          }
-        />
+        // [Task #682 review-fix] 빈 상태일 때 "왜 RFQ 가 안 보이는지" 진단 — 공고를
+        //   올렸는데도 협력사가 응답하지 않는 케이스와 그냥 한 건도 없는 케이스를 구분.
+        <div className="space-y-3">
+          <EmptyQuoteRfqSuggestion
+            variant="rfqs-page"
+            fallback={
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">견적 요청이 없습니다</p>
+                </CardContent>
+              </Card>
+            }
+          />
+          <Card
+            className="border-slate-200 bg-slate-50/50"
+            data-testid="rfqs-empty-diagnostic"
+          >
+            <CardContent className="p-4 space-y-2">
+              <p className="font-medium text-sm flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-slate-500" />
+                매칭은 어떻게 동작하나요?
+              </p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
+                <li>
+                  RFQ 의 <strong>분야(category)</strong> 와{" "}
+                  <strong>활동지역</strong> 두 가지가 모두 일치하는 협력사에게만
+                  공고가 노출됩니다.
+                </li>
+                <li>
+                  지역 옵션은 시·도 단위 또는 시·군·구 단위입니다. 시·군·구로
+                  좁혀 두면 더 가까운 업체만 보지만, 매칭 수가 줄어듭니다.
+                </li>
+                <li>
+                  매칭 수가 0 이라면 RFQ 카드의 "범위 확대"로 시·도까지 넓히거나,
+                  분야 설정을 다시 확인해 주세요.
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
@@ -897,6 +1043,372 @@ export default function Rfqs() {
         />
       )}
     </div>
+  );
+}
+
+// [Task #682] RFQ 카드 — 헤더/메타/액션을 한 컴포넌트로 묶어 부모 페이지의
+//   if-체인을 단순화하고, 카드 자체가 매칭 협력사 수와 파이프라인 상태 배지를
+//   계산해 노출한다. 부모는 비교/소통 패널을 children 으로 주입한다.
+function RfqCard({
+  rfq,
+  relatedApprovals,
+  relatedVouchers,
+  relatedPaymentReqs,
+  vendors,
+  compareOpen,
+  commsOpen,
+  onToggleCompare,
+  onToggleComms,
+  onOpenDoc,
+  onExpandScope,
+  onCloseRfq,
+  onDelete,
+  onCreateApproval,
+  statusLabel,
+  statusColor,
+  categoryLabel,
+  children,
+}: {
+  rfq: any;
+  relatedApprovals: any[];
+  relatedVouchers: any[];
+  relatedPaymentReqs: any[];
+  vendors: Vendor[];
+  compareOpen: boolean;
+  commsOpen: boolean;
+  onToggleCompare: () => void;
+  onToggleComms: () => void;
+  onOpenDoc: () => void;
+  onExpandScope: () => void;
+  onCloseRfq: () => void;
+  onDelete: () => void;
+  onCreateApproval: () => void;
+  statusLabel: (s: string) => string;
+  statusColor: (s: string) => string;
+  categoryLabel: (c: string) => string;
+  children?: React.ReactNode;
+}) {
+  // [Task #682] 매칭된 협력사 수를 RFQ 카드에서 직접 보여 주어 매니저가
+  //   "공고가 누구에게 갔는지" 한눈에 파악하게 한다. 0건이면 경고 톤으로
+  //   표시하고, 그 옆 dropdown menu 의 "범위 확대" 항목도 권장된다.
+  const { data: matchedVendors, isLoading: matchedLoading } =
+    useGetRfqMatchedVendors(rfq.id, {
+      query: { enabled: rfq.status === "open" },
+    });
+  const matchedCount = matchedVendors?.length ?? 0;
+
+  // [Task #682 review-fix] 결재 파이프라인 상태 — 최근 결재 1건 + 후속 발행물.
+  //   배지 1개로 끝내지 않고 "기안 → 지출결의 → 입금요청 → 출납기록/송금완료" 까지
+  //   진행 단계를 모두 보여 주어 중복 진입을 막는다.
+  const latestApproval = relatedApprovals.length > 0 ? relatedApprovals[0] : null;
+  const inProgressApproval = relatedApprovals.find(
+    (a) => {
+      const s = String(a.status ?? "");
+      return s !== "approved" && s !== "rejected" && s !== "cancelled";
+    },
+  );
+  let approvalBadge: { label: string; className: string } | null = null;
+  if (latestApproval) {
+    const apStatus = String(latestApproval.status ?? "");
+    if (apStatus === "approved") {
+      approvalBadge = {
+        label: `기안 승인 #${latestApproval.id}`,
+        className: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+      };
+    } else if (apStatus === "rejected") {
+      approvalBadge = {
+        label: `기안 반려 #${latestApproval.id}`,
+        className: "bg-red-100 text-red-700 border border-red-300",
+      };
+    } else {
+      approvalBadge = {
+        label: `기안 진행중 #${latestApproval.id}`,
+        className: "bg-blue-100 text-blue-700 border border-blue-300",
+      };
+    }
+  }
+  const issuedVoucher = relatedVouchers[0] ?? null;
+  const issuedPayment = relatedPaymentReqs[0] ?? null;
+  const voucherBadge = issuedVoucher
+    ? issuedVoucher.status === "recorded"
+      ? {
+          label: `출납등록 완료 #${issuedVoucher.id}`,
+          className: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+        }
+      : {
+          label: `지출결의 발행됨 #${issuedVoucher.id}`,
+          className: "bg-violet-100 text-violet-800 border border-violet-300",
+        }
+    : null;
+  const paymentBadge = issuedPayment
+    ? issuedPayment.status === "remitted"
+      ? {
+          label: `송금완료 #${issuedPayment.id}`,
+          className: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+        }
+      : {
+          label: `입금요청 발행됨 #${issuedPayment.id}`,
+          className: "bg-amber-100 text-amber-800 border border-amber-300",
+        }
+    : null;
+
+  return (
+    <Card data-testid={`rfq-card-${rfq.id}`}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <FileText className="w-4 h-4 text-primary shrink-0" />
+              <h3 className="font-medium">{rfq.title}</h3>
+              <Badge variant={statusColor(rfq.status) as any}>
+                {statusLabel(rfq.status)}
+              </Badge>
+              {rfq.geoScope && (
+                <Badge variant="outline" className="text-xs">
+                  <MapPin className="w-3 h-3 mr-0.5" />
+                  {rfq.geoScope === "sigungu"
+                    ? `${rfq.sido} ${rfq.sigungu}`
+                    : rfq.sido}
+                </Badge>
+              )}
+              {rfq.requiresSiteVisit && (
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
+                  <CalendarDays className="w-3 h-3 mr-0.5" />
+                  현장방문 필요
+                </Badge>
+              )}
+            </div>
+
+            {/* [Task #682] 매칭/파이프라인 배지 행 — 카드 식별 정보 바로 아래 */}
+            <div
+              className="flex items-center gap-2 flex-wrap mt-1.5"
+              data-testid={`rfq-pipeline-badges-${rfq.id}`}
+            >
+              {rfq.status === "open" ? (
+                matchedLoading ? (
+                  <Badge variant="outline" className="text-xs">
+                    <Users className="w-3 h-3 mr-0.5" />
+                    매칭 확인 중…
+                  </Badge>
+                ) : matchedCount > 0 ? (
+                  // [Task #682 review-fix] 매칭 기준(분야 + 활동지역) 을 툴팁으로 설명.
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        className="bg-sky-100 text-sky-800 border border-sky-300 cursor-help"
+                        data-testid={`rfq-matched-badge-${rfq.id}`}
+                      >
+                        <Users className="w-3 h-3 mr-0.5" />
+                        매칭된 협력사 {matchedCount}곳
+                        <HelpCircle className="w-3 h-3 ml-1 opacity-60" />
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <div className="space-y-1 text-xs">
+                        <p className="font-medium">매칭 기준</p>
+                        <p>분야: {categoryLabel(rfq.category)}</p>
+                        {rfq.geoScope && (
+                          <p>
+                            활동지역:{" "}
+                            {rfq.geoScope === "sigungu"
+                              ? `${rfq.sido} ${rfq.sigungu}`
+                              : rfq.sido}{" "}
+                            ({rfq.geoScope === "sigungu" ? "시·군·구 일치" : "시·도 일치"})
+                          </p>
+                        )}
+                        <p className="text-muted-foreground">
+                          위 조건을 모두 만족하는 협력사에게 RFQ 가 노출됩니다.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="destructive"
+                        className="cursor-help"
+                        data-testid={`rfq-matched-empty-${rfq.id}`}
+                      >
+                        <AlertTriangle className="w-3 h-3 mr-0.5" />
+                        매칭된 협력사 0곳 — 범위 확대 권장
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <div className="space-y-1 text-xs">
+                        <p className="font-medium">왜 0건일까요?</p>
+                        <p>
+                          분야 <strong>{categoryLabel(rfq.category)}</strong>
+                          {rfq.geoScope &&
+                            ` + 지역 ${
+                              rfq.geoScope === "sigungu"
+                                ? `${rfq.sido} ${rfq.sigungu}`
+                                : rfq.sido
+                            }`}{" "}
+                          조건을 만족하는 등록 협력사가 없습니다.
+                        </p>
+                        <p className="text-muted-foreground">
+                          오른쪽 메뉴의 "범위 확대"로 활동지역을 시·도까지 넓히면
+                          매칭이 늘어날 수 있습니다.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              ) : null}
+
+              {approvalBadge && (
+                <Badge
+                  className={approvalBadge.className}
+                  data-testid={`rfq-approval-badge-${rfq.id}`}
+                >
+                  <ClipboardList className="w-3 h-3 mr-0.5" />
+                  {approvalBadge.label}
+                </Badge>
+              )}
+              {voucherBadge && (
+                <Badge
+                  className={voucherBadge.className}
+                  data-testid={`rfq-voucher-badge-${rfq.id}`}
+                >
+                  <Receipt className="w-3 h-3 mr-0.5" />
+                  {voucherBadge.label}
+                </Badge>
+              )}
+              {paymentBadge && (
+                <Badge
+                  className={paymentBadge.className}
+                  data-testid={`rfq-payment-badge-${rfq.id}`}
+                >
+                  <Send className="w-3 h-3 mr-0.5" />
+                  {paymentBadge.label}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
+              <span>건물: {rfq.buildingName}</span>
+              <span>분류: {categoryLabel(rfq.category)}</span>
+              {rfq.serviceType && (
+                <span>용역: {rfqServiceTypeLabel(rfq.serviceType)}</span>
+              )}
+              <span>마감: {formatDate(rfq.deadline)}</span>
+              {rfq.desiredDate && <span>희망일: {formatDate(rfq.desiredDate)}</span>}
+            </div>
+            {rfq.description && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {rfq.description}
+              </p>
+            )}
+            {(rfq.closeUpPhotoUrl || rfq.widePhotoUrl) && (
+              <div className="flex gap-2 mt-2">
+                {rfq.closeUpPhotoUrl && (
+                  <AuthImage
+                    src={rfq.closeUpPhotoUrl}
+                    alt="근경"
+                    className="w-16 h-16 rounded border object-cover"
+                  />
+                )}
+                {rfq.widePhotoUrl && (
+                  <AuthImage
+                    src={rfq.widePhotoUrl}
+                    alt="원경"
+                    className="w-16 h-16 rounded border object-cover"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* [Task #682] 액션 영역 — primary 2개 + kebab. */}
+          <div className="flex gap-1 items-start shrink-0">
+            <Button
+              variant={compareOpen ? "default" : "outline"}
+              size="sm"
+              onClick={onToggleCompare}
+              data-testid={`rfq-compare-toggle-${rfq.id}`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-1" />
+              견적 비교
+            </Button>
+            <Button
+              variant={commsOpen ? "default" : "outline"}
+              size="sm"
+              onClick={onToggleComms}
+              data-testid={`rfq-comms-toggle-${rfq.id}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 mr-1" />
+              소통/방문
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid={`rfq-kebab-${rfq.id}`}
+                  aria-label="더 보기"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>이 RFQ 작업</DropdownMenuLabel>
+                {/* [Task #682 review-fix] 같은 RFQ 의 결재가 이미 진행중이면
+                    중복 기안 가능성을 사용자에게 경고한 뒤 진행한다. */}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    if (inProgressApproval) {
+                      const ok = window.confirm(
+                        `이미 진행중인 기안이 있습니다 (#${inProgressApproval.id}). 그래도 새 기안을 작성하시겠어요?`,
+                      );
+                      if (!ok) {
+                        e.preventDefault();
+                        return;
+                      }
+                    }
+                    onCreateApproval();
+                  }}
+                  data-testid={`rfq-create-approval-${rfq.id}`}
+                >
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  기안서 작성
+                  {inProgressApproval && (
+                    <span className="ml-auto text-[10px] text-amber-600">진행중</span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenDoc}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  의뢰서 출력
+                </DropdownMenuItem>
+                {rfq.status === "open" && rfq.geoScope === "sigungu" && (
+                  <DropdownMenuItem onClick={onExpandScope}>
+                    <Expand className="w-4 h-4 mr-2" />
+                    범위 확대(시·도)
+                  </DropdownMenuItem>
+                )}
+                {rfq.status === "open" && (
+                  <DropdownMenuItem onClick={onCloseRfq}>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    마감 처리
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  삭제
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* 부모가 주입하는 인라인 패널(견적 비교/소통/방문) */}
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
