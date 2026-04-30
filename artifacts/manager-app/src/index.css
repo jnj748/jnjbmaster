@@ -475,10 +475,50 @@ h1, h2, h3, h4 {
    *   `position: static !important; transform: none !important; ...` 무력화는
    *   격리로 인해 더 이상 필요 없어 모두 제거되었다.
    */
+  /*
+   * [Task #720] 다중 페이지 인쇄 회귀 수정 — html/body 의 화면용 잠금 해제.
+   *
+   *   화면용 base 규칙(`@layer base` line 171–178)은 `html, body { height: 100%;
+   *   overflow-x: hidden }` 을 강제한다. 이 규칙이 인쇄 시에도 살아 있으면
+   *   CSS 명세상 한 축이 `hidden` 이고 다른 축이 `visible` 이면 `visible` 은
+   *   자동으로 `auto` 로 승격된다(W3C overflow §3.2 — overflow shorthand
+   *   computed value). 결과적으로 인쇄 미디어에서 `body` 가 사실상
+   *   `overflow-y: auto` 로 동작해 본문이 페이지 흐름으로 분할되지 않고 body
+   *   의 스크롤 영역으로 밀려 들어가, 인쇄 엔진은 첫 페이지(=1 viewport
+   *   분량) 만 보게 되어 2페이지 이후가 빠진다 — Task #554 의 격리 컨테이너
+   *   안쪽(`[data-print-root]`) overflow 해제만으로는 부족하고, 그 위 단계인
+   *   루트(html/body) 까지 함께 풀어 줘야 다중 페이지 자연 흐름이 보장된다.
+   *
+   *   짧은 보고서가 회귀 없이 보였던 이유는 본문이 1 viewport 안에 들어가
+   *   overflow 가 발생하지 않아 분할 자체가 필요 없었기 때문.
+   *
+   *   `height` / `min-height` 도 함께 풀어 단일 진실원으로 둔다 — 화면용
+   *   `height: 100%` 가 인쇄에서 페이지 높이 캡으로 작용하지 않게 한다.
+   *   `overflow-x` / `overflow-y` 둘 다 명시적으로 `visible` 로 둬, 한 축만
+   *   풀고 다른 축이 hidden 으로 남으면 위 명세 동작에 다시 걸리는 회귀를
+   *   원천 차단한다.
+   */
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
+  /*
+   * [Task #720] 격리 컨테이너 직계 부모(=<body>) 단계까지 height/overflow
+   *   잠금을 한 번 더 풀어 단일 진실원을 만든다. 인쇄 컨테이너는 현재
+   *   `<body>` 직속이지만, 향후 어떤 wrapper 가 끼어들어도 페이지 흐름이
+   *   막히지 않도록 동일 규칙을 `[data-printing]` 자체에도 명시한다.
+   */
+  [data-printing] {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
   }
 
   /*

@@ -41,7 +41,7 @@
   1. **서버 라우트 가드** — `if (process.env.NODE_ENV === "production") return;` 또는 라우트 자체를 dev-only 모듈로 분리해서 production 부트에서 마운트되지 않게.
   2. **클라이언트 빌드 가드** — `import.meta.env.DEV` 로 컴포넌트·라우트를 감싸 production 번들에서 dead code 로 제거 (lazy import + DEV 분기).
   3. **시드 데이터 가드** — DEV 시드 함수는 진입 첫 줄에 `NODE_ENV !== "production"` early-return (이미 `seedTestUsers` 패턴). `seed`, `demo`, `test` 표식이 있는 행은 prod 마이그레이션·시드에서 절대 호출되지 않게.
-  - task 명세에는 항상 위 3가드의 **각각 어디에 들어가는지 파일 경로 단위로 명시** 한다 ("dev-only" 라는 한 단어로 끝내지 않는다).
+  - task 명세에는 항상 위 3가드의 **각각 어디에 들어가는지 파일 경로 단위로 명시** ("dev-only" 라는 한 단어로 끝내지 않는다).
   - 검증 (자동화됨): `pnpm --filter @workspace/manager-app run build` 끝에 `node scripts/check-no-dev-leak.mjs` 가 자동 체이닝되어 `dist/public/` 의 모든 .html/.js/.mjs/.css 를 스캔, 디버그 식별자 화이트리스트(`preview-grid`, `auth_token__dev__`, `__dev_as__`, `/__dev/`) 가 1건이라도 발견되면 비-제로 exit 로 빌드 차단. 미래 새 디버그 도구가 생기면 `artifacts/manager-app/scripts/check-no-dev-leak.mjs` 의 `FORBIDDEN_TOKENS` 에 식별자 한 줄 추가만 하면 영구 회귀 보장.
 - **권한 SoT 체이너 (모든 신규 모듈 task 의 의무 첨부)**: 신규 모듈 task 명세를 작성할 때, 다음 두 경로는 반드시 `relevantFiles` 와 본문 인용에 함께 들어가야 한다. agent 가 권한 정책을 새로 추정하지 않고 SoT 를 따르도록 잠금:
   - `docs/user-roles/README.md` — 6개 역할 위계도 SoT
