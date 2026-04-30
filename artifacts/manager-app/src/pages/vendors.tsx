@@ -1,3 +1,11 @@
+// [Task #726] 본부장(관리자)이 보는 /vendors 화면을 파트너사(=platform 유형) 전용으로
+//   정리한다. 본부장 입장에서는 건물 단위로 관리되는 "계약 업체"(type=contracted)는
+//   직접 다룰 일이 없고, 플랫폼에 가입한 파트너사만 보면 된다. 따라서 기존 "계약 업체 /
+//   플랫폼 업체" 두 탭을 모두 제거하고 처음부터 type=platform 으로만 조회·등록한다.
+//
+//   계약 업체 데이터(type=contracted) 자체는 관리소장의 "협력업체 주소록"
+//   (/building/vendor-directory) 과 건물 단위 계약 화면에서 계속 사용되므로 API 의
+//   `type` 필터·DB 컬럼은 그대로 둔다. 본 화면은 본부장의 UX 정리만 담당한다.
 import { useState } from "react";
 import {
   useListVendors,
@@ -30,11 +38,11 @@ import {
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Edit, Building2, Star, Phone, Mail, Briefcase, MapPin, MessageSquareText } from "lucide-react";
+import { Plus, Trash2, Edit, Star, Phone, Mail, Briefcase, MapPin, MessageSquareText } from "lucide-react";
 import { formatPhoneNumber, formatBusinessNumber } from "@/lib/format-korean";
 import { MobileFilterSheet } from "@/components/mobile-filter-sheet";
 import { useToast } from "@/hooks/use-toast";
-import { koreanDistricts, sidoList, getSigunguList } from "@workspace/shared/korean-districts";
+import { sidoList, getSigunguList } from "@workspace/shared/korean-districts";
 import { VendorRatingInline } from "@/components/star-rating";
 import { VendorReviewsListDialog } from "@/components/vendor-reviews-list-dialog";
 
@@ -55,17 +63,15 @@ const categoryOptions = [
   { value: "other", label: "기타" },
 ];
 
-type VendorType = "contracted" | "platform";
-
 export default function Vendors() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<VendorType>("contracted");
   const [filterCategory, setFilterCategory] = useState<string | undefined>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const queryParams: any = { type: activeTab };
+  // [Task #726] 처음부터 파트너사(type=platform)만 조회. 탭 제거.
+  const queryParams: any = { type: "platform" };
   if (filterCategory && filterCategory !== "all") {
     queryParams.category = filterCategory;
   }
@@ -77,6 +83,8 @@ export default function Vendors() {
   // [Task #339] 평가 목록 다이얼로그를 열 대상 vendor.
   const [reviewListVendor, setReviewListVendor] = useState<any>(null);
 
+  // [Task #726] 계약 업체 전용 필드(contractBuildingName/contractStartDate/
+  //   contractEndDate)는 폼 상태에서도 제거. 파트너사용 필드만 유지.
   const [form, setForm] = useState({
     name: "",
     category: "elevator",
@@ -86,9 +94,6 @@ export default function Vendors() {
     address: "",
     isRecommended: false,
     notes: "",
-    contractBuildingName: "",
-    contractStartDate: "",
-    contractEndDate: "",
     businessRegNumber: "",
     representativeName: "",
     serviceArea: "",
@@ -101,7 +106,6 @@ export default function Vendors() {
     setForm({
       name: "", category: "elevator", contactName: "", phone: "", email: "",
       address: "", isRecommended: false, notes: "",
-      contractBuildingName: "", contractStartDate: "", contractEndDate: "",
       businessRegNumber: "", representativeName: "", serviceArea: "",
       subCategories: "", sido: "", sigungu: "",
     });
@@ -119,9 +123,6 @@ export default function Vendors() {
       address: item.address || "",
       isRecommended: item.isRecommended,
       notes: item.notes || "",
-      contractBuildingName: item.contractBuildingName || "",
-      contractStartDate: item.contractStartDate || "",
-      contractEndDate: item.contractEndDate || "",
       businessRegNumber: item.businessRegNumber || "",
       representativeName: item.representativeName || "",
       serviceArea: item.serviceArea || "",
@@ -134,10 +135,11 @@ export default function Vendors() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // [Task #726] 신규 등록은 항상 type=platform. 계약 업체 전용 필드는 더 이상 보내지 않는다.
     const base: any = {
       name: form.name,
       category: form.category as any,
-      type: activeTab,
+      type: "platform",
       contactName: form.contactName || null,
       phone: form.phone || null,
       email: form.email || null,
@@ -148,24 +150,17 @@ export default function Vendors() {
       subCategories: form.subCategories || null,
       sido: form.sido || null,
       sigungu: form.sigungu || null,
+      businessRegNumber: form.businessRegNumber || null,
+      representativeName: form.representativeName || null,
+      serviceArea: form.serviceArea || null,
     };
-
-    if (activeTab === "contracted") {
-      base.contractBuildingName = form.contractBuildingName || null;
-      base.contractStartDate = form.contractStartDate || null;
-      base.contractEndDate = form.contractEndDate || null;
-    } else {
-      base.businessRegNumber = form.businessRegNumber || null;
-      base.representativeName = form.representativeName || null;
-      base.serviceArea = form.serviceArea || null;
-    }
 
     if (editing) {
       await updateMutation.mutateAsync({ id: editing.id, data: base });
-      toast({ title: "업체 정보가 수정되었습니다" });
+      toast({ title: "파트너사 정보가 수정되었습니다" });
     } else {
       await createMutation.mutateAsync({ data: base });
-      toast({ title: "업체가 등록되었습니다" });
+      toast({ title: "파트너사가 등록되었습니다" });
     }
     queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
     setDialogOpen(false);
@@ -175,7 +170,7 @@ export default function Vendors() {
   async function handleDelete(id: number) {
     await deleteMutation.mutateAsync({ id });
     queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
-    toast({ title: "업체가 삭제되었습니다" });
+    toast({ title: "파트너사가 삭제되었습니다" });
   }
 
   const categoryLabel = (c: string) =>
@@ -187,26 +182,26 @@ export default function Vendors() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">협력업체 관리</h1>
+          <h1 className="text-2xl font-bold">파트너사 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            유지보수 협력업체를 등록하고 관리합니다
+            플랫폼에 가입한 파트너사를 등록하고 관리합니다
           </p>
         </div>
         <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <ResponsiveDialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              업체 등록
+              파트너사 등록
             </Button>
           </ResponsiveDialogTrigger>
           <ResponsiveDialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>{editing ? "업체 수정" : "새 업체 등록"}</ResponsiveDialogTitle>
+              <ResponsiveDialogTitle>{editing ? "파트너사 수정" : "새 파트너사 등록"}</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>업체명</Label>
+                  <Label>상호</Label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
                 <div>
@@ -292,49 +287,23 @@ export default function Vendors() {
                 </div>
               </div>
 
-              {activeTab === "contracted" && (
-                <>
-                  <div className="border-t pt-4">
-                    <p className="text-sm font-medium text-muted-foreground mb-3">계약 정보</p>
-                  </div>
-                  <div>
-                    <Label>계약 건물명</Label>
-                    <Input value={form.contractBuildingName} onChange={(e) => setForm({ ...form, contractBuildingName: e.target.value })} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>계약 시작일</Label>
-                      <Input type="date" value={form.contractStartDate} onChange={(e) => setForm({ ...form, contractStartDate: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>계약 종료일</Label>
-                      <Input type="date" value={form.contractEndDate} onChange={(e) => setForm({ ...form, contractEndDate: e.target.value })} />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "platform" && (
-                <>
-                  <div className="border-t pt-4">
-                    <p className="text-sm font-medium text-muted-foreground mb-3">플랫폼 업체 정보</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>사업자등록번호</Label>
-                      <BusinessNumberInput value={form.businessRegNumber} onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label>대표자명</Label>
-                      <Input value={form.representativeName} onChange={(e) => setForm({ ...form, representativeName: e.target.value })} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>서비스 가능 지역 (텍스트)</Label>
-                    <Input value={form.serviceArea} onChange={(e) => setForm({ ...form, serviceArea: e.target.value })} placeholder="예: 서울, 경기 북부" />
-                  </div>
-                </>
-              )}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-3">파트너사 정보</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>사업자등록번호</Label>
+                  <BusinessNumberInput value={form.businessRegNumber} onChange={(e) => setForm({ ...form, businessRegNumber: e.target.value })} />
+                </div>
+                <div>
+                  <Label>대표자명</Label>
+                  <Input value={form.representativeName} onChange={(e) => setForm({ ...form, representativeName: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label>서비스 가능 지역 (텍스트)</Label>
+                <Input value={form.serviceArea} onChange={(e) => setForm({ ...form, serviceArea: e.target.value })} placeholder="예: 서울, 경기 북부" />
+              </div>
 
               <div className="flex items-center gap-2">
                 <input
@@ -343,7 +312,7 @@ export default function Vendors() {
                   onChange={(e) => setForm({ ...form, isRecommended: e.target.checked })}
                   className="w-4 h-4"
                 />
-                <Label>추천 업체로 등록</Label>
+                <Label>추천 파트너사로 등록</Label>
               </div>
               <div>
                 <Label>비고</Label>
@@ -353,31 +322,6 @@ export default function Vendors() {
             </form>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
-      </div>
-
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => { setActiveTab("contracted"); setFilterCategory(undefined); }}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "contracted"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Building2 className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-          계약 업체
-        </button>
-        <button
-          onClick={() => { setActiveTab("platform"); setFilterCategory(undefined); }}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "platform"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Briefcase className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-          플랫폼 업체
-        </button>
       </div>
 
       <div className="hidden desktop:flex gap-3">
@@ -417,11 +361,8 @@ export default function Vendors() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${vendor.type === "platform" ? "bg-chart-3/10" : "bg-primary/10"}`}>
-                      {vendor.type === "platform"
-                        ? <Briefcase className="w-5 h-5 text-chart-3" />
-                        : <Building2 className="w-5 h-5 text-primary" />
-                      }
+                    <div className="p-2 rounded-lg bg-chart-3/10">
+                      <Briefcase className="w-5 h-5 text-chart-3" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -478,16 +419,10 @@ export default function Vendors() {
                       {[vendor.sido, vendor.sigungu].filter(Boolean).join(" ")}
                     </p>
                   )}
-                  {activeTab === "contracted" && vendor.contractBuildingName && (
-                    <p className="text-xs mt-2">건물: {vendor.contractBuildingName}</p>
-                  )}
-                  {activeTab === "contracted" && vendor.contractStartDate && (
-                    <p className="text-xs">계약: {vendor.contractStartDate} ~ {vendor.contractEndDate || "진행중"}</p>
-                  )}
-                  {activeTab === "platform" && vendor.businessRegNumber && (
+                  {vendor.businessRegNumber && (
                     <p className="text-xs mt-2">사업자번호: {formatBusinessNumber(vendor.businessRegNumber)}</p>
                   )}
-                  {activeTab === "platform" && vendor.serviceArea && (
+                  {vendor.serviceArea && (
                     <p className="text-xs">서비스 지역: {vendor.serviceArea}</p>
                   )}
                 </div>
@@ -498,12 +433,9 @@ export default function Vendors() {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            {activeTab === "contracted"
-              ? <Building2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-              : <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            }
+            <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
             <p className="text-muted-foreground">
-              {activeTab === "contracted" ? "등록된 계약 업체가 없습니다" : "등록된 플랫폼 업체가 없습니다"}
+              등록된 파트너사가 없습니다
             </p>
           </CardContent>
         </Card>

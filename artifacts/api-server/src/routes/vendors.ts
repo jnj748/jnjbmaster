@@ -30,6 +30,11 @@ const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
 // [Task #416] 시설기사(facility_staff)는 협력업체 주소록을 읽기/통화용으로만 본다.
 //   따라서 /vendors GET 계열은 reader 권한, 쓰기/등록은 writer 권한으로 분리한다.
+// [Task #726 후속] 본부장(hq_executive)은 본사/플랫폼 라인이 아니라 관리소장들의
+//   상위(건물 운영 라인) 역할이다. 플랫폼 파트너사 풀의 등록/수정/삭제 (writer)
+//   권한은 platform_admin 전속이므로 hq_executive 를 writer 에서 제거한다.
+//   reader 권한은 /contracts 등 본부장이 보는 다른 화면이 vendor 메타정보를 끌어
+//   쓰는 경우가 있을 수 있어 보수적으로 유지한다.
 const VENDOR_READER_ROLES = [
   "manager",
   "platform_admin",
@@ -40,7 +45,6 @@ const VENDOR_READER_ROLES = [
 const VENDOR_WRITER_ROLES = [
   "manager",
   "platform_admin",
-  "hq_executive",
   "accountant",
 ] as const;
 const requireVendorReader = requireRole(...VENDOR_READER_ROLES);
@@ -588,7 +592,9 @@ router.get("/me/vendor/change-requests/active", async (req: Request, res: Respon
 //   - POST /admin/vendor-change-requests/:id/reject  (사유 필수)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ADMIN_VENDOR_CHANGE_ROLES = ["platform_admin", "hq_executive"] as const;
+// [Task #726 후속] 파트너 자기 사업자정보 변경 신청의 승인/반려는 platform_admin
+//   전속 업무다(본사 본부장은 건물 운영 라인이라 파트너사 자체 정보를 검수하지 않는다).
+const ADMIN_VENDOR_CHANGE_ROLES = ["platform_admin"] as const;
 const requireVendorChangeAdmin = requireRole(...ADMIN_VENDOR_CHANGE_ROLES);
 
 router.get(

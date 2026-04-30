@@ -643,13 +643,19 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     path: "/vendors", component: Vendors,
-    label: "협력업체", icon: Building2, group: "marketplace",
+    // [Task #726] 본부장이 보는 /vendors 화면을 파트너사(=platform 유형) 전용으로
+    //   정리하면서 사이드바·하단 네비 라벨도 모두 "파트너사 관리"로 통일한다.
+    //   기존 `labelOverrides.hq_executive = "용역 계약"` 은 의미가 사라지므로 제거.
+    // [Task #726 후속] 역할 구조도 정리 — 본부장(hq_executive)은 본사/플랫폼 쪽이
+    //   아니라 관리소장들의 상위(건물 운영 라인)에 위치한다. 파트너사(platform) 풀
+    //   관리·등록·삭제는 platform_admin 의 전속 업무이므로 hq_executive 의 access /
+    //   sideMenu / bottomNav 모두에서 /vendors 를 제거. 더불어 /vendors 전체 화면을
+    //   사실상 platform_admin 만 들어오는 페이지로 좁힌다(manager/accountant 는 자기
+    //   건물의 협력업체 흐름을 /building/vendor-directory 로 사용).
+    label: "파트너사 관리", icon: Building2, group: "marketplace",
     // [Task #290] partner 는 협력업체 풀에서 제외 — 본인 업체는 /me/vendor 로 진입.
-    access: ["manager", "platform_admin", "hq_executive", "accountant"],
-    sideMenu: ["manager", "platform_admin", "hq_executive"],
-    bottomNav: ["hq_executive"],
-    bottomLabel: "계약",
-    labelOverrides: { hq_executive: "용역 계약" },
+    access: ["platform_admin"],
+    sideMenu: ["platform_admin"],
   },
   {
     // [Task #369] 관리소장·경리도 사이드바 "파트너 마켓 > 용역 계약" 으로
@@ -799,17 +805,22 @@ export const ROUTES: RouteEntry[] = [
   },
   {
     // [Task #186] 플랫폼 공지(이벤트/업데이트) 관리 — 알림 벨에 노출
+    // [Task #726 후속] 본부장은 본사/플랫폼 라인이 아니라 관리소장들의 상위(건물
+    //   운영 라인)이다. 플랫폼 전체 사용자에게 보내는 공지 작성은 platform_admin
+    //   전속 업무이므로 hq_executive 의 access 에서 제거.
     path: "/platform-announcements", component: lazy(() => import("@/pages/platform-announcements")),
     label: "공지 관리", icon: FileText, group: "settings",
-    access: ["platform_admin", "hq_executive"],
+    access: ["platform_admin"],
   },
   {
     // 플랫폼 전용 — 모든 관리소장 AI 비서가 공통 참조하는
     // 법령·개정안·운영 가이드 자료실.
+    // [Task #726 후속] 본부장은 건물 운영 라인의 상위 역할로, 플랫폼 공통 자료
+    //   편집 권한이 필요 없다(건물 운영용 자료는 별도 채널). access 정리.
     path: "/platform-knowledge-docs",
     component: lazy(() => import("@/pages/platform-knowledge-docs")),
     label: "AI 공통 자료", icon: FileText, group: "settings",
-    access: ["platform_admin", "hq_executive"],
+    access: ["platform_admin"],
   },
   {
     // [Task #221] 플랫폼 전용 — 필수/제안업무 템플릿 일괄 관리.
@@ -846,15 +857,15 @@ export const ROUTES: RouteEntry[] = [
   {
     // [Task #485] 플랫폼 BM (수익화 정책·크레딧·수수료) 단독 페이지.
     //   기존 /settings 의 "플랫폼 BM" 탭을 분리해 별도 라우트·메뉴로 노출한다.
-    //   사이드바 노출은 두 곳에서 결정되므로 변경 시 양쪽을 함께 업데이트해야 한다:
-    //     1) hq_executive: 여기 `sideMenu` 로 일반 사이드바에 추가
-    //     2) platform_admin: `platformAdminSidebar()` 의 "설정" 그룹에서 직접 push
+    //   사이드바 노출은 platformAdminSidebar() 의 "설정" 그룹에서 직접 push.
     //   (platform_admin 사이드바는 기능별로 큐레이션되므로 ROUTES 의 sideMenu 가
     //   아니라 별도 함수에서 구성하는 것이 본 코드베이스의 기존 패턴이다.)
+    // [Task #726 후속] 플랫폼 BM(수익화 정책·크레딧·수수료)은 본사/플랫폼 운영의
+    //   핵심 결정이라 platform_admin 전속이다. 본부장은 건물 운영 라인의 상위
+    //   역할이므로 access 에서 제거.
     path: "/settings/platform", component: SettingsPage,
     label: "플랫폼 BM", icon: Coins, group: "settings",
-    access: ["platform_admin", "hq_executive"],
-    sideMenu: ["hq_executive"],
+    access: ["platform_admin"],
   },
   // [플랫폼 메뉴 정비] 역할×메뉴 활성/비활성 그리드. 플랫폼 전용.
   //   사이드바 노출은 platformAdminSidebar() 가 직접 추가하므로 여기서는 hidden.
@@ -1027,7 +1038,7 @@ function platformAdminSidebar(): NavSection[] {
       title: SHARED_ROLE_LABELS.partner,
       items: [
         { path: "/platform/partners", label: "현황", icon: Package },
-        { path: "/vendors", label: "협력업체", icon: Building2 },
+        { path: "/vendors", label: "파트너사 관리", icon: Building2 },
         { path: "/platform/credits", label: `${SHARED_ROLE_LABELS.partner} 크레딧 현황`, icon: Coins },
         // [Task #298] 카테고리 × 프리미엄 단위 크레딧/환불 정책 통합 관리.
         { path: "/platform/quote-credit-policies", label: "크레딧정책설정", icon: Coins },
