@@ -354,14 +354,19 @@ export default function ManagerWizardPage() {
 
         // [Task #227] 주소 선택 직후 관리소장 중복 가입 사전 점검. 중복이면 안내만 띄우고
         // 위저드는 다음 단계로 진행하지 않는다(주소 다시 검색 가능).
+        // [Task #642] 본인이 이미 buildingId 를 갖고 있다면 그 값을 함께 보내, 본인이 매니저로
+        //   묶인 건물을 "남의 건물"로 오인해 차단하는 사전 점검 false positive 를 막는다.
         try {
           const params = new URLSearchParams({ addressJibun: next.addressJibun || "" });
+          if (building.id) params.set("buildingId", String(building.id));
           const r = await fetch(`${API_BASE}/buildings/check-manager?${params}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const j = await r.json().catch(() => ({}));
           if (r.ok && j?.exists) {
-            setDupMessage(j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416");
+            const baseMsg = j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416";
+            const ctx = j?.conflictBuildingName ? ` (충돌 건물: ${j.conflictBuildingName})` : "";
+            setDupMessage(`${baseMsg}${ctx}`);
             setStep("address");
             return;
           }
@@ -484,8 +489,12 @@ export default function ManagerWizardPage() {
       const saveJson = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok || !saveJson.building?.id) {
         // [Task #227] 서버 우회 차단(409 매니저 중복) 응답을 동일한 한국어 안내로 화면에 띄운다.
+        // [Task #642] 응답에 conflictBuildingName 이 함께 오면 한 줄로 같이 보여준다.
         if (saveRes.status === 409 && typeof saveJson.error === "string") {
-          setDupMessage(saveJson.error);
+          const ctx = typeof saveJson.conflictBuildingName === "string" && saveJson.conflictBuildingName
+            ? ` (충돌 건물: ${saveJson.conflictBuildingName})`
+            : "";
+          setDupMessage(`${saveJson.error}${ctx}`);
         } else {
           toast({ title: saveJson.error || "건물 정보 저장에 실패했습니다. 다시 시도해 주세요.", variant: "destructive" });
         }

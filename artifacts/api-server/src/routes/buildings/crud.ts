@@ -114,9 +114,30 @@ router.post("/buildings", async (req: Request, res: Response) => {
       return;
     }
 
+    const requester = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+
+    // [Task #642] 위저드 재진입 방어: 매니저/경리가 이미 본인 building 을 갖고 있다면
+    //   새 행을 만들지 않고 기존 행을 그대로 반환한다. 위저드는 응답을 받아 그대로
+    //   PUT 동선으로 흘러간다(과거: 재진입할 때마다 새 buildings 행이 양산되어
+    //   동일 지번에 고아 행이 누적되고, 추후 다른 사용자가 영구 차단되던 회귀 차단).
+    if (requester && isDuplicateCheckRole(requester.role) && requester.buildingId) {
+      const existing = await db
+        .select()
+        .from(buildingsTable)
+        .where(eq(buildingsTable.id, requester.buildingId))
+        .then(r => r[0]);
+      if (existing) {
+        req.log.warn(
+          { userId, existingBuildingId: existing.id, attemptedAddressJibun: typeof data.addressJibun === "string" ? data.addressJibun : null },
+          "[buildings.post] requester already has a building — returning existing row instead of inserting a duplicate",
+        );
+        res.json({ building: existing, reused: true });
+        return;
+      }
+    }
+
     // [Task #227/#341] 관리소장·경리·시설담당자 중복 가입 차단: 동일 지번 주소에
     // 이미 동일 역할의 활성 사용자가 있다면 거절.
-    const requester = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
     if (requester && isDuplicateCheckRole(requester.role)) {
       const dup = await findExistingActiveUserForAddress({
         role: requester.role,
@@ -124,8 +145,12 @@ router.post("/buildings", async (req: Request, res: Response) => {
         buildingId: null,
         excludeUserId: userId,
       });
-      if (dup) {
-        res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
+      if (dup.exists) {
+        res.status(409).json({
+          error: BUILDING_DUPLICATE_MESSAGE,
+          conflictBuildingName: dup.conflictBuildingName ?? null,
+          conflictRole: dup.conflictRole ?? null,
+        });
         return;
       }
     }
@@ -216,6 +241,9 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
       }
     }
     // [Task #227/#341] 주소가 바뀌는 PUT 우회 시도 차단: 새 주소에 동일 역할의 다른 활성 사용자가 있으면 거절.
+    // [Task #642] 본인이 이미 그 building 의 매니저/경리로 묶여 있다면(=selfAlreadyMember)
+    //   "내가 내 건물을 갱신하는 것"으로 간주해 차단하지 않는다(과거: 한 건물에 두 명의
+    //   활성 매니저가 묶여 있을 때 누구도 저장 못 하던 회귀 차단).
     if (isDuplicateCheckRole(user.role)) {
       const nextJibun = typeof data.addressJibun === "string" ? data.addressJibun : (existing?.addressJibun ?? null);
       const dup = await findExistingActiveUserForAddress({
@@ -224,8 +252,12 @@ router.put("/buildings/:id", async (req: Request, res: Response) => {
         buildingId: id,
         excludeUserId: userId,
       });
-      if (dup) {
-        res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
+      if (dup.exists) {
+        res.status(409).json({
+          error: BUILDING_DUPLICATE_MESSAGE,
+          conflictBuildingName: dup.conflictBuildingName ?? null,
+          conflictRole: dup.conflictRole ?? null,
+        });
         return;
       }
     }

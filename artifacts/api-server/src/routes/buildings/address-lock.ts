@@ -25,6 +25,9 @@ router.post("/buildings/:id/lock-address", async (req: Request, res: Response) =
     res.status(403).json({ error: "이 건물을 잠글 권한이 없습니다" }); return;
   }
   // [Task #227/#341] 주소 잠금 시점에서도 최종 안전장치로 동일 역할의 중복을 검사한다.
+  // [Task #642] 헬퍼가 객체를 반환하도록 변경됨 — exists/conflictBuildingName 만 사용한다.
+  //   본인이 이미 매니저인 건물(selfAlreadyMember=true) 은 헬퍼가 exists=false 로 회신하므로
+  //   잠금 시점에서도 자연스럽게 통과된다.
   if (isDuplicateCheckRole(user.role)) {
     const existing = await db.select().from(buildingsTable).where(eq(buildingsTable.id, id)).then(r => r[0]);
     const dup = await findExistingActiveUserForAddress({
@@ -33,8 +36,12 @@ router.post("/buildings/:id/lock-address", async (req: Request, res: Response) =
       buildingId: id,
       excludeUserId: userId,
     });
-    if (dup) {
-      res.status(409).json({ error: BUILDING_DUPLICATE_MESSAGE });
+    if (dup.exists) {
+      res.status(409).json({
+        error: BUILDING_DUPLICATE_MESSAGE,
+        conflictBuildingName: dup.conflictBuildingName ?? null,
+        conflictRole: dup.conflictRole ?? null,
+      });
       return;
     }
   }

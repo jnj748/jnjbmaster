@@ -80,7 +80,12 @@ export default function AccountantWizardPage() {
             });
             const j = await r.json().catch(() => ({}));
             if (r.ok && j?.exists) {
-              setDupMessage(j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416");
+              // [Task #642] 충돌 건물명(부분 마스킹) 이 함께 오면 한 줄로 같이 보여준다.
+              const baseMsg = j.message || "이미 해당 건물의 가입자가 존재합니다. 자세한 문의는 관리의달인으로 문의주시기 바랍니다. 1800-0416";
+              const ctx = typeof j?.conflictBuildingName === "string" && j.conflictBuildingName
+                ? ` (충돌 건물: ${j.conflictBuildingName})`
+                : "";
+              setDupMessage(`${baseMsg}${ctx}`);
             } else {
               setDupMessage(null);
             }
