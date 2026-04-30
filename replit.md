@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. Its primary goal is to enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project aims to become the leading digital assistant in Korean property management, significantly reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -65,8 +65,7 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
 - Built with React, Vite, Tailwind CSS, and shadcn/ui.
-- Features a mobile-first design (900px desktop breakpoint).
-- Provides distinct, role-based portals for managers, headquarters, and vendors.
+- Features a mobile-first design with distinct, role-based portals for managers, headquarters, and vendors.
 - Performance optimized using React.lazy, Vite manualChunks, and React Query.
 - UI/UX includes ERP-style accounting, facility management, and usage analytics dashboards with mobile navigation.
 

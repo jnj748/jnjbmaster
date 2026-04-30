@@ -3,7 +3,7 @@
 // 동일한 수준으로 행 바로 아래에 펼쳐 보여 준다. 같은 행을 다시 누르면 닫히고,
 // 동시에 한 행만 펼쳐지는 단일 선택 모델을 호출 측에서 관리한다.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   type GetUnitWorkLogEntries200,
   type UnitLinkedWorkLogEntry,
 } from "@workspace/api-client-react";
+import { getCategoriesFor, useCurrentRole } from "@/pages/work-log/shared";
 
 const STATUS_MAP: Record<
   string,
@@ -206,12 +207,43 @@ const PAGE_SIZE = 10;
 function UnitWorkLogSection({ unitId }: { unitId: number }) {
   // [Task #708] 누적 페이지네이션 — "더보기" 클릭마다 한 페이지씩 이어 받는다.
   const [pages, setPages] = useState(1);
+  // [Task #714] 카테고리 필터 — 서버는 이미 ?category 를 지원하므로
+  // 칩 UI 만 노출해 직책별로 의미 있는 카테고리(시설/민원/행정/...)를 좁혀 본다.
+  // "all" 일 때는 category 파라미터를 보내지 않아 전체를 가져온다.
+  const role = useCurrentRole();
+  const filterChips = useMemo(
+    () => [
+      { value: "all" as const, label: "전체" },
+      ...getCategoriesFor(role).map((c) => ({ value: c.value as string, label: c.label })),
+    ],
+    [role],
+  );
+  const [filter, setFilter] = useState<string>("all");
   const limit = pages * PAGE_SIZE;
   const { data, isLoading } = useGetUnitWorkLogEntries(
     unitId,
-    { limit, offset: 0 },
+    {
+      limit,
+      offset: 0,
+      ...(filter !== "all" ? { category: filter } : {}),
+    },
     { query: { enabled: !!unitId, staleTime: 30 * 1000 } },
   ) as { data: GetUnitWorkLogEntries200 | undefined; isLoading: boolean };
+
+  // [Task #714] 필터를 바꾸면 누적 페이지를 1로 리셋한다 — 다른 카테고리에서
+  // 쌓아둔 limit 이 새 카테고리의 total 보다 클 수 있어 "더보기" 가
+  // 어색하게 비활성화되는 것을 막는다.
+  function handleFilterChange(next: string) {
+    if (next === filter) return;
+    setFilter(next);
+    setPages(1);
+  }
+
+  const activeChip = filterChips.find((c) => c.value === filter);
+  const emptyMessage =
+    filter === "all"
+      ? "이 호실과 연결된 업무기록이 아직 없습니다"
+      : `이 호실에 연결된 '${activeChip?.label ?? filter}' 카테고리 업무기록이 없습니다`;
 
   return (
     <div className="border-t pt-3" data-testid={`unit-related-worklog-${unitId}`}>
@@ -220,9 +252,30 @@ function UnitWorkLogSection({ unitId }: { unitId: number }) {
         <p className="text-sm font-medium">관련 업무기록</p>
         {data && data.total > 0 && (
           <span className="text-xs text-muted-foreground">
-            전체 {data.total}건
+            {filter === "all" ? "전체" : activeChip?.label ?? filter} {data.total}건
           </span>
         )}
+      </div>
+      <div
+        className="flex gap-2 overflow-x-auto mb-2"
+        data-testid={`unit-related-worklog-filters-${unitId}`}
+      >
+        {filterChips.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => handleFilterChange(value)}
+            data-testid={`unit-related-worklog-filter-${unitId}-${value}`}
+            aria-pressed={filter === value}
+            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${
+              filter === value
+                ? "bg-accent text-accent-foreground border-accent"
+                : "bg-background"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {isLoading && !data ? (
         <div className="space-y-2">
@@ -230,9 +283,7 @@ function UnitWorkLogSection({ unitId }: { unitId: number }) {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : !data || data.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          이 호실과 연결된 업무기록이 아직 없습니다
-        </p>
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
         <>
           <ul className="space-y-2" data-testid={`unit-related-worklog-list-${unitId}`}>
