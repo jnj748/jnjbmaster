@@ -33,10 +33,11 @@ export type NoticeLayoutSettings = z.infer<typeof NoticeLayoutSchema>;
 const DEFAULT_LAYOUT: NoticeLayoutSettings = {
   documentTitle: "공 고 문",
   defaultPostingPeriod: "상시게재",
-  // [Task #608] 메타표 연락처 칸은 건물의 "관리사무소 주소"(addressFull) 가 기본값이 된다.
+  // [Task #733] 메타표 연락처 칸은 건물의 "관리사무소 전화"(managementOfficePhone) 가 기본값이 된다.
   //   매니저 편집기에서 사용자가 직접 수정할 수 있고, 이 곳에서 본사 관리자가
   //   템플릿 형식을 바꿀 수도 있다.
-  contactTemplate: "{{addressFull}}",
+  //   (이전 기본값은 도로명 주소(addressFull) 였다 — 메타표 "연락처"의 본래 의도에 맞게 정정.)
+  contactTemplate: "{{managementOfficePhone}}",
   footerTemplate: "{{buildingName}} 관리사무소",
   sealOmittedText: "직인생략",
   showNoticeNoRow: true,
@@ -46,6 +47,13 @@ const DEFAULT_LAYOUT: NoticeLayoutSettings = {
   showTitleBox: true,
 };
 
+// [Task #733] 응답 시점 기본값 정합화.
+//   기존에 저장된 contactTemplate 가 "예전 기본값"(`{{addressFull}}`) 그대로인 경우에만
+//   새 기본값(`{{managementOfficePhone}}`)으로 치환해 응답한다.
+//   본사 관리자가 직접 다른 값으로 저장해 둔 경우는 보존한다.
+//   별도 마이그레이션 SQL 없이, 다음 저장 시점에 DB 값도 자연스럽게 새 값으로 굳는다.
+const LEGACY_CONTACT_TEMPLATE_DEFAULT = "{{addressFull}}";
+
 async function loadLayout(): Promise<NoticeLayoutSettings> {
   const [row] = await db
     .select()
@@ -54,7 +62,11 @@ async function loadLayout(): Promise<NoticeLayoutSettings> {
   if (!row) return DEFAULT_LAYOUT;
   try {
     const parsed = NoticeLayoutSchema.partial().parse(JSON.parse(row.value));
-    return { ...DEFAULT_LAYOUT, ...parsed } as NoticeLayoutSettings;
+    const merged = { ...DEFAULT_LAYOUT, ...parsed } as NoticeLayoutSettings;
+    if (merged.contactTemplate === LEGACY_CONTACT_TEMPLATE_DEFAULT) {
+      merged.contactTemplate = DEFAULT_LAYOUT.contactTemplate;
+    }
+    return merged;
   } catch {
     return DEFAULT_LAYOUT;
   }

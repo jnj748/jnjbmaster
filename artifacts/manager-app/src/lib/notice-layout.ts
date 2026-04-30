@@ -10,8 +10,9 @@ export type { NoticeLayoutSettings };
 export const DEFAULT_NOTICE_LAYOUT: NoticeLayoutSettings = {
   documentTitle: "공 고 문",
   defaultPostingPeriod: "상시게재",
-  // [Task #608] 메타표 연락처 칸은 건물의 관리사무소 주소(addressFull) 를 기본값으로 한다.
-  contactTemplate: "{{addressFull}}",
+  // [Task #733] 메타표 연락처 칸은 건물의 관리사무소 전화(managementOfficePhone) 를 기본값으로 한다.
+  //   (이전 기본값은 도로명 주소(addressFull) 였으나, 메타표 "연락처"의 본래 의도에 맞게 전화로 정정.)
+  contactTemplate: "{{managementOfficePhone}}",
   footerTemplate: "{{buildingName}} 관리사무소",
   sealOmittedText: "직인생략",
   showNoticeNoRow: true,

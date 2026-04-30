@@ -612,9 +612,9 @@ function NoticeLayoutSettingsCard() {
                 onChange={(e) => patch({ contactTemplate: e.target.value })}
                 data-testid="input-layout-contact-template"
               />
-              {/* [Task #608] 기본값은 건물 도로명 주소 한 줄. 필요 시 전화번호 등으로 바꿀 수 있다. */}
+              {/* [Task #733] 기본값은 관리사무소 전화. 필요 시 주소/문의 전화 등으로 바꿀 수 있다. */}
               <p className="text-[11px] text-slate-500 mt-1">
-                기본값은 우리 건물의 도로명 주소(<code>{"{{addressFull}}"}</code>)입니다.
+                기본값은 우리 건물의 관리사무소 전화(<code>{"{{managementOfficePhone}}"}</code>)입니다.
               </p>
             </div>
             <div>
