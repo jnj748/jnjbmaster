@@ -159,6 +159,7 @@ import type {
   FacilityDashboard,
   FacilityDefectTrends,
   FacilityStatusSummary,
+  FacilityWeeklyInspectionCounts,
   FailCreditTopupOrder200,
   FailCreditTopupOrderBody,
   FeeTrendItem,
@@ -21203,6 +21204,87 @@ export function useGetFacilitySuggestedTasks<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetFacilitySuggestedTasksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Per-category inspection counts written this week (Mon–Sun KST)
+ */
+export const getGetFacilityWeeklyInspectionCountsUrl = () => {
+  return `/api/facility/weekly-inspection-counts`;
+};
+
+export const getFacilityWeeklyInspectionCounts = async (
+  options?: RequestInit,
+): Promise<FacilityWeeklyInspectionCounts> => {
+  return customFetch<FacilityWeeklyInspectionCounts>(
+    getGetFacilityWeeklyInspectionCountsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFacilityWeeklyInspectionCountsQueryKey = () => {
+  return [`/api/facility/weekly-inspection-counts`] as const;
+};
+
+export const getGetFacilityWeeklyInspectionCountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFacilityWeeklyInspectionCountsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>
+  > = ({ signal }) =>
+    getFacilityWeeklyInspectionCounts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFacilityWeeklyInspectionCountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>
+>;
+export type GetFacilityWeeklyInspectionCountsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Per-category inspection counts written this week (Mon–Sun KST)
+ */
+
+export function useGetFacilityWeeklyInspectionCounts<
+  TData = Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getFacilityWeeklyInspectionCounts>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions =
+    getGetFacilityWeeklyInspectionCountsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

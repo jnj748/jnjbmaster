@@ -208,6 +208,8 @@ export * from "./facilityStatusBadgeLevel";
 export * from "./facilityStatusSummary";
 export * from "./facilityTodayProgress";
 export * from "./facilityTodayProgressItems";
+export * from "./facilityWeeklyInspectionCounts";
+export * from "./facilityWeeklyInspectionCountsBuckets";
 export * from "./failCreditTopupOrder200";
 export * from "./feeTrendItem";
 export * from "./finalizeUpload200";

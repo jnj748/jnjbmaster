@@ -31,6 +31,31 @@ const UnitsImportSuggestionWidget = lazy(
 const BuildingContractsSummaryWidget = lazy(
   () => import("./widgets/building-contracts-summary-widget"),
 );
+// [Task #503] 매니저 본문 3행 좌측 진입 카드. 시설담당 대시보드(좌측 4행) 에서도 재사용.
+const NoticeTemplatesEntryWidget = lazy(
+  () => import("./widgets/notice-templates-entry-widget"),
+);
+// [Task #561] 오늘 업무일지 진입 카드(시설담당 우측 2행).
+//   today-work-log-entry-widget 는 named export (TodayWorkLogEntry) 만 가지므로
+//   lazy() 가 기대하는 { default } shape 으로 재포장한다.
+const TodayWorkLogEntryWidget = lazy(() =>
+  import("./widgets/today-work-log-entry-widget").then((m) => ({
+    default: m.TodayWorkLogEntry,
+  })),
+);
+// [Task #658] 시설담당 대시보드 진입 카드 4종 + 금주 안전점검 위젯.
+const FacilityMandatoryTasksEntryWidget = lazy(
+  () => import("./widgets/facility-mandatory-tasks-entry-widget"),
+);
+const RecentDocumentsEntryWidget = lazy(
+  () => import("./widgets/recent-documents-entry-widget"),
+);
+const WorkLogActivityEntryWidget = lazy(
+  () => import("./widgets/work-log-activity-entry-widget"),
+);
+const WeeklyInspectionsWidget = lazy(
+  () => import("./widgets/weekly-inspections-widget"),
+);
 
 // Role-specific main wrappers (legacy page bodies)
 // [Task #495] manager-main 은 페이지 파일이 아니라 dashboard-widgets/widgets/
@@ -127,6 +152,54 @@ export const WIDGETS = {
     span: "full",
     label: "우리 건물 계약업체 연락망",
   },
+  // [Task #658] 동일한 BuildingContractsSummaryWidget 의 half-span 변형.
+  //   시설담당 2열 그리드 우측 칸에 들어가야 하므로 span:"half" 가 필요하지만,
+  //   다른 역할(accountant) 레이아웃의 기존 동작을 깨지 않으려고 별도 키로 등록한다.
+  "building-contracts-summary-half": {
+    key: "building-contracts-summary-half",
+    component: BuildingContractsSummaryWidget,
+    span: "half",
+    label: "우리 건물 계약업체 연락망",
+  },
+  // [Task #658] 시설담당 대시보드(2열 + 하단 풀폭) 재구성에 사용되는 위젯들.
+  //   - 좌/우 각 4행은 span:"half" 로 그리드의 한 칸만 차지.
+  //   - "building-info" 는 기존 정의(span:"full") 그대로 마지막 풀폭 행으로 사용.
+  "notice-templates-entry": {
+    key: "notice-templates-entry",
+    component: NoticeTemplatesEntryWidget,
+    span: "half",
+    label: "공고문 템플릿",
+  },
+  "today-work-log-entry": {
+    key: "today-work-log-entry",
+    component: TodayWorkLogEntryWidget,
+    span: "half",
+    label: "오늘 업무일지",
+  },
+  "facility-mandatory-tasks-entry": {
+    key: "facility-mandatory-tasks-entry",
+    component: FacilityMandatoryTasksEntryWidget,
+    span: "half",
+    label: "필수업무",
+  },
+  "recent-documents-entry": {
+    key: "recent-documents-entry",
+    component: RecentDocumentsEntryWidget,
+    span: "half",
+    label: "최근문서함",
+  },
+  "work-log-activity-entry": {
+    key: "work-log-activity-entry",
+    component: WorkLogActivityEntryWidget,
+    span: "half",
+    label: "처리 내역",
+  },
+  "weekly-inspections": {
+    key: "weekly-inspections",
+    component: WeeklyInspectionsWidget,
+    span: "half",
+    label: "금주 안전점검 작성",
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 export type CatalogWidgetKey = keyof typeof WIDGETS;
@@ -165,8 +238,29 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
       "accountant-main",
     ],
   },
+  // [Task #658] 시설담당 대시보드를 2열 + 하단 풀폭 레이아웃으로 재구성.
+  //   shell 의 데스크탑 그리드는 xl:grid-cols-4, span:"half" = col-span-2, span:"full" = col-span-4.
+  //   따라서 half 두 개가 한 행을 채우고 full 한 개가 다음 행 전체를 차지한다.
+  //   배치(스케치 그대로):
+  //     행1  필수업무 (L)              | 금주 안전점검 (R)
+  //     행2  최근문서함 (L)            | 오늘 업무일지 (R)
+  //     행3  처리 내역 (L)             | 계약업체 연락망 (R)
+  //     행4  공고문 템플릿 (L)         | (빈 칸)
+  //     행5  건물정보 (full width)
+  //   - building-contracts-summary 는 다른 역할의 풀폭 동작을 보존하기 위해 별도 half 키
+  //     ("building-contracts-summary-half") 로 등록해 사용한다.
+  //   - campaign-banner / facility-main 은 사용자 요구에 따라 시설담당에서만 제거.
   facility_staff: {
-    widgets: ["campaign-banner", "building-info", "facility-main"],
+    widgets: [
+      "facility-mandatory-tasks-entry",
+      "weekly-inspections",
+      "recent-documents-entry",
+      "today-work-log-entry",
+      "work-log-activity-entry",
+      "building-contracts-summary-half",
+      "notice-templates-entry",
+      "building-info",
+    ],
   },
   // [Task #267] 통합 대시보드 단순화: 5역할 카드 + 파트너 크레딧 패널만 노출.
   //   admin-main 위젯이 ROLE_CARDS + VendorCreditsPanel 을 렌더하므로

@@ -5398,6 +5398,22 @@ paths:
                 items:
                   $ref: "#/components/schemas/Alert"
 
+  # [Task #658] 시설담당 대시보드 우측 상단 "금주 안전점검 작성" 위젯 전용.
+  #   이번 주(월 00:00 ~ 일 23:59:59 KST) 동안 본인 건물에서 작성된 점검(=
+  #   inspection_logs) 건수를 카테고리 6개 버킷으로 묶어 반환한다.
+  /facility/weekly-inspection-counts:
+    get:
+      operationId: getFacilityWeeklyInspectionCounts
+      tags: [safetyChecklists]
+      summary: Per-category inspection counts written this week (Mon–Sun KST)
+      responses:
+        "200":
+          description: Weekly category counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FacilityWeeklyInspectionCounts"
+
   # ── Calendar (일정) ──────────────────────────────────────────
   /calendar/events:
     get:
@@ -11220,6 +11236,52 @@ components:
         - message
         - dueDate
         - isOverdue
+
+    # [Task #658] 시설담당 대시보드 "금주 안전점검 작성" 위젯 응답.
+    #   buckets: 6개 카테고리(전기/소방/기계/통신/승강기/기타) 별 이번 주(KST 월~일) 작성 건수.
+    FacilityWeeklyInspectionCounts:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+          description: "이번 주 월요일(KST) 자정 일자"
+        weekEnd:
+          type: string
+          format: date
+          description: "이번 주 일요일(KST) 자정 일자"
+        buckets:
+          type: object
+          properties:
+            electrical:
+              type: integer
+              minimum: 0
+            fire_safety:
+              type: integer
+              minimum: 0
+            mechanical:
+              type: integer
+              minimum: 0
+            communication:
+              type: integer
+              minimum: 0
+            elevator:
+              type: integer
+              minimum: 0
+            other:
+              type: integer
+              minimum: 0
+          required:
+            - electrical
+            - fire_safety
+            - mechanical
+            - communication
+            - elevator
+            - other
+      required:
+        - weekStart
+        - weekEnd
+        - buckets
 
     AiMatchingInspectionResult:
       type: object

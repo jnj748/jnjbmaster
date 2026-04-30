@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearch } from "wouter";
 import {
   useListInspections,
   useCreateInspection,
@@ -9,6 +10,7 @@ import {
   useListInspectionLogs,
   useBulkRegisterInspections,
   getListInspectionsQueryKey,
+  getGetFacilityWeeklyInspectionCountsQueryKey,
 } from "@workspace/api-client-react";
 import type { Inspection, InspectionPreset, CompleteInspectionBodyResult, BulkRegisterInspectionsResponse } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,8 +33,26 @@ import { InspectionCard } from "@/components/inspections/inspection-card";
 import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/lib/follow-up-detection";
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 
+// [Task #658] 시설담당 대시보드 "금주 안전점검 작성" 위젯에서 카테고리 버튼을 누르면
+//   /inspections?category=<key> 로 진입한다. 위젯이 보내는 키는 inspections.category 와
+//   동일한 값이며, 단 "other" 는 아래 5개 카테고리에 속하지 않는 모든 행을 의미한다.
+const CATEGORY_KNOWN = new Set([
+  "electrical",
+  "fire_safety",
+  "mechanical",
+  "telecom",
+  "elevator",
+]);
+
 export default function Inspections() {
   const { building } = useBuilding();
+  // 위젯에서 들어온 카테고리 필터(선택). 빈 문자열/누락이면 필터 비활성.
+  const search = useSearch();
+  const filterCategory = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const v = params.get("category");
+    return v && v.length > 0 ? v : null;
+  }, [search]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
@@ -48,6 +68,17 @@ export default function Inspections() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: inspections, isLoading } = useListInspections();
+  // [Task #658] URL ?category= 쿼리에 따른 클라이언트 사이드 필터.
+  //   - 알려진 5개 카테고리는 정확히 일치하는 행만 통과.
+  //   - "other" 는 위 5개에 포함되지 않는 모든 카테고리(소화전 외 등)를 통과.
+  const filteredInspections = useMemo(() => {
+    if (!inspections) return inspections;
+    if (!filterCategory) return inspections;
+    if (filterCategory === "other") {
+      return inspections.filter((it) => !CATEGORY_KNOWN.has(it.category));
+    }
+    return inspections.filter((it) => it.category === filterCategory);
+  }, [inspections, filterCategory]);
   const { data: presets } = useListInspectionPresets();
   const createMutation = useCreateInspection();
   const updateMutation = useUpdateInspection();
@@ -229,6 +260,10 @@ export default function Inspections() {
       },
     });
     queryClient.invalidateQueries({ queryKey: getListInspectionsQueryKey() });
+    // [Task #658] 시설담당 대시보드 "금주 안전점검 작성" 카운트도 즉시 갱신.
+    queryClient.invalidateQueries({
+      queryKey: getGetFacilityWeeklyInspectionCountsQueryKey(),
+    });
     setCompleteDialogOpen(false);
     const resultLabel = resultOptions.find((r) => r.value === completeForm.result)?.label || completeForm.result;
     toast({
@@ -351,13 +386,36 @@ export default function Inspections() {
         onClose={() => setFollowUpOpen(false)}
       />
 
+      {/* [Task #658] 카테고리 필터 활성화 안내 + 해제 버튼. 위젯에서 진입했을 때만 노출. */}
+      {filterCategory && (
+        <div
+          className="mb-3 flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+          data-testid="inspections-category-filter-banner"
+        >
+          <span className="text-foreground">
+            카테고리 필터:{" "}
+            <strong>
+              {filterCategory === "other" ? "기타" : filterCategory}
+            </strong>{" "}
+            항목만 보고 있습니다.
+          </span>
+          <a
+            href="/inspections"
+            className="text-primary underline-offset-2 hover:underline"
+            data-testid="inspections-clear-category-filter"
+          >
+            전체 보기
+          </a>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
         </div>
-      ) : inspections && inspections.length > 0 ? (
+      ) : filteredInspections && filteredInspections.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {inspections.map((item) => (
+          {filteredInspections.map((item) => (
             <InspectionCard
               key={item.id}
               item={item}

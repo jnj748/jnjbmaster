@@ -7371,6 +7371,46 @@ export const GetFacilitySuggestedTasksResponse = zod.array(
 );
 
 /**
+ * @summary Per-category inspection counts written this week (Mon–Sun KST)
+ */
+export const getFacilityWeeklyInspectionCountsResponseBucketsElectricalMin = 0;
+
+export const getFacilityWeeklyInspectionCountsResponseBucketsFireSafetyMin = 0;
+
+export const getFacilityWeeklyInspectionCountsResponseBucketsMechanicalMin = 0;
+
+export const getFacilityWeeklyInspectionCountsResponseBucketsCommunicationMin = 0;
+
+export const getFacilityWeeklyInspectionCountsResponseBucketsElevatorMin = 0;
+
+export const getFacilityWeeklyInspectionCountsResponseBucketsOtherMin = 0;
+
+export const GetFacilityWeeklyInspectionCountsResponse = zod.object({
+  weekStart: zod.string().date().describe("이번 주 월요일(KST) 자정 일자"),
+  weekEnd: zod.string().date().describe("이번 주 일요일(KST) 자정 일자"),
+  buckets: zod.object({
+    electrical: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsElectricalMin),
+    fire_safety: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsFireSafetyMin),
+    mechanical: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsMechanicalMin),
+    communication: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsCommunicationMin),
+    elevator: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsElevatorMin),
+    other: zod
+      .number()
+      .min(getFacilityWeeklyInspectionCountsResponseBucketsOtherMin),
+  }),
+});
+
+/**
  * @summary Get calendar events for a given month
  */
 export const getCalendarEventsQueryMonthMax = 12;

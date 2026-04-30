@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, administration of tenants, owners, and vehicles, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and facilitating proactive management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -62,7 +62,7 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, divided into `api-server`, `web`, `db`, and `api-spec` packages.
+The project is a pnpm monorepo utilizing Node.js 24 and TypeScript 5.9, structured into `api-server`, `web`, `db`, and `api-spec` packages.
 
 **Frontend:**
 - Developed with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
@@ -71,7 +71,7 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, divided into
 
 **Backend:**
 - Built on an Express 5 API framework with JWT authentication.
-- Implements a Role-Based Access Control (RBAC) system for 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth.
+- Implements a Role-Based Access Control (RBAC) system for 6 roles (`platform_admin`, `hq_executive`, `manager`, `accountant`, `facility_staff`, and `partner`), with `docs/user-roles/README.md` as the Single Source of Truth.
 - API definitions follow OpenAPI specifications, utilizing Orval for client code generation and Zod for validation.
 
 **Database:**
@@ -80,12 +80,12 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, divided into
 - Automated schema migrations are executed upon API server boot.
 
 **Core Features & Design Patterns:**
-- **Modular Monorepo:** Ensures clear separation of concerns.
+- **Modular Monorepo Structure:** Ensures clear separation of concerns and maintainability.
 - **AI Integration:** For specific functionalities like commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
-- **Multi-step Approval Workflows:** Configurable for up to 5 levels.
+- **Multi-step Approval Workflows:** Configurable for up to 5 levels for flexible process management.
 - **BuildingContext:** Manages building-specific data globally.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation.
+- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles.
 - **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
 - **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
 - **Attendance Management:** PC/mobile check-in/out.
@@ -94,15 +94,15 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, divided into
 - **Meter Reading Management:** Bulk upload, manual entry, and anomaly detection.
 - **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
 - **Complaints Management:** Enhanced workflow with status tracking and auto-escalation.
-- **Electronic Voting:** Agenda management, participation tracking, and results.
-- **Partner Marketplace:** Extended vendor categories and warranty tracking with geo-based matching.
+- **Electronic Voting:** Manages agendas, participation tracking, and results.
+- **Partner Marketplace:** Features extended vendor categories and warranty tracking with geo-based matching.
 - **Object Storage Integration:** Manages attachments using presigned URLs.
-- **Unit Management:** CRUD operations for building units, including bulk import.
+- **Unit Management:** Provides CRUD operations for building units, including bulk import.
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
 - **Building Setup & Integration:** Connects with external APIs for `건축물대장` (building register) and Kakao Postcode.
-- **Usage Analytics Dashboard:** For platform administrators.
-- **Onboarding Automation:** Streamlines manager setup.
-- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions.
+- **Usage Analytics Dashboard:** Dedicated dashboard for platform administrators.
+- **Onboarding Automation:** Streamlines the manager setup process.
+- **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.
 - **Per-role Daily Journals:** Role-specific daily journals for managers, accountants, and facility staff.
 
 # External Dependencies

@@ -3460,6 +3460,29 @@ export interface FacilityDefectTrends {
   repeatedDefects: FacilityDefectTrendsRepeatedDefectsItem[];
 }
 
+export type FacilityWeeklyInspectionCountsBuckets = {
+  /** @minimum 0 */
+  electrical: number;
+  /** @minimum 0 */
+  fire_safety: number;
+  /** @minimum 0 */
+  mechanical: number;
+  /** @minimum 0 */
+  communication: number;
+  /** @minimum 0 */
+  elevator: number;
+  /** @minimum 0 */
+  other: number;
+};
+
+export interface FacilityWeeklyInspectionCounts {
+  /** 이번 주 월요일(KST) 자정 일자 */
+  weekStart: string;
+  /** 이번 주 일요일(KST) 자정 일자 */
+  weekEnd: string;
+  buckets: FacilityWeeklyInspectionCountsBuckets;
+}
+
 export type AiMatchingInspectionResultRecommendedVendorsItem = {
   vendorId: number;
   vendorName: string;

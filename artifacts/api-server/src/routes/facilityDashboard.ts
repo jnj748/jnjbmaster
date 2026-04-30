@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, desc, sql, count, ne } from "drizzle-orm";
-import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, safetyTrainingsTable, inspectionsTable } from "@workspace/db";
+import { db, safetyChecklistsTable, safetyChecklistItemsTable, maintenanceLogsTable, safetyTrainingsTable, inspectionsTable, inspectionLogsTable } from "@workspace/db";
 import {
   GetFacilityDashboardResponse,
   GetFacilityScheduledAlertsResponse,
   GetFacilityDefectTrendsResponse,
   GetFacilityStatusSummaryResponse,
+  GetFacilityWeeklyInspectionCountsResponse,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 import { getUserBuildingId } from "../middlewares/buildingScope";
@@ -457,6 +458,115 @@ router.get("/facility/status-summary", async (req, res): Promise<void> => {
       maintenanceLogs,
       safetyTrainings,
       todayProgress,
+    }),
+  );
+});
+
+// [Task #658] 시설담당 대시보드 우측 상단 "금주 안전점검 작성" 위젯 전용.
+//   - 카운트 기준: inspection_logs 의 inspectionDate (점검 작성/완료 시점). 점검 정의 자체가 아닌
+//     실제 작성 이벤트만 본다.
+//   - 주 경계: KST 월요일 00:00 ~ 일요일 23:59:59 (kstDateParts 와 동일한 KST 가산 방식).
+//   - 카테고리 매핑(스케치 6칸):
+//       전기      → electrical
+//       소방      → fire_safety
+//       기계      → mechanical
+//       통신      → communication = inspections.category === "telecom"
+//       승강기    → elevator
+//       기타      → 그 외 (water_tank/gas/septic/playground/safety_check/hygiene/
+//                          building_safety/administrative/disinfection/other ...)
+//   - 권한: 시설담당 본인 건물만(`getUserBuildingId`). 본사·플랫폼 관리자는
+//     라우트 가드는 통과하지만 buildingId 가 없으면 모든 버킷 0 으로 응답한다
+//     (호출 자체를 안 한다는 task 가이드와 부합 — 빈 응답을 안전한 기본값으로).
+router.get("/facility/weekly-inspection-counts", async (req, res): Promise<void> => {
+  // KST 기준 "이번 주" 월~일 경계 계산.
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(Date.now() + KST_OFFSET_MS);
+  // getUTCDay: 일=0, 월=1, ... 토=6. 월요일 시작이 되도록 (day+6)%7 만큼 뺀다.
+  const dayIdx = kstNow.getUTCDay();
+  const offsetToMon = (dayIdx + 6) % 7;
+  const weekStart = new Date(kstNow);
+  weekStart.setUTCDate(kstNow.getUTCDate() - offsetToMon);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  const weekStartStr = fmt(weekStart);
+  const weekEndStr = fmt(weekEnd);
+
+  const emptyBuckets = {
+    electrical: 0,
+    fire_safety: 0,
+    mechanical: 0,
+    communication: 0,
+    elevator: 0,
+    other: 0,
+  };
+
+  const buildingId = await getUserBuildingId(req);
+  if (buildingId === null) {
+    req.log?.info(
+      { weekStart: weekStartStr, weekEnd: weekEndStr },
+      "[facility/weekly-inspection-counts] no buildingId — returning empty buckets",
+    );
+    res.json(
+      GetFacilityWeeklyInspectionCountsResponse.parse({
+        weekStart: weekStartStr,
+        weekEnd: weekEndStr,
+        buckets: emptyBuckets,
+      }),
+    );
+    return;
+  }
+
+  // inspection_logs ⨯ inspections (본인 건물 한정). inspectionDate 가 [월, 일] 구간.
+  const rows = await db
+    .select({ category: inspectionsTable.category, c: count() })
+    .from(inspectionLogsTable)
+    .innerJoin(inspectionsTable, eq(inspectionLogsTable.inspectionId, inspectionsTable.id))
+    .where(
+      and(
+        eq(inspectionsTable.buildingId, buildingId),
+        gte(inspectionLogsTable.inspectionDate, weekStartStr),
+        lte(inspectionLogsTable.inspectionDate, weekEndStr),
+      ),
+    )
+    .groupBy(inspectionsTable.category);
+
+  const buckets = { ...emptyBuckets };
+  for (const r of rows) {
+    const n = Number(r.c) || 0;
+    switch (r.category) {
+      case "electrical":
+        buckets.electrical += n;
+        break;
+      case "fire_safety":
+        buckets.fire_safety += n;
+        break;
+      case "mechanical":
+        buckets.mechanical += n;
+        break;
+      // [Task #658] 스케치의 "통신" 버킷은 inspections.category 의 telecom 값에 매핑.
+      case "telecom":
+        buckets.communication += n;
+        break;
+      case "elevator":
+        buckets.elevator += n;
+        break;
+      default:
+        buckets.other += n;
+        break;
+    }
+  }
+
+  req.log?.info(
+    { buildingId, weekStart: weekStartStr, weekEnd: weekEndStr, buckets },
+    "[facility/weekly-inspection-counts] aggregated",
+  );
+
+  res.json(
+    GetFacilityWeeklyInspectionCountsResponse.parse({
+      weekStart: weekStartStr,
+      weekEnd: weekEndStr,
+      buckets,
     }),
   );
 });
