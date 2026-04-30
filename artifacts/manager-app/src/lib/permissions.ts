@@ -155,6 +155,40 @@ export interface RouteEntry {
    *  instead of navigating to the entry's path. Used to expose grouped menus
    *  on mobile. */
   bottomGroupSheet?: Group;
+  /** [Task #665] Independent block id used by the role×menu grid and
+   *  isMenuBlockEnabled. Defaults to `path`. Use a distinct id when two
+   *  ROUTES entries share the same `path` but represent independently
+   *  toggleable menu items (e.g. /rfqs vs /rfqs?tab=quotes). */
+  blockId?: string;
+  /** [Task #665] Optional query string to append when navigating from
+   *  sidebar/bottom-nav. Combined with `path` for the actual href. */
+  query?: Record<string, string>;
+  /** [Task #665] Per-role component override. Useful when the same path is
+   *  served by a different page component for a particular role
+   *  (e.g. /rfqs → VendorPortal for partners, Rfqs for managers). */
+  componentOverrides?: Partial<Record<Role, AnyComponent>>;
+  /** [Task #665] When "sidebarOnly", this entry contributes to the sidebar /
+   *  bottom-nav / role×menu grid but does NOT register an additional SPA
+   *  route (its path is expected to already be registered by another entry). */
+  routeMode?: "default" | "sidebarOnly";
+  /** [Task #665] Sort order within the partner sidebar / bottom nav.
+   *  Lower numbers appear first. Defaults to 100. */
+  partnerOrder?: number;
+}
+
+/**
+ * [Task #665] Paths that are permanently blocked for partner regardless of
+ * any explicit grid override. The grid surfaces these as a disabled cell so
+ * platform admins understand the menu cannot be enabled for partners.
+ */
+export const PARTNER_BLOCKED_PATHS: ReadonlySet<string> = new Set<string>([
+  // [Task #637] "계약 성사까지만 매칭" — 정산·수수료는 파트너 화면에서 분리.
+  "/commissions",
+]);
+
+/** Resolve the grid block id for a route entry (defaults to its path). */
+export function blockIdOf(entry: Pick<RouteEntry, "blockId" | "path">): string {
+  return entry.blockId ?? entry.path;
 }
 
 /** Resolve the effective role for permission/menu derivation.
@@ -553,11 +587,33 @@ export const ROUTES: RouteEntry[] = [
 
   // ── Partner marketplace group ───────────────────────────────────
   // [플랫폼 메뉴 구조조정] 견적 요청은 관리소장 실무 — 플랫폼 사이드바에서 숨김.
+  // [Task #665] 파트너 사이드바·하단 네비도 ROUTES 단일 출처로 구동되도록
+  //   partner 를 access/sideMenu/bottomNav 에 포함시키고, 파트너에게는 같은 path 가
+  //   다른 컴포넌트(VendorPortal)로 마운트되도록 componentOverrides 사용.
   {
     path: "/rfqs", component: Rfqs,
+    componentOverrides: { partner: VendorPortal },
     label: "견적 요청", icon: Send, group: "marketplace",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager"],
+    access: ["manager", "platform_admin", "partner"],
+    sideMenu: ["manager", "partner"],
+    bottomNav: ["partner"],
+    bottomLabelOverrides: { partner: "견적" },
+    partnerOrder: 10,
+  },
+  // [Task #665] "내 견적·작업" — 파트너 전용. /rfqs 와 같은 path 를 사용하지만
+  //   blockId 가 달라 본사 그리드에서 독립적으로 끄고 켤 수 있다.
+  //   라우트는 위 엔트리가 이미 등록하므로 routeMode: "sidebarOnly" 로 중복 등록을 막는다.
+  {
+    path: "/rfqs", component: VendorPortal,
+    blockId: "/rfqs#quotes",
+    query: { tab: "quotes" },
+    routeMode: "sidebarOnly",
+    label: "내 견적·작업", icon: Send, group: "marketplace",
+    access: ["partner"],
+    sideMenu: ["partner"],
+    bottomNav: ["partner"],
+    bottomLabelOverrides: { partner: "내 견적" },
+    partnerOrder: 20,
   },
   {
     path: "/work-reports", component: WorkReportsPage,
@@ -593,6 +649,38 @@ export const ROUTES: RouteEntry[] = [
     label: "협력업체 주소록", icon: Building2, group: "marketplace",
     access: ["manager", "platform_admin", "accountant", "facility_staff"],
     sideMenu: ["manager", "platform_admin", "accountant", "facility_staff"],
+  },
+  // [Task #665] 파트너 전용 — 본사 그리드에 행으로 노출되도록 ROUTES 단일 출처에 등록.
+  //   기존엔 getRoutesForRole/getSidebarSections 의 partnerBase 하드코딩이라
+  //   "파트너 컬럼" 자체가 없어 본사가 끌 수 없었다.
+  {
+    path: "/me/credits", component: PartnerCredits,
+    label: "크레딧", icon: Coins, group: "marketplace",
+    access: ["partner"],
+    sideMenu: ["partner"],
+    bottomNav: ["partner"],
+    bottomLabelOverrides: { partner: "크레딧" },
+    partnerOrder: 30,
+  },
+  {
+    path: "/me/vendor", component: PartnerVendorProfile,
+    label: "내 업체 정보", icon: Building2, group: "marketplace",
+    access: ["partner"],
+    sideMenu: ["partner"],
+    partnerOrder: 40,
+  },
+  // [Task #665] 토스 결제 콜백 — 사이드바·그리드 노출은 없고 라우트만 등록.
+  {
+    path: "/me/credits/topup/success", component: PartnerCreditsTopupSuccess,
+    label: "충전 완료", icon: Coins, group: "marketplace",
+    access: ["partner"],
+    hidden: true,
+  },
+  {
+    path: "/me/credits/topup/fail", component: PartnerCreditsTopupFail,
+    label: "충전 실패", icon: Coins, group: "marketplace",
+    access: ["partner"],
+    hidden: true,
   },
 
   // ── Settings group ──────────────────────────────────────────────
@@ -789,16 +877,10 @@ const ROOT_ICONS: Record<Role, LucideIcon> = {
 
 // [Task #290] 파트너 메뉴 라벨/아이콘 — 협력업체 풀(/vendors) 진입 제거,
 //   "내 업체 정보"(/me/vendor)와 "크레딧"(/me/credits) 추가.
+// [Task #665] 파트너 메뉴 라벨/아이콘은 ROUTES 엔트리에서 단일 출처로 정의한다.
+//   여기엔 "홈" 라벨만 남는다 (ROUTES 의 rootItem 은 ROOT_LABELS 를 쓰지만 파트너는
+//   "대시보드" 대신 짧은 "홈" 을 노출하므로 별도 상수로 둔다).
 const PARTNER_HOME_LABEL = "홈";
-const PARTNER_RFQ_LABEL = "견적 요청";
-const PARTNER_QUOTES_LABEL = "내 견적·작업";
-const PARTNER_CREDITS_LABEL = "크레딧";
-// [Task #637] PARTNER_COMMISSIONS_* 라벨/아이콘은 정산·수수료 메뉴 분리에 따라 제거됨.
-const PARTNER_MY_VENDOR_LABEL = "내 업체 정보";
-const PARTNER_RFQ_ICON: LucideIcon = FileText;
-const PARTNER_QUOTES_ICON: LucideIcon = Send;
-const PARTNER_CREDITS_ICON: LucideIcon = Coins;
-const PARTNER_MY_VENDOR_ICON: LucideIcon = Building2;
 
 export interface NavItem {
   path: string;
@@ -846,45 +928,26 @@ export function getRoutesForRole(
   role: Role,
   overrides?: readonly MenuOverride[] | null,
 ): { path: string; component: AnyComponent }[] {
-  if (role === "partner") {
-    // [Task #290] 파트너는 협력업체 풀(`/vendors`) 대신 본인 업체 전용 페이지
-    //   (`/me/vendor`)와 크레딧 페이지(`/me/credits`)에만 접근한다.
-    //   /settings 는 의도적으로 노출하지 않는다.
-    // [Task #637] 정산·수수료(`/commissions`)는 "계약 성사까지만 매칭" 정책에 따라
-    //   파트너 라우트에서 제외 — 직링크 진입 시 catch-all 이 홈으로 리다이렉트한다.
-    const partnerBase: { path: string; component: AnyComponent }[] = [
-      { path: "/rfqs", component: VendorPortal },
-      { path: "/me/vendor", component: PartnerVendorProfile },
-      { path: "/me/credits", component: PartnerCredits },
-      // [Task #319] 토스 결제 콜백.
-      { path: "/me/credits/topup/success", component: PartnerCreditsTopupSuccess },
-      { path: "/me/credits/topup/fail", component: PartnerCreditsTopupFail },
-    ];
-    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴는 라우트도 함께 등록한다.
-    // [Task #637] 단, /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
-    const PARTNER_BLOCKED_PATHS = new Set<string>(["/commissions"]);
-    const explicitExtra = ROUTES.filter(
-      (r) =>
-        !r.hidden &&
-        !r.access.includes("partner") &&
-        !PARTNER_BLOCKED_PATHS.has(r.path) &&
-        isMenuExplicitlyEnabled("partner", r.path, overrides) &&
-        !partnerBase.some((p) => p.path === r.path),
-    ).map((r) => ({ path: r.path, component: r.component }));
-    return [...partnerBase, ...explicitExtra];
-  }
+  // [Task #665] 파트너 메뉴도 ROUTES 단일 출처로 통합. partnerBase 하드코딩 제거.
   // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 라우트를 등록한다.
-  // [Task #591] `hidden` 은 사이드바 노출만 차단하는 플래그(주석 참조)이므로
-  //   라우트 등록에서는 제외하지 않는다. 접근 권한이 있거나 명시적으로 켜진 메뉴라면
-  //   URL 직접 진입(예: 사이드바 hub 링크에서 이동하는 /platform/notice-templates)이
-  //   catch-all redirect 로 튕기지 않고 정상 마운트되어야 한다.
-  return ROUTES.filter(
-    (r) =>
-      r.access.includes(role) || isMenuExplicitlyEnabled(role, r.path, overrides),
-  ).map((r) => ({
-    path: r.path,
-    component: r.component,
-  }));
+  // [Task #591] `hidden` 은 사이드바 노출만 차단하는 플래그이므로 라우트 등록에서는 제외하지 않는다.
+  // [Task #637] /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
+  const seen = new Set<string>();
+  const routes: { path: string; component: AnyComponent }[] = [];
+  for (const r of ROUTES) {
+    // 같은 path 의 보조 엔트리(예: /rfqs#quotes)는 사이드바 표현용이므로 라우트로는 등록하지 않는다.
+    if (r.routeMode === "sidebarOnly") continue;
+    if (seen.has(r.path)) continue;
+    if (role === "partner" && PARTNER_BLOCKED_PATHS.has(r.path)) continue;
+    const allowed =
+      r.access.includes(role) ||
+      isMenuExplicitlyEnabled(role, blockIdOf(r), overrides);
+    if (!allowed) continue;
+    const component = r.componentOverrides?.[role] ?? r.component;
+    routes.push({ path: r.path, component });
+    seen.add(r.path);
+  }
+  return routes;
 }
 
 // [카테고리 메뉴 제어] 플랫폼이 사용자별로 끈 카테고리.
@@ -1026,45 +1089,35 @@ export function getSidebarSections(
 ): NavSection[] {
   if (role === "platform_admin") return platformAdminSidebar();
   if (role === "partner") {
-    // [Task #290] 파트너 사이드바 — 협력업체 풀(/vendors) 제거, 본인 업체 정보 + 크레딧 추가.
-    // [Task #637] 정산·수수료(/commissions) 제거 — "계약 성사까지만 매칭" 정책에 따라
-    //   계약 이후 운영(검수·정산·수수료)은 파트너 화면에서 분리한다.
-    //   동선: 홈 → 견적 요청 → 내 견적·작업 → 크레딧 → 내 업체 정보.
-    //   [meno-overrides] HEAD 의 isMenuBlockEnabled 필터링 동작 유지: 루트("/")는 항상 노출.
-    const partnerItems: NavItem[] = [
-      { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
-      { path: "/rfqs", label: PARTNER_RFQ_LABEL, icon: PARTNER_RFQ_ICON },
-      { path: "/rfqs", query: { tab: "quotes" }, label: PARTNER_QUOTES_LABEL, icon: PARTNER_QUOTES_ICON },
-      { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
-      { path: "/me/vendor", label: PARTNER_MY_VENDOR_LABEL, icon: PARTNER_MY_VENDOR_ICON },
-    ];
-    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴를 사이드바 끝에 함께 노출.
-    //   기본 항목과 path 가 겹치지 않는 ROUTES 항목만 추가.
+    // [Task #665] 파트너 사이드바도 다른 역할과 동일하게 ROUTES 단일 출처로 구동.
+    //   하드코딩된 partnerItems 를 제거하고, sideMenu/access + isMenuBlockEnabled +
+    //   isMenuExplicitlyEnabled 조합으로 노출 여부를 결정한다.
+    //   순서: rootItem 다음에 partnerOrder 오름차순. 시각적으로는 단일 섹션(타이틀 없음).
     // [Task #637] /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
-    const PARTNER_BLOCKED_PATHS = new Set<string>(["/commissions"]);
-    const explicitExtra: NavItem[] = [];
+    const home: NavItem = { ...rootItem("partner"), label: PARTNER_HOME_LABEL };
+    const tail: { entry: RouteEntry; item: NavItem }[] = [];
     for (const entry of ROUTES) {
       if (entry.hidden) continue;
       if (PARTNER_BLOCKED_PATHS.has(entry.path)) continue;
-      if (partnerItems.some((it) => it.path === entry.path)) continue;
-      if (!isMenuExplicitlyEnabled("partner", entry.path, overrides)) continue;
-      explicitExtra.push({
-        path: entry.path,
-        label: labelFor(entry, "partner"),
-        icon: entry.icon,
-        group: entry.group,
+      const visibleTo = entry.sideMenu ?? entry.access;
+      const explicit = isMenuExplicitlyEnabled("partner", blockIdOf(entry), overrides);
+      if (!visibleTo.includes("partner") && !explicit) continue;
+      if (!isMenuBlockEnabled("partner", blockIdOf(entry), overrides)) continue;
+      tail.push({
+        entry,
+        item: {
+          path: entry.path,
+          query: entry.query,
+          label: labelFor(entry, "partner"),
+          icon: entry.icon,
+          group: entry.group,
+        },
       });
     }
-    return [
-      {
-        items: [
-          ...partnerItems.filter(
-            (it) => it.path === "/" || isMenuBlockEnabled("partner", it.path, overrides),
-          ),
-          ...explicitExtra,
-        ],
-      },
-    ];
+    tail.sort(
+      (a, b) => (a.entry.partnerOrder ?? 100) - (b.entry.partnerOrder ?? 100),
+    );
+    return [{ items: [home, ...tail.map((t) => t.item)] }];
   }
 
   const groups = GROUP_ORDER_BY_ROLE[role];
@@ -1082,12 +1135,14 @@ export function getSidebarSections(
       if (entry.hidden) continue;
       const visibleTo = entry.sideMenu ?? entry.access;
       // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트가 비어 있어도 노출한다.
-      const explicit = isMenuExplicitlyEnabled(role, entry.path, overrides);
+      const explicit = isMenuExplicitlyEnabled(role, blockIdOf(entry), overrides);
       if (!visibleTo.includes(role) && !explicit) continue;
       // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 숨김.
-      if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
+      if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
       items.push({
         path: entry.path,
+        // [Task #665] query 가 지정된 보조 엔트리(예: /rfqs?tab=quotes)도 sidebar 에서 동작.
+        query: entry.query,
         label: labelFor(entry, role),
         icon: entry.icon,
         // [Task #256] 사이드바 아이콘에 카테고리 색을 입히기 위해 그룹을 함께 전달.
@@ -1124,16 +1179,33 @@ export function getBottomNavItems(
     ];
   }
   if (role === "partner") {
-    // [Task #290] 파트너 하단 네비 — 사이드바 항목과 동일한 동선.
-    //   "내 견적·작업" 까지 노출하고, 내 업체 정보는 더보기 드로어로 빠진다.
-    // [Task #637] 정산·수수료(/commissions) 제거 — "계약 성사까지만 매칭" 정책에 따라
-    //   계약 이후 운영(검수·정산·수수료)은 파트너 화면에서 분리한다.
-    return [
-      { ...rootItem("partner"), label: PARTNER_HOME_LABEL },
-      { path: "/rfqs", label: "견적", icon: PARTNER_RFQ_ICON },
-      { path: "/rfqs", query: { tab: "quotes" }, label: "내 견적", icon: PARTNER_QUOTES_ICON },
-      { path: "/me/credits", label: PARTNER_CREDITS_LABEL, icon: PARTNER_CREDITS_ICON },
-    ];
+    // [Task #665] 파트너 하단 네비도 ROUTES 단일 출처로 구동.
+    //   bottomNav 에 partner 가 포함된 엔트리만 추출하고 partnerOrder 로 정렬.
+    //   본사 그리드에서 OFF 된 블록(blockId 단위)은 즉시 숨겨진다.
+    // [Task #637] /commissions 는 정책상 파트너 영구 차단 — bottomNav 에 등록도 안 돼 있다.
+    const home: NavItem = { ...rootItem("partner"), label: PARTNER_HOME_LABEL };
+    const tail: { entry: RouteEntry; item: NavItem }[] = [];
+    for (const entry of ROUTES) {
+      if (entry.hidden) continue;
+      if (PARTNER_BLOCKED_PATHS.has(entry.path)) continue;
+      const inBottom = entry.bottomNav ?? [];
+      if (!inBottom.includes("partner")) continue;
+      if (!isMenuBlockEnabled("partner", blockIdOf(entry), overrides)) continue;
+      tail.push({
+        entry,
+        item: {
+          path: entry.path,
+          query: entry.query,
+          label: bottomLabelFor(entry, "partner"),
+          icon: entry.icon,
+          group: entry.group,
+        },
+      });
+    }
+    tail.sort(
+      (a, b) => (a.entry.partnerOrder ?? 100) - (b.entry.partnerOrder ?? 100),
+    );
+    return [home, ...tail.map((t) => t.item)];
   }
   // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 업무기록(+) / AI비서 / 더보기.
   //   "더보기"는 layout.tsx 가 항상 마지막에 추가하므로 여기서는 4칸만 반환.
@@ -1156,11 +1228,12 @@ export function getBottomNavItems(
     // [카테고리 메뉴 제어] 끈 카테고리에 속하는 하단 탭은 숨김.
     if (!isCategoryEnabled(entry.group, disabledCategories)) continue;
     // [플랫폼 메뉴 정비] 역할×메뉴 그리드에서 비활성된 블록은 하단 탭에서도 숨김.
-    if (!isMenuBlockEnabled(role, entry.path, overrides)) continue;
+    if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
     tail.push({
       entry,
       item: {
         path: entry.path,
+        query: entry.query,
         label: bottomLabelFor(entry, role),
         icon: entry.icon,
         groupSheet: entry.bottomGroupSheet,
@@ -1218,18 +1291,21 @@ export function canAccess(
   if (path === "/") return true;
   if (role === "partner") {
     // [Task #637] /commissions 는 정책상 파트너 영구 차단 — 명시적 ON 이어도 우회 불가.
-    if (path === "/commissions" || path.startsWith("/commissions/")) return false;
-    if (["/rfqs", "/vendors"].some((p) => path === p || path.startsWith(p + "/"))) {
-      return true;
+    if (PARTNER_BLOCKED_PATHS.has(path)) return false;
+    for (const blocked of PARTNER_BLOCKED_PATHS) {
+      if (path.startsWith(blocked + "/")) return false;
     }
-    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴도 접근 허용.
+    // [Task #665] /me/credits, /me/vendor 등 파트너 전용 라우트도 ROUTES 등록을 통해 허용된다.
+    //   /vendors 처럼 access 에 partner 가 없는 경로는 자연히 거부된다.
     const match = ROUTES.find((r) => path === r.path || path.startsWith(r.path + "/"));
     if (!match) return false;
-    return isMenuExplicitlyEnabled("partner", match.path, overrides);
+    if (match.access.includes("partner")) return true;
+    // [요청] 본사가 그리드에서 파트너에게 명시적으로 켠 메뉴도 접근 허용.
+    return isMenuExplicitlyEnabled("partner", blockIdOf(match), overrides);
   }
   const match = ROUTES.find((r) => path === r.path || path.startsWith(r.path + "/"));
   if (!match) return false;
   if (match.access.includes(role)) return true;
   // [요청] 본사가 그리드에서 명시적으로 켠 메뉴는 access 화이트리스트를 우회.
-  return isMenuExplicitlyEnabled(role, match.path, overrides);
+  return isMenuExplicitlyEnabled(role, blockIdOf(match), overrides);
 }

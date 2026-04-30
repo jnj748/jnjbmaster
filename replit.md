@@ -62,12 +62,13 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo utilizing Node.js 24 and TypeScript 5.9, structured into `api-server`, `web`, `db`, and `api-spec` packages.
+The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, structured into `api-server`, `web`, `db`, and `api-spec` packages.
 
 **Frontend:**
-- Developed with React, Vite, Tailwind CSS, and shadcn/ui, featuring a mobile-first design with a 900px desktop breakpoint.
+- Developed with React, Vite, Tailwind CSS, and shadcn/ui.
+- Features a mobile-first design with a 900px desktop breakpoint.
 - Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
-- Leverages React.lazy, Vite manualChunks, and React Query for performance optimization.
+- Optimizes performance with React.lazy, Vite manualChunks, and React Query.
 
 **Backend:**
 - Built on an Express 5 API framework with JWT authentication.
@@ -81,17 +82,15 @@ The project is a pnpm monorepo utilizing Node.js 24 and TypeScript 5.9, structur
 
 **Core Features & Design Patterns:**
 - **Modular Monorepo Structure:** Ensures clear separation of concerns and maintainability.
-- **AI Integration:** For specific functionalities like commission records and vendor matching.
+- **AI Integration:** Utilized for specific functionalities like commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
-- **Multi-step Approval Workflows:** Configurable for up to 5 levels for flexible process management.
+- **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
-- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles.
-- **ERP-style Accounting Dashboard:** Includes pre-billing checklists and management fee calculation.
-- **Facility Management Dashboard:** Centralizes inspection, safety, and maintenance tasks.
-- **Attendance Management:** PC/mobile check-in/out.
+- **Role-based Dashboards:** Dynamic dashboards with mobile navigation tailored to different user roles, including ERP-style accounting and facility management.
+- **Attendance Management:** Supports PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
 - **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
-- **Meter Reading Management:** Bulk upload, manual entry, and anomaly detection.
+- **Meter Reading Management:** Features bulk upload, manual entry, and anomaly detection.
 - **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
 - **Complaints Management:** Enhanced workflow with status tracking and auto-escalation.
 - **Electronic Voting:** Manages agendas, participation tracking, and result tabulation.
@@ -99,7 +98,7 @@ The project is a pnpm monorepo utilizing Node.js 24 and TypeScript 5.9, structur
 - **Object Storage Integration:** Manages attachments using presigned URLs.
 - **Unit Management:** Provides CRUD operations for building units, including bulk import.
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
-- **Building Setup & Integration:** Connects with external APIs for `건축물대장` (building register) and Kakao Postcode.
+- **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
 - **Usage Analytics Dashboard:** Dedicated dashboard for platform administrators.
 - **Onboarding Automation:** Streamlines the manager setup process.
 - **Unified Alert Action Modal:** Common modal for alerts, routing RFQ actions to a dedicated page.

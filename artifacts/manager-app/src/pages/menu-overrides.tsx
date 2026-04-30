@@ -1,6 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { ROUTES, ROLE_LABELS, GROUP_TITLES, type Role, type Group } from "@/lib/permissions";
+import {
+  ROUTES,
+  ROLE_LABELS,
+  GROUP_TITLES,
+  PARTNER_BLOCKED_PATHS,
+  blockIdOf,
+  type Role,
+  type Group,
+} from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Loader2, RotateCcw, Save } from "lucide-react";
 import { refreshMenuOverridesCache } from "@/hooks/use-menu-overrides";
@@ -18,24 +26,37 @@ interface BlockRow {
   eligibleRoles: Set<Role>;
   /** 라우트의 access 화이트리스트 — 그리드의 "기본값" 결정에 사용. */
   defaultRoles: Set<Role>;
+  /** [Task #665] 정책상 영구 차단된 (role, blockId) 셀. 체크박스 비활성 + 툴팁. */
+  permanentlyBlockedRoles: Set<Role>;
 }
 
 function buildBlocks(): BlockRow[] {
   const rows: BlockRow[] = [];
+  // [Task #665] blockId 단위로 dedupe — 같은 path 의 보조 엔트리(예: /rfqs#quotes)는
+  //   별도 행으로 유지되며, 동일 blockId 가 두 번 등록되는 일은 막는다.
+  const seen = new Set<string>();
   for (const r of ROUTES) {
     if (r.hidden) continue;
+    const id = blockIdOf(r);
+    if (seen.has(id)) continue;
+    seen.add(id);
     // 본사(platform_admin) 전용으로만 잡혀 있는 시스템 페이지는 그리드 대상이 아님.
     //   (본사 전용 페이지는 hidden 처리되어 있어 위에서 걸러지지만, 안전을 위해 한 번 더 검증.)
     const baseEligible = TARGET_ROLES.filter((role) => r.access.includes(role));
     if (baseEligible.length === 0) continue;
+    // [Task #665] /commissions 같이 정책상 파트너 영구 차단된 path 는 partner 컬럼을
+    //   비활성 셀로 표시 + 툴팁으로 사유를 알린다. 토글 자체가 불가능.
+    const permanentlyBlocked = new Set<Role>();
+    if (PARTNER_BLOCKED_PATHS.has(r.path)) permanentlyBlocked.add("partner");
     // [요청] "모든 유저가 일단 모든 메뉴를 활성화/비활성화" — 5개 직책 모두에 체크박스를 노출.
     //   사이드바/라우트 가드는 override.enabled=true 가 명시되면 access 화이트리스트를 우회한다.
     rows.push({
-      blockId: r.path,
+      blockId: id,
       label: r.label,
       group: r.group,
       eligibleRoles: new Set<Role>(TARGET_ROLES),
       defaultRoles: new Set<Role>(baseEligible),
+      permanentlyBlockedRoles: permanentlyBlocked,
     });
   }
   return rows;
@@ -91,13 +112,17 @@ export default function MenuOverridesPage() {
   }, []);
 
   function defaultEnabled(role: Role, block: BlockRow): boolean {
+    // [Task #665] 정책상 영구 차단된 셀은 기본값도 OFF (그리드 표시·서버 저장 모두).
+    if (block.permanentlyBlockedRoles.has(role)) return false;
     return block.defaultRoles.has(role);
   }
   function isEnabled(role: Role, block: BlockRow): boolean {
+    if (block.permanentlyBlockedRoles.has(role)) return false;
     const v = overrides.get(key(role, block.blockId));
     return v === undefined ? defaultEnabled(role, block) : v;
   }
   function toggle(role: Role, block: BlockRow) {
+    if (block.permanentlyBlockedRoles.has(role)) return;
     const k = key(role, block.blockId);
     const next = new Map(overrides);
     const cur = isEnabled(role, block);
@@ -111,6 +136,7 @@ export default function MenuOverridesPage() {
     const next = new Map(overrides);
     for (const b of blocksInGroup) {
       if (!b.eligibleRoles.has(role)) continue;
+      if (b.permanentlyBlockedRoles.has(role)) continue;
       const k = key(role, b.blockId);
       if (turnOn === defaultEnabled(role, b)) next.delete(k);
       else next.set(k, turnOn);
@@ -130,10 +156,13 @@ export default function MenuOverridesPage() {
     setInfo("");
     try {
       // 모든 셀에 대해 현재 상태(체크 → enabled true, 미체크 → enabled false) 전송.
+      // [Task #665] 정책상 영구 차단된 (role, blockId) 셀은 저장 페이로드에 포함하지 않는다.
+      //   기존에 잘못 저장된 행이 DB 에 있어도 사이드바·라우트 가드가 모두 차단하므로 무해.
       const payload: Override[] = [];
       for (const b of blocks) {
         for (const role of TARGET_ROLES) {
           if (!b.eligibleRoles.has(role)) continue;
+          if (b.permanentlyBlockedRoles.has(role)) continue;
           payload.push({ role, blockId: b.blockId, enabled: isEnabled(role, b) });
         }
       }
@@ -208,6 +237,8 @@ export default function MenuOverridesPage() {
             행 = 메뉴, 열 = 역할. 모든 셀을 자유롭게 켜고 끌 수 있습니다.
             체크 해제 시 그 역할 사용자의 사이드바·하단 네비·대시보드에서 숨겨지고,
             기본 권한이 없던 메뉴라도 체크하면 그 역할에게 노출됩니다.
+            <br />
+            ※ 비활성(회색) 셀은 정책상 영구 차단되어 토글할 수 없습니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -268,6 +299,21 @@ export default function MenuOverridesPage() {
                     {TARGET_ROLES.map((r) => {
                       if (!b.eligibleRoles.has(r)) {
                         return <td key={r} className="text-center text-slate-300">—</td>;
+                      }
+                      // [Task #665] 정책상 영구 차단된 셀은 비활성 체크박스 + 툴팁으로 표시.
+                      if (b.permanentlyBlockedRoles.has(r)) {
+                        return (
+                          <td key={r} className="text-center" title="정책상 파트너 영구 차단">
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              disabled
+                              readOnly
+                              className="w-4 h-4 cursor-not-allowed opacity-40"
+                              aria-label="정책상 파트너 영구 차단"
+                            />
+                          </td>
+                        );
                       }
                       const on = isEnabled(r, b);
                       return (
