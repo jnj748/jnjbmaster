@@ -1,0 +1,38 @@
+#647 - 견적/견적요청 테이블 스키마 드리프트 복구 (관리소장 견적요청 500 + 환불 잡 실패)
+What & Why
+관리소장 모드에서 "견적 요청 생성" 버튼을 누르면 500 으로 실패한다. 서버 로그에는 insert into "rfqs" ... ("requires_site_visit") ... 쿼리가 column "requires_site_visit" does not exist 로 죽는 것이 잡힌다. 클라이언트에는 깨진 메시지가 그대로 노출되어 사장님 화면에는 "견적 요청 생성에 실패했습니다 / HTTP 403 Forbidden: 접근 권한이 없습니다" 처럼 무관한 문구가 떠 견적요청 흐름이 사실상 동작하지 않는다.
+
+별개로, 서버 부팅 직후 Unviewed-quote refund job failed 로그가 매번 찍히고 있으며 원인은 quotes 테이블에 line_items, subtotal, vat_amount, valid_until, warranty_terms, attachment_url 컬럼이 운영/개발 DB 어디에도 없는 것. 이로 인해 refundUnviewedQuotes 가 매 부팅마다 500 으로 죽고 미열람 견적 환불 정책이 사실상 동작하지 않고 있다.
+
+두 증상은 모두 Task #612(표준 견적 양식 + 현장방문 견적) 가 drizzle 스키마에는 컬럼을 추가했지만 lib/db/drizzle/ 에는 대응 SQL 이 한 번도 생성되지 않은 채 머지된, 같은 종류의 schema → migration 드리프트다. Task #646(usage_events) 와도 동일 패턴.
+
+Done looks like
+관리소장 모드에서 견적 요청 생성 폼을 정상 입력하면 500 없이 RFQ 가 만들어지고 목록에 나타난다 (수동 확인).
+부팅 로그에서 Unviewed-quote refund job failed / column "line_items" does not exist 가 더 이상 나타나지 않고, refundUnviewedQuotes 가 정상적으로 끝까지 실행된다 (대상이 없으면 0건으로 종료).
+rfqs.requires_site_visit, 그리고 quotes 의 line_items, subtotal, vat_amount, valid_until, warranty_terms, attachment_url 컬럼이 운영/개발 DB 양쪽에 존재하며 drizzle 스키마와 일치한다.
+Out of scope
+부팅 시 자동 schema-drift 점검(WARN 로그) / PR 단계 마이그레이션 누락 검출은 별도 트랙(Task #648)에서 다룬다.
+표준 견적 양식 UI/검증 로직 자체의 추가 보강은 다루지 않는다 — 본 태스크는 단지 이미 머지된 코드를 DB 와 다시 정합화하는 것이 목표.
+운영 DB 의 기존 행 데이터 마이그레이션(예: total_amount ↔ subtotal+vatAmount 재계산)은 다루지 않는다. 신규 컬럼은 모두 nullable / default 로 추가한다.
+Steps
+누락 컬럼 인벤토리 확정 — drizzle 스키마(lib/db/src/schema/rfqs.ts, quotes.ts)와 실제 DB(information_schema.columns)를 비교해, 본 태스크에서 추가해야 할 컬럼 목록을 한 번 더 검증한다. 현재 확인된 누락분은:
+
+rfqs.requires_site_visit boolean NOT NULL DEFAULT false
+quotes.line_items text
+quotes.subtotal real
+quotes.vat_amount real
+quotes.valid_until date
+quotes.warranty_terms text
+quotes.attachment_url text
+멱등 마이그레이션 추가 — lib/db/drizzle/ 에 새로운 SQL 마이그레이션 파일을 추가해 위 컬럼들을 ALTER TABLE ... ADD COLUMN IF NOT EXISTS ... 로 추가한다. 기존 행은 NULL/기본값으로 남는다. 파일명은 기존 명명 규칙(번호 + task612 등) 을 따른다.
+
+부팅 + 수동 e2e 확인 — API 서버를 재시작해 마이그레이션이 한 번에 적용됨을 확인하고, 부팅 직후 Unviewed-quote refund job failed 가 사라졌는지 로그로 검증한다. 이어서 분할 프리뷰 격자(또는 단일 manager 셀)에서 견적 요청 생성을 실제로 한 번 끝까지 돌려, 500 없이 목록에 새 RFQ 가 나타나는지 확인한다.
+
+Relevant files
+lib/db/src/schema/rfqs.ts:5-34
+lib/db/src/schema/quotes.ts:5-39
+lib/db/drizzle/
+artifacts/api-server/src/routes/rfqs.ts:477-610
+artifacts/api-server/src/repo/producingDocuments.ts
+artifacts/api-server/src/lib/credits.ts:376
+artifacts/manager-app/src/pages/rfqs.tsx:308-372
