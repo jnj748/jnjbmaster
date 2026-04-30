@@ -99,6 +99,21 @@ The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, designed for
 - **Building Setup & Integration:** Connects to external APIs for building registers and postcode services.
 - **Onboarding Automation:** Streamlines manager setup.
 
+# Domain Concepts (Korean Billing)
+
+## 부속명세서 (Supplemental Schedule)
+- **정의**: "분리부과" 시 매월 부과의 근거가 되는 명세 문서.
+- **분리부과 ≠ 분납**: 두 개념은 다르다. 향후 어떤 작업/플랜에서도 혼동하면 안 된다.
+  - **분납**: 한 세대가 한 번 부과된 금액을 여러 회차로 나누어 *납부* 하는 것 (수납 측면).
+  - **분리부과**: 한 번 발생한 지출(예: 연간 보험료) 을 발생 월에 전액 부과하지 않고 여러 달에 걸쳐 *부과* 하는 것 (부과/회계 측면).
+- **예시**: 보험료를 1~12월 연간 1,200만원으로 계약 → 1월에 1,200만원을 통째로 부과하지 않고 매월 100만원씩 12개월에 걸쳐 분리부과.
+- **부속명세서가 필요한 이유**: 1월에는 1,200만원짜리 지출결의서가 한 건 존재하지만, 2~12월에는 그 달 자체의 지출결의서가 없다. 그 11개월 동안 매월 100만원이 부과되는 근거(=어떤 1월 지출결의서로부터 어떤 기간/방식으로 분리부과되는지) 를 설명하는 문서가 부속명세서.
+- **데이터 모델 함의(향후 플랜 작성 시 반드시 고려)**:
+  - 부속명세서는 "분납 일정(installment schedule)" 이 아니라 "분리부과 스케줄" 에 연결되어야 한다. 이 둘을 같은 테이블/같은 흐름으로 묶지 말 것.
+  - 1건의 지출결의서 ↔ 다수의 분리부과 부과월 ↔ 그 부과월 각각에 대응하는 부속명세서 항목 — 의 관계.
+  - 따라서 부속명세서는 (a) 원천 지출결의서 참조, (b) 분리부과 적용 기간(시작월·종료월·총 회차), (c) 회차별 금액 산정 근거(균등/사용량 비례 등) 를 보유해야 한다.
+  - 기존 PROPOSED task 중 표현이 "분납" 으로 되어 있는 항목은 본 정의에 맞춰 "분리부과" 로 다듬은 뒤 진행한다.
+
 # External Dependencies
 - jsPDF
 - @google-cloud/storage
