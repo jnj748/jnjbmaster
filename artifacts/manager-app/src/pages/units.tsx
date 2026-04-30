@@ -1,4 +1,5 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { Link } from "wouter";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -7,23 +8,15 @@ import { useAuth } from "@/contexts/auth-context";
 const Owners = lazy(() => import("@/pages/owners"));
 import {
   useListUnits,
-  useCreateUnit,
-  useUpdateUnit,
-  useDeleteUnit,
-  useBulkCreateUnits,
-  useGenerateUnits,
-  useGetUnit,
   useGetUnitsSummary,
-  getListUnitsQueryKey,
-  getGetUnitsSummaryQueryKey,
 } from "@workspace/api-client-react";
-import type { Unit, GetUnit200 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import type { Unit } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -31,20 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Search } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { CsvUploadDialog, type CsvRow } from "@/components/units/csv-upload-dialog";
-import { GenerateDialog, type GenForm } from "@/components/units/generate-dialog";
-import { UnitFormDialog, type UnitFormState } from "@/components/units/unit-form-dialog";
-import { UnitDetailDialog } from "@/components/units/unit-detail-dialog";
+import { Search, Settings, ArrowRight } from "lucide-react";
 import { UnitsSummaryCards } from "@/components/units/units-summary-cards";
 import { UnitsFloorList } from "@/components/units/units-floor-list";
 // [Task #516] 다동 단지 소유자 점검을 위한 그리드 보기 모드.
@@ -58,41 +38,38 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
   maintenance: { label: "정비중", variant: "destructive" },
 };
 
-const emptyForm: UnitFormState = {
-  unitNumber: "",
-  floor: "",
-  exclusiveArea: "",
-  commonArea: "",
-  usage: "주거",
-  notes: "",
-  status: "vacant",
-};
+// [Task #675] URL 쿼리에서 검색어/포커스 호실을 한 번 읽어 초기 상태로 사용한다.
+//   ?search=... → 검색 입력에 자동 반영
+//   ?focusId=...  → 결과 목록에서 해당 호실 ID 행을 자동으로 펼침
+//   ?focusUnit=... → focusId 가 없을 때 unitNumber 일치 행을 자동으로 펼침
+function readInitialQuery(): { search: string; focusId: number | null; focusUnit: string | null } {
+  if (typeof window === "undefined") return { search: "", focusId: null, focusUnit: null };
+  const params = new URLSearchParams(window.location.search);
+  const search = params.get("search") ?? "";
+  const focusIdRaw = params.get("focusId");
+  const focusId = focusIdRaw ? Number(focusIdRaw) : NaN;
+  const focusUnit = params.get("focusUnit");
+  return {
+    search,
+    focusId: Number.isFinite(focusId) ? focusId : null,
+    focusUnit: focusUnit ?? null,
+  };
+}
 
 export default function UnitsPage() {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Unit | null>(null);
+  const initial = useMemo(() => readInitialQuery(), []);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
-  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(initial.search);
   // [Task #469] 빈 상태에서 페이지 이동 없이 호실 가져오기 마법사를 모달로 띄운다.
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   // [Task #516] 호실 목록 보기 모드 — 층별 카드(기본) / 소유자 그리드.
   const [viewMode, setViewMode] = useState<"floor" | "owner">("floor");
-  const [detailUnitId, setDetailUnitId] = useState<number | null>(null);
-  const [csvData, setCsvData] = useState<CsvRow[]>([]);
-  const [csvErrors, setCsvErrors] = useState<string[]>([]);
-  const [csvParsing, setCsvParsing] = useState(false);
-  const [genForm, setGenForm] = useState<GenForm>({
-    startFloor: "1",
-    endFloor: "10",
-    unitsPerFloor: "10",
-    startUnit: "1",
-    prefix: "",
-    usage: "",
-  });
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  // [Task #675] 인라인 펼침 상태 — 단일 선택. URL 의 focusId 로 사전 설정한다.
+  const [expandedUnitId, setExpandedUnitId] = useState<number | null>(initial.focusId);
+  // [Task #675] focusUnit 으로만 진입한 경우(입주자 결과 클릭 등)는 결과 목록이
+  //   로드된 후 unitNumber 일치 행을 한 번 펼친다. 한 번 적용된 후엔 다시 자동
+  //   펼침을 시도하지 않는다.
+  const [pendingFocusUnit, setPendingFocusUnit] = useState<string | null>(initial.focusUnit);
   const { user } = useAuth();
   const canManageOwners = user?.role === "manager" || user?.role === "platform_admin";
   // [Task #141] /owners 레거시 진입은 /units?tab=owners 로 리디렉트되어 오므로 초기 탭에 반영.
@@ -109,14 +86,23 @@ export default function UnitsPage() {
     }
   );
   const { data: summary } = useGetUnitsSummary();
-  const { data: unitDetail } = useGetUnit(detailUnitId!, { query: { enabled: !!detailUnitId } }) as { data: GetUnit200 | undefined };
-  const createMutation = useCreateUnit();
-  const updateMutation = useUpdateUnit();
-  const deleteMutation = useDeleteUnit();
-  const bulkMutation = useBulkCreateUnits();
-  const generateMutation = useGenerateUnits();
 
-  const [form, setForm] = useState<UnitFormState>({ ...emptyForm });
+  // [Task #675] 검색 결과가 들어오면 pendingFocusUnit 일치 행을 자동으로 펼친다.
+  //   이미 expandedUnitId 가 잡혀 있으면(예: focusId 진입) 건너뛴다.
+  useEffect(() => {
+    if (!pendingFocusUnit) return;
+    if (!units || units.length === 0) return;
+    const match = units.find((u) => u.unitNumber === pendingFocusUnit);
+    if (match) {
+      setExpandedUnitId(match.id);
+      setPendingFocusUnit(null);
+    }
+  }, [pendingFocusUnit, units]);
+
+  // [Task #675] 검색어가 비워지면 자동 펼침 상태도 함께 해제한다.
+  useEffect(() => {
+    if (!searchTerm) setExpandedUnitId(null);
+  }, [searchTerm]);
 
   const floorGroups = useMemo(() => {
     if (!units) return [];
@@ -139,169 +125,8 @@ export default function UnitsPage() {
       });
   }, [units]);
 
-  function invalidateAll() {
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetUnitsSummaryQueryKey() });
-  }
-
-  function resetForm() {
-    setForm({ ...emptyForm });
-    setEditing(null);
-  }
-
-  function openEdit(item: Unit) {
-    setEditing(item);
-    setForm({
-      unitNumber: item.unitNumber,
-      floor: item.floor,
-      exclusiveArea: item.exclusiveArea || "",
-      commonArea: item.commonArea || "",
-      usage: item.usage || "주거",
-      notes: item.notes || "",
-      status: item.status,
-    });
-    setDialogOpen(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (editing) {
-      await updateMutation.mutateAsync({
-        id: editing.id,
-        data: {
-          unitNumber: form.unitNumber,
-          floor: form.floor,
-          exclusiveArea: form.exclusiveArea || null,
-          commonArea: form.commonArea || null,
-          usage: form.usage || null,
-          notes: form.notes || null,
-          status: form.status as "vacant" | "occupied" | "maintenance",
-        },
-      });
-      toast({ title: "호실 정보가 수정되었습니다" });
-    } else {
-      await createMutation.mutateAsync({
-        data: {
-          unitNumber: form.unitNumber,
-          floor: form.floor,
-          exclusiveArea: form.exclusiveArea || null,
-          commonArea: form.commonArea || null,
-          usage: form.usage || "주거",
-          notes: form.notes || null,
-          status: form.status as "vacant" | "occupied" | "maintenance",
-        },
-      });
-      toast({ title: "호실이 등록되었습니다" });
-    }
-    invalidateAll();
-    setDialogOpen(false);
-    resetForm();
-  }
-
-  async function handleDelete(id: number) {
-    await deleteMutation.mutateAsync({ id });
-    invalidateAll();
-    toast({ title: "호실이 삭제되었습니다" });
-  }
-
-  async function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCsvParsing(true);
-    try {
-    const { default: Papa } = await import("papaparse");
-    Papa.parse<CsvRow>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete(results) {
-        const errors: string[] = [];
-        const valid: CsvRow[] = [];
-        const seen = new Set<string>();
-        results.data.forEach((row, i) => {
-          if (!row["호실번호"] || !row["층"]) {
-            errors.push(`${i + 2}행: 호실번호와 층은 필수입니다`);
-            return;
-          }
-          if (row["전용면적"] && isNaN(Number(row["전용면적"]))) {
-            errors.push(`${i + 2}행: 전용면적은 숫자여야 합니다`);
-            return;
-          }
-          if (row["공용면적"] && isNaN(Number(row["공용면적"]))) {
-            errors.push(`${i + 2}행: 공용면적은 숫자여야 합니다`);
-            return;
-          }
-          if (seen.has(row["호실번호"])) {
-            errors.push(`${i + 2}행: 호실번호 '${row["호실번호"]}'가 CSV 내에서 중복됩니다`);
-            return;
-          }
-          seen.add(row["호실번호"]);
-          valid.push(row);
-        });
-        setCsvData(valid);
-        setCsvErrors(errors);
-        setCsvParsing(false);
-      },
-      error() {
-        setCsvParsing(false);
-        toast({ title: "CSV 파싱 실패", variant: "destructive" });
-      },
-    });
-    } catch (err) {
-      setCsvParsing(false);
-      toast({ title: "CSV 모듈 로드 실패", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
-    }
-  }
-
-  async function handleCsvImport() {
-    const unitData = csvData.map((row) => ({
-      unitNumber: row["호실번호"],
-      floor: row["층"],
-      exclusiveArea: row["전용면적"] || null,
-      commonArea: row["공용면적"] || null,
-      usage: row["용도"] || null,
-      notes: row["비고"] || null,
-    }));
-
-    const result = await bulkMutation.mutateAsync({ data: { units: unitData } });
-    invalidateAll();
-    toast({
-      title: `${result.created}개 호실이 등록되었습니다`,
-      description: result.errors.length > 0
-        ? `${result.errors.length}건 오류 발생`
-        : undefined,
-    });
-    setCsvDialogOpen(false);
-    setCsvData([]);
-    setCsvErrors([]);
-  }
-
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
-    const result = await generateMutation.mutateAsync({
-      data: {
-        startFloor: parseInt(genForm.startFloor),
-        endFloor: parseInt(genForm.endFloor),
-        unitsPerFloor: parseInt(genForm.unitsPerFloor),
-        startUnit: parseInt(genForm.startUnit) || 1,
-        prefix: genForm.prefix || undefined,
-        usage: genForm.usage || undefined,
-      },
-    });
-    invalidateAll();
-    toast({ title: `${result.created}개 호실이 자동 생성되었습니다` });
-    setGenerateDialogOpen(false);
-  }
-
-  function downloadSampleCsv() {
-    const csv = "호실번호,층,전용면적,공용면적,용도,비고\n101,1,33.5,12.1,사무실,\n102,1,28.0,10.5,사무실,코너호실\n201,2,33.5,12.1,사무실,\n";
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "호실_샘플.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  function handleToggleExpand(id: number) {
+    setExpandedUnitId((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -315,47 +140,34 @@ export default function UnitsPage() {
         <div>
           <h1 className="text-2xl font-bold">호실 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            건물 호실을 등록하고 관리합니다
+            건물 호실 정보를 조회하고, 행을 클릭해 상세를 확인합니다.
           </p>
         </div>
-        <div className="flex gap-2">
-          <CsvUploadDialog
-            open={csvDialogOpen}
-            onOpenChange={(o) => { setCsvDialogOpen(o); if (!o) { setCsvData([]); setCsvErrors([]); } }}
-            csvData={csvData}
-            csvErrors={csvErrors}
-            csvParsing={csvParsing}
-            isPending={bulkMutation.isPending}
-            onFileChange={handleCsvFile}
-            onImport={handleCsvImport}
-            onDownloadSample={downloadSampleCsv}
-          />
-
-          <GenerateDialog
-            open={generateDialogOpen}
-            onOpenChange={setGenerateDialogOpen}
-            genForm={genForm}
-            setGenForm={setGenForm}
-            isPending={generateMutation.isPending}
-            onSubmit={handleGenerate}
-          />
-
-          <UnitFormDialog
-            open={dialogOpen}
-            onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}
-            editing={!!editing}
-            form={form}
-            setForm={setForm}
-            onSubmit={handleSubmit}
-          />
-
-          {/* [Task #437] 헤더 우측의 "대장 동기화" 진입점은 제거. 첫 등록 동선은
-              아래 빈 상태 컴포넌트의 "대장 동기화" 버튼으로 단일화하고, 호실이
-              등록된 이후 재동기화는 건물정보 수정 메뉴(/settings/building?tab=
-              units-import)에서만 진행한다.
-              [Task #485] 단독 페이지 분리 후에도 동일 경로 유지. */}
-        </div>
+        {/* [Task #675] 호실 추가/CSV 업로드/자동 생성 버튼은 설정 메뉴로 이관되었다.
+            행의 보기/수정/삭제 액션도 모두 사라지고, 행 클릭 = 인라인 펼침으로 통일한다. */}
       </div>
+
+      {/* [Task #675] 호실 기초정보 변경은 설정 메뉴에서 진행하도록 안내. */}
+      <Alert data-testid="alert-units-edit-moved-to-settings">
+        <Settings className="w-4 h-4" />
+        <AlertTitle>호실 기초정보 변경은 설정 메뉴에서</AlertTitle>
+        <AlertDescription className="flex flex-wrap items-center gap-2">
+          <span>
+            호실 추가·수정·삭제, CSV 업로드, 자동 생성은 [설정 → 건물정보 수정]에서 진행해 주세요.
+          </span>
+          <Link href="/settings/building">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1"
+              data-testid="btn-go-building-settings"
+            >
+              건물정보 수정으로 이동
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        </AlertDescription>
+      </Alert>
 
       {summary && <UnitsSummaryCards summary={summary} />}
 
@@ -367,6 +179,7 @@ export default function UnitsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
+            data-testid="input-units-search"
           />
         </div>
         <Select value={filterStatus || "all"} onValueChange={(v) => setFilterStatus(v === "all" ? undefined : v)}>
@@ -407,9 +220,8 @@ export default function UnitsPage() {
         <UnitsOwnerGrid
           isLoading={isLoading}
           units={units}
-          onView={(id) => setDetailUnitId(id)}
-          onEdit={(unit) => openEdit(unit)}
-          onDelete={(id) => handleDelete(id)}
+          expandedUnitId={expandedUnitId}
+          onToggleExpand={handleToggleExpand}
         />
       ) : (
       <UnitsFloorList
@@ -417,9 +229,8 @@ export default function UnitsPage() {
         units={units}
         floorGroups={floorGroups}
         statusMap={STATUS_MAP}
-        onView={(id) => setDetailUnitId(id)}
-        onEdit={(unit) => openEdit(unit)}
-        onDelete={(id) => handleDelete(id)}
+        expandedUnitId={expandedUnitId}
+        onToggleExpand={handleToggleExpand}
         // [Task #437] 호실 0건 빈 상태에서 노출되는 "AI 호실데이터 로딩하기" 버튼.
         //   아직 한 번도 호실이 등록되지 않은 경우(summary.total === 0) 에만
         //   버튼이 보이도록 totalUnits 도 함께 전달한다. summary 가 아직 로드
@@ -434,14 +245,6 @@ export default function UnitsPage() {
       <UnitsImportDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
-      />
-
-      <UnitDetailDialog
-        detailUnitId={detailUnitId}
-        unitDetail={unitDetail}
-        onClose={() => setDetailUnitId(null)}
-        onEdit={() => { setDetailUnitId(null); const u = units?.find(x => x.id === detailUnitId); if (u) openEdit(u); }}
-        onDelete={() => { if (detailUnitId) { handleDelete(detailUnitId); setDetailUnitId(null); } }}
       />
       </TabsContent>
       {canManageOwners && (

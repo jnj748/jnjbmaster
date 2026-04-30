@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StepAddressInfo } from "@/components/building-setup/step-address-info";
 import { StepLogo } from "@/components/building-setup/step-logo";
 import { StepUnitsImport } from "@/components/building-setup/step-units-import";
+import { StepUnitsBaseInfo } from "@/components/building-setup/step-units-base-info";
 import { useBuildingSetup } from "@/components/building-setup/use-building-setup";
 
 declare global {
@@ -124,6 +125,11 @@ export default function BuildingSetup() {
           hasRegisterPk={Boolean(setup.building.buildingRegisterPk)}
         />
       </div>
+
+      {/* [Task #675] 호실 기초정보 — 추가/수정/삭제/CSV/자동 생성.
+          종전엔 호실관리(/units) 우상단에 있던 액션바를 이곳으로 이관해, 일상 조회는
+          호실관리에서 하고 기초정보 변경은 설정에서 진행하도록 동선을 분리한다. */}
+      <StepUnitsBaseInfo />
     </div>
   );
 }

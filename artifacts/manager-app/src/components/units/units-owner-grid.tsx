@@ -4,8 +4,8 @@
 // 동 / 층 / 호실 정렬, 동(棟) 필터, 출처 뱃지(대장/자동/수기/CSV) 를 한눈에 보여
 // 다동 단지에서 소유자 마스터를 일괄 점검할 수 있게 한다.
 //
-// 행 클릭 = 상세, 편집/삭제는 액션 컬럼.
-import { useMemo, useState } from "react";
+// [Task #675] 행 클릭 = 인라인 펼침/접힘 (단일 선택). 같은 행 재클릭 시 닫힘.
+import { Fragment, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -24,15 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Edit, Eye, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { Unit } from "@workspace/api-client-react";
+import { UnitDetailInline } from "./unit-detail-inline";
 
 interface Props {
   isLoading: boolean;
   units?: Unit[];
-  onView: (id: number) => void;
-  onEdit: (unit: Unit) => void;
-  onDelete: (id: number) => void;
+  // [Task #675] 행 클릭 = 인라인 펼침. 호출 측이 단일 선택 상태를 관리한다.
+  expandedUnitId: number | null;
+  onToggleExpand: (id: number) => void;
 }
 
 const SOURCE_LABEL: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
@@ -55,7 +55,7 @@ function ownerSourceBadge(u: Unit) {
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 
-export function UnitsOwnerGrid({ isLoading, units, onView, onEdit, onDelete }: Props) {
+export function UnitsOwnerGrid({ isLoading, units, expandedUnitId, onToggleExpand }: Props) {
   const [dongFilter, setDongFilter] = useState<string>("__all__");
 
   const dongs = useMemo(() => {
@@ -117,6 +117,7 @@ export function UnitsOwnerGrid({ isLoading, units, onView, onEdit, onDelete }: P
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]"></TableHead>
               <TableHead className="w-[80px]">동</TableHead>
               <TableHead className="w-[60px]">층</TableHead>
               <TableHead className="w-[100px]">호실</TableHead>
@@ -124,7 +125,6 @@ export function UnitsOwnerGrid({ isLoading, units, onView, onEdit, onDelete }: P
               <TableHead>연락처</TableHead>
               <TableHead>주소</TableHead>
               <TableHead className="w-[110px]">출처</TableHead>
-              <TableHead className="w-[120px] text-right">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -138,33 +138,54 @@ export function UnitsOwnerGrid({ isLoading, units, onView, onEdit, onDelete }: P
             {rows.map((u) => {
               const dong = (u as Unit & { dong?: string | null }).dong ?? "";
               const ownerAddress = (u as Unit & { ownerAddress?: string | null }).ownerAddress;
+              const expanded = expandedUnitId === u.id;
               return (
-                <TableRow key={u.id} data-testid={`row-owner-grid-${u.id}`}>
-                  <TableCell className="font-mono text-xs">{dong || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{u.floor}</TableCell>
-                  <TableCell className="font-medium">{u.unitNumber}</TableCell>
-                  <TableCell>{u.ownerName || <span className="text-muted-foreground">—</span>}</TableCell>
-                  <TableCell className="text-sm">
-                    {u.ownerPhone || <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground truncate max-w-[280px]">
-                    {ownerAddress || "—"}
-                  </TableCell>
-                  <TableCell>{ownerSourceBadge(u)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => onView(u.id)} data-testid={`btn-owner-grid-view-${u.id}`}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => onEdit(u)} data-testid={`btn-owner-grid-edit-${u.id}`}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => onDelete(u.id)} data-testid={`btn-owner-grid-delete-${u.id}`}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <Fragment key={u.id}>
+                  <TableRow
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={expanded}
+                    aria-controls={`unit-detail-owner-${u.id}`}
+                    data-testid={`row-owner-grid-${u.id}`}
+                    onClick={() => onToggleExpand(u.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onToggleExpand(u.id);
+                      }
+                    }}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
+                    <TableCell className="text-muted-foreground">
+                      {expanded ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{dong || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{u.floor}</TableCell>
+                    <TableCell className="font-medium">{u.unitNumber}</TableCell>
+                    <TableCell>{u.ownerName || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-sm">
+                      {u.ownerPhone || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground truncate max-w-[280px]">
+                      {ownerAddress || "—"}
+                    </TableCell>
+                    <TableCell>{ownerSourceBadge(u)}</TableCell>
+                  </TableRow>
+                  {expanded && (
+                    <TableRow
+                      id={`unit-detail-owner-${u.id}`}
+                      className="bg-muted/20 hover:bg-muted/20"
+                    >
+                      <TableCell colSpan={8} className="p-2">
+                        <UnitDetailInline unitId={u.id} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               );
             })}
           </TableBody>

@@ -811,8 +811,11 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/settings/building", component: SettingsPage,
     label: "건물정보 수정", icon: Building, group: "settings",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager", "platform_admin"],
+    // [Task #675] 호실 기초정보(추가/수정/삭제/CSV/자동 생성)가 호실관리 화면에서
+    //   설정 → 건물정보 수정으로 이관됨에 따라, 기존에 호실관리에서 같은 작업을
+    //   할 수 있던 경리(accountant)도 이 화면에 진입할 수 있어야 한다.
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "platform_admin", "accountant"],
   },
   {
     // [Task #485] 플랫폼 BM (수익화 정책·크레딧·수수료) 단독 페이지.

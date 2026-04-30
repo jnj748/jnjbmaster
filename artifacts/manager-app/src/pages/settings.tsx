@@ -59,7 +59,14 @@ export default function SettingsPage() {
   //   막기 위해 이 컴포넌트 차원에서 한 번 더 차단한다.
   if (user?.role === "partner") return <Redirect to="/" />;
 
-  const canEditBuilding = user?.role === "manager" || user?.role === "platform_admin";
+  // [Task #675] 호실 기초정보 변경(추가/수정/삭제/CSV/자동 생성)이 건물정보 수정
+  //   화면으로 이관됨에 따라, 기존에 호실관리에서 같은 작업을 할 수 있던 경리(accountant)
+  //   역할도 이 화면에 진입할 수 있도록 한다. 건물 자체 정보 편집은 페이지 안에서
+  //   기존 편집 가드(isEditing/placeholder)로 매니저·플랫폼 관리자에게만 사실상 풀린다.
+  const canEditBuilding =
+    user?.role === "manager" ||
+    user?.role === "platform_admin" ||
+    user?.role === "accountant";
   const canEditPlatform = user?.role === "platform_admin" || user?.role === "hq_executive";
 
   // 정규화 — wouter 의 location 은 base 가 제거된 값이므로 그대로 사용.
