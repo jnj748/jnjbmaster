@@ -4031,10 +4031,12 @@ export const ImportUnitsFromRegisterBody = zod.object({
   includeOwners: zod
     .boolean()
     .default(importUnitsFromRegisterBodyIncludeOwnersDefault),
+  previewToken: zod.string().optional(),
 });
 
 export const ImportUnitsFromRegisterResponse = zod.object({
   dryRun: zod.boolean(),
+  previewToken: zod.string().optional(),
   created: zod.number(),
   updated: zod.number(),
   skipped: zod.number(),

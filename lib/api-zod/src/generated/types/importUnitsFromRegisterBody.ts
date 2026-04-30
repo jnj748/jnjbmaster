@@ -9,4 +9,5 @@
 export type ImportUnitsFromRegisterBody = {
   dryRun?: boolean;
   includeOwners?: boolean;
+  previewToken?: string;
 };

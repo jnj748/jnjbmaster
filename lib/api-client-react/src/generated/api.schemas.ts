@@ -4493,6 +4493,7 @@ export type ImportUnitsFromRegisterResponseNoUnitData = {
 
 export interface ImportUnitsFromRegisterResponse {
   dryRun: boolean;
+  previewToken?: string;
   created: number;
   updated: number;
   skipped: number;
@@ -6606,6 +6607,7 @@ export type ListMonthlySummaryReportsParams = {
 export type ImportUnitsFromRegisterBody = {
   dryRun?: boolean;
   includeOwners?: boolean;
+  previewToken?: string;
 };
 
 export type LookupOwnersBodyTargetsItem = {

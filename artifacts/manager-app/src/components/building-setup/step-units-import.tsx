@@ -14,6 +14,7 @@ import type {
   ImportUnitsFromRegisterResponse,
   ImportUnitPreviewItem,
 } from "@workspace/api-client-react";
+import { ApiError } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 
@@ -98,20 +99,93 @@ export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBu
     );
   }
 
+  // [Task #698] 외부 API 일시 장애·미리보기 만료 등 머신 판별 가능한 에러를 한국어
+  //   안내 메시지로 매핑한다. 서버는 503 / 410 응답에 code + error 를 함께 담는다.
+  function describeApiError(e: unknown, fallback: string): { title: string; description: string } {
+    if (e instanceof ApiError) {
+      const data = (e.data ?? null) as { code?: string; error?: string } | null;
+      const code = data?.code;
+      // 503 REGISTER_FETCH_FAILED — 외부 건축물대장 조회 일시 지연.
+      if (code === "REGISTER_FETCH_FAILED") {
+        return {
+          title: "건축물대장 조회 일시 지연",
+          description: data?.error ?? "건축물대장 조회가 일시적으로 지연되고 있어요. 잠시 후 다시 시도해 주세요.",
+        };
+      }
+      if (code === "REGISTER_API_KEY_MISSING") {
+        return {
+          title: "오류",
+          description: data?.error ?? "건축물대장 API 키가 설정되지 않았습니다.",
+        };
+      }
+      if (code === "PREVIEW_EXPIRED") {
+        return {
+          title: "미리보기를 다시 받아 주세요",
+          description: data?.error ?? "미리보기 결과가 만료되었습니다. 미리보기를 다시 가져온 후 적용해 주세요.",
+        };
+      }
+      // 그 외 — 502/네트워크 오류 등은 e.message 가 "HTTP 502 Bad Gateway" 같은 일반 문구이지만,
+      // 사용자 안내는 한국어 폴백으로 통일한다.
+      if (e.status === 502 || e.status === 504) {
+        return {
+          title: "일시 통신 오류",
+          description: "서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.",
+        };
+      }
+      return { title: "오류", description: data?.error ?? e.message ?? fallback };
+    }
+    const msg = e instanceof Error ? e.message : fallback;
+    return { title: "오류", description: msg };
+  }
+
   const runPreview = async () => {
     setApplied(null);
     try {
       const res = await importMutation.mutateAsync({ data: { dryRun: true } });
       setPreview(res);
+      return res;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "미리보기를 가져오지 못했습니다.";
-      toast({ title: "오류", description: msg, variant: "destructive" });
+      const { title, description } = describeApiError(e, "미리보기를 가져오지 못했습니다.");
+      toast({ title, description, variant: "destructive" });
+      return null;
     }
   };
 
+  // [Task #698] 캐시된 미리보기 토큰을 보내 외부 API 재호출 없이 적용한다. 토큰이
+  //   만료된 경우(410 PREVIEW_EXPIRED)는 자동으로 미리보기를 다시 받아 한 번 더 시도하고,
+  //   그래도 실패하면 사용자에게 명확한 안내를 띄운다.
+  async function applyWithToken(token: string): Promise<ImportUnitsFromRegisterResponse> {
+    return importMutation.mutateAsync({ data: { dryRun: false, previewToken: token } });
+  }
+
   const runApply = async () => {
+    if (!preview?.previewToken) {
+      // 방어적 폴백: 어떤 이유로 토큰이 없으면 미리보기를 한 번 받아 토큰을 채운다.
+      const refreshed = await runPreview();
+      if (!refreshed?.previewToken) return;
+      setPreview(refreshed);
+      // 사용자에게 다시 한 번 적용을 누르게 한다 — 신규 분류 결과를 확인할 시간 제공.
+      toast({
+        title: "미리보기를 새로 받았어요",
+        description: "내용을 확인한 뒤 [확정 적용] 을 다시 눌러 주세요.",
+      });
+      return;
+    }
     try {
-      const res = await importMutation.mutateAsync({ data: { dryRun: false } });
+      let res: ImportUnitsFromRegisterResponse;
+      try {
+        res = await applyWithToken(preview.previewToken);
+      } catch (e) {
+        // [Task #698] 미리보기 토큰 만료 — 자동으로 미리보기 한 번 더 받고 다시 시도.
+        if (e instanceof ApiError && e.status === 410) {
+          const refreshed = await runPreview();
+          if (!refreshed?.previewToken) return;
+          setPreview(refreshed);
+          res = await applyWithToken(refreshed.previewToken);
+        } else {
+          throw e;
+        }
+      }
       setApplied(res);
       setPreview(res);
       // units 관련 캐시 폭넓게 무효화 (호실 목록/디테일/대시보드 위젯).
@@ -133,8 +207,8 @@ export function StepUnitsImport({ existingId, hasRegisterPk, onApplied, onGoToBu
       // 확정 적용 결과를 알리고 자동으로 닫히도록 한다.
       onApplied?.(res);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "호실 일괄 가져오기에 실패했습니다.";
-      toast({ title: "오류", description: msg, variant: "destructive" });
+      const { title, description } = describeApiError(e, "호실 일괄 가져오기에 실패했습니다.");
+      toast({ title, description, variant: "destructive" });
     }
   };
 

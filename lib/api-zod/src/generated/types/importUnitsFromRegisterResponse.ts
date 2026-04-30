@@ -10,6 +10,7 @@ import type { ImportUnitsFromRegisterResponseNoUnitData } from "./importUnitsFro
 
 export interface ImportUnitsFromRegisterResponse {
   dryRun: boolean;
+  previewToken?: string;
   created: number;
   updated: number;
   skipped: number;

@@ -46,13 +46,69 @@ export function parseRegisterJsonText(jsonText: string): unknown {
   return JSON.parse(preserveBigIntegerIds(jsonText));
 }
 
+/**
+ * [Task #698] 외부 건축물대장 API 의 "진짜 장애" 를 호출 측에 전달하기 위한 에러 타입.
+ *   네트워크 끊김·DNS 실패·HTTP 5xx·응답 본문 파싱 실패 등은 사용자에게는
+ *   "잠시 후 다시 시도" 안내가 필요한 케이스이고, 운영 로그에서도 "응답은 왔는데
+ *   호실 자료가 비어 있음(=일반건축물 등 정상 케이스)" 과 명확히 구분돼야 한다.
+ *   units-import.ts 의 503 + REGISTER_FETCH_FAILED 매핑이 이 신호에 의존한다.
+ */
+export class RegisterFetchError extends Error {
+  readonly name = "RegisterFetchError";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+  }
+}
+
+/**
+ * [Task #698] 기존 `fetchRegisterJsonSafe` 의 관대한 동작 — 모든 실패를 null 로 흡수 — 을
+ *   유지하되, 호출 측이 "외부 API 장애" 와 "정상 응답인데 본문 없음" 을 구분할 수
+ *   있도록 throwing 변형을 별도로 노출한다.
+ *
+ *   동작:
+ *     - fetch 자체 throw / HTTP non-2xx → RegisterFetchError throw.
+ *     - 정상 응답이지만 본문이 비어 있음 → null (=API 는 살아 있고 단지 데이터가 0 건).
+ *     - JSON 파싱 실패 → RegisterFetchError throw (응답이 손상된 상태).
+ *
+ *   "정상이지만 비어 있음" 은 일반건축물처럼 자료 자체가 없는 정상 케이스이므로
+ *   기존 0-row 처리 로직(noUnitData 안내) 으로 흘러야 한다 — 그래서 null 반환을 유지한다.
+ */
+async function fetchRegisterJsonOrThrow(url: string): Promise<unknown | null> {
+  // [Task #698] 이 파일은 Express 의 Response 타입을 import 해 쓰므로, fetch 의 Response 는
+  //   globalThis 에서 명시적으로 가져와 타입 충돌을 피한다.
+  let r: globalThis.Response;
+  try {
+    r = await fetch(url);
+  } catch (e) {
+    throw new RegisterFetchError(
+      e instanceof Error ? `register fetch failed: ${e.message}` : "register fetch failed",
+      { cause: e },
+    );
+  }
+  if (!r.ok) {
+    throw new RegisterFetchError(`register fetch HTTP ${r.status}`);
+  }
+  const text = await r.text();
+  if (!text) return null;
+  try {
+    return parseRegisterJsonText(text);
+  } catch (e) {
+    throw new RegisterFetchError(
+      e instanceof Error ? `register response parse failed: ${e.message}` : "register response parse failed",
+      { cause: e },
+    );
+  }
+}
+
+/**
+ * 관대한 변형 — 어떤 실패든 null 로 흡수한다. 다음 두 부류의 호출 측에서만 사용한다:
+ *   1) Promise.allSettled 로 묶여 있는 보조 호출 (lookup-register 의 recap, dong-pks).
+ *   2) 다중 PK 를 순회하는 폴백 (fetchAreaInfoForAllDongs) — 일부 동만 실패한 부분
+ *      장애에서도 가능한 데이터를 모은다.
+ */
 async function fetchRegisterJsonSafe(url: string): Promise<unknown | null> {
   try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const text = await r.text();
-    if (!text) return null;
-    return parseRegisterJsonText(text);
+    return await fetchRegisterJsonOrThrow(url);
   } catch {
     return null;
   }
@@ -531,7 +587,9 @@ export async function fetchAreaInfoByLandCode(params: {
     const qs = `serviceKey=${apiKey}&${queryParams.toString()}`;
     // [Task #552] 정밀도 보존 파서를 통해 응답 안 식별자(mgmBldrgstPk/bun/ji 등)
     //   가 number 로 와도 문자열로 보존된다.
-    const result = (await fetchRegisterJsonSafe(
+    // [Task #698] 외부 API 진짜 장애는 RegisterFetchError 로 throw 시켜 호출 측이
+    //   503 + REGISTER_FETCH_FAILED 로 응답하도록 한다.
+    const result = (await fetchRegisterJsonOrThrow(
       `https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo?${qs}`,
     )) as BldExposResp | null;
 
@@ -552,6 +610,7 @@ export async function fetchAreaInfoByLandCode(params: {
     if (list.length < AREA_INFO_PAGE_SIZE) break;
   }
 
+  // [Task #698] 첫 페이지 응답이 정상적으로 왔지만 본문이 없는 경우(=정상 케이스)는 null 로 반환.
   if (!firstFetchOk) return null;
   // [Task #693] 호실 단위로 그룹핑·합산해 한 호실 = 한 행이 되도록 한다. 응답 자체는
   //   호실당 N 행(전유 1 + 공용 N) 으로 내려오므로 그대로 1:1 매핑하면 미리보기에
@@ -692,6 +751,13 @@ export async function fetchAreaInfoForAllDongs(
  *   - 토지 식별자가 비어 있으면(레거시 / register_data 미보존) 표제부 PK 폴백.
  *   - 일반건축물(`regstrGbCdNm = "일반"`) 응답이 비어 있는 경우는 "API 오류" 가 아니라
  *     "해당 없음" 으로 호출 측이 분기할 수 있게 kind 를 함께 반환한다.
+ *
+ *   [Task #698] 외부 API 진짜 장애(네트워크 끊김, HTTP non-2xx, 응답 파싱 실패) 는
+ *     fetchAreaInfoByLandCode 가 RegisterFetchError 로 throw 하므로, 그대로 호출 측에
+ *     propagate 된다(여기서 catch 해 PK 폴백으로 내려가지 않는다). 이렇게 해야 호출
+ *     측이 503 + REGISTER_FETCH_FAILED 로 안내할 수 있고, 외부 장애 중인 상황에서 PK
+ *     폴백을 한 번 더 두드려 응답 시간을 가중시키지 않는다. 토지 식별자가 아예 없거나
+ *     입력 검증에서 떨어진 케이스(=null 반환)에 한해서만 PK 폴백을 시도한다.
  */
 export async function loadAreaInfoForBuilding(
   building: Pick<Building, "registerData" | "buildingRegisterPk" | "registerDongPks">,
@@ -705,14 +771,15 @@ export async function loadAreaInfoForBuilding(
   const landCode = extractLandCodeFromBuilding(building);
 
   if (landCode) {
+    // [Task #698] 진짜 외부 API 장애는 RegisterFetchError 로 throw 되어 그대로 propagate 된다.
+    //   null 반환은 "API 응답 자체는 정상인데 본문/items 가 비어 있음" 의 신호이며,
+    //   이 경우에만 PK 폴백을 한 번 더 시도한다.
     const rows = await fetchAreaInfoByLandCode(landCode);
     if (rows !== null) return { areas: rows, source: "land-code", kind };
-    // 토지 식별자 호출이 실패(API 오류)하면 PK 폴백으로 한 번 더 시도.
   }
 
   // [Task #689] 폴백 — 저장된 동(棟) PK 들을 순회해서 모은다. 일반건축물에서는
-  //   대개 비어 있고, 다동 집합건축물에서도 토지 식별자 한 번 호출이 실패한 드문
-  //   경우의 백업 경로다.
+  //   대개 비어 있고, 토지 식별자 응답이 정상이지만 비어 있는 드문 경우의 백업 경로다.
   const pks: string[] = (building.registerDongPks ?? []).map((d) => d.mgmBldrgstPk).filter(Boolean);
   if (pks.length === 0 && building.buildingRegisterPk) pks.push(building.buildingRegisterPk);
   if (pks.length === 0) return { areas: [], source: "none", kind };
