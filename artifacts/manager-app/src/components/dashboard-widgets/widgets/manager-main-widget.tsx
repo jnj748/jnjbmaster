@@ -56,6 +56,8 @@ import {
 } from "@/components/dashboard-widgets/mobile-compact";
 import SubmittedQuotesWidget from "@/components/dashboard-widgets/widgets/submitted-quotes-widget";
 
+import { formatKoreanCurrencyCompact } from "@/lib/format-korean";
+
 import { StatCard } from "./stat-card";
 import { AlertSection } from "./alert-section-widget";
 import { TodayWorkLogEntry } from "./today-work-log-entry-widget";
@@ -271,10 +273,14 @@ export default function ManagerMainWidget() {
             />
             <StatCard
               title="미납 관리비"
-              value={analytics ? `${(analytics.unpaidSummary.totalUnpaid / 10000).toFixed(0)}만원` : "0원"}
+              value={formatKoreanCurrencyCompact(analytics?.unpaidSummary.totalUnpaid ?? 0)}
               icon={Coins}
               color="bg-chart-4"
               subtitle={analytics ? `미납율 ${analytics.unpaidSummary.unpaidRate}%` : "총 미납액"}
+              // [Task #715] 가변 폭 텍스트라 다른 KPI 보다 한 단계 작은 폰트로
+              //   설정해, "1,234만원"·"1.2억원" 등 긴 값에서도 카드 폭을 넘지
+              //   않도록 한다(`whitespace-nowrap` 과 `truncate` 는 StatCard 내부).
+              valueClassName="text-lg sm:text-xl"
             />
             <StatCard
               title="미납 호실"

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   extractDigits,
   formatBusinessNumber,
+  formatKoreanCurrencyCompact,
   formatPhoneNumber,
   formatPhoneNumberPartial,
   phoneToTelHref,
@@ -143,4 +144,47 @@ test("phoneToTelHref: 숫자만 반환", () => {
   assert.equal(phoneToTelHref("010-1234-5678"), "01012345678");
   assert.equal(phoneToTelHref("02-123-4567"), "021234567");
   assert.equal(phoneToTelHref(null), "");
+});
+
+// [Task #715]
+test("formatKoreanCurrencyCompact: 1만원 미만은 원 단위 + 콤마", () => {
+  assert.equal(formatKoreanCurrencyCompact(0), "0원");
+  assert.equal(formatKoreanCurrencyCompact(500), "500원");
+  assert.equal(formatKoreanCurrencyCompact(5000), "5,000원");
+  assert.equal(formatKoreanCurrencyCompact(9999), "9,999원");
+});
+
+test("formatKoreanCurrencyCompact: 만 단위는 절삭하여 만원 표기", () => {
+  assert.equal(formatKoreanCurrencyCompact(10000), "1만원");
+  assert.equal(formatKoreanCurrencyCompact(260000), "26만원");
+  assert.equal(formatKoreanCurrencyCompact(12340000), "1,234만원");
+  assert.equal(formatKoreanCurrencyCompact(99990000), "9,999만원");
+});
+
+test("formatKoreanCurrencyCompact: 억 단위는 1.2억원 / 12억원 형태", () => {
+  assert.equal(formatKoreanCurrencyCompact(100000000), "1억원");
+  assert.equal(formatKoreanCurrencyCompact(123450000), "1.2억원");
+  assert.equal(formatKoreanCurrencyCompact(999999999), "9.9억원");
+  assert.equal(formatKoreanCurrencyCompact(1234500000), "12억원");
+  assert.equal(formatKoreanCurrencyCompact(123450000000), "1,234억원");
+});
+
+test("formatKoreanCurrencyCompact: 음수는 부호 보존", () => {
+  assert.equal(formatKoreanCurrencyCompact(-260000), "-26만원");
+  assert.equal(formatKoreanCurrencyCompact(-123450000), "-1.2억원");
+});
+
+test("formatKoreanCurrencyCompact: 비유효 입력은 0원", () => {
+  assert.equal(formatKoreanCurrencyCompact(null), "0원");
+  assert.equal(formatKoreanCurrencyCompact(undefined), "0원");
+  assert.equal(formatKoreanCurrencyCompact(Number.NaN), "0원");
+  assert.equal(formatKoreanCurrencyCompact(Number.POSITIVE_INFINITY), "0원");
+});
+
+test("formatKoreanCurrencyCompact: 결과에 단어 사이 공백이 없다", () => {
+  // whitespace-nowrap 없이도 단어 중간 줄바꿈이 일어나지 않도록
+  // 단위 사이에는 공백이 들어가서는 안 된다.
+  for (const v of [0, 5000, 260000, 12340000, 123450000, 1234500000]) {
+    assert.equal(/\s/.test(formatKoreanCurrencyCompact(v)), false, `값 ${v}`);
+  }
 });

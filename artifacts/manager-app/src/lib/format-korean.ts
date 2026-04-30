@@ -126,3 +126,39 @@ export function formatBusinessNumber(raw: string | null | undefined): string {
 export function phoneToTelHref(raw: string | null | undefined): string {
   return extractDigits(raw);
 }
+
+/**
+ * [Task #715] 대시보드 KPI 카드처럼 좁은 폭에서 한 줄로 보여줘야 하는 자리에서
+ * 쓰는 한국식 금액 압축 포맷터.
+ *
+ * 구간별로 단위를 압축해 카드 폭을 넘지 않도록 한다:
+ *   - 1만원 미만: `5,000원` (천 단위 콤마)
+ *   - 1만 ~ 9999만원: `26만원`, `1,234만원` (만 단위 절삭)
+ *   - 1억원 이상: `1.2억원` (10억 미만은 소수 1자리), `12억원`, `1,234억원`
+ *
+ * 음수 입력은 부호 보존, 비유효(NaN/Infinity/null/undefined)은 `"0원"` 으로 처리한다.
+ * 결과 문자열에는 단위 사이 공백이 들어가지 않으므로 `whitespace-nowrap` 과
+ * 함께 쓰면 단어 중간 줄바꿈 없이 한 줄로 렌더된다.
+ */
+export function formatKoreanCurrencyCompact(
+  amountWon: number | null | undefined,
+): string {
+  if (amountWon == null || !Number.isFinite(amountWon)) return "0원";
+  const absAmount = Math.abs(amountWon);
+  const sign = amountWon < 0 ? "-" : "";
+
+  if (absAmount < 10000) {
+    return `${sign}${absAmount.toLocaleString("ko-KR")}원`;
+  }
+  if (absAmount < 100000000) {
+    const man = Math.floor(absAmount / 10000);
+    return `${sign}${man.toLocaleString("ko-KR")}만원`;
+  }
+  // 억 단위. 10억 미만이면 소수 1자리, 그 이상은 정수로 떨어뜨려 자리수를 줄인다.
+  const eok = absAmount / 100000000;
+  const eokStr =
+    eok >= 10
+      ? Math.floor(eok).toLocaleString("ko-KR")
+      : (Math.floor(eok * 10) / 10).toString();
+  return `${sign}${eokStr}억원`;
+}
