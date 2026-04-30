@@ -531,8 +531,13 @@ export default function ApprovalCreate() {
   // [역할 라벨 SoT] @workspace/shared/role-labels 의 ROLE_LABELS 사용.
   const roleLabels: Record<string, string> = ROLE_LABELS;
 
+  // [Task #707] 경리(accountant)는 결재 결정권자가 아니다 — 결재선 후보에서 제외.
+  //   서버에서도 동일 검증을 한다 (approvals.ts POST).
   const availableApprovers = userList.filter(
-    (u) => !approvalSteps.some((s) => s.approverId === u.id) && u.id !== user?.id
+    (u) =>
+      !approvalSteps.some((s) => s.approverId === u.id) &&
+      u.id !== user?.id &&
+      u.role !== "accountant"
   );
 
   const availableRecipients = userList.filter(

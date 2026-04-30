@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,18 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import SignedCopyUploader, { type SignedCopySummary } from "@/components/signed-copy-uploader";
+import ContractEvidenceRegistration from "@/components/contract-evidence-registration";
+
+// [Task #707 review fix] 다중 계약/세금계산서 첨부 파일 항목.
+type ContractFileSummary = {
+  id: number;
+  approvalId: number;
+  kind: "contract" | "tax_invoice";
+  fileUrl: string;
+  fileName: string;
+  sortOrder: number;
+  createdAt: string;
+};
 
 const categoryLabel = (c: string) => {
   const labels: Record<string, string> = {
@@ -85,6 +98,24 @@ interface ApprovalItem {
   urgentExecution?: boolean;
   urgentConsentMemo?: string | null;
   hqThresholdSnapshot?: number | null;
+  buildingId?: number | null;
+  // [Task #707] 계약·증빙 등록 단계.
+  awaitingContractEvidence?: boolean;
+  contractEvidenceRegisteredAt?: string | null;
+  contractEvidenceRegisteredByName?: string | null;
+  contractFileUrl?: string | null;
+  contractFileName?: string | null;
+  taxInvoiceFileUrl?: string | null;
+  taxInvoiceFileName?: string | null;
+  taxInvoicePending?: boolean;
+  taxInvoicePendingReason?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
+  installmentTotalAmount?: number | null;
+  installmentMonths?: number | null;
+  installmentMonthlyAmount?: number | null;
+  installmentStartDate?: string | null;
+  installmentEndDate?: string | null;
 }
 
 interface ApprovalStep {
@@ -114,6 +145,10 @@ interface SignatureItem {
 
 export default function Approvals() {
   const { user, token } = useAuth();
+  // [Task #707 review fix] 종이 결재본 업로드/오프라인 마감을 같은 건물의
+  //   관리소장·경리에게도 허용한다. 백엔드(`/signed-copies`,
+  //   `/process-offline`)와 동일한 권한 모델을 화면에 노출하기 위함.
+  const { building } = useBuilding();
   const [, setLocation] = useLocation();
   // [Task #682 review-fix #2] /approvals?focus=N 으로 진입 시 해당 카드를 자동 스크롤·강조.
   const search = useSearch();
@@ -130,6 +165,8 @@ export default function Approvals() {
   const [selectedSignatureId, setSelectedSignatureId] = useState<number | null>(null);
   // [Task #611] 단계별 서명본 캐시 + 오프라인 결재완료 액션 처리 중 상태.
   const [signedCopiesByStep, setSignedCopiesByStep] = useState<Record<number, SignedCopySummary[]>>({});
+  // [Task #707 review fix] 등록된 다중 계약/세금계산서 파일 — 결재 상세에서 노출.
+  const [contractFilesByApproval, setContractFilesByApproval] = useState<Record<number, ContractFileSummary[]>>({});
   const [offlineProcessingStepId, setOfflineProcessingStepId] = useState<number | null>(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [drafts, setDrafts] = useState<ApprovalItem[]>([]);
@@ -215,6 +252,21 @@ export default function Approvals() {
         .then((data: SignatureItem[]) => setUserSignatures(data))
         .catch(() => setUserSignatures([]));
       setSelectedSignatureId(null);
+    }
+
+    // [Task #707 review fix] 등록된 다중 계약/세금계산서 파일 조회.
+    if (selectedApproval && selectedApproval.contractEvidenceRegisteredAt) {
+      fetch(`${API_BASE}/approvals/${selectedApproval.id}/contract-files`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: ContractFileSummary[]) => {
+          setContractFilesByApproval((prev) => ({
+            ...prev,
+            [selectedApproval.id]: Array.isArray(data) ? data : [],
+          }));
+        })
+        .catch(() => undefined);
     }
   }, [selectedApproval, API_BASE, token]);
 
@@ -639,20 +691,34 @@ export default function Approvals() {
                     {approvalSteps.map((step) => {
                       const isCurrent = step.stepOrder === selectedApproval.currentStep;
                       // [Task #611] 전자 결재(electronic) 단계만 결재자 본인이 직접 처리.
+                      // [Task #707 review fix] 경리는 결재 결정권자에서 제외됐다.
+                      //   기존에 라인에 남아 있는 경리 단계가 있더라도 화면에서
+                      //   approve/reject 버튼을 띄우지 않는다 (서버도 거부하므로
+                      //   UX/실제 동작을 일치시킨다).
                       const canProcess =
                         isCurrent &&
                         step.status === "pending" &&
                         step.approverId === user?.id &&
+                        step.approverRole !== "accountant" &&
                         step.path !== "offline";
                       const isOffline = step.path === "offline";
                       const isRequester =
                         !!user &&
                         (selectedApproval.requesterId === user.id || user.role === "platform_admin");
+                      // [Task #707 review fix] 백엔드는 같은 건물의 관리소장·경리에게도
+                      //   서명본 업로드 / 오프라인 마감을 허용한다. 화면도 동일하게
+                      //   적용 — 활성 건물이 결재의 buildingId 와 일치할 때만 노출.
+                      const isSameBuildingStaff =
+                        !!user &&
+                        (user.role === "manager" || user.role === "accountant") &&
+                        building?.id != null &&
+                        selectedApproval.buildingId === building.id;
+                      const canManageOffline = isRequester || isSameBuildingStaff;
                       const canCloseOffline =
                         isOffline &&
                         isCurrent &&
                         step.status === "pending" &&
-                        isRequester;
+                        canManageOffline;
                       const stepCopies = signedCopiesByStep[step.id] ?? [];
                       return (
                         <div
@@ -702,7 +768,7 @@ export default function Approvals() {
                                 stepId={step.id}
                                 kind="offline_scan"
                                 existing={stepCopies}
-                                disabled={!isRequester}
+                                disabled={!canManageOffline}
                                 onUploaded={(summary) => {
                                   setSignedCopiesByStep((prev) => ({
                                     ...prev,
@@ -808,6 +874,123 @@ export default function Approvals() {
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
                     {selectedApproval.rejectionReason}
                   </div>
+                </div>
+              )}
+
+              {/* [Task #707] 결재 최종 승인 후 "계약·증빙 등록" 단계 — 미등록이면 폼,
+                  등록 완료면 요약 카드 노출. 권한은 서버에서 한 번 더 확인. */}
+              {selectedApproval.status === "approved" && selectedApproval.awaitingContractEvidence && (
+                <ContractEvidenceRegistration
+                  approvalId={selectedApproval.id}
+                  defaultVendorName={selectedApproval.vendorName}
+                  urgentExecution={selectedApproval.urgentExecution}
+                  onRegistered={() => {
+                    // 캐시 무효화 → 상세가 다시 로드되며 이 섹션이 요약으로 바뀐다.
+                    queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetApprovalStatsQueryKey() });
+                    setSelectedApproval(null);
+                  }}
+                />
+              )}
+
+              {selectedApproval.status === "approved" && selectedApproval.contractEvidenceRegisteredAt && (
+                <div className="rounded-md border border-green-300 bg-green-50/60 p-3 text-sm space-y-2" data-testid="contract-evidence-summary">
+                  <p className="font-medium text-green-900 flex items-center gap-1">
+                    <Check className="w-4 h-4" /> 계약·증빙 등록됨
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/* [Task #707 review fix] 다중 첨부 — 본체 단일 컬럼이 비어 있어도
+                        자식 테이블의 contractFiles 가 있으면 모두 노출. */}
+                    {(() => {
+                      const contractList = (contractFilesByApproval[selectedApproval.id] ?? []).filter((f) => f.kind === "contract");
+                      const taxList = (contractFilesByApproval[selectedApproval.id] ?? []).filter((f) => f.kind === "tax_invoice");
+                      return (
+                        <>
+                          {(contractList.length > 0 || selectedApproval.contractFileName) && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">계약서: </span>
+                              {contractList.length > 0 ? (
+                                <ul className="mt-1 space-y-0.5">
+                                  {contractList.map((f) => (
+                                    <li key={f.id}>
+                                      <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+                                        {f.fileName}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : selectedApproval.contractFileUrl ? (
+                                <a href={selectedApproval.contractFileUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+                                  {selectedApproval.contractFileName}
+                                </a>
+                              ) : (
+                                <span>{selectedApproval.contractFileName}</span>
+                              )}
+                            </div>
+                          )}
+                          {selectedApproval.taxInvoicePending ? (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">세금계산서: </span>
+                              <span className="text-amber-800">미발행 — {selectedApproval.taxInvoicePendingReason}</span>
+                            </div>
+                          ) : (taxList.length > 0 || selectedApproval.taxInvoiceFileName) ? (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">세금계산서: </span>
+                              {taxList.length > 0 ? (
+                                <ul className="mt-1 space-y-0.5">
+                                  {taxList.map((f) => (
+                                    <li key={f.id}>
+                                      <a href={f.fileUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+                                        {f.fileName}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : selectedApproval.taxInvoiceFileUrl ? (
+                                <a href={selectedApproval.taxInvoiceFileUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+                                  {selectedApproval.taxInvoiceFileName}
+                                </a>
+                              ) : (
+                                <span>{selectedApproval.taxInvoiceFileName}</span>
+                              )}
+                            </div>
+                          ) : null}
+                        </>
+                      );
+                    })()}
+                    {selectedApproval.contractStartDate && selectedApproval.contractEndDate && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">계약 기간: </span>
+                        {selectedApproval.contractStartDate} ~ {selectedApproval.contractEndDate}
+                      </div>
+                    )}
+                  </div>
+                  {(selectedApproval.installmentMonths || selectedApproval.installmentTotalAmount) && (
+                    <div className="rounded border border-amber-200 bg-white/60 p-2 mt-2" data-testid="contract-evidence-installment-summary">
+                      <p className="text-xs font-medium text-amber-900 mb-1">분납 (부속명세서 자리표시)</p>
+                      <div className="grid grid-cols-2 gap-1 text-[11px]">
+                        {selectedApproval.installmentTotalAmount != null && (
+                          <div>총액: {Number(selectedApproval.installmentTotalAmount).toLocaleString()}원</div>
+                        )}
+                        {selectedApproval.installmentMonths != null && (
+                          <div>{selectedApproval.installmentMonths}개월</div>
+                        )}
+                        {selectedApproval.installmentMonthlyAmount != null && (
+                          <div>월 {Number(selectedApproval.installmentMonthlyAmount).toLocaleString()}원</div>
+                        )}
+                        {selectedApproval.installmentStartDate && selectedApproval.installmentEndDate && (
+                          <div>{selectedApproval.installmentStartDate} ~ {selectedApproval.installmentEndDate}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {selectedApproval.contractEvidenceRegisteredByName && (
+                    <p className="text-[11px] text-muted-foreground">
+                      등록: {selectedApproval.contractEvidenceRegisteredByName}
+                      {selectedApproval.contractEvidenceRegisteredAt &&
+                        ` (${formatDate(selectedApproval.contractEvidenceRegisteredAt)})`}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

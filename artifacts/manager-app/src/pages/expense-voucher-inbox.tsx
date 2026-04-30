@@ -35,6 +35,12 @@ interface ExpenseVoucher {
   sourceEntityId: number | null;
   sourceApprovalId: number | null;
   sourceApprovalTitle: string | null;
+  // [Task #707] 분납 스케줄 — 부속명세서 자리표시.
+  installmentTotalAmount?: number | string | null;
+  installmentMonths?: number | null;
+  installmentMonthlyAmount?: number | string | null;
+  installmentStartDate?: string | null;
+  installmentEndDate?: string | null;
 }
 
 const BASE = import.meta.env.BASE_URL ?? "/";
@@ -249,6 +255,17 @@ function VoucherCard({
   readOnly?: boolean;
 }) {
   const amount = typeof voucher.amount === "string" ? Number(voucher.amount) : voucher.amount;
+  // [Task #707] 분납 메타 — 결재 라인의 "계약·증빙 등록" 단계에서 입력된 값을
+  //   그대로 복사. 표시 전에 안전하게 number 로 정규화.
+  const installmentTotal = voucher.installmentTotalAmount != null
+    ? Number(voucher.installmentTotalAmount)
+    : null;
+  const installmentMonthly = voucher.installmentMonthlyAmount != null
+    ? Number(voucher.installmentMonthlyAmount)
+    : null;
+  const hasInstallment = !!(
+    voucher.installmentMonths || installmentTotal || installmentMonthly
+  );
   // [Task #682] 출처 백링크 — 현재는 RFQ 만 라우팅 지원, 그 외엔 라벨만.
   const sourceHref =
     voucher.sourceEntityType === "rfq" && voucher.sourceEntityId
@@ -310,8 +327,61 @@ function VoucherCard({
                 기록 대기
               </Badge>
             )}
+            {hasInstallment ? (
+              <Badge
+                className="mt-1 ml-1 bg-amber-100 text-amber-900 hover:bg-amber-100"
+                data-testid={`voucher-installment-badge-${voucher.id}`}
+                title="월말 관리비 부과 시 부속명세서의 근거 자료"
+              >
+                분납 — 부속명세서 근거
+              </Badge>
+            ) : null}
           </div>
         </div>
+        {hasInstallment ? (
+          <div
+            className="rounded-md border border-amber-200 bg-amber-50/40 p-2"
+            data-testid={`voucher-installment-table-${voucher.id}`}
+          >
+            <p className="mb-1 text-xs font-medium text-amber-900">
+              분납 스케줄 (부속명세서 자리표시)
+            </p>
+            <table className="w-full text-xs">
+              <tbody>
+                {installmentTotal != null ? (
+                  <tr>
+                    <td className="py-0.5 pr-2 text-gray-600">총액</td>
+                    <td className="py-0.5 text-right font-medium">
+                      {installmentTotal.toLocaleString()} 원
+                    </td>
+                  </tr>
+                ) : null}
+                {voucher.installmentMonths != null ? (
+                  <tr>
+                    <td className="py-0.5 pr-2 text-gray-600">개월수</td>
+                    <td className="py-0.5 text-right">{voucher.installmentMonths}개월</td>
+                  </tr>
+                ) : null}
+                {installmentMonthly != null ? (
+                  <tr>
+                    <td className="py-0.5 pr-2 text-gray-600">월 납입액</td>
+                    <td className="py-0.5 text-right font-medium">
+                      {installmentMonthly.toLocaleString()} 원
+                    </td>
+                  </tr>
+                ) : null}
+                {voucher.installmentStartDate && voucher.installmentEndDate ? (
+                  <tr>
+                    <td className="py-0.5 pr-2 text-gray-600">기간</td>
+                    <td className="py-0.5 text-right">
+                      {voucher.installmentStartDate} ~ {voucher.installmentEndDate}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
         {voucher.payeeName ? (
           <p className="text-sm text-gray-700">
             지급처: {voucher.payeeName} {voucher.payeeAccount ? `· ${voucher.payeeAccount}` : ""}

@@ -19,6 +19,7 @@ import {
   approvalsTable,
   approvalStepsTable,
   approvalSignedCopiesTable,
+  approvalContractFilesTable,
   hqApprovalThresholdsTable,
   hqBuildingAssignmentsTable,
   expenseVouchersTable,
@@ -246,21 +247,63 @@ async function thresholdForHqAndBuilding(hqUserId: number, buildingId: number | 
   return defaultRow[0]?.thresholdAmount ?? null;
 }
 
+// [Task #707] 발행/업데이트 단일 통로.
+//   - mode="issue": 결재 라인 종결(또는 긴급집행 즉시 발행) 시 voucher/request 생성.
+//     이미 존재하면 멱등 skip 후 알림도 생략.
+//   - mode="update-from-evidence": "계약·증빙 등록" 단계에서 호출.
+//     ① voucher/request 가 아직 없으면 (정상 흐름) 새로 생성.
+//     ② 이미 존재하면 (긴급집행 사후등록) 분납·업체명·금액 메타를 갱신만 한다.
 async function issueDownstreamDocuments(
   approval: typeof approvalsTable.$inferSelect,
   awaitingPostApproval: boolean,
+  mode: "issue" | "update-from-evidence" = "issue",
+  // [Task #707 review fix] 호출자가 트랜잭션을 넘기면 그 안에서 모든 write 가
+  //   일어나야 한다. 등록 → 발행을 하나의 트랜잭션에 묶을 때 사용.
+  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0],
 ): Promise<void> {
-  // 같은 approval 에 대해 이미 발행됐으면 skip (멱등).
-  const existingVoucher = await db
+  const dbx = tx ?? db;
+  // 분납 메타는 결재 본체 컬럼에 저장된 값을 그대로 복사한다.
+  const installmentPayload = {
+    installmentTotalAmount: approval.installmentTotalAmount ?? null,
+    installmentMonths: approval.installmentMonths ?? null,
+    installmentMonthlyAmount: approval.installmentMonthlyAmount ?? null,
+    installmentStartDate: approval.installmentStartDate ?? null,
+    installmentEndDate: approval.installmentEndDate ?? null,
+  };
+
+  // 같은 approval 에 대해 이미 발행돼 있으면 — 발행 모드는 멱등 skip,
+  //   증빙 등록 모드는 메타 갱신.
+  const existingVoucher = await dbx
     .select()
     .from(expenseVouchersTable)
     .where(eq(expenseVouchersTable.approvalId, approval.id))
     .limit(1);
-  if (existingVoucher[0]) return;
+  if (existingVoucher[0]) {
+    if (mode === "update-from-evidence") {
+      const amount = approval.estimatedAmount ?? existingVoucher[0].amount;
+      await dbx
+        .update(expenseVouchersTable)
+        .set({
+          vendorName: approval.vendorName ?? existingVoucher[0].vendorName,
+          amount,
+          ...installmentPayload,
+        })
+        .where(eq(expenseVouchersTable.approvalId, approval.id));
+      await dbx
+        .update(paymentRequestsTable)
+        .set({
+          vendorName: approval.vendorName ?? null,
+          amount,
+          ...installmentPayload,
+        })
+        .where(eq(paymentRequestsTable.approvalId, approval.id));
+    }
+    return;
+  }
 
   const amount = approval.estimatedAmount ?? 0;
 
-  const [voucher] = await db
+  const [voucher] = await dbx
     .insert(expenseVouchersTable)
     .values({
       approvalId: approval.id,
@@ -271,10 +314,11 @@ async function issueDownstreamDocuments(
       amount,
       status: "pending",
       awaitingPostApproval,
+      ...installmentPayload,
     })
     .returning();
 
-  const [request] = await db
+  const [request] = await dbx
     .insert(paymentRequestsTable)
     .values({
       approvalId: approval.id,
@@ -286,6 +330,7 @@ async function issueDownstreamDocuments(
       amount,
       status: "pending",
       awaitingPostApproval,
+      ...installmentPayload,
     })
     .returning();
 
@@ -483,11 +528,47 @@ router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
         status: "pending",
       })
       .returning();
-    // [allow-direct-write: urgentTaskId 외래키 포인터만 갱신; 라이프사이클 상태 변화 없음
-    //   (status·isDraft 등은 위 saveProducingDocument 가 이미 documents 동기화).
-    //   트리거 documents_approvals_aiu 가 updated_at 만 새로고침한다.]
-    await db.update(approvalsTable).set({ urgentTaskId: task.id }).where(eq(approvalsTable.id, id));
-    await issueDownstreamDocuments({ ...updated, urgentTaskId: task.id }, true);
+    // [Task #707] 긴급집행도 계약·증빙 사후 등록이 필요하다 — 별도 필수업무로
+    //   자동 등록해 관리소장이 "업체·계약서·세금계산서·기간·분납"을 사후 입력하면
+    //   register-contract-evidence 엔드포인트가 voucher/request 메타를 업데이트한다.
+    const [evidenceTask] = await db
+      .insert(tasksTable)
+      .values({
+        title: `긴급지출 계약·증빙 사후등록 — ${existing.title}`,
+        description: `긴급집행 라인은 즉시 발행됐지만, 업체 계약서·세금계산서·기간·분납 메타는 사후 입력이 필요합니다.\n\n원본 기안 라인 ID: ${id}`,
+        category: "approval",
+        priority: "high",
+        status: "pending",
+      })
+      .returning();
+    // [allow-direct-write: urgentTaskId/urgentEvidenceTaskId/awaitingContractEvidence
+    //   포인터만 갱신; 라이프사이클 상태 변화 없음 (status·isDraft 등은 위
+    //   saveProducingDocument 가 이미 documents 동기화). 트리거
+    //   documents_approvals_aiu 가 updated_at 만 새로고침한다.]
+    // [Task #707 review fix] 두 사후업무를 분리해서 저장:
+    //   - urgentTaskId        → "사후결재 받기" (서명본 첨부 시 종결, 오프라인 핸들러)
+    //   - urgentEvidenceTaskId→ "계약·증빙 사후등록" (register-contract-evidence 종결)
+    await db
+      .update(approvalsTable)
+      .set({
+        urgentTaskId: task.id,
+        urgentEvidenceTaskId: evidenceTask.id,
+        awaitingContractEvidence: true,
+      })
+      .where(eq(approvalsTable.id, id));
+    await issueDownstreamDocuments(
+      { ...updated, urgentTaskId: task.id, urgentEvidenceTaskId: evidenceTask.id, awaitingContractEvidence: true },
+      true,
+    );
+    // 상신자에게 사후 등록 알림.
+    await insertNotification({
+      recipientType: `user:${updated.requesterId}`,
+      notificationType: "approval_contract_evidence_pending",
+      title: "긴급지출 계약·증빙 사후등록 필요",
+      message: `${existing.title} — 업체·계약서·세금계산서·기간·분납을 사후 입력해주세요`,
+      relatedEntityType: "approval",
+      relatedEntityId: id,
+    });
   }
 
   res.json(serializeApproval(updated));
@@ -565,11 +646,22 @@ router.post("/approvals/:id/steps/:stepId/signed-copies", async (req, res): Prom
     return;
   }
 
-  // 권한: 관리소장(상신자), 해당 단계 결재자, platform_admin.
+  // [Task #707] 권한: 관리소장(상신자), 해당 단계 결재자, platform_admin 외에,
+  //   같은 건물 소속 manager·accountant 도 종이 서명본을 사후 첨부할 수 있어야 한다.
+  //   현장에서는 결재 라인 상신자가 외근/휴가 중일 때 같은 사무실의 회계가 스캔본을
+  //   대신 올리는 일이 흔하다. 결재 결정 권한과 별개의 행정 보조 동작이라 안전하다.
   const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, approvalId));
   const isRequester = approval?.requesterId === user.userId;
   const isStepApprover = step.approverId === user.userId;
-  if (!isRequester && !isStepApprover && user.role !== "platform_admin") {
+  let isAuthorized = isRequester || isStepApprover || user.role === "platform_admin";
+  if (!isAuthorized && (user.role === "manager" || user.role === "accountant") && approval) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    const inScope = approval.buildingId === null
+      ? scope.includeNullBuilding
+      : scope.allBuildings || scope.ids.includes(approval.buildingId);
+    if (inScope) isAuthorized = true;
+  }
+  if (!isAuthorized) {
     res.status(403).json({ error: "서명본 업로드 권한이 없습니다" });
     return;
   }
@@ -772,8 +864,20 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
     return;
   }
-  if (approval.requesterId !== user.userId && user.role !== "platform_admin") {
-    res.status(403).json({ error: "오프라인 결재는 상신자(관리소장) 또는 관리자만 대리 처리할 수 있습니다" });
+  // [Task #707] process-offline 권한 — 상신자/platform_admin 외에 같은 건물의
+  //   manager·accountant 도 종이 서명본을 첨부해 단계를 마감할 수 있다.
+  //   결재 결정은 종이 위 본부장/관리인 친필 서명이 한 것이고, 우리가 시스템에서
+  //   하는 일은 "이 서명본이 들어왔다"라는 사실을 기록하는 행정 보조이다.
+  let isOfflineAuthorized = approval.requesterId === user.userId || user.role === "platform_admin";
+  if (!isOfflineAuthorized && (user.role === "manager" || user.role === "accountant")) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    const inScope = approval.buildingId === null
+      ? scope.includeNullBuilding
+      : scope.allBuildings || scope.ids.includes(approval.buildingId);
+    if (inScope) isOfflineAuthorized = true;
+  }
+  if (!isOfflineAuthorized) {
+    res.status(403).json({ error: "같은 건물의 관리소장·경리만 오프라인 결재를 대리 처리할 수 있습니다" });
     return;
   }
 
@@ -885,7 +989,7 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     return;
   }
 
-  // 라인 종결 — 자동 발행.
+  // 라인 종결 — [Task #707] 발행은 별도 "계약·증빙 등록" 단계에서 처리.
   const userName = await db
     .select({ name: usersTable.name })
     .from(usersTable)
@@ -896,7 +1000,14 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     write: (exec) =>
       exec
         .update(approvalsTable)
-        .set({ status: "approved", approverId: step.approverId, approverName: step.approverName, approvedAt: decided })
+        .set({
+          status: "approved",
+          approverId: step.approverId,
+          approverName: step.approverName,
+          approvedAt: decided,
+          // [Task #707] 비-긴급 라인은 결재 완료 후 "계약·증빙 등록 대기" 로 진입.
+          awaitingContractEvidence: !approval.urgentExecution,
+        })
         .where(eq(approvalsTable.id, approvalId))
         .returning()
         .then((r) => r[0]),
@@ -911,18 +1022,305 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
     },
   });
 
-  await issueDownstreamDocuments(finalApproval, false);
+  // [Task #707] 라인 최종 승인은 더 이상 issueDownstreamDocuments 를 호출하지
+  //   않는다. 관리소장(또는 같은 건물 경리)이 업체·계약서·세금계산서·기간·분납을
+  //   입력한 register-contract-evidence 단계에서 발행한다. 긴급집행 라인은 이미
+  //   submit-line 에서 즉시 발행됐으므로 여기서도 건너뛴다.
+  if (!finalApproval.urgentExecution) {
+    await insertNotification({
+      recipientType: `user:${approval.requesterId}`,
+      notificationType: "approval_contract_evidence_pending",
+      title: "계약·증빙 등록 대기",
+      message: `${approval.title} — 결재 완료. 업체 계약·증빙을 등록하면 지출결의서·입금요청서가 발행됩니다.`,
+      relatedEntityType: "approval",
+      relatedEntityId: approvalId,
+    });
+  }
 
   await insertNotification({
     recipientType: `user:${approval.requesterId}`,
     notificationType: "approval_completed",
     title: "결재 라인 완료",
-    message: `${approval.title} — 지출결의서·입금요청서가 발행되었습니다`,
+    message: finalApproval.urgentExecution
+      ? `${approval.title} — 라인이 종결되었습니다`
+      : `${approval.title} — 계약·증빙 등록 후 지출결의서·입금요청서가 발행됩니다`,
     relatedEntityType: "approval",
     relatedEntityId: approvalId,
   });
 
   res.json({ ok: true, status: "approved", processorName: userName });
+});
+
+// 4b) ─── Contract & evidence registration (계약·증빙 등록) ─────────────────
+//   [Task #707] 결재 라인 최종 승인 후, 관리소장(또는 같은 건물 경리)이 업체·계약서·
+//   세금계산서·기간·분납 메타를 입력해 voucher/request 발행 트리거를 누르는 단계.
+//   긴급집행 라인은 발행이 이미 끝났으므로 메타 갱신만 수행한다.
+router.post("/approvals/:id/register-contract-evidence", async (req, res): Promise<void> => {
+  const approvalId = Number(req.params.id);
+  const user = req.user!;
+  const body = req.body || {};
+
+  const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, approvalId));
+  if (!approval) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+  if (approval.status !== "approved") {
+    res.status(400).json({ error: "결재 최종 승인된 라인만 계약·증빙을 등록할 수 있습니다" });
+    return;
+  }
+  if (!approval.awaitingContractEvidence && approval.contractEvidenceRegisteredAt) {
+    res.status(400).json({ error: "이미 계약·증빙이 등록되었습니다" });
+    return;
+  }
+
+  // 권한: 상신자, platform_admin, 같은 건물 manager·accountant.
+  let isAuthorized = approval.requesterId === user.userId || user.role === "platform_admin";
+  if (!isAuthorized && (user.role === "manager" || user.role === "accountant")) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    const inScope = approval.buildingId === null
+      ? scope.includeNullBuilding
+      : scope.allBuildings || scope.ids.includes(approval.buildingId);
+    if (inScope) isAuthorized = true;
+  }
+  if (!isAuthorized) {
+    res.status(403).json({ error: "계약·증빙 등록 권한이 없습니다" });
+    return;
+  }
+
+  // 입력 검증.
+  const vendorName = typeof body.vendorName === "string" ? body.vendorName.trim() : "";
+  if (!vendorName) {
+    res.status(400).json({ error: "업체명을 입력해주세요" });
+    return;
+  }
+
+  // [Task #707 review fix] 계약서·세금계산서는 다중 파일/페이지 첨부를 받는다.
+  //   - body.contractFiles: [{ fileUrl, fileName }] (필수, 1개 이상)
+  //   - body.taxInvoiceFiles: [{ fileUrl, fileName }] (taxInvoicePending=false 일 때 1개 이상)
+  //   - 백워드 호환: 단일 contractFileUrl/contractFileName 도 받아 배열로 변환.
+  type EvidenceFile = { fileUrl: string; fileName: string };
+  function normalizeFiles(arr: unknown, singleUrl: unknown, singleName: unknown): EvidenceFile[] {
+    const out: EvidenceFile[] = [];
+    if (Array.isArray(arr)) {
+      for (const f of arr) {
+        if (
+          f && typeof f === "object" &&
+          typeof (f as { fileUrl?: unknown }).fileUrl === "string" &&
+          typeof (f as { fileName?: unknown }).fileName === "string" &&
+          (f as { fileUrl: string }).fileUrl &&
+          (f as { fileName: string }).fileName
+        ) {
+          out.push({
+            fileUrl: (f as { fileUrl: string }).fileUrl,
+            fileName: (f as { fileName: string }).fileName,
+          });
+        }
+      }
+    }
+    if (out.length === 0 && typeof singleUrl === "string" && typeof singleName === "string" && singleUrl && singleName) {
+      out.push({ fileUrl: singleUrl, fileName: singleName });
+    }
+    return out;
+  }
+  const contractFiles = normalizeFiles(body.contractFiles, body.contractFileUrl, body.contractFileName);
+  if (contractFiles.length === 0) {
+    res.status(400).json({ error: "계약서 파일을 1개 이상 첨부해주세요" });
+    return;
+  }
+  const taxInvoicePending = !!body.taxInvoicePending;
+  const taxInvoiceFiles = taxInvoicePending
+    ? []
+    : normalizeFiles(body.taxInvoiceFiles, body.taxInvoiceFileUrl, body.taxInvoiceFileName);
+  if (!taxInvoicePending && taxInvoiceFiles.length === 0) {
+    res.status(400).json({ error: "세금계산서를 1개 이상 첨부하거나, 미발행 사유를 적어주세요" });
+    return;
+  }
+  if (taxInvoicePending && !body.taxInvoicePendingReason) {
+    res.status(400).json({ error: "세금계산서 미발행 사유를 적어주세요" });
+    return;
+  }
+  if (!body.contractStartDate || !body.contractEndDate) {
+    res.status(400).json({ error: "계약 기간(시작/종료일)을 입력해주세요" });
+    return;
+  }
+
+  // 분납 입력은 선택. 입력 시 멱등성 검산.
+  const months = body.installmentMonths ? Number(body.installmentMonths) : null;
+  const totalAmount = body.installmentTotalAmount ? Number(body.installmentTotalAmount) : null;
+  let monthlyAmount = body.installmentMonthlyAmount ? Number(body.installmentMonthlyAmount) : null;
+  if (months && totalAmount && !monthlyAmount) {
+    monthlyAmount = Math.round(totalAmount / months);
+  }
+
+  const userName = await db
+    .select({ name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, user.userId))
+    .then((rows) => rows[0]?.name ?? user.email);
+
+  // [Task #707 review fix] 등록 → 발행 → 긴급태스크 종결을 단일 트랜잭션으로
+  //   묶는다. 발행이 실패하면 등록 상태를 롤백해서 "발행되었습니다" 알림과
+  //   실제 voucher/request 상태가 어긋나는 사고(non-atomic success)를 막는다.
+  let updated: typeof approvalsTable.$inferSelect;
+  try {
+    updated = await db.transaction(async (tx) => {
+      // 첫 번째 파일은 결재 본체의 단일 컬럼에도 박제 (백워드 호환).
+      const primaryContract = contractFiles[0]!;
+      const primaryTax = taxInvoiceFiles[0] ?? null;
+      const [u] = await tx
+        .update(approvalsTable)
+        .set({
+          vendorName,
+          contractFileUrl: primaryContract.fileUrl,
+          contractFileName: primaryContract.fileName,
+          taxInvoiceFileUrl: primaryTax?.fileUrl ?? null,
+          taxInvoiceFileName: primaryTax?.fileName ?? null,
+          taxInvoicePending,
+          taxInvoicePendingReason: taxInvoicePending ? body.taxInvoicePendingReason : null,
+          contractStartDate: body.contractStartDate,
+          contractEndDate: body.contractEndDate,
+          installmentTotalAmount: totalAmount,
+          installmentMonths: months,
+          installmentMonthlyAmount: monthlyAmount,
+          installmentStartDate: body.installmentStartDate ?? null,
+          installmentEndDate: body.installmentEndDate ?? null,
+          contractEvidenceRegisteredAt: new Date(),
+          contractEvidenceRegisteredById: user.userId,
+          contractEvidenceRegisteredByName: userName,
+          awaitingContractEvidence: false,
+        })
+        .where(eq(approvalsTable.id, approvalId))
+        .returning();
+
+      // 다중 파일 자식 행 — 재등록을 허용하지 않으므로(이미 등록된 라인은 위에서
+      // 400) 단순 insert. 첫 번째 파일도 같이 들어가서 자식 테이블이 진실의 원천.
+      const rows = [
+        ...contractFiles.map((f, idx) => ({
+          approvalId,
+          kind: "contract" as const,
+          fileUrl: f.fileUrl,
+          fileName: f.fileName,
+          sortOrder: idx,
+          uploadedById: user.userId,
+        })),
+        ...taxInvoiceFiles.map((f, idx) => ({
+          approvalId,
+          kind: "tax_invoice" as const,
+          fileUrl: f.fileUrl,
+          fileName: f.fileName,
+          sortOrder: idx,
+          uploadedById: user.userId,
+        })),
+      ];
+      if (rows.length > 0) {
+        await tx.insert(approvalContractFilesTable).values(rows);
+      }
+
+      // 발행 또는 메타 갱신 (긴급집행 라인은 이미 발행돼 있어 update 모드).
+      //   throw 시 트랜잭션 자동 롤백 → 등록 상태도 함께 되돌아간다.
+      await issueDownstreamDocuments(u, false, "update-from-evidence", tx);
+
+      // [Task #707 review fix] 긴급집행 라인의 "계약·증빙 사후등록" 필수업무는 이
+      //   시점에 자동 종결. 제목 매칭은 동일 제목을 가진 타 라인의 task 까지
+      //   잘못 완료 처리할 위험이 있어, 발행 시점에 approvals.urgentEvidenceTaskId
+      //   로 기록해 둔 task id 로만 종결한다 (urgentTaskId 는 "사후결재 받기"
+      //   서명본 첨부용이라 별도 — 오프라인 단계 마감 시 종결).
+      const evidenceTaskId = approval.urgentEvidenceTaskId ?? null;
+      if (approval.urgentExecution && evidenceTaskId) {
+        await tx
+          .update(tasksTable)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(eq(tasksTable.id, evidenceTaskId));
+      }
+
+      return u;
+    });
+  } catch (err) {
+    (req as { log?: { error?: (...args: unknown[]) => void } }).log?.error?.(
+      { err, approvalId },
+      "register-contract-evidence: transaction failed (rolled back)",
+    );
+    res.status(500).json({
+      error: "지출결의서·입금요청서 발행 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+    });
+    return;
+  }
+
+  await insertNotification({
+    recipientType: `user:${approval.requesterId}`,
+    notificationType: "approval_contract_evidence_registered",
+    title: "계약·증빙 등록 완료",
+    message: `${approval.title} — 지출결의서·입금요청서가 발행되었습니다`,
+    relatedEntityType: "approval",
+    relatedEntityId: approvalId,
+  });
+
+  res.json(serializeApproval(updated));
+});
+
+// [Task #707 review fix] 등록된 계약/세금계산서 다중 파일 목록 조회.
+//   결재 상세 화면에서 사용 — 등록 후 모든 첨부 파일을 표시하기 위함.
+//   [Task #707 review fix #2] IDOR 방지 — 인증만으로는 부족. 결재 본체와
+//   동일한 접근 정책 적용:
+//     - platform_admin: 전체 허용
+//     - 상신자: 본인 라인만
+//     - 결재선 단계의 approver: 본인이 결재해야 하는 라인만
+//     - manager/accountant: 같은 건물(accessibleBuildingIds 범위) 라인만
+//     - hq_executive: 본인에게 배정된 건물 범위만
+//   그 외에는 404 (존재 정보 누설 방지).
+router.get("/approvals/:id/contract-files", async (req, res): Promise<void> => {
+  const approvalId = Number(req.params.id);
+  const user = req.user!;
+
+  const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, approvalId));
+  if (!approval) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+
+  let isAuthorized = user.role === "platform_admin" || approval.requesterId === user.userId;
+  if (!isAuthorized) {
+    // 결재선의 approver(이번/지난 단계 모두) 도 열람 가능.
+    const stepRows = await db
+      .select({ id: approvalStepsTable.id })
+      .from(approvalStepsTable)
+      .where(and(
+        eq(approvalStepsTable.approvalId, approvalId),
+        eq(approvalStepsTable.approverId, user.userId),
+      ));
+    if (stepRows.length > 0) isAuthorized = true;
+  }
+  if (!isAuthorized && (user.role === "manager" || user.role === "accountant" || user.role === "hq_executive")) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    const inScope = approval.buildingId === null
+      ? scope.includeNullBuilding
+      : scope.allBuildings || scope.ids.includes(approval.buildingId);
+    if (inScope) isAuthorized = true;
+  }
+  if (!isAuthorized) {
+    // 존재 자체를 노출하지 않기 위해 404 로 응답.
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+
+  const rows = await db
+    .select()
+    .from(approvalContractFilesTable)
+    .where(eq(approvalContractFilesTable.approvalId, approvalId))
+    .orderBy(approvalContractFilesTable.kind, approvalContractFilesTable.sortOrder, approvalContractFilesTable.id);
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      approvalId: r.approvalId,
+      kind: r.kind,
+      fileUrl: r.fileUrl,
+      fileName: r.fileName,
+      sortOrder: r.sortOrder,
+      uploadedById: r.uploadedById,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  );
 });
 
 // 5) ─── Expense vouchers (지출결의서함, 경리) ──────────────────────────────

@@ -99,6 +99,15 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
     return;
   }
 
+  // [Task #707] 경리(accountant)는 결재 결정권자가 아니다 — 결재선에 포함될 수 없다.
+  //   본부장(hq_executive) 임계 초과 분기 + 관리인(custodian) 만 결재 결정권을 갖는다.
+  for (const s of steps) {
+    if (s.approverRole === "accountant") {
+      res.status(400).json({ error: "경리는 결재선에 포함될 수 없습니다" });
+      return;
+    }
+  }
+
   // [Task #682] RFQ 카드의 "기안서 작성" 진입에서 출처(rfq/quote/voucher 등)를
   //   approval row 에 함께 보존한다 — buildingId 도 같이 받아두어야 본부장 라인이
   //   자동 결정될 때 임계 매칭이 정확해진다.

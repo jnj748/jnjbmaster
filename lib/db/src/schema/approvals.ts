@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -50,11 +50,42 @@ export const approvalsTable = pgTable("approvals", {
   urgentExecution: boolean("urgent_execution").notNull().default(false),
   urgentConsentMemo: text("urgent_consent_memo"),
   urgentTaskId: integer("urgent_task_id"),
+  // [Task #707 review fix] 긴급집행 라인은 두 개의 사후업무를 만든다 — 본부장/관리인
+  //   서명본 첨부(=urgentTaskId, 오프라인 단계 마감 시 자동 종결) 와 계약·증빙
+  //   사후등록(=urgentEvidenceTaskId, register-contract-evidence 호출 시 종결).
+  urgentEvidenceTaskId: integer("urgent_evidence_task_id"),
   // [Task #611] 결재선 스냅샷 — 임계 금액·본부장 배정이 사후에 바뀌어도 진행 중인
   //   라인의 라우팅은 변하지 않게 결정 시점의 값을 박제한다.
   hqThresholdSnapshot: real("hq_threshold_snapshot"),
   hqApproverId: integer("hq_approver_id"),
   custodianApproverId: integer("custodian_approver_id"),
+  // [Task #707] 결재 최종 승인 후 "계약·증빙 등록 대기" 상태.
+  //   true 인 동안은 지출결의서·입금요청서가 발행되지 않는다(긴급집행 예외).
+  //   계약·증빙 등록이 완료되면 false 로 내려가고 발행이 트리거된다.
+  awaitingContractEvidence: boolean("awaiting_contract_evidence").notNull().default(false),
+  contractEvidenceRegisteredAt: timestamp("contract_evidence_registered_at", { withTimezone: true }),
+  contractEvidenceRegisteredById: integer("contract_evidence_registered_by_id"),
+  contractEvidenceRegisteredByName: text("contract_evidence_registered_by_name"),
+  // 계약서 / 세금계산서 첨부.
+  contractFileUrl: text("contract_file_url"),
+  contractFileName: text("contract_file_name"),
+  taxInvoiceFileUrl: text("tax_invoice_file_url"),
+  taxInvoiceFileName: text("tax_invoice_file_name"),
+  // 세금계산서 추후 첨부 옵션 + 사유 메모.
+  taxInvoicePending: boolean("tax_invoice_pending").notNull().default(false),
+  taxInvoicePendingReason: text("tax_invoice_pending_reason"),
+  // 계약 기간.
+  contractStartDate: date("contract_start_date"),
+  contractEndDate: date("contract_end_date"),
+  // [Task #707] 분납 스케줄 — 부속명세서 자리표시. 1월에 1년치 1,200만원으로
+  //   결재된 보험료가 매월 100만원씩 빠질 때 그 달의 100만원이 무엇의 분납인지를
+  //   설명할 근거를 보관한다. 본 태스크 범위에선 컬럼·표시까지만 하고, 부속명세서
+  //   자체의 발행/관리는 후속 작업에서 다룬다.
+  installmentTotalAmount: real("installment_total_amount"),
+  installmentMonths: integer("installment_months"),
+  installmentMonthlyAmount: real("installment_monthly_amount"),
+  installmentStartDate: date("installment_start_date"),
+  installmentEndDate: date("installment_end_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

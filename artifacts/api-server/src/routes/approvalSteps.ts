@@ -18,12 +18,32 @@ const router: IRouter = Router();
 //   로 custodian 에게 draft create/update/submit 등 결재안 작성 엔드포인트까지
 //   열어버려, "관리인은 본인 결재함만 본다"라는 권한 경계가 깨져 있었다.
 //
-//   - 결재함 (read / process step) → manager, platform_admin, accountant,
-//     hq_executive, custodian (본인 결재함의 전자결재 처리 포함)
+// [Task #707] 경리(accountant)는 결재 결정권자가 아니다 — 결재 라인의 승인/반려는
+//   본부장/관리인만 한다. 단, 회계는 결재 진행 현황을 봐야 하므로 read 는 유지하고,
+//   /process(단계 전자결재) 처리만 차단한다 (accountantBlocked at handler).
+//   - 결재함 read (steps/recipients/signed-copies) → manager, platform_admin,
+//     accountant, hq_executive, custodian
+//   - 결재함 process (step approve/reject) → manager, platform_admin,
+//     hq_executive, custodian — accountant 제외
 //   - draft 생성·수정·상신 → manager, platform_admin, accountant, hq_executive
 //     (custodian 제외 — 결재안을 만들 권한 없음)
 const inboxRoles = ["manager", "platform_admin", "accountant", "hq_executive", "custodian"] as const;
+const processRoles = ["manager", "platform_admin", "hq_executive", "custodian"] as const;
 const draftRoles = ["manager", "platform_admin", "accountant", "hq_executive"] as const;
+// [Task #707 review fix] 결재 결정권자에서 경리(accountant) 가 빠졌으니
+//   결재선에 경리 결재자가 들어오면 서버 단에서 거부한다. 프런트가 옵션을
+//   가려도 API 호출(curl/Postman) 로 우회 가능 — 정책 위반은 모든 경로에서
+//   차단해야 변경 전 라인이 다시 stuck 되는 사고를 막는다.
+function rejectAccountantApprover(steps: unknown): string | null {
+  if (!Array.isArray(steps)) return null;
+  for (const s of steps) {
+    if (s && typeof s === "object" && (s as { approverRole?: unknown }).approverRole === "accountant") {
+      return "결재 결정권자에 경리(accountant) 는 더 이상 포함될 수 없습니다";
+    }
+  }
+  return null;
+}
+
 function serializeStep(r: typeof approvalStepsTable.$inferSelect) {
   return {
     ...r,
@@ -88,11 +108,18 @@ router.get("/approvals/:id/steps", requireRole(...inboxRoles), async (req, res):
   res.json(steps.map(serializeStep));
 });
 
-router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), async (req, res): Promise<void> => {
+router.post("/approvals/:id/steps/:stepId/process", requireRole(...processRoles), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const stepId = Number(req.params.stepId);
   const { action, comment, signatureId } = req.body;
   const user = req.user!;
+
+  // [Task #707] 방어적 가드 — 라우트는 이미 processRoles 로 막혀 있지만,
+  //   ROLE 매트릭스 변경 회귀에 대비해 한 번 더 거른다. 경리는 결재 결정권자가 아니다.
+  if (user.role === "accountant") {
+    res.status(403).json({ error: "경리는 결재 단계의 승인/반려 권한이 없습니다" });
+    return;
+  }
 
   if (!action || !["approve", "reject"].includes(action)) {
     res.status(400).json({ error: "유효한 action(approve/reject)을 입력해주세요" });
@@ -328,18 +355,28 @@ router.post("/approvals/:id/steps/:stepId/process", requireRole(...inboxRoles), 
         }
       }
 
-      // [Task #611] 전자결재 경로로 라인이 최종 승인되면 같은 컨텍스트로
-      //   지출결의서(→경리) / 입금요청서(→관리인) 자동 발행.
+      // [Task #707] 결재 최종 승인 시점에는 더 이상 지출결의서·입금요청서를 자동
+      //   발행하지 않는다. "계약·증빙 등록 대기" 상태(awaitingContractEvidence)
+      //   로 들어가고, 관리소장(또는 같은 건물 경리)이 계약·증빙 등록을 완료하는
+      //   시점에 발행이 트리거된다 (POST /approvals/:id/register-contract-evidence).
+      //   긴급집행 라인은 submit-line 시점에 이미 즉시 발행됐으므로 여기선 건너뛴다.
       const [finalApproval] = await db
         .select()
         .from(approvalsTable)
         .where(eq(approvalsTable.id, approvalId));
-      if (finalApproval) {
-        try {
-          await issueDownstreamDocuments(finalApproval, false);
-        } catch (err) {
-          (req as { log?: { error?: (...args: unknown[]) => void } }).log?.error?.({ err, approvalId }, "issueDownstreamDocuments failed");
-        }
+      if (finalApproval && !finalApproval.urgentExecution) {
+        await db
+          .update(approvalsTable)
+          .set({ awaitingContractEvidence: true })
+          .where(eq(approvalsTable.id, approvalId));
+        await insertNotification({
+          recipientType: `user:${approval.requesterId}`,
+          notificationType: "approval_contract_evidence_pending",
+          title: "계약·증빙 등록 대기",
+          message: `${approval.title} — 결재 완료. 업체 계약·증빙을 등록하면 지출결의서·입금요청서가 발행됩니다.`,
+          relatedEntityType: "approval",
+          relatedEntityId: approvalId,
+        });
       }
 
       await insertNotification({
@@ -423,6 +460,12 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
 
   if (steps.length > 5) {
     res.status(400).json({ error: "결재선은 최대 5단계까지 설정할 수 있습니다" });
+    return;
+  }
+
+  const accountantErr = rejectAccountantApprover(steps);
+  if (accountantErr) {
+    res.status(400).json({ error: accountantErr });
     return;
   }
 
@@ -533,6 +576,12 @@ router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res):
     return;
   }
 
+  const accountantErr = rejectAccountantApprover(steps);
+  if (accountantErr) {
+    res.status(400).json({ error: accountantErr });
+    return;
+  }
+
   // [Task #610] 단일 통로 — UPDATE 도 saveProducingDocument 를 거친다.
   const row = await saveProducingDocument({
     write: (exec) =>
@@ -631,6 +680,12 @@ router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), async (re
     return;
   }
 
+  const accountantErr = rejectAccountantApprover(steps);
+  if (accountantErr) {
+    res.status(400).json({ error: accountantErr });
+    return;
+  }
+
   if (steps.length > 0) {
     await db.delete(approvalStepsTable).where(eq(approvalStepsTable.approvalId, id));
     for (let i = 0; i < steps.length; i++) {
@@ -712,5 +767,84 @@ router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), async (re
 
   res.json(serializeApproval(row));
 });
+
+// [Task #707 review fix] 변경 전에 라인이 살아 있는 경우 — 결재선에 경리가
+//   포함돼 있던 in-flight 라인의 pending 단계를 자동 skip 한다. 서버에서
+//   /process 호출이 거부되므로 그대로 두면 영원히 진행되지 못한다. boot 시
+//   1회 idempotent 하게 실행한다.
+//   - 처리되는 row 만 손대므로 재실행해도 같은 row 를 또 변경하지 않는다.
+//   - 자동 skip 후, 해당 approval 의 currentStep 도 다음 미결 단계로 전진시킨다.
+export async function backfillSkipAccountantApproverSteps(): Promise<{ skippedSteps: number; advancedApprovals: number; finalizedApprovals: number }> {
+  const now = new Date();
+  // 1) 경리 결재자 + pending 단계 일괄 skip
+  const skipped = await db
+    .update(approvalStepsTable)
+    .set({
+      status: "skipped",
+      processedAt: now,
+      decidedAt: now,
+      comment: "[Task #707] 경리 결재권 폐지에 따른 자동 스킵",
+    })
+    .where(and(
+      eq(approvalStepsTable.approverRole, "accountant"),
+      eq(approvalStepsTable.status, "pending"),
+    ))
+    .returning({ approvalId: approvalStepsTable.approvalId });
+
+  // 2) 영향 받은 approval 들의 currentStep 을 — 다음 pending 단계로 전진.
+  //    [Task #707 review fix] 스킵된 경리 단계가 마지막 pending 단계였다면 라인이
+  //    영원히 처리되지 못하고 in_progress 로 묶이는 사고가 난다. 다음 pending 이
+  //    없는 경우 — 거절된 단계가 하나라도 있으면 status="rejected", 아니면
+  //    status="approved" + awaitingContractEvidence=true (신규 흐름) 로 자동 종결.
+  const affectedApprovalIds = Array.from(new Set(skipped.map((r) => r.approvalId)));
+  let advanced = 0;
+  let finalized = 0;
+  for (const approvalId of affectedApprovalIds) {
+    const stepsForApproval = await db
+      .select()
+      .from(approvalStepsTable)
+      .where(eq(approvalStepsTable.approvalId, approvalId))
+      .orderBy(approvalStepsTable.stepOrder);
+    const nextPending = stepsForApproval.find((s) => s.status === "pending");
+    if (nextPending) {
+      await db
+        .update(approvalsTable)
+        .set({ currentStep: nextPending.stepOrder })
+        .where(eq(approvalsTable.id, approvalId));
+      advanced++;
+    } else {
+      // 더 이상 미결 단계가 없다 — 라인을 종결.
+      const hasRejected = stepsForApproval.some((s) => s.status === "rejected");
+      const [approval] = await db
+        .select()
+        .from(approvalsTable)
+        .where(eq(approvalsTable.id, approvalId));
+      if (!approval) continue;
+      // 이미 종결된 라인(approved/rejected)은 건드리지 않음 — idempotent.
+      if (approval.status !== "pending" && approval.status !== "in_progress") continue;
+      if (hasRejected) {
+        await db
+          .update(approvalsTable)
+          .set({ status: "rejected", rejectionReason: approval.rejectionReason ?? "[Task #707] 자동 종결" })
+          .where(eq(approvalsTable.id, approvalId));
+      } else {
+        // 모든 단계가 approved/skipped — 정상 종결. 신규 파이프라인 정책에 따라
+        // 발행은 awaitingContractEvidence=true 로 표시만 하고 등록 단계에서 트리거.
+        // 긴급집행 라인은 이미 발행이 끝나 있으나 awaitingContractEvidence=true 로
+        // 사후등록 폼을 노출 (등록 시 update 모드로 메타만 갱신).
+        await db
+          .update(approvalsTable)
+          .set({
+            status: "approved",
+            approvedAt: now,
+            awaitingContractEvidence: !approval.contractEvidenceRegisteredAt,
+          })
+          .where(eq(approvalsTable.id, approvalId));
+      }
+      finalized++;
+    }
+  }
+  return { skippedSteps: skipped.length, advancedApprovals: advanced, finalizedApprovals: finalized };
+}
 
 export default router;

@@ -14,6 +14,7 @@ import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
 import { runMigrations } from "./lib/runMigrations";
+import { backfillSkipAccountantApproverSteps } from "./routes/approvalSteps";
 
 async function backfillUnitIds() {
   await db.execute(sql`
@@ -206,6 +207,18 @@ async function bootstrap() {
       logger.info("Consent documents seeded");
     } catch (e) {
       logger.warn({ err: e }, "Failed to seed consent documents");
+    }
+
+    // [Task #707 review fix] in-flight 결재 라인의 잔존 경리 결재 단계를 자동
+    //   skip 한다. 변경 전 라인이 경리 승인을 기다리며 멈춰 있는 사고를 방지.
+    try {
+      const result = await backfillSkipAccountantApproverSteps();
+      logger.info(
+        { skippedSteps: result.skippedSteps, advancedApprovals: result.advancedApprovals, finalizedApprovals: result.finalizedApprovals },
+        "[Task #707] Skipped accountant approver steps on in-flight approvals",
+      );
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to skip accountant approver steps");
     }
 
     startScheduler();

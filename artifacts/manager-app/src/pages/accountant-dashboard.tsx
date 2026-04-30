@@ -150,9 +150,9 @@ function thisMonthIso(): string {
 // 인라인 카드들
 // ─────────────────────────────────────────────────────────────────────────
 
-// [Task #681] 결재 대기 진입 — 기존 EssentialTasksCard 의 "결재 대기 처리"
-//   슬롯이 AlertSection 으로 대체되며 사라지면서, 결재함 진입을 한 줄
-//   카드로 별도 노출해 회귀(딥링크 분실) 를 막는다.
+// [Task #707] 경리는 결재 결정권자가 아니다 — "결재 대기 처리" 라벨은 더 이상
+//   맞지 않다. 본 카드는 "내가 (경리로서) 직접 상신한 기안의 진행 현황" 으로
+//   재정의된다. 카운트는 본인 상신 + 진행 중(in_progress) + 대기(pending) 합.
 function PendingApprovalsEntryCard({
   pendingCount,
   loading,
@@ -174,16 +174,16 @@ function PendingApprovalsEntryCard({
             <ClipboardCheck className="w-4 h-4 text-amber-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">결재 대기 처리</p>
+            <p className="text-sm font-semibold">내가 상신한 기안 진행 현황</p>
             <p className="text-xs text-muted-foreground truncate">
               {pendingCount > 0
-                ? `결재 대기 ${pendingCount}건`
-                : "처리할 결재가 없습니다"}
+                ? `진행 중 ${pendingCount}건`
+                : "진행 중인 기안이 없습니다"}
             </p>
           </div>
           {pendingCount > 0 && (
             <Badge
-              variant="destructive"
+              variant="secondary"
               className="text-[10px] shrink-0"
               data-testid="accountant-pending-approvals-badge"
             >
@@ -441,10 +441,21 @@ export default function AccountantDashboard() {
   const { token, user } = useAuth();
   const { building } = useBuilding();
 
-  // 결재 대기
-  const { data: pendingApprovals, isLoading: approvalsLoading } =
-    useListApprovals({ status: "pending" });
-  const pendingApprovalsCount = (pendingApprovals ?? []).length;
+  // [Task #707] 본인이 상신한 기안의 진행 중·대기 합계.
+  //   결재 결정권자가 아니므로 "결재 대기" 카운트가 아니라, 본인이 올린 기안 중
+  //   pending/in_progress 상태의 라인을 본다. 생성된 client 의 status enum 은
+  //   pending/approved/rejected 만 허용하므로, status 필터 없이 전체를 받아
+  //   client-side 에서 requesterId + status 로 거른다.
+  const { data: allApprovals, isLoading: approvalsLoading } = useListApprovals();
+  const pendingApprovalsCount = useMemo(() => {
+    return (allApprovals ?? []).filter((a) => {
+      const r = a as { requesterId?: number; status?: string };
+      return (
+        r.requesterId === user?.id &&
+        (r.status === "pending" || r.status === "in_progress")
+      );
+    }).length;
+  }, [allApprovals, user?.id]);
 
   // [Task #703] 지출결의서 처리 카드의 "대기 N건" 은 결재 대기 기안서가 아니라
   //   이미 발행되어 출납기록을 기다리는 지출결의서(status === "pending") 의

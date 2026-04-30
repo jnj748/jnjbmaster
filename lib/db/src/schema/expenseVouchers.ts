@@ -33,6 +33,14 @@ export const expenseVouchersTable = pgTable(
     recordedByUserId: integer("recorded_by_user_id"),
     recordedByName: text("recorded_by_name"),
     recordedAt: timestamp("recorded_at", { withTimezone: true }),
+    // [Task #707] 분납 스케줄 — 부속명세서 자리표시. 결재 라인의 계약·증빙 등록
+    //   단계에서 입력한 값이 발행 시점에 그대로 복사된다. 향후 부속명세서 자동
+    //   발행/연결은 별도 후속 태스크.
+    installmentTotalAmount: real("installment_total_amount"),
+    installmentMonths: integer("installment_months"),
+    installmentMonthlyAmount: real("installment_monthly_amount"),
+    installmentStartDate: date("installment_start_date"),
+    installmentEndDate: date("installment_end_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },

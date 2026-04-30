@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool designed for Korean apartment and building managers of collective buildings under 150 units. It aims to significantly enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights. Key capabilities include centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive, informed management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -61,46 +61,44 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo built with Node.js 24 and TypeScript 5.9.
+The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
-- Developed using React, Vite, Tailwind CSS, and shadcn/ui.
-- Features a mobile-first design with a 900px desktop breakpoint.
-- Provides distinct, role-based portals for building managers, headquarters, and partner vendors.
-- Performance is optimized using React.lazy, Vite manualChunks, and React Query.
-- UI/UX decisions include ERP-style accounting, facility management, and usage analytics dashboards with mobile navigation.
-- A unified alert action modal is used for alerts, routing RFQ actions to a dedicated page.
-- Role-specific daily journals are provided for managers, accountants, and facility staff.
+- Built with React, Vite, Tailwind CSS, and shadcn/ui.
+- Features a mobile-first design (900px desktop breakpoint).
+- Provides distinct, role-based portals for managers, headquarters, and vendors.
+- Performance optimized using React.lazy, Vite manualChunks, and React Query.
+- UI/UX includes ERP-style accounting, facility management, and usage analytics dashboards with mobile navigation.
 
 **Backend:**
-- Utilizes an Express 5 API framework.
-- Implements JWT authentication and a Role-Based Access Control (RBAC) system for 6 defined roles, with `docs/user-roles/README.md` as the Single Source of Truth for role hierarchy.
+- Express 5 API framework.
+- Implements JWT authentication and Role-Based Access Control (RBAC) for 6 roles, with `docs/user-roles/README.md` as the Single Source of Truth.
 - API definitions adhere to OpenAPI specifications, using Orval for client code generation and Zod for validation.
 
 **Database:**
-- PostgreSQL serves as the primary data store, managed via Drizzle ORM.
+- PostgreSQL as the primary data store, managed via Drizzle ORM.
 - Supports core entities including users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, and approval processes.
-- Automated schema migrations are executed upon API server boot.
+- Automated schema migrations on API server boot.
 
 **Core Features & Design Patterns:**
-- **Modular Monorepo Structure:** Ensures clear separation of concerns.
-- **AI Integration:** Applied for commission records and vendor matching.
+- **Modular Monorepo Structure:** Ensures separation of concerns.
+- **AI Integration:** For commission records and vendor matching.
 - **Automated Document Generation:** Supports various reports and notices.
 - **Multi-step Approval Workflows:** Configurable for up to 5 levels.
 - **BuildingContext:** Manages building-specific data globally.
-- **Attendance Management:** Supports PC/mobile check-in/out.
+- **Attendance Management:** PC/mobile check-in/out.
 - **In-app Notification System:** Delivers real-time alerts.
-- **Legal Compliance:** Integrates Korean legal requirements, including privacy data auto-destruction.
-- **Meter Reading Management:** Features bulk upload, manual entry, and anomaly detection.
-- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, and delinquency detection.
-- **Complaints Management:** Enhanced workflow with status tracking and auto-escalation.
-- **Electronic Voting:** Manages agendas, participation tracking, and result tabulation.
-- **Partner Marketplace:** Features extended vendor categories and warranty tracking with geo-based matching.
+- **Legal Compliance:** Integrates Korean legal requirements (e.g., privacy data auto-destruction).
+- **Meter Reading Management:** Bulk upload, manual entry, anomaly detection.
+- **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, delinquency detection.
+- **Complaints Management:** Workflow with status tracking and auto-escalation.
+- **Electronic Voting:** Manages agendas, participation, and results.
+- **Partner Marketplace:** Extended vendor categories, warranty tracking, geo-based matching.
 - **Object Storage Integration:** Manages attachments using presigned URLs.
-- **Unit Management:** Provides CRUD operations for building units, including bulk import.
+- **Unit Management:** CRUD operations for building units, including bulk import.
 - **Digital Tenant Card:** Token-based self-registration for tenants with manager verification.
 - **Building Setup & Integration:** Connects with external APIs for building registers and postcode services.
-- **Onboarding Automation:** Streamlines the manager setup process.
+- **Onboarding Automation:** Streamlines manager setup.
 
 # External Dependencies
 - jsPDF
