@@ -90,9 +90,16 @@ export default function AccountantMemberSearchWidget() {
           호실정보조회
         </CardTitle>
       </CardHeader>
-      <CardContent className={enabled ? "space-y-3" : "pb-4"}>
+      {/* [요청] 검색 결과 목록이 카드 안에 인라인으로 펼쳐지면서 카드 자체 높이가
+          늘어나 부모 그리드 셀이 커지고 아래 위젯들(결재 대기/최근문서함/오늘
+          업무일지 등)이 모두 아래로 밀리던 문제. CardContent 는 검색 여부와
+          무관하게 "헤더 + 검색 인풋" 만큼의 동일 사이즈를 유지하고, 검색 결과
+          패널은 input 바로 아래에 floating(absolute) 으로 띄워 다른 위젯들 위로
+          오버랩되도록 변경한다(Card primitive 에 overflow-hidden 이 없으므로
+          잘리지 않는다). z-50 으로 항상 다른 카드 위에 오도록 보장. */}
+      <CardContent className="pb-4">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
           <Input
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
@@ -100,101 +107,108 @@ export default function AccountantMemberSearchWidget() {
             className="pl-8 h-9 text-sm"
             data-testid="member-search-input"
           />
+
+          {/* 검색어 입력 시에만 결과 패널이 input 바로 아래에 떠서 다른 위젯들
+              위에 오버랩된다. 카드 자체 높이는 변하지 않는다. */}
+          {enabled && (
+            <div
+              className="absolute left-0 right-0 top-full mt-2 z-50 rounded-lg border bg-popover text-popover-foreground shadow-lg p-3 max-h-72 overflow-y-auto"
+              data-testid="member-search-results"
+            >
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <Skeleton key={i} className="h-10 rounded-lg" />
+                  ))}
+                </div>
+              ) : isEmpty ? (
+                <p className="text-xs text-muted-foreground py-2">
+                  "{query}" 와 일치하는 호실/입주자가 없습니다.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {units.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground px-1">
+                        호실
+                      </p>
+                      {units.map((u) => (
+                        <button
+                          type="button"
+                          key={`unit-${u.id}`}
+                          onClick={() => goToUnitById(u)}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border hover-elevate active-elevate-2 text-left"
+                          data-testid={`member-search-unit-${u.id}`}
+                        >
+                          <Home className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {u.unitNumber}
+                              {u.ownerName ? (
+                                <span className="text-xs text-muted-foreground font-normal ml-1.5">
+                                  소유자 {u.ownerName}
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {u.floor}층 · {u.usage ?? "-"}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {u.status === "occupied"
+                              ? "사용중"
+                              : u.status === "vacant"
+                                ? "공실"
+                                : "수리"}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {tenants.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground px-1">
+                        입주자(호실로 이동)
+                      </p>
+                      {tenants.map((t) => (
+                        <button
+                          type="button"
+                          key={`tenant-${t.id}`}
+                          onClick={() => goToUnitFromTenant(t)}
+                          className="w-full flex items-center gap-2 p-2 rounded-lg border hover-elevate active-elevate-2 text-left"
+                          data-testid={`member-search-tenant-${t.id}`}
+                        >
+                          <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {t.tenantName}
+                              <span className="text-xs text-muted-foreground font-normal ml-1.5">
+                                {t.unit}
+                              </span>
+                            </p>
+                            {t.phone && (
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {t.phone}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {t.status === "active"
+                              ? "거주중"
+                              : t.status === "moved_out"
+                                ? "퇴거"
+                                : "삭제"}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-
-        {/* [Task #706] 검색어 미입력 시 회색 안내 문장을 제거해 빈 카드 세로 길이를
-            헤더 + 검색 인풋만큼으로 줄였다. 로딩/빈 결과/결과 분기는 그대로 유지. */}
-        {!enabled ? null : isLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-10 rounded-lg" />
-            ))}
-          </div>
-        ) : isEmpty ? (
-          <p className="text-xs text-muted-foreground py-2">
-            "{query}" 와 일치하는 호실/입주자가 없습니다.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {units.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-semibold text-muted-foreground px-1">
-                  호실
-                </p>
-                {units.map((u) => (
-                  <button
-                    type="button"
-                    key={`unit-${u.id}`}
-                    onClick={() => goToUnitById(u)}
-                    className="w-full flex items-center gap-2 p-2 rounded-lg border hover-elevate active-elevate-2 text-left"
-                    data-testid={`member-search-unit-${u.id}`}
-                  >
-                    <Home className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {u.unitNumber}
-                        {u.ownerName ? (
-                          <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                            소유자 {u.ownerName}
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {u.floor}층 · {u.usage ?? "-"}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {u.status === "occupied"
-                        ? "사용중"
-                        : u.status === "vacant"
-                          ? "공실"
-                          : "수리"}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {tenants.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-semibold text-muted-foreground px-1">
-                  입주자(호실로 이동)
-                </p>
-                {tenants.map((t) => (
-                  <button
-                    type="button"
-                    key={`tenant-${t.id}`}
-                    onClick={() => goToUnitFromTenant(t)}
-                    className="w-full flex items-center gap-2 p-2 rounded-lg border hover-elevate active-elevate-2 text-left"
-                    data-testid={`member-search-tenant-${t.id}`}
-                  >
-                    <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {t.tenantName}
-                        <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                          {t.unit}
-                        </span>
-                      </p>
-                      {t.phone && (
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {t.phone}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {t.status === "active"
-                        ? "거주중"
-                        : t.status === "moved_out"
-                          ? "퇴거"
-                          : "삭제"}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

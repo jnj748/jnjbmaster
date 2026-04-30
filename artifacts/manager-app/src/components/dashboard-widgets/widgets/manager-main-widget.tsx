@@ -71,6 +71,9 @@ import { DataDestructionSection } from "./data-destruction-section";
 import FacilityLeftColumnStackWidget from "./facility-left-column-stack-widget";
 import NoticeTemplatesEntryWidget from "./notice-templates-entry-widget";
 import BuildingContractsSummaryWidget from "./building-contracts-summary-widget";
+// [요청] 관리소장 화면에도 호실정보조회 카드를 추가. 경리·시설과 동일한 위젯을
+//   재사용해 "오늘 업무일지 자동 작성하기" 카드 아래 세로 스택으로 노출한다.
+import AccountantMemberSearchWidget from "./accountant-member-search-widget";
 
 export default function ManagerMainWidget() {
   const { user } = useAuth();
@@ -159,6 +162,8 @@ export default function ManagerMainWidget() {
             onAlertClick={handleAlertClick}
           />
           <TodayWorkLogEntry />
+          {/* [요청] 모바일에서도 오늘 업무일지 카드 다음에 호실정보조회 카드 노출. */}
+          <AccountantMemberSearchWidget />
           <SubmittedQuotesWidget />
           <BuildingContractsSummaryWidget />
         </div>
@@ -210,7 +215,12 @@ export default function ManagerMainWidget() {
               breakpoint: 위 1행과 동일한 이유로 `md:` 사용. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <FacilityLeftColumnStackWidget />
-            <TodayWorkLogEntry />
+            {/* [요청] 우측 셀에 오늘 업무일지 + 호실정보조회 세로 스택. 좌측의
+                두 진입 카드(최근문서함 + 처리 내역) 와 시각적 균형도 맞춰진다. */}
+            <div className="space-y-6">
+              <TodayWorkLogEntry />
+              <AccountantMemberSearchWidget />
+            </div>
           </div>
 
           {/* [Task #503] 3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망.
