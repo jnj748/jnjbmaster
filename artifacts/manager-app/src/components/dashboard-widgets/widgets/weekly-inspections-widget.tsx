@@ -62,11 +62,11 @@ export default function WeeklyInspectionsWidget() {
   return (
     <Card className="h-full" data-testid="weekly-inspections-widget">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-base flex items-center gap-2 break-keep [overflow-wrap:break-word]">
           <ClipboardCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           금주 안전점검표 작성
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground break-keep [overflow-wrap:break-word]">
           이번 주(월~일) 우리 건물의 안전점검표 작성 건수입니다.
         </p>
       </CardHeader>

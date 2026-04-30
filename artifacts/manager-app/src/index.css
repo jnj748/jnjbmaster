@@ -371,6 +371,53 @@ h1, h2, h3, h4 {
   }
 }
 
+/*
+ * [Task #716] 대시보드 위젯 안내 문구 어절 단위 줄바꿈 글로벌 규칙
+ *
+ * 한글은 띄어쓰기 단위로 줄바꿈해야 자연스러운데, 브라우저 기본은 폭이
+ * 좁으면 단어(어절) 중간에서 잘라 "건수입" / "니다." 처럼 어색해진다.
+ * 모든 대시보드 위젯의 본문/캡션/라벨/버튼 텍스트가 새로 추가될 때마다
+ * `break-keep` 클래스를 잊지 않도록, 대시보드 셸 안의 위젯 노드 범위에서
+ * 텍스트 요소 전체에 `word-break: keep-all` + `overflow-wrap: break-word`
+ * 를 자동 적용한다.
+ *
+ * 적용 범위: `[data-dashboard-shell] [data-widget-key]` 하위의 일반 텍스트
+ *   노드 (p / span / button / li / dt / dd / label / small / strong / em /
+ *   div / a). 큰 숫자나 짧은 라벨도 어차피 한 어절이라 영향 없음.
+ *
+ * 예외 보호 (글로벌 규칙이 깨뜨리지 않도록):
+ *   - 명시적으로 줄바꿈 정책이 지정된 클래스
+ *     (`break-words` / `break-all` / `whitespace-nowrap` /
+ *     `whitespace-pre` / `whitespace-pre-line` / `whitespace-pre-wrap`)
+ *     가 붙은 노드는 본 규칙을 끈다.
+ *   - 인쇄용 `.a4-document` 안쪽은 셀렉터에 포함되지 않음 (대시보드 셸
+ *     스코프 한정).
+ *   - 페이지 헤더(h1~h4) 규칙은 위에 이미 존재하며 본 규칙과 충돌하지
+ *     않는다.
+ */
+[data-dashboard-shell] [data-widget-key] :is(p, span, button, li, dt, dd, label, small, strong, em, a, div) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+[data-dashboard-shell] [data-widget-key] .break-words,
+[data-dashboard-shell] [data-widget-key] .break-all,
+[data-dashboard-shell] [data-widget-key] .whitespace-nowrap,
+[data-dashboard-shell] [data-widget-key] .whitespace-pre,
+[data-dashboard-shell] [data-widget-key] .whitespace-pre-line,
+[data-dashboard-shell] [data-widget-key] .whitespace-pre-wrap,
+[data-dashboard-shell] [data-widget-key] .truncate {
+  word-break: normal;
+}
+[data-dashboard-shell] [data-widget-key] .break-words {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+[data-dashboard-shell] [data-widget-key] .break-all {
+  word-break: break-all;
+  overflow-wrap: normal;
+}
+
 .a4-document-frame {
   width: 100%;
   overflow-x: auto;
