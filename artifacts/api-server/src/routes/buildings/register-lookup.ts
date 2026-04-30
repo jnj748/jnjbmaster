@@ -326,6 +326,11 @@ router.get("/buildings/lookup-register", async (req: Request, res: Response) => 
 
 // [Task #348] 건축물대장 전유부/공용부 면적 정보 조회. 호실 미리보기/일괄 가져오기에서
 // 동일하게 호출하므로 라우트 핸들러와 별도로 분리해 둔다.
+//
+// [Task #693] 한 행 = 한 호실 (1 row per unit). 공공데이터 `getBrExposPubuseAreaInfo`
+//   응답은 호실 1개당 여러 행으로 내려온다 (전유 1행 + 공용 N행, 공용은 계단실/승강기/홀,
+//   주차장, 방재실, 전기실 등으로 부분별 분리). 별도의 합계 필드(`cmmnPuprpsArea`) 는
+//   응답에 들어 있지 않으므로 호실 단위 합산은 본 모듈의 `groupAreaInfoItems` 가 담당한다.
 export interface AreaInfoRow {
   // [Task #516] 전유부 응답에는 동(棟) 이름이 포함된다. 동별로 페이징한 결과를 모두
   //   합친 뒤 매칭 키 (dong + 정규화 층 + 호실번호) 로 사용한다.
@@ -333,21 +338,145 @@ export interface AreaInfoRow {
   floorNo: string;
   purposeName: string;
   hoNm: string;
+  // [Task #693] 호실의 전용면적 합 (`exposPubuseGbCd = 1` 행들의 area 합).
   exposArea: number;
+  // [Task #693] 호실의 공용면적 합 (`exposPubuseGbCd = 2` 행들의 area 합).
+  //   응답에 별도 합계 필드는 없고, 부분별(승강기/주차장/방재실 등) 행을 모두 더한 값.
   pubUseArea: number;
 }
 
-// [Task #689] 전유부 응답을 매핑하는 공통 헬퍼. 동일 모양의 dong/flrNoNm/hoNm/면적
-//   필드를 그대로 추출한다. PK 기반 / 토지 식별자 기반 두 호출 경로에서 공유한다.
-function mapAreaInfoItem(item: Record<string, unknown>): AreaInfoRow {
-  return {
-    dong: String(item.dongNm ?? "").trim(),
-    floorNo: String(item.flrNoNm ?? item.flrNo ?? ""),
-    purposeName: String(item.mainPurpsCdNm ?? item.etcPurps ?? ""),
-    hoNm: String(item.hoNm ?? ""),
-    exposArea: item.area ? parseFloat(String(item.area)) : 0,
-    pubUseArea: item.cmmnPuprpsArea ? parseFloat(String(item.cmmnPuprpsArea)) : 0,
+/**
+ * [Task #693] 공공데이터 전유부 응답(`getBrExposPubuseAreaInfo`) 의 raw item 배열을
+ *   호실 단위로 그룹핑·합산해 한 호실 = 한 `AreaInfoRow` 가 되도록 변환한다.
+ *
+ *   응답 구조 (실측):
+ *     - `exposPubuseGbCd = "1"` (전유): 호실당 1 행, `area` = 전용면적,
+ *       `flrNoNm` 에 호실 층, `mainPurpsCdNm` 에 호실 용도.
+ *     - `exposPubuseGbCd = "2"` (공용): 호실당 N 행 (계단실/승강기/홀, 주차장,
+ *       방재실/관리실, 전기실 등 부분별). 공용 행의 `flrNoNm` 은 그 공용 부분이
+ *       위치한 층을 가리키며 호실 층이 아니다(예: 22층 호실의 주차장 공용은
+ *       "지하1"). 비어 있거나 "각층" 으로 내려오기도 한다. `etcPurps` 는 부분
+ *       설명("계단실/승강기") 이라 호실 용도로 쓰지 않는다.
+ *
+ *   호실 식별: 매칭 키 정책(`동 + 정규화 층 + 호실번호`) 과 일관되게 unit identity 는
+ *     `(dong + floorNo + hoNm)` 로 잡는다 — 전유 행의 `flrNoNm` 이 호실 층의
+ *     단일 권위 소스. 같은 (dong, hoNm) 이라도 floor 가 다르면 서로 다른 호실로
+ *     취급한다.
+ *
+ *   2-pass 처리:
+ *     1) 전유 행(gbCd=1, 또는 gbCd 미상의 보수적 처리)으로 unit identity 를 확정.
+ *        같은 (dong, hoNm) 의 floor 집합도 함께 기록.
+ *     2) 공용 행(gbCd=2)을 호실에 라우팅:
+ *        - 그 (dong, hoNm) 의 호실이 정확히 1개면 그 호실에 합산.
+ *        - 호실이 여러 개(같은 hoNm 다른 floor 충돌)면 공용 행의 flrNoNm 이 그 중
+ *          한 호실의 floor 와 정확히 일치할 때만 그 호실에 합산. 일치하지 않으면
+ *          (예: "각층"/공백) 어느 호실 것인지 모호하므로 건너뛴다(방어적).
+ *        - 그 (dong, hoNm) 의 전유 행이 하나도 없으면, 공용만 있는 합성 호실을
+ *          만들어 합산한다. 같은 (dong, hoNm) 의 공용 행들은 한 호실로 합치고,
+ *          floorNo 는 첫 유효한 flrNoNm 을 폴백으로 채운다("각층"/공백 제외).
+ *
+ *   `hoNm` 이 비어 있는 행(층 합계·건물 전체 공용 등) 은 호실 단위 데이터가 아니므로
+ *   결과에 포함하지 않는다.
+ */
+export function groupAreaInfoItems(items: Record<string, unknown>[]): AreaInfoRow[] {
+  type Acc = {
+    dong: string;
+    floorNo: string;
+    purposeName: string;
+    hoNm: string;
+    exposArea: number;
+    pubUseArea: number;
   };
+
+  // 1차 분류: hoNm 이 비어 있는 행은 즉시 제외.
+  const exclusiveRows: Record<string, unknown>[] = [];
+  const publicRows: Record<string, unknown>[] = [];
+  for (const item of items) {
+    const hoNm = String(item.hoNm ?? "").trim();
+    if (!hoNm) continue;
+    const gbCd = String(item.exposPubuseGbCd ?? "").trim();
+    if (gbCd === "2") publicRows.push(item);
+    else exclusiveRows.push(item); // gbCd === "1" 또는 코드 미상(보수적 전유 처리)
+  }
+
+  // Pass 1: 전유 행으로 unit identity 확정. 키 = (dong + floorNo + hoNm).
+  const units = new Map<string, Acc>();
+  // (dong + hoNm) → 그 호실들의 floor 집합. Pass 2 의 공용 행 라우팅에 사용.
+  const dongHoFloors = new Map<string, Set<string>>();
+
+  for (const item of exclusiveRows) {
+    const dong = String(item.dongNm ?? "").trim();
+    const hoNm = String(item.hoNm ?? "").trim();
+    const floorNo = String(item.flrNoNm ?? item.flrNo ?? "").trim();
+    const area = item.area ? parseFloat(String(item.area)) : 0;
+    const main = String(item.mainPurpsCdNm ?? "").trim();
+    const etc = String(item.etcPurps ?? "").trim();
+    const purpose = main || etc;
+
+    const key = `${dong}||${floorNo}||${hoNm}`;
+    let g = units.get(key);
+    if (!g) {
+      g = { dong, floorNo, purposeName: "", hoNm, exposArea: 0, pubUseArea: 0 };
+      units.set(key, g);
+    }
+    g.exposArea += area;
+    if (purpose && !g.purposeName) g.purposeName = purpose;
+
+    const dongHoKey = `${dong}||${hoNm}`;
+    let floors = dongHoFloors.get(dongHoKey);
+    if (!floors) {
+      floors = new Set<string>();
+      dongHoFloors.set(dongHoKey, floors);
+    }
+    floors.add(floorNo);
+  }
+
+  // Pass 2: 공용 행을 호실에 라우팅.
+  for (const item of publicRows) {
+    const dong = String(item.dongNm ?? "").trim();
+    const hoNm = String(item.hoNm ?? "").trim();
+    const floorNo = String(item.flrNoNm ?? item.flrNo ?? "").trim();
+    const area = item.area ? parseFloat(String(item.area)) : 0;
+
+    const dongHoKey = `${dong}||${hoNm}`;
+    const floors = dongHoFloors.get(dongHoKey);
+
+    if (floors && floors.size === 1) {
+      // 그 (dong, hoNm) 의 호실이 단 하나 — 공용 행의 flrNoNm 이 무엇이든 그 호실에 합산.
+      const onlyFloor = floors.values().next().value as string;
+      const u = units.get(`${dong}||${onlyFloor}||${hoNm}`);
+      if (u) u.pubUseArea += area;
+    } else if (floors && floors.size > 1) {
+      // 충돌 — 공용 행의 flrNoNm 이 호실 floor 중 하나와 정확히 일치할 때만 합산.
+      // 일치하지 않으면(예: "각층") 어느 호실의 공용인지 모호하므로 건너뛴다(방어적).
+      if (floors.has(floorNo)) {
+        const u = units.get(`${dong}||${floorNo}||${hoNm}`);
+        if (u) u.pubUseArea += area;
+      }
+    } else {
+      // 전유 행이 없는 (dong, hoNm) — 공용만 있는 합성 호실로 모은다.
+      // 같은 (dong, hoNm) 의 공용 행들은 한 호실로 합쳐야 하므로, 키에 floor 대신 마커 사용.
+      const key = `${dong}||*public-only*||${hoNm}`;
+      let g = units.get(key);
+      if (!g) {
+        g = { dong, floorNo: "", purposeName: "", hoNm, exposArea: 0, pubUseArea: 0 };
+        units.set(key, g);
+      }
+      g.pubUseArea += area;
+      if (!g.floorNo && floorNo && floorNo !== "각층") {
+        g.floorNo = floorNo;
+      }
+    }
+  }
+
+  return Array.from(units.values()).map((g) => ({
+    dong: g.dong,
+    floorNo: g.floorNo,
+    purposeName: g.purposeName,
+    hoNm: g.hoNm,
+    exposArea: g.exposArea,
+    pubUseArea: g.pubUseArea,
+  }));
 }
 
 // [Task #689] 공공데이터 API의 페이지 크기/안전 상한. 토지 식별자 1회 호출만으로도
@@ -424,7 +553,10 @@ export async function fetchAreaInfoByLandCode(params: {
   }
 
   if (!firstFetchOk) return null;
-  return all.map(mapAreaInfoItem);
+  // [Task #693] 호실 단위로 그룹핑·합산해 한 호실 = 한 행이 되도록 한다. 응답 자체는
+  //   호실당 N 행(전유 1 + 공용 N) 으로 내려오므로 그대로 1:1 매핑하면 미리보기에
+  //   같은 호실이 여러 줄 중복으로 나타나고 공용면적 합산이 빠진다.
+  return groupAreaInfoItems(all);
 }
 
 /**
@@ -526,7 +658,9 @@ export async function fetchAreaInfoFromRegister(mgmBldrgstPk: string): Promise<A
   if (!firstFetchOk) return null;
   if (all.length === 0) return null;
 
-  return all.map(mapAreaInfoItem);
+  // [Task #693] 호실 단위 그룹핑·합산. 표제부 PK 한 동의 응답 안에서도 호실당 다중 행
+  //   (전유 1행 + 공용 N행) 으로 내려오므로 본 함수 안에서 합산해 호출 측의 부담을 없앤다.
+  return groupAreaInfoItems(all);
 }
 
 // [Task #516] 빌딩 행에 저장돼 있는 동(棟) PK 목록 전체를 순회해 전유부 면적을 모은다.
