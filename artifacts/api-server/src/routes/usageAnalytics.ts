@@ -49,8 +49,11 @@ router.post("/usage-events", async (req, res): Promise<void> => {
       path: parsed.data.path.slice(0, 500),
       menuKey: parsed.data.menuKey?.slice(0, 200) ?? null,
     });
-  } catch {
-    // 적재 실패는 무시(분석은 best-effort).
+  } catch (err) {
+    // 적재 실패는 사용자 동선에 영향 없도록 fire-and-forget 유지하되,
+    // 한 줄 로그를 남겨 스키마 드리프트(Task #646 같은) 가 또 한 달 넘게
+    // 조용히 누락되는 일을 막는다.
+    req.log.warn({ err }, "usage_events insert failed");
   }
 });
 

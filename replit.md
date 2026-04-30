@@ -1,7 +1,7 @@
 # 관리의달인 (Manager Master)
 
 ## Overview
-관리의달인 (Manager Master) is an AI-powered property management work tool for Korean apartment and building managers of collective buildings under 150 units. It aims to streamline operations, enhance efficiency, and provide data-driven insights through centralized task management, tenant/owner/vehicle administration, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform's vision is to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management work tool designed for Korean apartment and building managers of collective buildings under 150 units. Its core purpose is to enhance operational efficiency and provide data-driven insights through features such as centralized task management, tenant/owner/vehicle administration, automated document generation, vendor management, multi-step approval workflows, and facility/attendance management. The platform aims to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
 
 ## User Preferences
 - I prefer clear and concise communication.
@@ -85,7 +85,7 @@ The project uses a pnpm monorepo with Node.js 24 and TypeScript 5.9, structured 
 **Core Features & Design Patterns:**
 - **Modular Monorepo Structure:** Clear separation of concerns.
 - **Automated Document Generation:** Reporting and notices.
-- **Multi-step Approval Workflows:** Flexible, up to 5 levels, for various processes like tasks and RFQs.
+- **Multi-step Approval Workflows:** Flexible, up to 5 levels, for tasks and RFQs.
 - **AI Integration:** For commission records and vendor matching.
 - **Role-Based Access Control (RBAC):** `docs/user-roles/README.md` is the Single Source of Truth.
 - **BuildingContext:** Global context for building-specific data.
