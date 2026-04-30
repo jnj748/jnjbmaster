@@ -98,6 +98,14 @@ export interface WorkLogEntry {
   occurredDate: string;
   authorName: string;
   authorRole?: Role;
+  // [Task #708] 메모 자동 매칭/사용자 명시로 연결된 호실 목록. 서버 응답
+  // 키는 unitId 가 아니라 `id` 임에 유의 (serializeEntry 참고).
+  linkedUnits?: Array<{
+    id: number;
+    dong: string;
+    unitNumber: string;
+    matchSource: "auto" | "manual";
+  }>;
 }
 
 export interface DailyJournal {

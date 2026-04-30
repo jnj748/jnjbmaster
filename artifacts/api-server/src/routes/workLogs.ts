@@ -4,7 +4,9 @@ import { z } from "zod";
 import {
   db,
   workLogEntriesTable,
+  workLogEntryUnitsTable,
   dailyJournalsTable,
+  unitsTable,
   usersTable,
   inspectionsTable,
   inspectionLogsTable,
@@ -13,6 +15,7 @@ import {
   maintenanceLogsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { matchUnitsInMemo, type UnitRef } from "@workspace/shared/unit-parser";
 // [Task #610] 2층 단일 통로 — 일일 업무일지 commit 후 documents 레지스트리에 등록.
 import { saveProducingDocument } from "../repo/producingDocuments";
 import { buildDocumentName } from "@workspace/document-naming";
@@ -81,13 +84,162 @@ const CreateWorkLogBody = z.object({
   memo: z.string().min(1).max(2000),
   photoUrl: z.string().nullish(),
   occurredAt: z.string().datetime().optional(),
+  // [Task #708] 호실 링크. 두 필드는 같이 동작:
+  //  - unitIdsMode === "authoritative" + unitIds 가 함께 있으면(빈 배열 포함)
+  //    그 배열을 사용자 검토 완료 최종 집합으로 취급 → 자동 매칭으로 끼워
+  //    넣지 않음. 칩 UI 가 충분히 로드/디바운스된 후에만 클라가 이 모드를
+  //    켜야 한다.
+  //  - 그 외(unitIdsMode 누락, 또는 unitIds 누락)에는 메모 자동 파서만 돌려
+  //    auto 링크 생성. 빠른 제출/네트워크 경합으로 빈 unitIds 가 와도
+  //    자동 매칭이 사라지지 않는다.
+  unitIds: z.array(z.number().int().positive()).max(20).optional(),
+  unitIdsMode: z.enum(["authoritative"]).optional(),
 });
 
 const UpdateWorkLogBody = z.object({
   category: z.string().min(1).max(40).optional(),
   memo: z.string().min(1).max(2000).optional(),
   photoUrl: z.string().nullish(),
+  // [Task #708] 의미는 CreateWorkLogBody 와 동일. 권위적 모드가 아니면 memo 가
+  // 변경된 경우에 한해 auto 링크만 재계산하고 manual 링크는 그대로 둔다.
+  unitIds: z.array(z.number().int().positive()).max(20).optional(),
+  unitIdsMode: z.enum(["authoritative"]).optional(),
 });
+
+// ---------------- [Task #708] 호실 자동 매칭 헬퍼 ----------------
+
+/** 빌딩의 호실 목록을 파서가 요구하는 형태로 로드. */
+async function loadBuildingUnitsForMatch(buildingId: number): Promise<UnitRef[]> {
+  const rows = await db
+    .select({
+      id: unitsTable.id,
+      dong: unitsTable.dong,
+      unitNumber: unitsTable.unitNumber,
+    })
+    .from(unitsTable)
+    .where(eq(unitsTable.buildingId, buildingId));
+  return rows.map((r) => ({ id: r.id, dong: r.dong ?? "", unitNumber: r.unitNumber }));
+}
+
+/**
+ * 업무기록 ↔ 호실 링크 동기화.
+ *
+ * 계약 (코드리뷰 피드백 반영):
+ *  - `userReviewedUnitIds` 가 주어지면 그 배열이 "최종 권위적 집합" 이다.
+ *    · 클라이언트(QuickEntry/타임라인 수정 다이얼로그) 가 메모 자동 매칭을 사용자에게
+ *      칩으로 보여 주고, 사용자가 X 로 잘못 인식된 호실을 제거하거나 수동으로 추가한
+ *      뒤 "이게 최종" 이라고 보낸 결과다. 따라서 서버는 이 배열에 없는 호실을
+ *      절대로 다시 auto 매칭으로 끼워 넣지 않는다.
+ *    · 각 id 가 메모 파서로도 매칭됐으면 `matchSource='auto'`, 아니면 `'manual'`
+ *      로 보존해 호실 상세 화면의 자동/수동 라벨이 의미를 유지한다.
+ *    · 빈 배열이면 모든 링크가 비워진다 — 사용자가 모든 칩을 제거한 의사 표현.
+ *
+ *  - `userReviewedUnitIds` 가 undefined 이면 "사용자 확정이 없는 흐름"
+ *    (e.g. 외부 호출, 백필) 으로 간주하고, memo 자동 파서만 돌려 auto 링크만
+ *    재계산한다. 기존 manual 링크는 건드리지 않는다.
+ */
+async function syncEntryUnitLinks(opts: {
+  entryId: number;
+  buildingId: number;
+  occurredAt: Date;
+  memo?: string;
+  /** 클라이언트 칩 UI 가 사용자에게 검토받은 최종 호실 id 집합. */
+  userReviewedUnitIds?: number[];
+}): Promise<void> {
+  const units = await loadBuildingUnitsForMatch(opts.buildingId);
+  const validIds = new Set(units.map((u) => u.id));
+
+  if (opts.userReviewedUnitIds !== undefined) {
+    // 사용자 검토 완료 — 권위적 모드. 기존 모든 링크 삭제 후 재구성.
+    await db
+      .delete(workLogEntryUnitsTable)
+      .where(eq(workLogEntryUnitsTable.workLogEntryId, opts.entryId));
+
+    const finalIds = opts.userReviewedUnitIds.filter((id) => validIds.has(id));
+    if (finalIds.length === 0) return;
+
+    // 각 id 의 출처 라벨 결정: 파서로도 잡혔으면 auto, 아니면 manual.
+    const autoSet = new Set(
+      opts.memo ? matchUnitsInMemo(opts.memo, units) : [],
+    );
+    await db
+      .insert(workLogEntryUnitsTable)
+      .values(
+        finalIds.map((unitId) => ({
+          workLogEntryId: opts.entryId,
+          unitId,
+          buildingId: opts.buildingId,
+          matchSource: (autoSet.has(unitId) ? "auto" : "manual") as
+            | "auto"
+            | "manual",
+          occurredAt: opts.occurredAt,
+        })),
+      )
+      .onConflictDoNothing();
+    return;
+  }
+
+  // 사용자 확정 없는 흐름 — auto 링크만 재계산. manual 링크는 보존.
+  if (opts.memo !== undefined) {
+    await db
+      .delete(workLogEntryUnitsTable)
+      .where(
+        and(
+          eq(workLogEntryUnitsTable.workLogEntryId, opts.entryId),
+          eq(workLogEntryUnitsTable.matchSource, "auto"),
+        ),
+      );
+    const autoIds = matchUnitsInMemo(opts.memo, units);
+    if (autoIds.length > 0) {
+      await db
+        .insert(workLogEntryUnitsTable)
+        .values(
+          autoIds.map((unitId) => ({
+            workLogEntryId: opts.entryId,
+            unitId,
+            buildingId: opts.buildingId,
+            matchSource: "auto" as const,
+            occurredAt: opts.occurredAt,
+          })),
+        )
+        // 같은 (entry, unit) 이 manual 로 이미 존재하면 manual 우선.
+        .onConflictDoNothing();
+    }
+  }
+}
+
+/** 여러 entry 의 linkedUnits 를 한 쿼리로 묶어 가져오는 N+1 방지 헬퍼. */
+async function loadEntryLinkedUnits(
+  entryIds: number[],
+): Promise<Map<number, Array<{ id: number; dong: string; unitNumber: string; matchSource: "auto" | "manual" }>>> {
+  const map = new Map<
+    number,
+    Array<{ id: number; dong: string; unitNumber: string; matchSource: "auto" | "manual" }>
+  >();
+  if (entryIds.length === 0) return map;
+  const rows = await db
+    .select({
+      entryId: workLogEntryUnitsTable.workLogEntryId,
+      unitId: workLogEntryUnitsTable.unitId,
+      matchSource: workLogEntryUnitsTable.matchSource,
+      dong: unitsTable.dong,
+      unitNumber: unitsTable.unitNumber,
+    })
+    .from(workLogEntryUnitsTable)
+    .innerJoin(unitsTable, eq(unitsTable.id, workLogEntryUnitsTable.unitId))
+    .where(inArray(workLogEntryUnitsTable.workLogEntryId, entryIds));
+  for (const r of rows) {
+    const arr = map.get(r.entryId) ?? [];
+    arr.push({
+      id: r.unitId,
+      dong: r.dong ?? "",
+      unitNumber: r.unitNumber,
+      matchSource: r.matchSource as "auto" | "manual",
+    });
+    map.set(r.entryId, arr);
+  }
+  return map;
+}
 
 router.get("/work-logs", async (req, res): Promise<void> => {
   const ctx = await getCtx(req.user!.userId);
@@ -116,7 +268,9 @@ router.get("/work-logs", async (req, res): Promise<void> => {
     .orderBy(desc(workLogEntriesTable.occurredAt))
     .limit(500);
 
-  res.json(rows.map(serializeEntry));
+  // [Task #708] 한 쿼리로 entry → linkedUnits 매핑 후 직렬화 단계에서 합친다.
+  const linkedMap = await loadEntryLinkedUnits(rows.map((r) => r.id));
+  res.json(rows.map((r) => serializeEntry(r, linkedMap.get(r.id) ?? [])));
 });
 
 router.post("/work-logs", async (req, res): Promise<void> => {
@@ -147,6 +301,21 @@ router.post("/work-logs", async (req, res): Promise<void> => {
     occurredDate,
   }).returning();
 
+  // [Task #708] 호실 링크 동기화.
+  //  - 권위적 모드(`unitIdsMode === "authoritative"`): 칩 UI 가 충분히 로드되어
+  //    사용자가 실제로 검토 완료한 결과 → unitIds 가 곧 최종.
+  //  - 그 외: 메모 자동 파서만 돌림. 빠른 제출/단말 로딩 경합 때문에 빈
+  //    unitIds 가 와도 auto 링크가 사라지지 않는다.
+  const isAuthoritative =
+    parsed.data.unitIdsMode === "authoritative" && parsed.data.unitIds !== undefined;
+  await syncEntryUnitLinks({
+    entryId: row.id,
+    buildingId: ctx.buildingId,
+    occurredAt,
+    memo: row.memo,
+    userReviewedUnitIds: isAuthoritative ? parsed.data.unitIds : undefined,
+  });
+
   // Compatibility adapter: facility/시설계열 카테고리는 maintenance_logs 에도 노출.
   // 직책별: manager=facility, facility_staff=fire/electric/mechanical/other
   const FACILITY_LIKE = new Set(["facility", "fire", "electric", "mechanical", "other"]);
@@ -169,7 +338,9 @@ router.post("/work-logs", async (req, res): Promise<void> => {
     }
   }
 
-  res.status(201).json(serializeEntry(row));
+  // [Task #708] 응답에 즉시 linkedUnits 포함 → 클라이언트가 바로 칩을 그릴 수 있다.
+  const linked = (await loadEntryLinkedUnits([row.id])).get(row.id) ?? [];
+  res.status(201).json(serializeEntry(row, linked));
 });
 
 router.patch("/work-logs/:id", async (req, res): Promise<void> => {
@@ -195,18 +366,61 @@ router.patch("/work-logs/:id", async (req, res): Promise<void> => {
   const editConds = [eq(workLogEntriesTable.id, id), eq(workLogEntriesTable.buildingId, ctx.buildingId ?? -1)];
   if (effectiveRole(ctx.role) !== "manager") editConds.push(eq(workLogEntriesTable.authorId, ctx.id));
 
-  const [row] = await db
-    .update(workLogEntriesTable)
-    .set({
-      ...(parsed.data.category ? { category: parsed.data.category } : {}),
-      ...(parsed.data.memo !== undefined ? { memo: parsed.data.memo } : {}),
-      ...(parsed.data.photoUrl !== undefined ? { photoUrl: parsed.data.photoUrl } : {}),
-    })
+  // [Task #708] 비-권위적 PATCH 가 실수로 auto 링크를 재구성하지 않도록
+  // *실제* memo 변경 여부를 판단해야 한다. 클라이언트(타임라인 수정 다이얼로그)
+  // 는 변경 여부를 모르고 안전하게 항상 memo 를 함께 보낼 수 있어야 하므로
+  // 서버에서 비교한다. 또한 drizzle 의 빈 .set({}) 오류를 피하기 위해 업데이트할
+  // 스칼라 필드가 있을 때만 UPDATE 를 돌린다.
+  const beforeFetched = await db
+    .select()
+    .from(workLogEntriesTable)
     .where(and(...editConds))
-    .returning();
+    .limit(1);
+  const before = beforeFetched[0];
+  if (!before) { res.status(404).json({ error: "not found" }); return; }
+
+  const memoChanged =
+    parsed.data.memo !== undefined && parsed.data.memo !== before.memo;
+  const scalarUpdates = {
+    ...(parsed.data.category && parsed.data.category !== before.category
+      ? { category: parsed.data.category }
+      : {}),
+    ...(memoChanged ? { memo: parsed.data.memo } : {}),
+    ...(parsed.data.photoUrl !== undefined && parsed.data.photoUrl !== before.photoUrl
+      ? { photoUrl: parsed.data.photoUrl }
+      : {}),
+  };
+  let row: typeof workLogEntriesTable.$inferSelect | undefined = before;
+  if (Object.keys(scalarUpdates).length > 0) {
+    const updated = await db
+      .update(workLogEntriesTable)
+      .set(scalarUpdates)
+      .where(and(...editConds))
+      .returning();
+    row = updated[0] ?? before;
+  }
 
   if (!row) { res.status(404).json({ error: "not found" }); return; }
-  res.json(serializeEntry(row));
+
+  // [Task #708] 호실 링크 동기화 트리거 조건:
+  //  - 권위적 모드(unitIdsMode + unitIds): 사용자 의사로 링크를 통째 교체.
+  //  - 또는 *실제로* memo 가 바뀐 경우에만 auto 재계산 (manual 링크 보존).
+  //  - 두 조건 모두 거짓이면 DB 작업 없음 → 권위적 저장 후 사용자가 동일
+  //    메모로 즉시 다시 PATCH 해도 기존 사용자 검토가 그대로 보존된다.
+  const editIsAuthoritative =
+    parsed.data.unitIdsMode === "authoritative" && parsed.data.unitIds !== undefined;
+  if (row.buildingId && (editIsAuthoritative || memoChanged)) {
+    await syncEntryUnitLinks({
+      entryId: row.id,
+      buildingId: row.buildingId,
+      occurredAt: row.occurredAt instanceof Date ? row.occurredAt : new Date(row.occurredAt as unknown as string),
+      memo: row.memo,
+      userReviewedUnitIds: editIsAuthoritative ? parsed.data.unitIds : undefined,
+    });
+  }
+
+  const linked = (await loadEntryLinkedUnits([row.id])).get(row.id) ?? [];
+  res.json(serializeEntry(row, linked));
 });
 
 router.delete("/work-logs/:id", async (req, res): Promise<void> => {
@@ -698,7 +912,10 @@ router.get("/work-log-reports/monthly", async (req, res): Promise<void> => {
   });
 });
 
-function serializeEntry(r: typeof workLogEntriesTable.$inferSelect) {
+function serializeEntry(
+  r: typeof workLogEntriesTable.$inferSelect,
+  linkedUnits: ReadonlyArray<{ id: number; dong: string; unitNumber: string; matchSource: "auto" | "manual" }> = [],
+) {
   return {
     id: r.id,
     buildingId: r.buildingId,
@@ -709,6 +926,8 @@ function serializeEntry(r: typeof workLogEntriesTable.$inferSelect) {
     photoUrl: r.photoUrl,
     occurredAt: r.occurredAt instanceof Date ? r.occurredAt.toISOString() : r.occurredAt,
     occurredDate: r.occurredDate,
+    // [Task #708] 호실 자동/수동 매칭 결과. 빈 배열이면 매칭된 호실 없음.
+    linkedUnits,
   };
 }
 

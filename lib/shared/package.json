@@ -13,6 +13,7 @@
     "./role-labels": "./src/role-labels.ts",
     "./contract-renewal": "./src/contract-renewal.ts",
     "./derive-region": "./src/derive-region.ts",
-    "./role-routing": "./src/role-routing.ts"
+    "./role-routing": "./src/role-routing.ts",
+    "./unit-parser": "./src/unit-parser.ts"
   }
 }

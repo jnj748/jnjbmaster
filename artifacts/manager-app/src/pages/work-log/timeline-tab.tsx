@@ -11,6 +11,7 @@ import { useBuilding } from "@/contexts/building-context";
 import { useToast } from "@/hooks/use-toast";
 import { AuthImage } from "@/components/auth-image";
 import { CompletionNotice } from "@/components/completion-notice";
+import { UnitChipPicker } from "@/components/work-log/unit-chip-picker";
 import { FileText } from "lucide-react";
 import { formatKoreanDate } from "@/lib/official-document";
 import {
@@ -45,6 +46,12 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [editing, setEditing] = useState<WorkLogEntry | null>(null);
   const [editMemo, setEditMemo] = useState("");
+  // [Task #708] 수정 다이얼로그에서도 호실 칩 검토 결과를 함께 보낸다.
+  // editUnitIdsReady 가 true 일 때만 권위적 모드로 보낸다 — 다이얼로그가 막
+  // 열려 시드/디바운스가 끝나지 않은 짧은 순간 빈 배열이 권위적으로 전송돼
+  // 기존 링크가 사라지는 것을 막는다.
+  const [editUnitIds, setEditUnitIds] = useState<number[]>([]);
+  const [editUnitIdsReady, setEditUnitIdsReady] = useState(false);
   // [Task #318] 카드별 "문서로만들기" — 필수업무 처리완료에서 쓰는 CompletionNotice
   // 모달을 그대로 띄워 공고문/보고서/기안서 흐름을 일원화한다.
   const [docEntry, setDocEntry] = useState<WorkLogEntry | null>(null);
@@ -64,11 +71,35 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
     },
   });
   const editMut = useMutation({
-    mutationFn: ({ id, memo }: { id: number; memo: string }) =>
-      call<WorkLogEntry>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify({ memo }) }),
+    mutationFn: ({
+      id,
+      memo,
+      memoChanged,
+      unitIds,
+      unitIdsReady,
+    }: {
+      id: number;
+      memo: string;
+      memoChanged: boolean;
+      unitIds: number[];
+      unitIdsReady: boolean;
+    }) =>
+      // [Task #708] PATCH 의 안전 송신 규칙:
+      //  - memo 는 *실제로 바뀐 경우에만* 보낸다. 비-권위적 PATCH 와 결합해
+      //    서버가 빈 변경에 대해 auto 링크를 재계산하지 않도록 한다.
+      //  - unitIds 는 칩 UI 가 ready 일 때만 권위적 모드로 함께 보낸다.
+      //  - 둘 다 보낼 게 없으면 사실상 no-op PATCH 가 된다(=링크 보존).
+      call<WorkLogEntry>(`/work-logs/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...(memoChanged ? { memo } : {}),
+          ...(unitIdsReady ? { unitIds, unitIdsMode: "authoritative" } : {}),
+        }),
+      }),
     onSuccess: () => {
       toast({ title: "수정되었습니다" });
       setEditing(null);
+      setEditUnitIdsReady(false);
       qc.invalidateQueries({ queryKey: ["work-logs"] });
     },
   });
@@ -156,7 +187,14 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
                       </button>
                       <div className="flex gap-2 pt-0.5">
                         <button
-                          onClick={() => { setEditing(e); setEditMemo(e.memo); }}
+                          onClick={() => {
+                            setEditing(e);
+                            setEditMemo(e.memo);
+                            // [Task #708] 칩 picker 시드: 현재 링크된 호실 ids.
+                            // ready 는 picker 가 onChange 로 알려 주기 전까지 false.
+                            setEditUnitIds(e.linkedUnits?.map((u) => u.id) ?? []);
+                            setEditUnitIdsReady(false);
+                          }}
                           className="text-muted-foreground hover:text-foreground text-left"
                           data-testid={`edit-${e.id}`}
                         >
@@ -188,8 +226,29 @@ export function TimelineTab({ onGoDaily }: { onGoDaily: () => void }) {
             rows={4}
             data-testid="edit-memo-input"
           />
+          {/* [Task #708] 호실 자동/수동 매칭 칩 — QuickEntry 와 동일한 UX. */}
+          {editing && (
+            <UnitChipPicker
+              memo={editMemo}
+              onChange={(ids, ready) => {
+                setEditUnitIds(ids);
+                setEditUnitIdsReady(ready);
+              }}
+              initialUnitIds={editing.linkedUnits?.map((u) => u.id) ?? []}
+              initialKey={editing.id}
+            />
+          )}
           <Button
-            onClick={() => editing && editMut.mutate({ id: editing.id, memo: editMemo.trim() })}
+            onClick={() => editing && editMut.mutate({
+              id: editing.id,
+              memo: editMemo.trim(),
+              // [Task #708] 사용자가 메모를 실제로 고쳤는지 다이얼로그 오픈 시
+              // 캡처해 둔 원본과 비교. 같으면 PATCH 본문에서 memo 를 제외해
+              // 서버 auto 재계산이 트리거되지 않게 한다(=manual 링크 보존).
+              memoChanged: editMemo.trim() !== (editing.memo ?? "").trim(),
+              unitIds: editUnitIds,
+              unitIdsReady: editUnitIdsReady,
+            })}
             disabled={editMut.isPending || !editMemo.trim()}
             data-testid="edit-save"
           >

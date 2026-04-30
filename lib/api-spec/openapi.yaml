@@ -3761,6 +3761,66 @@ paths:
         "404":
           description: Not found
 
+  # [Task #708] 호실에 자동/수동으로 연결된 업무기록 페이지네이션 조회.
+  /units/{id}/work-log-entries:
+    get:
+      operationId: getUnitWorkLogEntries
+      tags: [units]
+      summary: List work-log entries linked to a unit
+      description: |
+        Returns work_log_entries that are linked to the given unit via
+        work_log_entry_units (auto-detected from memo or manually attached
+        through the QuickEntryDialog chip picker). Scoped by unit's
+        building_id; ordered by occurredAt desc.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional category filter (e.g. facility, complaint).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Linked work-log entries with pagination metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, limit, offset]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UnitLinkedWorkLogEntry"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "404":
+          description: Unit not found
+
   # ── Owners (소유자 관리) ──────────────────────────────────
   /owners:
     get:
@@ -12770,6 +12830,38 @@ components:
         relatedRfqId:
           type: ["integer", "null"]
           description: "[Task #612] 현장방문 견적 이벤트의 RFQ id (캘린더 카드 → RFQ 상세 이동용)."
+
+    # [Task #708] 호실 상세 화면의 "관련 업무기록" 섹션에서 사용하는 가벼운 직렬화.
+    # work_log_entries 행에 매칭 출처(matchSource)만 덧붙인다.
+    UnitLinkedWorkLogEntry:
+      type: object
+      required:
+        [id, buildingId, authorId, authorName, category, memo, occurredAt, occurredDate, matchSource]
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: ["integer", "null"]
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        category:
+          type: string
+        memo:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        occurredAt:
+          type: string
+          format: date-time
+        occurredDate:
+          type: string
+          format: date
+        # 'auto' = 서버 파서가 메모에서 자동 추출, 'manual' = 작성자가 칩으로 명시 선택.
+        matchSource:
+          type: string
+          enum: [auto, manual]
 
     Unit:
       type: object

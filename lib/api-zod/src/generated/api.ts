@@ -5593,6 +5593,60 @@ export const DeleteUnitParams = zod.object({
 });
 
 /**
+ * Returns work_log_entries that are linked to the given unit via
+work_log_entry_units (auto-detected from memo or manually attached
+through the QuickEntryDialog chip picker). Scoped by unit's
+building_id; ordered by occurredAt desc.
+
+ * @summary List work-log entries linked to a unit
+ */
+export const GetUnitWorkLogEntriesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const getUnitWorkLogEntriesQueryLimitDefault = 10;
+export const getUnitWorkLogEntriesQueryLimitMax = 100;
+
+export const getUnitWorkLogEntriesQueryOffsetDefault = 0;
+export const getUnitWorkLogEntriesQueryOffsetMin = 0;
+
+export const GetUnitWorkLogEntriesQueryParams = zod.object({
+  category: zod.coerce
+    .string()
+    .optional()
+    .describe("Optional category filter (e.g. facility, complaint)."),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(getUnitWorkLogEntriesQueryLimitMax)
+    .default(getUnitWorkLogEntriesQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .min(getUnitWorkLogEntriesQueryOffsetMin)
+    .default(getUnitWorkLogEntriesQueryOffsetDefault),
+});
+
+export const GetUnitWorkLogEntriesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      buildingId: zod.number().nullable(),
+      authorId: zod.number(),
+      authorName: zod.string(),
+      category: zod.string(),
+      memo: zod.string(),
+      photoUrl: zod.string().nullish(),
+      occurredAt: zod.string().datetime({}),
+      occurredDate: zod.string().date(),
+      matchSource: zod.enum(["auto", "manual"]),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+});
+
+/**
  * @summary List owners
  */
 export const ListOwnersQueryParams = zod.object({

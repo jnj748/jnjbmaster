@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, timestamp, date, uniqueIndex, index, jsonb } from "drizzle-orm/pg-core";
+import { unitsTable } from "./units";
 
 export const workLogEntriesTable = pgTable(
   "work_log_entries",
@@ -21,6 +22,38 @@ export const workLogEntriesTable = pgTable(
 );
 
 export type WorkLogEntry = typeof workLogEntriesTable.$inferSelect;
+
+/**
+ * [Task #708] 업무기록 ↔ 호실 다대다 연결.
+ *  - match_source: 'auto' (서버 파서) / 'manual' (작성자가 칩 UI 로 명시 선택).
+ *  - occurredAt 은 work_log_entries.occurred_at 의 역정규화 사본. 호실 상세에서
+ *    추가 JOIN 없이 인덱스(unit_id, occurred_at desc) 만으로 시간순 페이지네이션
+ *    가능하도록 둔다. 입력 경로(POST/PATCH/backfill) 에서 entry 의 occurred_at 과
+ *    동일한 값을 함께 적어야 한다.
+ */
+export const workLogEntryUnitsTable = pgTable(
+  "work_log_entry_units",
+  {
+    id: serial("id").primaryKey(),
+    workLogEntryId: integer("work_log_entry_id")
+      .notNull()
+      .references(() => workLogEntriesTable.id, { onDelete: "cascade" }),
+    unitId: integer("unit_id")
+      .notNull()
+      .references(() => unitsTable.id, { onDelete: "cascade" }),
+    buildingId: integer("building_id").notNull(),
+    matchSource: text("match_source").notNull().default("auto").$type<"auto" | "manual">(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    entryUnitUq: uniqueIndex("work_log_entry_units_entry_unit_uq").on(t.workLogEntryId, t.unitId),
+    byUnitOccurred: index("work_log_entry_units_unit_occurred_idx").on(t.unitId, t.occurredAt),
+    byEntry: index("work_log_entry_units_entry_idx").on(t.workLogEntryId),
+    byBuildingUnit: index("work_log_entry_units_building_unit_idx").on(t.buildingId, t.unitId),
+  }),
+);
+export type WorkLogEntryUnit = typeof workLogEntryUnitsTable.$inferSelect;
 
 /**
  * 직책별 일보 분리. 한 건물에 (소장/경리/시설과장) 각자 자기 일보를 갖는다.

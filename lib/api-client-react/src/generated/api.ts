@@ -187,6 +187,8 @@ import type {
   GetResponsibleStaffParams,
   GetSeasonalSuggestionsParams,
   GetUnit200,
+  GetUnitWorkLogEntries200,
+  GetUnitWorkLogEntriesParams,
   GetUnitsSummary200,
   GetUnreadNotificationCount200,
   GetUnregisteredVehicles200,
@@ -15083,6 +15085,131 @@ export const useDeleteUnit = <
 > => {
   return useMutation(getDeleteUnitMutationOptions(options));
 };
+
+/**
+ * Returns work_log_entries that are linked to the given unit via
+work_log_entry_units (auto-detected from memo or manually attached
+through the QuickEntryDialog chip picker). Scoped by unit's
+building_id; ordered by occurredAt desc.
+
+ * @summary List work-log entries linked to a unit
+ */
+export const getGetUnitWorkLogEntriesUrl = (
+  id: number,
+  params?: GetUnitWorkLogEntriesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/units/${id}/work-log-entries?${stringifiedParams}`
+    : `/api/units/${id}/work-log-entries`;
+};
+
+export const getUnitWorkLogEntries = async (
+  id: number,
+  params?: GetUnitWorkLogEntriesParams,
+  options?: RequestInit,
+): Promise<GetUnitWorkLogEntries200> => {
+  return customFetch<GetUnitWorkLogEntries200>(
+    getGetUnitWorkLogEntriesUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetUnitWorkLogEntriesQueryKey = (
+  id: number,
+  params?: GetUnitWorkLogEntriesParams,
+) => {
+  return [
+    `/api/units/${id}/work-log-entries`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetUnitWorkLogEntriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUnitWorkLogEntries>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  params?: GetUnitWorkLogEntriesParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitWorkLogEntries>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUnitWorkLogEntriesQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUnitWorkLogEntries>>
+  > = ({ signal }) =>
+    getUnitWorkLogEntries(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitWorkLogEntries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUnitWorkLogEntriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUnitWorkLogEntries>>
+>;
+export type GetUnitWorkLogEntriesQueryError = ErrorType<void>;
+
+/**
+ * @summary List work-log entries linked to a unit
+ */
+
+export function useGetUnitWorkLogEntries<
+  TData = Awaited<ReturnType<typeof getUnitWorkLogEntries>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  params?: GetUnitWorkLogEntriesParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitWorkLogEntries>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUnitWorkLogEntriesQueryOptions(
+    id,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List owners

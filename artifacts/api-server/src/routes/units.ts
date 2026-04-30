@@ -1,6 +1,15 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, ilike, or, sql } from "drizzle-orm";
-import { db, unitsTable, usersTable, tenantsTable, ownersTable, vehiclesTable } from "@workspace/db";
+import { eq, and, ilike, or, sql, desc } from "drizzle-orm";
+import {
+  db,
+  unitsTable,
+  usersTable,
+  tenantsTable,
+  ownersTable,
+  vehiclesTable,
+  workLogEntriesTable,
+  workLogEntryUnitsTable,
+} from "@workspace/db";
 import {
   ListUnitsQueryParams,
   CreateUnitBody,
@@ -9,6 +18,8 @@ import {
   UpdateUnitBody,
   BulkCreateUnitsBody,
   GenerateUnitsBody,
+  GetUnitWorkLogEntriesParams,
+  GetUnitWorkLogEntriesQueryParams,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 
@@ -27,6 +38,24 @@ async function getUserBuildingId(req: Request): Promise<number | null> {
   if (!userId) return null;
   const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
   return user?.buildingId ?? null;
+}
+
+// [Task #708 보안] 호실 상세의 "관련 업무기록" 엔드포인트가 work_logs 의 작성자
+// 가시성 정책을 그대로 따라야 한다. /work-logs 와 동일한 규칙으로:
+//   - manager / platform_admin: 같은 빌딩 내 모든 작성자
+//   - accountant / facility_staff: 본인이 작성한 entry 만
+// 만약 관리소장 대리(role="manager") 외엔 본인 글만 보여 준다.
+async function getUserScope(
+  req: Request,
+): Promise<{ buildingId: number; userId: number; isManager: boolean } | null> {
+  const userId = req.user?.userId;
+  if (!userId) return null;
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, userId)).then(r => r[0]);
+  if (!user || !user.buildingId) return null;
+  const role = (user.role ?? "").toLowerCase();
+  // platform_admin/manager 는 빌딩 내 전체 가시성. 나머지는 본인 작성물만.
+  const isManager = role === "manager" || role === "platform_admin";
+  return { buildingId: user.buildingId, userId, isManager };
 }
 
 router.get("/units", async (req: Request, res: Response): Promise<void> => {
@@ -169,6 +198,100 @@ router.get("/units/:id", async (req: Request, res: Response): Promise<void> => {
     .then(rows => rows.map(r => r.v));
 
   res.json({ ...unit, tenants, owners, vehicles });
+});
+
+// [Task #708] 한 호실에 자동/수동으로 연결된 업무기록 페이지네이션 조회.
+// work_log_entry_units (entry ↔ unit 다대다) 와 work_log_entries 를 조인해
+// (occurredAt desc) 순으로 반환. 빌딩 스코프는 호실의 buildingId 로 제한해
+// 다른 건물의 업무기록이 절대 노출되지 않도록 한다.
+router.get("/units/:id/work-log-entries", async (req: Request, res: Response): Promise<void> => {
+  // [Task #708 보안] /work-logs 와 동일한 작성자 가시성 정책 적용:
+  // 매니저가 아니면 본인 작성 entry 만 노출. 그렇지 않으면 회계/시설직이
+  // 호실 상세 화면에서 같은 빌딩 다른 사용자의 모든 업무기록을 열람할 수
+  // 있어 권한 우회가 발생한다.
+  const scope = await getUserScope(req);
+  if (!scope) {
+    res.status(403).json({ error: "건물이 등록되지 않았습니다" });
+    return;
+  }
+  const { buildingId, userId, isManager } = scope;
+  const idParsed = GetUnitParams.safeParse(req.params);
+  if (!idParsed.success) {
+    res.status(400).json({ error: idParsed.error.message });
+    return;
+  }
+  const queryParsed = GetUnitWorkLogEntriesQueryParams.safeParse(req.query);
+  if (!queryParsed.success) {
+    res.status(400).json({ error: queryParsed.error.message });
+    return;
+  }
+  const limit = queryParsed.data.limit ?? 10;
+  const offset = queryParsed.data.offset ?? 0;
+  const category = queryParsed.data.category;
+
+  // 호실 존재 + 빌딩 스코프 검증.
+  const [unit] = await db
+    .select({ id: unitsTable.id })
+    .from(unitsTable)
+    .where(and(eq(unitsTable.id, idParsed.data.id), eq(unitsTable.buildingId, buildingId)));
+  if (!unit) {
+    res.status(404).json({ error: "Unit not found" });
+    return;
+  }
+
+  // 매칭 조건: 같은 빌딩 + 해당 unit. 카테고리 필터는 entries 테이블에 적용.
+  const linkConds = [
+    eq(workLogEntryUnitsTable.unitId, unit.id),
+    eq(workLogEntryUnitsTable.buildingId, buildingId),
+  ];
+  const entryConds = category ? [eq(workLogEntriesTable.category, category)] : [];
+  // [Task #708 보안] 비-매니저는 본인 작성 entry 만 — /work-logs 와 동일.
+  if (!isManager) entryConds.push(eq(workLogEntriesTable.authorId, userId));
+
+  // total: 카테고리 필터를 함께 반영해 정확히 카운트.
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(workLogEntryUnitsTable)
+    .innerJoin(workLogEntriesTable, eq(workLogEntriesTable.id, workLogEntryUnitsTable.workLogEntryId))
+    .where(and(...linkConds, ...entryConds));
+
+  const rows = await db
+    .select({
+      id: workLogEntriesTable.id,
+      buildingId: workLogEntriesTable.buildingId,
+      authorId: workLogEntriesTable.authorId,
+      authorName: workLogEntriesTable.authorName,
+      category: workLogEntriesTable.category,
+      memo: workLogEntriesTable.memo,
+      photoUrl: workLogEntriesTable.photoUrl,
+      occurredAt: workLogEntriesTable.occurredAt,
+      occurredDate: workLogEntriesTable.occurredDate,
+      matchSource: workLogEntryUnitsTable.matchSource,
+    })
+    .from(workLogEntryUnitsTable)
+    .innerJoin(workLogEntriesTable, eq(workLogEntriesTable.id, workLogEntryUnitsTable.workLogEntryId))
+    .where(and(...linkConds, ...entryConds))
+    .orderBy(desc(workLogEntryUnitsTable.occurredAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      buildingId: r.buildingId,
+      authorId: r.authorId,
+      authorName: r.authorName,
+      category: r.category,
+      memo: r.memo,
+      photoUrl: r.photoUrl,
+      occurredAt: r.occurredAt instanceof Date ? r.occurredAt.toISOString() : r.occurredAt,
+      occurredDate: r.occurredDate,
+      matchSource: r.matchSource as "auto" | "manual",
+    })),
+    total: total ?? 0,
+    limit,
+    offset,
+  });
 });
 
 router.post("/units/bulk", requireWriteAccess, async (req: Request, res: Response): Promise<void> => {

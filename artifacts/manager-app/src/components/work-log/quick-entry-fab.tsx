@@ -11,6 +11,7 @@ import { detectFollowUp, type FollowUpDetection, type FollowUpSource } from "@/l
 import { FollowUpSuggestionDialog } from "@/components/follow-up-suggestion-dialog";
 import { CompletionNotice } from "@/components/completion-notice";
 import { MemoInputFooter } from "@/components/memo-input-footer";
+import { UnitChipPicker } from "@/components/work-log/unit-chip-picker";
 import { getCategoriesFor, useCurrentRole, CATEGORY_LABEL, type Category, type Role } from "@/pages/work-log/shared";
 
 type Status = "occurred" | "planned" | "completed";
@@ -81,6 +82,11 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
   }, [role, allowedCategoryValues, defaultCategory, category]);
   const [status, setStatus] = useState<Status>("occurred");
   const [memo, setMemo] = useState("");
+  // [Task #708] 메모 자동 매칭 + 사용자 수동 선택 호실 합집합. 저장 시 unitIds 로 함께 전송.
+  // unitIdsReady: 칩 UI 가 호실 목록 로드 + 디바운스 완료까지 끝나야 true.
+  // false 일 때 권위적 모드(unitIdsMode)를 끄고 서버 auto 매칭에 맡긴다.
+  const [unitIds, setUnitIds] = useState<number[]>([]);
+  const [unitIdsReady, setUnitIdsReady] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +109,8 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
     setCategory(defaultCategory);
     setStatus("occurred");
     setMemo("");
+    setUnitIds([]);
+    setUnitIdsReady(false);
     setPhotoUrl(null);
     setWidePhotoUrl(null);
   }
@@ -143,6 +151,12 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
           memo: memo.trim(),
           photoUrl,
           status,
+          // [Task #708] 호실 링크. unitIdsReady 가 true 일 때만 권위적 모드를
+          // 함께 보낸다 — 칩 UI 가 호실 목록 로드와 디바운스를 끝내고 사용자가
+          // 실제로 검토할 수 있는 상태일 때만 그 값이 사용자 의사라고 단정할
+          // 수 있기 때문이다. 그 전에는 unitIds 를 아예 보내지 않아 서버가 메모
+          // 자동 파서로 auto 링크를 만들도록 한다(빠른 제출 경합 보호).
+          ...(unitIdsReady ? { unitIds, unitIdsMode: "authoritative" } : {}),
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -278,6 +292,16 @@ export function QuickEntryDialog({ open, onOpenChange, onCreated }: QuickEntryDi
                   setMemo((prev) => (prev ? `${prev}${prev.endsWith("\n") ? "" : "\n"}${text}` : text))
                 }
               />
+              {/* [Task #708] 메모에서 자동 인식된 호실 칩 + 사용자 수동 추가/제거. */}
+              <div className="mt-2">
+                <UnitChipPicker
+                  memo={memo}
+                  onChange={(ids, ready) => {
+                    setUnitIds(ids);
+                    setUnitIdsReady(ready);
+                  }}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

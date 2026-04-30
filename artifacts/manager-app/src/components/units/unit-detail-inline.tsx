@@ -3,10 +3,19 @@
 // 동일한 수준으로 행 바로 아래에 펼쳐 보여 준다. 같은 행을 다시 누르면 닫히고,
 // 동시에 한 행만 펼쳐지는 단일 선택 모델을 호출 측에서 관리한다.
 
+import { useState } from "react";
+import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserCheck, Car, FileText } from "lucide-react";
-import { useGetUnit, type GetUnit200 } from "@workspace/api-client-react";
+import { Users, UserCheck, Car, FileText, ClipboardList, ImageIcon } from "lucide-react";
+import {
+  useGetUnit,
+  useGetUnitWorkLogEntries,
+  type GetUnit200,
+  type GetUnitWorkLogEntries200,
+  type UnitLinkedWorkLogEntry,
+} from "@workspace/api-client-react";
 
 const STATUS_MAP: Record<
   string,
@@ -168,6 +177,139 @@ export function UnitDetailInline({ unitId }: Props) {
           </p>
         )}
       </div>
+
+      {/* [Task #708] 호실에 자동/수동으로 연결된 업무기록. */}
+      <UnitWorkLogSection unitId={unitId} />
     </div>
+  );
+}
+
+// ---------------- [Task #708] 관련 업무기록 섹션 ----------------
+
+/** 카테고리 라벨 — work-log 페이지의 CATEGORY_LABEL 과 동일한 표기. */
+const CATEGORY_LABEL: Record<string, string> = {
+  facility: "시설",
+  bill: "고지/수납",
+  complaint: "민원",
+  admin: "행정",
+  receivable: "수납·연체",
+  expense: "지출",
+  draft: "결재·기안",
+  fire: "소방",
+  electric: "전기",
+  mechanical: "기계설비",
+  other: "기타",
+};
+
+const PAGE_SIZE = 10;
+
+function UnitWorkLogSection({ unitId }: { unitId: number }) {
+  // [Task #708] 누적 페이지네이션 — "더보기" 클릭마다 한 페이지씩 이어 받는다.
+  const [pages, setPages] = useState(1);
+  const limit = pages * PAGE_SIZE;
+  const { data, isLoading } = useGetUnitWorkLogEntries(
+    unitId,
+    { limit, offset: 0 },
+    { query: { enabled: !!unitId, staleTime: 30 * 1000 } },
+  ) as { data: GetUnitWorkLogEntries200 | undefined; isLoading: boolean };
+
+  return (
+    <div className="border-t pt-3" data-testid={`unit-related-worklog-${unitId}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <ClipboardList className="w-4 h-4 text-muted-foreground" />
+        <p className="text-sm font-medium">관련 업무기록</p>
+        {data && data.total > 0 && (
+          <span className="text-xs text-muted-foreground">
+            전체 {data.total}건
+          </span>
+        )}
+      </div>
+      {isLoading && !data ? (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : !data || data.items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          이 호실과 연결된 업무기록이 아직 없습니다
+        </p>
+      ) : (
+        <>
+          <ul className="space-y-2" data-testid={`unit-related-worklog-list-${unitId}`}>
+            {data.items.map((item) => (
+              <UnitWorkLogItem key={item.id} item={item} />
+            ))}
+          </ul>
+          {data.items.length < data.total && (
+            <div className="mt-2 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPages((p) => p + 1)}
+                data-testid={`unit-related-worklog-more-${unitId}`}
+              >
+                더보기
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function UnitWorkLogItem({ item }: { item: UnitLinkedWorkLogEntry }) {
+  const occurredAt = new Date(item.occurredAt);
+  const dateLabel = occurredAt.toLocaleDateString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const timeLabel = occurredAt.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  // [Task #708] 항목 클릭 시 업무일지 페이지의 타임라인 탭으로 이동해 해당
+  // entry 로 스크롤한다. activity-tab 의 기존 패턴(`#entry-{id}`)과 동일.
+  const href = `/work-log?tab=timeline#entry-${item.id}`;
+  return (
+    <li data-testid={`unit-related-worklog-item-${item.id}`}>
+      <Link
+        href={href}
+        className="block bg-background border rounded p-2 text-sm hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+        data-testid={`unit-related-worklog-link-${item.id}`}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Badge variant="secondary" className="text-[10px]">
+            {CATEGORY_LABEL[item.category] ?? item.category}
+          </Badge>
+          <Badge
+            className={
+              item.matchSource === "manual"
+                ? "bg-sky-100 text-sky-700 text-[10px]"
+                : "bg-emerald-100 text-emerald-700 text-[10px]"
+            }
+          >
+            {item.matchSource === "manual" ? "수동" : "자동"}
+          </Badge>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {dateLabel} {timeLabel} · {item.authorName}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {item.photoUrl ? (
+            <img
+              src={item.photoUrl}
+              alt="첨부 사진"
+              className="w-12 h-12 object-cover rounded border shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded border bg-muted/40 flex items-center justify-center shrink-0">
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
+          <p className="text-sm whitespace-pre-wrap break-words flex-1">{item.memo}</p>
+        </div>
+      </Link>
+    </li>
   );
 }

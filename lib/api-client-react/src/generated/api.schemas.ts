@@ -4380,6 +4380,29 @@ export interface CalendarEvent {
   relatedRfqId?: number | null;
 }
 
+export type UnitLinkedWorkLogEntryMatchSource =
+  (typeof UnitLinkedWorkLogEntryMatchSource)[keyof typeof UnitLinkedWorkLogEntryMatchSource];
+
+export const UnitLinkedWorkLogEntryMatchSource = {
+  auto: "auto",
+  manual: "manual",
+} as const;
+
+export interface UnitLinkedWorkLogEntry {
+  id: number;
+  /** @nullable */
+  buildingId: number | null;
+  authorId: number;
+  authorName: string;
+  category: string;
+  memo: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  occurredAt: string;
+  occurredDate: string;
+  matchSource: UnitLinkedWorkLogEntryMatchSource;
+}
+
 export type UnitStatus = (typeof UnitStatus)[keyof typeof UnitStatus];
 
 export const UnitStatus = {
@@ -6755,6 +6778,29 @@ export type GetUnit200 = Unit & {
   tenants?: Tenant[];
   owners?: Owner[];
   vehicles?: Vehicle[];
+};
+
+export type GetUnitWorkLogEntriesParams = {
+  /**
+   * Optional category filter (e.g. facility, complaint).
+   */
+  category?: string;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+};
+
+export type GetUnitWorkLogEntries200 = {
+  items: UnitLinkedWorkLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type ListOwnersParams = {
