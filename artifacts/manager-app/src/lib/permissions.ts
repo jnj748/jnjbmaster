@@ -274,8 +274,8 @@ export const ROUTES: RouteEntry[] = [
     label: "호실 관리", icon: Building, group: "residents",
     access: ["manager", "accountant", "platform_admin"],
     sideMenu: ["manager", "accountant"],
-    bottomNav: ["accountant"],
-    bottomLabelOverrides: { accountant: "호실" },
+    // [모바일 5탭 단순화] 경리 모바일 하단탭에서 "호실" 제거 — 사이드바·더보기로 진입.
+    bottomNav: [],
   },
   {
     path: "/tenants", component: Tenants,
@@ -305,11 +305,9 @@ export const ROUTES: RouteEntry[] = [
     // 시설 그룹 자체가 4-아이콘 허브 역할을 하므로 사이드바에서 숨김.
     // 그룹 헤더 클릭 시 /facility 로 이동 (layout.tsx 의 facilityGroupHref).
     sideMenu: [],
-    // [네비 정비] 관리소장 하단 탭에서 "시설" 제거 — 일정/시설은 사이드바·더보기로 진입.
-    //   facility_staff 의 본업 화면이므로 그쪽은 유지.
-    bottomNav: ["facility_staff"],
-    bottomLabel: "시설",
-    bottomOrder: 10,
+    // [모바일 5탭 단순화] 시설기사 모바일 하단탭에서 "시설" 제거 —
+    //   시설관리 허브는 더보기 드로어로 진입(여러 시설 화면이 사이드바에 풀세트로 노출됨).
+    bottomNav: [],
   },
   // [플랫폼 메뉴 구조조정] 시설 운영 항목 4종은 플랫폼 사이드바에서 숨김.
   {
@@ -317,7 +315,8 @@ export const ROUTES: RouteEntry[] = [
     label: "법정 점검", icon: Shield, group: "facility",
     access: ["manager", "platform_admin", "facility_staff", "hq_executive"],
     sideMenu: ["manager", "facility_staff", "hq_executive"],
-    bottomNav: ["facility_staff", "hq_executive"],
+    // [모바일 5탭 단순화] 시설기사 모바일 하단탭에서 "점검" 제거 — 본부장만 유지.
+    bottomNav: ["hq_executive"],
     bottomLabel: "점검",
     labelOverrides: { hq_executive: "점검보고서" },
   },
@@ -329,18 +328,16 @@ export const ROUTES: RouteEntry[] = [
     label: "필수업무", icon: AlertTriangle, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
     sideMenu: ["manager", "facility_staff", "platform_admin"],
-    bottomNav: ["facility_staff"],
-    bottomLabel: "필수업무",
-    bottomOrder: 11,
+    // [모바일 5탭 단순화] 시설기사 모바일 하단탭에서 "필수업무" 제거 — 사이드바·더보기로 진입.
+    bottomNav: [],
   },
   {
     path: "/facility/suggested-tasks", component: FacilitySuggestedTasks,
     label: "제안업무", icon: Sparkles, group: "facility",
     access: ["manager", "platform_admin", "facility_staff"],
     sideMenu: ["manager", "facility_staff", "platform_admin"],
-    bottomNav: ["facility_staff"],
-    bottomLabel: "제안업무",
-    bottomOrder: 12,
+    // [모바일 5탭 단순화] 시설기사 모바일 하단탭에서 "제안업무" 제거 — 사이드바·더보기로 진입.
+    bottomNav: [],
   },
   {
     path: "/safety-checklists", component: SafetyChecklists,
@@ -391,11 +388,8 @@ export const ROUTES: RouteEntry[] = [
     label: "회계", icon: Calculator, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: [],
-    // [Task #246] manager 역할은 회계 탭을 하단 네비에서 제외 (사이드바·더보기에서는 유지).
-    // [플랫폼 메뉴 구조조정] 모바일 하단 "회계" 탭에서도 platform_admin 제거.
-    bottomNav: ["accountant"],
-    bottomLabel: "회계",
-    bottomOrder: 30,
+    // [모바일 5탭 단순화] 경리 모바일 하단탭에서 "회계" 허브 제거 — 사이드바·더보기로 진입.
+    bottomNav: [],
   },
   // [관리소장 모드 단순화] 회계 그룹은 관리소장에게 "관리비 요약"만 노출.
   //   회계 엔진/검침/고지·수납/고지서/민원·투표/지출/세무/수수료는 경리·회계(accountant)
@@ -416,14 +410,18 @@ export const ROUTES: RouteEntry[] = [
     label: "검침", icon: Droplets, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
     sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
+    // [모바일 5탭] 경리/시설기사 모바일 하단탭에 "검침" 노출.
+    bottomNav: ["accountant", "facility_staff"],
+    bottomLabel: "검침",
+    bottomOrder: 40,
   },
   {
     path: "/erp/billing", component: ErpPhase3,
     label: "고지/수납", icon: Receipt, group: "accounting",
     access: ["platform_admin", "accountant"],
     sideMenu: ["accountant"],
-    bottomNav: ["accountant"],
-    bottomLabelOverrides: { accountant: "부과" },
+    // [모바일 5탭 단순화] 경리 모바일 하단탭에서 "부과" 제거 — 사이드바·더보기로 진입.
+    bottomNav: [],
   },
   // [Task #170] 관리비 OCR · 요약 (회계 그룹)
   {
@@ -494,7 +492,9 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant", "hq_executive", "custodian"],
     // [관리소장 메뉴 숨김] 결재함은 회계 사이드바에만 노출 (플랫폼 제외).
     sideMenu: ["accountant", "hq_executive", "custodian"],
-    bottomNav: ["accountant", "custodian"],
+    // [모바일 5탭 단순화] 경리 모바일 하단탭에서 "결재" 제거 — 사이드바·더보기로 진입.
+    //   관리인(custodian) 은 결재함이 본업이므로 그대로 유지.
+    bottomNav: ["custodian"],
     bottomLabel: "결재",
   },
   {
@@ -1176,7 +1176,7 @@ export function getBottomNavItems(
 
 function roleHomeShort(role: Role): string {
   switch (role) {
-    case "facility_staff": return "업무";
+    // [모바일 5탭 단순화] 사장님 요청: 시설기사 모바일 첫 탭도 "홈" 으로 통일.
     case "platform_admin": return "관리";
     default: return "홈";
   }

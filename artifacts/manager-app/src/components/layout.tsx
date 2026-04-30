@@ -82,6 +82,22 @@ function isNavItemActive(item: NavItem, location: string): boolean {
 // derived from the role × screen permission matrix (single source of truth).
 // Any per-role visibility tweak must go through that file.
 
+// [모바일 헤더 직책 라벨] 좌상단 "관리의달인" 로고 옆에 표기할 직책 단어.
+//   사장님 요청: 직책에 따라 4종(관리소장 / 경리 / 시설 / 파트너) 표시.
+//   본부장·관리인·플랫폼 관리자도 일관성을 위해 짧게 표기, 단 본인 라벨이 없으면 null.
+function mobileRoleBadgeLabel(role: Role): string | null {
+  switch (role) {
+    case "manager": return "관리소장";
+    case "accountant": return "경리";
+    case "facility_staff": return "시설";
+    case "partner": return "파트너";
+    case "hq_executive": return "본부장";
+    case "custodian": return "관리인";
+    case "platform_admin": return "관리자";
+    default: return null;
+  }
+}
+
 // KST 날짜 키 ("YYYY-MM-DD"). 자정 경과 감지 + stale 4/4 방지에만 사용.
 function kstDateKey(at?: Date): string {
   const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -814,8 +830,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ) : (
                 <div className="w-2" />
               )}
-              <Link href="/" className="flex items-center shrink-0">
+              <Link href="/" className="flex items-center gap-1.5 shrink-0">
                 <BrandLogo height={28} />
+                {/* [모바일 헤더 직책 라벨] 로고 옆에 같은 폰트사이즈로 직책을 표기.
+                    BrandLogo 워드마크(viewBox 64, fontSize 30) 가 height=28 일 때
+                    실제 글자 높이 ≈ 13px 이므로 text-sm(14px) 가 시각적으로 일치.
+                    색은 약간 옅은 violet-500 으로 구분, 굵기는 동일(extrabold). */}
+                {(() => {
+                  const label = mobileRoleBadgeLabel(effectiveRole);
+                  if (!label) return null;
+                  return (
+                    <span
+                      className="text-sm font-extrabold tracking-tight text-violet-500 leading-none"
+                      data-testid="mobile-header-role-label"
+                    >
+                      {label}
+                    </span>
+                  );
+                })()}
               </Link>
             </div>
             <NotifBell />
@@ -826,7 +858,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="layout-content-area flex-1 p-3 sm:p-6 max-w-[1400px] w-full mx-auto">{children}</div>
-          {isPartner && <PlatformFooter />}
+          {/* [파트너 푸터 모바일 숨김] 사장님 요청: 모바일에서 (주)관리의달인 회사정보
+              푸터를 숨기고 데스크톱에서만 노출. dash-desktop-only 헬퍼 클래스가
+              ≥900px(+ pointer:fine) 에서만 block 으로 보이게 처리한다. */}
+          {isPartner && (
+            <div className="dash-desktop-only" data-testid="partner-platform-footer-wrap">
+              <PlatformFooter />
+            </div>
+          )}
         </div>
       </div>
 
