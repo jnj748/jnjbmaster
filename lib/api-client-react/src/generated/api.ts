@@ -82,6 +82,7 @@ import type {
   CreateContractBody,
   CreateContractFromQuoteBody,
   CreateContractFromQuoteResponse,
+  CreateCreditEventBody,
   CreateCreditTopupOrderBody,
   CreateDailyReportBody,
   CreateDocumentTemplateBody,
@@ -118,6 +119,10 @@ import type {
   CreateWorkReportBody,
   CreditCategoryPricing,
   CreditCostPreview,
+  CreditEventDetail,
+  CreditEventPreviewBody,
+  CreditEventPreviewResponse,
+  CreditEventsPage,
   CreditLedgerEntry,
   CreditTopupOrder,
   CreditTopupOrderConfirmed,
@@ -214,6 +219,7 @@ import type {
   ListBuildingNoticeTemplates200,
   ListComplaintsParams,
   ListContractsParams,
+  ListCreditEventsParams,
   ListCreditLedgerParams,
   ListDailyReportsParams,
   ListDelinquenciesParams,
@@ -310,6 +316,7 @@ import type {
   SendAiChatMessageBody,
   SendDestructionAlerts200,
   Settlement,
+  SignupBonusBulkApplyResponse,
   StaffAttendanceSummary,
   SubmitDraftBody,
   SubmitPublicTenantCard200,
@@ -26207,6 +26214,451 @@ export const useUpsertQuoteTypePolicyCategory = <
 > => {
   return useMutation(getUpsertQuoteTypePolicyCategoryMutationOptions(options));
 };
+
+/**
+ * @summary [Task #734] platform_admin only: backfill signup bonus to existing partners (idempotent)
+ */
+export const getApplySignupBonusBulkUrl = () => {
+  return `/api/credits/signup-bonus/apply-bulk`;
+};
+
+export const applySignupBonusBulk = async (
+  options?: RequestInit,
+): Promise<SignupBonusBulkApplyResponse> => {
+  return customFetch<SignupBonusBulkApplyResponse>(
+    getApplySignupBonusBulkUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getApplySignupBonusBulkMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applySignupBonusBulk>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applySignupBonusBulk>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["applySignupBonusBulk"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applySignupBonusBulk>>,
+    void
+  > = () => {
+    return applySignupBonusBulk(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplySignupBonusBulkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applySignupBonusBulk>>
+>;
+
+export type ApplySignupBonusBulkMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #734] platform_admin only: backfill signup bonus to existing partners (idempotent)
+ */
+export const useApplySignupBonusBulk = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applySignupBonusBulk>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applySignupBonusBulk>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getApplySignupBonusBulkMutationOptions(options));
+};
+
+/**
+ * @summary [Task #734] platform_admin only: paginated list of bulk credit grant events
+ */
+export const getListCreditEventsUrl = (params?: ListCreditEventsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/credits/events?${stringifiedParams}`
+    : `/api/credits/events`;
+};
+
+export const listCreditEvents = async (
+  params?: ListCreditEventsParams,
+  options?: RequestInit,
+): Promise<CreditEventsPage> => {
+  return customFetch<CreditEventsPage>(getListCreditEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCreditEventsQueryKey = (
+  params?: ListCreditEventsParams,
+) => {
+  return [`/api/credits/events`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCreditEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCreditEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCreditEventsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listCreditEvents>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCreditEventsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCreditEvents>>
+  > = ({ signal }) => listCreditEvents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCreditEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCreditEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCreditEvents>>
+>;
+export type ListCreditEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #734] platform_admin only: paginated list of bulk credit grant events
+ */
+
+export function useListCreditEvents<
+  TData = Awaited<ReturnType<typeof listCreditEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCreditEventsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listCreditEvents>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCreditEventsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary [Task #734] platform_admin only: execute bulk grant in single transaction
+ */
+export const getCreateCreditEventUrl = () => {
+  return `/api/credits/events`;
+};
+
+export const createCreditEvent = async (
+  createCreditEventBody: CreateCreditEventBody,
+  options?: RequestInit,
+): Promise<CreditEventDetail> => {
+  return customFetch<CreditEventDetail>(getCreateCreditEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCreditEventBody),
+  });
+};
+
+export const getCreateCreditEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditEvent>>,
+    TError,
+    { data: BodyType<CreateCreditEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCreditEvent>>,
+  TError,
+  { data: BodyType<CreateCreditEventBody> },
+  TContext
+> => {
+  const mutationKey = ["createCreditEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCreditEvent>>,
+    { data: BodyType<CreateCreditEventBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCreditEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCreditEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCreditEvent>>
+>;
+export type CreateCreditEventMutationBody = BodyType<CreateCreditEventBody>;
+export type CreateCreditEventMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #734] platform_admin only: execute bulk grant in single transaction
+ */
+export const useCreateCreditEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCreditEvent>>,
+    TError,
+    { data: BodyType<CreateCreditEventBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCreditEvent>>,
+  TError,
+  { data: BodyType<CreateCreditEventBody> },
+  TContext
+> => {
+  return useMutation(getCreateCreditEventMutationOptions(options));
+};
+
+/**
+ * @summary [Task #734] platform_admin only: resolve target vendor list for bulk grant
+ */
+export const getPreviewCreditEventRecipientsUrl = () => {
+  return `/api/credits/events/preview`;
+};
+
+export const previewCreditEventRecipients = async (
+  creditEventPreviewBody: CreditEventPreviewBody,
+  options?: RequestInit,
+): Promise<CreditEventPreviewResponse> => {
+  return customFetch<CreditEventPreviewResponse>(
+    getPreviewCreditEventRecipientsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(creditEventPreviewBody),
+    },
+  );
+};
+
+export const getPreviewCreditEventRecipientsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewCreditEventRecipients>>,
+    TError,
+    { data: BodyType<CreditEventPreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewCreditEventRecipients>>,
+  TError,
+  { data: BodyType<CreditEventPreviewBody> },
+  TContext
+> => {
+  const mutationKey = ["previewCreditEventRecipients"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewCreditEventRecipients>>,
+    { data: BodyType<CreditEventPreviewBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewCreditEventRecipients(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewCreditEventRecipientsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewCreditEventRecipients>>
+>;
+export type PreviewCreditEventRecipientsMutationBody =
+  BodyType<CreditEventPreviewBody>;
+export type PreviewCreditEventRecipientsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #734] platform_admin only: resolve target vendor list for bulk grant
+ */
+export const usePreviewCreditEventRecipients = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewCreditEventRecipients>>,
+    TError,
+    { data: BodyType<CreditEventPreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewCreditEventRecipients>>,
+  TError,
+  { data: BodyType<CreditEventPreviewBody> },
+  TContext
+> => {
+  return useMutation(getPreviewCreditEventRecipientsMutationOptions(options));
+};
+
+/**
+ * @summary [Task #734] platform_admin only: event with recipient list
+ */
+export const getGetCreditEventDetailUrl = (id: number) => {
+  return `/api/credits/events/${id}`;
+};
+
+export const getCreditEventDetail = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CreditEventDetail> => {
+  return customFetch<CreditEventDetail>(getGetCreditEventDetailUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCreditEventDetailQueryKey = (id: number) => {
+  return [`/api/credits/events/${id}`] as const;
+};
+
+export const getGetCreditEventDetailQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCreditEventDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getCreditEventDetail>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCreditEventDetailQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCreditEventDetail>>
+  > = ({ signal }) => getCreditEventDetail(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCreditEventDetail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCreditEventDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCreditEventDetail>>
+>;
+export type GetCreditEventDetailQueryError = ErrorType<unknown>;
+
+/**
+ * @summary [Task #734] platform_admin only: event with recipient list
+ */
+
+export function useGetCreditEventDetail<
+  TData = Awaited<ReturnType<typeof getCreditEventDetail>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof getCreditEventDetail>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCreditEventDetailQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary [Task #319] Active topup packages + Toss client key (partner)

@@ -11,6 +11,8 @@ import {
   useListQuoteTypePolicies,
   useUpsertQuoteTypePolicyCategory,
   getListQuoteTypePoliciesQueryKey,
+  // [Task #734] 가입 기본 크레딧 backfill (기존 파트너 일괄 적용) 버튼.
+  useApplySignupBonusBulk,
   type CreditCategoryPricing,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -66,6 +68,7 @@ export default function PlatformQuoteCreditPoliciesPage() {
         </p>
       </div>
       <CommonPolicySection />
+      <SignupBonusSection />
       <CategoryPolicyTable />
       <Card>
         <CardHeader>
@@ -185,6 +188,82 @@ function CommonPolicySection() {
             ) : "변경 이력 없음"}
           </div>
           <Button size="sm" onClick={save} data-testid="button-save-common">저장</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// [Task #734] 가입 시 자동 지급할 기본 크레딧/포인트 정책 + 기존 파트너 일괄 적용 버튼.
+//   값을 0/0 으로 두면 신규 가입 흐름에서도 자동 지급이 비활성화된다.
+//   '기존 파트너 일괄 적용'은 멱등 — 이미 signup_bonus 원장이 있는 vendor 는 자동 스킵된다.
+function SignupBonusSection() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: policies } = useListQuoteTypePolicies();
+  const settings = policies?.common ?? [];
+  const upsert = useUpsertPlatformSetting();
+  const applyBulk = useApplySignupBonusBulk();
+
+  const findVal = (key: string, fallback: string) => settings.find((s) => s.key === key)?.value ?? fallback;
+
+  const [credits, setCredits] = useState("0");
+  const [points, setPoints] = useState("0");
+
+  useEffect(() => {
+    if (!policies) return;
+    setCredits(findVal("signup_bonus_credits", "0"));
+    setPoints(findVal("signup_bonus_points", "0"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [policies]);
+
+  async function save() {
+    const c = Number(credits);
+    const p = Number(points);
+    if (!(c >= 0 && c <= 1_000_000)) { toast({ title: "기본 크레딧은 0 이상이어야 합니다", variant: "destructive" }); return; }
+    if (!(p >= 0 && p <= 1_000_000)) { toast({ title: "기본 포인트는 0 이상이어야 합니다", variant: "destructive" }); return; }
+    await upsert.mutateAsync({ data: { key: "signup_bonus_credits", value: String(Math.trunc(c)), description: "[Task #734] 파트너 가입 시 자동 지급되는 기본 크레딧 (양수)" } });
+    await upsert.mutateAsync({ data: { key: "signup_bonus_points", value: String(Math.trunc(p)), description: "[Task #734] 파트너 가입 시 자동 지급되는 기본 포인트" } });
+    qc.invalidateQueries({ queryKey: getListQuoteTypePoliciesQueryKey() });
+    toast({ title: "가입 기본 지급 정책이 저장되었습니다" });
+  }
+
+  async function applyToExisting() {
+    if (!confirm("저장된 정책 값(가입 기본 크레딧/포인트)을 기준으로,\n아직 받지 못한 모든 기존 파트너에게 1회 지급합니다.\n계속하시겠습니까?")) return;
+    const r = await applyBulk.mutateAsync();
+    toast({
+      title: "일괄 적용 완료",
+      description: `신규 지급 ${r.applied}건 / 이미 지급됨 ${r.skipped}건 (1인당 ${r.creditsPerVendor}C${r.pointsPerVendor > 0 ? ` + ${r.pointsPerVendor}P` : ""})`,
+    });
+  }
+
+  return (
+    <Card data-testid="section-signup-bonus">
+      <CardHeader>
+        <CardTitle className="text-base">가입 기본 지급 (Signup Bonus)</CardTitle>
+        <CardDescription>
+          파트너 가입(온보딩 완료) 시 자동으로 1회 지급되는 기본 크레딧/포인트입니다.
+          정책 변경 후 기존 파트너에게도 한 번에 반영하려면 우측 ‘기존 파트너 일괄 적용’ 버튼을 사용하세요. (멱등)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs">기본 지급 크레딧 (C)</Label>
+            <Input value={credits} onChange={(e) => setCredits(e.target.value)} className="h-9" data-testid="input-signup-credits" />
+            <p className="text-[11px] text-muted-foreground mt-1">0 으로 두면 자동 지급 비활성화</p>
+          </div>
+          <div>
+            <Label className="text-xs">기본 지급 포인트 (P)</Label>
+            <Input value={points} onChange={(e) => setPoints(e.target.value)} className="h-9" data-testid="input-signup-points" />
+            <p className="text-[11px] text-muted-foreground mt-1">크레딧과 별도로 지갑의 포인트가 함께 적립됩니다</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button size="sm" variant="outline" onClick={applyToExisting} disabled={applyBulk.isPending} data-testid="button-apply-bulk-signup">
+            {applyBulk.isPending ? "적용 중…" : "기존 파트너 일괄 적용"}
+          </Button>
+          <Button size="sm" onClick={save} disabled={upsert.isPending} data-testid="button-save-signup-bonus">저장</Button>
         </div>
       </CardContent>
     </Card>

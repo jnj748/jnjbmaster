@@ -6656,6 +6656,95 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreditCategoryPricing"
 
+  /credits/signup-bonus/apply-bulk:
+    post:
+      operationId: applySignupBonusBulk
+      tags: [commissions]
+      summary: "[Task #734] platform_admin only: backfill signup bonus to existing partners (idempotent)"
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupBonusBulkApplyResponse"
+
+  /credits/events:
+    get:
+      operationId: listCreditEvents
+      tags: [commissions]
+      summary: "[Task #734] platform_admin only: paginated list of bulk credit grant events"
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Events page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditEventsPage"
+    post:
+      operationId: createCreditEvent
+      tags: [commissions]
+      summary: "[Task #734] platform_admin only: execute bulk grant in single transaction"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditEventBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditEventDetail"
+
+  /credits/events/preview:
+    post:
+      operationId: previewCreditEventRecipients
+      tags: [commissions]
+      summary: "[Task #734] platform_admin only: resolve target vendor list for bulk grant"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditEventPreviewBody"
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditEventPreviewResponse"
+
+  /credits/events/{id}:
+    get:
+      operationId: getCreditEventDetail
+      tags: [commissions]
+      summary: "[Task #734] platform_admin only: event with recipient list"
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditEventDetail"
+
   /credits/topup/packages:
     get:
       operationId: listCreditTopupPackages
@@ -14407,7 +14496,7 @@ components:
           type: integer
         kind:
           type: string
-          enum: [consumption, refund, manual_credit, manual_debit, package_purchase, rebate, adjustment, bonus_points]
+          enum: [consumption, refund, manual_credit, manual_debit, package_purchase, rebate, adjustment, bonus_points, signup_bonus, event_grant]
         source:
           type: string
           enum: [manual, package_purchase, refund, rebate, consumption, adjustment, system]
@@ -14875,6 +14964,275 @@ components:
       required:
         - category
         - creditCost
+
+    SignupBonusBulkApplyResponse:
+      type: object
+      properties:
+        applied:
+          type: integer
+        skipped:
+          type: integer
+        creditsPerVendor:
+          type: integer
+        pointsPerVendor:
+          type: integer
+      required:
+        - applied
+        - skipped
+        - creditsPerVendor
+        - pointsPerVendor
+
+    CreditEventPreviewBody:
+      type: object
+      description: "[Task #734] 후보 vendor를 결정하는 3가지 모드 — filter|direct|excel. 모든 모드에서 자동으로 '파트너 역할 + 승인 활성' 필터가 적용된다."
+      properties:
+        mode:
+          type: string
+          enum: [filter, direct, excel]
+        categories:
+          type: array
+          items:
+            type: string
+          description: filter 모드 — 다중 카테고리 (OR). 비우면 전체.
+        sidos:
+          type: array
+          items:
+            type: string
+          description: filter 모드 — 다중 시도 (OR).
+        sigungus:
+          type: array
+          items:
+            type: string
+          description: filter 모드 — 다중 시군구 (OR).
+        category:
+          type: ["string", "null"]
+          description: (호환) 단일 카테고리. categories 가 비어있을 때만 사용.
+        sido:
+          type: ["string", "null"]
+          description: (호환) 단일 시도.
+        sigungu:
+          type: ["string", "null"]
+          description: (호환) 단일 시군구.
+        type:
+          type: ["string", "null"]
+          description: filter 모드 — vendor.type (예 platform / contracted)
+        joinedFrom:
+          type: ["string", "null"]
+          description: filter 모드 — 가입일 시작 (YYYY-MM-DD, 포함)
+        joinedTo:
+          type: ["string", "null"]
+          description: filter 모드 — 가입일 종료 (YYYY-MM-DD, 포함)
+        activeWithinDays:
+          type: ["integer", "null"]
+          description: filter 모드 — 최근 N일 이내 활동(vendor.updated_at) 한 파트너만. 미지정/0 = 미적용.
+        approvalStatuses:
+          type: array
+          items:
+            type: string
+            enum: [active, pending, rejected]
+          description: 승인 상태 멀티셀렉트. 기본은 ['active'] (미승인 자동 제외).
+        vendorIds:
+          type: array
+          items:
+            type: integer
+          description: direct 모드 — 명시적 vendor id 배열 (호환)
+        query:
+          type: string
+          description: direct 모드 — 회사명 / 사업자번호 부분 검색 문자열
+        businessNumbers:
+          type: array
+          items:
+            type: string
+          description: excel 모드 — 사업자등록번호 문자열 배열 (대시 등은 자동 정규화)
+      required:
+        - mode
+
+    CreditEventPreviewResponse:
+      type: object
+      properties:
+        vendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditEventPreviewVendor"
+        notFoundBusinessNumbers:
+          type: array
+          items:
+            type: string
+        notFoundVendorIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - vendors
+
+    CreditEventPreviewVendor:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        sido:
+          type: ["string", "null"]
+        sigungu:
+          type: ["string", "null"]
+        joinedAt:
+          type: ["string", "null"]
+          description: 가입일 (ISO 8601)
+        currentBalance:
+          type: integer
+          description: 현재 크레딧 잔액 (지갑 미생성 시 0)
+        currentPointsBalance:
+          type: integer
+          description: 현재 포인트 잔액 (지갑 미생성 시 0)
+      required:
+        - vendorId
+        - name
+        - currentBalance
+        - currentPointsBalance
+
+    CreateCreditEventBody:
+      type: object
+      properties:
+        name:
+          type: string
+        reason:
+          type: string
+          minLength: 1
+          description: 사유/메모 (필수). 운영 감사 추적을 위해 비울 수 없음.
+        creditsPerVendor:
+          type: integer
+        pointsPerVendor:
+          type: integer
+        vendorIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - name
+        - reason
+        - creditsPerVendor
+        - pointsPerVendor
+        - vendorIds
+
+    CreditEventsPage:
+      type: object
+      description: "[Task #734] paginated bulk credit event history"
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditEventSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        hasMore:
+          type: boolean
+      required:
+        - events
+        - total
+        - page
+        - limit
+        - hasMore
+
+    CreditEventSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        reason:
+          type: ["string", "null"]
+        creditsPerVendor:
+          type: integer
+        pointsPerVendor:
+          type: integer
+        recipientCount:
+          type: integer
+        totalCredits:
+          type: integer
+        totalPoints:
+          type: integer
+        actorId:
+          type: ["integer", "null"]
+        actorName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - creditsPerVendor
+        - pointsPerVendor
+        - recipientCount
+        - totalCredits
+        - totalPoints
+        - createdAt
+
+    CreditEventDetail:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/CreditEventSummary"
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreditEventRecipientRow"
+        # 실행 결과 통계 — 생성 직후 응답에서만 채워진다 (조회 시에는 생략 가능).
+        # 단일 트랜잭션 + 사전 검증으로 인해 항상 requested == succeeded, failed == 0 이지만
+        # 클라이언트가 백엔드 응답에 바인딩하도록 명시적으로 노출.
+        requested:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+      required:
+        - event
+        - recipients
+
+    CreditEventRecipientRow:
+      type: object
+      properties:
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        category:
+          type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        ledgerId:
+          type: ["integer", "null"]
+        creditsGranted:
+          type: integer
+        pointsGranted:
+          type: integer
+        # [Task #734 후속] 감사 가시성 강화 — 동일 트랜잭션에서 발행된 ledger 행의
+        # 핵심 필드를 그대로 노출. 추가 lookup 없이 드릴다운 가능.
+        ledgerKind:
+          type: ["string", "null"]
+        ledgerSource:
+          type: ["string", "null"]
+        ledgerNotes:
+          type: ["string", "null"]
+        ledgerCreatedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - vendorId
+        - vendorName
+        - creditsGranted
+        - pointsGranted
 
     PlatformSetting:
       type: object

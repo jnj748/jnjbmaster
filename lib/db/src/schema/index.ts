@@ -78,3 +78,4 @@ export * from "./expenseVouchers";
 export * from "./paymentRequests";
 export * from "./documents";
 export * from "./noticeOutputs";
+export * from "./creditEvents";

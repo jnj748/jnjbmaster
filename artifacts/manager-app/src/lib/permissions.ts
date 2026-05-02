@@ -36,6 +36,8 @@ import {
   NotebookPen,
   Plus,
   Megaphone,
+  // [Task #734] 이벤트 크레딧 일괄 지급 메뉴/카드 아이콘.
+  Gift,
   type LucideIcon,
 } from "lucide-react";
 
@@ -769,6 +771,11 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-quote-credit-policies")),
     label: "크레딧정책설정", icon: Coins, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #734] 이벤트 크레딧 일괄 지급 — 필터/직접 선택/엑셀 업로드 3-step 위저드.
+  { path: "/platform/credit-events",
+    component: lazy(() => import("@/pages/platform-credit-events")),
+    label: "이벤트 크레딧 지급", icon: Gift, group: "settings",
+    access: ["platform_admin"], hidden: true },
   // [Task #283] 역할별 캠페인 알림 관리 — 단일 페이지가 ?role= 쿼리로 5개 역할 범위를 전환.
   { path: "/platform/campaigns",
     component: lazy(() => import("@/pages/platform-campaigns")),
@@ -1052,6 +1059,8 @@ function platformAdminSidebar(): NavSection[] {
         { path: "/platform/credits", label: `${SHARED_ROLE_LABELS.partner} 크레딧 현황`, icon: Coins },
         // [Task #298] 카테고리 × 프리미엄 단위 크레딧/환불 정책 통합 관리.
         { path: "/platform/quote-credit-policies", label: "크레딧정책설정", icon: Coins },
+        // [Task #734] 이벤트 크레딧 일괄 지급 — 필터/직접/엑셀 3가지 방식 지원.
+        { path: "/platform/credit-events", label: "이벤트 크레딧 지급", icon: Gift },
       ],
     },
     {

@@ -5539,6 +5539,8 @@ export const CreditLedgerEntryKind = {
   rebate: "rebate",
   adjustment: "adjustment",
   bonus_points: "bonus_points",
+  signup_bonus: "signup_bonus",
+  event_grant: "event_grant",
 } as const;
 
 export type CreditLedgerEntrySource =
@@ -5867,6 +5869,184 @@ export interface UpsertQuoteTypePolicyCategoryBody {
   premiumSurchargePercent?: number | null;
   /** @nullable */
   displayNameKo?: string | null;
+}
+
+export interface SignupBonusBulkApplyResponse {
+  applied: number;
+  skipped: number;
+  creditsPerVendor: number;
+  pointsPerVendor: number;
+}
+
+export type CreditEventPreviewBodyMode =
+  (typeof CreditEventPreviewBodyMode)[keyof typeof CreditEventPreviewBodyMode];
+
+export const CreditEventPreviewBodyMode = {
+  filter: "filter",
+  direct: "direct",
+  excel: "excel",
+} as const;
+
+export type CreditEventPreviewBodyApprovalStatusesItem =
+  (typeof CreditEventPreviewBodyApprovalStatusesItem)[keyof typeof CreditEventPreviewBodyApprovalStatusesItem];
+
+export const CreditEventPreviewBodyApprovalStatusesItem = {
+  active: "active",
+  pending: "pending",
+  rejected: "rejected",
+} as const;
+
+/**
+ * [Task #734] 후보 vendor를 결정하는 3가지 모드 — filter|direct|excel. 모든 모드에서 자동으로 '파트너 역할 + 승인 활성' 필터가 적용된다.
+ */
+export interface CreditEventPreviewBody {
+  mode: CreditEventPreviewBodyMode;
+  /** filter 모드 — 다중 카테고리 (OR). 비우면 전체. */
+  categories?: string[];
+  /** filter 모드 — 다중 시도 (OR). */
+  sidos?: string[];
+  /** filter 모드 — 다중 시군구 (OR). */
+  sigungus?: string[];
+  /**
+   * (호환) 단일 카테고리. categories 가 비어있을 때만 사용.
+   * @nullable
+   */
+  category?: string | null;
+  /**
+   * (호환) 단일 시도.
+   * @nullable
+   */
+  sido?: string | null;
+  /**
+   * (호환) 단일 시군구.
+   * @nullable
+   */
+  sigungu?: string | null;
+  /**
+   * filter 모드 — vendor.type (예 platform / contracted)
+   * @nullable
+   */
+  type?: string | null;
+  /**
+   * filter 모드 — 가입일 시작 (YYYY-MM-DD, 포함)
+   * @nullable
+   */
+  joinedFrom?: string | null;
+  /**
+   * filter 모드 — 가입일 종료 (YYYY-MM-DD, 포함)
+   * @nullable
+   */
+  joinedTo?: string | null;
+  /**
+   * filter 모드 — 최근 N일 이내 활동(vendor.updated_at) 한 파트너만. 미지정/0 = 미적용.
+   * @nullable
+   */
+  activeWithinDays?: number | null;
+  /** 승인 상태 멀티셀렉트. 기본은 ['active'] (미승인 자동 제외). */
+  approvalStatuses?: CreditEventPreviewBodyApprovalStatusesItem[];
+  /** direct 모드 — 명시적 vendor id 배열 (호환) */
+  vendorIds?: number[];
+  /** direct 모드 — 회사명 / 사업자번호 부분 검색 문자열 */
+  query?: string;
+  /** excel 모드 — 사업자등록번호 문자열 배열 (대시 등은 자동 정규화) */
+  businessNumbers?: string[];
+}
+
+export interface CreditEventPreviewVendor {
+  vendorId: number;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  sido?: string | null;
+  /** @nullable */
+  sigungu?: string | null;
+  /**
+   * 가입일 (ISO 8601)
+   * @nullable
+   */
+  joinedAt?: string | null;
+  /** 현재 크레딧 잔액 (지갑 미생성 시 0) */
+  currentBalance: number;
+  /** 현재 포인트 잔액 (지갑 미생성 시 0) */
+  currentPointsBalance: number;
+}
+
+export interface CreditEventPreviewResponse {
+  vendors: CreditEventPreviewVendor[];
+  notFoundBusinessNumbers?: string[];
+  notFoundVendorIds?: number[];
+}
+
+export interface CreateCreditEventBody {
+  name: string;
+  /**
+   * 사유/메모 (필수). 운영 감사 추적을 위해 비울 수 없음.
+   * @minLength 1
+   */
+  reason: string;
+  creditsPerVendor: number;
+  pointsPerVendor: number;
+  vendorIds: number[];
+}
+
+export interface CreditEventSummary {
+  id: number;
+  name: string;
+  /** @nullable */
+  reason?: string | null;
+  creditsPerVendor: number;
+  pointsPerVendor: number;
+  recipientCount: number;
+  totalCredits: number;
+  totalPoints: number;
+  /** @nullable */
+  actorId?: number | null;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+}
+
+/**
+ * [Task #734] paginated bulk credit event history
+ */
+export interface CreditEventsPage {
+  events: CreditEventSummary[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface CreditEventRecipientRow {
+  vendorId: number;
+  vendorName: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  ledgerId?: number | null;
+  creditsGranted: number;
+  pointsGranted: number;
+  /** @nullable */
+  ledgerKind?: string | null;
+  /** @nullable */
+  ledgerSource?: string | null;
+  /** @nullable */
+  ledgerNotes?: string | null;
+  /** @nullable */
+  ledgerCreatedAt?: string | null;
+}
+
+export interface CreditEventDetail {
+  event: CreditEventSummary;
+  recipients: CreditEventRecipientRow[];
+  requested?: number;
+  succeeded?: number;
+  failed?: number;
 }
 
 export interface PlatformSetting {
@@ -7366,6 +7546,18 @@ export type PreviewCreditCostParams = {
 
 export type DeleteCreditCategoryPricing200 = {
   ok?: boolean;
+};
+
+export type ListCreditEventsParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  limit?: number;
 };
 
 export type CreateCreditTopupOrderBody = {

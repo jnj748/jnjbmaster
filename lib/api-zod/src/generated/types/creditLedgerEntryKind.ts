@@ -18,4 +18,6 @@ export const CreditLedgerEntryKind = {
   rebate: "rebate",
   adjustment: "adjustment",
   bonus_points: "bonus_points",
+  signup_bonus: "signup_bonus",
+  event_grant: "event_grant",
 } as const;

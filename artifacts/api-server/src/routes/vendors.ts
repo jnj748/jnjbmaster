@@ -25,6 +25,7 @@ import {
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
+import { grantSignupBonusIfEligible } from "../lib/credits";
 
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
@@ -356,6 +357,18 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
       .returning();
     vendorRow = inserted;
     await db.update(usersTable).set({ vendorId: vendorRow.id }).where(eq(usersTable.id, userId));
+  }
+  // [Task #734] 위저드 완료 후 가입 기본 크레딧/포인트를 자동 지급한다.
+  //   같은 vendorId 에 signup_bonus 원장이 이미 있으면 no-op (idempotent).
+  //   onboarding 을 다시 호출(수정 흐름)해도 중복 지급되지 않는다.
+  if (vendorRow?.id) {
+    try {
+      await grantSignupBonusIfEligible(vendorRow.id, { actorId: userId, actorName: user.name ?? user.email ?? null });
+    } catch (e) {
+      // 가입 자체는 막지 않는다 — 운영자 알림은 로그로만.
+      // eslint-disable-next-line no-console
+      console.error("[Task #734] grantSignupBonusIfEligible failed", { vendorId: vendorRow.id, e });
+    }
   }
   // [Task #436] 응답 모델은 Zod 검증을 거치지 않지만 클라이언트가 ISO 문자열을
   //   기대하므로 다른 vendor 응답과 동일한 직렬화를 적용해 일관성을 유지한다.

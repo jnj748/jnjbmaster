@@ -48,6 +48,9 @@ const ledgerKindLabel = (k: string): string => {
     case "rebate": return "리베이트";
     case "adjustment": return "조정";
     case "bonus_points": return "보너스";
+    // [Task #734] 신규 ledger kind 라벨 — 가입 기본 지급 / 운영자 일괄 이벤트 지급.
+    case "signup_bonus": return "가입 기본 지급";
+    case "event_grant": return "이벤트 지급";
     default: return k;
   }
 };

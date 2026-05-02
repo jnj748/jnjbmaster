@@ -1,5 +1,5 @@
 # Overview
-관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers of collective buildings under 150 units. It aims to enhance operational efficiency and provide data-driven insights through centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project seeks to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
+관리의달인 (Manager Master) is an AI-powered property management tool for Korean apartment and building managers under 150 units. It enhances operational efficiency and provides data-driven insights through centralized task management, comprehensive tenant/owner/vehicle administration, automated document generation, streamlined vendor management, multi-step approval workflows, and integrated facilities and attendance management. The project aims to become the leading digital assistant in Korean property management, reducing administrative burdens and enabling proactive management decisions.
 
 # User Preferences
 - I prefer clear and concise communication.
@@ -61,58 +61,44 @@
   - 마크다운 체크박스(`- [ ]`) 표기는 채팅 UI에서 클릭이 불가능한 단순 텍스트이므로 사용하지 않는다.
 
 # System Architecture
-The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9, designed for modularity and scalability.
+The project is a pnpm monorepo using Node.js 24 and TypeScript 5.9.
 
 **Frontend:**
 - **Technologies:** React, Vite, Tailwind CSS, shadcn/ui.
-- **UI/UX:** Mobile-first design (desktop breakpoint at 900px), role-based portals (managers, HQ, vendors), ERP-style dashboards for accounting, facility management, and usage analytics.
-- **Performance:** React.lazy for lazy loading, Vite manualChunks for code splitting, React Query for data fetching and caching.
+- **UI/UX:** Mobile-first design, role-based portals (managers, HQ, vendors), ERP-style dashboards.
+- **Performance:** Lazy loading, code splitting, data fetching and caching.
 
 **Backend:**
 - **Framework:** Express 5 API.
-- **Security:** JWT authentication, Role-Based Access Control (RBAC) for 6 roles (`docs/user-roles/README.md` as SoT).
+- **Security:** JWT authentication, Role-Based Access Control (RBAC) for 6 roles.
 - **API:** OpenAPI specifications, Orval for client code generation, Zod for request/response validation.
 
 **Database:**
 - **Type:** PostgreSQL.
 - **ORM:** Drizzle ORM.
 - **Entities:** Users, tasks, inspections, vendors, tenants, owners, vehicles, notifications, approval processes.
-- **Maintenance:** Automated schema migrations on API server boot.
+- **Maintenance:** Automated schema migrations.
 
 **Core Features & Design Patterns:**
 - **Modular Monorepo:** Enforces separation of concerns.
-- **AI Integration:** For commission analysis and vendor matching.
-- **Automated Document Generation:** Creates reports and notices.
+- **AI Integration:** Commission analysis, vendor matching.
+- **Automated Document Generation:** Reports, notices.
 - **Multi-step Approval Workflows:** Configurable up to 5 levels.
 - **BuildingContext:** Global context for building-specific data.
 - **Attendance Management:** PC/mobile check-in/out.
 - **In-app Notification System:** Real-time alerts.
-- **Legal Compliance:** Integrates Korean privacy data auto-destruction.
+- **Legal Compliance:** Korean privacy data auto-destruction.
 - **Meter Reading Management:** Bulk upload, manual entry, anomaly detection.
 - **Billing & Collections:** ERP-style billing, trend analysis, Kakao notifications, delinquency detection.
 - **Complaints Management:** Structured workflow with tracking and auto-escalation.
-- **Electronic Voting:** Manages agendas, participation, and results.
+- **Electronic Voting:** Manages agendas, participation, results.
 - **Partner Marketplace:** Extended vendor categories, warranty tracking, geo-based matching.
+- **Partner Credit Operations:** Auto-grant signup bonus, bulk event credit grants.
 - **Object Storage Integration:** Manages attachments via presigned URLs.
 - **Unit Management:** CRUD operations, bulk import.
 - **Digital Tenant Card:** Token-based self-registration with manager verification.
 - **Building Setup & Integration:** Connects to external APIs for building registers and postcode services.
 - **Onboarding Automation:** Streamlines manager setup.
-
-# Domain Concepts (Korean Billing)
-
-## 부속명세서 (Supplemental Schedule)
-- **정의**: "분리부과" 시 매월 부과의 근거가 되는 명세 문서.
-- **분리부과 ≠ 분납**: 두 개념은 다르다. 향후 어떤 작업/플랜에서도 혼동하면 안 된다.
-  - **분납**: 한 세대가 한 번 부과된 금액을 여러 회차로 나누어 *납부* 하는 것 (수납 측면).
-  - **분리부과**: 한 번 발생한 지출(예: 연간 보험료) 을 발생 월에 전액 부과하지 않고 여러 달에 걸쳐 *부과* 하는 것 (부과/회계 측면).
-- **예시**: 보험료를 1~12월 연간 1,200만원으로 계약 → 1월에 1,200만원을 통째로 부과하지 않고 매월 100만원씩 12개월에 걸쳐 분리부과.
-- **부속명세서가 필요한 이유**: 1월에는 1,200만원짜리 지출결의서가 한 건 존재하지만, 2~12월에는 그 달 자체의 지출결의서가 없다. 그 11개월 동안 매월 100만원이 부과되는 근거(=어떤 1월 지출결의서로부터 어떤 기간/방식으로 분리부과되는지) 를 설명하는 문서가 부속명세서.
-- **데이터 모델 함의(향후 플랜 작성 시 반드시 고려)**:
-  - 부속명세서는 "분납 일정(installment schedule)" 이 아니라 "분리부과 스케줄" 에 연결되어야 한다. 이 둘을 같은 테이블/같은 흐름으로 묶지 말 것.
-  - 1건의 지출결의서 ↔ 다수의 분리부과 부과월 ↔ 그 부과월 각각에 대응하는 부속명세서 항목 — 의 관계.
-  - 따라서 부속명세서는 (a) 원천 지출결의서 참조, (b) 분리부과 적용 기간(시작월·종료월·총 회차), (c) 회차별 금액 산정 근거(균등/사용량 비례 등) 를 보유해야 한다.
-  - 기존 PROPOSED task 중 표현이 "분납" 으로 되어 있는 항목은 본 정의에 맞춰 "분리부과" 로 다듬은 뒤 진행한다.
 
 # External Dependencies
 - jsPDF

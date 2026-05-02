@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, gte, lte, or, ilike } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   db,
@@ -15,6 +15,8 @@ import {
   creditTopupPackagesTable,
   creditTopupOrdersTable,
   creditTopupOrderStatuses,
+  creditEventsTable,
+  creditEventRecipientsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 import {
@@ -25,6 +27,7 @@ import {
   getPremiumAmountThreshold,
   getPremiumSlotLimit,
   recalcWalletBalance,
+  grantSignupBonusIfEligible,
 } from "../lib/credits";
 
 const router: IRouter = Router();
@@ -173,12 +176,13 @@ router.get("/credits/admin/dashboard", platformAdminOnly, async (req, res): Prom
   const monthsRaw = Number(req.query.months ?? 12);
   const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(Math.trunc(monthsRaw), 1), 36) : 12;
   // 월 키는 UTC 기준 'YYYY-MM' (대시보드 차트용 단순 라벨).
-  const TOP_UP_KINDS = ["manual_credit", "package_purchase", "rebate", "adjustment"];
+  // [Task #734] signup_bonus / event_grant 도 충전성 입금으로 카운트.
+  const TOP_UP_KINDS = ["manual_credit", "package_purchase", "rebate", "adjustment", "signup_bonus", "event_grant"];
 
   // 1) 합계 KPI ─ 충전(양수만)/소모(절대값)/환불(양수만)
   const totalsRow = await db.execute(sql`
     SELECT
-      COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment')
+      COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment','signup_bonus','event_grant')
                          AND amount > 0 THEN amount END), 0)::int   AS top_up_amount,
       COALESCE(SUM(CASE WHEN kind = 'consumption' THEN ABS(amount) END), 0)::int  AS consumption_amount,
       COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
@@ -206,7 +210,7 @@ router.get("/credits/admin/dashboard", platformAdminOnly, async (req, res): Prom
     ),
     agg AS (
       SELECT to_char(date_trunc('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS m,
-             COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment')
+             COALESCE(SUM(CASE WHEN kind IN ('manual_credit','package_purchase','rebate','adjustment','signup_bonus','event_grant')
                                 AND amount > 0 THEN amount END), 0)::int AS top_up,
              COALESCE(SUM(CASE WHEN kind = 'consumption' THEN ABS(amount) END), 0)::int AS consumption,
              COALESCE(SUM(CASE WHEN kind = 'refund' AND amount > 0
@@ -409,6 +413,9 @@ const POLICY_KEYS = [
   "premium_surcharge_ratio",
   "premium_slot_limit",
   "premium_amount_threshold",
+  // [Task #734] 가입 기본 지급 정책 — 정책 카드 (CommonPolicySection 인접) 에서 함께 노출.
+  "signup_bonus_credits",
+  "signup_bonus_points",
 ] as const;
 
 // [Task #312] 카테고리 한글 표시명 — 모든 인증된 사용자가 조회 가능.
@@ -514,6 +521,480 @@ router.put("/credits/quote-type-policies/category", platformAdminOnly, async (re
     })
     .returning();
   res.status(201).json(created);
+});
+
+// ============================================================
+// [Task #734] 가입 기본 크레딧 일괄 적용 + 이벤트 크레딧 일괄 지급
+// ============================================================
+//   가입 기본 지급(signup_bonus):
+//     - /vendors/onboarding 핸들러 안에서 자동 호출 (멱등) — 신규 가입 흐름
+//     - 본 라우트는 정책 변경 후 기존 파트너에게 backfill 하기 위한 일괄 적용 버튼
+//   이벤트 일괄 지급(event_grant):
+//     - 미리보기 → 생성 (단일 트랜잭션) → 이력 조회
+//     - (eventId, vendorId) UNIQUE 인덱스로 동일 이벤트 내 중복 지급 차단
+router.post("/credits/signup-bonus/apply-bulk", platformAdminOnly, async (req, res): Promise<void> => {
+  // 신청 시점의 정책 값(signup_bonus_credits / signup_bonus_points)을 읽어,
+  // 아직 signup_bonus 원장이 없는 '승인된 파트너' vendor 에 한 번씩 지급한다.
+  const actorId = req.user?.userId ?? null;
+  const [actor] = actorId ? await db.select().from(usersTable).where(eq(usersTable.id, actorId)) : [];
+  const actorName = actor?.name ?? req.user?.email ?? null;
+
+  // 파트너 + 승인 활성만 대상. selectDistinct 로 한 vendor 에 다수 사용자가
+  // 연결되어 있어도 vendor 1행만 카운트.
+  const partnerVendors = await db
+    .selectDistinct({ id: vendorsTable.id })
+    .from(vendorsTable)
+    .innerJoin(usersTable, eq(usersTable.vendorId, vendorsTable.id))
+    .where(and(eq(usersTable.role, "partner"), eq(usersTable.approvalStatus, "active")));
+  let applied = 0;
+  let skipped = 0;
+  let credits = 0;
+  let points = 0;
+  for (const v of partnerVendors) {
+    const r = await grantSignupBonusIfEligible(v.id, { actorId, actorName });
+    credits = r.credits;
+    points = r.points;
+    if (r.granted) applied += 1;
+    else skipped += 1;
+  }
+  res.json({ applied, skipped, creditsPerVendor: credits, pointsPerVendor: points });
+});
+
+const EventPreviewBody = z.object({
+  mode: z.enum(["filter", "direct", "excel"]),
+  // 다중 카테고리/지역/가입일 범위/활동성/승인상태 필터. 단일 값 호환 유지.
+  categories: z.array(z.string()).optional(),
+  sidos: z.array(z.string()).optional(),
+  sigungus: z.array(z.string()).optional(),
+  category: z.string().nullable().optional(),
+  sido: z.string().nullable().optional(),
+  sigungu: z.string().nullable().optional(),
+  type: z.string().nullable().optional(),
+  joinedFrom: z.string().nullable().optional(), // ISO date YYYY-MM-DD
+  joinedTo: z.string().nullable().optional(),
+  // 활동성: 최근 N일 이내 vendor 행 updatedAt 이 있는 경우만. NULL/0 = 미적용.
+  activeWithinDays: z.number().int().positive().nullable().optional(),
+  // 승인 상태(연결된 user). 기본값은 ['active'] — 미승인 파트너는 자동 제외.
+  approvalStatuses: z.array(z.enum(["active", "pending", "rejected"])).optional(),
+  vendorIds: z.array(z.number().int()).optional(),
+  // 직접 모드 — 회사명/사업자번호 부분 검색
+  query: z.string().optional(),
+  businessNumbers: z.array(z.string()).optional(),
+});
+
+function normalizeBizNumber(v: string): string {
+  return v.replace(/[^0-9]/g, "");
+}
+
+router.post("/credits/events/preview", platformAdminOnly, async (req, res): Promise<void> => {
+  const parsed = EventPreviewBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const mode = parsed.data.mode;
+  // 기본 승인 상태 = active 만. 명시적으로 다른 값을 보낸 경우만 확장.
+  const approvalStatuses = parsed.data.approvalStatuses && parsed.data.approvalStatuses.length > 0
+    ? parsed.data.approvalStatuses
+    : ["active" as const];
+  // 응답에 joinedAt + currentBalance/currentPointsBalance 포함 (미리보기 단계
+  // 의사결정 지원).
+  let vendors: Array<{
+    vendorId: number;
+    name: string;
+    category: string | null;
+    businessRegNumber: string | null;
+    sido: string | null;
+    sigungu: string | null;
+    joinedAt: string | null;
+    currentBalance: number;
+    currentPointsBalance: number;
+  }> = [];
+  let notFoundBusinessNumbers: string[] = [];
+  let notFoundVendorIds: number[] = [];
+
+  // [공통 가드] vendor.role = partner 인 경우만 대상이 된다. (관리회사 직속 등 비-파트너 vendor 제외)
+  //   user 와 join 해 role/approvalStatus 를 동시에 검사한다.
+  const partnerJoinConds = and(
+    eq(usersTable.vendorId, vendorsTable.id),
+    eq(usersTable.role, "partner"),
+    inArray(usersTable.approvalStatus, approvalStatuses),
+  );
+
+  if (mode === "filter") {
+    const conds: Array<ReturnType<typeof eq>> = [];
+    // 단일/다중 카테고리 — 다중 우선.
+    const categories = parsed.data.categories && parsed.data.categories.length > 0
+      ? parsed.data.categories
+      : (parsed.data.category ? [parsed.data.category] : []);
+    if (categories.length > 0) conds.push(inArray(vendorsTable.category, categories));
+    const sidos = parsed.data.sidos && parsed.data.sidos.length > 0
+      ? parsed.data.sidos
+      : (parsed.data.sido ? [parsed.data.sido] : []);
+    if (sidos.length > 0) conds.push(inArray(vendorsTable.sido, sidos));
+    const sigungus = parsed.data.sigungus && parsed.data.sigungus.length > 0
+      ? parsed.data.sigungus
+      : (parsed.data.sigungu ? [parsed.data.sigungu] : []);
+    if (sigungus.length > 0) conds.push(inArray(vendorsTable.sigungu, sigungus));
+    if (parsed.data.type) conds.push(eq(vendorsTable.type, parsed.data.type));
+    if (parsed.data.joinedFrom) {
+      conds.push(gte(vendorsTable.joinedAt, new Date(parsed.data.joinedFrom)));
+    }
+    if (parsed.data.joinedTo) {
+      // 종료일 포함 — 다음날 00:00 미만으로 처리.
+      const to = new Date(parsed.data.joinedTo);
+      to.setDate(to.getDate() + 1);
+      conds.push(lte(vendorsTable.joinedAt, to));
+    }
+    if (parsed.data.activeWithinDays && parsed.data.activeWithinDays > 0) {
+      // 활동성 = 최근 N일 이내 견적(quotes) 제출 이력. vendors.updatedAt 보다 운영 의미가 명확.
+      const cutoff = new Date(Date.now() - parsed.data.activeWithinDays * 24 * 60 * 60 * 1000);
+      conds.push(sql`EXISTS (SELECT 1 FROM ${quotesTable} q WHERE q.vendor_id = ${vendorsTable.id} AND q.created_at >= ${cutoff})`);
+    }
+    // selectDistinct: 한 vendor 에 다수 partner 사용자가 연결되어도 1행만.
+    const rows = await db
+      .selectDistinct({
+        id: vendorsTable.id,
+        name: vendorsTable.name,
+        category: vendorsTable.category,
+        businessRegNumber: vendorsTable.businessRegNumber,
+        sido: vendorsTable.sido,
+        sigungu: vendorsTable.sigungu,
+        joinedAt: vendorsTable.joinedAt,
+        balance: vendorCreditWalletsTable.balance,
+        pointsBalance: vendorCreditWalletsTable.pointsBalance,
+      })
+      .from(vendorsTable)
+      .innerJoin(usersTable, partnerJoinConds)
+      .leftJoin(vendorCreditWalletsTable, eq(vendorCreditWalletsTable.vendorId, vendorsTable.id))
+      .where(conds.length > 0 ? and(...conds) : undefined)
+      .orderBy(vendorsTable.name);
+    vendors = rows.map((v) => ({
+      vendorId: v.id,
+      name: v.name,
+      category: v.category ?? null,
+      businessRegNumber: v.businessRegNumber ?? null,
+      sido: v.sido ?? null,
+      sigungu: v.sigungu ?? null,
+      joinedAt: v.joinedAt instanceof Date ? v.joinedAt.toISOString() : (v.joinedAt ?? null),
+      currentBalance: v.balance ?? 0,
+      currentPointsBalance: v.pointsBalance ?? 0,
+    }));
+  } else if (mode === "direct") {
+    // 회사명 / 사업자번호 부분 검색 + (호환) vendor id 직접 입력.
+    const idList = (parsed.data.vendorIds ?? []).filter((n) => Number.isFinite(n));
+    const q = (parsed.data.query ?? "").trim();
+    if (idList.length === 0 && q.length === 0) {
+      res.json({ vendors: [], notFoundVendorIds: [], notFoundBusinessNumbers: [] });
+      return;
+    }
+    const orConds: Array<ReturnType<typeof eq> | undefined> = [];
+    if (idList.length > 0) orConds.push(inArray(vendorsTable.id, idList));
+    if (q.length > 0) {
+      orConds.push(ilike(vendorsTable.name, `%${q}%`));
+      const norm = normalizeBizNumber(q);
+      if (norm.length >= 3) {
+        // 사업자번호 부분 매칭 (저장값의 비숫자 제거 후 비교).
+        orConds.push(sql`regexp_replace(COALESCE(${vendorsTable.businessRegNumber}, ''), '[^0-9]', '', 'g') ILIKE ${"%" + norm + "%"}`);
+      }
+    }
+    const rows = await db
+      .selectDistinct({
+        id: vendorsTable.id,
+        name: vendorsTable.name,
+        category: vendorsTable.category,
+        businessRegNumber: vendorsTable.businessRegNumber,
+        sido: vendorsTable.sido,
+        sigungu: vendorsTable.sigungu,
+        joinedAt: vendorsTable.joinedAt,
+        balance: vendorCreditWalletsTable.balance,
+        pointsBalance: vendorCreditWalletsTable.pointsBalance,
+      })
+      .from(vendorsTable)
+      .innerJoin(usersTable, partnerJoinConds)
+      .leftJoin(vendorCreditWalletsTable, eq(vendorCreditWalletsTable.vendorId, vendorsTable.id))
+      .where(or(...orConds.filter(Boolean) as Array<ReturnType<typeof eq>>))
+      .orderBy(vendorsTable.name)
+      .limit(500);
+    const foundIds = new Set(rows.map((r) => r.id));
+    notFoundVendorIds = idList.filter((id) => !foundIds.has(id));
+    vendors = rows.map((v) => ({
+      vendorId: v.id,
+      name: v.name,
+      category: v.category ?? null,
+      businessRegNumber: v.businessRegNumber ?? null,
+      sido: v.sido ?? null,
+      sigungu: v.sigungu ?? null,
+      joinedAt: v.joinedAt instanceof Date ? v.joinedAt.toISOString() : (v.joinedAt ?? null),
+      currentBalance: v.balance ?? 0,
+      currentPointsBalance: v.pointsBalance ?? 0,
+    }));
+  } else {
+    // excel — 사업자번호 정규화 매칭, 파트너+승인 활성 join 추가.
+    const rawNumbers = (parsed.data.businessNumbers ?? []).map((s) => normalizeBizNumber(String(s ?? ""))).filter((s) => s.length > 0);
+    if (rawNumbers.length === 0) {
+      res.json({ vendors: [], notFoundVendorIds: [], notFoundBusinessNumbers: [] });
+      return;
+    }
+    const rows = await db.execute(sql`
+      SELECT DISTINCT v.id, v.name, v.category, v.business_reg_number, v.sido, v.sigungu, v.joined_at,
+             COALESCE(w.balance, 0) AS balance, COALESCE(w.points_balance, 0) AS points_balance
+      FROM vendors v
+      INNER JOIN users u ON u.vendor_id = v.id
+      LEFT JOIN vendor_credit_wallets w ON w.vendor_id = v.id
+      WHERE regexp_replace(COALESCE(v.business_reg_number, ''), '[^0-9]', '', 'g')
+            = ANY(${rawNumbers}::text[])
+        AND u.role = 'partner'
+        AND u.approval_status = ANY(${approvalStatuses}::text[])
+    `);
+    const found = (rows.rows ?? []) as Array<{
+      id: number; name: string; category: string | null; business_reg_number: string | null;
+      sido: string | null; sigungu: string | null; joined_at: Date | string | null;
+      balance: number | string; points_balance: number | string;
+    }>;
+    const foundNorms = new Set(found.map((r) => normalizeBizNumber(String(r.business_reg_number ?? ""))));
+    notFoundBusinessNumbers = rawNumbers.filter((n) => !foundNorms.has(n));
+    vendors = found.map((v) => ({
+      vendorId: v.id,
+      name: v.name,
+      category: v.category ?? null,
+      businessRegNumber: v.business_reg_number ?? null,
+      sido: v.sido ?? null,
+      sigungu: v.sigungu ?? null,
+      joinedAt: v.joined_at instanceof Date ? v.joined_at.toISOString() : (v.joined_at ?? null),
+      currentBalance: Number(v.balance ?? 0),
+      currentPointsBalance: Number(v.points_balance ?? 0),
+    }));
+  }
+
+  res.json({ vendors, notFoundBusinessNumbers, notFoundVendorIds });
+});
+
+const CreateEventBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  // 사유(메모) 필수 — 감사 추적용.
+  reason: z.string().trim().min(1, { message: "사유(메모)를 입력하세요" }).max(500),
+  creditsPerVendor: z.number().int().min(0).max(1_000_000),
+  pointsPerVendor: z.number().int().min(0).max(1_000_000),
+  vendorIds: z.array(z.number().int()).min(1),
+});
+
+router.post("/credits/events", platformAdminOnly, async (req, res): Promise<void> => {
+  const parsed = CreateEventBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { name, reason, creditsPerVendor, pointsPerVendor } = parsed.data;
+  if (creditsPerVendor === 0 && pointsPerVendor === 0) {
+    res.status(400).json({ error: "1인당 크레딧 또는 포인트 중 최소 하나는 1 이상이어야 합니다" });
+    return;
+  }
+  // 중복 vendorId 정규화.
+  const vendorIds = Array.from(new Set(parsed.data.vendorIds.filter((n) => Number.isFinite(n))));
+  if (vendorIds.length === 0) {
+    res.status(400).json({ error: "수령 대상이 비어있습니다" });
+    return;
+  }
+
+  const actorId = req.user?.userId ?? null;
+  const [actor] = actorId ? await db.select().from(usersTable).where(eq(usersTable.id, actorId)) : [];
+  const actorName = actor?.name ?? req.user?.email ?? null;
+
+  // 사전 검증: 모든 vendorId 가 파트너+활성이어야 한다. 하나라도 결격이면
+  // 400 + 결격 ID/사유 목록을 반환하고 트랜잭션은 시작도 하지 않는다 (all-or-nothing).
+  const eligibleRows = await db
+    .select({ id: vendorsTable.id, name: vendorsTable.name })
+    .from(vendorsTable)
+    .innerJoin(usersTable, and(
+      eq(usersTable.vendorId, vendorsTable.id),
+      eq(usersTable.role, "partner"),
+      eq(usersTable.approvalStatus, "active"),
+    ))
+    .where(inArray(vendorsTable.id, vendorIds));
+  const eligibleSet = new Set(eligibleRows.map((r) => r.id));
+  const ineligible = vendorIds.filter((id) => !eligibleSet.has(id));
+  if (ineligible.length > 0) {
+    res.status(400).json({
+      error: `지급 대상에 결격 파트너가 ${ineligible.length}건 포함되어 있습니다 (파트너 역할 + 승인 활성만 가능)`,
+      ineligibleVendorIds: ineligible,
+    });
+    return;
+  }
+
+  // 단일 트랜잭션 — 이벤트 행 + 수령 행 + 원장을 모두 함께 만든다.
+  // 동일 이벤트 이름 재실행은 credit_events.name 의 UNIQUE 인덱스가 거부 (23505).
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
+    const totalCredits = creditsPerVendor * vendorIds.length;
+    const totalPoints = pointsPerVendor * vendorIds.length;
+
+    const [event] = await tx.insert(creditEventsTable).values({
+      name,
+      reason: reason ?? null,
+      creditsPerVendor,
+      pointsPerVendor,
+      recipientCount: vendorIds.length,
+      totalCredits,
+      totalPoints,
+      actorId,
+      actorName,
+    }).returning();
+
+    // notes 형식: "[이벤트] {이벤트명}" 으로 통일.
+    //   사유는 별도 컬럼(credit_events.reason)에 보관되므로 ledger.notes 에는 넣지 않는다.
+    const noteText = `[이벤트] ${name}`;
+    for (const vid of vendorIds) {
+      await getOrCreateWallet(vid, tx);
+      const [ledger] = await tx.insert(creditLedgerTable).values({
+        vendorId: vid,
+        amount: creditsPerVendor,
+        kind: "event_grant",
+        // 운영자가 수동으로 일괄 지급한 행이므로 source = manual.
+        source: "manual",
+        pointsAmount: pointsPerVendor,
+        notes: noteText,
+        actorId,
+        actorName,
+      }).returning();
+      await tx.insert(creditEventRecipientsTable).values({
+        eventId: event.id,
+        vendorId: vid,
+        ledgerId: ledger.id,
+      });
+      await recalcWalletBalance(vid, tx);
+    }
+    return { event };
+  });
+  } catch (e: unknown) {
+    // Drizzle 은 원본 pg 에러를 e.cause 에 감싸 던지므로 양쪽을 모두 확인한다.
+    const err = e as { code?: string; cause?: { code?: string }; message?: string } | null;
+    const code = err?.code ?? err?.cause?.code;
+    if (code === "23505") {
+      // credit_events_name_unique 위반 — 동일 이름 이벤트가 이미 존재.
+      res.status(409).json({ error: `이미 동일 이름의 이벤트가 존재합니다: ${name}` });
+      return;
+    }
+    const msg = err?.message || "이벤트 생성에 실패했습니다";
+    req.log.error({ err: e }, "credit event create failed");
+    res.status(500).json({ error: msg });
+    return;
+  }
+
+  // 응답: 생성된 event + recipients (간단한 형태).
+  const recipients = await db
+    .select({
+      vendorId: creditEventRecipientsTable.vendorId,
+      vendorName: vendorsTable.name,
+      category: vendorsTable.category,
+      businessRegNumber: vendorsTable.businessRegNumber,
+      ledgerId: creditEventRecipientsTable.ledgerId,
+    })
+    .from(creditEventRecipientsTable)
+    .leftJoin(vendorsTable, eq(vendorsTable.id, creditEventRecipientsTable.vendorId))
+    .where(eq(creditEventRecipientsTable.eventId, result.event.id))
+    .orderBy(vendorsTable.name);
+
+  // 단일 트랜잭션 + 사전 검증 통과 → requested == succeeded == vendorIds.length, failed == 0.
+  res.status(201).json({
+    event: {
+      ...result.event,
+      createdAt: result.event.createdAt instanceof Date ? result.event.createdAt.toISOString() : result.event.createdAt,
+    },
+    recipients: recipients.map((r) => ({
+      vendorId: r.vendorId,
+      vendorName: r.vendorName ?? `#${r.vendorId}`,
+      category: r.category ?? null,
+      businessRegNumber: r.businessRegNumber ?? null,
+      ledgerId: r.ledgerId ?? null,
+      creditsGranted: result.event.creditsPerVendor,
+      pointsGranted: result.event.pointsPerVendor,
+    })),
+    requested: vendorIds.length,
+    succeeded: recipients.length,
+    failed: vendorIds.length - recipients.length,
+  });
+});
+
+router.get("/credits/events", platformAdminOnly, async (req, res): Promise<void> => {
+  // 페이지네이션. 잘못된 page/limit 은 1/50 으로 정규화 (limit max 200).
+  const rawPage = Number(req.query.page);
+  const rawLimit = Number(req.query.limit);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 200 ? Math.trunc(rawLimit) : 50;
+  const offset = (page - 1) * limit;
+  const totalRows = await db.select({ c: sql<number>`count(*)::int` }).from(creditEventsTable);
+  const total = Number(totalRows[0]?.c ?? 0);
+  const rows = await db
+    .select()
+    .from(creditEventsTable)
+    .orderBy(desc(creditEventsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+  res.json({
+    events: rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    })),
+    total,
+    page,
+    limit,
+    hasMore: offset + rows.length < total,
+  });
+});
+
+router.get("/credits/events/:id", platformAdminOnly, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "잘못된 id" });
+    return;
+  }
+  const [event] = await db.select().from(creditEventsTable).where(eq(creditEventsTable.id, id));
+  if (!event) {
+    res.status(404).json({ error: "이벤트를 찾을 수 없습니다" });
+    return;
+  }
+  // [Task #734 후속] 감사 가시성 — 동일 트랜잭션에서 발행된 ledger 행을 leftJoin
+  //   하여 kind/source/notes/createdAt 도 함께 반환. 운영자가 상세 화면에서 추가
+  //   ledger 조회 없이 모든 핵심 정보를 한 번에 확인 가능.
+  const recipients = await db
+    .select({
+      vendorId: creditEventRecipientsTable.vendorId,
+      vendorName: vendorsTable.name,
+      category: vendorsTable.category,
+      businessRegNumber: vendorsTable.businessRegNumber,
+      ledgerId: creditEventRecipientsTable.ledgerId,
+      ledgerKind: creditLedgerTable.kind,
+      ledgerSource: creditLedgerTable.source,
+      ledgerNotes: creditLedgerTable.notes,
+      ledgerCreatedAt: creditLedgerTable.createdAt,
+    })
+    .from(creditEventRecipientsTable)
+    .leftJoin(vendorsTable, eq(vendorsTable.id, creditEventRecipientsTable.vendorId))
+    .leftJoin(creditLedgerTable, eq(creditLedgerTable.id, creditEventRecipientsTable.ledgerId))
+    .where(eq(creditEventRecipientsTable.eventId, id))
+    .orderBy(vendorsTable.name);
+  res.json({
+    event: {
+      ...event,
+      createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : event.createdAt,
+    },
+    recipients: recipients.map((r) => ({
+      vendorId: r.vendorId,
+      vendorName: r.vendorName ?? `#${r.vendorId}`,
+      category: r.category ?? null,
+      businessRegNumber: r.businessRegNumber ?? null,
+      ledgerId: r.ledgerId ?? null,
+      creditsGranted: event.creditsPerVendor,
+      pointsGranted: event.pointsPerVendor,
+      ledgerKind: r.ledgerKind ?? null,
+      ledgerSource: r.ledgerSource ?? null,
+      ledgerNotes: r.ledgerNotes ?? null,
+      ledgerCreatedAt:
+        r.ledgerCreatedAt instanceof Date ? r.ledgerCreatedAt.toISOString() : (r.ledgerCreatedAt ?? null),
+    })),
+  });
 });
 
 // ============================================================

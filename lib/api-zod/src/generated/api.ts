@@ -8989,6 +8989,8 @@ export const ListCreditLedgerResponseItem = zod.object({
     "rebate",
     "adjustment",
     "bonus_points",
+    "signup_bonus",
+    "event_grant",
   ]),
   source: zod.enum([
     "manual",
@@ -9193,6 +9195,200 @@ export const UpsertQuoteTypePolicyCategoryResponse = zod.object({
   displayNameKo: zod.string().nullish(),
   updatedBy: zod.string().nullish(),
   updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary [Task #734] platform_admin only: backfill signup bonus to existing partners (idempotent)
+ */
+export const ApplySignupBonusBulkResponse = zod.object({
+  applied: zod.number(),
+  skipped: zod.number(),
+  creditsPerVendor: zod.number(),
+  pointsPerVendor: zod.number(),
+});
+
+/**
+ * @summary [Task #734] platform_admin only: paginated list of bulk credit grant events
+ */
+export const listCreditEventsQueryPageDefault = 1;
+
+export const listCreditEventsQueryLimitDefault = 50;
+export const listCreditEventsQueryLimitMax = 200;
+
+export const ListCreditEventsQueryParams = zod.object({
+  page: zod.coerce.number().min(1).default(listCreditEventsQueryPageDefault),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listCreditEventsQueryLimitMax)
+    .default(listCreditEventsQueryLimitDefault),
+});
+
+export const ListCreditEventsResponse = zod
+  .object({
+    events: zod.array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        reason: zod.string().nullish(),
+        creditsPerVendor: zod.number(),
+        pointsPerVendor: zod.number(),
+        recipientCount: zod.number(),
+        totalCredits: zod.number(),
+        totalPoints: zod.number(),
+        actorId: zod.number().nullish(),
+        actorName: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+      }),
+    ),
+    total: zod.number(),
+    page: zod.number(),
+    limit: zod.number(),
+    hasMore: zod.boolean(),
+  })
+  .describe("[Task #734] paginated bulk credit event history");
+
+/**
+ * @summary [Task #734] platform_admin only: execute bulk grant in single transaction
+ */
+
+export const CreateCreditEventBody = zod.object({
+  name: zod.string(),
+  reason: zod
+    .string()
+    .min(1)
+    .describe("사유\/메모 (필수). 운영 감사 추적을 위해 비울 수 없음."),
+  creditsPerVendor: zod.number(),
+  pointsPerVendor: zod.number(),
+  vendorIds: zod.array(zod.number()),
+});
+
+/**
+ * @summary [Task #734] platform_admin only: resolve target vendor list for bulk grant
+ */
+export const PreviewCreditEventRecipientsBody = zod
+  .object({
+    mode: zod.enum(["filter", "direct", "excel"]),
+    categories: zod
+      .array(zod.string())
+      .optional()
+      .describe("filter 모드 — 다중 카테고리 (OR). 비우면 전체."),
+    sidos: zod
+      .array(zod.string())
+      .optional()
+      .describe("filter 모드 — 다중 시도 (OR)."),
+    sigungus: zod
+      .array(zod.string())
+      .optional()
+      .describe("filter 모드 — 다중 시군구 (OR)."),
+    category: zod
+      .string()
+      .nullish()
+      .describe("(호환) 단일 카테고리. categories 가 비어있을 때만 사용."),
+    sido: zod.string().nullish().describe("(호환) 단일 시도."),
+    sigungu: zod.string().nullish().describe("(호환) 단일 시군구."),
+    type: zod
+      .string()
+      .nullish()
+      .describe("filter 모드 — vendor.type (예 platform \/ contracted)"),
+    joinedFrom: zod
+      .string()
+      .nullish()
+      .describe("filter 모드 — 가입일 시작 (YYYY-MM-DD, 포함)"),
+    joinedTo: zod
+      .string()
+      .nullish()
+      .describe("filter 모드 — 가입일 종료 (YYYY-MM-DD, 포함)"),
+    activeWithinDays: zod
+      .number()
+      .nullish()
+      .describe(
+        "filter 모드 — 최근 N일 이내 활동(vendor.updated_at) 한 파트너만. 미지정\/0 = 미적용.",
+      ),
+    approvalStatuses: zod
+      .array(zod.enum(["active", "pending", "rejected"]))
+      .optional()
+      .describe("승인 상태 멀티셀렉트. 기본은 ['active'] (미승인 자동 제외)."),
+    vendorIds: zod
+      .array(zod.number())
+      .optional()
+      .describe("direct 모드 — 명시적 vendor id 배열 (호환)"),
+    query: zod
+      .string()
+      .optional()
+      .describe("direct 모드 — 회사명 \/ 사업자번호 부분 검색 문자열"),
+    businessNumbers: zod
+      .array(zod.string())
+      .optional()
+      .describe(
+        "excel 모드 — 사업자등록번호 문자열 배열 (대시 등은 자동 정규화)",
+      ),
+  })
+  .describe(
+    "[Task #734] 후보 vendor를 결정하는 3가지 모드 — filter|direct|excel. 모든 모드에서 자동으로 '파트너 역할 + 승인 활성' 필터가 적용된다.",
+  );
+
+export const PreviewCreditEventRecipientsResponse = zod.object({
+  vendors: zod.array(
+    zod.object({
+      vendorId: zod.number(),
+      name: zod.string(),
+      category: zod.string().nullish(),
+      businessRegNumber: zod.string().nullish(),
+      sido: zod.string().nullish(),
+      sigungu: zod.string().nullish(),
+      joinedAt: zod.string().nullish().describe("가입일 (ISO 8601)"),
+      currentBalance: zod
+        .number()
+        .describe("현재 크레딧 잔액 (지갑 미생성 시 0)"),
+      currentPointsBalance: zod
+        .number()
+        .describe("현재 포인트 잔액 (지갑 미생성 시 0)"),
+    }),
+  ),
+  notFoundBusinessNumbers: zod.array(zod.string()).optional(),
+  notFoundVendorIds: zod.array(zod.number()).optional(),
+});
+
+/**
+ * @summary [Task #734] platform_admin only: event with recipient list
+ */
+export const GetCreditEventDetailParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCreditEventDetailResponse = zod.object({
+  event: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    reason: zod.string().nullish(),
+    creditsPerVendor: zod.number(),
+    pointsPerVendor: zod.number(),
+    recipientCount: zod.number(),
+    totalCredits: zod.number(),
+    totalPoints: zod.number(),
+    actorId: zod.number().nullish(),
+    actorName: zod.string().nullish(),
+    createdAt: zod.string().datetime({}),
+  }),
+  recipients: zod.array(
+    zod.object({
+      vendorId: zod.number(),
+      vendorName: zod.string(),
+      category: zod.string().nullish(),
+      businessRegNumber: zod.string().nullish(),
+      ledgerId: zod.number().nullish(),
+      creditsGranted: zod.number(),
+      pointsGranted: zod.number(),
+      ledgerKind: zod.string().nullish(),
+      ledgerSource: zod.string().nullish(),
+      ledgerNotes: zod.string().nullish(),
+      ledgerCreatedAt: zod.string().datetime({}).nullish(),
+    }),
+  ),
+  requested: zod.number().optional(),
+  succeeded: zod.number().optional(),
+  failed: zod.number().optional(),
 });
 
 /**

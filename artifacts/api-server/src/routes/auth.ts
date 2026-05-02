@@ -4,6 +4,8 @@ import { eq, or } from "drizzle-orm";
 import { db, usersTable, platformConsentsTable, platformConsentTypes, facilityStaffSignupRequestsTable, buildingsTable, userRoles, portalTypes } from "@workspace/db";
 import { resolveTargetsAndNotify } from "./facilitySignupRequests";
 import { signToken, authMiddleware } from "../middlewares/auth";
+// [Task #734] 파트너 가입 승인(active 전환) 직후 가입축하 크레딧/포인트 자동 지급.
+import { grantSignupBonusIfEligible } from "../lib/credits";
 
 const router: IRouter = Router();
 
@@ -312,6 +314,18 @@ router.post("/auth/select-role", authMiddleware, async (req, res): Promise<void>
     if (updated.signupRequestId) {
       try { await resolveTargetsAndNotify(updated.signupRequestId); }
       catch (e) { req.log?.warn?.({ err: e }, "Failed to resolve facility signup targets (select-role)"); }
+    }
+    // 파트너로 역할 확정 시 가입 기본 크레딧/포인트 자동 지급. vendor 가 없으면
+    // no-op 이며, 멱등성은 원장 partial unique 제약이 보장.
+    if (updatedUser.role === "partner" && updatedUser.approvalStatus === "active" && updatedUser.vendorId) {
+      try {
+        await grantSignupBonusIfEligible(updatedUser.vendorId, {
+          actorId: updatedUser.id,
+          actorName: updatedUser.name ?? updatedUser.email ?? null,
+        });
+      } catch (e) {
+        req.log?.warn?.({ err: e, vendorId: updatedUser.vendorId }, "[Task #734] grantSignupBonusIfEligible failed in role-select");
+      }
     }
 
     const newToken = signToken({

@@ -9,6 +9,7 @@ import {
   platformSettingsTable,
   quotesTable,
   rfqsTable,
+  usersTable,
   type CreditLedger,
   type VendorCreditWallet,
 } from "@workspace/db";
@@ -445,6 +446,77 @@ export async function refundUnviewedQuotes(now: Date = new Date()): Promise<{ re
   }
 
   return { refundedCount, refundedAmount };
+}
+
+// [Task #734] 가입 기본 크레딧/포인트 — platform_settings 의 두 키로 관리.
+//   값이 미설정이면 0 으로 간주(=지급하지 않음).
+export async function getSignupBonusCredits(): Promise<number> {
+  return getNumberSetting("signup_bonus_credits", 0);
+}
+export async function getSignupBonusPoints(): Promise<number> {
+  return getNumberSetting("signup_bonus_points", 0);
+}
+
+// [Task #734] 가입(=온보딩 완료, 본 코드베이스의 사실상 승인 시점) 자동 지급.
+//   멱등성 보장 3중:
+//     1) 응용 단계 — SELECT EXISTS 확인 후 INSERT 시도
+//     2) DB 단계   — partial UNIQUE INDEX(credit_ledger_signup_bonus_unique_vendor)
+//                    가 동일 vendor 의 두 번째 signup_bonus 행을 거부한다 (race-safe)
+//     3) try/catch — DB 단계가 거부하면 unique violation(23505) 을 잡아 already=true 로 정리
+//   호출자(트랜잭션 내부)는 client 를 넘겨 단일 트랜잭션 보장 가능.
+export async function grantSignupBonusIfEligible(
+  vendorId: number,
+  actor: { actorId?: number | null; actorName?: string | null } = {},
+  client: DbClient = db,
+): Promise<{ granted: boolean; credits: number; points: number; alreadyGranted?: boolean }> {
+  const credits = await getSignupBonusCredits();
+  const points = await getSignupBonusPoints();
+  if (credits <= 0 && points <= 0) {
+    return { granted: false, credits: 0, points: 0 };
+  }
+  const existing = await client
+    .select({ id: creditLedgerTable.id })
+    .from(creditLedgerTable)
+    .where(and(eq(creditLedgerTable.vendorId, vendorId), eq(creditLedgerTable.kind, "signup_bonus")));
+  if (existing.length > 0) {
+    return { granted: false, credits, points, alreadyGranted: true };
+  }
+  // 파트너 + 승인 활성인 user 가 연결된 vendor 만 지급. 다른 경우는 no-op.
+  const linked = await client
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(
+      eq(usersTable.vendorId, vendorId),
+      eq(usersTable.role, "partner"),
+      eq(usersTable.approvalStatus, "active"),
+    ))
+    .limit(1);
+  if (linked.length === 0) {
+    return { granted: false, credits, points };
+  }
+  await getOrCreateWallet(vendorId, client);
+  try {
+    await client.insert(creditLedgerTable).values({
+      vendorId,
+      amount: Math.max(0, Math.trunc(credits)),
+      kind: "signup_bonus",
+      source: "system",
+      pointsAmount: Math.max(0, Math.trunc(points)),
+      notes: `가입 기본 지급 (${credits}C${points > 0 ? ` + ${points}P` : ""})`,
+      actorId: actor.actorId ?? null,
+      actorName: actor.actorName ?? "system",
+    });
+  } catch (e: unknown) {
+    // Postgres unique_violation = 23505. Drizzle 가 원본 pg 에러를 cause 로 감싸기도 하므로 양쪽 확인.
+    const err = e as { code?: string; cause?: { code?: string } } | null;
+    const code = err?.code ?? err?.cause?.code;
+    if (code === "23505") {
+      return { granted: false, credits, points, alreadyGranted: true };
+    }
+    throw e;
+  }
+  await recalcWalletBalance(vendorId, client);
+  return { granted: true, credits, points };
 }
 
 export async function refundRfqConsumption(rfqId: number, actorName: string, reason: string): Promise<void> {
