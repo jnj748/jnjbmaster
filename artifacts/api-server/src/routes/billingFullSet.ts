@@ -11,7 +11,8 @@
 //   /billing-ai-summary?month=YYYY-MM        GET      AI 한 단락 요약 (OpenAI / 폴백)
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import {
   db,
   billingItemsTable,
@@ -23,7 +24,9 @@ import {
   billingLinesTable,
   billingAdjustmentsTable,
   billsTable,
+  billPaymentsTable,
   unitsTable,
+  autoDebitResultsTable,
 } from "@workspace/db";
 import { z } from "zod/v4";
 import { requireRole } from "../middlewares/auth";
@@ -639,17 +642,282 @@ router.get("/billing-auto-debit", async (req, res) => {
   res.json({ month, count: rows.length, total, rows });
 });
 
+// [Task #818] 자동이체 의뢰 발송:
+//   1) 부과월의 미수납 bill 들에 대해 auto_debit_results(status='requested') 행을 생성한다.
+//      (같은 (월, 호실) 의 마지막 attempt + 1 로 행을 추가 — 재시도와도 호환).
+//   2) PG_AUTO_DEBIT_WEBHOOK_URL 가 설정된 경우 외부 PG 에 의뢰 페이로드를 POST 한다.
+//      네트워크 실패는 결과 행 status 에 영향을 주지 않는다(폴링/콜백 으로 결과 적재).
+//   3) PG_AUTO_DEBIT_SECRET 가 설정된 경우 결과 행의 requestRef 로 HMAC 헤더 서명을 첨부한다.
 router.post("/billing-auto-debit/dispatch", async (req, res) => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) return send403(res);
   const month = String(req.body?.month ?? "");
   if (!/^\d{4}-\d{2}$/.test(month)) { res.status(400).json({ error: "month 필수" }); return; }
-  // 발송 인프라가 미연결인 경우, 부과월 카드의 autoDebitEnabled 만 켠다.
-  const [row] = await db.update(billingMonthsTable)
+
+  // 부과월 카드 활성화(기존 동작 유지).
+  const [billingMonth] = await db.update(billingMonthsTable)
     .set({ autoDebitEnabled: true })
     .where(and(eq(billingMonthsTable.buildingId, buildingId), eq(billingMonthsTable.billingMonth, month)))
     .returning();
-  res.json({ success: true, month, billingMonth: row ?? null });
+
+  // 미수납 bill 들 조회.
+  const bills = await db.select().from(billsTable)
+    .where(and(eq(billsTable.buildingId, buildingId), eq(billsTable.billingMonth, month)));
+
+  const targets = bills.filter(b => Number(b.totalAmount || 0) - Number(b.paidAmount || 0) > 0);
+  const created: Array<{ id: number; billId: number; unitId: number; requestRef: string; amount: number }> = [];
+
+  for (const b of targets) {
+    const remaining = Number(b.totalAmount || 0) - Number(b.paidAmount || 0);
+    const va = (b.virtualAccount ?? {}) as { bank?: string; account?: string; holder?: string };
+    const [last] = await db.select({ a: autoDebitResultsTable.attempt })
+      .from(autoDebitResultsTable)
+      .where(and(
+        eq(autoDebitResultsTable.buildingId, buildingId),
+        eq(autoDebitResultsTable.billingMonth, month),
+        eq(autoDebitResultsTable.unitId, b.unitId),
+      ))
+      .orderBy(desc(autoDebitResultsTable.attempt)).limit(1);
+    const attempt = (last?.a ?? 0) + 1;
+    const requestRef = `AD-${month.replace("-", "")}-${b.id}-${attempt}-${randomUUID().slice(0, 8)}`;
+    const [row] = await db.insert(autoDebitResultsTable).values({
+      buildingId,
+      billingMonth: month,
+      unitId: b.unitId,
+      unitNumber: b.unitNumber,
+      billId: b.id,
+      requestRef,
+      bankCode: va.bank ?? null,
+      accountMasked: va.account ?? null,
+      amount: remaining,
+      attempt,
+      status: "requested",
+      requestedAt: new Date(),
+    }).returning();
+    created.push({ id: row.id, billId: b.id, unitId: b.unitId, requestRef, amount: remaining });
+  }
+
+  // 외부 PG 에 의뢰 푸시(설정된 경우만). 실패해도 행 상태는 'requested' 로 유지된다.
+  const webhook = process.env.PG_AUTO_DEBIT_WEBHOOK_URL;
+  if (webhook && created.length > 0) {
+    const secret = process.env.PG_AUTO_DEBIT_SECRET;
+    const body = JSON.stringify({ buildingId, billingMonth: month, items: created });
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (secret) headers["x-pg-signature"] = createHmac("sha256", secret).update(body).digest("hex");
+    try {
+      await fetch(webhook, { method: "POST", headers, body });
+    } catch (e) {
+      logger.warn({ err: String(e), webhook }, "auto-debit dispatch webhook failed");
+    }
+  }
+
+  res.json({
+    success: true,
+    month,
+    billingMonth: billingMonth ?? null,
+    requested: created.length,
+    items: created,
+  });
+});
+
+// [Task #818] PG 콜백 핸들러 — requestRef 단건 결과 적재.
+//   - 성공 시 bill_payments 에 자동 수납 기록 + paymentId 를 결과 행에 연결.
+//   - 실패 시 resultCode/resultMessage 만 채우고 retry 는 별도 엔드포인트 사용.
+//   - 동일 requestRef 의 중복 콜백은 멱등(이미 success/failed 인 행은 다시 처리하지 않음).
+const CallbackBody = z.object({
+  requestRef: z.string().min(1),
+  status: z.enum(["success", "failed"]),
+  resultCode: z.string().optional(),
+  resultMessage: z.string().optional(),
+  paidAt: z.string().datetime({ offset: true }).optional(),
+});
+
+async function processAutoDebitResult(
+  body: z.infer<typeof CallbackBody>,
+): Promise<{ ok: true; row: typeof autoDebitResultsTable.$inferSelect } | { ok: false; status: number; error: string }> {
+  // 트랜잭션 + 조건부 UPDATE 로 원자적 상태 전이.
+  // 동시 호출이 와도 'requested' 행을 먼저 잡은 호출만 INSERT 를 진행한다.
+  return await db.transaction(async (tx) => {
+    const [src] = await tx.select().from(autoDebitResultsTable)
+      .where(eq(autoDebitResultsTable.requestRef, body.requestRef)).limit(1);
+    if (!src) return { ok: false as const, status: 404, error: "requestRef 를 찾을 수 없습니다" };
+    // 멱등 — 이미 종료 상태면 그대로 반환.
+    if (src.status === "success" || src.status === "failed" || src.status === "cancelled") {
+      return { ok: true as const, row: src };
+    }
+
+    if (body.status === "failed") {
+      // 'requested' 인 동안만 실패로 전이(다른 워커가 이미 처리했으면 0행).
+      const [row] = await tx.update(autoDebitResultsTable)
+        .set({
+          status: "failed",
+          resultCode: body.resultCode ?? null,
+          resultMessage: body.resultMessage ?? null,
+          completedAt: new Date(),
+        })
+        .where(and(
+          eq(autoDebitResultsTable.id, src.id),
+          eq(autoDebitResultsTable.status, "requested"),
+        ))
+        .returning();
+      if (!row) {
+        // 다른 워커가 먼저 처리함 — 멱등하게 현재 행 반환.
+        const [now] = await tx.select().from(autoDebitResultsTable).where(eq(autoDebitResultsTable.id, src.id)).limit(1);
+        return { ok: true as const, row: now ?? src };
+      }
+      return { ok: true as const, row };
+    }
+
+    // success — 먼저 결과 행을 success 로 조건부 전이(상태=requested 일 때만).
+    // 이렇게 하면 동시 호출 중 한 건만 이 블록의 페이먼트 INSERT 를 실행한다.
+    const paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
+    const [claimed] = await tx.update(autoDebitResultsTable)
+      .set({
+        status: "success",
+        resultCode: body.resultCode ?? null,
+        resultMessage: body.resultMessage ?? null,
+        completedAt: paidAt,
+      })
+      .where(and(
+        eq(autoDebitResultsTable.id, src.id),
+        eq(autoDebitResultsTable.status, "requested"),
+      ))
+      .returning();
+    if (!claimed) {
+      const [now] = await tx.select().from(autoDebitResultsTable).where(eq(autoDebitResultsTable.id, src.id)).limit(1);
+      return { ok: true as const, row: now ?? src };
+    }
+
+    // bill_payments 에 행 추가하고 bill.paidAmount/status 갱신.
+    let paymentId: number | null = null;
+    if (src.billId) {
+      const [bill] = await tx.select().from(billsTable).where(eq(billsTable.id, src.billId)).limit(1);
+      if (bill) {
+        const [payment] = await tx.insert(billPaymentsTable).values({
+          buildingId: src.buildingId,
+          billId: src.billId,
+          unitId: src.unitId,
+          amount: src.amount,
+          channel: "transfer",
+          paidAt,
+          memo: `자동이체 (${src.requestRef ?? ""})`,
+          isPartial: src.amount < (Number(bill.totalAmount || 0) - Number(bill.paidAmount || 0)),
+        }).returning();
+        paymentId = payment.id;
+
+        // bill 합산 재계산.
+        const sums = await tx.select({
+          paid: sql<number>`COALESCE(SUM(${billPaymentsTable.amount}), 0)`,
+        }).from(billPaymentsTable)
+          .where(and(eq(billPaymentsTable.billId, src.billId), isNull(billPaymentsTable.reversedAt)));
+        const paid = Number(sums[0]?.paid ?? 0);
+        let status: typeof bill.status = bill.status;
+        if (paid <= 0) {
+          const today = new Date().toISOString().slice(0, 10);
+          status = today > bill.dueDate ? "overdue" : "issued";
+        } else if (paid < Number(bill.totalAmount || 0)) {
+          status = "partial";
+        } else {
+          status = "paid";
+        }
+        const update: Partial<typeof billsTable.$inferInsert> = { paidAmount: paid, status };
+        if (status === "paid") update.paidAt = paidAt;
+        await tx.update(billsTable).set(update).where(eq(billsTable.id, src.billId));
+      }
+    }
+
+    // paymentId 를 결과 행에 반영(이미 success 상태 — 단순 링크 업데이트).
+    const [row] = await tx.update(autoDebitResultsTable)
+      .set({ paymentId })
+      .where(eq(autoDebitResultsTable.id, src.id))
+      .returning();
+    return { ok: true as const, row };
+  });
+}
+
+// 내부 호출(인증된 매니저) — 운영자가 PG 응답을 수동으로 적재하거나, 폴링 잡이 트리거 가능.
+router.post("/billing-auto-debit/callback", async (req, res) => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) return send403(res);
+  const parsed = CallbackBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
+  // 내 건물의 행만 수정 가능하도록 검증.
+  const [src] = await db.select().from(autoDebitResultsTable)
+    .where(eq(autoDebitResultsTable.requestRef, parsed.data.requestRef)).limit(1);
+  if (!src) { res.status(404).json({ error: "requestRef 를 찾을 수 없습니다" }); return; }
+  if (src.buildingId !== buildingId) { res.status(403).json({ error: "건물 권한 없음" }); return; }
+  const r = await processAutoDebitResult(parsed.data);
+  if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+  res.json(r.row);
+});
+
+// [Task #818] 폴링 잡 — 'requested' 상태인 행을 대상으로 PG 에서 결과를 조회/적재.
+//   PG_AUTO_DEBIT_POLL_URL 가 설정된 경우 GET <url>?requestRef=... 로 조회한다.
+//   응답 형식: { status: 'success'|'failed'|'pending', resultCode?, resultMessage?, paidAt? }
+//   설정되지 않은 경우 204 (no-op).
+router.post("/billing-auto-debit/poll", async (req, res) => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) return send403(res);
+  const month = typeof req.body?.month === "string" ? req.body.month : null;
+  const conds = [
+    eq(autoDebitResultsTable.buildingId, buildingId),
+    eq(autoDebitResultsTable.status, "requested"),
+  ];
+  if (month) conds.push(eq(autoDebitResultsTable.billingMonth, month));
+  const pending = await db.select().from(autoDebitResultsTable).where(and(...conds));
+
+  const pollUrl = process.env.PG_AUTO_DEBIT_POLL_URL;
+  if (!pollUrl) { res.status(204).end(); return; }
+
+  let updated = 0;
+  for (const row of pending) {
+    if (!row.requestRef) continue;
+    try {
+      const r = await fetch(`${pollUrl}?requestRef=${encodeURIComponent(row.requestRef)}`);
+      if (!r.ok) continue;
+      const body = (await r.json()) as { status?: string; resultCode?: string; resultMessage?: string; paidAt?: string };
+      if (body.status !== "success" && body.status !== "failed") continue;
+      const out = await processAutoDebitResult({
+        requestRef: row.requestRef,
+        status: body.status,
+        resultCode: body.resultCode,
+        resultMessage: body.resultMessage,
+        paidAt: body.paidAt,
+      });
+      if (out.ok) updated += 1;
+    } catch (e) {
+      logger.warn({ err: String(e), requestRef: row.requestRef }, "auto-debit poll failed");
+    }
+  }
+  res.json({ scanned: pending.length, updated });
+});
+
+// [Task #818] 외부 PG 의 비인증 webhook 진입점 (HMAC 서명 필수).
+//   - body: CallbackBody, header: x-pg-signature = HMAC_SHA256(secret, raw body)
+//   - PG_AUTO_DEBIT_SECRET 미설정 시 503 으로 차단(개발 환경은 인증된 /callback 사용).
+//   - 라우터는 buildingRouter 밖(routes/index.ts) 에 마운트되어 인증을 우회.
+export const publicAutoDebitRouter: IRouter = Router();
+publicAutoDebitRouter.post("/billing-auto-debit/webhook", async (req, res) => {
+  const secret = process.env.PG_AUTO_DEBIT_SECRET;
+  if (!secret) { res.status(503).json({ error: "webhook 비활성 (PG_AUTO_DEBIT_SECRET 미설정)" }); return; }
+  const sig = req.header("x-pg-signature") ?? "";
+  // app.ts 의 express.json verify 훅이 보존한 raw 바이트로 HMAC 검증 — 외부 PG 의
+  // 정확한 본문 직렬화에 의존하지 않는다.
+  const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
+  if (!rawBody) { res.status(400).json({ error: "raw body 누락" }); return; }
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  let ok = false;
+  try {
+    const a = Buffer.from(sig, "hex");
+    const b = Buffer.from(expected, "hex");
+    ok = a.length === b.length && timingSafeEqual(a, b);
+  } catch { ok = false; }
+  if (!ok) { res.status(401).json({ error: "서명 불일치" }); return; }
+  const parsed = CallbackBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
+  const r = await processAutoDebitResult(parsed.data);
+  if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+  res.json({ ok: true, id: r.row.id, status: r.row.status });
 });
 
 // ── 8. AI 한 단락 요약 (Phase 1: 룰베이스, OpenAI 키 있으면 호출) ──

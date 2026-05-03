@@ -46,7 +46,12 @@ app.use(
 );
 app.use(cors());
 app.use(cookieParser());
-app.use(express.json());
+// [Task #818] webhook HMAC 검증을 위해 raw body 를 req.rawBody 에 보존.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as unknown as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);

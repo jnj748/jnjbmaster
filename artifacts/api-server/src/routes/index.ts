@@ -59,7 +59,8 @@ import feesRouter from "./fees";
 // [Task #777] 부과엔진 v01 — /billing/* 신규 라우트.
 import billingRouter from "./billing";
 // [Task #799] 부과관리 풀세트 — /billing-items, /billing-late-fee-rates 등.
-import billingFullSetRouter from "./billingFullSet";
+// [Task #818] 자동이체 PG 콜백 webhook (HMAC 서명, 비인증).
+import billingFullSetRouter, { publicAutoDebitRouter } from "./billingFullSet";
 // [Task #779] 고지·수납엔진 v01 — /bills/*, /bank-tx/* 신규 라우트.
 import billsRouter, { publicBillsRouter } from "./bills";
 // [Task #800] 수납·미납 관리 풀세트 — /receivables/*.
@@ -127,6 +128,8 @@ router.use(storageRouter);
 router.use(publicTenantCardRouter);
 // [Task #779] 입주민 납부 링크 — 비인증 진입.
 router.use(publicBillsRouter);
+// [Task #818] 자동이체 PG 콜백(HMAC 서명) — authMiddleware 앞에 마운트.
+router.use(publicAutoDebitRouter);
 // [Task #758] 게스트 전자서명 공개 엔드포인트 — authMiddleware 앞에 마운트.
 router.use(publicGuestSignaturesRouter);
 
