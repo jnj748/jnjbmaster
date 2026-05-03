@@ -114,6 +114,9 @@ const ExpenseVoucherInbox = lazy(() => import("@/pages/expense-voucher-inbox"));
 const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
 const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds"));
 
+// [Task #772] 경리 신 IA "준비 중" Coming Soon 스텁 — 후속 엔진 태스크(T2~T10)에서 채워진다.
+const AccountantComingSoon = lazy(() => import("@/pages/accountant/coming-soon"));
+
 // [역할 라벨 SoT] 역할 키 / 표시 라벨은 @workspace/shared/role-labels 에서
 //   단일 소스로 정의한다. 라벨이 바뀌면 그 파일만 수정하면 프런트엔드와
 //   백엔드가 동시에 반영된다.
@@ -891,6 +894,50 @@ export const ROUTES: RouteEntry[] = [
     sideMenu: [],
     hidden: true,
   },
+
+  // ── [Task #772] 경리 신 IA Coming Soon 스텁 ─────────────────────────
+  // 사이드바 노출은 accountantSidebar() 가 직접 구성하므로 sideMenu/hidden 처리는
+  // 그곳에서 한다. 여기서는 라우트 등록만 보장 — `canAccess` 는 access 화이트리스트로 통과.
+  {
+    path: "/accountant/charging/auto-journal", component: AccountantComingSoon,
+    label: "자동분개", icon: Sparkles, group: "accounting",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/charging/rules", component: AccountantComingSoon,
+    label: "부과 기준", icon: Sparkles, group: "accounting",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/ledger", component: AccountantComingSoon,
+    label: "총계정원장", icon: Sparkles, group: "accounting",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/balance-sheet", component: AccountantComingSoon,
+    label: "재무상태표", icon: Sparkles, group: "accounting",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/income-statement", component: AccountantComingSoon,
+    label: "손익계산서", icon: Sparkles, group: "accounting",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/closing/monthly", component: AccountantComingSoon,
+    label: "월마감", icon: Sparkles, group: "reports",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/closing/yearly", component: AccountantComingSoon,
+    label: "연마감", icon: Sparkles, group: "reports",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
+  {
+    path: "/accountant/settings/categories", component: AccountantComingSoon,
+    label: "계정과목 설정", icon: Sparkles, group: "settings",
+    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+  },
 ];
 
 // ── Role-specific root ("/") dashboard mapping ───────────────────
@@ -1100,6 +1147,117 @@ function platformAdminSidebar(): NavSection[] {
   ];
 }
 
+// [Task #772] 경리 신 IA — 7개 신코드 그룹 + "입주민·시설·파트너" 보존 그룹.
+//   다른 역할 사이드바와 IA 가 완전히 다르므로(부과엔진/보고·마감/문서·결재 등 신
+//   카테고리), platformAdminSidebar() 와 동일하게 직접 NavSection[] 를 구성한다.
+//   라우트 등록과 access 가드는 위 ROUTES 단일 출처에 그대로 위임된다 — 여기서는
+//   "어떤 라벨/순서로 노출되는가" 만 결정한다.
+function accountantSidebar(
+  disabledCategories?: readonly string[] | null,
+  overrides?: readonly MenuOverride[] | null,
+): NavSection[] {
+  // 데스크 바깥에서도 라벨/아이콘을 ROUTES 와 동기화하기 위해 path 로 lookup.
+  // [Task #772] 신 IA 사이드바도 다른 역할과 동일하게 본사 그리드의 메뉴 override
+  //   (isMenuBlockEnabled=false 로 끈 항목)와 카테고리 끄기(disabledCategories)
+  //   를 그대로 존중한다 — 단지 "어떤 그룹/순서로 묶어서 노출할지" 만 직접 구성한다.
+  //   따라서 본사가 그리드에서 경리 메뉴를 끄면 즉시 사이드바에서도 사라진다.
+  const byPath = new Map<string, RouteEntry>();
+  for (const r of ROUTES) byPath.set(r.path, r);
+  const link = (path: string, override?: { label?: string; icon?: LucideIcon }): NavItem | null => {
+    const entry = byPath.get(path);
+    if (!entry) return null;
+    // 본사 그리드에서 경리에게 OFF 한 메뉴는 숨김.
+    if (!isMenuBlockEnabled("accountant", blockIdOf(entry), overrides)) return null;
+    // 본사 그리드에서 카테고리 자체를 끈 경우도 숨김 ("dashboard" 는 항상 통과).
+    if (!isCategoryEnabled(entry.group, disabledCategories)) return null;
+    return {
+      path,
+      label: override?.label ?? labelFor(entry, "accountant"),
+      icon: override?.icon ?? entry.icon,
+      group: entry.group,
+    };
+  };
+  const compact = (items: (NavItem | null)[]): NavItem[] =>
+    items.filter((it): it is NavItem => it !== null);
+
+  return [
+    {
+      title: "오늘의 한눈 대시보드",
+      items: compact([
+        rootItem("accountant"),
+        link("/calendar"),
+        link("/work-log"),
+      ]),
+    },
+    {
+      title: "부과엔진",
+      items: compact([
+        // 신규 — 후속 엔진(T2)에서 채워질 핵심 화면.
+        link("/accountant/charging/auto-journal", { label: "자동분개", icon: Sparkles }),
+        link("/accountant/charging/rules", { label: "부과 기준", icon: Sparkles }),
+        // 보존 — 호실 마스터(부과 단위의 출발점).
+        link("/units"),
+      ]),
+    },
+    {
+      title: "지출·문서·결재",
+      items: compact([
+        link("/expense-vouchers"),
+        link("/drafts"),
+        link("/approvals"),
+        link("/commissions"),
+      ]),
+    },
+    {
+      title: "회계 엔진",
+      items: compact([
+        link("/erp/accounting"),
+        link("/accountant/ledger", { label: "총계정원장", icon: Sparkles }),
+        link("/accountant/balance-sheet", { label: "재무상태표", icon: Sparkles }),
+        link("/accountant/income-statement", { label: "손익계산서", icon: Sparkles }),
+        link("/tax-schedules"),
+      ]),
+    },
+    {
+      title: "검침·고지·수납",
+      items: compact([
+        link("/erp/metering"),
+        link("/erp/billing"),
+        link("/erp/bills"),
+        link("/erp/fees-summary"),
+      ]),
+    },
+    {
+      title: "보고·마감",
+      items: compact([
+        link("/erp/building-records"),
+        link("/accountant/closing/monthly", { label: "월마감", icon: Sparkles }),
+        link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),
+      ]),
+    },
+    {
+      title: "설정",
+      items: compact([
+        link("/settings/profile"),
+        link("/settings/building"),
+        link("/accountant/settings/categories", { label: "계정과목 설정", icon: Sparkles }),
+      ]),
+    },
+    {
+      // 신코드 7개 그룹에 자연 매핑되지 않는 기존 기능 보존 그룹.
+      title: "입주민·시설·파트너",
+      items: compact([
+        link("/tenants"),
+        link("/erp/governance"),
+        link("/safety-checklists"),
+        link("/notices/templates"),
+        link("/contracts"),
+        link("/building/vendor-directory"),
+      ]),
+    },
+  ].filter((s) => s.items.length > 0);
+}
+
 // ── Role × menu block overrides ───────────────────────────────────
 // [플랫폼 메뉴 정비] 플랫폼이 "유저유형별 메뉴 활성화" 그리드에서
 //   특정 역할의 메뉴를 끄면, 사이드바·하단 네비·라우트 가드에서 모두 숨겨야 한다.
@@ -1146,6 +1304,9 @@ export function getSidebarSections(
   overrides?: readonly MenuOverride[] | null,
 ): NavSection[] {
   if (role === "platform_admin") return platformAdminSidebar();
+  // [Task #772] 경리 신 IA — 7개 신코드 그룹 + 보존 그룹 1개 = 총 8개 그룹.
+  //   본사 그리드 override / 카테고리 끄기 정책은 accountantSidebar 내부에서 그대로 존중한다.
+  if (role === "accountant") return accountantSidebar(disabledCategories, overrides);
   if (role === "partner") {
     // [Task #665] 파트너 사이드바도 다른 역할과 동일하게 ROUTES 단일 출처로 구동.
     //   하드코딩된 partnerItems 를 제거하고, sideMenu/access + isMenuBlockEnabled +
