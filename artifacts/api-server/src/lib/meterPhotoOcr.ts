@@ -1,6 +1,6 @@
-import { ai } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
+import { routedGenerate } from "./llmRouter";
 
 export type MeterOcrResult = {
   currentReading: number | null;
@@ -97,30 +97,25 @@ export async function runMeterPhotoOcr(opts: {
     ? `${SYSTEM_PROMPT}\n\n이번 사진은 ${opts.meterType} 계량기입니다.`
     : SYSTEM_PROMPT;
 
-  let response;
+  let routed;
   try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType, data: base64 } },
-          ],
-        },
+    routed = await routedGenerate({
+      tier: "tier0",
+      json: true,
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType, data: base64 } },
       ],
-      config: { responseMimeType: "application/json" },
     });
   } catch (err) {
     logger.error({ err, objectPath: opts.objectPath }, "Gemini meter OCR call failed");
     throw new Error("OCR 모델 호출에 실패했습니다");
   }
-
-  const text = response.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => (p && "text" in p ? p.text ?? "" : ""))
-    .join("")
-    .trim() ?? "";
+  logger.info(
+    { caller: "meterPhotoOcr", tier: routed.tier, model: routed.model, inputTokens: routed.inputTokens, outputTokens: routed.outputTokens, costEstimateUsd: routed.costEstimateUsd },
+    "LLM accounting",
+  );
+  const text = routed.text;
   if (!text) throw new Error("OCR 결과가 비어 있습니다");
 
   let parsed: Partial<MeterOcrResult>;

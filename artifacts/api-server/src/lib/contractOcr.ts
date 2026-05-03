@@ -1,6 +1,6 @@
-import { ai } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
+import { routedGenerate } from "./llmRouter";
 
 // [Task #369] 한국 용역 계약서 OCR. 기존 billOcr.ts 의 파일 크기·MIME
 // 화이트리스트 / Gemini 호출 패턴을 그대로 재사용하고, 프롬프트만 계약서
@@ -119,32 +119,25 @@ export async function runContractOcr(opts: {
   const buffer = Buffer.concat(chunks);
   const base64 = buffer.toString("base64");
 
-  let response;
+  let routed;
   try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: SYSTEM_PROMPT },
-            { inlineData: { mimeType, data: base64 } },
-          ],
-        },
+    routed = await routedGenerate({
+      tier: "tier1",
+      json: true,
+      parts: [
+        { text: SYSTEM_PROMPT },
+        { inlineData: { mimeType, data: base64 } },
       ],
-      config: {
-        responseMimeType: "application/json",
-      },
     });
   } catch (err) {
     logger.error({ err, objectPath: opts.objectPath }, "Gemini contract OCR call failed");
     throw new Error("OCR 모델 호출에 실패했습니다");
   }
-
-  const text = response.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => (p && "text" in p ? p.text ?? "" : ""))
-    .join("")
-    .trim() ?? "";
+  logger.info(
+    { caller: "contractOcr", tier: routed.tier, model: routed.model, inputTokens: routed.inputTokens, outputTokens: routed.outputTokens, costEstimateUsd: routed.costEstimateUsd },
+    "LLM accounting",
+  );
+  const text = routed.text;
   if (!text) throw new Error("OCR 결과가 비어 있습니다");
 
   // 모델은 isRecurring 을 boolean / "true"/"false" 문자열 / null 등 다양한 형태로

@@ -27,6 +27,9 @@ interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   citations: Citation[];
+  // [Task #761] 응답이 비교군 집계를 근거로 하면 N(건물 수)을 포함한다.
+  // 클라이언트는 이 값으로 "비교군 N개 건물 기준" 배지를 렌더한다.
+  peerStats?: { n: number } | null;
   createdAt?: string;
 }
 
@@ -94,6 +97,7 @@ export default function AiAssistantPage() {
   const [streaming, setStreaming] = useState(false);
   const [streamedText, setStreamedText] = useState("");
   const [streamedCitations, setStreamedCitations] = useState<Citation[]>([]);
+  const [streamedPeerStats, setStreamedPeerStats] = useState<{ n: number } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -147,6 +151,7 @@ export default function AiAssistantPage() {
     setStreaming(true);
     setStreamedText("");
     setStreamedCitations([]);
+    setStreamedPeerStats(null);
 
     try {
       const res = await fetch(`${API_BASE}/ai/chat`, {
@@ -172,6 +177,7 @@ export default function AiAssistantPage() {
       let buffer = "";
       let accumulated = "";
       let finalCitations: Citation[] = [];
+      let finalPeerStats: { n: number } | null = null;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -197,6 +203,10 @@ export default function AiAssistantPage() {
               finalCitations = data.citations;
               setStreamedCitations(data.citations);
             }
+            if (data.peerStats && typeof data.peerStats.n === "number") {
+              finalPeerStats = { n: data.peerStats.n };
+              setStreamedPeerStats(finalPeerStats);
+            }
             if (data.error) {
               throw new Error(data.error);
             }
@@ -208,10 +218,11 @@ export default function AiAssistantPage() {
 
       setMessages(prev => [
         ...prev,
-        { id: Date.now() + 1, role: "assistant", content: accumulated, citations: finalCitations },
+        { id: Date.now() + 1, role: "assistant", content: accumulated, citations: finalCitations, peerStats: finalPeerStats },
       ]);
       setStreamedText("");
       setStreamedCitations([]);
+      setStreamedPeerStats(null);
     } catch (err) {
       toast({
         variant: "destructive",
@@ -308,6 +319,7 @@ export default function AiAssistantPage() {
                 role: "assistant",
                 content: streamedText || "",
                 citations: streamedCitations,
+                peerStats: streamedPeerStats,
               }}
               isStreaming={!streamedText}
               isStreamingPlaceholder
@@ -358,6 +370,7 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
   const hasCitations = !isUser && message.citations && message.citations.length > 0;
+  const hasPeerStats = !isUser && message.peerStats && message.peerStats.n >= 3;
   const showFallbackSuggestions =
     !isUser &&
     !isStreamingPlaceholder &&
@@ -390,6 +403,17 @@ function MessageBubble({
                 </p>
               )}
             </>
+          )}
+          {hasPeerStats && (
+            <div className="pt-2 border-t border-border/40">
+              <Badge
+                variant="outline"
+                className="text-[11px] gap-1"
+                data-testid="peer-stats-badge"
+              >
+                비교군 {message.peerStats!.n}개 건물 기준 (익명 집계)
+              </Badge>
+            </div>
           )}
           {hasCitations && (
             <div className="flex flex-wrap gap-1 pt-2 border-t border-border/40">

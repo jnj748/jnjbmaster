@@ -1,6 +1,6 @@
-import { ai } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
+import { routedGenerate } from "./llmRouter";
 
 // [Task #465] 관리소장이 현장에서 작성한 짧은 메모(손글씨/인쇄/포스트잇)를
 // 사진으로 찍어 올리면 한국어 텍스트만 추출해 돌려준다. billOcr.ts /
@@ -105,28 +105,23 @@ export async function runMemoOcr(opts: {
   const buffer = Buffer.concat(chunks);
   const base64 = buffer.toString("base64");
 
-  let response;
+  let routed;
   try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: SYSTEM_PROMPT },
-            { inlineData: { mimeType, data: base64 } },
-          ],
-        },
+    routed = await routedGenerate({
+      tier: "tier0",
+      parts: [
+        { text: SYSTEM_PROMPT },
+        { inlineData: { mimeType, data: base64 } },
       ],
     });
   } catch (err) {
     logger.error({ err, objectPath: opts.objectPath }, "Gemini memo OCR call failed");
     throw new Error("OCR 모델 호출에 실패했습니다");
   }
-
-  const raw = response.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => (p && "text" in p ? p.text ?? "" : ""))
-    .join("") ?? "";
-  const text = stripFenceAndTrim(raw);
+  logger.info(
+    { caller: "memoOcr", tier: routed.tier, model: routed.model, inputTokens: routed.inputTokens, outputTokens: routed.outputTokens, costEstimateUsd: routed.costEstimateUsd },
+    "LLM accounting",
+  );
+  const text = stripFenceAndTrim(routed.text);
   return { text };
 }

@@ -1852,6 +1852,37 @@ export interface DashboardSummary {
   completionRate: number;
 }
 
+export type PortfolioAnomalyCardKind =
+  (typeof PortfolioAnomalyCardKind)[keyof typeof PortfolioAnomalyCardKind];
+
+export const PortfolioAnomalyCardKind = {
+  bill_mom_spike: "bill_mom_spike",
+  bill_yoy_spike: "bill_yoy_spike",
+  complaint_surge: "complaint_surge",
+  complaint_backlog: "complaint_backlog",
+  inspection_overdue: "inspection_overdue",
+  inspection_imminent: "inspection_imminent",
+  warranty_expiring: "warranty_expiring",
+} as const;
+
+export type PortfolioAnomalyCardSeverity =
+  (typeof PortfolioAnomalyCardSeverity)[keyof typeof PortfolioAnomalyCardSeverity];
+
+export const PortfolioAnomalyCardSeverity = {
+  info: "info",
+  warn: "warn",
+  critical: "critical",
+} as const;
+
+export interface PortfolioAnomalyCard {
+  buildingId: number;
+  buildingName: string;
+  kind: PortfolioAnomalyCardKind;
+  severity: PortfolioAnomalyCardSeverity;
+  metric: string;
+  summary: string;
+}
+
 export type AlertType = (typeof AlertType)[keyof typeof AlertType];
 
 export const AlertType = {

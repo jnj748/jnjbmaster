@@ -85,6 +85,8 @@ import usageAnalyticsRouter from "./usageAnalytics";
 // [Task #610] 통합 문서 레지스트리 + 공고문 산출물 등록 라우트.
 import documentsRouter from "./documents";
 import noticeOutputsRouter from "./noticeOutputs";
+// [Task #761] 플랫폼 레벨 AI — 포트폴리오 이상치 위젯용 라우트.
+import portfolioAnomaliesRouter from "./portfolioAnomalies";
 
 const router: IRouter = Router();
 
@@ -130,6 +132,7 @@ router.use(referralsRouter);
 router.use(hqAssignmentsRouter);
 router.use(noticeLayoutRouter);
 router.use(platformSettingsRouter);
+router.use(portfolioAnomaliesRouter);
 router.use(roleMenuOverridesRouter);
 router.use(taskTemplatesRouter);
 router.use(usageAnalyticsRouter);

@@ -3200,6 +3200,29 @@ export const GetDashboardAlertsResponse = zod.array(
 );
 
 /**
+ * @summary Platform-wide portfolio anomaly cards (rule-based + Tier1 LLM summary)
+ */
+export const GetPortfolioAnomaliesResponseItem = zod.object({
+  buildingId: zod.number(),
+  buildingName: zod.string(),
+  kind: zod.enum([
+    "bill_mom_spike",
+    "bill_yoy_spike",
+    "complaint_surge",
+    "complaint_backlog",
+    "inspection_overdue",
+    "inspection_imminent",
+    "warranty_expiring",
+  ]),
+  severity: zod.enum(["info", "warn", "critical"]),
+  metric: zod.string(),
+  summary: zod.string(),
+});
+export const GetPortfolioAnomaliesResponse = zod.array(
+  GetPortfolioAnomaliesResponseItem,
+);
+
+/**
  * @summary List approval requests
  */
 export const ListApprovalsQueryParams = zod.object({

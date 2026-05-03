@@ -281,6 +281,7 @@ import type {
   PlatformCampaignBody,
   PlatformKnowledgeDoc,
   PlatformSetting,
+  PortfolioAnomalyCard,
   PostRfqMessageBody,
   PreviewBusinessRegOcrBody,
   PreviewContractOcrBody,
@@ -8404,6 +8405,81 @@ export function useGetDashboardAlerts<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Platform-wide portfolio anomaly cards (rule-based + Tier1 LLM summary)
+ */
+export const getGetPortfolioAnomaliesUrl = () => {
+  return `/api/platform/portfolio-anomalies`;
+};
+
+export const getPortfolioAnomalies = async (
+  options?: RequestInit,
+): Promise<PortfolioAnomalyCard[]> => {
+  return customFetch<PortfolioAnomalyCard[]>(getGetPortfolioAnomaliesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortfolioAnomaliesQueryKey = () => {
+  return [`/api/platform/portfolio-anomalies`] as const;
+};
+
+export const getGetPortfolioAnomaliesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortfolioAnomalies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioAnomalies>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPortfolioAnomaliesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortfolioAnomalies>>
+  > = ({ signal }) => getPortfolioAnomalies({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioAnomalies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortfolioAnomaliesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortfolioAnomalies>>
+>;
+export type GetPortfolioAnomaliesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Platform-wide portfolio anomaly cards (rule-based + Tier1 LLM summary)
+ */
+
+export function useGetPortfolioAnomalies<
+  TData = Awaited<ReturnType<typeof getPortfolioAnomalies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getPortfolioAnomalies>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortfolioAnomaliesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

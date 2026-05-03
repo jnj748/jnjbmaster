@@ -2027,6 +2027,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/Alert"
 
+  /platform/portfolio-anomalies:
+    get:
+      operationId: getPortfolioAnomalies
+      tags: [dashboard]
+      summary: Platform-wide portfolio anomaly cards (rule-based + Tier1 LLM summary)
+      responses:
+        "200":
+          description: Anomaly cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortfolioAnomalyCard"
+
   # ── Approvals (결재) ──────────────────────────────────────
   /approvals:
     get:
@@ -9623,6 +9638,31 @@ components:
         - totalCommissionAmount
         - pendingCommissionAmount
         - completionRate
+
+    PortfolioAnomalyCard:
+      type: object
+      properties:
+        buildingId:
+          type: integer
+        buildingName:
+          type: string
+        kind:
+          type: string
+          enum: [bill_mom_spike, bill_yoy_spike, complaint_surge, complaint_backlog, inspection_overdue, inspection_imminent, warranty_expiring]
+        severity:
+          type: string
+          enum: [info, warn, critical]
+        metric:
+          type: string
+        summary:
+          type: string
+      required:
+        - buildingId
+        - buildingName
+        - kind
+        - severity
+        - metric
+        - summary
 
     Alert:
       type: object

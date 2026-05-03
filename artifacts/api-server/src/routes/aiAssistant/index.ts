@@ -7,8 +7,8 @@ import {
   usersTable,
   type AiChatCitation,
 } from "@workspace/db";
-import { ai } from "@workspace/integrations-gemini-ai";
 import { requireRole } from "../../middlewares/auth";
+import { pickTier, routedStream, type Tier } from "../../lib/llmRouter";
 import {
   buildBuildingContext,
   buildBuildingFacts,
@@ -27,19 +27,8 @@ router.use("/ai", requireRole("manager", "platform_admin"));
 const RATE_LIMIT_PER_MINUTE = 10;
 const MAX_INPUT_CHARS = 4000;
 
-/**
- * Pick a Gemini model per task spec: "Flash 우선, 복잡 추론은 Pro".
- * Use Pro when the prompt is long or contains keywords that imply
- * multi-step reasoning, comparison, planning, or strategy.
- */
-const PRO_KEYWORDS = ["분석", "비교", "전략", "계획", "추천", "예측", "왜", "근거", "리스크", "최적"];
-function pickModel(content: string): string {
-  if (content.length > 800) return "gemini-2.5-pro";
-  for (const kw of PRO_KEYWORDS) {
-    if (content.includes(kw)) return "gemini-2.5-pro";
-  }
-  return "gemini-2.5-flash";
-}
+// [Task #761] tier 선택은 공유 라우터(`lib/llmRouter`) 가 담당. 키워드/길이 기반
+// 자동 승급 규칙은 모든 LLM 호출자(OCR 포함) 가 동일하게 사용하도록 통합했다.
 const rateBuckets = new Map<number, number[]>();
 function checkRateLimit(userId: number): boolean {
   const now = Date.now();
@@ -233,8 +222,16 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     citations: [],
   });
 
-  // Build building context
-  const ctx = await buildBuildingContext(session!.buildingId ?? null);
+  // [Task #761] 비교군 NL 질문 — 사용자가 평균/비교/적정/비싼/저렴 같은 표현을
+  // 쓰면 익명 비교군 집계를 컨텍스트에 함께 넣는다. 모든 역할(manager/admin)이
+  // 동일하게 익명 집계만 받으며, platform_admin 의 식별 가능한 다건물 조회는
+  // 별도 플랫폼 라우트(예: /platform/portfolio-anomalies) 를 사용한다.
+  const PEER_KEYWORDS = ["비교", "평균", "적정", "비싼", "저렴", "다른 건물", "타 건물", "비슷한", "또래"];
+  const includePeerStats = PEER_KEYWORDS.some((kw) => content.includes(kw));
+  const ctx = await buildBuildingContext(session!.buildingId ?? null, {
+    includePeerStats,
+    userRole: req.user!.role,
+  });
   const systemPrompt = buildSystemPrompt(ctx);
 
   // Load prior messages (exclude the just-inserted user message — we'll re-add it last)
@@ -254,6 +251,15 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   // Send sessionId early so the client can update UI
   res.write(`data: ${JSON.stringify({ session: { id: session!.id, title: session!.title } })}\n\n`);
 
+  // [Task #761] 비교군이 첨부된 경우 클라이언트가 응답 출처 배지("비교군 N개 건물 기준")
+  // 를 렌더할 수 있도록 별도 SSE 이벤트로 알린다. 본문에는 다른 건물 식별자가
+  // 들어가지 않으므로(시스템 프롬프트 규칙 #10), N 만 노출한다.
+  const peerCtxMatch = ctx.json.match(/"peerStats":\s*\{[^}]*"n":\s*(\d+)/);
+  const peerN = peerCtxMatch ? Number(peerCtxMatch[1]) : null;
+  if (peerN && peerN >= 3) {
+    res.write(`data: ${JSON.stringify({ peerStats: { n: peerN } })}\n\n`);
+  }
+
   const contents = priorMessages.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -262,35 +268,33 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   let fullResponse = "";
   const sanitizer = new ParenSanitizer();
   let aborted = false;
+  let tier: Tier = pickTier(content);
+  let model = "";
   let inputTokens: number | null = null;
   let outputTokens: number | null = null;
+  let costEstimateUsd = 0;
   req.on("close", () => { aborted = true; });
 
   try {
-    const stream = await ai.models.generateContentStream({
-      model: pickModel(content),
-      contents,
-      config: {
-        systemInstruction: systemPrompt,
-        maxOutputTokens: 8192,
-      },
-    });
-    for await (const chunk of stream) {
-      if (aborted) break;
-      const text = chunk.text;
-      if (text) {
+    const result = await routedStream({
+      tier,
+      contents: contents as never,
+      systemInstruction: systemPrompt,
+      onChunk(text) {
+        if (aborted) return false;
         const cleaned = sanitizer.push(text);
         if (cleaned) {
           fullResponse += cleaned;
           res.write(`data: ${JSON.stringify({ content: cleaned })}\n\n`);
         }
-      }
-      const usage = chunk.usageMetadata;
-      if (usage) {
-        if (typeof usage.promptTokenCount === "number") inputTokens = usage.promptTokenCount;
-        if (typeof usage.candidatesTokenCount === "number") outputTokens = usage.candidatesTokenCount;
-      }
-    }
+        return undefined;
+      },
+    });
+    tier = result.tier;
+    model = result.model;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+    costEstimateUsd = result.costEstimateUsd;
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI 응답을 생성하지 못했습니다.";
     res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
@@ -333,6 +337,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     citations: dedup,
     inputTokens,
     outputTokens,
+    metadata: { tier, model, costEstimateUsd, caller: "aiAssistant" },
   });
 
   // Touch session updatedAt + auto-update title if still default

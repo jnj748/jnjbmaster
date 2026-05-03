@@ -1,6 +1,6 @@
-import { ai } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
+import { routedGenerate } from "./llmRouter";
 
 export type BillOcrResult = {
   billingMonth: string | null;
@@ -96,32 +96,25 @@ export async function runBillOcr(opts: {
   const buffer = Buffer.concat(chunks);
   const base64 = buffer.toString("base64");
 
-  let response;
+  let routed;
   try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: SYSTEM_PROMPT },
-            { inlineData: { mimeType, data: base64 } },
-          ],
-        },
+    routed = await routedGenerate({
+      tier: "tier1",
+      json: true,
+      parts: [
+        { text: SYSTEM_PROMPT },
+        { inlineData: { mimeType, data: base64 } },
       ],
-      config: {
-        responseMimeType: "application/json",
-      },
     });
   } catch (err) {
     logger.error({ err, objectPath: opts.objectPath }, "Gemini OCR call failed");
     throw new Error("OCR 모델 호출에 실패했습니다");
   }
-
-  const text = response.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => (p && "text" in p ? p.text ?? "" : ""))
-    .join("")
-    .trim() ?? "";
+  logger.info(
+    { caller: "billOcr", tier: routed.tier, model: routed.model, inputTokens: routed.inputTokens, outputTokens: routed.outputTokens, costEstimateUsd: routed.costEstimateUsd },
+    "LLM accounting",
+  );
+  const text = routed.text;
   if (!text) throw new Error("OCR 결과가 비어 있습니다");
 
   let parsed: Partial<BillOcrResult>;

@@ -12,11 +12,13 @@ import {
   Calculator,
   HardHat,
   Package,
+  AlertTriangle,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   useListAdminCreditWallets,
   useAdjustCredits,
+  useGetPortfolioAnomalies,
   getListAdminCreditWalletsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -175,6 +177,11 @@ export default function AdminDashboard() {
           <MobileTabPanels
             sections={[
               {
+                key: "anomalies",
+                label: "포트폴리오 이상치",
+                content: <PortfolioAnomalyPanel />,
+              },
+              {
                 key: "credits",
                 label: "파트너 크레딧",
                 content: <VendorCreditsPanel />,
@@ -223,10 +230,85 @@ export default function AdminDashboard() {
             ))}
           </div>
 
+          <PortfolioAnomalyPanel />
           <VendorCreditsPanel />
         </div>
       </DesktopOnly>
     </>
+  );
+}
+
+// [Task #761] MVP-1 — 플랫폼 운영자에게만 노출되는 포트폴리오 이상치 카드.
+// 백엔드(`/platform/portfolio-anomalies`)가 platform_admin 만 통과시키므로
+// 다른 역할이 우연히 이 패널을 렌더해도 빈 상태로 표시된다.
+const SEVERITY_BADGE: Record<string, { label: string; cls: string }> = {
+  critical: { label: "긴급", cls: "bg-red-500/15 text-red-700 dark:text-red-300" },
+  warn: { label: "주의", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
+  info: { label: "참고", cls: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
+};
+const KIND_LABEL: Record<string, string> = {
+  bill_mom_spike: "관리비 급변(전월대비)",
+  bill_yoy_spike: "관리비 급변(전년대비)",
+  complaint_surge: "민원 누적",
+  complaint_backlog: "민원 미해결 누적",
+  inspection_overdue: "점검 미이행",
+  inspection_imminent: "점검 임박 미완료",
+  warranty_expiring: "보증 만료 임박",
+};
+
+export function PortfolioAnomalyPanel() {
+  const [, navigate] = useLocation();
+  const { data: cards, isLoading, isError } = useGetPortfolioAnomalies();
+  return (
+    <Card data-testid="portfolio-anomaly-panel">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-500" />
+          포트폴리오 이상치
+          {cards && cards.length > 0 && (
+            <Badge variant="secondary" className="ml-1">{cards.length}</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground text-center py-4">불러오는 중…</p>
+        ) : isError ? (
+          <p className="text-sm text-muted-foreground text-center py-4">이상치 자료를 불러오지 못했습니다.</p>
+        ) : !cards || cards.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">현재 감지된 이상치가 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {cards.map((c, idx) => {
+              const sev = SEVERITY_BADGE[c.severity] ?? SEVERITY_BADGE.info;
+              return (
+                <button
+                  key={`${c.buildingId}-${c.kind}-${idx}`}
+                  type="button"
+                  onClick={() => navigate(`/building-info?buildingId=${c.buildingId}`)}
+                  className="w-full text-left border rounded-lg p-3 hover-elevate"
+                  data-testid={`anomaly-card-${c.kind}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[11px] px-1.5 py-0.5 rounded ${sev.cls}`}>{sev.label}</span>
+                        <span className="text-xs text-muted-foreground">{KIND_LABEL[c.kind] ?? c.kind}</span>
+                      </div>
+                      <p className="text-sm font-medium mt-1 truncate">{c.buildingName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{c.metric}</p>
+                      {c.summary && (
+                        <p className="text-sm mt-1 leading-snug">{c.summary}</p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
