@@ -281,7 +281,7 @@ export default function Login() {
           [Task #466] 와이드 모니터에서 콘텐츠가 양 끝까지 늘어지지 않도록 최대 너비
           (max-w-screen-xl)와 좌우 자동 마진(mx-auto)으로 화면 가로 중앙에 모은다.
           배경 그라데이션은 바깥 div에 그대로 두어 전체 화면을 덮는다. */}
-      <div className="flex-1 min-h-0 md:flex-none md:flex-1 w-full md:max-w-screen-xl md:mx-auto md:grid md:grid-cols-12 md:gap-6 md:items-stretch md:px-8">
+      <div className="flex-1 min-h-0 md:flex-none md:my-auto md:py-8 w-full md:max-w-screen-xl md:mx-auto md:grid md:grid-cols-12 md:gap-6 md:items-center md:px-8">
         {/* 좌측 브랜드 패널 — 데스크톱: 항상 표시(6/12) / 모바일: 회원가입 진입 시
             세로 스크롤 폭증을 막기 위해 숨긴다. 그 외 로그인 모드에서는 카드 위에 컴팩트로 노출. */}
         <div
