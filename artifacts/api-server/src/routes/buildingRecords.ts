@@ -25,6 +25,8 @@ import {
   type EvidenceLink,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #773] 응대자료 저장은 매트릭스 기반 가드 + 감사로그.
+import { audit, requireAction } from "../middlewares/audit";
 import { canAccessBuilding as scopeCanAccessBuilding } from "../middlewares/buildingScope";
 
 const router: IRouter = Router();
@@ -32,6 +34,15 @@ const READ_ROLES = ["manager", "platform_admin", "accountant", "hq_executive"] a
 const WRITE_ROLES = ["manager", "platform_admin", "accountant"] as const;
 
 router.use("/building-records", requireRole(...READ_ROLES));
+
+// [Task #773] PUT /building-records 는 매트릭스의 building_record.upsert 액션이다.
+//   기존 인라인 WRITE_ROLES 체크는 그대로 두고, 게이트와 감사 한 줄을 추가로 부착해
+//   회귀 위험 없이 점진 마이그레이션한다.
+router.put(
+  "/building-records",
+  requireAction("building_record.upsert"),
+  audit("building_record.upsert", { targetType: "building_monthly_record" }),
+);
 
 async function getUserContext(req: Request): Promise<{ userId: number; role: string; buildingId: number | null } | null> {
   const userId = req.user?.userId;

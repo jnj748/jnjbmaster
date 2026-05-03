@@ -115,6 +115,8 @@ const PlatformRolePartners = lazy(() => import("@/pages/platform-role-status").t
 
 // [Task #611] 결재 라인 — 지출결의서 / 입금요청서 / 본부장 임계 금액 화면.
 const ExpenseVoucherInbox = lazy(() => import("@/pages/expense-voucher-inbox"));
+// [Task #773] 감사로그 — platform_admin / hq_executive / custodian 만 진입.
+const AuditLogsPage = lazy(() => import("@/pages/audit-logs"));
 const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
 const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds"));
 
@@ -772,6 +774,12 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-credits")),
     label: "파트너 크레딧 현황", icon: Coins, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #773] 감사로그 화면 — platform_admin / hq_executive / custodian 만 사이드바 노출.
+  //   사이드바 그룹은 'settings' 로 두어 본사 그리드(역할×메뉴)에서 끄고 켤 수 있게 한다.
+  { path: "/audit-logs", component: AuditLogsPage,
+    label: "감사로그", icon: Shield, group: "settings",
+    access: ["platform_admin", "hq_executive", "custodian"],
+    sideMenu: ["platform_admin", "hq_executive", "custodian"] },
   // [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책 통합 관리.
   { path: "/platform/quote-credit-policies",
     component: lazy(() => import("@/pages/platform-quote-credit-policies")),

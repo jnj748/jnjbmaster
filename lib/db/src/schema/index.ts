@@ -83,3 +83,5 @@ export * from "./noticeOutputs";
 export * from "./creditEvents";
 export * from "./vendorSmartQuote";
 export * from "./rfqSmartQuoteLog";
+// [Task #773] 권한·감사로그 엔진 — 모든 변경계 도메인 액션의 단일 기록 테이블.
+export * from "./auditLogs";

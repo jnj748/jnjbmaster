@@ -3,6 +3,8 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, approvalsTable, approvalStepsTable, approvalRecipientsTable, approvalSignedCopiesTable, digitalSignaturesTable, usersTable, notificationsTable, contractsTable } from "@workspace/db";
 import { requireRole, type AuthPayload } from "../middlewares/auth";
+// [Task #773] 결재 단계 처리(승인/반려)·기안서 생성/수정/제출 감사로그.
+import { audit, requireAction } from "../middlewares/audit";
 // [Task #610] 2층 단일 통로 — 임시저장 기안서 commit 후 documents 레지스트리에 등록.
 import { registerDocument } from "../services/documents/registerDocument";
 import { saveProducingDocument } from "../repo/producingDocuments";
@@ -108,7 +110,23 @@ router.get("/approvals/:id/steps", requireRole(...inboxRoles), async (req, res):
   res.json(steps.map(serializeStep));
 });
 
-router.post("/approvals/:id/steps/:stepId/process", requireRole(...processRoles), async (req, res): Promise<void> => {
+// [Task #773] approve/reject 액션은 매트릭스에서 분기되므로 미들웨어에서 단일
+//   action 키를 박을 수 없다. 기존 processRoles 가드는 보존하고, 응답 직전에
+//   request body 의 action 을 보고 동적으로 audit 한 번만 기록한다.
+// [Task #773] 매트릭스 기반 가드로 전환 (구 requireRole 동등). approve/reject 양쪽 모두
+//   동일한 역할 집합이므로 approve 키로 검사해도 둘 다 통과한다.
+router.post("/approvals/:id/steps/:stepId/process", requireAction("approval.step.approve"), audit("approval.step.approve", {
+  targetType: "approval_step",
+  targetIdParam: "stepId",
+  // [Task #773] approve / reject 분기 — 응답 직전에 body 의 action 으로 정확히 분기 기록.
+  resolveAction: (req) => {
+    const a = (req.body as { action?: unknown })?.action;
+    if (a === "reject") return "approval.step.reject";
+    if (a === "approve") return "approval.step.approve";
+    return null;
+  },
+  resolveBefore: (req) => ({ action: (req.body as { action?: unknown })?.action ?? null }),
+}), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const stepId = Number(req.params.stepId);
   const { action, comment, signatureId } = req.body;
@@ -124,6 +142,29 @@ router.post("/approvals/:id/steps/:stepId/process", requireRole(...processRoles)
   if (!action || !["approve", "reject"].includes(action)) {
     res.status(400).json({ error: "유효한 action(approve/reject)을 입력해주세요" });
     return;
+  }
+
+  // [Task #773] reject 는 매트릭스 DESTRUCTIVE_ACTIONS — 사유(reason) 필수.
+  //   approve/reject 를 같은 라우트에서 처리하므로 정적 requireAction("approve") 가드만으로는
+  //   reject 의 사유 강제가 누락된다. 동적으로 한 번 더 막는다.
+  if (action === "reject") {
+    const reasonRaw = (req.body as { reason?: unknown }).reason;
+    const headerRaw = req.headers["x-audit-reason"];
+    const reason = typeof reasonRaw === "string" ? reasonRaw.trim() : typeof headerRaw === "string" ? headerRaw.trim() : "";
+    const commentRaw = typeof comment === "string" ? comment.trim() : "";
+    if (!reason && !commentRaw) {
+      res.status(422).json({
+        error: "반려 사유(reason 또는 comment)는 필수입니다",
+        action: "approval.step.reject",
+        hint: "ConfirmWithReason 컴포넌트로 사유 칩을 받아 X-Audit-Reason 또는 body.reason 으로 전달하세요",
+      });
+      return;
+    }
+    // [Task #773] 사유가 reason 으로 안 오고 comment 로만 들어온 경우에도 audit 행이
+    //   reason=null 로 남지 않도록, 감사 미들웨어가 보는 req.body.reason 에 미러링한다.
+    if (!reason && commentRaw) {
+      (req.body as { reason?: string }).reason = commentRaw;
+    }
   }
 
   const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, approvalId));
@@ -437,7 +478,7 @@ router.get("/approvals/:id/recipients", requireRole(...inboxRoles), async (req, 
   );
 });
 
-router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Promise<void> => {
+router.post("/approvals/draft", requireRole(...draftRoles), audit("approval.draft.create", { targetType: "approval" }), async (req, res): Promise<void> => {
   const user = req.user!;
   const body = req.body;
 
@@ -552,7 +593,7 @@ router.post("/approvals/draft", requireRole(...draftRoles), async (req, res): Pr
   res.status(201).json(serializeApproval(row));
 });
 
-router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res): Promise<void> => {
+router.put("/approvals/draft/:id", requireRole(...draftRoles), audit("approval.draft.update", { targetType: "approval", targetIdParam: "id" }), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body;
   const user = req.user!;
@@ -656,7 +697,7 @@ router.put("/approvals/draft/:id", requireRole(...draftRoles), async (req, res):
   res.json(serializeApproval(row));
 });
 
-router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), async (req, res): Promise<void> => {
+router.post("/approvals/draft/:id/submit", requireRole(...draftRoles), audit("approval.line.submit", { targetType: "approval", targetIdParam: "id" }), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = req.body || {};
   const user = req.user!;

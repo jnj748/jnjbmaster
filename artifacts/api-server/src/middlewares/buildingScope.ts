@@ -23,10 +23,13 @@ export async function getUserBuildingId(req: Request | number): Promise<number |
 // (`getHqAssignedBuildingIds` / `getAccessibleBuildingIds`) 로 처리한다.
 // partner 는 vendor 소유 모델로 별도 가드되므로 역시 제외한다.
 // 새 건물 단위 역할이 추가되면 이 한 곳만 갱신하면 된다.
+// [Task #773] custodian(관리단장)도 본인 소속 건물 단위로 묶인다 — 감사로그 등에서
+//   getAccessibleBuildingIds() 가 빈 배열을 돌려 권한이 차단되던 회귀를 막는다.
 export const BUILDING_SCOPED_ROLES: ReadonlyArray<string> = [
   "manager",
   "accountant",
   "facility_staff",
+  "custodian",
 ];
 
 export function isBuildingScopedRole(role: string | undefined | null): boolean {

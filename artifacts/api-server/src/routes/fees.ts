@@ -10,6 +10,8 @@ import {
   SendKakaoNotificationBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+// [Task #773] 부과·수납·발송 주요 액션 감사로그.
+import { audit, requireAction } from "../middlewares/audit";
 import { tenantsTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -21,7 +23,7 @@ async function getUserBuildingId(req: Request): Promise<number | null> {
   return user?.buildingId ?? null;
 }
 
-router.post("/fees/calculate", async (req: Request, res: Response): Promise<void> => {
+router.post("/fees/calculate", requireAction("billing.calculate"), audit("billing.calculate", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const parsed = CalculateFeesBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -313,7 +315,7 @@ router.get("/fees/incomplete-units", async (req: Request, res: Response): Promis
   res.json(issues);
 });
 
-router.post("/fees/interim", async (req: Request, res: Response): Promise<void> => {
+router.post("/fees/interim", requireAction("fees.interim.calculate"), audit("fees.interim.calculate", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const parsed = CalculateInterimSettlementBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -388,7 +390,7 @@ router.post("/fees/interim", async (req: Request, res: Response): Promise<void> 
   });
 });
 
-router.post("/fees/kakao-notify", async (req: Request, res: Response): Promise<void> => {
+router.post("/fees/kakao-notify", requireAction("fees.kakao.notify"), audit("fees.kakao.notify", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const parsed = SendKakaoNotificationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -419,7 +421,7 @@ router.post("/fees/kakao-notify", async (req: Request, res: Response): Promise<v
   res.json({ sent, failed, details });
 });
 
-router.post("/fees/record-payment", async (req: Request, res: Response): Promise<void> => {
+router.post("/fees/record-payment", requireAction("fees.payment.record"), audit("fees.payment.record", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
 

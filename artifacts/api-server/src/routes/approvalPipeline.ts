@@ -28,6 +28,8 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+// [Task #773] 지출결의서·서명본·계약증빙·긴급집행 등 변경계 액션 감사로그.
+import { audit, requireAction } from "../middlewares/audit";
 import { insertNotification } from "../lib/notificationRecipient";
 // [Task #610] 단일 통로 — approval lifecycle UPDATE 도 saveProducingDocument 로 통과.
 import { saveProducingDocument } from "../repo/producingDocuments";
@@ -366,7 +368,7 @@ async function issueDownstreamDocuments(
   }
 }
 
-router.post("/approvals/:id/submit-line", async (req, res): Promise<void> => {
+router.post("/approvals/:id/submit-line", audit("approval.line.submit", { targetType: "approval", targetIdParam: "id" }), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const user = req.user!;
   const body = req.body || {};
@@ -627,7 +629,7 @@ router.get("/approvals/:id/steps/:stepId/signed-copies", async (req, res): Promi
   res.json(rows.map(serializeSignedCopy));
 });
 
-router.post("/approvals/:id/steps/:stepId/signed-copies", async (req, res): Promise<void> => {
+router.post("/approvals/:id/steps/:stepId/signed-copies", audit("approval.signed_copy.upload", { targetType: "approval_step", targetIdParam: "stepId" }), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const stepId = Number(req.params.stepId);
   const body = req.body || {};
@@ -850,7 +852,7 @@ router.post("/approvals/:id/steps/:stepId/signed-copies/:copyId/replace", async 
 //   body: { action: "approve" | "reject", comment?: string, decidedAt?: ISOstring }
 // 관리소장(상신자) 또는 platform_admin 이 본부장/관리인 결재 결과를 대신 닫는다.
 // 적어도 1장 이상의 서명본이 첨부돼 있어야 닫을 수 있다 (긴급집행 라인의 사후 마감 제외).
-router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Promise<void> => {
+router.post("/approvals/:id/steps/:stepId/process-offline", audit("approval.step.process_offline", { targetType: "approval_step", targetIdParam: "stepId" }), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const stepId = Number(req.params.stepId);
   const { action, comment, decidedAt } = req.body || {};
@@ -1056,7 +1058,7 @@ router.post("/approvals/:id/steps/:stepId/process-offline", async (req, res): Pr
 //   [Task #707] 결재 라인 최종 승인 후, 관리소장(또는 같은 건물 경리)이 업체·계약서·
 //   세금계산서·기간·분리부과 메타를 입력해 voucher/request 발행 트리거를 누르는 단계.
 //   긴급집행 라인은 발행이 이미 끝났으므로 메타 갱신만 수행한다.
-router.post("/approvals/:id/register-contract-evidence", async (req, res): Promise<void> => {
+router.post("/approvals/:id/register-contract-evidence", audit("approval.contract_evidence.register", { targetType: "approval", targetIdParam: "id" }), async (req, res): Promise<void> => {
   const approvalId = Number(req.params.id);
   const user = req.user!;
   const body = req.body || {};
@@ -1410,7 +1412,9 @@ router.get(
 
 router.post(
   "/expense-vouchers/:id/record",
-  requireRole("accountant", "manager", "platform_admin"),
+  // [Task #773] 매트릭스 기반 가드로 전환 (구 requireRole 동등). expense_voucher.update.
+  requireAction("expense_voucher.update"),
+  audit("expense_voucher.update", { targetType: "expense_voucher", targetIdParam: "id" }),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
     const body = req.body || {};
@@ -1537,7 +1541,10 @@ router.get(
 
 router.post(
   "/payment-requests/:id/remit",
-  requireRole("custodian", "manager", "platform_admin"),
+  // [Task #773] 매트릭스 기반 가드로 전환 (구 requireRole 동등).
+  //   dispatch.send 매트릭스에 custodian 추가 — 입금요청서 송금 권한 보존.
+  requireAction("dispatch.send"),
+  audit("dispatch.send", { targetType: "payment_request", targetIdParam: "id" }),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
     const body = req.body || {};

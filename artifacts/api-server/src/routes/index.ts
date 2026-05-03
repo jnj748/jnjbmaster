@@ -91,6 +91,8 @@ import noticeOutputsRouter from "./noticeOutputs";
 import portfolioAnomaliesRouter from "./portfolioAnomalies";
 // [Task #758] 게스트 전자서명 — 비인증 공개 라우트 + 인증 매니저 라우트.
 import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSignatures";
+// [Task #773] 권한·감사로그 엔진 — 변경계 도메인 액션의 단일 조회/CSV 내보내기.
+import auditLogsRouter from "./auditLogs";
 
 const router: IRouter = Router();
 
@@ -217,5 +219,9 @@ router.use(buildingRouter);
 router.use(aiAssistantRouter);
 router.use(accountingInitialFilesRouter);
 router.use(facilitySignupRequestsRouter);
+// [Task #773] 감사로그 — authMiddleware 뒤(인증 사용자만), buildingRouter 밖에 둔다.
+//   화면(/audit-logs) 자체는 platform_admin/hq_executive/custodian 역할별 가드를
+//   라우터 내부에서 처리하므로 여기서는 단순 mount.
+router.use(auditLogsRouter);
 
 export default router;
