@@ -30,6 +30,17 @@ export interface VendorMatchProfile {
   serviceArea?: string | null; // JSON 문자열 {nationwide?: bool, bySido?: {시도: 시군구[]}}
   sido?: string | null;
   sigungu?: string | null;
+  // [Task #740 가입흐름재설정] 본사 승인 게이트 — false 면 매칭에서 무조건 제외.
+  //   undefined (호출처가 select 에 컬럼을 포함하지 않음) 는 호환을 위해 통과로 본다.
+  //   기존 platform vendor 는 마이그레이션이 true 로 백필했고, 신규 가입자는 false 로
+  //   시작해 본사 승인 시 true 로 전환된다.
+  matchingEnabled?: boolean | null;
+  // [Task #740 가입흐름재설정] 사업장 좌표 + 반경(km). 둘 다(rfq 좌표 포함) 있어야
+  //   거리 매칭이 활성화된다. 하나라도 비어 있으면 거리 검사를 스킵하고 기존
+  //   serviceArea/시도·시군구 로직만 사용한다(점진적 도입 — T6 백필 진행에 따라 효력 확대).
+  serviceLat?: number | null;
+  serviceLng?: number | null;
+  serviceRadiusKm?: number | null;
 }
 
 export interface RfqMatchProfile {
@@ -37,6 +48,10 @@ export interface RfqMatchProfile {
   sido?: string | null;
   sigungu?: string | null;
   geoScope?: string | null; // "sido" | "sigungu" | null
+  // [Task #740 가입흐름재설정] RFQ 발주 위치 좌표 — 건물 좌표(있을 때).
+  //   vendor 좌표·반경과 함께 거리 매칭에 사용. 없으면 거리 검사를 스킵.
+  lat?: number | null;
+  lng?: number | null;
 }
 
 // 한글 라벨 → 영문 enum 코드 매핑.
@@ -195,8 +210,46 @@ export function vendorCoversRegion(
   return false;
 }
 
+// [Task #740 가입흐름재설정] 두 위/경도 점 사이의 직선 거리(km) — Haversine.
+//   지구 반경 6371km 기준. 한국 내 거리(수백 km 이내) 에서 충분히 정확하고,
+//   외부 라이브러리 없이 즉시 매칭 루프에서 호출 가능.
+export function haversineDistanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// [Task #740 가입흐름재설정] vendor 좌표 + 반경 안에 RFQ 가 들어오는지.
+//   둘 중 하나라도 좌표가 없으면 true (= 검사 스킵, 다른 매칭 규칙으로 위임).
+//   이 게이트는 "유효한 좌표가 양쪽에 있을 때만 거리로 한 번 더 거른다" 정책.
+export function vendorCoversDistance(
+  vendor: VendorMatchProfile,
+  rfqLat: number | null | undefined,
+  rfqLng: number | null | undefined,
+): boolean {
+  const vLat = vendor.serviceLat;
+  const vLng = vendor.serviceLng;
+  const radius = vendor.serviceRadiusKm;
+  if (vLat == null || vLng == null || radius == null) return true;
+  if (rfqLat == null || rfqLng == null) return true;
+  const distance = haversineDistanceKm(vLat, vLng, rfqLat, rfqLng);
+  return distance <= radius;
+}
+
 /**
- * 단일 매칭 진입점. 카테고리 + 지역 + platform 타입을 모두 만족해야 true.
+ * 단일 매칭 진입점. 카테고리 + 지역 + platform 타입 + (있을 때) 거리 + 본사 승인 게이트
+ * 를 모두 만족해야 true.
  * 직접 초대(rfq.vendor_ids 명시) 는 이 함수의 책임이 아니다 — 호출 측에서
  * "직접 초대 OR vendorMatchesRfq" 로 OR 조합한다.
  */
@@ -205,8 +258,18 @@ export function vendorMatchesRfq(
   rfq: RfqMatchProfile,
 ): boolean {
   if ((vendor.type ?? "") !== "platform") return false;
+  // [Task #740 가입흐름재설정] 본사 승인 게이트.
+  //   matchingEnabled === false 면 즉시 차단. undefined 는 호환을 위해 통과
+  //   (호출 측이 새 컬럼을 select 에 포함하지 않은 경우 — 현재 호출처는 모두
+  //    select() 전체 컬럼이라 자동 포함됨).
+  if (vendor.matchingEnabled === false) return false;
   if (!vendorCoversCategory(vendor, rfq.category)) return false;
   if (!vendorCoversRegion(vendor, rfq.sido ?? null, rfq.sigungu ?? null, rfq.geoScope ?? null)) {
+    return false;
+  }
+  // [Task #740 가입흐름재설정] 마지막 단계로 거리 검사. 좌표 없는 vendor/RFQ 는
+  //   이 함수가 true 를 반환해 기존 시도·시군구 매칭 결과가 그대로 보존된다.
+  if (!vendorCoversDistance(vendor, rfq.lat ?? null, rfq.lng ?? null)) {
     return false;
   }
   return true;

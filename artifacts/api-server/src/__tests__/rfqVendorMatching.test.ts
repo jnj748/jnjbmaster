@@ -223,3 +223,78 @@ test("vendorMatchesRfq — 지역 미커버면 false", () => {
   };
   assert.equal(vendorMatchesRfq(v, BASE_RFQ_GUMI), false);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [Task #740 가입흐름재설정] 본사 승인 게이트 + 거리(좌표·반경) 매칭.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ENABLED_GUMI_VENDOR: VendorMatchProfile = {
+  type: "platform",
+  category: "water_tank",
+  sido: "경북",
+  sigungu: "구미시",
+  matchingEnabled: true,
+};
+
+test("vendorMatchesRfq — matchingEnabled=false 면 다른 조건이 모두 맞아도 차단", () => {
+  const v: VendorMatchProfile = { ...ENABLED_GUMI_VENDOR, matchingEnabled: false };
+  assert.equal(vendorMatchesRfq(v, BASE_RFQ_GUMI), false);
+});
+
+test("vendorMatchesRfq — matchingEnabled=undefined 는 호환을 위해 통과", () => {
+  const v: VendorMatchProfile = { ...ENABLED_GUMI_VENDOR };
+  delete (v as { matchingEnabled?: unknown }).matchingEnabled;
+  assert.equal(vendorMatchesRfq(v, BASE_RFQ_GUMI), true);
+});
+
+test("vendorMatchesRfq — matchingEnabled=true + 다른 조건 OK 면 통과", () => {
+  assert.equal(vendorMatchesRfq(ENABLED_GUMI_VENDOR, BASE_RFQ_GUMI), true);
+});
+
+// 구미시청 좌표(대략) 36.119, 128.344. 반경 50km 안쪽: 김천(약 30km) 통과, 부산(약 130km) 차단.
+test("vendorMatchesRfq — vendor 좌표 + 반경 내 RFQ 좌표면 통과", () => {
+  const v: VendorMatchProfile = {
+    ...ENABLED_GUMI_VENDOR,
+    serviceLat: 36.119,
+    serviceLng: 128.344,
+    serviceRadiusKm: 50,
+  };
+  // 김천시청 근처 좌표 (약 25-30km)
+  const r: RfqMatchProfile = { ...BASE_RFQ_GUMI, lat: 36.140, lng: 128.114 };
+  assert.equal(vendorMatchesRfq(v, r), true);
+});
+
+test("vendorMatchesRfq — vendor 반경을 벗어난 RFQ 좌표면 거리 검사로 차단", () => {
+  const v: VendorMatchProfile = {
+    ...ENABLED_GUMI_VENDOR,
+    sido: null, // 시도/시군구 fallback 도 통과되지 않게 비움
+    sigungu: null,
+    serviceArea: JSON.stringify({ nationwide: true }), // 지역은 전국으로 통과시킨 뒤
+    serviceLat: 36.119,
+    serviceLng: 128.344,
+    serviceRadiusKm: 50,
+  };
+  // 부산시청 근처 (약 120km+)
+  const r: RfqMatchProfile = {
+    category: "water_tank",
+    sido: "부산광역시",
+    sigungu: "연제구",
+    geoScope: "sigungu",
+    lat: 35.179,
+    lng: 129.075,
+  };
+  assert.equal(vendorMatchesRfq(v, r), false);
+});
+
+test("vendorMatchesRfq — vendor 좌표 없거나 RFQ 좌표 없으면 거리 검사 스킵", () => {
+  // vendor 좌표 없음 → 거리 검사 스킵, 시도·시군구 매칭으로 통과.
+  assert.equal(vendorMatchesRfq(ENABLED_GUMI_VENDOR, { ...BASE_RFQ_GUMI, lat: 35.0, lng: 129.0 }), true);
+  // RFQ 좌표 없음 → 거리 검사 스킵.
+  const v: VendorMatchProfile = {
+    ...ENABLED_GUMI_VENDOR,
+    serviceLat: 36.119,
+    serviceLng: 128.344,
+    serviceRadiusKm: 50,
+  };
+  assert.equal(vendorMatchesRfq(v, BASE_RFQ_GUMI), true);
+});
