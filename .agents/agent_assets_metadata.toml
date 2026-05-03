@@ -18,3 +18,9 @@ id = "j4Kxrv9TBFX65oDdmNYOJ"
 uri = "file://.local/exports/code.zip"
 type = "unspecified"
 title = "관리의달인 전체 소스 코드 (1,920 파일, 112MB)"
+
+[[outputs]]
+id = "ZQOgWuPbocHQXSVPzNcR7"
+uri = "file://.local/exports/building-register-lookup.zip"
+type = "unspecified"
+title = "건축물대장 조회 관련 소스 (13파일, 54KB)"
