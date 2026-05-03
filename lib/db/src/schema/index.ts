@@ -90,6 +90,8 @@ export * from "./rfqSmartQuoteLog";
 export * from "./auditLogs";
 // [Task #777] 부과엔진 v01 — 환경/분할/실행/라인/조정 5개 테이블 단일 파일.
 export * from "./billingEngine";
+// [Task #799] 부과관리 풀세트 — 항목/연체율/부과월/별도부과/발송결과.
+export * from "./billingFullSet";
 // [Task #776] 예산·집행통제 엔진 v01.
 export * from "./budgets";
 // [Task #779] 고지·수납엔진 v01 — 고지서/항목/수납/통장내역/연체단계.

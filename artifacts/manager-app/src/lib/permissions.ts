@@ -51,6 +51,13 @@ import {
   Activity,
   // [Task #780] T9 마감·보고엔진 v01 — 월마감 메뉴 아이콘.
   Lock,
+  // [Task #799] 부과관리 풀세트 11페이지 아이콘 추가분.
+  Calendar,
+  ListChecks,
+  PlusCircle,
+  Edit3,
+  MailCheck,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -133,6 +140,18 @@ const ErpBudgets = lazy(() => import("@/pages/erp/budgets"));
 const ErpClosings = lazy(() => import("@/pages/erp/closings"));
 // [Task #774] 부과자료 업로드센터 — OCR/문서엔진 v01 진입 페이지.
 const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
+// [Task #799] 부과관리 풀세트 — 11페이지.
+const BillingItemsPage = lazy(() => import("@/pages/billing/items"));
+const BillingLateFeeRatesPage = lazy(() => import("@/pages/billing/late-fee-rates"));
+const BillingMonthsPage = lazy(() => import("@/pages/billing/months"));
+const BillingRunPage = lazy(() => import("@/pages/billing/run"));
+const BillingSummaryPage = lazy(() => import("@/pages/billing/summary"));
+const BillingAutoDebitPage = lazy(() => import("@/pages/billing/auto-debit"));
+const BillingNoticesPage = lazy(() => import("@/pages/billing/notices"));
+const BillingAdjustmentsPage = lazy(() => import("@/pages/billing/adjustments"));
+const BillingNoticeDeliveryPage = lazy(() => import("@/pages/billing/notice-delivery"));
+const BillingClosePage = lazy(() => import("@/pages/billing/close"));
+const BillingExtraChargesPage = lazy(() => import("@/pages/billing/extra-charges"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
 // [Task #267] 플랫폼 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
 const PlatformRoleManagers = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.ManagersStatus })));
@@ -595,6 +614,73 @@ export const ROUTES: RouteEntry[] = [
     label: "한전 송신", icon: Send, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
     sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
+  },
+  // [Task #799] 부과관리 풀세트 — 11 페이지. 모두 manager+accountant+platform_admin 접근.
+  {
+    path: "/billing/months", component: BillingMonthsPage,
+    label: "부과월", icon: Calendar, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/items", component: BillingItemsPage,
+    label: "부과항목", icon: ListChecks, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/late-fee-rates", component: BillingLateFeeRatesPage,
+    label: "연체율", icon: Sparkles, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/extra-charges", component: BillingExtraChargesPage,
+    label: "별도 부과", icon: PlusCircle, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/run", component: BillingRunPage,
+    label: "부과 처리", icon: Calculator, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/summary", component: BillingSummaryPage,
+    label: "부과총괄표", icon: BarChart3, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/adjustments", component: BillingAdjustmentsPage,
+    label: "조정대장", icon: Edit3, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/notices", component: BillingNoticesPage,
+    label: "고지서 발행", icon: Send, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/auto-debit", component: BillingAutoDebitPage,
+    label: "자동이체 의뢰", icon: CreditCard, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/notice-delivery", component: BillingNoticeDeliveryPage,
+    label: "발송 확인", icon: MailCheck, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/billing/close", component: BillingClosePage,
+    label: "부과마감", icon: Lock, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,
@@ -1574,6 +1660,23 @@ function accountantSidebar(
         link("/erp/billing"),
         link("/erp/bills"),
         link("/erp/fees-summary"),
+      ]),
+    },
+    // [Task #799] 부과관리 풀세트 — 11 페이지 단일 그룹.
+    {
+      title: "부과관리",
+      items: compact([
+        link("/billing/months"),
+        link("/billing/items"),
+        link("/billing/late-fee-rates"),
+        link("/billing/extra-charges"),
+        link("/billing/run"),
+        link("/billing/summary"),
+        link("/billing/adjustments"),
+        link("/billing/notices"),
+        link("/billing/auto-debit"),
+        link("/billing/notice-delivery"),
+        link("/billing/close"),
       ]),
     },
     {

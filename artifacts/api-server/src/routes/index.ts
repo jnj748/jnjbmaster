@@ -58,6 +58,8 @@ import kepcoTransmissionsRouter from "./kepcoTransmissions";
 import feesRouter from "./fees";
 // [Task #777] 부과엔진 v01 — /billing/* 신규 라우트.
 import billingRouter from "./billing";
+// [Task #799] 부과관리 풀세트 — /billing-items, /billing-late-fee-rates 등.
+import billingFullSetRouter from "./billingFullSet";
 // [Task #779] 고지·수납엔진 v01 — /bills/*, /bank-tx/* 신규 라우트.
 import billsRouter, { publicBillsRouter } from "./bills";
 import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
@@ -225,6 +227,8 @@ buildingRouter.use(kepcoTransmissionsRouter);
 buildingRouter.use(feesRouter);
 // [Task #777] 부과엔진 v01 — fees 위에 마운트(같은 buildingRouter 가드 공유).
 buildingRouter.use(billingRouter);
+// [Task #799] 부과관리 풀세트 — 항목/연체율/부과월/별도부과/발송결과/총괄/AI요약.
+buildingRouter.use(billingFullSetRouter);
 // [Task #779] 고지·수납엔진 v01 — billing 위에 마운트.
 buildingRouter.use(billsRouter);
 buildingRouter.use(complaintsRouter);
