@@ -42,6 +42,18 @@ import {
 import { computeCommissionRate } from "./commissions";
 
 const router: IRouter = Router();
+
+// [Task #769] DB(Date) → ISO 문자열로 직렬화하여 UpdateQuoteResponse zod 스키마(.datetime())에 맞춤.
+// 이 변환이 누락되면 트랜잭션은 정상 커밋되어도 응답 단계에서 ZodError로 500이 발생함.
+function serializeQuoteForResponse<T extends Record<string, unknown>>(quote: T): T {
+  const dateKeys = ["createdAt", "updatedAt", "contractUploadedAt", "firstViewedAt", "noViewRefundedAt"] as const;
+  const out: Record<string, unknown> = { ...quote };
+  for (const k of dateKeys) {
+    const v = out[k];
+    if (v instanceof Date) out[k] = v.toISOString();
+  }
+  return out as T;
+}
 router.use("/quotes", requireRole("manager", "platform_admin", "accountant", "partner"));
 async function getPartnerVendorId(userId: number | undefined): Promise<number | null> {
   if (!userId) return null;
@@ -377,7 +389,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
       return inserted;
     });
 
-    res.status(201).json(UpdateQuoteResponse.parse(quote));
+    res.status(201).json(UpdateQuoteResponse.parse(serializeQuoteForResponse(quote)));
   } catch (e) {
     const err = e as { http?: number; message?: string; required?: number; balance?: number; code?: string };
     if (err.http === 402) {
@@ -751,7 +763,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
   });
 
   if (!quote) return; // already responded
-  res.json(UpdateQuoteResponse.parse(quote));
+  res.json(UpdateQuoteResponse.parse(serializeQuoteForResponse(quote)));
 });
 
 export default router;
