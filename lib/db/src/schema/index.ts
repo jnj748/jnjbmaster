@@ -76,6 +76,7 @@ export * from "./guestSignatureTokens";
 export * from "./approvalContractFiles";
 export * from "./hqApprovalThresholds";
 export * from "./expenseVouchers";
+export * from "./expenseVoucherSchedules";
 export * from "./paymentRequests";
 export * from "./documents";
 export * from "./documentIngestions";

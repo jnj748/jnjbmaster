@@ -42,6 +42,8 @@ import {
   Layers,
   // [Task #774] 부과자료 업로드센터 메뉴 아이콘.
   UploadCloud,
+  // [Task #775] 결재 진행상황(파이프라인) 메뉴 아이콘.
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -115,6 +117,8 @@ const PlatformRolePartners = lazy(() => import("@/pages/platform-role-status").t
 
 // [Task #611] 결재 라인 — 지출결의서 / 입금요청서 / 본부장 임계 금액 화면.
 const ExpenseVoucherInbox = lazy(() => import("@/pages/expense-voucher-inbox"));
+// [Task #775] 결재 진행상황 화면 — 정체 단계 표시 + 독촉 알림.
+const ApprovalPipelineStatus = lazy(() => import("@/pages/approval-pipeline-status"));
 // [Task #773] 감사로그 — platform_admin / hq_executive / custodian 만 진입.
 const AuditLogsPage = lazy(() => import("@/pages/audit-logs"));
 const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
@@ -598,6 +602,14 @@ export const ROUTES: RouteEntry[] = [
     label: "지출결의서함", icon: Receipt, group: "accounting",
     access: ["accountant", "platform_admin"],
     sideMenu: ["accountant"],
+  },
+  // [Task #775] 결재 진행상황 — 결재함 카드의 "진행상황" 진입.
+  //   id 쿼리스트링 기반 단일 라우트(상신자/경리/관리자/본부장 모두 열람 가능).
+  {
+    path: "/approval-pipeline-status", component: ApprovalPipelineStatus,
+    label: "결재 진행상황", icon: Activity, group: "accounting",
+    access: ["manager", "accountant", "hq_executive", "platform_admin"],
+    hidden: true,
   },
   // [Task #611] 입금요청함 — 관리인 전용. 송금 완료시 settlements 동기화 + 라인 종결.
   {

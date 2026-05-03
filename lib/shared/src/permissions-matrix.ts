@@ -48,6 +48,9 @@ export const AUDIT_ACTIONS = [
   "approval.signed_copy.upload",
   "approval.signed_copy.delete",
   "approval.contract_evidence.register",
+  // [Task #775] 정체된 결재단계 알림 발송, 정기지출 라인 복제.
+  "approval.line.notify_stalled",
+  "expense_voucher.duplicate",
 
   // ── 본부장 임계 금액 ───────────────────────────────────────────
   "hq_threshold.update",
@@ -103,6 +106,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "approval.signed_copy.upload": "서명본 업로드",
   "approval.signed_copy.delete": "서명본 삭제",
   "approval.contract_evidence.register": "계약·증빙 등록",
+  "approval.line.notify_stalled": "정체 결재자 알림 발송",
+  "expense_voucher.duplicate": "정기지출 라인 복제",
 
   "hq_threshold.update": "본부장 임계 금액 변경",
 
@@ -180,6 +185,9 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   "approval.signed_copy.upload": { manager: true, accountant: true, hq_executive: true, custodian: true, platform_admin: true },
   "approval.signed_copy.delete": { manager: true, platform_admin: true },
   "approval.contract_evidence.register": { manager: true, accountant: true, platform_admin: true },
+  // [Task #775] 정체 알림은 상신자(manager)/같은 건물 회계가 누를 수 있고, 복제는 manager·accountant.
+  "approval.line.notify_stalled": { manager: true, accountant: true, hq_executive: true, platform_admin: true },
+  "expense_voucher.duplicate": { manager: true, accountant: true, platform_admin: true },
 
   // ── 본부장 임계 금액 ────────────────────────────────────────
   "hq_threshold.update": { hq_executive: true, platform_admin: true },

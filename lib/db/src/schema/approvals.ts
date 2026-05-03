@@ -89,6 +89,10 @@ export const approvalsTable = pgTable("approvals", {
   installmentMonthlyAmount: real("installment_monthly_amount"),
   installmentStartDate: date("installment_start_date"),
   installmentEndDate: date("installment_end_date"),
+  // [Task #775] 정기지출 라인 표식 — issueDownstreamDocuments 가 voucher 로 그대로 전파.
+  isRecurring: boolean("is_recurring").notNull().default(false),
+  recurrenceCycle: text("recurrence_cycle"),
+  parentApprovalId: integer("parent_approval_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

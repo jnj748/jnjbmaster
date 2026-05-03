@@ -148,6 +148,27 @@ router.post("/approvals", requireRole("manager", "platform_admin", "accountant")
             buildingId: buildingIdValue,
             sourceEntityType,
             sourceEntityId,
+            // [Task #775] 정기지출(보험·임대료 등) 표식 — voucher 인박스 분기에 사용.
+            //   recurrenceCycle 은 enum 검증 없이 텍스트로 저장(클라이언트가 monthly|quarterly|semiannual|annual).
+            //   parentApprovalId 는 "지난번과 동일" 복제 시점에만 채워진다.
+            isRecurring: !!body.isRecurring,
+            recurrenceCycle: typeof body.recurrenceCycle === "string" ? body.recurrenceCycle : null,
+            parentApprovalId:
+              typeof body.parentApprovalId === "number" && Number.isFinite(body.parentApprovalId)
+                ? body.parentApprovalId
+                : null,
+            // [Task #775] 분리부과 입력은 결재 라인 작성 시점에서도 미리 받을 수 있도록 허용.
+            //   기존 register-contract-evidence 단계에서 갱신 가능.
+            installmentTotalAmount:
+              typeof body.installmentTotalAmount === "number" ? body.installmentTotalAmount : null,
+            installmentMonths:
+              typeof body.installmentMonths === "number" ? body.installmentMonths : null,
+            installmentMonthlyAmount:
+              typeof body.installmentMonthlyAmount === "number" ? body.installmentMonthlyAmount : null,
+            installmentStartDate:
+              typeof body.installmentStartDate === "string" ? body.installmentStartDate : null,
+            installmentEndDate:
+              typeof body.installmentEndDate === "string" ? body.installmentEndDate : null,
             status: steps.length > 0 ? "in_progress" : "pending",
             isDraft: false,
             totalSteps: Math.max(steps.length, 1),

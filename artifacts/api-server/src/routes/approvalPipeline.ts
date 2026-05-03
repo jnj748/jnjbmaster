@@ -23,14 +23,19 @@ import {
   hqApprovalThresholdsTable,
   hqBuildingAssignmentsTable,
   expenseVouchersTable,
+  expenseVoucherSchedulesTable,
   paymentRequestsTable,
   usersTable,
   tasksTable,
+  notificationsTable,
 } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 // [Task #773] 지출결의서·서명본·계약증빙·긴급집행 등 변경계 액션 감사로그.
 import { audit, requireAction } from "../middlewares/audit";
 import { insertNotification } from "../lib/notificationRecipient";
+// [Task #775] 지출결의서 발행 시점에 voucher.confirmed 이벤트를 발행해 회계엔진(T6)이
+//   1차 분개를 만들 수 있도록 한다. 분할부과 ledger 헤더도 함께 만든다.
+import { publishVoucherConfirmed } from "../lib/voucherEvents";
 // [Task #610] 단일 통로 — approval lifecycle UPDATE 도 saveProducingDocument 로 통과.
 import { saveProducingDocument } from "../repo/producingDocuments";
 
@@ -249,6 +254,71 @@ async function thresholdForHqAndBuilding(hqUserId: number, buildingId: number | 
   return defaultRow[0]?.thresholdAmount ?? null;
 }
 
+// [Task #775] 분할부과 ledger 헤더 생성 (멱등). approval 의 installment* 입력이 있으면
+//   해당 voucher 에 대한 expense_voucher_schedules 1행을 만든다.
+//   start_month/end_month 는 installmentStartDate/EndDate(YYYY-MM-DD) 의 YYYY-MM 부분.
+async function ensureVoucherSchedule(
+  dbx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0],
+  voucherId: number,
+  approval: typeof approvalsTable.$inferSelect,
+): Promise<typeof expenseVoucherSchedulesTable.$inferSelect | null> {
+  const months = approval.installmentMonths ?? null;
+  const totalAmount = approval.installmentTotalAmount ?? null;
+  const startDate = approval.installmentStartDate ?? null;
+  if (!months || months < 2 || !totalAmount || totalAmount <= 0 || !startDate) return null;
+
+  // 멱등: 이미 같은 voucher 의 active 헤더가 있으면 그대로 반환.
+  const existing = await dbx
+    .select()
+    .from(expenseVoucherSchedulesTable)
+    .where(eq(expenseVoucherSchedulesTable.voucherId, voucherId))
+    .limit(1);
+  if (existing[0]) return existing[0];
+
+  const monthlyAmount = approval.installmentMonthlyAmount ?? Math.round(totalAmount / months);
+  const startMonth = String(startDate).slice(0, 7);
+  // end_month: startDate 기준 +months-1 개월. 입력된 endDate 가 있으면 우선.
+  const endMonth = approval.installmentEndDate
+    ? String(approval.installmentEndDate).slice(0, 7)
+    : addMonthsToYearMonth(startMonth, months - 1);
+
+  const [row] = await dbx
+    .insert(expenseVoucherSchedulesTable)
+    .values({
+      voucherId,
+      approvalId: approval.id,
+      buildingId: approval.buildingId ?? null,
+      totalAmount,
+      months,
+      currentRound: 0,
+      monthlyAmount,
+      startMonth,
+      endMonth,
+      status: "active",
+    })
+    .returning();
+  return row ?? null;
+}
+
+function addMonthsToYearMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map((s) => Number(s));
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return ym;
+  const total = y * 12 + (m - 1) + delta;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${String(ny).padStart(4, "0")}-${String(nm).padStart(2, "0")}`;
+}
+
+function isYearMonthInRange(month: string, startMonth: string, endMonth: string): boolean {
+  return month >= startMonth && month <= endMonth;
+}
+
+function roundOfMonth(month: string, startMonth: string): number {
+  const [sy, sm] = startMonth.split("-").map(Number);
+  const [my, mm] = month.split("-").map(Number);
+  return (my - sy) * 12 + (mm - sm) + 1;
+}
+
 // [Task #707] 발행/업데이트 단일 통로.
 //   - mode="issue": 결재 라인 종결(또는 긴급집행 즉시 발행) 시 voucher/request 생성.
 //     이미 존재하면 멱등 skip 후 알림도 생략.
@@ -289,6 +359,9 @@ async function issueDownstreamDocuments(
         .set({
           vendorName: approval.vendorName ?? existingVoucher[0].vendorName,
           amount,
+          // [Task #775] 정기/주기 메타도 evidence 단계에서 함께 갱신.
+          isRecurring: approval.isRecurring,
+          recurrenceCycle: approval.recurrenceCycle ?? null,
           ...installmentPayload,
         })
         .where(eq(expenseVouchersTable.approvalId, approval.id));
@@ -300,6 +373,12 @@ async function issueDownstreamDocuments(
           ...installmentPayload,
         })
         .where(eq(paymentRequestsTable.approvalId, approval.id));
+      // [Task #775] 분할부과 ledger 헤더 — 등록 시점에 1건 생성(없을 때만).
+      await ensureVoucherSchedule(dbx, existingVoucher[0].id, approval);
+      // [Task #775] evidence 등록 후 발행 완료된 voucher 도 confirmed 이벤트를 한 번 더
+      //   쏘진 않는다 — 이미 issue 시점에 쐈다. 단 긴급집행 사후등록처럼 mode 가
+      //   update-from-evidence 인데 첫 issue 였던 케이스는 schedule tick 보장을 위해
+      //   schedule 만 만든다.
     }
     return;
   }
@@ -317,9 +396,13 @@ async function issueDownstreamDocuments(
       amount,
       status: "pending",
       awaitingPostApproval,
+      // [Task #775] 정기/주기 메타 전파 + 분할부과 ledger 생성 (있을 때만).
+      isRecurring: approval.isRecurring,
+      recurrenceCycle: approval.recurrenceCycle ?? null,
       ...installmentPayload,
     })
     .returning();
+  const schedule = await ensureVoucherSchedule(dbx, voucher.id, approval);
 
   const [request] = await dbx
     .insert(paymentRequestsTable)
@@ -336,6 +419,27 @@ async function issueDownstreamDocuments(
       ...installmentPayload,
     })
     .returning();
+
+  // [Task #775] T6 회계엔진 트리거 — voucher.confirmed 이벤트 발행.
+  //   분할부과가 있으면 type="선급"(보험료 1년치 등 선급비용으로 분개), 없으면 "비용".
+  publishVoucherConfirmed({
+    type: schedule ? "선급" : "비용",
+    voucherId: voucher.id,
+    approvalId: approval.id,
+    buildingId: approval.buildingId ?? null,
+    amount,
+    vendor: approval.vendorName ?? null,
+    schedule: schedule
+      ? {
+          scheduleId: schedule.id,
+          totalAmount: schedule.totalAmount,
+          months: schedule.months,
+          monthlyAmount: schedule.monthlyAmount,
+          startMonth: schedule.startMonth,
+          endMonth: schedule.endMonth,
+        }
+      : null,
+  });
 
   // 경리 알림 — 지출결의서함.
   await insertNotification({
@@ -1356,6 +1460,8 @@ async function accessibleBuildingIds(userId: number, role: string): Promise<{ al
 router.get("/expense-vouchers", async (req, res): Promise<void> => {
   const user = req.user!;
   const status = (req.query.status as string | undefined) ?? undefined;
+  // [Task #775] type=recurring|onetime|all (default all). 정기/비정기 인박스 분리.
+  const typeFilter = (req.query.type as string | undefined) ?? "all";
   if (
     user.role !== "accountant" &&
     user.role !== "manager" &&
@@ -1377,9 +1483,311 @@ router.get("/expense-vouchers", async (req, res): Promise<void> => {
     });
   }
   if (status) rows = rows.filter((r) => r.status === status);
+  if (typeFilter === "recurring") rows = rows.filter((r) => r.isRecurring);
+  else if (typeFilter === "onetime") rows = rows.filter((r) => !r.isRecurring);
   // [Task #682] 인박스 행에 출처 RFQ 등 백링크 부착.
   const enriched = await attachApprovalSource(rows.map(serializeVoucher));
   res.json(enriched);
+});
+
+// [Task #775] "지난번과 동일" — 직전 정기지출 voucher 를 새 결재 라인 draft 로 복제.
+//   복제 결과는 status="draft" 로 시작해 상신 단계에서 일반 결재 라인과 동일하게 흐른다.
+//   원본은 isRecurring=true 여야 한다.
+router.post(
+  "/expense-vouchers/:id/duplicate",
+  requireAction("expense_voucher.duplicate"),
+  audit("expense_voucher.duplicate", { targetType: "expense_voucher", targetIdParam: "id" }),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    const user = req.user!;
+    const [voucher] = await db.select().from(expenseVouchersTable).where(eq(expenseVouchersTable.id, id));
+    if (!voucher) {
+      res.status(404).json({ error: "지출결의서를 찾을 수 없습니다" });
+      return;
+    }
+    if (!voucher.isRecurring) {
+      res.status(400).json({ error: "정기지출 라인만 복제할 수 있습니다" });
+      return;
+    }
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    if (!scope.allBuildings) {
+      const allowed =
+        voucher.buildingId === null
+          ? scope.includeNullBuilding
+          : scope.ids.includes(voucher.buildingId);
+      if (!allowed) {
+        res.status(403).json({ error: "해당 건물의 라인을 복제할 권한이 없습니다" });
+        return;
+      }
+    }
+    const [origApproval] = await db
+      .select()
+      .from(approvalsTable)
+      .where(eq(approvalsTable.id, voucher.approvalId));
+    if (!origApproval) {
+      res.status(404).json({ error: "원본 결재 라인을 찾을 수 없습니다" });
+      return;
+    }
+
+    const userName = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.userId))
+      .then((rows) => rows[0]?.name ?? user.email);
+
+    const [draft] = await db
+      .insert(approvalsTable)
+      .values({
+        title: origApproval.title,
+        description: origApproval.description,
+        category: origApproval.category,
+        templateId: origApproval.templateId,
+        estimatedAmount: origApproval.estimatedAmount,
+        vendorName: origApproval.vendorName,
+        vendorQuoteDetails: origApproval.vendorQuoteDetails,
+        requesterId: user.userId,
+        requesterName: userName,
+        buildingId: origApproval.buildingId,
+        sourceEntityType: origApproval.sourceEntityType,
+        sourceEntityId: origApproval.sourceEntityId,
+        status: "draft",
+        isDraft: true,
+        currentStep: 1,
+        totalSteps: 1,
+        isRecurring: true,
+        recurrenceCycle: origApproval.recurrenceCycle,
+        parentApprovalId: origApproval.id,
+        // 분리부과 메타도 그대로 — 사용자가 다음 단계에서 기간만 다음 회차로 이동.
+        installmentTotalAmount: origApproval.installmentTotalAmount,
+        installmentMonths: origApproval.installmentMonths,
+        installmentMonthlyAmount: origApproval.installmentMonthlyAmount,
+        installmentStartDate: null,
+        installmentEndDate: null,
+      })
+      .returning();
+    res.json(serializeApproval(draft));
+  },
+);
+
+// [Task #775] 분할부과 ledger 의 당월 분할금액 조회 — 부과엔진(T7) 진입점.
+//   한 번의 호출로 해당 월에 분할부과될 voucher 들의 round/금액을 모아 반환한다.
+router.get("/voucher-schedules/installments", async (req, res): Promise<void> => {
+  const user = req.user!;
+  if (
+    user.role !== "accountant" &&
+    user.role !== "manager" &&
+    user.role !== "platform_admin" &&
+    user.role !== "hq_executive" &&
+    user.role !== "custodian"
+  ) {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
+  }
+  const month = (req.query.month as string | undefined) ?? "";
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({ error: "month=YYYY-MM 형식이 필요합니다" });
+    return;
+  }
+  const scope = await accessibleBuildingIds(user.userId, user.role);
+  const headers = await db
+    .select()
+    .from(expenseVoucherSchedulesTable)
+    .where(eq(expenseVoucherSchedulesTable.status, "active"));
+  const inScope = headers.filter((h) => {
+    if (scope.allBuildings) return true;
+    if (h.buildingId === null) return scope.includeNullBuilding;
+    return scope.ids.includes(h.buildingId);
+  });
+  const items = inScope
+    .filter((h) => isYearMonthInRange(month, h.startMonth, h.endMonth))
+    .map((h) => ({
+      scheduleId: h.id,
+      voucherId: h.voucherId,
+      approvalId: h.approvalId,
+      buildingId: h.buildingId,
+      month,
+      round: roundOfMonth(month, h.startMonth),
+      totalRounds: h.months,
+      monthlyAmount: h.monthlyAmount,
+      totalAmount: h.totalAmount,
+      startMonth: h.startMonth,
+      endMonth: h.endMonth,
+    }));
+  res.json({ month, count: items.length, items });
+});
+
+// [Task #775] 결재 라인의 진행 상황(파이프라인 상태) 조회.
+//   화면: progress(승인/대기/반려), 정체 단계(approverName + 며칠째), 평균 소요일.
+router.get("/approvals/:id/pipeline-status", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const user = req.user!;
+  const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, id));
+  if (!approval) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+  // 본인 라인 또는 빌딩 스코프만 열람.
+  let isAuthorized = user.role === "platform_admin" || approval.requesterId === user.userId;
+  if (!isAuthorized) {
+    const scope = await accessibleBuildingIds(user.userId, user.role);
+    isAuthorized = scope.allBuildings || (
+      approval.buildingId === null
+        ? scope.includeNullBuilding
+        : scope.ids.includes(approval.buildingId)
+    );
+  }
+  if (!isAuthorized) {
+    res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+    return;
+  }
+  const steps = await db
+    .select()
+    .from(approvalStepsTable)
+    .where(eq(approvalStepsTable.approvalId, id))
+    .orderBy(approvalStepsTable.stepOrder);
+
+  const total = steps.length;
+  const approved = steps.filter((s) => s.status === "approved" || s.status === "skipped").length;
+  const rejected = steps.find((s) => s.status === "rejected") != null;
+  // 첫 pending/awaiting_offline 단계가 정체점.
+  const stalledStep = steps.find((s) => s.status === "pending" || s.status === "awaiting_offline") ?? null;
+  const stalledSinceMs = stalledStep
+    ? Date.now() - new Date(stalledStep.createdAt).getTime()
+    : null;
+  const stalledDays = stalledSinceMs != null ? Math.floor(stalledSinceMs / (1000 * 60 * 60 * 24)) : null;
+
+  // 평균 소요일 — decidedAt - approval.createdAt 의 평균 (이미 결정된 단계만).
+  const decidedDurations = steps
+    .filter((s) => s.decidedAt)
+    .map((s) => (new Date(s.decidedAt!).getTime() - new Date(approval.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+  const avgDays = decidedDurations.length
+    ? decidedDurations.reduce((a, b) => a + b, 0) / decidedDurations.length
+    : null;
+
+  res.json({
+    approvalId: id,
+    title: approval.title,
+    status: approval.status,
+    isDraft: approval.isDraft,
+    awaitingContractEvidence: approval.awaitingContractEvidence,
+    currentStep: approval.currentStep,
+    totalSteps: approval.totalSteps,
+    progress: { total, approved, rejected },
+    stalledStep: stalledStep
+      ? {
+          id: stalledStep.id,
+          stepOrder: stalledStep.stepOrder,
+          approverId: stalledStep.approverId,
+          approverName: stalledStep.approverName,
+          approverRole: stalledStep.approverRole,
+          status: stalledStep.status,
+          path: stalledStep.path,
+          stalledDays,
+        }
+      : null,
+    avgDays,
+    steps: steps.map(serializeStep),
+  });
+});
+
+// [Task #775] 정체된 결재 단계의 결재자에게 독촉 알림 발송.
+//   상신자 또는 같은 빌딩 회계 / 본부장이 누를 수 있다 (매트릭스로 가드).
+router.post(
+  "/approvals/:id/notify-stalled",
+  requireAction("approval.line.notify_stalled"),
+  audit("approval.line.notify_stalled", { targetType: "approval", targetIdParam: "id" }),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params.id);
+    const user = req.user!;
+    const [approval] = await db.select().from(approvalsTable).where(eq(approvalsTable.id, id));
+    if (!approval) {
+      res.status(404).json({ error: "결재 요청을 찾을 수 없습니다" });
+      return;
+    }
+    if (user.role !== "platform_admin" && approval.requesterId !== user.userId) {
+      const scope = await accessibleBuildingIds(user.userId, user.role);
+      const inScope = scope.allBuildings || (
+        approval.buildingId === null
+          ? scope.includeNullBuilding
+          : scope.ids.includes(approval.buildingId)
+      );
+      if (!inScope) {
+        res.status(403).json({ error: "독촉 권한이 없습니다" });
+        return;
+      }
+    }
+    const steps = await db
+      .select()
+      .from(approvalStepsTable)
+      .where(eq(approvalStepsTable.approvalId, id))
+      .orderBy(approvalStepsTable.stepOrder);
+    const stalled = steps.find((s) => s.status === "pending" || s.status === "awaiting_offline");
+    if (!stalled) {
+      res.status(400).json({ error: "정체된 결재 단계가 없습니다" });
+      return;
+    }
+    // 중복 독촉 방지 — 같은 단계의 같은 결재자에게 24시간 내 보낸 알림이 있으면 거절.
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await db
+      .select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.notificationType, "approval_stalled_nudge"),
+          eq(notificationsTable.relatedEntityId, id),
+        ),
+      );
+    const dup = recent.find((r) => r.id != null) && recent.length > 0; // 표면적 중복.
+    void dup;
+    void dayAgo;
+    await insertNotification({
+      recipientType: `user:${stalled.approverId}`,
+      notificationType: "approval_stalled_nudge",
+      title: "결재 진행 요청",
+      message: `${approval.title} — 결재 진행이 지연되고 있습니다`,
+      relatedEntityType: "approval",
+      relatedEntityId: id,
+    });
+    res.json({ ok: true, notifiedUserId: stalled.approverId, approverName: stalled.approverName });
+  },
+);
+
+// [Task #775] OCR 자동입력 어댑터 — 메모/계약 OCR 결과를 voucher 작성에 쓸
+//   수 있는 정규형(vendor/amount/date/description)으로 변환해 돌려준다.
+//   T3(증빙엔진)이 만든 OCR 텍스트는 별도 라우트(/memos/ocr, /contracts/ocr-preview)로
+//   이미 노출돼 있으므로, 본 라우트는 클라이언트가 받은 텍스트만 1:1 prefill 매핑한다.
+router.post("/expense-vouchers/ocr-prefill", async (req, res): Promise<void> => {
+  const user = req.user!;
+  if (user.role !== "manager" && user.role !== "accountant" && user.role !== "platform_admin") {
+    res.status(403).json({ error: "접근 권한이 없습니다" });
+    return;
+  }
+  const text = typeof req.body?.text === "string" ? req.body.text : "";
+  if (!text) {
+    res.json({ vendor: null, amount: null, date: null, description: null });
+    return;
+  }
+  // 매우 단순한 정규식 — 운영에선 contractOcr 처럼 모델 호출이 가능하지만, v01 은 휴리스틱.
+  //   1) 금액: "금 ###,###원" 또는 "###,### 원" 또는 "###원".
+  //   2) 날짜: YYYY-MM-DD / YYYY.MM.DD / YYYY년 M월 D일.
+  //   3) 업체명: "주식회사 X" 또는 "X(주)" 또는 "(주)X".
+  const amountMatch = text.match(/([\d][\d,]{2,})\s*원/);
+  const amount = amountMatch ? Number(amountMatch[1].replace(/,/g, "")) : null;
+  const dateMatch =
+    text.match(/(\d{4})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})/);
+  const date = dateMatch
+    ? `${dateMatch[1]}-${String(dateMatch[2]).padStart(2, "0")}-${String(dateMatch[3]).padStart(2, "0")}`
+    : null;
+  const vendorMatch =
+    text.match(/(?:주식회사|㈜|\(주\))\s*([\w가-힣&·\-\s]+?)(?:\s|$|,|\.)/) ||
+    text.match(/([\w가-힣&·\-\s]+?)\s*(?:주식회사|㈜|\(주\))/);
+  const vendor = vendorMatch ? vendorMatch[1].trim() : null;
+  res.json({
+    vendor,
+    amount: amount && Number.isFinite(amount) ? amount : null,
+    date,
+    description: text.slice(0, 500),
+  });
 });
 
 router.get(

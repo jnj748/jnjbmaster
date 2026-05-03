@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Receipt, FileText } from "lucide-react";
+import { Receipt, FileText, Repeat, Copy } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocation } from "wouter";
 
 interface ExpenseVoucher {
@@ -42,7 +43,12 @@ interface ExpenseVoucher {
   installmentMonthlyAmount?: number | string | null;
   installmentStartDate?: string | null;
   installmentEndDate?: string | null;
+  // [Task #775] 정기/주기 메타 — 인박스 분기 + "지난번과 동일" 복제 버튼 노출용.
+  isRecurring?: boolean;
+  recurrenceCycle?: string | null;
 }
+
+type VoucherTypeFilter = "all" | "recurring" | "onetime";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -61,13 +67,17 @@ export default function ExpenseVoucherInboxPage() {
   const [paymentMethods, setPaymentMethods] = useState<Record<number, string>>({});
   const [accountMemos, setAccountMemos] = useState<Record<number, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  // [Task #775] 정기/비정기 인박스 분기. ?type=recurring|onetime 쿼리로 서버 필터.
+  const [typeFilter, setTypeFilter] = useState<VoucherTypeFilter>("all");
+  const [duplicating, setDuplicating] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/expense-vouchers`, {
+        const url = `${API_BASE}/expense-vouchers${typeFilter !== "all" ? `?type=${typeFilter}` : ""}`;
+        const res = await fetch(url, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         });
         if (!res.ok) throw new Error(`로드 실패 (${res.status})`);
@@ -87,7 +97,36 @@ export default function ExpenseVoucherInboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, toast, refreshKey]);
+  }, [token, toast, refreshKey, typeFilter]);
+
+  // [Task #775] "지난번과 동일" — 정기지출 voucher 를 새 결재 라인 draft 로 복제.
+  const onDuplicate = async (voucher: ExpenseVoucher) => {
+    setDuplicating(voucher.id);
+    try {
+      const res = await fetch(`${API_BASE}/expense-vouchers/${voucher.id}/duplicate`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? `복제 실패 (${res.status})`);
+      }
+      const draft = await res.json();
+      toast({
+        title: "결재 라인 복제 완료",
+        description: "기안서 임시저장(Draft)에서 다음 회차 정보를 입력해 상신해주세요.",
+      });
+      setLocation(`/approvals/create?from=${draft.id}`);
+    } catch (e) {
+      toast({
+        title: "복제 실패",
+        description: e instanceof Error ? e.message : "잠시 후 다시 시도해 주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicating(null);
+    }
+  };
 
   const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
   const recorded = useMemo(() => rows.filter((r) => r.status === "recorded"), [rows]);
@@ -146,6 +185,21 @@ export default function ExpenseVoucherInboxPage() {
         설정·정산 출납과 자동으로 동기화됩니다.
       </p>
 
+      {/* [Task #775] 정기·비정기·전체 인박스 탭. 정기지출 카드에는 "지난번과 동일" 복제 버튼이 뜬다. */}
+      <Tabs
+        value={typeFilter}
+        onValueChange={(v) => setTypeFilter(v as VoucherTypeFilter)}
+        className="mb-4"
+      >
+        <TabsList>
+          <TabsTrigger value="all" data-testid="voucher-tab-all">전체</TabsTrigger>
+          <TabsTrigger value="recurring" data-testid="voucher-tab-recurring">
+            <Repeat className="mr-1 h-3.5 w-3.5" />정기
+          </TabsTrigger>
+          <TabsTrigger value="onetime" data-testid="voucher-tab-onetime">비정기</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {loading ? (
         <div className="space-y-3">
           <Skeleton className="h-24 w-full" />
@@ -176,6 +230,8 @@ export default function ExpenseVoucherInboxPage() {
                     setAccountMemos((m) => ({ ...m, [v.id]: t }))
                   }
                   onRecord={() => onRecord(v)}
+                  onDuplicate={v.isRecurring ? () => onDuplicate(v) : undefined}
+                  duplicating={duplicating === v.id}
                 />
               ))
             )}
@@ -191,6 +247,8 @@ export default function ExpenseVoucherInboxPage() {
                   voucher={v}
                   onOpenSource={(href) => setLocation(href)}
                   readOnly
+                  onDuplicate={v.isRecurring ? () => onDuplicate(v) : undefined}
+                  duplicating={duplicating === v.id}
                 />
               ))
             )}
@@ -240,6 +298,8 @@ function VoucherCard({
   onRecord,
   onOpenSource,
   readOnly,
+  onDuplicate,
+  duplicating,
 }: {
   voucher: ExpenseVoucher;
   busy?: boolean;
@@ -254,6 +314,8 @@ function VoucherCard({
   onRecord?: () => void;
   onOpenSource?: (href: string) => void;
   readOnly?: boolean;
+  onDuplicate?: () => void;
+  duplicating?: boolean;
 }) {
   const amount = typeof voucher.amount === "string" ? Number(voucher.amount) : voucher.amount;
   // [Task #707] 분리부과 메타 — 결재 라인의 "계약·증빙 등록" 단계에서 입력된 값을
@@ -337,8 +399,32 @@ function VoucherCard({
                 분리부과 — 부속명세서 근거
               </Badge>
             ) : null}
+            {voucher.isRecurring ? (
+              <Badge
+                className="mt-1 ml-1 bg-sky-100 text-sky-900 hover:bg-sky-100"
+                data-testid={`voucher-recurring-badge-${voucher.id}`}
+                title={voucher.recurrenceCycle ?? "정기지출"}
+              >
+                <Repeat className="mr-1 h-3 w-3" />정기
+              </Badge>
+            ) : null}
           </div>
         </div>
+        {onDuplicate ? (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDuplicate}
+              disabled={duplicating}
+              data-testid={`voucher-duplicate-${voucher.id}`}
+            >
+              <Copy className="mr-1 h-3.5 w-3.5" />
+              {duplicating ? "복제 중…" : "지난번과 동일"}
+            </Button>
+          </div>
+        ) : null}
         {hasInstallment ? (
           <div
             className="rounded-md border border-amber-200 bg-amber-50/40 p-2"

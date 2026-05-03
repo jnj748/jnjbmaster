@@ -43,6 +43,13 @@ export const expenseVouchersTable = pgTable(
     installmentMonthlyAmount: real("installment_monthly_amount"),
     installmentStartDate: date("installment_start_date"),
     installmentEndDate: date("installment_end_date"),
+    // [Task #775] 정기/비정기 인박스 분리.
+    //   isRecurring=true 인 라인은 /expense-vouchers/recurring 인박스에서 보여진다.
+    //   recurrenceCycle 은 "지난번과 동일" 복제 액션이 다음 회차 메타를 채울 때 참조.
+    //   parentVoucherId 는 복제 원본 voucher 의 id (감사 추적 용도).
+    isRecurring: boolean("is_recurring").notNull().default(false),
+    recurrenceCycle: text("recurrence_cycle"), // monthly|quarterly|semiannual|annual|null
+    parentVoucherId: integer("parent_voucher_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
