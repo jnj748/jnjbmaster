@@ -80,6 +80,7 @@ import vendorCategoriesRouter from "./vendorCategories";
 // [Task #740 가입흐름재설정] 가입 위저드 4단계(사업장 주소·반경) 의 카카오 지오코딩 프록시.
 import kakaoGeocodeRouter from "./kakaoGeocode";
 import accountingInitialFilesRouter from "./accountingInitialFiles";
+import accountingRouter from "./accounting";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
 // [Task #776] 예산·집행통제 엔진 v01.
@@ -233,6 +234,7 @@ router.use(buildingRouter);
 
 router.use(aiAssistantRouter);
 router.use(accountingInitialFilesRouter);
+router.use(accountingRouter);
 router.use(facilitySignupRequestsRouter);
 // [Task #773] 감사로그 — authMiddleware 뒤(인증 사용자만), buildingRouter 밖에 둔다.
 //   화면(/audit-logs) 자체는 platform_admin/hq_executive/custodian 역할별 가드를

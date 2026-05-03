@@ -14,6 +14,9 @@ import { requireRole } from "../middlewares/auth";
 // [Task #773] 부과·수납·발송 주요 액션 감사로그.
 import { audit, requireAction } from "../middlewares/audit";
 import { tenantsTable } from "@workspace/db";
+// [Task #778] T6 — 수납 시 자동 분개 (차) 예금 / (대) 미수관리비.
+import { postPaymentReceived } from "../lib/accountingRules";
+import { logger as t6Logger } from "../lib/logger";
 
 const router: IRouter = Router();
 router.use("/fees", requireRole("manager", "platform_admin", "accountant"));
@@ -466,6 +469,24 @@ router.post("/fees/record-payment", requireAction("fees.payment.record"), audit(
     })
     .where(eq(monthlyPaymentsTable.id, existing.id))
     .returning();
+
+  // [Task #778] T6 회계엔진 — 수납 자동 분개. 실패해도 수납 자체는 성공.
+  if (paymentToApply > 0) {
+    try {
+      // [Task #778] 미수 잔액(open AR)을 넘긴 입금분은 가수금(2200)으로 분개되도록 전달.
+      const openAR = Math.max(0, existing.totalAmount - (existing.paidAmount || 0));
+      await postPaymentReceived({
+        buildingId,
+        unitId,
+        billingMonth,
+        amount: paymentToApply,
+        receivableOpenAmount: openAR,
+        isPartial: !isPaid,
+      });
+    } catch (err) {
+      t6Logger.error({ err, unitId, billingMonth }, "[T6] payment.received auto-journal failed");
+    }
+  }
 
   res.json(updated);
 });

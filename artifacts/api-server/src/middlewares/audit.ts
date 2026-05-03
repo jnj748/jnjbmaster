@@ -200,6 +200,39 @@ export function requireAction(action: AuditAction): RequestHandler {
 }
 
 /**
+ * [Task #778] 시스템(이벤트 리스너) 자동 분개처럼 req 가 없는 컨텍스트에서
+ * 감사 1행을 남길 때 사용. role 은 "system" 으로 고정하고 actor 는 null.
+ */
+export async function recordSystemAudit(input: {
+  action: AuditAction | string;
+  targetType?: string | null;
+  targetId?: number | null;
+  buildingId?: number | null;
+  before?: unknown;
+  after?: unknown;
+  reason?: string | null;
+  actorId?: number | null;
+}): Promise<void> {
+  try {
+    await db.insert(auditLogsTable).values({
+      actorId: input.actorId ?? null,
+      role: "system",
+      action: input.action,
+      targetType: input.targetType ?? null,
+      targetId: input.targetId ?? null,
+      buildingId: input.buildingId ?? null,
+      beforeJson: (sanitizePayload(input.before) ?? null) as Record<string, unknown> | null,
+      afterJson: (sanitizePayload(input.after) ?? null) as Record<string, unknown> | null,
+      reason: input.reason ?? null,
+      ip: null,
+      userAgent: null,
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+/**
  * 라우트 핸들러 안에서 직접 1행을 남기고 싶을 때(미들웨어 부착이 어려운 분기 등).
  * 응답 흐름을 끊지 않으므로 await 없이 호출해도 된다.
  */

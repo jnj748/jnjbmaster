@@ -62,6 +62,8 @@ export * from "./aiChat";
 export * from "./legalAppointees";
 export * from "./vendorCategories";
 export * from "./accountingInitialFiles";
+export * from "./chartOfAccounts";
+export * from "./journalEntries";
 export * from "./facilityStaffSignupRequests";
 export * from "./buildingMonthlyRecords";
 export * from "./workLogs";

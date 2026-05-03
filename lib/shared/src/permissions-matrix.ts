@@ -86,6 +86,9 @@ export const AUDIT_ACTIONS = [
   "bank_tx.match",
   "delinquency.stage.set",
   "delinquency.dispatch.send",
+
+  // ── 회계엔진 v01 (#778) ────────────────────────────────────
+  "accounting.account.create",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -163,6 +166,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "bank_tx.match": "통장 내역 매칭",
   "delinquency.stage.set": "연체 단계 변경",
   "delinquency.dispatch.send": "연체 안내 발송",
+
+  "accounting.account.create": "계정과목 추가",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -271,6 +276,10 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   "budget.approve": { hq_executive: true, custodian: true, platform_admin: true },
   // 초과 집행 사유 입력 후 진행 — 결재 라인을 만드는 역할들과 동일.
   "budget.override.allow": { manager: true, accountant: true, hq_executive: true, custodian: true, platform_admin: true },
+
+  // ── 회계엔진 v01 (#778) ────────────────────────────────────
+  // 사용자 정의 계정과목 추가는 현장 운영자(관리소장·경리)와 플랫폼관리자에게 허용.
+  "accounting.account.create": { manager: true, accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

@@ -11,6 +11,8 @@ import { seedPartnerBm } from "./seed-partner-bm";
 import { seedPartnerMenuDefaults } from "./seed-partner-menu";
 import { seedVendorCategories, reloadCategoryParentMap } from "./routes/vendorCategories";
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
+import { seedChartOfAccounts } from "./lib/seedChartOfAccounts";
+import { wireAccountingListeners } from "./lib/accountingRules";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
 import { runMigrations } from "./lib/runMigrations";
@@ -217,6 +219,14 @@ async function bootstrap() {
       logger.info("Consent documents seeded");
     } catch (e) {
       logger.warn({ err: e }, "Failed to seed consent documents");
+    }
+
+    // [Task #778] T6 회계엔진 — 표준 계정과목 시드 + 자동분개 리스너 wiring.
+    try {
+      await seedChartOfAccounts();
+      wireAccountingListeners();
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to bootstrap T6 accounting engine");
     }
 
     // [Task #707 review fix] in-flight 결재 라인의 잔존 경리 결재 단계를 자동
