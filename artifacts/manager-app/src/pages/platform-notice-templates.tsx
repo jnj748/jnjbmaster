@@ -296,17 +296,20 @@ export default function PlatformNoticeTemplatesPage() {
         {/* [Task #731] 데스크톱(md+) 에서는 모달 자체가 세로 스크롤되지 않도록
             높이를 90vh 로 고정하고 flex 컨테이너로 만든다. 모바일(<md) 에서는
             ResponsiveDialog 가 Drawer 로 전환되어 내부 스크롤을 자체 처리한다. */}
-        <ResponsiveDialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto md:h-[90vh] md:max-h-[90vh] md:overflow-hidden md:flex md:flex-col">
+        <ResponsiveDialogContent className="max-w-6xl xl:max-w-[1200px] max-h-[90vh] overflow-y-auto md:h-[90vh] md:max-h-[90vh] md:overflow-hidden md:flex md:flex-col">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{form.id ? "템플릿 편집" : "새 템플릿"}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           {/* [Task #530] 좌측: 기존 폼 / 우측: 매니저와 동일한 NoticeLayoutFrame 안의 실시간 미리보기.
               [Task #731] md+ 에서는 헤더/푸터를 제외한 본문 영역이 남은 공간을 모두 차지하면서
-              모달 외부로 넘치지 않도록 flex-1 + min-h-0 + overflow-hidden 으로 제약한다. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:flex-1 md:min-h-0 md:overflow-hidden">
+              모달 외부로 넘치지 않도록 flex-1 + min-h-0 + overflow-hidden 으로 제약한다.
+              [Task #746] 미리보기(우측)에 더 여유를 주도록 1fr/1.1fr 비율로 배치하고,
+              각 컬럼은 min-w-0 로 그리드 밖으로 늘어나지 않도록 한다. */}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4 md:flex-1 md:min-h-0 md:overflow-hidden">
           {/* [Task #731] 좌측 컬럼: md+ 에서 자체 영역 안에서만 세로 스크롤되도록
-              overflow-y-auto + min-h-0. 우측 스크롤바와 콘텐츠가 겹치지 않게 pr-2. */}
-          <div className="space-y-3 px-1 md:flex md:flex-col md:min-h-0 md:overflow-y-auto md:pr-2">
+              overflow-y-auto + min-h-0. 우측 스크롤바와 콘텐츠가 겹치지 않게 pr-2.
+              [Task #746] min-w-0 로 자식 인풋이 컬럼을 밀어내 미리보기를 가리지 않게 한다. */}
+          <div className="space-y-3 px-1 min-w-0 md:flex md:flex-col md:min-h-0 md:overflow-y-auto md:pr-2">
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-2">
                 <Label>제목</Label>
@@ -499,11 +502,13 @@ export default function PlatformNoticeTemplatesPage() {
             {/* [Task #530] 우측 미리보기 패널 — 모바일/태블릿(<md)에서는 폼 아래로 내려간다.
                 [Task #731] md+ 에서는 좌측 컬럼과 같은 높이로 채워지고, 미리보기 카드 내부에서만
                 세로 스크롤이 일어나도록 정리한다. 모달 자체에는 스크롤이 생기지 않는다.
-                기존 md:sticky/md:top-0/md:max-h-[80vh] 는 새 레이아웃에서 의미가 없어 제거. */}
-            <div className="px-1 md:flex md:flex-col md:min-h-0">
+                기존 md:sticky/md:top-0/md:max-h-[80vh] 는 새 레이아웃에서 의미가 없어 제거.
+                [Task #746] 미리보기 컨테이너가 자기 컬럼을 벗어나 좌측 폼 위로 떠 보이지 않도록
+                min-w-0 + overflow-hidden(외곽) / overflow-auto(내부) 로 분리한다. */}
+            <div className="px-1 min-w-0 md:flex md:flex-col md:min-h-0 md:overflow-hidden">
               <Label className="text-xs">미리보기</Label>
               <div
-                className="mt-1 border rounded bg-white p-3 overflow-x-auto md:flex-1 md:min-h-0 md:overflow-y-auto"
+                className="mt-1 border rounded bg-white p-3 min-w-0 overflow-auto md:flex-1 md:min-h-0"
                 data-testid="container-template-preview"
               >
                 <div
@@ -605,8 +610,9 @@ function NoticeLayoutSettingsCard() {
           <code>{" {{managementOfficePhone}}"}</code>, <code>{" {{feeInquiryPhone}}"}</code>,
           <code>{" {{facilitySafetyPhone}}"}</code>.
         </p>
+        {/* [Task #746] 좌/우 컬럼이 서로 밀고 들어가지 않도록 각 컬럼에 min-w-0 를 보장한다. */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             <div>
               <Label className="text-xs">상단 큰 제목</Label>
               <Input
@@ -695,7 +701,8 @@ function NoticeLayoutSettingsCard() {
             </div>
           </div>
 
-          <div className="border rounded bg-white p-3 overflow-x-auto" data-testid="container-layout-preview">
+          {/* [Task #746] 미리보기가 부모 카드를 벗어나지 않도록 min-w-0 + overflow-auto 를 적용한다. */}
+          <div className="border rounded bg-white p-3 min-w-0 overflow-auto" data-testid="container-layout-preview">
             <div
               className="bg-white p-4"
               style={{ fontFamily: "'Noto Sans KR','Malgun Gothic',sans-serif", minWidth: 480 }}
