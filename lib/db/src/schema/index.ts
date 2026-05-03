@@ -101,3 +101,6 @@ export * from "./buildingSettings";
 // [Task #781] T10 외부연동 엔진 v01 — dispatch_jobs / popbill_settings.
 export * from "./dispatchJobs";
 export * from "./popbillSettings";
+// [Task #797] 입주자관리 부가 기능 — 키 발급/회수, 중간 정산서, 개인정보
+//   접근 이력, 장기수선충당금 산출.
+export * from "./residentsExtras";

@@ -43,8 +43,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit, Car, Search, Download, Eye, XCircle, History, ClipboardCheck, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+// [Task #797] AI 컬럼 매핑 기반 대량 등록 다이얼로그.
+import { VehicleBulkImportDialog } from "@/components/vehicle-bulk-import-dialog";
 
 const ownershipOptions: { value: CreateVehicleBodyOwnershipType; label: string }[] = [
   { value: "owned", label: "자가" },
@@ -72,6 +74,8 @@ const emptyForm = {
 
 export default function Vehicles() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  // [Task #797] AI 컬럼 매핑 대량 등록 다이얼로그 토글.
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<Vehicle | null>(null);
   const [historyDialog, setHistoryDialog] = useState<Vehicle | null>(null);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -311,6 +315,9 @@ export default function Vehicles() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)} data-testid="btn-vehicles-bulk">
+            <Sparkles className="w-4 h-4 mr-1" /> AI 대량등록
+          </Button>
           <Button variant="outline" onClick={handleInspection} disabled={inspectionMutation.isPending}>
             <ClipboardCheck className="w-4 h-4 mr-2" />
             월별 점검 실행
@@ -695,6 +702,13 @@ export default function Vehicles() {
           )}
         </ResponsiveDialogContent>
       </ResponsiveDialog>
+
+      {/* [Task #797] AI 컬럼 매핑 기반 대량 등록 다이얼로그. */}
+      <VehicleBulkImportDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        onImported={() => queryClient.invalidateQueries({ queryKey: getListVehiclesQueryKey() })}
+      />
     </div>
   );
 }

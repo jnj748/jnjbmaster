@@ -105,6 +105,8 @@ import dispatchRouter from "./dispatch";
 import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSignatures";
 // [Task #773] 권한·감사로그 엔진 — 변경계 도메인 액션의 단일 조회/CSV 내보내기.
 import auditLogsRouter from "./auditLogs";
+// [Task #797] 입주자관리 부가 기능 — 키 발급/회수/중간정산/개인정보접근/전입전출/장기수선.
+import residentsExtrasRouter from "./residentsExtras";
 
 const router: IRouter = Router();
 
@@ -241,6 +243,8 @@ buildingRouter.use(memoOcrRouter);
 buildingRouter.use(documentIngestRouter);
 buildingRouter.use(documentsRouter);
 buildingRouter.use(noticeOutputsRouter);
+// [Task #797] 입주자관리 부가 기능 — 같은 buildingOnly 가드 공유.
+buildingRouter.use(residentsExtrasRouter);
 router.use(buildingRouter);
 
 router.use(aiAssistantRouter);

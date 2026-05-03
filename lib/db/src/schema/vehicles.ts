@@ -22,6 +22,13 @@ export const vehiclesTable = pgTable("vehicles", {
   leaseDoc: boolean("lease_doc").notNull().default(false),
   status: text("status").notNull().default("registered"),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  // [Task #797] 차량 대량 등록 보강 — 스티커/전기차/연식·제조사·배기량.
+  stickerNumber: text("sticker_number"),
+  stickerIssuedAt: timestamp("sticker_issued_at", { withTimezone: true }),
+  isElectric: boolean("is_electric").notNull().default(false),
+  modelYear: integer("model_year"),
+  manufacturer: text("manufacturer"),
+  engineDisplacement: integer("engine_displacement"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

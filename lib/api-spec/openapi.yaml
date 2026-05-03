@@ -13626,6 +13626,12 @@ components:
           type: ["string", "null"]
         businessNumber:
           type: ["string", "null"]
+        ownerName:
+          type: ["string", "null"]
+        ownerPhone:
+          type: ["string", "null"]
+        ownerAddress:
+          type: ["string", "null"]
         entryDate:
           type: ["string", "null"]
           format: date

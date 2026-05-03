@@ -15,6 +15,8 @@ import {
   User,
   UserCheck,
   Car,
+  // [Task #797] 키 발급/회수 사이드바 아이콘.
+  KeyRound,
   Package,
   Send,
   DollarSign,
@@ -73,6 +75,12 @@ const Drafts = lazy(() => import("@/pages/drafts"));
 const Tenants = lazy(() => import("@/pages/tenants"));
 // [Task #141] /owners 라우트 폐지 — Owners 컴포넌트는 호실 관리(/units) 화면의 "소유자 관리" 탭으로 흡수.
 const Vehicles = lazy(() => import("@/pages/vehicles"));
+// [Task #797] 입주자관리 — AI 자동화 기반 6종 추가 화면.
+const KeyIssuancePage = lazy(() => import("@/pages/residents/key-issuance"));
+const InterimSettlementPage = lazy(() => import("@/pages/residents/interim-settlement"));
+const PrivacyAccessLogPage = lazy(() => import("@/pages/residents/privacy-access-log"));
+const MoveInOutPage = lazy(() => import("@/pages/residents/move-in-out"));
+const LongTermRepairAllocationPage = lazy(() => import("@/pages/long-term-repair-allocation"));
 const Users_ = lazy(() => import("@/pages/users"));
 const FacilityDashboard = lazy(() => import("@/pages/facility-dashboard"));
 // [Task #413] 시설관리 → 필수업무 / 제안업무 — 사용자 건물의 모든 임박/초과 업무를
@@ -380,6 +388,37 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "platform_admin", "accountant"],
     // 사이드바에서 숨김 (URL 직접 접근은 유지). 향후 정식 오픈 시 sideMenu 복구.
     sideMenu: [],
+  },
+  // [Task #797] AI 자동화 기반 입주자관리 부가 화면 — 음성/자연어/자동집계 중심.
+  {
+    path: "/residents/key-issuance", component: KeyIssuancePage,
+    label: "키 발급/회수", icon: KeyRound, group: "residents",
+    access: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
+  },
+  {
+    path: "/residents/interim-settlement", component: InterimSettlementPage,
+    label: "중간 정산서", icon: Receipt, group: "residents",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/residents/privacy-access-log", component: PrivacyAccessLogPage,
+    label: "개인정보 접근이력", icon: Shield, group: "residents",
+    access: ["manager", "platform_admin"],
+    sideMenu: ["manager"],
+  },
+  {
+    path: "/residents/move-in-out", component: MoveInOutPage,
+    label: "전입/전출 현황", icon: UserCheck, group: "residents",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager"],
+  },
+  {
+    path: "/long-term-repair-allocation", component: LongTermRepairAllocationPage,
+    label: "장기수선충당금 산출", icon: Calculator, group: "residents",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["manager", "accountant"],
   },
 
   // ── Facility group ──────────────────────────────────────────────
