@@ -25,7 +25,7 @@ import {
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import {
   NoticeBodyEditor,
@@ -236,7 +236,6 @@ export default function PlatformNoticeTemplatesPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl space-y-4">
-      <NoticeLayoutSettingsCard />
       <Card>
         <CardHeader className="pb-2 flex-row items-center justify-between">
           <CardTitle className="text-base">공지문 템플릿 관리</CardTitle>
@@ -290,6 +289,8 @@ export default function PlatformNoticeTemplatesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <NoticeLayoutSettingsCard />
 
       <ResponsiveDialog open={open} onOpenChange={setOpen}>
         {/* [Task #731] 데스크톱(md+) 에서는 모달 자체가 세로 스크롤되지 않도록
@@ -541,6 +542,7 @@ function NoticeLayoutSettingsCard() {
   const { toast } = useToast();
   const [draft, setDraft] = useState<NoticeLayoutSettings>(DEFAULT_NOTICE_LAYOUT);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!isLoading) setDraft(layout);
@@ -570,16 +572,32 @@ function NoticeLayoutSettingsCard() {
   return (
     <Card data-testid="card-notice-layout-settings">
       <CardHeader className="pb-2 flex-row items-center justify-between">
-        <CardTitle className="text-base">공고문 레이아웃 설정</CardTitle>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleReset} disabled={saving} data-testid="button-reset-notice-layout">
-            기본값
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} data-testid="button-save-notice-layout">
-            {saving ? "저장 중…" : "저장"}
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex items-center gap-2 text-left flex-1 hover:opacity-80"
+          data-testid="button-toggle-notice-layout"
+        >
+          <CardTitle className="text-base">공고문 레이아웃 설정</CardTitle>
+          {expanded ? (
+            <ChevronUp className="w-4 h-4 text-slate-500" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-slate-500" />
+          )}
+        </button>
+        {expanded && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleReset} disabled={saving} data-testid="button-reset-notice-layout">
+              기본값
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saving} data-testid="button-save-notice-layout">
+              {saving ? "저장 중…" : "저장"}
+            </Button>
+          </div>
+        )}
       </CardHeader>
+      {expanded && (
       <CardContent className="pt-0">
         <p className="text-xs text-slate-500 mb-3">
           이 설정은 모든 건물의 공지문 미리보기/처리완료 모달의 "공고문" 탭에서 공통으로 사용됩니다.
@@ -704,6 +722,7 @@ function NoticeLayoutSettingsCard() {
           </div>
         </div>
       </CardContent>
+      )}
     </Card>
   );
 }
