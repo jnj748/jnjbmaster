@@ -20,6 +20,7 @@ import { z } from "zod/v4";
 import {
   db,
   taxVendorsTable, taxItemsTable, taxInvoicesTable, taxInvoiceLinesTable, taxInvoiceTransmissionsTable,
+  taxInvoiceCorrectionTypes,
   type TaxInvoice,
 } from "@workspace/db";
 import { and, eq, inArray, desc, sql, gte, lte, type SQL } from "drizzle-orm";
@@ -412,12 +413,15 @@ router.post("/tax/invoices/:id/correct", requireAction("tax.invoice.correct"), a
   const id = Number(req.params.id);
   const reason = String(req.body?.reason ?? "");
   if (!reason) { res.status(400).json({ error: "수정 사유가 필요합니다" }); return; }
+  const correctionTypeParsed = z.enum(taxInvoiceCorrectionTypes).safeParse(req.body?.correctionType);
+  if (!correctionTypeParsed.success) { res.status(400).json({ error: "수정 사유 코드(correctionType)가 올바르지 않습니다" }); return; }
+  const correctionType = correctionTypeParsed.data;
   const parsed = InvoiceBody.safeParse(req.body?.invoice);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
   const v = parsed.data;
   const totals = recalcTotals(v.lines, v.taxType);
   const newId = await db.transaction(async (tx) => {
-    await tx.update(taxInvoicesTable).set({ status: "cancelled", correctionReason: reason }).where(and(eq(taxInvoicesTable.id, id), eq(taxInvoicesTable.buildingId, buildingId)));
+    await tx.update(taxInvoicesTable).set({ status: "cancelled", correctionType, correctionReason: reason }).where(and(eq(taxInvoicesTable.id, id), eq(taxInvoicesTable.buildingId, buildingId)));
     const [inv] = await tx.insert(taxInvoicesTable).values({
       buildingId,
       invoiceType: v.invoiceType, taxType: v.taxType, billType: v.billType, status: "corrected",
@@ -440,7 +444,7 @@ router.post("/tax/invoices/:id/correct", requireAction("tax.invoice.correct"), a
       cashAmount: v.cashAmount, checkAmount: v.checkAmount,
       noteAmount: v.noteAmount, creditAmount: v.creditAmount,
       note: v.note ?? null, metadata: v.metadata,
-      correctedFromId: id, correctionReason: reason,
+      correctedFromId: id, correctionType, correctionReason: reason,
       createdById: req.user?.userId ?? null,
     }).returning();
     await tx.insert(taxInvoiceLinesTable).values(v.lines.map((l, i) => ({

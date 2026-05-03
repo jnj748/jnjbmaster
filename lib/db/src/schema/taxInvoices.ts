@@ -30,11 +30,29 @@ export const taxInvoiceStatuses = [
   "corrected",
 ] as const;
 export const taxInvoiceBillTypes = ["billed", "received"] as const; // 청구·수금
+// 국세청 수정세금계산서 사유 코드(요약). 화면/검증/감사 추적용.
+//   supply_change          공급가액 변동(증액·감액)
+//   return                 환입(반품)
+//   contract_termination   계약 해지
+//   misentry               기재사항 착오·정정
+//   duplicate              착오에 의한 이중발급
+//   local_lc               내국신용장 사후 개설
+//   other                  기타
+export const taxInvoiceCorrectionTypes = [
+  "supply_change",
+  "return",
+  "contract_termination",
+  "misentry",
+  "duplicate",
+  "local_lc",
+  "other",
+] as const;
 
 export type TaxInvoiceType = typeof taxInvoiceTypes[number];
 export type TaxInvoiceTaxType = typeof taxInvoiceTaxTypes[number];
 export type TaxInvoiceStatus = typeof taxInvoiceStatuses[number];
 export type TaxInvoiceBillType = typeof taxInvoiceBillTypes[number];
+export type TaxInvoiceCorrectionType = typeof taxInvoiceCorrectionTypes[number];
 
 export const taxVendorsTable = pgTable(
   "tax_vendors",
@@ -122,6 +140,7 @@ export const taxInvoicesTable = pgTable(
     note: text("note"),
     // 수정 발행 시 원본 참조 + 사유.
     correctedFromId: integer("corrected_from_id"),
+    correctionType: text("correction_type", { enum: taxInvoiceCorrectionTypes }),
     correctionReason: text("correction_reason"),
     // 메타: AI 추천 채움 / 일괄 업로드 배치 식별 등.
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),

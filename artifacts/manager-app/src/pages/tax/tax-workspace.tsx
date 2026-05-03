@@ -74,6 +74,7 @@ export default function TaxWorkspacePage() {
   const [bulkCancelReason, setBulkCancelReason] = useState("");
   const [correctOpen, setCorrectOpen] = useState(false);
   const [correctReason, setCorrectReason] = useState("");
+  const [correctType, setCorrectType] = useState<string>("");
   const [correctDraft, setCorrectDraft] = useState<(Partial<Invoice> & { lines: Line[] }) | null>(null);
 
   async function reloadList() {
@@ -151,16 +152,21 @@ export default function TaxWorkspacePage() {
     if (!detail) return;
     setCorrectDraft({ ...detail, lines: detail.lines ?? [] });
     setCorrectReason("");
+    setCorrectType("");
     setCorrectOpen(true);
   }
 
   async function submitCorrect() {
-    if (!detail || !buildingId || !correctDraft || !correctReason.trim()) return;
+    if (!detail || !buildingId || !correctDraft || !correctReason.trim() || !correctType) return;
     setBusy(true);
     try {
       const lines = (correctDraft.lines ?? []).map((l) => recalcLine(l, correctDraft.taxType ?? "taxable"));
       // 서버 InvoiceBody는 status: "draft" | "issued" 만 허용 — 수정 발행은 항상 issued 로 보낸다.
-      const body = { reason: correctReason.trim(), invoice: { ...correctDraft, status: "issued", lines } };
+      const body = {
+        reason: correctReason.trim(),
+        correctionType: correctType,
+        invoice: { ...correctDraft, status: "issued", lines },
+      };
       const r = await fetch(`${apiBase}/tax/invoices/${detail.id}/correct?buildingId=${buildingId}`, {
         method: "POST", headers, body: JSON.stringify(body),
       });
@@ -479,45 +485,75 @@ export default function TaxWorkspacePage() {
       </Dialog>
 
       <Dialog open={correctOpen} onOpenChange={(v) => { setCorrectOpen(v); if (!v) setCorrectDraft(null); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-correct">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-correct">
           <DialogHeader>
             <DialogTitle>수정 발행</DialogTitle>
-            <DialogDescription>원본은 취소되고 새로운 수정 세금계산서가 발행됩니다. 사유와 변경 내용을 확인하세요.</DialogDescription>
+            <DialogDescription>원본은 취소되고 새로운 수정 세금계산서가 발행됩니다. 국세청 수정 사유 코드와 변경 내용을 확인하세요.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Input
-              placeholder="수정 사유"
-              value={correctReason}
-              onChange={(e) => setCorrectReason(e.target.value)}
-              data-testid="input-correct-reason"
-            />
-            {correctDraft && (
-              <div className="border rounded p-2">
-                <div className="text-xs text-muted-foreground mb-1">품목 (수량/단가만 수정 가능)</div>
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30">
-                    <tr><th className="text-left p-1">품목</th><th className="p-1 w-20">수량</th><th className="p-1 w-28">단가</th><th className="text-right p-1">공급가</th></tr>
-                  </thead>
-                  <tbody>
-                    {correctDraft.lines.map((l, idx) => {
-                      const supply = Number(l.quantity) * Number(l.unitPrice);
-                      return (
-                        <tr key={idx} className="border-t">
-                          <td className="p-1">{l.itemName}</td>
-                          <td className="p-1"><Input type="number" value={String(l.quantity)} onChange={(e) => { const lines = [...correctDraft.lines]; lines[idx] = { ...l, quantity: Number(e.target.value) }; setCorrectDraft({ ...correctDraft, lines }); }} data-testid={`input-correct-qty-${idx}`} /></td>
-                          <td className="p-1"><Input type="number" value={String(l.unitPrice)} onChange={(e) => { const lines = [...correctDraft.lines]; lines[idx] = { ...l, unitPrice: Number(e.target.value) }; setCorrectDraft({ ...correctDraft, lines }); }} data-testid={`input-correct-price-${idx}`} /></td>
-                          <td className="text-right p-1 tabular-nums">{nf(supply)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <Select value={correctType} onValueChange={setCorrectType}>
+                <SelectTrigger data-testid="select-correct-type"><SelectValue placeholder="수정 사유 코드 선택" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supply_change">공급가액 변동</SelectItem>
+                  <SelectItem value="return">환입(반품)</SelectItem>
+                  <SelectItem value="contract_termination">계약 해지</SelectItem>
+                  <SelectItem value="misentry">기재사항 착오·정정</SelectItem>
+                  <SelectItem value="duplicate">착오에 의한 이중발급</SelectItem>
+                  <SelectItem value="local_lc">내국신용장 사후 개설</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                className="md:col-span-2"
+                placeholder="수정 사유(상세)"
+                value={correctReason}
+                onChange={(e) => setCorrectReason(e.target.value)}
+                data-testid="input-correct-reason"
+              />
+            </div>
+            {correctType && (
+              <div className="text-xs text-muted-foreground border rounded p-2 bg-muted/20" data-testid="text-correct-guide">
+                {correctType === "supply_change" && "공급가액 변동: 원본을 취소하고 변동 후 금액으로 신규 발행됩니다. 품목·수량·단가를 변경하세요."}
+                {correctType === "return" && "환입(반품): 환입 수량/금액을 음수로 입력하거나 해당 라인을 삭제하세요. 작성일자는 환입일로 변경하세요."}
+                {correctType === "contract_termination" && "계약 해지: 공급가액·세액을 0 으로 처리하거나 해지일 기준 잔여분만 남기세요. 작성일자를 해지일로 변경하세요."}
+                {correctType === "misentry" && "기재사항 착오·정정: 거래처(공급자/공급받는자), 품목명, 세액유형 등 잘못 기재된 항목을 모두 수정할 수 있습니다."}
+                {correctType === "duplicate" && "착오에 의한 이중발급: 동일 거래의 중복 발행 취소 — 라인을 비우거나 음수로 처리해 합계가 0 이 되도록 입력하세요."}
+                {correctType === "local_lc" && "내국신용장 사후 개설: 과세 → 영세율로 변경하세요. 세액유형을 '영세'로 바꾸면 세액이 0 으로 재계산됩니다."}
+                {correctType === "other" && "기타 사유: 변경 내용을 사유 상세란에 기록하세요."}
               </div>
+            )}
+            {correctDraft && (
+              <DraftEditor
+                draft={correctDraft}
+                setDraft={setCorrectDraft}
+                vendors={vendors}
+                items={items}
+                onApplyVendor={(vid, role) => {
+                  const v = vendors.find((x) => x.id === vid);
+                  if (!v) return;
+                  if (role === "supplier") {
+                    setCorrectDraft({
+                      ...correctDraft, supplierVendorId: v.id, supplierBizNo: v.bizNo, supplierName: v.companyName,
+                      supplierRepresentative: v.representative ?? null, supplierAddress: v.address ?? null,
+                      supplierBizType: v.bizType ?? null, supplierBizItem: v.bizItem ?? null, supplierEmail: v.email ?? null,
+                    } as typeof correctDraft);
+                  } else {
+                    setCorrectDraft({
+                      ...correctDraft, buyerVendorId: v.id, buyerBizNo: v.bizNo, buyerName: v.companyName,
+                      buyerRepresentative: v.representative ?? null, buyerAddress: v.address ?? null,
+                      buyerBizType: v.bizType ?? null, buyerBizItem: v.bizItem ?? null, buyerEmail: v.email ?? null,
+                    } as typeof correctDraft);
+                  }
+                }}
+                busy={busy}
+                hideFooter
+              />
             )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCorrectOpen(false)} disabled={busy}>닫기</Button>
-            <Button onClick={() => void submitCorrect()} disabled={busy || !correctReason.trim()} data-testid="button-correct-confirm">수정 발행</Button>
+            <Button onClick={() => void submitCorrect()} disabled={busy || !correctReason.trim() || !correctType} data-testid="button-correct-confirm">수정 발행</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -526,13 +562,14 @@ export default function TaxWorkspacePage() {
 }
 
 function DraftEditor({
-  draft, setDraft, vendors, onApplyVendor, onSave, onIssue, onCancel, busy,
+  draft, setDraft, vendors, onApplyVendor, onSave, onIssue, onCancel, busy, hideFooter,
 }: {
   draft: Partial<Invoice> & { lines: Line[] };
   setDraft: (d: Partial<Invoice> & { lines: Line[] }) => void;
   vendors: TaxVendor[]; items: TaxItem[];
   onApplyVendor: (vid: number, role: "supplier" | "buyer") => void;
-  onSave: () => void; onIssue: () => void; onCancel: () => void; busy: boolean;
+  onSave?: () => void; onIssue?: () => void; onCancel?: () => void; busy: boolean;
+  hideFooter?: boolean;
 }) {
   const totalSupply = draft.lines.reduce((s, l) => s + (Number(l.quantity) * Number(l.unitPrice)), 0);
   const totalTax = draft.taxType === "taxable" ? Math.round(totalSupply * 0.1) : 0;
@@ -622,11 +659,13 @@ function DraftEditor({
 
       <Textarea placeholder="비고" value={draft.note ?? ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
 
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel} disabled={busy}>취소</Button>
-        <Button variant="outline" onClick={onSave} disabled={busy} data-testid="button-save-draft">임시저장</Button>
-        <Button onClick={onIssue} disabled={busy} data-testid="button-issue">발행</Button>
-      </div>
+      {!hideFooter && (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>취소</Button>
+          <Button variant="outline" onClick={onSave} disabled={busy} data-testid="button-save-draft">임시저장</Button>
+          <Button onClick={onIssue} disabled={busy} data-testid="button-issue">발행</Button>
+        </div>
+      )}
     </div>
   );
 }
