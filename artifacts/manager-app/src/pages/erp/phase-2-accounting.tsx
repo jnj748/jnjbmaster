@@ -61,11 +61,27 @@ function useApi(): ApiFn {
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const monthStartStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`; };
 
+// [회귀 수정] 사이드바의 회계 메뉴들이 /erp/accounting?tab=... 형태로 들어오므로
+//   쿼리스트링의 tab 값을 읽어 초기 활성 탭을 정한다. 라우트 자체는 동일 컴포넌트라
+//   wouter 가 재마운트하지 않으므로 key 에 tab 을 묶어 강제 재마운트한다.
+const VALID_TABS = new Set(["journal","gl","sub","cash","deposits","bs","is","anom","coa"]);
+function readInitialTab(): string {
+  if (typeof window === "undefined") return "journal";
+  const t = new URLSearchParams(window.location.search).get("tab");
+  return t && VALID_TABS.has(t) ? t : "journal";
+}
+
 export default function Phase2AccountingPage() {
   const api = useApi();
   const [accounts, setAccounts] = useState<Account[]>([]);
   useEffect(() => { api<{ accounts: Account[] }>("/accounting/accounts").then(r => setAccounts(r.accounts)).catch(e => toast.error(`계정과목 로드 실패: ${e.message}`)); }, [api]);
   const codeOptions = useMemo(() => accounts.filter(a => !a.isHeader), [accounts]);
+  const [initialTab, setInitialTab] = useState<string>(() => readInitialTab());
+  useEffect(() => {
+    const onPop = () => setInitialTab(readInitialTab());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -73,7 +89,7 @@ export default function Phase2AccountingPage() {
         <h1 className="text-2xl font-bold">회계엔진 (T6)</h1>
         <p className="text-sm text-muted-foreground">결재 확정·부과 확정·수납 시 자동으로 분개가 생성됩니다. 수동 분개도 가능합니다.</p>
       </div>
-      <Tabs defaultValue="journal">
+      <Tabs key={initialTab} defaultValue={initialTab}>
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="journal">분개장</TabsTrigger>
           <TabsTrigger value="gl">총계정원장</TabsTrigger>

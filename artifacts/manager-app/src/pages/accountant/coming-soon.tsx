@@ -1,7 +1,21 @@
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Construction } from "lucide-react";
+
+/**
+ * T6 회계엔진(#778) / T2 부과엔진이 머지된 뒤로 아래 stub 라우트들은
+ * 실제 화면(/erp/accounting 의 탭, /erp/billing) 으로 곧장 보낸다.
+ * 사이드바 코드는 그대로 두고 라우트 단에서만 회수한다.
+ */
+const REDIRECTS: Record<string, string> = {
+  "/accountant/charging/auto-journal": "/erp/accounting?tab=journal",
+  "/accountant/charging/rules": "/erp/billing",
+  "/accountant/ledger": "/erp/accounting?tab=gl",
+  "/accountant/balance-sheet": "/erp/accounting?tab=bs",
+  "/accountant/income-statement": "/erp/accounting?tab=is",
+  "/accountant/settings/categories": "/erp/accounting?tab=coa",
+};
 
 /**
  * [Task #772] 경리 신 IA 의 신규 메뉴(자동분개·총계정원장·재무상태표·월마감 등)
@@ -55,6 +69,8 @@ const COMING_SOON_LABELS: Record<string, { title: string; engine: string; descri
 
 export default function AccountantComingSoon() {
   const [location] = useLocation();
+  const redirectTo = REDIRECTS[location];
+  if (redirectTo) return <Redirect to={redirectTo} />;
   const meta = COMING_SOON_LABELS[location] ?? {
     title: "준비 중",
     engine: "후속 엔진 태스크",
