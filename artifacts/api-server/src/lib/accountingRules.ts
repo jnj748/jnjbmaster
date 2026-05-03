@@ -15,7 +15,9 @@
 import { db, journalEntriesTable, journalLinesTable, type JournalSourceEvent } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
-import { voucherEventBus, type VoucherConfirmedPayload, type VoucherScheduleTickPayload } from "./voucherEvents";
+import { voucherEventBus, type VoucherConfirmedPayload, type VoucherScheduleTickPayload, type VoucherRecordedPayload } from "./voucherEvents";
+import { chartOfAccountsTable } from "@workspace/db";
+import { and, isNull, or, sql } from "drizzle-orm";
 import { BILLING_FINALIZED_LISTENERS, type BillingFinalizedEvent } from "../routes/billing";
 import { recordSystemAudit } from "../middlewares/audit";
 
@@ -264,12 +266,52 @@ async function onScheduleTick(p: VoucherScheduleTickPayload): Promise<void> {
   }).catch((err) => logger.error({ err, scheduleId: p.scheduleId, round: p.round }, "[T6] voucher.installment_recognized posting failed"));
 }
 
+// [Task #794] 출납등록(voucher.recorded) — 자금 출처 분기.
+//   voucher.confirmed 시점에는 v01 가정대로 (대) 1020 예금으로 분개를 만들어 두었다.
+//   출납등록 시 사용자가 실제 사용한 자금 계정(예: 1010 현금, 1021 OO은행 등)을 선택하면
+//   재분류 분개를 추가 발행한다:
+//     (차) 1020 예금 / (대) 선택계정         — 원래 1020 차감을 되돌리고 실제 계정에서 차감.
+//   accountCode 가 NULL 이거나 1020 이면 분개를 만들지 않는다 (변경 없음).
+//   accountCode 의 자산 계정 검증은 chartOfAccountsTable 에서 수행 (표준 + 해당 건물 정의).
+async function onVoucherRecorded(p: VoucherRecordedPayload): Promise<void> {
+  if (!p.accountCode || p.accountCode === STD.BANK.code) return;
+  // 자산 타입의 등록된 계정인지 확인 (표준 또는 해당 건물 정의).
+  const buildingFilter = p.buildingId === null
+    ? isNull(chartOfAccountsTable.buildingId)
+    : or(isNull(chartOfAccountsTable.buildingId), eq(chartOfAccountsTable.buildingId, p.buildingId));
+  const [acc] = await db.select().from(chartOfAccountsTable).where(and(
+    eq(chartOfAccountsTable.code, p.accountCode),
+    eq(chartOfAccountsTable.type, "asset"),
+    buildingFilter ?? sql`TRUE`,
+  )).limit(1);
+  if (!acc) {
+    logger.warn({ voucherId: p.voucherId, accountCode: p.accountCode, buildingId: p.buildingId }, "[T6] voucher.recorded — unknown asset account, skipping reclassification");
+    return;
+  }
+  if (acc.isHeader) return;
+  const today = (p.paidAt ?? p.occurredAt).slice(0, 10);
+  const vendor = p.vendor ?? "거래처미상";
+  await postJournal({
+    buildingId: p.buildingId,
+    entryDate: today,
+    memo: `출납 자금 출처 분기 — ${vendor} ${p.amount.toLocaleString()}원 (${acc.code} ${acc.name})`,
+    sourceEvent: "voucher.recorded",
+    sourceRefType: "expense_voucher",
+    sourceRefId: p.voucherId,
+    lines: [
+      L(STD.BANK, "D", p.amount, { partyName: vendor, memo: `voucher#${p.voucherId} 자금재분류` }),
+      L({ code: acc.code, name: acc.name }, "C", p.amount, { partyName: vendor, memo: `voucher#${p.voucherId} ${p.paymentMethod ?? ""}`.trim() }),
+    ],
+  }).catch((err) => logger.error({ err, voucherId: p.voucherId }, "[T6] voucher.recorded posting failed"));
+}
+
 let WIRED = false;
 export function wireAccountingListeners(): void {
   if (WIRED) return;
   WIRED = true;
   voucherEventBus.onTyped("voucher.confirmed", (p) => { void onVoucherConfirmed(p); });
   voucherEventBus.onTyped("voucher_schedule.tick", (p) => { void onScheduleTick(p); });
+  voucherEventBus.onTyped("voucher.recorded", (p) => { void onVoucherRecorded(p); });
   BILLING_FINALIZED_LISTENERS.push(onBillingFinalized);
   logger.info("[T6] accounting auto-journal listeners wired");
 }

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, FileText, Repeat, Copy } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +48,12 @@ interface ExpenseVoucher {
   // [Task #775] 정기/주기 메타 — 인박스 분기 + "지난번과 동일" 복제 버튼 노출용.
   isRecurring?: boolean;
   recurrenceCycle?: string | null;
+  // [Task #794] 출납 시 사용한 자금 계정 코드 (예: 1010 현금, 1020 예금, 1021 OO은행).
+  paymentAccountCode?: string | null;
 }
+
+// [Task #794] /accounting/accounts 응답 행 — 출납등록 시 자금 계정 선택지로 사용.
+interface CashAccount { code: string; name: string; type: string; isHeader: boolean }
 
 type VoucherTypeFilter = "all" | "recurring" | "onetime";
 
@@ -66,6 +72,9 @@ export default function ExpenseVoucherInboxPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [paidDates, setPaidDates] = useState<Record<number, string>>({});
   const [paymentMethods, setPaymentMethods] = useState<Record<number, string>>({});
+  // [Task #794] 행별 자금 계정 코드 선택 상태. 미선택 시 NULL 로 보내 기본 1020 예금 유지.
+  const [accountCodes, setAccountCodes] = useState<Record<number, string>>({});
+  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>([]);
   const [accountMemos, setAccountMemos] = useState<Record<number, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   // [Task #775] 정기/비정기 인박스 분기. ?type=recurring|onetime 쿼리로 서버 필터.
@@ -76,6 +85,36 @@ export default function ExpenseVoucherInboxPage() {
 
   // [Task #782] linkIngestionRef 호출용 베이스 — 위 API_BASE 와 동일하지만 명시적으로 보관.
   const apiBase = API_BASE;
+
+  // [Task #794] 출납등록 시 선택할 자금 계정 목록 — 자산(asset) 타입 비-헤더 계정 중
+  //   1010(현금) / 1020(예금) 또는 사용자가 등록한 통장·카드용 자산 계정만 노출.
+  useEffect(() => {
+    let cancelled = false;
+    const loadAccounts = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/accounting/accounts`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { accounts: CashAccount[] };
+        const filtered = (data.accounts ?? []).filter(
+          (a) =>
+            a.type === "asset" &&
+            !a.isHeader &&
+            (a.code === "1010" ||
+              a.code === "1020" ||
+              /예금|현금|계좌|카드|통장/.test(a.name)),
+        );
+        if (!cancelled) setCashAccounts(filtered);
+      } catch {
+        // 자금 계정 목록은 출납등록 동작의 필수 조건이 아니므로 조용히 폴백.
+      }
+    };
+    void loadAccounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +198,8 @@ export default function ExpenseVoucherInboxPage() {
         body: JSON.stringify({
           paidAt,
           paymentMethod: paymentMethod.trim(),
+          // [Task #794] 자금 계정 코드 — 미선택 시 NULL 로 보내 기본 1020 예금 유지.
+          accountCode: accountCodes[voucher.id]?.trim() || null,
           accountMemo: accountMemos[voucher.id]?.trim() || null,
           voucherNumber: voucherNos[voucher.id] ?? voucher.voucherNumber ?? null,
         }),
@@ -236,6 +277,11 @@ export default function ExpenseVoucherInboxPage() {
                   onChangePaymentMethod={(p) =>
                     setPaymentMethods((m) => ({ ...m, [v.id]: p }))
                   }
+                  accountCode={accountCodes[v.id] ?? ""}
+                  onChangeAccountCode={(c) =>
+                    setAccountCodes((m) => ({ ...m, [v.id]: c }))
+                  }
+                  cashAccounts={cashAccounts}
                   accountMemo={accountMemos[v.id] ?? ""}
                   onChangeAccountMemo={(t) =>
                     setAccountMemos((m) => ({ ...m, [v.id]: t }))
@@ -314,6 +360,9 @@ function VoucherCard({
   onChangePaidAt,
   paymentMethod,
   onChangePaymentMethod,
+  accountCode,
+  onChangeAccountCode,
+  cashAccounts,
   accountMemo,
   onChangeAccountMemo,
   onRecord,
@@ -332,6 +381,10 @@ function VoucherCard({
   onChangePaidAt?: (s: string) => void;
   paymentMethod?: string;
   onChangePaymentMethod?: (s: string) => void;
+  // [Task #794] 자금 계정 코드 (1010 현금/1020 예금/사용자 정의 통장 등) — readOnly 면 미사용.
+  accountCode?: string;
+  onChangeAccountCode?: (s: string) => void;
+  cashAccounts?: CashAccount[];
   accountMemo?: string;
   onChangeAccountMemo?: (s: string) => void;
   onRecord?: () => void;
@@ -538,6 +591,28 @@ function VoucherCard({
                   value={paymentMethod ?? ""}
                   onChange={(e) => onChangePaymentMethod?.(e.target.value)}
                 />
+              </label>
+              {/* [Task #794] 자금 계정 — 사용자가 통장/카드/현금 등 등록한 자산 계정 중 선택.
+                  미선택 시 기본 1020 예금으로 분개되며, 선택 시 자동으로 자금 출처 분기 분개가 추가된다. */}
+              <label className="block text-xs text-gray-600 sm:col-span-2">
+                자금 계정 (선택)
+                <Select
+                  value={accountCode ?? ""}
+                  onValueChange={(v) => onChangeAccountCode?.(v)}
+                >
+                  <SelectTrigger
+                    data-testid={`voucher-account-code-${voucher.id}`}
+                  >
+                    <SelectValue placeholder="기본 1020 예금" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(cashAccounts ?? []).map((a) => (
+                      <SelectItem key={a.code} value={a.code}>
+                        {a.code} {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
               <label className="block text-xs text-gray-600">
                 전표 번호 (선택)

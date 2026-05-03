@@ -28,6 +28,10 @@ export const expenseVouchersTable = pgTable(
     // 경리 출납기록 (간단한 메타). 더 본격적인 cashbook 이 필요해지면 별도 테이블로 분리.
     paidAt: date("paid_at"),
     paymentMethod: text("payment_method"),
+    // [Task #794] 출납 시 사용한 자금 계정 코드 (예: 1010 현금, 1020 예금, 1021 OO은행).
+    //   v01 은 모든 출납을 1020 예금으로 일괄 가정했지만, 실제 사무소는 다중 통장 +
+    //   카드 + 현금이 섞이므로 출납등록 시점에 분기되어야 한다. NULL 이면 기본 1020.
+    paymentAccountCode: text("payment_account_code"),
     accountMemo: text("account_memo"),
     receiptFileUrl: text("receipt_file_url"),
     recordedByUserId: integer("recorded_by_user_id"),

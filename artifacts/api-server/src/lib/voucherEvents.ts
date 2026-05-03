@@ -46,9 +46,26 @@ export interface VoucherScheduleTickPayload {
   reason: "near_end" | "completed";
 }
 
+// [Task #794] 출납등록 시 사용한 계좌·결제수단 페이로드. 회계엔진(T6)이 구독해
+//   분개의 자금쪽 계정을 실제 계좌로 분기(재분류) 한다.
+export interface VoucherRecordedPayload {
+  voucherId: number;
+  approvalId: number | null;
+  buildingId: number | null;
+  amount: number;
+  vendor: string | null;
+  /** 사용자 입력 결제수단 라벨 (예: "계좌이체", "카드", "현금"). 자유 텍스트. */
+  paymentMethod: string | null;
+  /** 자금 계정 코드 (예: 1010 현금, 1020 예금, 1021 OO은행). NULL 이면 기본 1020. */
+  accountCode: string | null;
+  paidAt: string | null; // YYYY-MM-DD
+  occurredAt: string; // ISO
+}
+
 interface VoucherEvents {
   "voucher.confirmed": (p: VoucherConfirmedPayload) => void;
   "voucher_schedule.tick": (p: VoucherScheduleTickPayload) => void;
+  "voucher.recorded": (p: VoucherRecordedPayload) => void;
 }
 
 class TypedEmitter extends EventEmitter {
@@ -82,6 +99,24 @@ export function publishVoucherConfirmed(payload: Omit<VoucherConfirmedPayload, "
     "voucher.confirmed",
   );
   voucherEventBus.emitTyped("voucher.confirmed", full);
+}
+
+// [Task #794] 출납등록(/expense-vouchers/:id/record) 직후 발행. 회계엔진이 구독.
+export function publishVoucherRecorded(payload: Omit<VoucherRecordedPayload, "occurredAt">): void {
+  const full: VoucherRecordedPayload = { ...payload, occurredAt: new Date().toISOString() };
+  logger.info(
+    {
+      event: "voucher.recorded",
+      voucherId: full.voucherId,
+      approvalId: full.approvalId,
+      buildingId: full.buildingId,
+      amount: full.amount,
+      paymentMethod: full.paymentMethod,
+      accountCode: full.accountCode,
+    },
+    "voucher.recorded",
+  );
+  voucherEventBus.emitTyped("voucher.recorded", full);
 }
 
 export function publishScheduleTick(payload: VoucherScheduleTickPayload): void {

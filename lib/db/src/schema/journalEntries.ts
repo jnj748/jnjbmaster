@@ -11,6 +11,8 @@ import { z } from "zod/v4";
 export const journalSourceEvents = [
   "voucher.confirmed",
   "voucher.installment_recognized",
+  // [Task #794] 출납 시 자금 출처 분기 — recorded 시점에 1020 → 실제 계좌 재분류.
+  "voucher.recorded",
   "billing.finalized",
   "payment.received",
   "payment.partial",

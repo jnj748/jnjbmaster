@@ -35,7 +35,7 @@ import { audit, requireAction } from "../middlewares/audit";
 import { insertNotification } from "../lib/notificationRecipient";
 // [Task #775] 지출결의서 발행 시점에 voucher.confirmed 이벤트를 발행해 회계엔진(T6)이
 //   1차 분개를 만들 수 있도록 한다. 분할부과 ledger 헤더도 함께 만든다.
-import { publishVoucherConfirmed } from "../lib/voucherEvents";
+import { publishVoucherConfirmed, publishVoucherRecorded } from "../lib/voucherEvents";
 // [Task #610] 단일 통로 — approval lifecycle UPDATE 도 saveProducingDocument 로 통과.
 import { saveProducingDocument } from "../repo/producingDocuments";
 
@@ -1831,6 +1831,10 @@ router.post(
       res.status(400).json({ error: "지급일과 지급방식을 입력해주세요" });
       return;
     }
+    // [Task #794] 출납 시 사용한 자금 계정 코드. 미입력 시 기본 1020 예금으로 간주.
+    const accountCode = typeof body.accountCode === "string" && body.accountCode.trim()
+      ? body.accountCode.trim()
+      : null;
     // [Task #611 fix] 객체 단위 권한 — 다른 건물 voucher 를 ID 만 알아도
     // 출납기록 처리하는 IDOR 를 막는다.
     const [target] = await db
@@ -1862,6 +1866,8 @@ router.post(
       .set({
         paidAt: body.paidAt,
         paymentMethod: body.paymentMethod,
+        // [Task #794] 자금 계정 코드 (예: 1010 현금, 1020 예금, 1021 OO은행).
+        paymentAccountCode: accountCode,
         accountMemo: body.accountMemo ?? null,
         receiptFileUrl: body.receiptFileUrl ?? null,
         recordedByUserId: user.userId,
@@ -1875,6 +1881,18 @@ router.post(
       res.status(404).json({ error: "지출결의서를 찾을 수 없습니다" });
       return;
     }
+    // [Task #794] 출납등록 완료 — 자금 계정·결제수단 페이로드와 함께 voucher.recorded 발행.
+    //   회계엔진(T6) 이 구독해 자금쪽 계정을 실제 계좌로 분기 (재분류) 분개를 만든다.
+    publishVoucherRecorded({
+      voucherId: row.id,
+      approvalId: row.approvalId ?? null,
+      buildingId: row.buildingId ?? null,
+      amount: row.amount,
+      vendor: row.vendorName ?? null,
+      paymentMethod: row.paymentMethod ?? null,
+      accountCode: row.paymentAccountCode ?? null,
+      paidAt: row.paidAt ?? null,
+    });
     // 관리인에게 출납등록 완료 알림.
     await insertNotification({
       recipientType: "role:custodian",
