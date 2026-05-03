@@ -27,7 +27,7 @@ import {
   approvalsTable,
   approvalStepsTable,
 } from "@workspace/db";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { logger } from "./lib/logger";
 
 const DEMO_BUILDING_ID = 1;
@@ -78,11 +78,21 @@ async function ensureDemoVendorAndPartnerMapping(): Promise<number | null> {
     logger.info({ vendorId }, "DEV demo vendor seeded");
   }
 
-  // partner@test.com 의 users.vendor_id 매핑 — 이미 다른 vendor 에 묶여 있으면 손대지 않음.
-  await db
-    .update(usersTable)
-    .set({ vendorId })
-    .where(and(eq(usersTable.email, "partner@test.com"), isNull(usersTable.vendorId)));
+  // partner@test.com 의 users.vendor_id 매핑.
+  //   - vendor_id 가 NULL 인 경우: 데모 vendor 로 채운다 (최초 시드).
+  //   - vendor_id 가 가리키는 vendor 행이 더 이상 존재하지 않는 경우(끊긴 FK):
+  //     데모 vendor 로 다시 매핑해 "/me/vendor 404 → 빈 화면" 회귀를 자동 복구.
+  //   - 이미 다른 유효한 vendor 에 묶여 있으면 절대 덮어쓰지 않는다 (운영성 가드).
+  //   raw SQL 로 NOT EXISTS 서브쿼리를 써서 한 문장으로 두 케이스를 모두 처리한다.
+  await db.execute(sql`
+    UPDATE users
+       SET vendor_id = ${vendorId}
+     WHERE email = 'partner@test.com'
+       AND (
+         vendor_id IS NULL
+         OR NOT EXISTS (SELECT 1 FROM vendors v WHERE v.id = users.vendor_id)
+       )
+  `);
 
   return vendorId;
 }
