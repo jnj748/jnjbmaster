@@ -1652,6 +1652,8 @@ function accountantSidebar(
   const compact = (items: (NavItem | null)[]): NavItem[] =>
     items.filter((it): it is NavItem => it !== null);
 
+  // [업무진행순서 IA] XpBIZ 의 시간 순서(단지→입주민→검침→부과→수납→회계→결산)를
+  //   차용. 사용자가 위→아래 메뉴를 따라가면 관리비 한 사이클이 끝남.
   return [
     {
       title: "오늘의 한눈 대시보드",
@@ -1662,65 +1664,43 @@ function accountantSidebar(
       ]),
     },
     {
-      title: "부과엔진",
+      title: "단지·설정",
       items: compact([
-        // [Task #801] 자동분개 규칙 — 부과/수납 등 이벤트 → 차/대 매핑 정의.
-        link("/accounting/auto-journal-rules"),
-        link("/accountant/charging/rules", { label: "부과 기준", icon: Sparkles }),
-        // 보존 — 호실 마스터(부과 단위의 출발점).
         link("/units"),
-      ]),
-    },
-    {
-      title: "지출·문서·결재",
-      items: compact([
-        link("/expense-vouchers"),
-        link("/drafts"),
-        link("/approvals"),
-        link("/commissions"),
-      ]),
-    },
-    {
-      title: "회계 엔진",
-      items: compact([
-        link("/erp/accounting"),
-        // [Task #801] 회계 기초·전표 모듈.
+        link("/settings/building"),
         link("/accounting/coa"),
-        link("/accounting/fiscal-periods"),
-        link("/accounting/opening-balances"),
-        link("/accounting/journals"),
-        link("/accounting/journal-search"),
-        link("/accountant/balance-sheet", { label: "재무상태표", icon: Sparkles }),
-        link("/accountant/income-statement", { label: "손익계산서", icon: Sparkles }),
-        link("/accounting/report-formats"),
-        link("/accounting/data-export"),
-        link("/tax-schedules"),
+        link("/accountant/charging/rules", { label: "부과 기준", icon: Sparkles }),
+        link("/accounting/auto-journal-rules"),
+        link("/settings/metering-environment"),
+        link("/settings/metering-usage"),
+        link("/settings/notice-output"),
+        link("/settings/billing-environment"),
+        link("/settings/year-end-tax"),
+        link("/settings/access-cards"),
+        link("/accountant/prepaid-deposits"),
       ]),
     },
     {
-      // [Task #802] 장부 모듈 — 10개 보고서를 한 그룹에 노출.
-      title: "장부",
+      title: "입주민",
       items: compact([
-        link("/accounting/ledger/journal"),
-        link("/accounting/ledger/daily"),
-        link("/accounting/ledger/monthly"),
-        link("/accounting/ledger/cash"),
-        link("/accounting/ledger/bank-deposits"),
-        link("/accounting/ledger/general"),
-        link("/accounting/ledger/sub"),
-        link("/accounting/ledger/account-balance"),
-        link("/accounting/ledger/management-expenses"),
-        link("/accounting/ledger/vendor"),
+        link("/tenants"),
+        link("/vehicles"),
+        link("/residents/key-issuance"),
+        link("/residents/move-in-out"),
+        link("/residents/privacy-access-log"),
+        link("/long-term-repair-allocation"),
       ]),
     },
     {
-      title: "검침·고지·수납",
+      title: "검침",
       items: compact([
         link("/erp/upload-center"),
-        link("/erp/metering"),
-        link("/erp/billing"),
-        link("/erp/bills"),
-        link("/erp/fees-summary"),
+        link("/metering/electric"),
+        link("/metering/water"),
+        link("/metering/hot-water"),
+        link("/metering/heating"),
+        link("/metering/gas"),
+        link("/metering/kepco-transmission"),
       ]),
     },
     // [Task #799] 부과관리 풀세트 — 11 페이지 단일 그룹.
@@ -1738,49 +1718,84 @@ function accountantSidebar(
         link("/billing/auto-debit"),
         link("/billing/notice-delivery"),
         link("/billing/close"),
+        link("/residents/interim-settlement"),
       ]),
     },
-    // [Task #800] 수납·미납 관리 풀세트 — 6 페이지 단일 그룹.
+    // [Task #800] 수납·미납 관리 풀세트 — 6 페이지.
     {
-      title: "수납",
+      title: "수납·미납",
       items: compact([
-        link("/receivables/overdue"),
-        link("/receivables/overdue-notices"),
-        link("/receivables/dunning"),
         link("/receivables/payments"),
         link("/receivables/reconciliation"),
         link("/receivables/auto-debit-results"),
+        link("/receivables/overdue"),
+        link("/receivables/overdue-notices"),
+        link("/receivables/dunning"),
       ]),
     },
     {
-      title: "보고·마감",
+      title: "회계",
       items: compact([
+        link("/accounting/journals"),
+        link("/accounting/journal-search"),
+        link("/accounting/opening-balances"),
+        link("/accounting/fiscal-periods"),
+        link("/accounting/report-formats"),
+        link("/accounting/data-export"),
+        link("/accounting/ledger/journal"),
+        link("/accounting/ledger/daily"),
+        link("/accounting/ledger/monthly"),
+        link("/accounting/ledger/cash"),
+        link("/accounting/ledger/bank-deposits"),
+        link("/accounting/ledger/general"),
+        link("/accounting/ledger/sub"),
+        link("/accounting/ledger/account-balance"),
+        link("/accounting/ledger/management-expenses"),
+        link("/accounting/ledger/vendor"),
+      ]),
+    },
+    {
+      title: "결산·세무",
+      items: compact([
+        link("/closing", { label: "결산 보고서" }),
+        link("/tax", { label: "세금계산서" }),
+        link("/accountant/balance-sheet", { label: "재무상태표", icon: Sparkles }),
+        link("/accountant/income-statement", { label: "손익계산서", icon: Sparkles }),
+        link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),
+        link("/tax-schedules"),
+        link("/accounting/month-close"),
         link("/erp/budgets"),
         link("/erp/building-records"),
         link("/erp/closings"),
-        // [Task #801] 월마감(/accounting/month-close → /erp/closings 위임).
-        link("/accounting/month-close"),
-        link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),
+      ]),
+    },
+    {
+      title: "결재·문서·지출",
+      items: compact([
+        link("/expense-vouchers"),
+        link("/drafts"),
+        link("/approvals"),
+        link("/commissions"),
+        link("/dispatch-history"),
+        link("/popbill-settings"),
+      ]),
+    },
+    {
+      // 신 IA 에 흡수되지 않는 보존 그룹.
+      title: "시설·파트너",
+      items: compact([
+        link("/erp/governance"),
+        link("/safety-checklists"),
+        link("/notices/templates"),
+        link("/contracts"),
+        link("/building/vendor-directory"),
       ]),
     },
     {
       title: "설정",
       items: compact([
         link("/settings/profile"),
-        link("/settings/building"),
         link("/accountant/settings/categories", { label: "계정과목 설정", icon: Sparkles }),
-      ]),
-    },
-    {
-      // 신코드 7개 그룹에 자연 매핑되지 않는 기존 기능 보존 그룹.
-      title: "입주민·시설·파트너",
-      items: compact([
-        link("/tenants"),
-        link("/erp/governance"),
-        link("/safety-checklists"),
-        link("/notices/templates"),
-        link("/contracts"),
-        link("/building/vendor-directory"),
       ]),
     },
   ].filter((s) => s.items.length > 0);

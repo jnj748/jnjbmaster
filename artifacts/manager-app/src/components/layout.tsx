@@ -33,6 +33,8 @@ import {
   Menu,
   X,
   ChevronLeft,
+  ChevronDown,
+  ChevronRight,
   Check,
 } from "lucide-react";
 import {
@@ -404,6 +406,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // [사이드바 접기/펼치기] 큰 메뉴 헤더를 누르면 그 그룹의 작은 메뉴들이 접힘.
+  // 상태는 localStorage 에 저장해 새로고침/페이지 이동 후에도 유지.
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem("sidebar-collapsed");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  const toggleSection = useCallback((title: string) => {
+    if (!title) return;
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title); else next.add(title);
+      try { window.localStorage.setItem("sidebar-collapsed", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
   // [네비 정비] 업무기록(QuickEntry) 다이얼로그 — 하단 네비 가운데 + 버튼이 토글.
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -580,14 +600,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
       );
     }
 
+    const sectionTitle = section.title ?? "";
+    const isCollapsible = !!sectionTitle;
+    const isCollapsed = isCollapsible && collapsedSections.has(sectionTitle);
     return (
       <div key={si}>
         {section.title && (
-          <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
-            {section.title}
-          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection(sectionTitle)}
+            className="w-full flex items-center justify-between gap-1 px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold hover:text-sidebar-foreground/70 transition-colors"
+            aria-expanded={!isCollapsed}
+          >
+            <span className="truncate">{section.title}</span>
+            {isCollapsed
+              ? <ChevronRight className="w-3 h-3 shrink-0" />
+              : <ChevronDown className="w-3 h-3 shrink-0" />}
+          </button>
         )}
-        {section.items.map((item) => {
+        {!isCollapsed && section.items.map((item) => {
           const navHref = navItemHref(item);
           const isActive = isNavItemActive(item, location);
           return (
@@ -608,7 +639,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
     );
-  }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone]);
+  }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone, collapsedSections, toggleSection]);
 
   // [Task #405] 온보딩 풀스크린 위저드(/onboarding/manager, /onboarding/role-select,
   //   /onboarding/units-master, /onboarding/facility-staff 등)는 자체 Shell 을 사용한다.
@@ -744,12 +775,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span>{todayProgress!.completedCount}/{todayProgress!.totalCount}</span>
                 </span>
               ) : null;
+              const drawerSectionTitle = section.title ?? "";
+              const drawerCollapsible = !!drawerSectionTitle && !section.headerHref;
+              const drawerCollapsed = drawerCollapsible && collapsedSections.has(drawerSectionTitle);
               const headerInner = (
                 <div className="flex items-center justify-between gap-2 pb-2">
                   <span className="px-1 text-xs font-semibold text-muted-foreground truncate">
                     {section.title}
                   </span>
-                  {drawerProgressPill}
+                  {drawerCollapsible
+                    ? (drawerCollapsed
+                        ? <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        : <ChevronDown className="w-4 h-4 text-muted-foreground" />)
+                    : drawerProgressPill}
                 </div>
               );
               return (
@@ -762,11 +800,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </div>
                     </Link>
                   ) : (
-                    headerInner
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(drawerSectionTitle)}
+                      className="w-full text-left cursor-pointer hover:text-foreground transition-colors"
+                      aria-expanded={!drawerCollapsed}
+                    >
+                      {headerInner}
+                    </button>
                   )
                 )}
                 {/* [종배치] 모바일 드로어도 세로 리스트로 통일 */}
-                <div className="flex flex-col gap-1">
+                {!drawerCollapsed && <div className="flex flex-col gap-1">
                   {section.items.map((item) => {
                     const navHref = navItemHref(item);
                     const isActive = isNavItemActive(item, location);
@@ -798,7 +843,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Link>
                     );
                   })}
-                </div>
+                </div>}
               </div>
               );
             })}
