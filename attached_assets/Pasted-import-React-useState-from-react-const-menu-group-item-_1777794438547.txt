@@ -1,0 +1,282 @@
+import React, { useState } from "react";
+
+const menu = [
+  {
+    group: "오늘의 한눈 대시보드",
+    items: ["대시보드", "일정", "AI 관리비서"],
+  },
+  {
+    group: "부과엔진",
+    items: [
+      "부과환경 설정",
+      "관리단 의결사항",
+      "부과자료 업로드센터",
+      "AI 부과계산",
+      "총괄표",
+      "조정명세서",
+      "분할부과 명세서",
+      "부과 검증",
+    ],
+  },
+  {
+    group: "지출·문서·결재",
+    items: [
+      "기안서 조회",
+      "지출결의서 - 정기지출",
+      "지출결의서 - 비정기지출",
+      "분할부과 설정",
+      "증빙자료 관리",
+      "결재 상태 조회",
+    ],
+  },
+  {
+    group: "회계 엔진",
+    items: [
+      "자동분개",
+      "분개장",
+      "계정과목 관리",
+      "총계정원장",
+      "보조부원장",
+      "현금출납장",
+      "제예금명세서",
+    ],
+  },
+  {
+    group: "검침·고지·수납",
+    items: [
+      "검침 데이터 조회",
+      "검침 이상치",
+      "고지서 생성",
+      "카카오·문자 발송",
+      "수납현황",
+      "미수금 관리",
+      "연체관리",
+    ],
+  },
+  {
+    group: "보고·마감",
+    items: [
+      "월마감",
+      "마감이력",
+      "월말보고서",
+      "연간보고서",
+      "관리비 요약",
+      "재무상태표",
+      "운영성과표",
+    ],
+  },
+  {
+    group: "설정",
+    items: [
+      "내정보 수정",
+      "부과환경 설정",
+      "연체료 설정",
+      "Popbill 설정",
+      "권한 관리",
+    ],
+  },
+];
+
+export default function App() {
+  const [selected, setSelected] = useState("대시보드");
+
+  return (
+    <div style={styles.app}>
+      <aside style={styles.sidebar}>
+        <div style={styles.logoBox}>
+          <div style={styles.logo}>관리의달인</div>
+          <div style={styles.role}>경리 파트</div>
+        </div>
+
+        <div style={styles.menuWrap}>
+          {menu.map((section) => (
+            <div key={section.group} style={styles.section}>
+              <div style={styles.groupTitle}>{section.group}</div>
+
+              {section.items.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setSelected(item)}
+                  style={{
+                    ...styles.menuButton,
+                    ...(selected === item ? styles.activeButton : {}),
+                  }}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <main style={styles.main}>
+        <header style={styles.header}>
+          <div>
+            <h1 style={styles.title}>{selected}</h1>
+            <p style={styles.subtitle}>
+              입력은 최소화하고, 선택·확인·승인 중심으로 처리합니다.
+            </p>
+          </div>
+
+          <button style={styles.primaryButton}>AI 검토</button>
+        </header>
+
+        <section style={styles.cardGrid}>
+          <div style={styles.card}>
+            <h2>오늘 처리할 일</h2>
+            <p>승인 대기, 지출결의, 검침 확인, 부과 마감 상태를 한눈에 확인합니다.</p>
+          </div>
+
+          <div style={styles.card}>
+            <h2>연동 흐름</h2>
+            <p>기안서 → 승인 → 지출결의서 → 출금 → 자동분개 → 부과 → 고지 → 수납 → 마감</p>
+          </div>
+
+          <div style={styles.card}>
+            <h2>터치 선택 방식</h2>
+            <p>금액·월·항목·계정과목은 직접 입력보다 버튼, 드롭다운, 추천 선택으로 처리합니다.</p>
+          </div>
+        </section>
+
+        <section style={styles.workPanel}>
+          <h2>{selected} 작업 화면</h2>
+
+          <div style={styles.choiceGrid}>
+            {["조회", "AI 추천", "확인", "승인요청", "내역보기", "마감"].map((label) => (
+              <button key={label} style={styles.choiceButton}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+const styles = {
+  app: {
+    display: "flex",
+    minHeight: "100vh",
+    background: "#f5f7fb",
+    fontFamily:
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif",
+    color: "#1f2937",
+  },
+  sidebar: {
+    width: 290,
+    background: "#22113f",
+    color: "#fff",
+    padding: "22px 16px",
+    overflowY: "auto",
+  },
+  logoBox: {
+    marginBottom: 24,
+    padding: "16px 14px",
+    borderRadius: 18,
+    background: "rgba(255,255,255,0.08)",
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: 800,
+  },
+  role: {
+    marginTop: 6,
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  menuWrap: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 18,
+  },
+  section: {},
+  groupTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#c9b7ff",
+    margin: "0 0 8px 8px",
+  },
+  menuButton: {
+    width: "100%",
+    minHeight: 44,
+    padding: "10px 12px",
+    marginBottom: 6,
+    borderRadius: 14,
+    border: "none",
+    textAlign: "left",
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#efeaff",
+    background: "transparent",
+    cursor: "pointer",
+  },
+  activeButton: {
+    background: "#ffffff",
+    color: "#22113f",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+  },
+  main: {
+    flex: 1,
+    padding: 32,
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 26,
+  },
+  title: {
+    fontSize: 32,
+    margin: 0,
+  },
+  subtitle: {
+    marginTop: 8,
+    color: "#6b7280",
+  },
+  primaryButton: {
+    minWidth: 120,
+    minHeight: 50,
+    border: "none",
+    borderRadius: 16,
+    background: "#5b35d5",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  cardGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 18,
+    marginBottom: 24,
+  },
+  card: {
+    background: "#fff",
+    padding: 22,
+    borderRadius: 22,
+    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  },
+  workPanel: {
+    background: "#fff",
+    padding: 26,
+    borderRadius: 24,
+    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+  },
+  choiceGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 14,
+    marginTop: 18,
+  },
+  choiceButton: {
+    minHeight: 72,
+    border: "1px solid #e5e7eb",
+    borderRadius: 20,
+    background: "#f9fafb",
+    fontSize: 18,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+};

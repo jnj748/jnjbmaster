@@ -1,0 +1,243 @@
+import React, { useState } from "react";
+
+const rooms = [
+  { id: "101", supplyArea: 50, prevElec: 100, currElec: 150 },
+  { id: "102", supplyArea: 70, prevElec: 200, currElec: 260 },
+  { id: "103", supplyArea: 80, prevElec: 300, currElec: 390 },
+];
+
+const settings = {
+  month: "2026-05",
+  commonCost: 900000,
+  elecUnitPrice: 150,
+  repairReservePerM2: 300,
+  overdueRate: 0.015,
+};
+
+export default function App() {
+  const [draftApproved, setDraftApproved] = useState(false);
+  const [expenseApproved, setExpenseApproved] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const expense = {
+    title: "화재보험료",
+    totalAmount: 1200000,
+    type: "정기지출",
+    cycle: "매년",
+    installment: true,
+    months: 12,
+    currentRound: 1,
+    monthlyAmount: 100000,
+  };
+
+  const totalSupplyArea = rooms.reduce((sum, r) => sum + r.supplyArea, 0);
+
+  // 1. 부과엔진
+  const billings = rooms.map((room) => {
+    const areaRatio = room.supplyArea / totalSupplyArea;
+    const commonCharge = Math.round(settings.commonCost * areaRatio);
+    const usage = room.currElec - room.prevElec;
+    const elecCharge = usage * settings.elecUnitPrice;
+    const repairReserve = room.supplyArea * settings.repairReservePerM2;
+    const installmentCharge = Math.round(expense.monthlyAmount * areaRatio);
+
+    const monthlyCharge =
+      commonCharge + elecCharge + repairReserve + installmentCharge;
+
+    return {
+      room: room.id,
+      supplyArea: room.supplyArea,
+      commonCharge,
+      usage,
+      elecCharge,
+      repairReserve,
+      installmentCharge,
+      monthlyCharge,
+    };
+  });
+
+  // 2. 지출결의서 엔진
+  const expenditureStatus = draftApproved
+    ? "기안 승인 완료 → 지출결의서 자동 생성"
+    : "기안서 승인 대기";
+
+  // 3. 회계엔진
+  const journals = expenseApproved
+    ? [
+        {
+          debit: expense.installment ? "선급비용" : "관리비용",
+          credit: "예금",
+          amount: expense.totalAmount,
+          memo: `${expense.title} 출금`,
+        },
+        {
+          debit: "관리비용",
+          credit: "선급비용",
+          amount: expense.monthlyAmount,
+          memo: `${expense.title} ${expense.currentRound}/${expense.months}개월분 부과`,
+        },
+        {
+          debit: "미수관리비",
+          credit: "관리수익",
+          amount: billings.reduce((s, b) => s + b.monthlyCharge, 0),
+          memo: `${settings.month} 관리비 부과`,
+        },
+      ]
+    : [];
+
+  // 4. 마감엔진
+  const closeMonth = () => {
+    if (!expenseApproved) {
+      alert("지출결의서 결재가 먼저 필요합니다.");
+      return;
+    }
+    setClosed(true);
+  };
+
+  // 5. Popbill 발송엔진 Mock
+  const sendBills = () => {
+    if (!closed) {
+      alert("월마감 후 고지서 발송이 가능합니다.");
+      return;
+    }
+    setSent(true);
+  };
+
+  return (
+    <div style={styles.page}>
+      <h1>관리비달인 부과엔진 v02 테스트</h1>
+
+      <section style={styles.card}>
+        <h2>1. 부과엔진</h2>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th>호실</th>
+              <th>공급면적</th>
+              <th>공용부</th>
+              <th>전기사용량</th>
+              <th>전기료</th>
+              <th>수선적립금</th>
+              <th>분할부과</th>
+              <th>당월부과액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {billings.map((b) => (
+              <tr key={b.room}>
+                <td>{b.room}</td>
+                <td>{b.supplyArea}㎡</td>
+                <td>{b.commonCharge.toLocaleString()}</td>
+                <td>{b.usage}</td>
+                <td>{b.elecCharge.toLocaleString()}</td>
+                <td>{b.repairReserve.toLocaleString()}</td>
+                <td>{b.installmentCharge.toLocaleString()}</td>
+                <td><b>{b.monthlyCharge.toLocaleString()}</b></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section style={styles.card}>
+        <h2>2. 지출결의서 엔진</h2>
+        <p>{expenditureStatus}</p>
+        <button onClick={() => setDraftApproved(true)} style={styles.button}>
+          관리단장/대표 기안 승인
+        </button>
+        <button
+          onClick={() => setExpenseApproved(true)}
+          disabled={!draftApproved}
+          style={styles.button}
+        >
+          지출결의서 결재
+        </button>
+      </section>
+
+      <section style={styles.card}>
+        <h2>3. 회계엔진</h2>
+        {journals.length === 0 ? (
+          <p>지출결의서 결재 후 자동분개가 생성됩니다.</p>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th>차변</th>
+                <th>대변</th>
+                <th>금액</th>
+                <th>적요</th>
+              </tr>
+            </thead>
+            <tbody>
+              {journals.map((j, i) => (
+                <tr key={i}>
+                  <td>{j.debit}</td>
+                  <td>{j.credit}</td>
+                  <td>{j.amount.toLocaleString()}</td>
+                  <td>{j.memo}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section style={styles.card}>
+        <h2>4. 마감엔진</h2>
+        <p>{closed ? `${settings.month} 마감 완료` : "마감 전"}</p>
+        <button onClick={closeMonth} style={styles.button}>
+          월마감
+        </button>
+      </section>
+
+      <section style={styles.card}>
+        <h2>5. Popbill 발송엔진</h2>
+        <p>{sent ? "카카오/문자 고지서 발송 완료(Mock)" : "발송 대기"}</p>
+        <button onClick={sendBills} style={styles.button}>
+          고지서 발송
+        </button>
+      </section>
+
+      <section style={styles.card}>
+        <h2>총괄표 설명</h2>
+        <p>
+          {expense.title} 총액 {expense.totalAmount.toLocaleString()}원 /{" "}
+          {expense.months}개월 분할 / 당월 {expense.currentRound}/
+          {expense.months}개월분 {expense.monthlyAmount.toLocaleString()}원 반영
+        </p>
+      </section>
+    </div>
+  );
+}
+
+const styles = {
+  page: {
+    padding: 28,
+    fontFamily: "'Noto Sans KR', sans-serif",
+    background: "#f5f6fb",
+    minHeight: "100vh",
+  },
+  card: {
+    background: "#fff",
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 18,
+    boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  button: {
+    marginRight: 10,
+    marginTop: 10,
+    padding: "12px 18px",
+    border: "none",
+    borderRadius: 12,
+    background: "#4f46e5",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+};
