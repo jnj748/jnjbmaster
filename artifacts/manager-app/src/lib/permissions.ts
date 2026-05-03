@@ -38,6 +38,8 @@ import {
   Megaphone,
   // [Task #734] 이벤트 크레딧 일괄 지급 메뉴/카드 아이콘.
   Gift,
+  // [Task #740 가입흐름재설정] 파트너 분야(2단 카테고리) 관리 메뉴 아이콘.
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -776,6 +778,11 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/platform-credit-events")),
     label: "이벤트 크레딧 지급", icon: Gift, group: "settings",
     access: ["platform_admin"], hidden: true },
+  // [Task #740 가입흐름재설정] 파트너 분야(대분류·자식) 마스터 관리 — 가입 위저드/매칭 자동 반영.
+  { path: "/platform/vendor-categories",
+    component: lazy(() => import("@/pages/platform-vendor-categories")),
+    label: "파트너 분야 관리", icon: Layers, group: "settings",
+    access: ["platform_admin"], hidden: true },
   // [Task #283] 역할별 캠페인 알림 관리 — 단일 페이지가 ?role= 쿼리로 5개 역할 범위를 전환.
   { path: "/platform/campaigns",
     component: lazy(() => import("@/pages/platform-campaigns")),
@@ -1061,6 +1068,8 @@ function platformAdminSidebar(): NavSection[] {
         { path: "/platform/quote-credit-policies", label: "크레딧정책설정", icon: Coins },
         // [Task #734] 이벤트 크레딧 일괄 지급 — 필터/직접/엑셀 3가지 방식 지원.
         { path: "/platform/credit-events", label: "이벤트 크레딧 지급", icon: Gift },
+        // [Task #740 가입흐름재설정] 파트너 분야(대분류·자식) 마스터 관리.
+        { path: "/platform/vendor-categories", label: "파트너 분야 관리", icon: Layers },
       ],
     },
     {

@@ -176,6 +176,10 @@ const EXPECTED_SIDEBAR: Record<Role, Snapshot> = {
         "/vendors",
         "/platform/credits",
         "/platform/quote-credit-policies",
+        // [Task #734] 이벤트 크레딧 일괄 지급.
+        "/platform/credit-events",
+        // [Task #740 가입흐름재설정] 파트너 분야(2단 카테고리) 마스터 관리.
+        "/platform/vendor-categories",
       ],
     },
     {
