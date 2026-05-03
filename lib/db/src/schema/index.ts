@@ -72,6 +72,7 @@ export * from "./vendorReviews";
 export * from "./referralBenefits";
 export * from "./hqBuildingAssignments";
 export * from "./approvalSignedCopies";
+export * from "./guestSignatureTokens";
 export * from "./approvalContractFiles";
 export * from "./hqApprovalThresholds";
 export * from "./expenseVouchers";

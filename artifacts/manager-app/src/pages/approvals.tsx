@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import SignedCopyUploader, { type SignedCopySummary } from "@/components/signed-copy-uploader";
+// [Task #758] 게스트(비가입자) 전자서명 링크 발급/추적 패널.
+import GuestSignaturePanel from "@/components/guest-signature-panel";
 import ContractEvidenceRegistration from "@/components/contract-evidence-registration";
 
 // [Task #707 review fix] 다중 계약/세금계산서 첨부 파일 항목.
@@ -777,6 +779,17 @@ export default function Approvals() {
                                 }}
                               />
                             </div>
+                          )}
+                          {/* [Task #758] 미가입 결재자(관리인/본부장) 에게 일회용 전자서명 링크 발송. */}
+                          {isCurrent && (step.status === "pending" || step.status === "awaiting_offline") && canManageOffline && (
+                            <GuestSignaturePanel
+                              approvalId={selectedApproval.id}
+                              stepId={step.id}
+                              approverName={step.approverName}
+                              approverRole={roleLabels[step.approverRole] || step.approverRole}
+                              apiBase={API_BASE}
+                              token={token}
+                            />
                           )}
                           {canCloseOffline && (
                             <div className="mt-2 ml-16 flex gap-2">

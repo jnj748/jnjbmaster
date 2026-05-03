@@ -38,6 +38,8 @@ const FeatureUnavailablePage = lazy(() => import("@/pages/feature-unavailable"))
 const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const SocialSignup = lazy(() => import("@/pages/social-signup"));
 const TenantCardForm = lazy(() => import("@/pages/tenant-card-form"));
+// [Task #758] 게스트 전자서명 — 비로그인 외부 결재자 일회용 링크 페이지.
+const GuestSign = lazy(() => import("@/pages/guest-sign"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 // [Task #132] 통합 가입 후 역할 선택·역할별 위저드.
 const RoleSelectPage = lazy(() => import("@/pages/onboarding/role-select"));
@@ -289,6 +291,8 @@ function AuthenticatedRoutes() {
                   <Route path="/__layout-check" component={LayoutCheck} />
                 )}
                 <Route path="/tenant-card/:token" component={TenantCardForm} />
+                {/* [Task #758] 게스트 전자서명 — 로그인 사용자가 직접 본인 핸드폰에 받은 링크를 열 수도 있다. */}
+                <Route path="/guest-sign/:token" component={GuestSign} />
                 {/* [Task #141] 폐지된 라우트의 레거시 북마크는 흡수된 화면(또는 탭)으로 안내. */}
                 {/* [Task #485] /building-setup 은 새 단독 페이지(/settings/building)로 직행.
                     쿼리(예: ?tab=units-import)·해시(예: #address-info)는 보존. */}
@@ -385,6 +389,8 @@ function AppRouter() {
             <Route path="/__layout-check" component={LayoutCheck} />
           )}
           <Route path="/tenant-card/:token" component={TenantCardForm} />
+          {/* [Task #758] 게스트 전자서명 — 비로그인 외부 결재자가 접근. */}
+          <Route path="/guest-sign/:token" component={GuestSign} />
           {/* [Task #132·#141] /portal 폐지 — 통합 로그인 화면(/login)으로 일원화. /login/hq는 본사 전용으로 유지. */}
           <Route path="/login" component={Login} />
           <Route path="/login/:portalType" component={Login} />

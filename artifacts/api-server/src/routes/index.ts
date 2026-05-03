@@ -87,6 +87,8 @@ import documentsRouter from "./documents";
 import noticeOutputsRouter from "./noticeOutputs";
 // [Task #761] 플랫폼 레벨 AI — 포트폴리오 이상치 위젯용 라우트.
 import portfolioAnomaliesRouter from "./portfolioAnomalies";
+// [Task #758] 게스트 전자서명 — 비인증 공개 라우트 + 인증 매니저 라우트.
+import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSignatures";
 
 const router: IRouter = Router();
 
@@ -95,6 +97,8 @@ router.use(authRouter);
 router.use(oauthRouter);
 router.use(storageRouter);
 router.use(publicTenantCardRouter);
+// [Task #758] 게스트 전자서명 공개 엔드포인트 — authMiddleware 앞에 마운트.
+router.use(publicGuestSignaturesRouter);
 
 // [Task #133] Public GET for active docs is mounted before authMiddleware (and
 // before platformConsentsRouter, which applies authMiddleware globally on its
@@ -157,6 +161,8 @@ buildingRouter.use(dashboardRouter);
 buildingRouter.use(approvalsRouter);
 // [Task #611] 결재 라인 파이프라인 — 임계 금액 / 서명본 / 지출결의서 / 입금요청서.
 buildingRouter.use(approvalPipelineRouter);
+// [Task #758] 매니저용 게스트 전자서명 발급/조회/취소/재발송.
+buildingRouter.use(guestSignaturesRouter);
 buildingRouter.use(tasksRouter);
 buildingRouter.use(inspectionsRouter);
 buildingRouter.use(taxSchedulesRouter);
