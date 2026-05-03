@@ -133,6 +133,9 @@ const ExpenseVoucherInbox = lazy(() => import("@/pages/expense-voucher-inbox"));
 const ApprovalPipelineStatus = lazy(() => import("@/pages/approval-pipeline-status"));
 // [Task #773] 감사로그 — platform_admin / hq_executive / custodian 만 진입.
 const AuditLogsPage = lazy(() => import("@/pages/audit-logs"));
+// [Task #781] T10 외부연동 — 발송 이력 / Popbill 설정.
+const DispatchHistoryPage = lazy(() => import("@/pages/dispatch-history"));
+const PopbillSettingsPage = lazy(() => import("@/pages/popbill-settings"));
 const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
 const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds"));
 
@@ -825,6 +828,15 @@ export const ROUTES: RouteEntry[] = [
     label: "감사로그", icon: Shield, group: "settings",
     access: ["platform_admin", "hq_executive", "custodian"],
     sideMenu: ["platform_admin", "hq_executive", "custodian"] },
+  // [Task #781] T10 외부연동 — 발송 이력(전 역할 운영자 가시화) / Popbill 설정(매니저·플랫폼).
+  { path: "/dispatch-history", component: DispatchHistoryPage,
+    label: "발송 이력", icon: Megaphone, group: "settings",
+    access: ["platform_admin", "manager", "accountant", "hq_executive", "custodian"],
+    sideMenu: ["manager", "accountant", "hq_executive"] },
+  { path: "/popbill-settings", component: PopbillSettingsPage,
+    label: "Popbill 발송 설정", icon: Megaphone, group: "settings",
+    access: ["platform_admin", "manager"],
+    sideMenu: ["manager"] },
   // [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책 통합 관리.
   { path: "/platform/quote-credit-policies",
     component: lazy(() => import("@/pages/platform-quote-credit-policies")),

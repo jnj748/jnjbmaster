@@ -720,32 +720,74 @@ router.post(
     // 기본 연체이자: 월 1.5% × (overdueDays/30).
     const lateFee = Math.round(overdueAmount * 0.015 * (overdueDays / 30));
 
+    // [Task #781] T10 — dispatch=true 시 외부 발송 엔진(enqueueDispatch) 으로 큐잉.
+    //   채널 매핑: kakao→popbill_kakao, sms→popbill_sms. 호실 연락처 미존재 시 skip.
+    let dispatchInfo: { ok: boolean; jobId?: number; reason?: string } | null = null;
+    if (dispatch) {
+      try {
+        const { enqueueDispatch } = await import("../lib/external/adapter");
+        const { popbillSettingsTable, tenantsTable, ownersTable } = await import("@workspace/db");
+        const [settings] = await db.select().from(popbillSettingsTable).where(eq(popbillSettingsTable.buildingId, buildingId));
+        const tns = await db.select().from(tenantsTable).where(eq(tenantsTable.unitId, bill.unitId));
+        const activeTn = tns.find((x) => x.status === "active");
+        const ows = await db.select().from(ownersTable).where(eq(ownersTable.unitId, bill.unitId));
+        const phone = (activeTn?.phone || ows[0]?.phone || "").replace(/[^\d]/g, "");
+        if (!/^\d{9,12}$/.test(phone)) {
+          dispatchInfo = { ok: false, reason: "no_phone" };
+        } else {
+          const ch = channel === "kakao" ? "popbill_kakao" : "popbill_sms";
+          const stageLabel = stage === 1 ? "1차" : stage === 2 ? "2차" : stage >= 3 ? "소장면담" : "해제";
+          const message = `[관리비 연체 ${stageLabel}] ${bill.billingMonth} ${bill.unitNumber}호 미납 ${overdueAmount.toLocaleString()}원(연체 ${overdueDays}일, 가산금 ${lateFee.toLocaleString()}원). 빠른 납부 부탁드립니다.`;
+          const tplKey = stage >= 3 ? "delinquent_final" : "delinquent_reminder";
+          const job = await enqueueDispatch({
+            buildingId,
+            channel: ch,
+            target: phone,
+            payload: {
+              templateCode: settings?.kakaoTemplates?.[tplKey] ?? "",
+              senderNumber: settings?.senderNumber ?? "",
+              senderProfileId: settings?.senderProfileId ?? "",
+              message,
+              altMessage: message,
+              receiverName: activeTn?.tenantName ?? ows[0]?.ownerName ?? "",
+            },
+            relatedMonth: bill.billingMonth,
+            relatedEntityType: "bill",
+            relatedEntityId: bill.id,
+            triggerSource: "delinquency.stage.set",
+            createdBy: req.user?.userId ?? null,
+          });
+          dispatchInfo = { ok: true, jobId: job.id };
+        }
+      } catch (e) {
+        dispatchInfo = { ok: false, reason: (e as Error)?.message ?? "enqueue_failed" };
+      }
+    }
+
     const [existing] = await db.select().from(delinquencyStagesTable).where(eq(delinquencyStagesTable.billId, id));
     let saved: typeof delinquencyStagesTable.$inferSelect;
     if (existing) {
       const log = existing.dispatchLog ?? [];
       if (dispatch) {
-        // [T10 hook] 외부 발송엔진 호출 자리. 현재는 로그 적재만.
-        log.push({ at: new Date().toISOString(), stage, channel, ok: true });
-        logger.info({ billId: id, stage, channel }, "[T8→T10] delinquency.dispatch.send (stub)");
+        log.push({ at: new Date().toISOString(), stage, channel, ok: dispatchInfo?.ok ?? false, jobId: dispatchInfo?.jobId, reason: dispatchInfo?.reason });
       }
       const [u] = await db.update(delinquencyStagesTable).set({
         stage, overdueDays, overdueAmount, lateFeeAmount: lateFee,
         dispatchLog: log,
-        lastDispatchAt: dispatch ? new Date() : existing.lastDispatchAt,
+        lastDispatchAt: dispatch && dispatchInfo?.ok ? new Date() : existing.lastDispatchAt,
         resolvedAt: stage === 0 ? new Date() : null,
       }).where(eq(delinquencyStagesTable.id, existing.id)).returning();
       saved = u;
     } else {
-      const log = dispatch ? [{ at: new Date().toISOString(), stage, channel, ok: true }] : [];
+      const log = dispatch ? [{ at: new Date().toISOString(), stage, channel, ok: dispatchInfo?.ok ?? false, jobId: dispatchInfo?.jobId, reason: dispatchInfo?.reason }] : [];
       const [c] = await db.insert(delinquencyStagesTable).values({
         buildingId, billId: id, unitId: bill.unitId, unitNumber: bill.unitNumber,
         stage, overdueDays, overdueAmount, lateFeeAmount: lateFee,
-        dispatchLog: log, lastDispatchAt: dispatch ? new Date() : null,
+        dispatchLog: log, lastDispatchAt: dispatch && dispatchInfo?.ok ? new Date() : null,
       }).returning();
       saved = c;
     }
-    res.json(saved);
+    res.json({ ...saved, dispatch: dispatchInfo });
   },
 );
 

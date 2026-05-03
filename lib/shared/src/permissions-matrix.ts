@@ -89,6 +89,9 @@ export const AUDIT_ACTIONS = [
 
   // ── 회계엔진 v01 (#778) ────────────────────────────────────
   "accounting.account.create",
+
+  // ── 외부연동 엔진 v01 (#781) ───────────────────────────────
+  "popbill.settings.update",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -168,6 +171,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "delinquency.dispatch.send": "연체 안내 발송",
 
   "accounting.account.create": "계정과목 추가",
+  "popbill.settings.update": "Popbill 설정 변경",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -280,6 +284,10 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   // ── 회계엔진 v01 (#778) ────────────────────────────────────
   // 사용자 정의 계정과목 추가는 현장 운영자(관리소장·경리)와 플랫폼관리자에게 허용.
   "accounting.account.create": { manager: true, accountant: true, platform_admin: true },
+
+  // ── 외부연동 엔진 (#781) ─────────────────────────────────────
+  // Popbill 시크릿은 환경변수 — 화면에서는 발신번호·템플릿·프로필 ID 만 갱신.
+  "popbill.settings.update": { manager: true, accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

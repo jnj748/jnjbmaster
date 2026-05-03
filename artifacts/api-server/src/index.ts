@@ -13,6 +13,9 @@ import { seedVendorCategories, reloadCategoryParentMap } from "./routes/vendorCa
 import { ensureConsentSchema, seedConsentDocuments } from "./seed-consent-docs";
 import { seedChartOfAccounts } from "./lib/seedChartOfAccounts";
 import { wireAccountingListeners } from "./lib/accountingRules";
+// [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트.
+import { registerDefaultChannels } from "./lib/external/adapter";
+import { registerPopbillChannels } from "./lib/external/popbillChannel";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
 import { runMigrations } from "./lib/runMigrations";
@@ -227,6 +230,14 @@ async function bootstrap() {
       wireAccountingListeners();
     } catch (e) {
       logger.warn({ err: e }, "Failed to bootstrap T6 accounting engine");
+    }
+
+    // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트(Popbill + 후속 슬롯).
+    try {
+      registerPopbillChannels();
+      registerDefaultChannels();
+    } catch (e) {
+      logger.warn({ err: e }, "Failed to bootstrap T10 dispatch engine");
     }
 
     // [Task #707 review fix] in-flight 결재 라인의 잔존 경리 결재 단계를 자동

@@ -7,6 +7,8 @@ import { refundUnviewedQuotes } from "./lib/credits";
 import { purgeOldUsageEvents } from "./routes/usageAnalytics";
 import { publishScheduleTick } from "./lib/voucherEvents";
 import { addMonths, computeRoundAmount, expectedRound } from "./lib/voucherScheduleMath";
+// [Task #781] T10 외부연동 — 발송 잡 큐 워커. 스케줄러 1분 틱에서 due 잡 처리.
+import { processDueJobs } from "./lib/external/adapter";
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -1023,6 +1025,8 @@ export async function runVoucherScheduleMonthlyTick(now: Date = new Date()): Pro
 let dailyTimer: ReturnType<typeof setInterval> | null = null;
 let monthlyTimer: ReturnType<typeof setInterval> | null = null;
 let reminderTimer: ReturnType<typeof setInterval> | null = null;
+// [Task #781] 외부 발송 워커 타이머 — 1분 간격으로 due 잡 처리.
+let dispatchTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startScheduler(): void {
   logger.info("Starting automated scheduler for privacy and vehicle tasks");
@@ -1087,6 +1091,11 @@ export function startScheduler(): void {
   reminderTimer = setInterval(() => {
     runDailyJournalReminderTick().catch((err) => logger.error({ err }, "Daily journal reminder tick failed"));
   }, 15 * 60 * 1000);
+
+  // [Task #781] 외부 발송 잡 큐 워커 — 1분 간격. due(scheduledAt<=now) 인 queued/failed 잡을 처리.
+  dispatchTimer = setInterval(() => {
+    processDueJobs(50).catch((err) => logger.error({ err }, "Dispatch worker tick failed"));
+  }, 60 * 1000);
 }
 
 export function stopScheduler(): void {
@@ -1101,6 +1110,10 @@ export function stopScheduler(): void {
   if (reminderTimer) {
     clearInterval(reminderTimer);
     reminderTimer = null;
+  }
+  if (dispatchTimer) {
+    clearInterval(dispatchTimer);
+    dispatchTimer = null;
   }
   logger.info("Scheduler stopped");
 }

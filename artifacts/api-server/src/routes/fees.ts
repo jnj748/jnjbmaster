@@ -402,6 +402,10 @@ router.post("/fees/interim", requireAction("fees.interim.calculate"), audit("fee
   });
 });
 
+// [Task #781] T10 외부연동 — 구코드 mock 을 dispatch_jobs 큐로 교체.
+//   1) T9 마감 게이트 통과(미마감이면 enqueueDispatch 가 closing_required 던짐).
+//   2) 호실 → 입주자/소유자 휴대폰 매핑 → popbill_kakao 채널로 enqueue.
+//   3) 응답은 enqueued/failed 카운트 + 잡 ID 목록(매니저 화면이 이력으로 추적 가능).
 router.post("/fees/kakao-notify", requireAction("fees.kakao.notify"), audit("fees.kakao.notify", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const parsed = SendKakaoNotificationBody.safeParse(req.body);
   if (!parsed.success) {
@@ -413,24 +417,78 @@ router.post("/fees/kakao-notify", requireAction("fees.kakao.notify"), audit("fee
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
   const { month, unitNumbers } = parsed.data;
 
-  const units = await db
-    .select()
-    .from(unitsTable)
-    .where(eq(unitsTable.buildingId, buildingId));
+  // [Task #781] 마감 게이트 — 미마감 월은 enqueue 단계에서 거부.
+  {
+    const { isMonthLocked } = await import("../lib/closingEngine");
+    if (!(await isMonthLocked(buildingId, month))) {
+      res.status(409).json({
+        error: "closing_required",
+        message: `${month} 월이 마감되지 않아 발송할 수 없습니다(T9 마감 후 dispatch 가능).`,
+      });
+      return;
+    }
+  }
 
-  const targets = unitNumbers
-    ? units.filter((u) => unitNumbers.includes(u.unitNumber))
-    : units;
+  const { enqueueDispatch } = await import("../lib/external/adapter");
+  const { popbillSettingsTable, tenantsTable } = await import("@workspace/db");
 
-  const details = targets.map((u) => ({
-    unitNumber: u.unitNumber,
-    status: "sent" as const,
-  }));
+  const [settings] = await db.select().from(popbillSettingsTable).where(eq(popbillSettingsTable.buildingId, buildingId));
+  const senderNumber = settings?.senderNumber ?? process.env.POPBILL_DEFAULT_SENDER ?? "";
+  const senderProfileId = settings?.senderProfileId ?? "";
+  const templateCode = settings?.kakaoTemplates?.bill_issued ?? "";
 
-  const sent = details.length;
-  const failed = 0;
+  const units = await db.select().from(unitsTable).where(eq(unitsTable.buildingId, buildingId));
+  const targets = unitNumbers ? units.filter((u) => unitNumbers.includes(u.unitNumber)) : units;
+  const unitIdSet = new Set(targets.map((u) => u.id));
 
-  res.json({ sent, failed, details });
+  // 호실별 활성 입주자 우선, 없으면 소유자 폴백.
+  const allTenants = await db.select().from(tenantsTable);
+  const tenantByUnit = new Map<number, typeof allTenants[number]>();
+  for (const t of allTenants) {
+    if (!t.unitId || !unitIdSet.has(t.unitId)) continue;
+    if (t.status !== "active") continue;
+    if (!tenantByUnit.has(t.unitId)) tenantByUnit.set(t.unitId, t);
+  }
+  const allOwners = await db.select().from(ownersTable);
+  const ownerByUnit = new Map<number, typeof allOwners[number]>();
+  for (const o of allOwners) {
+    if (o.unitId && unitIdSet.has(o.unitId) && !ownerByUnit.has(o.unitId)) ownerByUnit.set(o.unitId, o);
+  }
+
+  const details: Array<{ unitNumber: string; status: "queued" | "skipped"; jobId?: number; reason?: string }> = [];
+  let queued = 0;
+  let skipped = 0;
+  for (const u of targets) {
+    const tn = tenantByUnit.get(u.id);
+    const ow = ownerByUnit.get(u.id);
+    const phone = (tn?.phone || ow?.phone || "").replace(/[^\d]/g, "");
+    if (!/^\d{9,12}$/.test(phone)) {
+      skipped++;
+      details.push({ unitNumber: u.unitNumber, status: "skipped", reason: "no_phone" });
+      continue;
+    }
+    const message = `[관리비] ${month} 관리비 고지서가 발행되었습니다. ${u.unitNumber}호 — 자세한 내용은 입주민 페이지를 확인해 주세요.`;
+    try {
+      const job = await enqueueDispatch({
+        buildingId,
+        channel: "popbill_kakao",
+        target: phone,
+        payload: { templateCode, senderNumber, senderProfileId, message, altMessage: message, receiverName: tn?.tenantName ?? ow?.ownerName ?? "" },
+        relatedMonth: month,
+        relatedEntityType: "unit",
+        relatedEntityId: u.id,
+        triggerSource: "fees.kakao.notify",
+        createdBy: req.user?.userId ?? null,
+      });
+      queued++;
+      details.push({ unitNumber: u.unitNumber, status: "queued", jobId: job.id });
+    } catch (e) {
+      skipped++;
+      details.push({ unitNumber: u.unitNumber, status: "skipped", reason: (e as Error)?.message ?? "enqueue_failed" });
+    }
+  }
+
+  res.json({ sent: queued, failed: skipped, details });
 });
 
 router.post("/fees/record-payment", requireAction("fees.payment.record"), audit("fees.payment.record", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
@@ -485,6 +543,45 @@ router.post("/fees/record-payment", requireAction("fees.payment.record"), audit(
     })
     .where(eq(monthlyPaymentsTable.id, existing.id))
     .returning();
+
+  // [Task #781] 납부완료 안내·납부확인서 자동 발송 — fully paid 일 때만, 마감된 월만.
+  if (isPaid) {
+    try {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (typeof billingMonth === "string" && /^\d{4}-\d{2}$/.test(billingMonth) && await isMonthLocked(buildingId, billingMonth)) {
+        const { enqueueDispatch } = await import("../lib/external/adapter");
+        const { popbillSettingsTable } = await import("@workspace/db");
+        const [settings] = await db.select().from(popbillSettingsTable).where(eq(popbillSettingsTable.buildingId, buildingId));
+        const tn = await db.select().from(tenantsTable).where(eq(tenantsTable.unitId, unitId));
+        const activeTn = tn.find((x) => x.status === "active");
+        const ow = await db.select().from(ownersTable).where(eq(ownersTable.unitId, unitId));
+        const phone = (activeTn?.phone || ow[0]?.phone || "").replace(/[^\d]/g, "");
+        if (/^\d{9,12}$/.test(phone)) {
+          const message = `[관리비 납부완료] ${billingMonth} ${unit.unitNumber}호 관리비 ${newPaidAmount.toLocaleString()}원이 정상 수납 처리되었습니다. 감사합니다.`;
+          await enqueueDispatch({
+            buildingId,
+            channel: "popbill_kakao",
+            target: phone,
+            payload: {
+              templateCode: settings?.kakaoTemplates?.payment_completed ?? "",
+              senderNumber: settings?.senderNumber ?? "",
+              senderProfileId: settings?.senderProfileId ?? "",
+              message,
+              altMessage: message,
+              receiverName: activeTn?.tenantName ?? ow[0]?.ownerName ?? "",
+            },
+            relatedMonth: billingMonth,
+            relatedEntityType: "monthly_payment",
+            relatedEntityId: existing.id,
+            triggerSource: "fees.payment.received",
+            createdBy: req.user?.userId ?? null,
+          });
+        }
+      }
+    } catch (err) {
+      t6Logger.warn({ err, unitId, billingMonth }, "[T10] payment.completed auto-dispatch failed");
+    }
+  }
 
   // [Task #778] T6 회계엔진 — 수납 자동 분개. 실패해도 수납 자체는 성공.
   if (paymentToApply > 0) {

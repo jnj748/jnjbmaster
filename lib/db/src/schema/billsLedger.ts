@@ -124,6 +124,8 @@ export const delinquencyStagesTable = pgTable("delinquency_stages", {
   lastDispatchAt: timestamp("last_dispatch_at", { withTimezone: true }),
   dispatchLog: jsonb("dispatch_log").$type<Array<{
     at: string; stage: number; channel: string; ok: boolean; messageId?: string;
+    // [Task #781] T10 외부연동 — enqueue 결과 jobId / 실패 사유 보관.
+    jobId?: number; reason?: string;
   }>>().notNull().default([]),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

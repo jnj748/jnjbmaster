@@ -98,3 +98,6 @@ export * from "./billsLedger";
 export * from "./periodClosings";
 // [Task #796] XpBIZ 호실관리·환경설정 풀세트 — 5개 1:1 환경 테이블 + 호실별 2종.
 export * from "./buildingSettings";
+// [Task #781] T10 외부연동 엔진 v01 — dispatch_jobs / popbill_settings.
+export * from "./dispatchJobs";
+export * from "./popbillSettings";

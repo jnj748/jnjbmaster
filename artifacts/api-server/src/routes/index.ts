@@ -99,6 +99,8 @@ import closingsRouter from "./closings";
 import noticeOutputsRouter from "./noticeOutputs";
 // [Task #761] 플랫폼 레벨 AI — 포트폴리오 이상치 위젯용 라우트.
 import portfolioAnomaliesRouter from "./portfolioAnomalies";
+// [Task #781] T10 외부연동 엔진 — /dispatch/* (popbill 발송이력·재시도·설정).
+import dispatchRouter from "./dispatch";
 // [Task #758] 게스트 전자서명 — 비인증 공개 라우트 + 인증 매니저 라우트.
 import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSignatures";
 // [Task #773] 권한·감사로그 엔진 — 변경계 도메인 액션의 단일 조회/CSV 내보내기.
@@ -153,6 +155,8 @@ router.use(hqAssignmentsRouter);
 router.use(noticeLayoutRouter);
 router.use(platformSettingsRouter);
 router.use(portfolioAnomaliesRouter);
+// [Task #781] /dispatch/* — buildingRouter 밖, 본인 building scope 는 라우터 내부에서.
+router.use(dispatchRouter);
 router.use(roleMenuOverridesRouter);
 router.use(taskTemplatesRouter);
 router.use(usageAnalyticsRouter);
