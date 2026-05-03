@@ -109,6 +109,7 @@ const EXPECTED_SIDEBAR: Record<Role, Snapshot> = {
     {
       title: "부과관리",
       paths: [
+        "/billing/wizard",
         "/billing/months",
         "/billing/items",
         "/billing/late-fee-rates",

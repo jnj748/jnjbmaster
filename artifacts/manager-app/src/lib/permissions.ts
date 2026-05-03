@@ -146,6 +146,7 @@ const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
 // [Task #799] 부과관리 풀세트 — 11페이지.
 const BillingItemsPage = lazy(() => import("@/pages/billing/items"));
 const BillingLateFeeRatesPage = lazy(() => import("@/pages/billing/late-fee-rates"));
+const BillingWizardPage = lazy(() => import("@/pages/billing/wizard"));
 const BillingMonthsPage = lazy(() => import("@/pages/billing/months"));
 const BillingRunPage = lazy(() => import("@/pages/billing/run"));
 const BillingSummaryPage = lazy(() => import("@/pages/billing/summary"));
@@ -624,6 +625,13 @@ export const ROUTES: RouteEntry[] = [
     label: "한전 송신", icon: Send, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
     sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
+  },
+  // [관리비 자동부과 v01] 한큐 위저드 — 11단계 가이드 (사이드바 부과관리 맨 위).
+  {
+    path: "/billing/wizard", component: BillingWizardPage,
+    label: "✨ 한큐 위저드", icon: Sparkles, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
   },
   // [Task #799] 부과관리 풀세트 — 11 페이지. 모두 manager+accountant+platform_admin 접근.
   {
@@ -1707,6 +1715,7 @@ function accountantSidebar(
     {
       title: "부과관리",
       items: compact([
+        link("/billing/wizard"),
         link("/billing/months"),
         link("/billing/items"),
         link("/billing/late-fee-rates"),
