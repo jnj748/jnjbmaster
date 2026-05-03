@@ -4,7 +4,7 @@ import { FileText, CheckCircle, Send } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 // [Task #738] 파트너 포털 탭 — 작업 보고/정산 탭은 플랫폼 책임 영역에서 제외되어 제거.
-export type PortalTab = "dashboard" | "rfqs" | "quotes";
+export type PortalTab = "dashboard" | "rfqs" | "quotes" | "smart-quote";
 
 export interface VendorDashboardProps {
   vendorName: string;

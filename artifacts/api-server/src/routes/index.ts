@@ -6,6 +6,8 @@ import tasksRouter from "./tasks";
 import inspectionsRouter from "./inspections";
 import taxSchedulesRouter from "./taxSchedules";
 import vendorsRouter from "./vendors";
+// [S1 스마트견적] 파트너 스마트견적 가입/일일한도 — /me/vendor/smart-quote.
+import vendorSmartQuoteRouter from "./vendorSmartQuote";
 import vendorReviewsRouter from "./vendorReviews";
 import commissionsRouter from "./commissions";
 import dashboardRouter from "./dashboard";
@@ -110,6 +112,7 @@ router.get("/complaints/analytics", requireRole("hq_executive", "platform_admin"
 // Mounting reviews first lets that route resolve before reaching the gate.
 router.use(vendorReviewsRouter);
 router.use(vendorsRouter);
+router.use(vendorSmartQuoteRouter);
 router.use(commissionsRouter);
 router.use(notificationsRouter);
 router.use(platformAnnouncementsRouter);

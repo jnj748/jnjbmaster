@@ -79,3 +79,5 @@ export * from "./paymentRequests";
 export * from "./documents";
 export * from "./noticeOutputs";
 export * from "./creditEvents";
+export * from "./vendorSmartQuote";
+export * from "./rfqSmartQuoteLog";

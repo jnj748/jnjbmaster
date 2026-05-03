@@ -20,6 +20,7 @@ import {
   Send,
   LayoutDashboard,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VendorDashboard, type PortalTab } from "@/components/vendor-portal/vendor-dashboard";
@@ -36,12 +37,15 @@ import { CheckCircle2 } from "lucide-react";
 
 const VendorRfqList = lazy(() => import("@/components/vendor-portal/vendor-rfq-list").then((m) => ({ default: m.VendorRfqList })));
 const VendorQuoteList = lazy(() => import("@/components/vendor-portal/vendor-quote-list").then((m) => ({ default: m.VendorQuoteList })));
+// [S1 스마트견적] 파트너 포털의 스마트견적 설정 화면. lazy 로딩으로 초기 진입 부담 없음.
+const VendorSmartQuote = lazy(() => import("@/components/vendor-portal/vendor-smart-quote").then((m) => ({ default: m.VendorSmartQuote })));
 
 const TabFallback = () => <Skeleton className="h-64" />;
 
 // [Task #738] 파트너 포털 탭 — "작업 보고", "정산" 은 플랫폼이 계약 이후 단계에
 //   관여하지 않는다는 원칙에 따라 제거. 알 수 없는 ?tab= 값은 dashboard 로 폴백.
-const VALID_TABS: PortalTab[] = ["dashboard", "rfqs", "quotes"];
+// [S1 스마트견적] "smart-quote" 탭 추가 — 자동 견적 발송 가입/설정.
+const VALID_TABS: PortalTab[] = ["dashboard", "rfqs", "quotes", "smart-quote"];
 function parseTab(search: string): PortalTab {
   const t = new URLSearchParams(search).get("tab") as PortalTab | null;
   return t && VALID_TABS.includes(t) ? t : "dashboard";
@@ -147,6 +151,7 @@ export default function VendorPortal() {
           { key: "dashboard" as PortalTab, label: "대시보드", icon: LayoutDashboard },
           { key: "rfqs" as PortalTab, label: "견적 요청", icon: FileText },
           { key: "quotes" as PortalTab, label: "내 견적서", icon: Send },
+          { key: "smart-quote" as PortalTab, label: "스마트견적", icon: Sparkles },
         ].map((item) => (
           <button
             key={item.key}
@@ -191,6 +196,18 @@ export default function VendorPortal() {
       {activeTab === "quotes" && (
         <Suspense fallback={<TabFallback />}>
           <VendorQuoteList quotes={myQuotes || []} />
+        </Suspense>
+      )}
+      {activeTab === "smart-quote" && (
+        <Suspense fallback={<TabFallback />}>
+          <VendorSmartQuote
+            vendorName={loggedVendor?.name || ""}
+            vendorSubCategories={
+              typeof loggedVendor?.subCategories === "string"
+                ? loggedVendor.subCategories.split(",").map((s) => s.trim()).filter(Boolean)
+                : []
+            }
+          />
         </Suspense>
       )}
 
