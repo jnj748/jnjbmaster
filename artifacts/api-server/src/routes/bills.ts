@@ -487,7 +487,21 @@ router.post(
         matchStatus: "unmatched" as const,
       })),
     ).returning();
-    res.json({ count: inserted.length });
+
+    // [Task #817] 업로드 직후 자동매칭 → 잔여 행을 bank_reconciliations 로 자동 분류.
+    //   업로드한 행 ID 만 대상으로 좁혀서 부수효과 범위를 제한한다.
+    const insertedIds = inserted.map((t) => t.id);
+    let autoMatched = 0;
+    let recon = { scanned: 0, opened: 0, byCategory: { overpaid: 0, underpaid: 0, duplicate: 0, wrong_account: 0 } };
+    try {
+      const am = await runAutoMatch(buildingId, req.user?.userId ?? null, insertedIds);
+      autoMatched = am.matched;
+      const { autoOpenReconciliations } = await import("../lib/bankReconClassify");
+      recon = await autoOpenReconciliations(buildingId, { txIds: insertedIds });
+    } catch (err) {
+      logger.error({ err, buildingId }, "post-import auto-match/reconcile failed");
+    }
+    res.json({ count: inserted.length, autoMatched, reconciliations: recon });
   },
 );
 
@@ -503,6 +517,77 @@ router.get("/bank-tx", async (req: Request, res: Response): Promise<void> => {
   res.json(rows);
 });
 
+// [Task #817] 자동매칭 코어 — /bank-tx/auto-match 와 /bank-tx/import 모두에서 호출.
+//   txIds 가 주어지면 그 행만 대상으로 좁혀 매칭한다(부수효과 범위 제한).
+async function runAutoMatch(
+  buildingId: number,
+  userId: number | null,
+  txIds?: number[],
+): Promise<{ scanned: number; matched: number }> {
+  const { isMonthLocked } = await import("../lib/closingEngine");
+  const conds = [
+    eq(bankTransactionsTable.buildingId, buildingId),
+    eq(bankTransactionsTable.matchStatus, "unmatched"),
+  ];
+  if (txIds && txIds.length > 0) conds.push(inArray(bankTransactionsTable.id, txIds));
+  const txs = await db.select().from(bankTransactionsTable).where(and(...conds));
+  let matched = 0;
+  for (const tx of txs) {
+    // 룰 1) 가상계좌 키 일치(고유) — 가장 강한 매칭.
+    let candidate: typeof billsTable.$inferSelect | undefined;
+    if (tx.virtualAccountKey) {
+      const cand = await db.select().from(billsTable)
+        .where(and(
+          eq(billsTable.buildingId, buildingId),
+          sql`${billsTable.virtualAccount}->>'account' = ${tx.virtualAccountKey}`,
+        ));
+      candidate = cand[0];
+    }
+    // 룰 2) 입금액 == 미수액 인 미수 고지서 단 1건.
+    if (!candidate) {
+      const cands = await db.select().from(billsTable)
+        .where(and(
+          eq(billsTable.buildingId, buildingId),
+          inArray(billsTable.status, ["issued", "partial", "overdue"]),
+          sql`(${billsTable.totalAmount} - ${billsTable.paidAmount}) = ${tx.amount}`,
+        ));
+      if (cands.length === 1) candidate = cands[0];
+    }
+    if (!candidate) continue;
+    // [Task #780] 매칭 후보의 billingMonth 가 잠겨있으면 자동매칭 스킵 — 잠긴 월 데이터 변경 금지.
+    if (await isMonthLocked(buildingId, candidate.billingMonth)) continue;
+    // 가상계좌 매칭이라도 입금액과 미수액이 다르면 자동수납 보류 — 차액은 분류기로 넘긴다.
+    const remaining = Math.max(0, candidate.totalAmount - candidate.paidAmount);
+    if (tx.virtualAccountKey && tx.amount !== remaining) continue;
+
+    const [pay] = await db.insert(billPaymentsTable).values({
+      buildingId,
+      billId: candidate.id,
+      unitId: candidate.unitId,
+      amount: tx.amount,
+      channel: tx.virtualAccountKey ? "virtual_account" : "transfer",
+      paidAt: new Date(`${tx.txDate}T00:00:00Z`),
+      bankTxId: tx.id,
+      isPartial: tx.amount < remaining,
+      memo: tx.memo ?? tx.counterpart ?? null,
+      recordedById: userId,
+    }).returning();
+    await db.update(bankTransactionsTable).set({
+      matchStatus: "auto", matchedBillId: candidate.id, matchedPaymentId: pay.id,
+    }).where(eq(bankTransactionsTable.id, tx.id));
+    const recalc = await recalcBillStatus(candidate.id);
+    emitPaymentEvent({
+      event: recalc.remaining === 0 ? "payment.received" : "payment.partial",
+      version: 1, paymentId: pay.id, billId: candidate.id, buildingId,
+      unitId: candidate.unitId, amount: tx.amount,
+      channel: tx.virtualAccountKey ? "virtual_account" : "transfer",
+      paidAt: pay.paidAt.toISOString(), remainingAmount: recalc.remaining,
+    });
+    matched++;
+  }
+  return { scanned: txs.length, matched };
+}
+
 router.post(
   "/bank-tx/auto-match",
   requireAction("bank_tx.match"),
@@ -510,61 +595,16 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     const buildingId = await getUserBuildingId(req);
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
-    const { isMonthLocked } = await import("../lib/closingEngine");
-    const txs = await db.select().from(bankTransactionsTable)
-      .where(and(eq(bankTransactionsTable.buildingId, buildingId), eq(bankTransactionsTable.matchStatus, "unmatched")));
-    let matched = 0;
-    for (const tx of txs) {
-      // 룰 1) 가상계좌 키 일치(고유) — 가장 강한 매칭.
-      let candidate: typeof billsTable.$inferSelect | undefined;
-      if (tx.virtualAccountKey) {
-        const cand = await db.select().from(billsTable)
-          .where(and(
-            eq(billsTable.buildingId, buildingId),
-            sql`${billsTable.virtualAccount}->>'account' = ${tx.virtualAccountKey}`,
-          ));
-        candidate = cand[0];
-      }
-      // 룰 2) 입금액 == 미수액 인 미수 고지서 단 1건.
-      if (!candidate) {
-        const cands = await db.select().from(billsTable)
-          .where(and(
-            eq(billsTable.buildingId, buildingId),
-            inArray(billsTable.status, ["issued", "partial", "overdue"]),
-            sql`(${billsTable.totalAmount} - ${billsTable.paidAmount}) = ${tx.amount}`,
-          ));
-        if (cands.length === 1) candidate = cands[0];
-      }
-      if (!candidate) continue;
-      // [Task #780] 매칭 후보의 billingMonth 가 잠겨있으면 자동매칭 스킵 — 잠긴 월 데이터 변경 금지.
-      if (await isMonthLocked(buildingId, candidate.billingMonth)) continue;
-
-      const [pay] = await db.insert(billPaymentsTable).values({
-        buildingId,
-        billId: candidate.id,
-        unitId: candidate.unitId,
-        amount: tx.amount,
-        channel: tx.virtualAccountKey ? "virtual_account" : "transfer",
-        paidAt: new Date(`${tx.txDate}T00:00:00Z`),
-        bankTxId: tx.id,
-        isPartial: tx.amount < (candidate.totalAmount - candidate.paidAmount),
-        memo: tx.memo ?? tx.counterpart ?? null,
-        recordedById: req.user?.userId ?? null,
-      }).returning();
-      await db.update(bankTransactionsTable).set({
-        matchStatus: "auto", matchedBillId: candidate.id, matchedPaymentId: pay.id,
-      }).where(eq(bankTransactionsTable.id, tx.id));
-      const recalc = await recalcBillStatus(candidate.id);
-      emitPaymentEvent({
-        event: recalc.remaining === 0 ? "payment.received" : "payment.partial",
-        version: 1, paymentId: pay.id, billId: candidate.id, buildingId,
-        unitId: candidate.unitId, amount: tx.amount,
-        channel: tx.virtualAccountKey ? "virtual_account" : "transfer",
-        paidAt: pay.paidAt.toISOString(), remainingAmount: recalc.remaining,
-      });
-      matched++;
+    const { scanned, matched } = await runAutoMatch(buildingId, req.user?.userId ?? null);
+    // [Task #817] 자동매칭 종료 후 잔여 unmatched 행을 bank_reconciliations(open) 로 분류.
+    let recon = { scanned: 0, opened: 0, byCategory: { overpaid: 0, underpaid: 0, duplicate: 0, wrong_account: 0 } };
+    try {
+      const { autoOpenReconciliations } = await import("../lib/bankReconClassify");
+      recon = await autoOpenReconciliations(buildingId);
+    } catch (err) {
+      logger.error({ err, buildingId }, "post-auto-match reconcile failed");
     }
-    res.json({ scanned: txs.length, matched });
+    res.json({ scanned, matched, reconciliations: recon });
   },
 );
 
