@@ -166,6 +166,8 @@ const AcctDataExport = lazy(() => import("@/pages/accounting/data-export"));
 const AcctJournals = lazy(() => import("@/pages/accounting/journals"));
 const AcctJournalSearch = lazy(() => import("@/pages/accounting/journal-search"));
 const AcctMonthClose = lazy(() => import("@/pages/accounting/month-close"));
+// [Task #802] 장부 모듈 — 10개 보고서 통합 워크스페이스.
+const AcctLedger = lazy(() => import("@/pages/accounting/ledger/LedgerWorkspace"));
 
 // [역할 라벨 SoT] 역할 키 / 표시 라벨은 @workspace/shared/role-labels 에서
 //   단일 소스로 정의한다. 라벨이 바뀌면 그 파일만 수정하면 프런트엔드와
@@ -1199,6 +1201,68 @@ export const ROUTES: RouteEntry[] = [
     access: ["manager", "accountant", "platform_admin"],
     sideMenu: ["accountant"],
   },
+
+  // ── [Task #802] 장부 모듈 — 10개 보고서 (단일 컴포넌트, 라우트 파라미터 분기) ──
+  {
+    path: "/accounting/ledger/journal", component: AcctLedger,
+    label: "분개장", icon: BookOpen, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/daily", component: AcctLedger,
+    label: "일계표", icon: CalendarDays, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/monthly", component: AcctLedger,
+    label: "월계표", icon: BarChart3, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/cash", component: AcctLedger,
+    label: "현금출납장", icon: Wallet, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/bank-deposits", component: AcctLedger,
+    label: "제예금명세서", icon: Coins, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/general", component: AcctLedger,
+    label: "총계정원장", icon: BookOpen, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/sub", component: AcctLedger,
+    label: "보조부원장", icon: Layers, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/account-balance", component: AcctLedger,
+    label: "계정과목별잔액장", icon: Activity, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/management-expenses", component: AcctLedger,
+    label: "관리비용명세서", icon: DollarSign, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
+  {
+    path: "/accounting/ledger/vendor", component: AcctLedger,
+    label: "거래처원장", icon: Users, group: "accounting",
+    access: ["manager", "accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant", "manager"],
+  },
 ];
 
 // ── Role-specific root ("/") dashboard mapping ───────────────────
@@ -1479,12 +1543,27 @@ function accountantSidebar(
         link("/accounting/opening-balances"),
         link("/accounting/journals"),
         link("/accounting/journal-search"),
-        link("/accountant/ledger", { label: "총계정원장", icon: Sparkles }),
         link("/accountant/balance-sheet", { label: "재무상태표", icon: Sparkles }),
         link("/accountant/income-statement", { label: "손익계산서", icon: Sparkles }),
         link("/accounting/report-formats"),
         link("/accounting/data-export"),
         link("/tax-schedules"),
+      ]),
+    },
+    {
+      // [Task #802] 장부 모듈 — 10개 보고서를 한 그룹에 노출.
+      title: "장부",
+      items: compact([
+        link("/accounting/ledger/journal"),
+        link("/accounting/ledger/daily"),
+        link("/accounting/ledger/monthly"),
+        link("/accounting/ledger/cash"),
+        link("/accounting/ledger/bank-deposits"),
+        link("/accounting/ledger/general"),
+        link("/accounting/ledger/sub"),
+        link("/accounting/ledger/account-balance"),
+        link("/accounting/ledger/management-expenses"),
+        link("/accounting/ledger/vendor"),
       ]),
     },
     {

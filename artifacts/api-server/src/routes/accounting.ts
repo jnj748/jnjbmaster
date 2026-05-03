@@ -641,4 +641,404 @@ router.get("/accounting/anomalies", async (req: Request, res: Response): Promise
   res.json({ anomalies });
 });
 
+// ── [Task #802] 장부 모듈 신규 보고서 ───────────────────────
+// 일계표: 일자별로 계정과목별 차/대 합계를 집계.
+router.get("/accounting/daily-summary", async (req: Request, res: Response): Promise<void> => {
+  const scope = await buildEntryScope(req);
+  if (scope.kind === "empty") { res.json({ days: [], totals: { debit: 0, credit: 0 } }); return; }
+  const { from, to } = req.query as { from?: string; to?: string };
+  const conds: SQL[] = [];
+  if (scope.kind === "ids") conds.push(scope.cond);
+  if (from) conds.push(gte(journalEntriesTable.entryDate, from));
+  if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+  const rows = await db.select({
+    entryDate: journalEntriesTable.entryDate,
+    accountCode: journalLinesTable.accountCode,
+    accountName: journalLinesTable.accountName,
+    debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+    credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+  }).from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(conds.length ? and(...conds) : undefined)
+    .groupBy(journalEntriesTable.entryDate, journalLinesTable.accountCode, journalLinesTable.accountName)
+    .orderBy(asc(journalEntriesTable.entryDate), asc(journalLinesTable.accountCode));
+  const dayMap = new Map<string, { entryDate: string; rows: typeof rows; debit: number; credit: number }>();
+  let td = 0, tc = 0;
+  for (const r of rows) {
+    const d = String(r.entryDate);
+    const day = dayMap.get(d) ?? { entryDate: d, rows: [] as typeof rows, debit: 0, credit: 0 };
+    day.rows.push(r); day.debit += Number(r.debit); day.credit += Number(r.credit);
+    dayMap.set(d, day);
+    td += Number(r.debit); tc += Number(r.credit);
+  }
+  res.json({ days: Array.from(dayMap.values()), totals: { debit: td, credit: tc } });
+});
+
+// 월계표: YYYY-MM 단위로 계정과목별 차/대 합계.
+router.get("/accounting/monthly-summary", async (req: Request, res: Response): Promise<void> => {
+  const scope = await buildEntryScope(req);
+  if (scope.kind === "empty") { res.json({ months: [], totals: { debit: 0, credit: 0 } }); return; }
+  const { fromYM, toYM } = req.query as { fromYM?: string; toYM?: string };
+  const conds: SQL[] = [];
+  if (scope.kind === "ids") conds.push(scope.cond);
+  if (fromYM) conds.push(gte(journalEntriesTable.entryDate, `${fromYM}-01`));
+  if (toYM) {
+    // [Task #802] toYM 의 월 마지막날을 안전하게 구하려면 다음달 1일 미만으로 비교한다.
+    //   `${toYM}-31` 은 2월 등에서 잘못된 날짜 문자열이 되어 런타임 오류를 일으킨다.
+    const [yy, mm] = toYM.split("-").map(Number);
+    const nextFirst = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+    conds.push(sql`${journalEntriesTable.entryDate} < ${nextFirst}`);
+  }
+  const ym = sql<string>`to_char(${journalEntriesTable.entryDate}, 'YYYY-MM')`;
+  const rows = await db.select({
+    ym,
+    accountCode: journalLinesTable.accountCode,
+    accountName: journalLinesTable.accountName,
+    debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+    credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+  }).from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(conds.length ? and(...conds) : undefined)
+    .groupBy(ym, journalLinesTable.accountCode, journalLinesTable.accountName)
+    .orderBy(asc(ym), asc(journalLinesTable.accountCode));
+  const monthMap = new Map<string, { ym: string; rows: typeof rows; debit: number; credit: number }>();
+  let td = 0, tc = 0;
+  for (const r of rows) {
+    const m = String(r.ym);
+    const month = monthMap.get(m) ?? { ym: m, rows: [] as typeof rows, debit: 0, credit: 0 };
+    month.rows.push(r); month.debit += Number(r.debit); month.credit += Number(r.credit);
+    monthMap.set(m, month);
+    td += Number(r.debit); tc += Number(r.credit);
+  }
+  res.json({ months: Array.from(monthMap.values()), totals: { debit: td, credit: tc } });
+});
+
+// 계정과목별 잔액장: 특정 YYYY-MM 기준 전월이월/당월증가/당월감소/당월잔액.
+router.get("/accounting/account-balance", async (req: Request, res: Response): Promise<void> => {
+  const scope = await buildEntryScope(req);
+  const { ym } = req.query as { ym?: string };
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { res.status(400).json({ error: "ym (YYYY-MM) 필요" }); return; }
+  const accCond = await buildAccountScope(req);
+  const accs = await db.select().from(chartOfAccountsTable).where(accCond ?? undefined).orderBy(asc(chartOfAccountsTable.code));
+  if (scope.kind === "empty") { res.json({ ym, rows: accs.map(a => ({ code: a.code, name: a.name, type: a.type, opening: 0, debit: 0, credit: 0, closing: 0 })) }); return; }
+  const monthFirst = `${ym}-01`;
+  const [y, m] = ym.split("-").map(Number);
+  const nextFirst = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  const baseConds: SQL[] = [];
+  if (scope.kind === "ids") baseConds.push(scope.cond);
+  // 전월이월(opening): 월 시작 이전 누적 차-대
+  const openingConds = [...baseConds, sql`${journalEntriesTable.entryDate} < ${monthFirst}`];
+  const opening = await db.select({
+    code: journalLinesTable.accountCode,
+    debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+    credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+  }).from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(and(...openingConds))
+    .groupBy(journalLinesTable.accountCode);
+  // 당월: 월 내 차/대 합계
+  const monthConds = [...baseConds, gte(journalEntriesTable.entryDate, monthFirst), sql`${journalEntriesTable.entryDate} < ${nextFirst}`];
+  const month = await db.select({
+    code: journalLinesTable.accountCode,
+    debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+    credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+  }).from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(and(...monthConds))
+    .groupBy(journalLinesTable.accountCode);
+  const openMap = new Map(opening.map(r => [r.code, Number(r.debit) - Number(r.credit)]));
+  const monMap = new Map(month.map(r => [r.code, { d: Number(r.debit), c: Number(r.credit) }]));
+  const out = accs.map(a => {
+    const op = openMap.get(a.code) ?? 0;
+    const cur = monMap.get(a.code) ?? { d: 0, c: 0 };
+    return { code: a.code, name: a.name, type: a.type, opening: op, debit: cur.d, credit: cur.c, closing: op + cur.d - cur.c };
+  });
+  res.json({ ym, rows: out });
+});
+
+// 관리비용명세서: 비용 계정 한정으로 전월/당월 발생 비교.
+router.get("/accounting/management-expenses", async (req: Request, res: Response): Promise<void> => {
+  const scope = await buildEntryScope(req);
+  const { ym } = req.query as { ym?: string };
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { res.status(400).json({ error: "ym (YYYY-MM) 필요" }); return; }
+  const accCond = await buildAccountScope(req);
+  const baseAccConds: SQL[] = [eq(chartOfAccountsTable.type, "expense")];
+  if (accCond) baseAccConds.push(accCond);
+  const expenseAccs = await db.select().from(chartOfAccountsTable).where(and(...baseAccConds)).orderBy(asc(chartOfAccountsTable.code));
+  if (scope.kind === "empty") {
+    res.json({ ym, rows: expenseAccs.map(a => ({ code: a.code, name: a.name, prevAmount: 0, currAmount: 0, delta: 0, ratio: 0 })), totals: { prev: 0, curr: 0 } });
+    return;
+  }
+  const [y, m] = ym.split("-").map(Number);
+  const currStart = `${ym}-01`;
+  const currEnd = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  const prevYM = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+  const prevStart = `${prevYM}-01`;
+  const baseConds: SQL[] = [];
+  if (scope.kind === "ids") baseConds.push(scope.cond);
+  const aggregateRange = async (start: string, endExclusive: string) => {
+    const conds = [...baseConds, gte(journalEntriesTable.entryDate, start), sql`${journalEntriesTable.entryDate} < ${endExclusive}`];
+    const rows = await db.select({
+      code: journalLinesTable.accountCode,
+      debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+      credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+    }).from(journalLinesTable)
+      .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(and(...conds))
+      .groupBy(journalLinesTable.accountCode);
+    return new Map(rows.map(r => [r.code, Number(r.debit) - Number(r.credit)]));
+  };
+  const curr = await aggregateRange(currStart, currEnd);
+  const prev = await aggregateRange(prevStart, currStart);
+  let totPrev = 0, totCurr = 0;
+  const rows = expenseAccs.map(a => {
+    const p = prev.get(a.code) ?? 0;
+    const c = curr.get(a.code) ?? 0;
+    totPrev += p; totCurr += c;
+    return { code: a.code, name: a.name, prevAmount: p, currAmount: c, delta: c - p };
+  });
+  const withRatio = rows.map(r => ({ ...r, ratio: totCurr > 0 ? r.currAmount / totCurr : 0 }));
+  res.json({ ym, rows: withRatio, totals: { prev: totPrev, curr: totCurr } });
+});
+
+// 거래처원장: 거래처별 잔액 + 거래 이력(잔액 누적).
+router.get("/accounting/vendor-ledger", async (req: Request, res: Response): Promise<void> => {
+  const scope = await buildEntryScope(req);
+  const { partyName, from, to } = req.query as { partyName?: string; from?: string; to?: string };
+  if (scope.kind === "empty") { res.json({ vendors: [] }); return; }
+  const conds: SQL[] = [sql`${journalLinesTable.partyName} IS NOT NULL AND ${journalLinesTable.partyName} <> ''`];
+  if (scope.kind === "ids") conds.push(scope.cond);
+  if (partyName) conds.push(eq(journalLinesTable.partyName, partyName));
+  if (from) conds.push(gte(journalEntriesTable.entryDate, from));
+  if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+  const rows = await db.select({
+    entryId: journalEntriesTable.id,
+    entryDate: journalEntriesTable.entryDate,
+    memo: journalEntriesTable.memo,
+    accountCode: journalLinesTable.accountCode,
+    accountName: journalLinesTable.accountName,
+    debit: journalLinesTable.debit,
+    credit: journalLinesTable.credit,
+    partyName: journalLinesTable.partyName,
+  }).from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(and(...conds))
+    .orderBy(asc(journalLinesTable.partyName), asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id));
+  const byParty = new Map<string, { partyName: string; balance: number; lines: Array<typeof rows[number] & { balance: number }> }>();
+  for (const r of rows) {
+    const key = r.partyName ?? "";
+    const v = byParty.get(key) ?? { partyName: key, balance: 0, lines: [] };
+    v.balance += Number(r.debit) - Number(r.credit);
+    v.lines.push({ ...r, balance: v.balance });
+    byParty.set(key, v);
+  }
+  res.json({ vendors: Array.from(byParty.values()) });
+});
+
+// ── [Task #802] 신규 보고서 CSV 변형 (감사로그 + MAX_EXPORT_ROWS 캡) ───
+router.get("/accounting/daily-summary.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_line" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { from, to } = req.query as { from?: string; to?: string };
+    const scope = await buildEntryScope(req);
+    const header = ["entryDate","accountCode","accountName","debit","credit"];
+    if (scope.kind === "empty") { sendCsv(res, `daily-summary-${Date.now()}.csv`, header, []); return; }
+    const conds: SQL[] = [];
+    if (scope.kind === "ids") conds.push(scope.cond);
+    if (from) conds.push(gte(journalEntriesTable.entryDate, from));
+    if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+    const rows = await db.select({
+      entryDate: journalEntriesTable.entryDate,
+      accountCode: journalLinesTable.accountCode,
+      accountName: journalLinesTable.accountName,
+      debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+      credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+    }).from(journalLinesTable)
+      .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(conds.length ? and(...conds) : undefined)
+      .groupBy(journalEntriesTable.entryDate, journalLinesTable.accountCode, journalLinesTable.accountName)
+      .orderBy(asc(journalEntriesTable.entryDate), asc(journalLinesTable.accountCode));
+    if (rows.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, rows.length); return; }
+    sendCsv(res, `daily-summary-${Date.now()}.csv`, header, rows.map(r => [r.entryDate, r.accountCode, r.accountName, r.debit, r.credit]));
+  });
+
+router.get("/accounting/monthly-summary.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_line" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { fromYM, toYM } = req.query as { fromYM?: string; toYM?: string };
+    const scope = await buildEntryScope(req);
+    const header = ["ym","accountCode","accountName","debit","credit"];
+    if (scope.kind === "empty") { sendCsv(res, `monthly-summary-${Date.now()}.csv`, header, []); return; }
+    const conds: SQL[] = [];
+    if (scope.kind === "ids") conds.push(scope.cond);
+    if (fromYM) conds.push(gte(journalEntriesTable.entryDate, `${fromYM}-01`));
+    if (toYM) {
+      const [yy, mm] = toYM.split("-").map(Number);
+      const nextFirst = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+      conds.push(sql`${journalEntriesTable.entryDate} < ${nextFirst}`);
+    }
+    const ym = sql<string>`to_char(${journalEntriesTable.entryDate}, 'YYYY-MM')`;
+    const rows = await db.select({
+      ym,
+      accountCode: journalLinesTable.accountCode,
+      accountName: journalLinesTable.accountName,
+      debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+      credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+    }).from(journalLinesTable)
+      .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(conds.length ? and(...conds) : undefined)
+      .groupBy(ym, journalLinesTable.accountCode, journalLinesTable.accountName)
+      .orderBy(asc(ym), asc(journalLinesTable.accountCode));
+    if (rows.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, rows.length); return; }
+    sendCsv(res, `monthly-summary-${Date.now()}.csv`, header, rows.map(r => [r.ym, r.accountCode, r.accountName, r.debit, r.credit]));
+  });
+
+router.get("/accounting/account-balance.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "chart_of_accounts" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { ym } = req.query as { ym?: string };
+    if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { res.status(400).json({ error: "ym (YYYY-MM) 필요" }); return; }
+    // 본 페이로드를 그대로 가져오기 위해 동일 로직을 재실행한다.
+    const scope = await buildEntryScope(req);
+    const accCond = await buildAccountScope(req);
+    const accs = await db.select().from(chartOfAccountsTable).where(accCond ?? undefined).orderBy(asc(chartOfAccountsTable.code));
+    const header = ["code","name","type","opening","debit","credit","closing"];
+    if (scope.kind === "empty") {
+      sendCsv(res, `account-balance-${ym}.csv`, header, accs.map(a => [a.code, a.name, a.type, 0, 0, 0, 0]));
+      return;
+    }
+    const monthFirst = `${ym}-01`;
+    const [y, m] = ym.split("-").map(Number);
+    const nextFirst = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const baseConds: SQL[] = [];
+    if (scope.kind === "ids") baseConds.push(scope.cond);
+    const opening = await db.select({
+      code: journalLinesTable.accountCode,
+      debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+      credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+    }).from(journalLinesTable).innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(and(...baseConds, sql`${journalEntriesTable.entryDate} < ${monthFirst}`))
+      .groupBy(journalLinesTable.accountCode);
+    const month = await db.select({
+      code: journalLinesTable.accountCode,
+      debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+      credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+    }).from(journalLinesTable).innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(and(...baseConds, gte(journalEntriesTable.entryDate, monthFirst), sql`${journalEntriesTable.entryDate} < ${nextFirst}`))
+      .groupBy(journalLinesTable.accountCode);
+    const openMap = new Map(opening.map(r => [r.code, Number(r.debit) - Number(r.credit)]));
+    const monMap = new Map(month.map(r => [r.code, { d: Number(r.debit), c: Number(r.credit) }]));
+    const out = accs.map(a => {
+      const op = openMap.get(a.code) ?? 0;
+      const cur = monMap.get(a.code) ?? { d: 0, c: 0 };
+      return [a.code, a.name, a.type, op, cur.d, cur.c, op + cur.d - cur.c];
+    });
+    if (out.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, out.length); return; }
+    sendCsv(res, `account-balance-${ym}.csv`, header, out);
+  });
+
+router.get("/accounting/management-expenses.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "chart_of_accounts" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { ym } = req.query as { ym?: string };
+    if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { res.status(400).json({ error: "ym (YYYY-MM) 필요" }); return; }
+    const scope = await buildEntryScope(req);
+    const accCond = await buildAccountScope(req);
+    const baseAccConds: SQL[] = [eq(chartOfAccountsTable.type, "expense")];
+    if (accCond) baseAccConds.push(accCond);
+    const expAccs = await db.select().from(chartOfAccountsTable).where(and(...baseAccConds)).orderBy(asc(chartOfAccountsTable.code));
+    const header = ["code","name","prevAmount","currAmount","delta"];
+    if (scope.kind === "empty") {
+      sendCsv(res, `management-expenses-${ym}.csv`, header, expAccs.map(a => [a.code, a.name, 0, 0, 0]));
+      return;
+    }
+    const [y, m] = ym.split("-").map(Number);
+    const currStart = `${ym}-01`;
+    const currEnd = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const prevYM = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+    const prevStart = `${prevYM}-01`;
+    const baseConds: SQL[] = [];
+    if (scope.kind === "ids") baseConds.push(scope.cond);
+    const aggregateRange = async (start: string, endExclusive: string) => {
+      const rows = await db.select({
+        code: journalLinesTable.accountCode,
+        debit: sql<number>`COALESCE(SUM(${journalLinesTable.debit}), 0)::float8`,
+        credit: sql<number>`COALESCE(SUM(${journalLinesTable.credit}), 0)::float8`,
+      }).from(journalLinesTable).innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+        .where(and(...baseConds, gte(journalEntriesTable.entryDate, start), sql`${journalEntriesTable.entryDate} < ${endExclusive}`))
+        .groupBy(journalLinesTable.accountCode);
+      return new Map(rows.map(r => [r.code, Number(r.debit) - Number(r.credit)]));
+    };
+    const curr = await aggregateRange(currStart, currEnd);
+    const prev = await aggregateRange(prevStart, currStart);
+    const out = expAccs.map(a => { const p = prev.get(a.code) ?? 0; const c = curr.get(a.code) ?? 0; return [a.code, a.name, p, c, c - p]; });
+    if (out.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, out.length); return; }
+    sendCsv(res, `management-expenses-${ym}.csv`, header, out);
+  });
+
+router.get("/accounting/vendor-ledger.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_line" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const scope = await buildEntryScope(req);
+    const header = ["partyName","entryId","entryDate","memo","accountCode","accountName","debit","credit","balance"];
+    if (scope.kind === "empty") { sendCsv(res, `vendor-ledger-${Date.now()}.csv`, header, []); return; }
+    const { partyName, from, to } = req.query as { partyName?: string; from?: string; to?: string };
+    const conds: SQL[] = [sql`${journalLinesTable.partyName} IS NOT NULL AND ${journalLinesTable.partyName} <> ''`];
+    if (scope.kind === "ids") conds.push(scope.cond);
+    if (partyName) conds.push(eq(journalLinesTable.partyName, partyName));
+    if (from) conds.push(gte(journalEntriesTable.entryDate, from));
+    if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+    const rows = await db.select({
+      entryId: journalEntriesTable.id,
+      entryDate: journalEntriesTable.entryDate,
+      memo: journalEntriesTable.memo,
+      accountCode: journalLinesTable.accountCode,
+      accountName: journalLinesTable.accountName,
+      debit: journalLinesTable.debit,
+      credit: journalLinesTable.credit,
+      partyName: journalLinesTable.partyName,
+    }).from(journalLinesTable).innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(and(...conds))
+      .orderBy(asc(journalLinesTable.partyName), asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id));
+    if (rows.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, rows.length); return; }
+    const balByParty = new Map<string, number>();
+    const out = rows.map(r => {
+      const k = r.partyName ?? "";
+      const b = (balByParty.get(k) ?? 0) + Number(r.debit) - Number(r.credit);
+      balByParty.set(k, b);
+      return [k, r.entryId, r.entryDate, r.memo, r.accountCode, r.accountName, r.debit, r.credit, b];
+    });
+    sendCsv(res, `vendor-ledger-${Date.now()}.csv`, header, out);
+  });
+
+// AI 자연어 라우터: 자연어 질문을 분석해 어느 보고서로 답할지 결정.
+router.post("/accounting/ledger/nl-route", async (req: Request, res: Response): Promise<void> => {
+  const text = String(req.body?.text ?? "").trim();
+  if (!text) { res.status(400).json({ error: "text 필요" }); return; }
+  // 간단한 한국어 키워드 라우팅. (LLM 호출 없이 결정적으로 동작.)
+  const t = text;
+  type Suggestion = { report: string; reason: string; params?: Record<string, string> };
+  const suggestions: Suggestion[] = [];
+  const ymMatch = /(\d{4})[년\-\/]\s*(\d{1,2})[월]?/.exec(t);
+  const ym = ymMatch ? `${ymMatch[1]}-${String(ymMatch[2]).padStart(2, "0")}` : undefined;
+  const yMatch = /(\d{4})년/.exec(t);
+  const matchAny = (...kws: string[]) => kws.some(k => t.includes(k));
+  if (matchAny("거래처", "업체별", "벤더")) suggestions.push({ report: "vendor", reason: "거래처 키워드 감지" });
+  if (matchAny("일계", "일자별", "당일")) suggestions.push({ report: "daily", reason: "일자 단위 키워드" });
+  if (matchAny("월계", "월별") || (ymMatch && !matchAny("잔액"))) suggestions.push({ report: "monthly", reason: "월 단위 키워드", params: ym ? { fromYM: ym, toYM: ym } : {} });
+  if (matchAny("총계정", "원장")) suggestions.push({ report: "general", reason: "총계정 키워드" });
+  if (matchAny("현금", "출납")) suggestions.push({ report: "cash", reason: "현금 키워드" });
+  if (matchAny("예금", "통장", "은행")) suggestions.push({ report: "bank-deposits", reason: "예금 키워드" });
+  if (matchAny("관리비용", "비용 명세", "지출 명세")) suggestions.push({ report: "management-expenses", reason: "관리비용 키워드", params: ym ? { ym } : {} });
+  if (matchAny("잔액장", "잔액 장", "계정 잔액")) suggestions.push({ report: "account-balance", reason: "잔액 키워드", params: ym ? { ym } : {} });
+  if (matchAny("보조부", "호실별")) suggestions.push({ report: "sub", reason: "보조부 키워드" });
+  if (suggestions.length === 0) suggestions.push({ report: "journal", reason: "기본값(분개장)으로 라우팅", params: yMatch ? { from: `${yMatch[1]}-01-01`, to: `${yMatch[1]}-12-31` } : {} });
+  res.json({ text, suggestion: suggestions[0], alternatives: suggestions.slice(1) });
+});
+
 export default router;
