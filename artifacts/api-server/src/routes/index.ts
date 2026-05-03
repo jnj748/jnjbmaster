@@ -80,6 +80,8 @@ import kakaoGeocodeRouter from "./kakaoGeocode";
 import accountingInitialFilesRouter from "./accountingInitialFiles";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
+// [Task #776] 예산·집행통제 엔진 v01.
+import budgetsRouter, { registerBudgetExecutionListener } from "./budgets";
 import workLogsRouter from "./workLogs";
 import memoOcrRouter from "./memoOcr";
 import taskTemplatesRouter from "./taskTemplates";
@@ -210,6 +212,9 @@ buildingRouter.use(warrantiesRouter);
 buildingRouter.use(contractsRouter);
 buildingRouter.use(onboardingRouter);
 buildingRouter.use(buildingRecordsRouter);
+// [Task #776] 예산 편성·집행률·가드. 회계엔진 voucher.confirmed 구독은 모듈 로드 시 1회.
+buildingRouter.use(budgetsRouter);
+registerBudgetExecutionListener();
 buildingRouter.use(workLogsRouter);
 buildingRouter.use(memoOcrRouter);
 // [Task #610] documents 조회 + notice_outputs 등록 — 모두 buildingRouter 안.

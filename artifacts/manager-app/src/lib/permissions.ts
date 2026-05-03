@@ -105,6 +105,8 @@ const ErpBills = lazy(() => import("@/pages/erp/bills"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
+// [Task #776] 예산·집행통제 엔진 v01.
+const ErpBudgets = lazy(() => import("@/pages/erp/budgets"));
 // [Task #774] 부과자료 업로드센터 — OCR/문서엔진 v01 진입 페이지.
 const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
@@ -515,6 +517,13 @@ export const ROUTES: RouteEntry[] = [
     sideMenu: ["accountant", "hq_executive"],
   },
   // [Task #774] 부과자료 업로드센터 — 한 화면에서 모든 자료 업로드+OCR+보관함.
+  // [Task #776] 예산·집행통제 — 항목 × 월 매트릭스 + 의결 버전 + 집행률.
+  {
+    path: "/erp/budgets", component: ErpBudgets,
+    label: "예산·집행통제", icon: Sparkles, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "hq_executive", "custodian"],
+    sideMenu: ["manager", "accountant", "hq_executive"],
+  },
   {
     path: "/erp/upload-center", component: ErpUploadCenter,
     label: "부과자료 업로드", icon: UploadCloud, group: "accounting",
@@ -1262,6 +1271,7 @@ function accountantSidebar(
     {
       title: "보고·마감",
       items: compact([
+        link("/erp/budgets"),
         link("/erp/building-records"),
         link("/accountant/closing/monthly", { label: "월마감", icon: Sparkles }),
         link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),

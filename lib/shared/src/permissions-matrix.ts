@@ -71,6 +71,11 @@ export const AUDIT_ACTIONS = [
   // ── 건물 응대자료 (#178) ───────────────────────────────────────
   "building_record.upsert",
   "building_record.delete",
+
+  // ── 예산·집행통제 (#776) ───────────────────────────────────────
+  "budget.upsert",
+  "budget.approve",
+  "budget.override.allow",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -133,6 +138,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
   "building_record.upsert": "응대자료 저장",
   "building_record.delete": "응대자료 삭제",
+
+  "budget.upsert": "예산 편성",
+  "budget.approve": "예산 의결 승인",
+  "budget.override.allow": "예산 초과 집행 승인",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -224,6 +233,13 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   "billing.installment.delete": { accountant: true, platform_admin: true },
   "billing.adjustment.create": { manager: true, accountant: true, platform_admin: true },
   "billing.line.override": { manager: true, accountant: true, platform_admin: true },
+
+  // ── 예산·집행통제 ───────────────────────────────────────────
+  // 편성은 경리·관리소장이 입력, 의결 승인은 본부장/관리단장/플랫폼관리자.
+  "budget.upsert": { manager: true, accountant: true, platform_admin: true },
+  "budget.approve": { hq_executive: true, custodian: true, platform_admin: true },
+  // 초과 집행 사유 입력 후 진행 — 결재 라인을 만드는 역할들과 동일.
+  "budget.override.allow": { manager: true, accountant: true, hq_executive: true, custodian: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

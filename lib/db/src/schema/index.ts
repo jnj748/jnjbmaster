@@ -88,3 +88,5 @@ export * from "./rfqSmartQuoteLog";
 export * from "./auditLogs";
 // [Task #777] 부과엔진 v01 — 환경/분할/실행/라인/조정 5개 테이블 단일 파일.
 export * from "./billingEngine";
+// [Task #776] 예산·집행통제 엔진 v01.
+export * from "./budgets";
