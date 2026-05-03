@@ -84,6 +84,8 @@ import taskTemplatesRouter from "./taskTemplates";
 import usageAnalyticsRouter from "./usageAnalytics";
 // [Task #610] 통합 문서 레지스트리 + 공고문 산출물 등록 라우트.
 import documentsRouter from "./documents";
+// [Task #774] OCR/문서엔진 v01 — 단일 ingest 파이프라인.
+import documentIngestRouter from "./documentIngest";
 import noticeOutputsRouter from "./noticeOutputs";
 // [Task #761] 플랫폼 레벨 AI — 포트폴리오 이상치 위젯용 라우트.
 import portfolioAnomaliesRouter from "./portfolioAnomalies";
@@ -205,6 +207,9 @@ buildingRouter.use(buildingRecordsRouter);
 buildingRouter.use(workLogsRouter);
 buildingRouter.use(memoOcrRouter);
 // [Task #610] documents 조회 + notice_outputs 등록 — 모두 buildingRouter 안.
+// [Task #774] documentIngestRouter must be mounted BEFORE documentsRouter so its
+//   /documents/ingest paths are not shadowed by documents.ts /documents/:id.
+buildingRouter.use(documentIngestRouter);
 buildingRouter.use(documentsRouter);
 buildingRouter.use(noticeOutputsRouter);
 router.use(buildingRouter);

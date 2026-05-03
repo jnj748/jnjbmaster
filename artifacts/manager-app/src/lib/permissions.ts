@@ -40,6 +40,8 @@ import {
   Gift,
   // [Task #740 가입흐름재설정] 파트너 분야(2단 카테고리) 관리 메뉴 아이콘.
   Layers,
+  // [Task #774] 부과자료 업로드센터 메뉴 아이콘.
+  UploadCloud,
   type LucideIcon,
 } from "lucide-react";
 
@@ -101,6 +103,8 @@ const ErpBills = lazy(() => import("@/pages/erp/bills"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
+// [Task #774] 부과자료 업로드센터 — OCR/문서엔진 v01 진입 페이지.
+const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
 // [Task #267] 플랫폼 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
 const PlatformRoleManagers = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.ManagersStatus })));
@@ -503,6 +507,13 @@ export const ROUTES: RouteEntry[] = [
     label: "관리비 응대 자료", icon: Clipboard, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant", "hq_executive"],
+  },
+  // [Task #774] 부과자료 업로드센터 — 한 화면에서 모든 자료 업로드+OCR+보관함.
+  {
+    path: "/erp/upload-center", component: ErpUploadCenter,
+    label: "부과자료 업로드", icon: UploadCloud, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
   },
   {
     path: "/erp/bills", component: ErpBills,
@@ -1221,6 +1232,7 @@ function accountantSidebar(
     {
       title: "검침·고지·수납",
       items: compact([
+        link("/erp/upload-center"),
         link("/erp/metering"),
         link("/erp/billing"),
         link("/erp/bills"),
