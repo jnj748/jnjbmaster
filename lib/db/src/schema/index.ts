@@ -86,3 +86,5 @@ export * from "./vendorSmartQuote";
 export * from "./rfqSmartQuoteLog";
 // [Task #773] 권한·감사로그 엔진 — 모든 변경계 도메인 액션의 단일 기록 테이블.
 export * from "./auditLogs";
+// [Task #777] 부과엔진 v01 — 환경/분할/실행/라인/조정 5개 테이블 단일 파일.
+export * from "./billingEngine";

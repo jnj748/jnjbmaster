@@ -60,6 +60,14 @@ export const AUDIT_ACTIONS = [
   "fees.kakao.notify",
   "fees.interim.calculate",
 
+  // ── 부과엔진 v01 (#777) ────────────────────────────────────
+  "billing.settings.update",
+  "billing.installment.create",
+  "billing.installment.update",
+  "billing.installment.delete",
+  "billing.adjustment.create",
+  "billing.line.override",
+
   // ── 건물 응대자료 (#178) ───────────────────────────────────────
   "building_record.upsert",
   "building_record.delete",
@@ -76,6 +84,7 @@ export const DESTRUCTIVE_ACTIONS = new Set<AuditAction>([
   "approval.step.reject",
   "approval.signed_copy.delete",
   "building_record.delete",
+  "billing.installment.delete",
 ]);
 
 /** 표시용 라벨 — 감사로그 화면 칩, 로그 메시지 등에서 사용. */
@@ -114,6 +123,13 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "fees.payment.record": "관리비 수납 기록",
   "fees.kakao.notify": "관리비 알림 발송",
   "fees.interim.calculate": "중간정산 산출",
+
+  "billing.settings.update": "부과환경 변경",
+  "billing.installment.create": "분할부과 등록",
+  "billing.installment.update": "분할부과 수정",
+  "billing.installment.delete": "분할부과 삭제",
+  "billing.adjustment.create": "부과 조정 등록",
+  "billing.line.override": "호실 부과액 보정",
 
   "building_record.upsert": "응대자료 저장",
   "building_record.delete": "응대자료 삭제",
@@ -200,6 +216,14 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   // ── 건물 응대자료 ───────────────────────────────────────────
   "building_record.upsert": { manager: true, accountant: true, platform_admin: true },
   "building_record.delete": { accountant: true, platform_admin: true },
+
+  // ── 부과엔진 v01 (#777) ────────────────────────────────────
+  "billing.settings.update": { manager: true, accountant: true, platform_admin: true },
+  "billing.installment.create": { manager: true, accountant: true, platform_admin: true },
+  "billing.installment.update": { manager: true, accountant: true, platform_admin: true },
+  "billing.installment.delete": { accountant: true, platform_admin: true },
+  "billing.adjustment.create": { manager: true, accountant: true, platform_admin: true },
+  "billing.line.override": { manager: true, accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

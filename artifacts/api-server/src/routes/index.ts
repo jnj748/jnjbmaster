@@ -53,6 +53,8 @@ import managementContractTemplatesRouter from "./managementContractTemplates";
 import publicTenantCardRouter from "./publicTenantCard";
 import metersRouter from "./meters";
 import feesRouter from "./fees";
+// [Task #777] 부과엔진 v01 — /billing/* 신규 라우트.
+import billingRouter from "./billing";
 import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
@@ -199,6 +201,8 @@ buildingRouter.use(tenantCardTokensRouter);
 buildingRouter.use(managementContractTemplatesRouter);
 buildingRouter.use(metersRouter);
 buildingRouter.use(feesRouter);
+// [Task #777] 부과엔진 v01 — fees 위에 마운트(같은 buildingRouter 가드 공유).
+buildingRouter.use(billingRouter);
 buildingRouter.use(complaintsRouter);
 buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);
