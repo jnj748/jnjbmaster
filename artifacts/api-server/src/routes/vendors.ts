@@ -26,6 +26,8 @@ import {
 import { requireRole } from "../middlewares/auth";
 import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
 import { grantSignupBonusIfEligible } from "../lib/credits";
+// [Task #740 T6] 사업장 주소 자동 좌표 백필 헬퍼 — 라우트(/api/kakao/geocode) 와 동일 로직.
+import { geocodeKakaoAddress } from "../lib/kakaoGeocode";
 
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
@@ -314,8 +316,8 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
   const serviceAddressRoad = typeof req.body?.serviceAddressRoad === "string" ? req.body.serviceAddressRoad.trim() : "";
   const serviceLatRaw = req.body?.serviceLat;
   const serviceLngRaw = req.body?.serviceLng;
-  const serviceLat = typeof serviceLatRaw === "number" && Number.isFinite(serviceLatRaw) ? serviceLatRaw : null;
-  const serviceLng = typeof serviceLngRaw === "number" && Number.isFinite(serviceLngRaw) ? serviceLngRaw : null;
+  let serviceLat: number | null = typeof serviceLatRaw === "number" && Number.isFinite(serviceLatRaw) ? serviceLatRaw : null;
+  let serviceLng: number | null = typeof serviceLngRaw === "number" && Number.isFinite(serviceLngRaw) ? serviceLngRaw : null;
   const serviceRadiusKmRaw = Number(req.body?.serviceRadiusKm);
   const serviceRadiusKm = Number.isFinite(serviceRadiusKmRaw) && serviceRadiusKmRaw > 0
     ? Math.min(200, Math.max(1, Math.round(serviceRadiusKmRaw)))
@@ -332,6 +334,23 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
   if (!idCardUrl) { res.status(400).json({ error: "신분증을 업로드해 주세요" }); return; }
   if (!serviceAddressRoad) { res.status(400).json({ error: "사업장 도로명 주소를 입력해 주세요" }); return; }
   if (categories.length === 0) { res.status(400).json({ error: "최소 1개 이상의 취급 분야를 선택해 주세요" }); return; }
+
+  // [Task #740 T6] 사장님이 위저드 step4 의 "좌표 변환" 버튼을 누르지 않고 다음으로
+  //   진행한 경우(또는 외부에서 직접 onboarding 을 호출한 경우) 좌표가 NULL 로 들어온다.
+  //   거리 기반 매칭이 동작하려면 lat/lng 가 필요하므로 서버 측에서 한 번 더 시도한다.
+  //   실패해도(키 없음/주소 못 찾음/외부 오류) 가입은 그대로 진행 — 매칭은 시도/시군구
+  //   단계만 적용되고 거리는 스킵된다.
+  if (serviceAddressRoad && (serviceLat == null || serviceLng == null)) {
+    const auto = await geocodeKakaoAddress(serviceAddressRoad);
+    if (auto) {
+      serviceLat = auto.lat;
+      serviceLng = auto.lng;
+      req.log?.info?.(
+        { vendorId: user.vendorId, addressRoad: serviceAddressRoad },
+        "[Task #740 T6] auto-geocoded vendor address on onboarding",
+      );
+    }
+  }
 
   // 약관 동의 필수.
   const [consent] = await db.select().from(platformConsentsTable)

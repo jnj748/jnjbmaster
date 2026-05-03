@@ -7,20 +7,13 @@
 //     2) 카카오 dapi.kakao.com 은 CORS 응답을 안 주므로 브라우저 직접 호출 시 실패.
 //   인증 토큰(`req.user`)이 있는 사용자만 호출 가능 — authMiddleware 가 routes/index.ts
 //   상위에서 적용된다.
+//
+//   [Task #740 T6] 실 변환 로직은 lib/kakaoGeocode.ts 헬퍼 로 분리되어, onboarding
+//   라우트의 자동 좌표 백필과 동일한 코드 경로를 공유한다.
 import { Router, type Request, type Response } from "express";
+import { geocodeKakaoAddress } from "../lib/kakaoGeocode";
 
 const router: Router = Router();
-
-interface KakaoLocalDocument {
-  x: string; // longitude
-  y: string; // latitude
-  road_address?: { address_name?: string } | null;
-  address?: { address_name?: string } | null;
-}
-
-interface KakaoLocalResponse {
-  documents?: KakaoLocalDocument[];
-}
 
 router.get("/kakao/geocode", async (req: Request, res: Response): Promise<void> => {
   const query = typeof req.query?.query === "string" ? req.query.query.trim() : "";
@@ -28,45 +21,18 @@ router.get("/kakao/geocode", async (req: Request, res: Response): Promise<void> 
     res.status(400).json({ error: "query 파라미터가 필요합니다" });
     return;
   }
-  const apiKey = process.env.KAKAO_REST_API_KEY;
-  if (!apiKey) {
+  if (!process.env.KAKAO_REST_API_KEY) {
     res.status(503).json({ error: "지오코딩이 일시적으로 비활성화되어 있습니다" });
     return;
   }
-
-  try {
-    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}`;
-    const r = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${apiKey}` },
-    });
-    if (!r.ok) {
-      req.log?.warn?.({ status: r.status, query }, "[Task #740] kakao geocode failed");
-      res.status(502).json({ error: "주소 변환 실패 — 잠시 후 다시 시도해 주세요" });
-      return;
-    }
-    const data = (await r.json()) as KakaoLocalResponse;
-    const doc = data?.documents?.[0];
-    if (!doc) {
-      res.json({ found: false });
-      return;
-    }
-    const lng = Number(doc.x);
-    const lat = Number(doc.y);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      res.json({ found: false });
-      return;
-    }
-    res.json({
-      found: true,
-      lat,
-      lng,
-      addressRoad: doc.road_address?.address_name ?? null,
-      addressJibun: doc.address?.address_name ?? null,
-    });
-  } catch (err) {
-    req.log?.error?.({ err, query }, "[Task #740] kakao geocode threw");
-    res.status(502).json({ error: "주소 변환 중 오류가 발생했습니다" });
+  const result = await geocodeKakaoAddress(query);
+  if (!result) {
+    // 빈 결과(주소 못 찾음) 와 외부 오류를 라우트 단에서 구분하기 어렵지만,
+    // 사용자 입장에서는 "찾지 못함" 으로 안내하는 게 가장 자연스럽다.
+    res.json({ found: false });
+    return;
   }
+  res.json({ found: true, ...result });
 });
 
 export default router;
