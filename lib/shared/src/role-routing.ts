@@ -141,3 +141,66 @@ export function targetRolesIncludes(
   if (!Array.isArray(roles) || roles.length === 0) return false;
   return roles.includes(role);
 }
+
+// ── 알림 → 역할 매칭(서버/클라이언트 공용 SoT) ──────────────────────
+//   클라이언트 `splitDashboardAlerts` 의 `isAccountantLegalAlert` /
+//   `isFacilityLegalAlert` 와 같은 규칙을 서버 모두보기 API
+//   (`/facility/mandatory-tasks`, `/facility/suggested-tasks`) 에서도
+//   재사용할 수 있도록 분리한다. 분류 우선순위:
+//     1. `alert.targetRoles` 가 비어있지 않으면 그 배열만 보고 결정.
+//     2. 비어있거나 누락이면 type/category/taskType 휴리스틱 폴백.
+
+export interface RoleRoutableAlert {
+  type: string;
+  inspectionType?: string | null;
+  taskType?: string | null;
+  category?: string | null;
+  targetRoles?: readonly string[] | null;
+}
+
+export type RoleRoutingTarget = "manager" | "accountant" | "facility_staff";
+
+/**
+ * 알림이 주어진 역할의 "필수업무현황" 카드/모두보기 목록에 노출돼야 하는지 결정.
+ * `manager` 는 본 함수에서 항상 true 를 반환한다(매니저 카드는 자체적으로 legal/
+ * proposed 분리를 하므로 여기서는 inclusion 만 책임진다).
+ */
+export function alertMatchesRole(
+  alert: RoleRoutableAlert,
+  role: RoleRoutingTarget,
+): boolean {
+  if (role === "manager") return true;
+
+  const list = alert.targetRoles;
+  if (Array.isArray(list) && list.length > 0) {
+    return list.includes(role);
+  }
+
+  if (role === "accountant") {
+    if (alert.type === "tax_due") return true;
+    if (alert.type === "task_overdue" || alert.type === "task_followup") {
+      const cat = alert.category ?? null;
+      return !!cat && ACCOUNTING_TASK_CATEGORIES.has(cat);
+    }
+    if (alert.type === "task_template_mandatory") {
+      const tt = alert.taskType ?? null;
+      return !!tt && ACCOUNTING_TASK_TYPES.has(tt);
+    }
+    return false;
+  }
+
+  // facility_staff
+  if (alert.type === "inspection_due") {
+    return alert.inspectionType !== "administrative";
+  }
+  if (alert.type === "warranty_expiry") return true;
+  if (alert.type === "task_template_mandatory") {
+    const tt = alert.taskType ?? null;
+    return !!tt && FACILITY_TASK_TYPES.has(tt);
+  }
+  if (alert.type === "task_overdue" || alert.type === "task_followup") {
+    const cat = alert.category ?? null;
+    return !!cat && FACILITY_TASK_CATEGORIES.has(cat);
+  }
+  return false;
+}

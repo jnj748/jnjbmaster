@@ -40,8 +40,10 @@ import { resolveActiveTemplateAlerts } from "./taskTemplates";
 import { requireRole } from "../middlewares/auth";
 import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
 // [Task #697] 비템플릿 자동 알림 빌더에 일관된 역할 라우팅 메타를 부여하기 위한 단일 SoT.
+// [Task #742] 모두보기 API 의 역할 필터(`alertMatchesRole`) 도 같은 SoT 에서 가져온다.
 import {
   DEFAULT_ALERT_TARGET_ROLES,
+  alertMatchesRole,
   categoryToTargetRoles,
   inspectionTargetRoles,
 } from "@workspace/shared/role-routing";
@@ -762,14 +764,46 @@ function isMandatory(a: BuiltAlert): boolean {
   return true;
 }
 
+// [Task #742] 모두보기 페이지(필수업무/제안업무) 의 역할 필터.
+//   대시보드 카드(`splitDashboardAlerts`) 와 동일한 SoT(`alertMatchesRole`) 를
+//   사용해 카드와 모두보기 목록의 항목 집합이 1:1 일치하도록 한다.
+//
+//   - manager / platform_admin / hq_executive: 종전 동작(`isMandatory` / `isSuggested`)
+//     그대로 — 회귀 방지.
+//   - accountant: 대시보드 `splitDashboardAlerts` 와 동일하게 `alertMatchesRole`
+//     단독 필터. `isMandatory` 게이트는 의도적으로 추가하지 않는다 — 클라이언트
+//     카드가 그 게이트를 사용하지 않기 때문에, 게이트를 끼우면 카드(예: 회계
+//     카테고리 task) 가 노출되는 항목이 모두보기에서 빠지는 회귀가 생긴다.
+//     suggested 는 경리 대시보드가 제안업무 카드를 쓰지 않으므로 빈 배열.
+//   - facility_staff: 동일 — `alertMatchesRole(a, "facility_staff")` 단독 필터.
+//     비-legal 점검(self_regular 등) 이라도 `inspectionTargetRoles` 가
+//     facility_staff 를 포함하면 카드에 노출되므로 모두보기도 함께 보여야 한다.
+//     suggested 는 빈 배열.
+function applyRoleFilter(
+  all: BuiltAlert[],
+  role: string | null | undefined,
+  kind: "mandatory" | "suggested",
+): BuiltAlert[] {
+  if (role === "accountant") {
+    if (kind === "suggested") return [];
+    return all.filter((a) => alertMatchesRole(a, "accountant"));
+  }
+  if (role === "facility_staff") {
+    if (kind === "suggested") return [];
+    return all.filter((a) => alertMatchesRole(a, "facility_staff"));
+  }
+  // manager / platform_admin / hq_executive — 기존 분류만 적용.
+  return all.filter(kind === "mandatory" ? isMandatory : isSuggested);
+}
+
 router.get("/facility/mandatory-tasks", async (req, res): Promise<void> => {
   const all = await buildAllUpcomingAlerts(req);
-  res.json(all.filter(isMandatory));
+  res.json(applyRoleFilter(all, req.user?.role ?? null, "mandatory"));
 });
 
 router.get("/facility/suggested-tasks", async (req, res): Promise<void> => {
   const all = await buildAllUpcomingAlerts(req);
-  res.json(all.filter(isSuggested));
+  res.json(applyRoleFilter(all, req.user?.role ?? null, "suggested"));
 });
 
 export default router;

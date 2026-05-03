@@ -42,6 +42,7 @@ import {
   getTrafficColor,
   getTestTaskCardOverride,
 } from "@/lib/alert-utils";
+import { splitDashboardAlerts, type DashboardAlertRole } from "@/lib/dashboard-alert-filters";
 import { AlertActionDialog } from "@/components/alert-action-dialog";
 
 // 필터 옵션 — alert.type 기준으로 노출. "전체" 외에 알림 유형별로 좁혀 본다.
@@ -167,9 +168,26 @@ export function FacilityTaskList({
     toast({ title: "이 항목은 별도 처리 화면이 없습니다", description: alert.title });
   }
 
+  // [Task #742] 클라이언트 안전망 — 서버가 이미 역할 필터링된 응답을 주지만,
+  //   캐시된 구버전 응답이 떠 있을 수 있으므로 한 번 더 거른다. 매니저/플랫폼
+  //   관리자/본부장은 splitDashboardAlerts 가 manager 분기로 fall-through 되어
+  //   기존 동작이 그대로 유지된다(추가 필터링 없음).
+  //   sectionKind 가 mandatory 면 splitDashboardAlerts 의 legalAlerts 를,
+  //   suggested 면 proposedAlerts 를 사용한다(매니저 한정 — 경리/시설은 서버에서
+  //   suggested 가 비어 오므로 영향 없음).
+  const role = (user?.role ?? "manager") as DashboardAlertRole;
+  const roleFiltered = useMemo<DashboardAlert[]>(() => {
+    const list = (alerts ?? []) as DashboardAlert[];
+    if (role !== "manager" && role !== "accountant" && role !== "facility_staff") {
+      return list;
+    }
+    const split = splitDashboardAlerts(list, role);
+    return sectionKind === "mandatory" ? split.legalAlerts : split.proposedAlerts;
+  }, [alerts, role, sectionKind]);
+
   // 필터링 — 검색·유형·기한.
   const filtered = useMemo(() => {
-    const list = alerts ?? [];
+    const list = roleFiltered;
     const dueLimitDays = dueFilter === "all" ? null : parseInt(dueFilter, 10);
     const q = search.trim().toLowerCase();
     return list.filter((a) => {
@@ -187,13 +205,14 @@ export function FacilityTaskList({
       }
       return true;
     });
-  }, [alerts, dueFilter, typeFilter, search]);
+  }, [roleFiltered, dueFilter, typeFilter, search]);
 
-  // 상단 요약 바 카운트 — 검색·유형 필터는 적용하지 않고 전체(원본) 알림 기준
-  // 으로 "곧 도래하는 업무량"을 한눈에 보여 준다. 기한 없음 항목은 어떤 기간
-  // 버킷에도 포함되지 않는다.
+  // 상단 요약 바 카운트 — 검색·유형 필터는 적용하지 않고 (역할 필터링된) 전체
+  // 알림 기준으로 "곧 도래하는 업무량"을 한눈에 보여 준다. 기한 없음 항목은
+  // 어떤 기간 버킷에도 포함되지 않는다.
+  // [Task #742] 카운트도 roleFiltered 기준 — 카드/모두보기 일치 보장.
   const summary = useMemo(() => {
-    const list = alerts ?? [];
+    const list = roleFiltered;
     let overdueCount = 0;
     let d30 = 0;
     let d60 = 0;
@@ -220,7 +239,7 @@ export function FacilityTaskList({
       d180,
       d365,
     };
-  }, [alerts]);
+  }, [roleFiltered]);
 
   // 기한초과 그룹은 상단으로 분리.
   const { overdue, upcoming } = useMemo(() => {
@@ -252,7 +271,7 @@ export function FacilityTaskList({
           {pageTitle}
           {alerts && (
             <span className="text-sm font-normal text-muted-foreground">
-              총 {alerts.length}건
+              총 {roleFiltered.length}건
             </span>
           )}
         </h1>
@@ -414,6 +433,10 @@ interface AlertRowProps {
 
 function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
   const trafficColor = getTrafficColor(alert.dueDate ?? null);
+  // [Task #742] 대시보드 카드(`AlertSection`) 와 동일한 D-day 라벨을 신호등 점
+  //   아래에 함께 노출한다. dueDate 가 없는 항목은 라벨을 생략한다.
+  //   라벨 색상은 신호등(`getTrafficColor`) 톤과 매칭(빨강/노랑/녹색).
+  const dday = alert.dueDate ? getDdayLabel(alert.dueDate) : null;
   const isInteractive =
     (ACTIONABLE_ALERT_TYPES as readonly string[]).includes(alert.type) ||
     alert.type === "data_destruction" ||
@@ -455,6 +478,20 @@ function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
               : "bg-green-500"
           }`}
         />
+        {dday && (
+          <span
+            className={`text-[10px] font-bold whitespace-nowrap ${
+              trafficColor === "red"
+                ? "text-red-700"
+                : trafficColor === "yellow"
+                ? "text-yellow-700"
+                : "text-green-700"
+            }`}
+            data-testid={`dday-label-${alert.relatedId ?? alert.id}`}
+          >
+            {dday.label}
+          </span>
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{alert.title}</p>
