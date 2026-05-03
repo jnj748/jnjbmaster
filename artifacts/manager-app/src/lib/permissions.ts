@@ -150,6 +150,17 @@ const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds")
 // [Task #772] 경리 신 IA "준비 중" Coming Soon 스텁 — 후속 엔진 태스크(T2~T10)에서 채워진다.
 const AccountantComingSoon = lazy(() => import("@/pages/accountant/coming-soon"));
 
+// [Task #801] 회계 기초·전표 모듈 — AI-first 9 페이지.
+const AcctCoa = lazy(() => import("@/pages/accounting/coa"));
+const AcctOpeningBalances = lazy(() => import("@/pages/accounting/opening-balances"));
+const AcctFiscalPeriods = lazy(() => import("@/pages/accounting/fiscal-periods"));
+const AcctAutoJournalRules = lazy(() => import("@/pages/accounting/auto-journal-rules"));
+const AcctReportFormats = lazy(() => import("@/pages/accounting/report-formats"));
+const AcctDataExport = lazy(() => import("@/pages/accounting/data-export"));
+const AcctJournals = lazy(() => import("@/pages/accounting/journals"));
+const AcctJournalSearch = lazy(() => import("@/pages/accounting/journal-search"));
+const AcctMonthClose = lazy(() => import("@/pages/accounting/month-close"));
+
 // [역할 라벨 SoT] 역할 키 / 표시 라벨은 @workspace/shared/role-labels 에서
 //   단일 소스로 정의한다. 라벨이 바뀌면 그 파일만 수정하면 프런트엔드와
 //   백엔드가 동시에 반영된다.
@@ -1065,7 +1076,7 @@ export const ROUTES: RouteEntry[] = [
   // 그곳에서 한다. 여기서는 라우트 등록만 보장 — `canAccess` 는 access 화이트리스트로 통과.
   {
     path: "/accountant/charging/auto-journal", component: AccountantComingSoon,
-    label: "자동분개", icon: Sparkles, group: "accounting",
+    label: "부과·자동분개", icon: Sparkles, group: "accounting",
     access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
   },
   {
@@ -1089,19 +1100,65 @@ export const ROUTES: RouteEntry[] = [
     access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
   },
   {
-    path: "/accountant/closing/monthly", component: AccountantComingSoon,
-    label: "월마감", icon: Sparkles, group: "reports",
-    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
-  },
-  {
     path: "/accountant/closing/yearly", component: AccountantComingSoon,
     label: "연마감", icon: Sparkles, group: "reports",
     access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
   },
+
+  // ── [Task #801] 회계 기초·전표 모듈 — AI-first 9 페이지 ────────────
   {
-    path: "/accountant/settings/categories", component: AccountantComingSoon,
-    label: "계정과목 설정", icon: Sparkles, group: "settings",
-    access: ["accountant", "platform_admin"], sideMenu: [], hidden: true,
+    path: "/accounting/coa", component: AcctCoa,
+    label: "계정과목", icon: BookOpen, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/opening-balances", component: AcctOpeningBalances,
+    label: "기초잔액(AI)", icon: Sparkles, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/fiscal-periods", component: AcctFiscalPeriods,
+    label: "회계기수", icon: CalendarDays, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/auto-journal-rules", component: AcctAutoJournalRules,
+    label: "자동분개 규칙", icon: Sparkles, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/report-formats", component: AcctReportFormats,
+    label: "보고서 형식", icon: FileText, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/data-export", component: AcctDataExport,
+    label: "회계데이터 전송", icon: Send, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/journals", component: AcctJournals,
+    label: "전표 입력(AI)", icon: Sparkles, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/journal-search", component: AcctJournalSearch,
+    label: "전표 조회", icon: ClipboardList, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
+  },
+  {
+    path: "/accounting/month-close", component: AcctMonthClose,
+    label: "월마감", icon: Lock, group: "accounting",
+    access: ["manager", "accountant", "platform_admin"],
+    sideMenu: ["accountant"],
   },
 ];
 
@@ -1357,8 +1414,8 @@ function accountantSidebar(
     {
       title: "부과엔진",
       items: compact([
-        // 신규 — 후속 엔진(T2)에서 채워질 핵심 화면.
-        link("/accountant/charging/auto-journal", { label: "자동분개", icon: Sparkles }),
+        // [Task #801] 자동분개 규칙 — 부과/수납 등 이벤트 → 차/대 매핑 정의.
+        link("/accounting/auto-journal-rules"),
         link("/accountant/charging/rules", { label: "부과 기준", icon: Sparkles }),
         // 보존 — 호실 마스터(부과 단위의 출발점).
         link("/units"),
@@ -1377,9 +1434,17 @@ function accountantSidebar(
       title: "회계 엔진",
       items: compact([
         link("/erp/accounting"),
+        // [Task #801] 회계 기초·전표 모듈.
+        link("/accounting/coa"),
+        link("/accounting/fiscal-periods"),
+        link("/accounting/opening-balances"),
+        link("/accounting/journals"),
+        link("/accounting/journal-search"),
         link("/accountant/ledger", { label: "총계정원장", icon: Sparkles }),
         link("/accountant/balance-sheet", { label: "재무상태표", icon: Sparkles }),
         link("/accountant/income-statement", { label: "손익계산서", icon: Sparkles }),
+        link("/accounting/report-formats"),
+        link("/accounting/data-export"),
         link("/tax-schedules"),
       ]),
     },
@@ -1399,7 +1464,8 @@ function accountantSidebar(
         link("/erp/budgets"),
         link("/erp/building-records"),
         link("/erp/closings"),
-        link("/accountant/closing/monthly", { label: "월마감", icon: Sparkles }),
+        // [Task #801] 월마감(/accounting/month-close → /erp/closings 위임).
+        link("/accounting/month-close"),
         link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),
       ]),
     },

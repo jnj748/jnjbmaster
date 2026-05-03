@@ -92,6 +92,17 @@ export const AUDIT_ACTIONS = [
 
   // ── 외부연동 엔진 v01 (#781) ───────────────────────────────
   "popbill.settings.update",
+
+  // ── 회계 기초·전표 모듈 (#801) ──────────────────────────────
+  "accounting.fiscal_period.create",
+  "accounting.fiscal_period.update",
+  "accounting.fiscal_period.delete",
+  "accounting.opening_balance.post",
+  "accounting.auto_rule.create",
+  "accounting.auto_rule.update",
+  "accounting.auto_rule.delete",
+  "accounting.report_format.create",
+  "accounting.report_format.delete",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -172,6 +183,16 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
   "accounting.account.create": "계정과목 추가",
   "popbill.settings.update": "Popbill 설정 변경",
+
+  "accounting.fiscal_period.create": "회계기수 등록",
+  "accounting.fiscal_period.update": "회계기수 수정",
+  "accounting.fiscal_period.delete": "회계기수 삭제",
+  "accounting.opening_balance.post": "개시잔액 발행",
+  "accounting.auto_rule.create": "자동분개 규칙 등록",
+  "accounting.auto_rule.update": "자동분개 규칙 수정",
+  "accounting.auto_rule.delete": "자동분개 규칙 삭제",
+  "accounting.report_format.create": "보고서 형식 등록",
+  "accounting.report_format.delete": "보고서 형식 삭제",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -288,6 +309,17 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   // ── 외부연동 엔진 (#781) ─────────────────────────────────────
   // Popbill 시크릿은 환경변수 — 화면에서는 발신번호·템플릿·프로필 ID 만 갱신.
   "popbill.settings.update": { manager: true, accountant: true, platform_admin: true },
+
+  // ── 회계 기초·전표 모듈 (#801) ──────────────────────────────
+  "accounting.fiscal_period.create": { manager: true, accountant: true, platform_admin: true },
+  "accounting.fiscal_period.update": { manager: true, accountant: true, platform_admin: true },
+  "accounting.fiscal_period.delete": { accountant: true, platform_admin: true },
+  "accounting.opening_balance.post": { accountant: true, platform_admin: true },
+  "accounting.auto_rule.create": { manager: true, accountant: true, platform_admin: true },
+  "accounting.auto_rule.update": { manager: true, accountant: true, platform_admin: true },
+  "accounting.auto_rule.delete": { accountant: true, platform_admin: true },
+  "accounting.report_format.create": { manager: true, accountant: true, platform_admin: true },
+  "accounting.report_format.delete": { accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

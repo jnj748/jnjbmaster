@@ -82,6 +82,7 @@ import vendorCategoriesRouter from "./vendorCategories";
 import kakaoGeocodeRouter from "./kakaoGeocode";
 import accountingInitialFilesRouter from "./accountingInitialFiles";
 import accountingRouter from "./accounting";
+import accountingMasterRouter from "./accountingMaster";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
 // [Task #776] 예산·집행통제 엔진 v01.
@@ -250,6 +251,7 @@ router.use(buildingRouter);
 router.use(aiAssistantRouter);
 router.use(accountingInitialFilesRouter);
 router.use(accountingRouter);
+router.use(accountingMasterRouter);
 router.use(facilitySignupRequestsRouter);
 // [Task #773] 감사로그 — authMiddleware 뒤(인증 사용자만), buildingRouter 밖에 둔다.
 //   화면(/audit-logs) 자체는 platform_admin/hq_executive/custodian 역할별 가드를
