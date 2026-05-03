@@ -102,7 +102,7 @@ async function getActiveSettings(buildingId: number) {
 
 // 신코드 데모(101/102/103호) 호환 기본값. AI 추천의 시드.
 const DEFAULT_METER_PRICES: Record<string, number> = {
-  water: 850, electricity: 130, gas: 1100, heating: 90,
+  water: 850, electricity: 130, gas: 1100, heating: 90, hot_water: 1200,
 };
 const DEFAULT_ALLOCATION: Record<string, "area" | "unit_count" | "usage"> = {
   commonMaintenance: "area",

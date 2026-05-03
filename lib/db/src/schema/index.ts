@@ -109,3 +109,5 @@ export * from "./openingBalances";
 export * from "./fiscalPeriods";
 export * from "./autoJournalRules";
 export * from "./reportFormats";
+// [Task #798] 한전 검침 송신 로그.
+export * from "./kepcoTransmissionLog";

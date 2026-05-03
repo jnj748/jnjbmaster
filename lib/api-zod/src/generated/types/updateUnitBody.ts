@@ -36,6 +36,12 @@ export interface UpdateUnitBody {
   /** @nullable */
   businessNumber?: string | null;
   /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
+  /** @nullable */
   entryDate?: string | null;
   /** @nullable */
   supplyArea?: string | null;

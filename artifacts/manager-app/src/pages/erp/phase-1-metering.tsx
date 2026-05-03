@@ -58,15 +58,20 @@ import {
 } from "lucide-react";
 import { roleLabel } from "@workspace/shared/role-labels";
 
-type MeterType = "water" | "electricity" | "gas" | "heating";
+type MeterType = "water" | "electricity" | "gas" | "heating" | "hot_water";
 type ReadingType = "regular" | "interim";
 
 const METER_OPTS: Array<{ value: MeterType; label: string; icon: typeof Droplet; color: string }> = [
   { value: "water", label: "수도", icon: Droplet, color: "text-blue-500" },
   { value: "electricity", label: "전기", icon: Zap, color: "text-yellow-500" },
-  { value: "gas", label: "가스", icon: Flame, color: "text-orange-500" },
+  { value: "hot_water", label: "온수", icon: Droplet, color: "text-indigo-500" },
   { value: "heating", label: "난방", icon: Thermometer, color: "text-red-500" },
+  { value: "gas", label: "가스", icon: Flame, color: "text-orange-500" },
 ];
+
+// [Task #798] /metering/* 하위 라우트에서 미터 종류를 고정한 단일-종류 화면으로 재사용.
+//   presetMeterType 이 주어지면 종류 선택 탭을 숨기고 해당 미터 입력만 노출한다.
+export type Phase1MeteringProps = { presetMeterType?: MeterType };
 
 function todayStr(): string { return new Date().toISOString().slice(0, 10); }
 function daysAgoStr(d: number): string {
@@ -75,7 +80,7 @@ function daysAgoStr(d: number): string {
   return x.toISOString().slice(0, 10);
 }
 
-export default function Phase1MeteringPage() {
+export default function Phase1MeteringPage({ presetMeterType }: Phase1MeteringProps = {}) {
   const { token, user } = useAuth();
   // [Task #630] 본부장은 검침을 읽기만 가능 — 입력·OCR·CSV·수정·삭제 모든 쓰기를 숨긴다.
   const readOnly = user?.role === "hq_executive";
@@ -86,7 +91,9 @@ export default function Phase1MeteringPage() {
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
-  const [meterType, setMeterType] = useState<MeterType>("water");
+  const [meterType, setMeterType] = useState<MeterType>(presetMeterType ?? "water");
+  // presetMeterType 이 바뀌면(같은 컴포넌트 재사용) 동기화.
+  useEffect(() => { if (presetMeterType) setMeterType(presetMeterType); }, [presetMeterType]);
   const [readingType, setReadingType] = useState<ReadingType>("regular");
   const [readingDate, setReadingDate] = useState<string>(todayStr());
   const [unitFilter, setUnitFilter] = useState("");
@@ -400,24 +407,26 @@ export default function Phase1MeteringPage() {
 
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div>
-              <Label className="text-xs">미터 종류</Label>
-              <div className="grid grid-cols-4 gap-1 mt-1">
-                {METER_OPTS.map((opt) => (
-                  <Button
-                    key={opt.value}
-                    variant={meterType === opt.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setMeterType(opt.value)}
-                    className="flex flex-col h-auto py-2"
-                  >
-                    <opt.icon className={`h-4 w-4 ${meterType === opt.value ? "" : opt.color}`} />
-                    <span className="text-[11px] mt-1">{opt.label}</span>
-                  </Button>
-                ))}
+          <div className={`grid gap-3 ${presetMeterType ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+            {!presetMeterType && (
+              <div>
+                <Label className="text-xs">미터 종류</Label>
+                <div className="grid grid-cols-5 gap-1 mt-1">
+                  {METER_OPTS.map((opt) => (
+                    <Button
+                      key={opt.value}
+                      variant={meterType === opt.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setMeterType(opt.value)}
+                      className="flex flex-col h-auto py-2"
+                    >
+                      <opt.icon className={`h-4 w-4 ${meterType === opt.value ? "" : opt.color}`} />
+                      <span className="text-[11px] mt-1">{opt.label}</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <Label className="text-xs">검침 유형</Label>
               <Tabs value={readingType} onValueChange={(v) => setReadingType(v as ReadingType)} className="mt-1">

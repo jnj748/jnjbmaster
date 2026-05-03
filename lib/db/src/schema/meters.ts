@@ -17,7 +17,8 @@ export const meterReadingsTable = pgTable("meter_readings", {
   buildingId: integer("building_id").notNull().references(() => buildingsTable.id),
   unitId: integer("unit_id").references(() => unitsTable.id),
   unitNumber: text("unit_number").notNull(),
-  meterType: text("meter_type", { enum: ["water", "electricity", "gas", "heating"] }).notNull(),
+  // [Task #798] hot_water 추가 — 온수 검침은 수도와 분리 저장.
+  meterType: text("meter_type", { enum: ["water", "electricity", "gas", "heating", "hot_water"] }).notNull(),
   readingType: text("reading_type", { enum: ["regular", "interim"] }).notNull().default("regular"),
   readingDate: date("reading_date").notNull(),
   periodStart: date("period_start"),

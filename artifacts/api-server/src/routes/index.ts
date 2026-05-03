@@ -53,6 +53,8 @@ import tenantCardTokensRouter from "./tenantCardTokens";
 import managementContractTemplatesRouter from "./managementContractTemplates";
 import publicTenantCardRouter from "./publicTenantCard";
 import metersRouter from "./meters";
+// [Task #798] 한전 송신 — meters 와 동일한 building-scoped 라우터에 마운트.
+import kepcoTransmissionsRouter from "./kepcoTransmissions";
 import feesRouter from "./fees";
 // [Task #777] 부과엔진 v01 — /billing/* 신규 라우트.
 import billingRouter from "./billing";
@@ -219,6 +221,7 @@ buildingRouter.use(calendarRouter);
 buildingRouter.use(tenantCardTokensRouter);
 buildingRouter.use(managementContractTemplatesRouter);
 buildingRouter.use(metersRouter);
+buildingRouter.use(kepcoTransmissionsRouter);
 buildingRouter.use(feesRouter);
 // [Task #777] 부과엔진 v01 — fees 위에 마운트(같은 buildingRouter 가드 공유).
 buildingRouter.use(billingRouter);

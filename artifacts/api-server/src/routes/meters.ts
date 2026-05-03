@@ -63,7 +63,7 @@ router.get("/meters", async (req: Request, res: Response): Promise<void> => {
     const b = Number(buildingId);
     if (Number.isFinite(b)) conds.push(eq(meterReadingsTable.buildingId, b));
   }
-  if (meterType) conds.push(eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating"));
+  if (meterType) conds.push(eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating" | "hot_water"));
   if (readingType === "regular" || readingType === "interim") {
     conds.push(eq(meterReadingsTable.readingType, readingType));
   }
@@ -101,7 +101,7 @@ router.get("/meters/latest", async (req: Request, res: Response): Promise<void> 
 
   const meterType = (req.query.meterType as string | undefined) ?? undefined;
   const unitIdsRaw = (req.query.unitIds as string | undefined) ?? "";
-  if (!meterType || !["water", "electricity", "gas", "heating"].includes(meterType)) {
+  if (!meterType || !["water", "electricity", "gas", "heating", "hot_water"].includes(meterType)) {
     res.status(400).json({ error: "meterType 이 필요합니다" });
     return;
   }
@@ -110,7 +110,7 @@ router.get("/meters/latest", async (req: Request, res: Response): Promise<void> 
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0);
 
-  const conds = [eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating")];
+  const conds = [eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating" | "hot_water")];
   if (sf) conds.push(sf);
   if (unitIds.length > 0) conds.push(inArray(meterReadingsTable.unitId, unitIds));
 
@@ -158,7 +158,7 @@ router.get("/meters/export", async (req: Request, res: Response): Promise<void> 
     const b = Number(buildingId);
     if (Number.isFinite(b)) conds.push(eq(meterReadingsTable.buildingId, b));
   }
-  if (meterType) conds.push(eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating"));
+  if (meterType) conds.push(eq(meterReadingsTable.meterType, meterType as "water" | "electricity" | "gas" | "heating" | "hot_water"));
   if (unitNumber) conds.push(eq(meterReadingsTable.unitNumber, unitNumber));
   if (from) conds.push(gte(meterReadingsTable.readingDate, from));
   if (to) conds.push(lte(meterReadingsTable.readingDate, to));
@@ -169,7 +169,7 @@ router.get("/meters/export", async (req: Request, res: Response): Promise<void> 
     .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(desc(meterReadingsTable.readingDate), desc(meterReadingsTable.id));
 
-  const meterLabel: Record<string, string> = { water: "수도", electricity: "전기", gas: "가스", heating: "난방" };
+  const meterLabel: Record<string, string> = { water: "수도", electricity: "전기", gas: "가스", heating: "난방", hot_water: "온수" };
   const typeLabel: Record<string, string> = { regular: "정기", interim: "중간" };
   const inputLabel: Record<string, string> = { manual: "수기", photo: "사진OCR", csv: "CSV" };
 

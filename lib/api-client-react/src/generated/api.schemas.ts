@@ -4704,6 +4704,12 @@ export interface UpdateUnitBody {
   /** @nullable */
   businessNumber?: string | null;
   /** @nullable */
+  ownerName?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerAddress?: string | null;
+  /** @nullable */
   entryDate?: string | null;
   /** @nullable */
   supplyArea?: string | null;
@@ -4865,6 +4871,7 @@ export const MeterReadingMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export type MeterReadingReadingType =
@@ -4980,6 +4987,77 @@ export interface MeterReadingAudit {
   createdAt: string;
 }
 
+/**
+ * 송신 페이로드의 단일 미터(1~6번) 입력값.
+ */
+export interface KepcoMeterEntry {
+  /** 1~6 (한전 미터 번호). */
+  meterNo: number;
+  /**
+   * 해당 미터에 매핑된 세대 수.
+   * @nullable
+   */
+  units?: number | null;
+  /**
+   * 해당 미터 사용량(kWh).
+   * @nullable
+   */
+  usage?: number | null;
+  /**
+   * 해당 미터 공용 사용량(kWh).
+   * @nullable
+   */
+  commonUsage?: number | null;
+}
+
+export type KepcoTransmissionStatus =
+  (typeof KepcoTransmissionStatus)[keyof typeof KepcoTransmissionStatus];
+
+export const KepcoTransmissionStatus = {
+  draft: "draft",
+  transmitted: "transmitted",
+  failed: "failed",
+} as const;
+
+/**
+ * 한전 전기 검침값 송신 로그 (외부 EMS 연동은 모의).
+ */
+export interface KepcoTransmission {
+  id: number;
+  buildingId: number;
+  /** YYYY-MM */
+  billingMonth: string;
+  readingDate: string;
+  /** @nullable */
+  transmittedAt?: string | null;
+  meterCount: number;
+  /** @nullable */
+  workerName?: string | null;
+  meters: KepcoMeterEntry[];
+  /** @nullable */
+  totalUsage?: string | null;
+  /** @nullable */
+  unitsTotal?: number | null;
+  /** @nullable */
+  commonUsageTotal?: string | null;
+  status: KepcoTransmissionStatus;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  authorRole?: string | null;
+  createdAt: string;
+}
+
+export interface CreateKepcoTransmissionBody {
+  buildingId: number;
+  /** YYYY-MM */
+  billingMonth: string;
+  readingDate: string;
+  workerName?: string;
+  meters?: KepcoMeterEntry[];
+  notes?: string;
+}
+
 export type CreateMeterReadingBodyMeterType =
   (typeof CreateMeterReadingBodyMeterType)[keyof typeof CreateMeterReadingBodyMeterType];
 
@@ -4988,6 +5066,7 @@ export const CreateMeterReadingBodyMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export type CreateMeterReadingBodyReadingType =
@@ -5030,6 +5109,7 @@ export const MeterOcrBodyMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export interface MeterOcrBody {
@@ -5053,6 +5133,7 @@ export const MeterCsvUploadBodyMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export type MeterCsvUploadBodyRowsItem = {
@@ -7825,6 +7906,7 @@ export const ListMeterReadingsMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export type ListMeterReadingsReadingType =
@@ -7851,6 +7933,7 @@ export const ListLatestMeterReadingsMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
 
 export type ExportMeterReadingsParams = {
@@ -7868,7 +7951,16 @@ export const ExportMeterReadingsMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;
+
+export type ListKepcoTransmissionsParams = {
+  buildingId?: number;
+  /**
+   * YYYY-MM
+   */
+  billingMonth?: string;
+};
 
 export type GetBillingListParams = {
   month: string;

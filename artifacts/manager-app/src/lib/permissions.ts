@@ -42,7 +42,6 @@ import {
   Gift,
   // [Task #796] XpBIZ 환경설정 풀세트 사이드바 아이콘.
   Gauge,
-  KeyRound,
   Wallet,
   // [Task #740 가입흐름재설정] 파트너 분야(2단 카테고리) 관리 메뉴 아이콘.
   Layers,
@@ -112,6 +111,13 @@ const BuildingVendorDirectoryPage = lazy(() => import("@/pages/building-vendor-d
 const Units = lazy(() => import("@/pages/units"));
 const AiAssistant = lazy(() => import("@/pages/ai-assistant"));
 const ErpPhase1 = lazy(() => import("@/pages/erp/phase-1-metering"));
+// [Task #798] 미터별 단일 화면 + 한전 송신 — 검침 워크스페이스 재사용.
+const MeteringElectric = lazy(() => import("@/pages/metering/electric"));
+const MeteringWater = lazy(() => import("@/pages/metering/water"));
+const MeteringHotWater = lazy(() => import("@/pages/metering/hot-water"));
+const MeteringHeating = lazy(() => import("@/pages/metering/heating"));
+const MeteringGas = lazy(() => import("@/pages/metering/gas"));
+const KepcoTransmission = lazy(() => import("@/pages/metering/kepco-transmission"));
 const ErpPhase2 = lazy(() => import("@/pages/erp/phase-2-accounting"));
 const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
 const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
@@ -554,6 +560,39 @@ export const ROUTES: RouteEntry[] = [
     bottomNav: ["accountant", "facility_staff"],
     bottomLabel: "검침",
     bottomOrder: 40,
+  },
+  // [Task #798] 미터별 단일 화면 — /erp/metering 과 동일 권한, 사이드바 미노출
+  //   (상위 검침 페이지에서 진입). 직접 접근 가능한 라우트로만 등록.
+  {
+    path: "/metering/electric", component: MeteringElectric,
+    label: "전기 검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+  },
+  {
+    path: "/metering/water", component: MeteringWater,
+    label: "수도 검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+  },
+  {
+    path: "/metering/hot-water", component: MeteringHotWater,
+    label: "온수 검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+  },
+  {
+    path: "/metering/heating", component: MeteringHeating,
+    label: "난방 검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+  },
+  {
+    path: "/metering/gas", component: MeteringGas,
+    label: "가스 검침", icon: Droplets, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+  },
+  {
+    path: "/metering/kepco-transmission", component: KepcoTransmission,
+    label: "한전 송신", icon: Send, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,

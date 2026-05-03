@@ -5741,6 +5741,9 @@ export const UpdateUnitBody = zod.object({
   representativeName: zod.string().nullish(),
   postalCode: zod.string().nullish(),
   businessNumber: zod.string().nullish(),
+  ownerName: zod.string().nullish(),
+  ownerPhone: zod.string().nullish(),
+  ownerAddress: zod.string().nullish(),
   entryDate: zod.string().date().nullish(),
   supplyArea: zod.string().nullish(),
 });
@@ -8136,7 +8139,9 @@ export const GetCalendarEventsResponse = zod.array(
  * @summary List meter readings
  */
 export const ListMeterReadingsQueryParams = zod.object({
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+  meterType: zod
+    .enum(["water", "electricity", "gas", "heating", "hot_water"])
+    .optional(),
   month: zod.coerce.string().optional(),
   unitId: zod.coerce.number().optional(),
   unitNumber: zod.coerce.string().optional(),
@@ -8151,7 +8156,7 @@ export const ListMeterReadingsResponseItem = zod.object({
   buildingId: zod.number(),
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
   periodStart: zod.string().nullish(),
@@ -8186,7 +8191,7 @@ export const ListMeterReadingsResponse = zod.array(
 export const CreateMeterReadingBody = zod.object({
   unitNumber: zod.string(),
   unitId: zod.number().optional(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingType: zod.enum(["regular", "interim"]).optional(),
   readingDate: zod.string(),
   periodStart: zod.string().optional(),
@@ -8232,7 +8237,7 @@ export const UpdateMeterReadingResponse = zod.object({
   buildingId: zod.number(),
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
   periodStart: zod.string().nullish(),
@@ -8300,7 +8305,7 @@ export const ListMeterAnomaliesResponseItem = zod.object({
   buildingId: zod.number(),
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
   periodStart: zod.string().nullish(),
@@ -8336,7 +8341,7 @@ export const ListMeterAnomaliesResponse = zod.array(
  * @summary List the most recent meter reading per (unit, meterType)
  */
 export const ListLatestMeterReadingsQueryParams = zod.object({
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   unitIds: zod.coerce
     .string()
     .optional()
@@ -8348,7 +8353,7 @@ export const ListLatestMeterReadingsResponseItem = zod.object({
   buildingId: zod.number(),
   unitId: zod.number().nullish(),
   unitNumber: zod.string(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingType: zod.enum(["regular", "interim"]),
   readingDate: zod.string(),
   periodStart: zod.string().nullish(),
@@ -8381,7 +8386,7 @@ export const ListLatestMeterReadingsResponse = zod.array(
  * @summary Upload meter readings via CSV
  */
 export const UploadMeterCsvBody = zod.object({
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+  meterType: zod.enum(["water", "electricity", "gas", "heating", "hot_water"]),
   readingDate: zod.string(),
   rows: zod.array(
     zod.object({
@@ -8407,7 +8412,9 @@ export const UploadMeterCsvResponse = zod.object({
 export const MeterPhotoOcrBody = zod.object({
   objectPath: zod.string(),
   fileName: zod.string().optional(),
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+  meterType: zod
+    .enum(["water", "electricity", "gas", "heating", "hot_water"])
+    .optional(),
 });
 
 export const MeterPhotoOcrResponse = zod.object({
@@ -8420,11 +8427,121 @@ export const MeterPhotoOcrResponse = zod.object({
  * @summary Export meter readings as CSV
  */
 export const ExportMeterReadingsQueryParams = zod.object({
-  meterType: zod.enum(["water", "electricity", "gas", "heating"]).optional(),
+  meterType: zod
+    .enum(["water", "electricity", "gas", "heating", "hot_water"])
+    .optional(),
   from: zod.coerce.string().date().optional(),
   to: zod.coerce.string().date().optional(),
   unitNumber: zod.coerce.string().optional(),
 });
+
+/**
+ * @summary 한전 송신 로그 조회
+ */
+export const ListKepcoTransmissionsQueryParams = zod.object({
+  buildingId: zod.coerce.number().optional(),
+  billingMonth: zod.coerce.string().optional(),
+});
+
+export const ListKepcoTransmissionsResponseItem = zod
+  .object({
+    id: zod.number(),
+    buildingId: zod.number(),
+    billingMonth: zod.string().describe("YYYY-MM"),
+    readingDate: zod.string().date(),
+    transmittedAt: zod.string().nullish(),
+    meterCount: zod.number(),
+    workerName: zod.string().nullish(),
+    meters: zod.array(
+      zod
+        .object({
+          meterNo: zod.number().describe("1~6 (한전 미터 번호)."),
+          units: zod.number().nullish().describe("해당 미터에 매핑된 세대 수."),
+          usage: zod.number().nullish().describe("해당 미터 사용량(kWh)."),
+          commonUsage: zod
+            .number()
+            .nullish()
+            .describe("해당 미터 공용 사용량(kWh)."),
+        })
+        .describe("송신 페이로드의 단일 미터(1~6번) 입력값."),
+    ),
+    totalUsage: zod.string().nullish(),
+    unitsTotal: zod.number().nullish(),
+    commonUsageTotal: zod.string().nullish(),
+    status: zod.enum(["draft", "transmitted", "failed"]),
+    notes: zod.string().nullish(),
+    authorRole: zod.string().nullish(),
+    createdAt: zod.string(),
+  })
+  .describe("한전 전기 검침값 송신 로그 (외부 EMS 연동은 모의).");
+export const ListKepcoTransmissionsResponse = zod.array(
+  ListKepcoTransmissionsResponseItem,
+);
+
+/**
+ * @summary 한전 송신 초안 생성 (AI가 검침값에서 자동 집계)
+ */
+export const CreateKepcoTransmissionBody = zod.object({
+  buildingId: zod.number(),
+  billingMonth: zod.string().describe("YYYY-MM"),
+  readingDate: zod.string().date(),
+  workerName: zod.string().optional(),
+  meters: zod
+    .array(
+      zod
+        .object({
+          meterNo: zod.number().describe("1~6 (한전 미터 번호)."),
+          units: zod.number().nullish().describe("해당 미터에 매핑된 세대 수."),
+          usage: zod.number().nullish().describe("해당 미터 사용량(kWh)."),
+          commonUsage: zod
+            .number()
+            .nullish()
+            .describe("해당 미터 공용 사용량(kWh)."),
+        })
+        .describe("송신 페이로드의 단일 미터(1~6번) 입력값."),
+    )
+    .optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary 한전 송신 실행 (모의)
+ */
+export const SendKepcoTransmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendKepcoTransmissionResponse = zod
+  .object({
+    id: zod.number(),
+    buildingId: zod.number(),
+    billingMonth: zod.string().describe("YYYY-MM"),
+    readingDate: zod.string().date(),
+    transmittedAt: zod.string().nullish(),
+    meterCount: zod.number(),
+    workerName: zod.string().nullish(),
+    meters: zod.array(
+      zod
+        .object({
+          meterNo: zod.number().describe("1~6 (한전 미터 번호)."),
+          units: zod.number().nullish().describe("해당 미터에 매핑된 세대 수."),
+          usage: zod.number().nullish().describe("해당 미터 사용량(kWh)."),
+          commonUsage: zod
+            .number()
+            .nullish()
+            .describe("해당 미터 공용 사용량(kWh)."),
+        })
+        .describe("송신 페이로드의 단일 미터(1~6번) 입력값."),
+    ),
+    totalUsage: zod.string().nullish(),
+    unitsTotal: zod.number().nullish(),
+    commonUsageTotal: zod.string().nullish(),
+    status: zod.enum(["draft", "transmitted", "failed"]),
+    notes: zod.string().nullish(),
+    authorRole: zod.string().nullish(),
+    createdAt: zod.string(),
+  })
+  .describe("한전 전기 검침값 송신 로그 (외부 EMS 연동은 모의).");
 
 /**
  * @summary Calculate management fees for all units
@@ -8531,7 +8648,13 @@ export const CalculateInterimSettlementResponse = zod.object({
         buildingId: zod.number(),
         unitId: zod.number().nullish(),
         unitNumber: zod.string(),
-        meterType: zod.enum(["water", "electricity", "gas", "heating"]),
+        meterType: zod.enum([
+          "water",
+          "electricity",
+          "gas",
+          "heating",
+          "hot_water",
+        ]),
         readingType: zod.enum(["regular", "interim"]),
         readingDate: zod.string(),
         periodStart: zod.string().nullish(),

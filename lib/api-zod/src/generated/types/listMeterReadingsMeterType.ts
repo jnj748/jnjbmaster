@@ -14,4 +14,5 @@ export const ListMeterReadingsMeterType = {
   electricity: "electricity",
   gas: "gas",
   heating: "heating",
+  hot_water: "hot_water",
 } as const;

@@ -92,6 +92,7 @@ import type {
   CreateDailyReportBody,
   CreateDocumentTemplateBody,
   CreateInspectionBody,
+  CreateKepcoTransmissionBody,
   CreateMaintenanceLogBody,
   CreateMeterReadingBody,
   CreateMyVendorChangeRequest201,
@@ -214,6 +215,7 @@ import type {
   InterimSettlementResponse,
   KakaoNotifyBody,
   KakaoNotifyResponse,
+  KepcoTransmission,
   ListAdminBuildingNoticeTemplates200,
   ListAdminCreditTopupOrdersParams,
   ListAdminReferrers200,
@@ -231,6 +233,7 @@ import type {
   ListDocumentChecklistsParams,
   ListDocumentsParams,
   ListEffectiveSafetyChecklistTemplates200,
+  ListKepcoTransmissionsParams,
   ListLatestMeterReadingsParams,
   ListMaintenanceLogsParams,
   ListMeterReadingsParams,
@@ -23422,6 +23425,280 @@ export function useExportMeterReadings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary 한전 송신 로그 조회
+ */
+export const getListKepcoTransmissionsUrl = (
+  params?: ListKepcoTransmissionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/kepco-transmissions?${stringifiedParams}`
+    : `/api/kepco-transmissions`;
+};
+
+export const listKepcoTransmissions = async (
+  params?: ListKepcoTransmissionsParams,
+  options?: RequestInit,
+): Promise<KepcoTransmission[]> => {
+  return customFetch<KepcoTransmission[]>(
+    getListKepcoTransmissionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListKepcoTransmissionsQueryKey = (
+  params?: ListKepcoTransmissionsParams,
+) => {
+  return [`/api/kepco-transmissions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListKepcoTransmissionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKepcoTransmissions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListKepcoTransmissionsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listKepcoTransmissions>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKepcoTransmissionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKepcoTransmissions>>
+  > = ({ signal }) =>
+    listKepcoTransmissions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKepcoTransmissions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKepcoTransmissionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKepcoTransmissions>>
+>;
+export type ListKepcoTransmissionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 한전 송신 로그 조회
+ */
+
+export function useListKepcoTransmissions<
+  TData = Awaited<ReturnType<typeof listKepcoTransmissions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListKepcoTransmissionsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<
+      Awaited<ReturnType<typeof listKepcoTransmissions>>,
+      TError,
+      TData
+    >>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKepcoTransmissionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 한전 송신 초안 생성 (AI가 검침값에서 자동 집계)
+ */
+export const getCreateKepcoTransmissionUrl = () => {
+  return `/api/kepco-transmissions`;
+};
+
+export const createKepcoTransmission = async (
+  createKepcoTransmissionBody: CreateKepcoTransmissionBody,
+  options?: RequestInit,
+): Promise<KepcoTransmission> => {
+  return customFetch<KepcoTransmission>(getCreateKepcoTransmissionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createKepcoTransmissionBody),
+  });
+};
+
+export const getCreateKepcoTransmissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKepcoTransmission>>,
+    TError,
+    { data: BodyType<CreateKepcoTransmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKepcoTransmission>>,
+  TError,
+  { data: BodyType<CreateKepcoTransmissionBody> },
+  TContext
+> => {
+  const mutationKey = ["createKepcoTransmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKepcoTransmission>>,
+    { data: BodyType<CreateKepcoTransmissionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createKepcoTransmission(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKepcoTransmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKepcoTransmission>>
+>;
+export type CreateKepcoTransmissionMutationBody =
+  BodyType<CreateKepcoTransmissionBody>;
+export type CreateKepcoTransmissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 한전 송신 초안 생성 (AI가 검침값에서 자동 집계)
+ */
+export const useCreateKepcoTransmission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKepcoTransmission>>,
+    TError,
+    { data: BodyType<CreateKepcoTransmissionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKepcoTransmission>>,
+  TError,
+  { data: BodyType<CreateKepcoTransmissionBody> },
+  TContext
+> => {
+  return useMutation(getCreateKepcoTransmissionMutationOptions(options));
+};
+
+/**
+ * @summary 한전 송신 실행 (모의)
+ */
+export const getSendKepcoTransmissionUrl = (id: number) => {
+  return `/api/kepco-transmissions/${id}/send`;
+};
+
+export const sendKepcoTransmission = async (
+  id: number,
+  options?: RequestInit,
+): Promise<KepcoTransmission> => {
+  return customFetch<KepcoTransmission>(getSendKepcoTransmissionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSendKepcoTransmissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendKepcoTransmission>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendKepcoTransmission>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["sendKepcoTransmission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendKepcoTransmission>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return sendKepcoTransmission(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendKepcoTransmissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendKepcoTransmission>>
+>;
+
+export type SendKepcoTransmissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 한전 송신 실행 (모의)
+ */
+export const useSendKepcoTransmission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendKepcoTransmission>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendKepcoTransmission>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSendKepcoTransmissionMutationOptions(options));
+};
 
 /**
  * @summary Calculate management fees for all units

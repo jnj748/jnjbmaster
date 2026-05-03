@@ -52,7 +52,9 @@ tags:
   - name: Storage
     description: Object storage upload and serving endpoints.
   - name: meters
-    description: Meter reading management (water, electricity, gas, heating)
+    description: Meter reading management (water, electricity, gas, heating, hot_water)
+  - name: kepcoTransmissions
+    description: 한전(전기) 검침값 송신 로그 (모의 송신)
   - name: fees
     description: Management fee calculation and billing
   - name: complaints
@@ -5804,7 +5806,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [water, electricity, gas, heating]
+            enum: [water, electricity, gas, heating, hot_water]
         - name: month
           in: query
           schema:
@@ -5958,7 +5960,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [water, electricity, gas, heating]
+            enum: [water, electricity, gas, heating, hot_water]
         - name: unitIds
           in: query
           description: 콤마로 구분된 unit id. 비어있으면 건물 전체.
@@ -6025,7 +6027,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [water, electricity, gas, heating]
+            enum: [water, electricity, gas, heating, hot_water]
         - name: from
           in: query
           schema:
@@ -6047,6 +6049,67 @@ paths:
             text/csv:
               schema:
                 type: string
+
+  /kepco-transmissions:
+    get:
+      operationId: listKepcoTransmissions
+      tags: [kepcoTransmissions]
+      summary: 한전 송신 로그 조회
+      parameters:
+        - name: buildingId
+          in: query
+          schema:
+            type: integer
+        - name: billingMonth
+          in: query
+          schema:
+            type: string
+            description: YYYY-MM
+      responses:
+        "200":
+          description: 송신 로그 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KepcoTransmission"
+    post:
+      operationId: createKepcoTransmission
+      tags: [kepcoTransmissions]
+      summary: 한전 송신 초안 생성 (AI가 검침값에서 자동 집계)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKepcoTransmissionBody"
+      responses:
+        "201":
+          description: 생성된 송신 초안
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KepcoTransmission"
+
+  /kepco-transmissions/{id}/send:
+    post:
+      operationId: sendKepcoTransmission
+      tags: [kepcoTransmissions]
+      summary: 한전 송신 실행 (모의)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 송신 결과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KepcoTransmission"
 
   /fees/calculate:
     post:
@@ -13875,7 +13938,7 @@ components:
           type: string
         meterType:
           type: string
-          enum: [water, electricity, gas, heating]
+          enum: [water, electricity, gas, heating, hot_water]
         readingType:
           type: string
           enum: [regular, interim]
@@ -13980,6 +14043,86 @@ components:
         - action
         - createdAt
 
+    KepcoMeterEntry:
+      type: object
+      description: 송신 페이로드의 단일 미터(1~6번) 입력값.
+      required: [meterNo]
+      properties:
+        meterNo:
+          type: integer
+          description: 1~6 (한전 미터 번호).
+        units:
+          type: ["integer", "null"]
+          description: 해당 미터에 매핑된 세대 수.
+        usage:
+          type: ["number", "null"]
+          description: 해당 미터 사용량(kWh).
+        commonUsage:
+          type: ["number", "null"]
+          description: 해당 미터 공용 사용량(kWh).
+
+    KepcoTransmission:
+      type: object
+      description: 한전 전기 검침값 송신 로그 (외부 EMS 연동은 모의).
+      properties:
+        id:
+          type: integer
+        buildingId:
+          type: integer
+        billingMonth:
+          type: string
+          description: YYYY-MM
+        readingDate:
+          type: string
+          format: date
+        transmittedAt:
+          type: ["string", "null"]
+        meterCount:
+          type: integer
+        workerName:
+          type: ["string", "null"]
+        meters:
+          type: array
+          items:
+            $ref: "#/components/schemas/KepcoMeterEntry"
+        totalUsage:
+          type: ["string", "null"]
+        unitsTotal:
+          type: ["integer", "null"]
+        commonUsageTotal:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, transmitted, failed]
+        notes:
+          type: ["string", "null"]
+        authorRole:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, buildingId, billingMonth, readingDate, meterCount, meters, status, createdAt]
+
+    CreateKepcoTransmissionBody:
+      type: object
+      required: [buildingId, billingMonth, readingDate]
+      properties:
+        buildingId:
+          type: integer
+        billingMonth:
+          type: string
+          description: YYYY-MM
+        readingDate:
+          type: string
+          format: date
+        workerName:
+          type: string
+        meters:
+          type: array
+          items:
+            $ref: "#/components/schemas/KepcoMeterEntry"
+        notes:
+          type: string
+
     CreateMeterReadingBody:
       type: object
       properties:
@@ -13989,7 +14132,7 @@ components:
           type: integer
         meterType:
           type: string
-          enum: [water, electricity, gas, heating]
+          enum: [water, electricity, gas, heating, hot_water]
         readingType:
           type: string
           enum: [regular, interim]
@@ -14025,7 +14168,7 @@ components:
           type: string
         meterType:
           type: string
-          enum: [water, electricity, gas, heating]
+          enum: [water, electricity, gas, heating, hot_water]
       required:
         - objectPath
 
@@ -14047,7 +14190,7 @@ components:
       properties:
         meterType:
           type: string
-          enum: [water, electricity, gas, heating]
+          enum: [water, electricity, gas, heating, hot_water]
         readingDate:
           type: string
         rows:
