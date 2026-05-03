@@ -307,10 +307,30 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
   const profileImageUrl = typeof req.body?.profileImageUrl === "string" && req.body.profileImageUrl
     ? req.body.profileImageUrl
     : null;
+  // [Task #740 가입흐름재설정] 5단계 위저드의 신규 필드들.
+  //   serviceAddressRoad: 도로명 주소(필수), serviceLat/Lng: 카카오 지오코딩 결과(선택,
+  //   T6 백필 단계까지는 NULL 허용), serviceRadiusKm: 1~200, idCardUrl: 신분증(필수),
+  //   kakaoPhone: 본인확인 휴대폰(선택, T7 OAuth 통합 전까지 위저드 입력값).
+  const serviceAddressRoad = typeof req.body?.serviceAddressRoad === "string" ? req.body.serviceAddressRoad.trim() : "";
+  const serviceLatRaw = req.body?.serviceLat;
+  const serviceLngRaw = req.body?.serviceLng;
+  const serviceLat = typeof serviceLatRaw === "number" && Number.isFinite(serviceLatRaw) ? serviceLatRaw : null;
+  const serviceLng = typeof serviceLngRaw === "number" && Number.isFinite(serviceLngRaw) ? serviceLngRaw : null;
+  const serviceRadiusKmRaw = Number(req.body?.serviceRadiusKm);
+  const serviceRadiusKm = Number.isFinite(serviceRadiusKmRaw) && serviceRadiusKmRaw > 0
+    ? Math.min(200, Math.max(1, Math.round(serviceRadiusKmRaw)))
+    : 50;
+  const idCardUrl = typeof req.body?.idCardUrl === "string" ? req.body.idCardUrl : null;
+  const kakaoPhoneRaw = typeof req.body?.kakaoPhone === "string" ? req.body.kakaoPhone.trim() : "";
+  const kakaoPhone = kakaoPhoneRaw || null;
 
   if (!name || !businessNumber || !representativeName) { res.status(400).json({ error: "회사명·사업자등록번호·대표자명은 필수입니다" }); return; }
   // [Task #132] 사업자등록증 업로드는 필수.
   if (!businessRegUrl) { res.status(400).json({ error: "사업자등록증을 업로드해 주세요" }); return; }
+  // [Task #740 가입흐름재설정] 신분증 + 도로명 주소도 필수.
+  //   신분증은 본사 검토 자료, 도로명 주소는 거리 매칭의 기반 데이터.
+  if (!idCardUrl) { res.status(400).json({ error: "신분증을 업로드해 주세요" }); return; }
+  if (!serviceAddressRoad) { res.status(400).json({ error: "사업장 도로명 주소를 입력해 주세요" }); return; }
   if (categories.length === 0) { res.status(400).json({ error: "최소 1개 이상의 취급 분야를 선택해 주세요" }); return; }
 
   // 약관 동의 필수.
@@ -321,38 +341,43 @@ router.post("/vendors/onboarding", async (req: Request, res: Response): Promise<
 
   // 기존 vendorId가 있으면 update, 없으면 insert.
   let vendorRow;
+  // [Task #740 가입흐름재설정] 새 컬럼들도 함께 매핑.
+  //   matching_enabled 는 명시적으로 set 하지 않는다 — 컬럼 default(false) 가 신규 가입의
+  //   대기 상태를 의미. 본사가 별도 화면(추후)에서 검토 후 true 로 전환한다.
+  //   기존 vendor 가 위저드를 다시 돌릴 경우(user.vendorId 존재)에도 matching_enabled
+  //   값은 건드리지 않아 본사 승인 상태가 보존된다.
+  const onboardingPayload = {
+    name,
+    category: categories[0],
+    subCategories: categories.join(","),
+    businessRegNumber: businessNumber,
+    representativeName,
+    phone,
+    type: "platform" as const,
+    intro,
+    profileImageUrl,
+    serviceAddressRoad,
+    serviceLat,
+    serviceLng,
+    serviceRadiusKm,
+    businessCertUrl: businessRegUrl,
+    idCardUrl,
+    kakaoPhone,
+    // legacy notes 필드 호환 — 기존 검색/대시보드가 notes 텍스트를 보고 있을 가능성에 대비.
+    notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
+  };
+
   if (user.vendorId) {
     const [updated] = await db.update(vendorsTable)
-      .set({
-        name,
-        category: categories[0],
-        subCategories: categories.join(","),
-        businessRegNumber: businessNumber,
-        representativeName,
-        phone,
-        notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
-        type: "platform",
-        // [Task #661] 위저드에서 받은 소개글·프로필 사진을 vendor 행에 함께 저장.
-        intro,
-        profileImageUrl,
-      })
+      .set(onboardingPayload)
       .where(eq(vendorsTable.id, user.vendorId))
       .returning();
     vendorRow = updated;
   } else {
     const [inserted] = await db.insert(vendorsTable)
       .values({
-        name,
-        category: categories[0],
-        subCategories: categories.join(","),
-        businessRegNumber: businessNumber,
-        representativeName,
-        phone,
-        notes: businessRegUrl ? `사업자등록증: ${businessRegUrl}` : null,
-        type: "platform",
+        ...onboardingPayload,
         joinedAt: new Date(),
-        intro,
-        profileImageUrl,
       })
       .returning();
     vendorRow = inserted;

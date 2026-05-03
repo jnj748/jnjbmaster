@@ -71,6 +71,8 @@ import contractsRouter, { partnerContractsRouter } from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
 import onboardingRouter from "./onboarding";
 import vendorCategoriesRouter from "./vendorCategories";
+// [Task #740 가입흐름재설정] 가입 위저드 4단계(사업장 주소·반경) 의 카카오 지오코딩 프록시.
+import kakaoGeocodeRouter from "./kakaoGeocode";
 import accountingInitialFilesRouter from "./accountingInitialFiles";
 import facilitySignupRequestsRouter from "./facilitySignupRequests";
 import buildingRecordsRouter from "./buildingRecords";
@@ -131,6 +133,9 @@ router.use(usageAnalyticsRouter);
 // [Task #284] vendorCategoriesRouter는 partner 위저드에서 접근해야 하므로
 // 파트너 역할을 차단하는 buildingRouter(buildingOnly) 보다 먼저 마운트한다.
 router.use(vendorCategoriesRouter);
+// [Task #740 가입흐름재설정] 카카오 도로명 → 좌표 변환 프록시. authMiddleware 가
+//   상위에서 적용되므로 인증된 사용자(가입 위저드 진행 중인 partner) 만 접근 가능.
+router.use(kakaoGeocodeRouter);
 // [Task #335] quotesRouter는 자체적으로 manager/partner 권한을 검증하므로
 // 파트너가 견적을 제출할 수 있도록 buildingRouter(파트너 차단) 앞에 마운트한다.
 router.use(quotesRouter);
