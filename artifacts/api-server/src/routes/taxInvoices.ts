@@ -407,6 +407,61 @@ router.post("/tax/invoices/:id/cancel", requireAction("tax.invoice.cancel"), aud
   res.json({ ok: true, status: "cancelled" });
 });
 
+// 일괄 발행/취소 — 한 번의 라운드트립으로 각 건의 성공/실패 결과를 돌려준다.
+// 실패 사유는 사람이 읽을 수 있는 한국어 문자열로 통일해 프론트가 그대로 표시한다.
+const BulkIssueBody = z.object({ ids: z.array(z.number().int().positive()).min(1) });
+const BulkCancelBody = z.object({ ids: z.array(z.number().int().positive()).min(1), reason: z.string().min(1) });
+
+type BulkResultItem = { id: number; ok: boolean; status?: string; error?: string };
+
+router.post("/tax/invoices/bulk-issue", requireAction("tax.invoice.issue"), audit("tax.invoice.issue", { targetType: "tax_invoice" }), async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await resolveBuildingId(req);
+  if (buildingId == null) { res.status(403).json({ error: "건물 접근 권한이 없습니다" }); return; }
+  const parsed = BulkIssueBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
+  const { ids } = parsed.data;
+  const rows = await db.select().from(taxInvoicesTable).where(and(eq(taxInvoicesTable.buildingId, buildingId), inArray(taxInvoicesTable.id, ids)));
+  const map = new Map<number, TaxInvoice>(rows.map((r) => [r.id, r]));
+  const results: BulkResultItem[] = [];
+  for (const id of ids) {
+    const existing = map.get(id);
+    if (!existing) { results.push({ id, ok: false, error: "건물 범위 밖이거나 찾을 수 없습니다" }); continue; }
+    if (existing.status !== "draft") { results.push({ id, ok: false, status: existing.status, error: `임시저장 상태가 아닙니다 (현재 상태: ${existing.status})` }); continue; }
+    try {
+      await db.update(taxInvoicesTable).set({ status: "issued" }).where(eq(taxInvoicesTable.id, id));
+      results.push({ id, ok: true, status: "issued" });
+    } catch (e) {
+      results.push({ id, ok: false, error: (e as Error).message || "발행 중 오류" });
+    }
+  }
+  const ok = results.filter((r) => r.ok).length;
+  res.json({ results, ok, fail: results.length - ok });
+});
+
+router.post("/tax/invoices/bulk-cancel", requireAction("tax.invoice.cancel"), audit("tax.invoice.cancel", { targetType: "tax_invoice" }), async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await resolveBuildingId(req);
+  if (buildingId == null) { res.status(403).json({ error: "건물 접근 권한이 없습니다" }); return; }
+  const parsed = BulkCancelBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
+  const { ids, reason } = parsed.data;
+  const rows = await db.select().from(taxInvoicesTable).where(and(eq(taxInvoicesTable.buildingId, buildingId), inArray(taxInvoicesTable.id, ids)));
+  const map = new Map<number, TaxInvoice>(rows.map((r) => [r.id, r]));
+  const results: BulkResultItem[] = [];
+  for (const id of ids) {
+    const existing = map.get(id);
+    if (!existing) { results.push({ id, ok: false, error: "건물 범위 밖이거나 찾을 수 없습니다" }); continue; }
+    if (existing.status === "cancelled") { results.push({ id, ok: false, status: existing.status, error: "이미 취소된 세금계산서입니다" }); continue; }
+    try {
+      await db.update(taxInvoicesTable).set({ status: "cancelled", correctionReason: reason }).where(eq(taxInvoicesTable.id, id));
+      results.push({ id, ok: true, status: "cancelled" });
+    } catch (e) {
+      results.push({ id, ok: false, error: (e as Error).message || "취소 중 오류" });
+    }
+  }
+  const ok = results.filter((r) => r.ok).length;
+  res.json({ results, ok, fail: results.length - ok });
+});
+
 router.post("/tax/invoices/:id/correct", requireAction("tax.invoice.correct"), audit("tax.invoice.correct", { targetType: "tax_invoice" }), async (req: Request, res: Response): Promise<void> => {
   const buildingId = await resolveBuildingId(req);
   if (buildingId == null) { res.status(403).json({ error: "건물 접근 권한이 없습니다" }); return; }

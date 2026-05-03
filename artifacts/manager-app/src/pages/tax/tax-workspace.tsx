@@ -76,6 +76,9 @@ export default function TaxWorkspacePage() {
   const [correctReason, setCorrectReason] = useState("");
   const [correctType, setCorrectType] = useState<string>("");
   const [correctDraft, setCorrectDraft] = useState<(Partial<Invoice> & { lines: Line[] }) | null>(null);
+  // [Task #819] 일괄 처리 결과 모달 — 각 건의 성공/실패와 사유 표시 + 실패 건만 다시 선택해 재시도.
+  type BulkResultItem = { id: number; ok: boolean; status?: string; error?: string };
+  const [bulkResult, setBulkResult] = useState<{ kind: "issue" | "cancel"; items: BulkResultItem[] } | null>(null);
 
   async function reloadList() {
     if (!buildingId) return;
@@ -113,39 +116,50 @@ export default function TaxWorkspacePage() {
 
   async function bulkIssue() {
     if (!buildingId || selectedIds.size === 0) return;
-    const targets = list.filter((i) => selectedIds.has(i.id) && i.status === "draft");
-    if (targets.length === 0) { toast({ title: "발행 가능한 임시저장 건이 없습니다", variant: "destructive" }); return; }
+    const ids = Array.from(selectedIds);
     setBusy(true);
-    let ok = 0, fail = 0;
-    for (const inv of targets) {
-      const r = await fetch(`${apiBase}/tax/invoices/${inv.id}/issue?buildingId=${buildingId}`, { method: "POST", headers });
-      if (r.ok) ok++; else fail++;
-    }
-    setBusy(false);
-    toast({ title: `일괄 발행 완료`, description: `성공 ${ok}건${fail ? ` · 실패 ${fail}건` : ""}` });
-    setSelectedIds(new Set());
-    await reloadList();
+    try {
+      const r = await fetch(`${apiBase}/tax/invoices/bulk-issue?buildingId=${buildingId}`, {
+        method: "POST", headers, body: JSON.stringify({ ids, buildingId }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(typeof j.error === "string" ? j.error : "일괄 발행 실패"); }
+      const j = (await r.json()) as { results: BulkResultItem[]; ok: number; fail: number };
+      setBulkResult({ kind: "issue", items: j.results });
+      toast({ title: "일괄 발행 결과", description: `성공 ${j.ok}건${j.fail ? ` · 실패 ${j.fail}건` : ""}` });
+      await reloadList();
+      if (selectedId) await reloadDetail(selectedId);
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    } finally { setBusy(false); }
   }
 
   async function bulkCancel() {
     if (!buildingId || selectedIds.size === 0 || !bulkCancelReason.trim()) return;
-    const targets = list.filter((i) => selectedIds.has(i.id) && i.status !== "cancelled");
-    if (targets.length === 0) { toast({ title: "취소 가능한 건이 없습니다", variant: "destructive" }); setBulkCancelOpen(false); return; }
+    const ids = Array.from(selectedIds);
     setBusy(true);
-    let ok = 0, fail = 0;
-    for (const inv of targets) {
-      const r = await fetch(`${apiBase}/tax/invoices/${inv.id}/cancel?buildingId=${buildingId}`, {
-        method: "POST", headers, body: JSON.stringify({ reason: bulkCancelReason.trim() }),
+    try {
+      const r = await fetch(`${apiBase}/tax/invoices/bulk-cancel?buildingId=${buildingId}`, {
+        method: "POST", headers, body: JSON.stringify({ ids, reason: bulkCancelReason.trim(), buildingId }),
       });
-      if (r.ok) ok++; else fail++;
-    }
-    setBusy(false);
-    toast({ title: `일괄 취소 완료`, description: `성공 ${ok}건${fail ? ` · 실패 ${fail}건` : ""}` });
-    setSelectedIds(new Set());
-    setBulkCancelOpen(false);
-    setBulkCancelReason("");
-    await reloadList();
-    if (selectedId) await reloadDetail(selectedId);
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(typeof j.error === "string" ? j.error : "일괄 취소 실패"); }
+      const j = (await r.json()) as { results: BulkResultItem[]; ok: number; fail: number };
+      setBulkResult({ kind: "cancel", items: j.results });
+      toast({ title: "일괄 취소 결과", description: `성공 ${j.ok}건${j.fail ? ` · 실패 ${j.fail}건` : ""}` });
+      setBulkCancelOpen(false);
+      setBulkCancelReason("");
+      await reloadList();
+      if (selectedId) await reloadDetail(selectedId);
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    } finally { setBusy(false); }
+  }
+
+  // 결과 모달에서 "실패 건만 다시 선택" — 실패한 ID들만 selectedIds 로 남기고 모달을 닫는다.
+  function retryFailed() {
+    if (!bulkResult) return;
+    const failedIds = bulkResult.items.filter((r) => !r.ok).map((r) => r.id);
+    setSelectedIds(new Set(failedIds));
+    setBulkResult(null);
   }
 
   function openCorrect() {
@@ -480,6 +494,59 @@ export default function TaxWorkspacePage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBulkCancelOpen(false)} disabled={busy}>닫기</Button>
             <Button onClick={() => void bulkCancel()} disabled={busy || !bulkCancelReason.trim()} data-testid="button-bulk-cancel-confirm">취소 실행</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* [Task #819] 일괄 처리 결과 모달 */}
+      <Dialog open={!!bulkResult} onOpenChange={(v) => { if (!v) setBulkResult(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-bulk-result">
+          <DialogHeader>
+            <DialogTitle>일괄 {bulkResult?.kind === "issue" ? "발행" : "취소"} 결과</DialogTitle>
+            <DialogDescription>
+              총 {bulkResult?.items.length ?? 0}건 · 성공 {bulkResult?.items.filter((r) => r.ok).length ?? 0}건 · 실패 {bulkResult?.items.filter((r) => !r.ok).length ?? 0}건
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border rounded">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="text-left p-2 w-16">ID</th>
+                  <th className="text-left p-2">거래처</th>
+                  <th className="text-left p-2 w-24">결과</th>
+                  <th className="text-left p-2">사유</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bulkResult?.items.map((r) => {
+                  const inv = list.find((i) => i.id === r.id);
+                  return (
+                    <tr key={r.id} className="border-t" data-testid={`row-bulk-result-${r.id}`}>
+                      <td className="p-2 tabular-nums">{r.id}</td>
+                      <td className="p-2">{inv ? `${inv.buyerName} ← ${inv.supplierName}` : "-"}</td>
+                      <td className="p-2">
+                        {r.ok
+                          ? <Badge variant="outline" data-testid={`badge-bulk-result-ok-${r.id}`}>성공</Badge>
+                          : <Badge variant="destructive" data-testid={`badge-bulk-result-fail-${r.id}`}>실패</Badge>}
+                      </td>
+                      <td className="p-2 text-xs text-muted-foreground" data-testid={`text-bulk-result-reason-${r.id}`}>
+                        {r.ok ? (r.status ?? "-") : (r.error ?? "알 수 없는 오류")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBulkResult(null)} data-testid="button-bulk-result-close">닫기</Button>
+            <Button
+              onClick={retryFailed}
+              disabled={!bulkResult || bulkResult.items.every((r) => r.ok)}
+              data-testid="button-bulk-result-retry-failed"
+            >
+              실패 건만 다시 선택
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
