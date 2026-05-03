@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
-import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable, meterReadingsTable } from "@workspace/db";
+import { db, unitsTable, usersTable, ownersTable, approvalsTable, monthlyPaymentsTable, monthlyBillSummariesTable, meterReadingsTable, documentIngestionsTable, type StandardExtraction } from "@workspace/db";
+import { adaptToFeeBilling } from "../lib/ocrAdapters";
 import { runBillOcr } from "../lib/billOcr";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
@@ -604,6 +605,74 @@ router.post("/fees/bill-ocr", async (req: Request, res: Response): Promise<void>
       res.status(500).json({ error: err instanceof Error ? err.message : "OCR 처리 실패" });
     }
   }
+});
+
+// [Task #782] 보관함(documentIngestions)에 이미 OCR/확인된 청구서를 골라
+//   재인식 없이 monthlyBillSummaries 행을 만들어 후속 부과 흐름으로 잇는다.
+//   - 어댑터 결과(adaptToFeeBilling)를 사용해 lineItems / billingMonth / total 자동 채움.
+//   - 같은 월에 행이 이미 있으면 update.
+//   - linkedRefs 는 클라이언트가 별도 /documents/ingest/:id/link 로 저장.
+router.post("/fees/bill-summaries/from-ingestion", async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const ingestionId = Number(req.body?.ingestionId);
+  if (!Number.isFinite(ingestionId)) {
+    res.status(400).json({ error: "ingestionId 가 필요합니다" });
+    return;
+  }
+
+  const [ing] = await db.select().from(documentIngestionsTable)
+    .where(and(
+      eq(documentIngestionsTable.id, ingestionId),
+      eq(documentIngestionsTable.buildingId, buildingId),
+    ));
+  if (!ing) { res.status(404).json({ error: "보관함 항목을 찾지 못했습니다" }); return; }
+  if (ing.kind !== "bill") {
+    res.status(400).json({ error: "청구서(bill) 종류만 부과 흐름으로 잇을 수 있습니다" });
+    return;
+  }
+  // [Task #782] 후속 엔진은 "확인된" 자료만 소비. 추출/거부 단계는 차단.
+  if (ing.status !== "confirmed") {
+    res.status(400).json({ error: "확인(confirmed) 단계의 자료만 부과 흐름으로 잇을 수 있습니다" });
+    return;
+  }
+
+  const ext = ing.extraction as StandardExtraction;
+  const adapted = adaptToFeeBilling(ext);
+  const billingMonth = adapted.billingMonth || new Date().toISOString().slice(0, 7);
+
+  const values = {
+    buildingId,
+    billingMonth,
+    totalAmount: adapted.totalAmount ?? 0,
+    unitCount: null as number | null,
+    dueDate: adapted.dueDate,
+    lineItems: sanitizeLineItems(adapted.lineItems),
+    fieldConfidence: {} as Record<string, number>,
+    ocrRawText: ext.rawText ?? "",
+    sourceFileUrl: ing.objectPath,
+    sourceFileName: ing.fileName,
+    confirmed: false,
+    uploadedById: req.user?.userId ?? null,
+  };
+
+  const [existing] = await db.select().from(monthlyBillSummariesTable)
+    .where(and(
+      eq(monthlyBillSummariesTable.buildingId, buildingId),
+      eq(monthlyBillSummariesTable.billingMonth, billingMonth),
+    ));
+  let saved;
+  if (existing) {
+    [saved] = await db.update(monthlyBillSummariesTable)
+      .set(values)
+      .where(eq(monthlyBillSummariesTable.id, existing.id))
+      .returning();
+  } else {
+    [saved] = await db.insert(monthlyBillSummariesTable)
+      .values(values)
+      .returning();
+  }
+  res.json(saved);
 });
 
 router.get("/fees/bill-summaries", async (req: Request, res: Response): Promise<void> => {

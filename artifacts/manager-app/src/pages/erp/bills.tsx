@@ -13,6 +13,7 @@ import {
 import { Loader2, Upload, FileText, RefreshCw, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { OcrProgressBar } from "@/components/ocr-progress-bar";
 import { AttachmentPickerSheet } from "@/components/attachment-picker-sheet";
+import { IngestionPicker, linkIngestionRef } from "@/components/documents/ingestion-picker";
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -186,6 +187,35 @@ export default function BillsPage() {
             className="mt-3"
             testId="bills-ocr-progress"
           />
+          {/* [Task #782] 보관함에 이미 저장된 청구서를 다시 OCR 하지 않고 부과 흐름으로 잇는다. */}
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>또는</span>
+            <IngestionPicker
+              target="billing"
+              testId="bills-ingestion-picker"
+              description="업로드센터에서 확인한 청구서를 선택하면 재인식 없이 부과 행이 만들어집니다."
+              onPick={async (_adapted, ingestionId) => {
+                try {
+                  const res = await fetch(`${apiBase}/fees/bill-summaries/from-ingestion`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ ingestionId }),
+                  });
+                  if (!res.ok) {
+                    const j = await res.json().catch(() => ({}));
+                    throw new Error(j?.error || "부과 행 생성 실패");
+                  }
+                  const saved = await res.json();
+                  await linkIngestionRef(apiBase, token, ingestionId, { billSummaryId: saved.id });
+                  toast({ title: "보관함 자료로 부과 행을 만들었습니다", description: `${saved.billingMonth} · 값을 검토 후 확정하세요.` });
+                  await load();
+                  setEditing(saved);
+                } catch (e) {
+                  toast({ title: "오류", description: e instanceof Error ? e.message : "오류", variant: "destructive" });
+                }
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
 

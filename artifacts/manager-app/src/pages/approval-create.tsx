@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { IngestionPicker, linkIngestionRef } from "@/components/documents/ingestion-picker";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { FollowUpScheduleTaskDialog } from "@/components/follow-up-schedule-task-dialog";
 import {
@@ -205,6 +206,9 @@ export default function ApprovalCreate() {
     isPrefill && prefillVendorName ? prefillVendorName : "",
   );
   const [vendorQuoteDetails, setVendorQuoteDetails] = useState("");
+  // [Task #782] 보관함에서 가져오기 — 지출결의(=expense voucher) 작성 시 OCR 자료를
+  //   기반으로 폼을 채우고, 결재 발행이 성공하면 ingestion.linkedRefs 에 approval id 를 저장.
+  const [linkedIngestionId, setLinkedIngestionId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
@@ -477,10 +481,18 @@ export default function ApprovalCreate() {
           toast({ title: err?.error || "결재 요청 제출에 실패했습니다", variant: "destructive" });
           return;
         }
+        // [Task #782] 비-HQ 경로에서도 결재 id 를 응답에서 회수해 linkedRefs 저장에 사용.
+        const created = await res.json().catch(() => null);
+        approvalId = created?.id ?? created?.approvalId ?? Number(draftId) ?? null;
       }
 
       queryClient.invalidateQueries({ queryKey: getListApprovalsQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetApprovalStatsQueryKey() });
+      // [Task #782] 보관함 자료에서 자동 채운 경우, 결재 발행 성공 시 ingestion.linkedRefs 에 결재 id 저장.
+      //   approvalId 는 HQ 경로(draft + submit-line)와 비-HQ 경로(직접 /approvals 또는 draft/submit) 모두에서 회수된다.
+      if (linkedIngestionId !== null && approvalId) {
+        await linkIngestionRef(API_BASE, token, linkedIngestionId, { expenseApprovalId: approvalId });
+      }
       toast({
         title: urgentExecution
           ? "긴급집행 라인이 발행되었습니다 — 사후결재(서명본) 첨부를 잊지 마세요"
@@ -610,6 +622,45 @@ export default function ApprovalCreate() {
               </CardContent>
             </Card>
           )}
+          {/* [Task #782] 보관함에서 가져오기 — 지출결의(영수증/세금계산서/계약서)를 폼에 자동 채움. */}
+          <Card data-testid="approval-ingestion-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                보관함 자료에서 자동 채우기
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                업로드센터에서 확인한 영수증·세금계산서·계약서를 선택하면 업체명·금액·내용이 폼에 그대로 채워집니다.
+              </p>
+              <div className="flex items-center gap-2">
+                <IngestionPicker
+                  target="expense"
+                  testId="approval-ingestion-picker"
+                  description="영수증·세금계산서·계약서로부터 지출결의 폼을 자동 채웁니다."
+                  onPick={(adapted, ingestionId) => {
+                    setLinkedIngestionId(ingestionId);
+                    if (adapted.vendor) setVendorName(adapted.vendor);
+                    if (adapted.amount != null) setEstimatedAmount(String(adapted.amount));
+                    if (adapted.description) {
+                      setDescription(prev => prev?.trim() ? prev : adapted.description!);
+                    }
+                    if (!title.trim() && adapted.vendor) {
+                      setTitle(`${adapted.vendor} 지출결의`);
+                    }
+                    toast({ title: "보관함 자료를 가져왔습니다", description: "값을 검토 후 결재 요청하세요." });
+                  }}
+                />
+                {linkedIngestionId !== null && (
+                  <Badge variant="secondary" data-testid="approval-ingestion-linked-badge">
+                    보관함 #{linkedIngestionId} 연결됨
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">

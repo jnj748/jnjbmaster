@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, FileText, Repeat, Copy } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLocation } from "wouter";
+import { IngestionPicker, linkIngestionRef } from "@/components/documents/ingestion-picker";
 
 interface ExpenseVoucher {
   id: number;
@@ -70,6 +71,11 @@ export default function ExpenseVoucherInboxPage() {
   // [Task #775] 정기/비정기 인박스 분기. ?type=recurring|onetime 쿼리로 서버 필터.
   const [typeFilter, setTypeFilter] = useState<VoucherTypeFilter>("all");
   const [duplicating, setDuplicating] = useState<number | null>(null);
+  // [Task #782] 행별로 마지막에 가져온 보관함 ingestion id — 출납 기록 시 linkedRefs 에 저장.
+  const [linkedIngestion, setLinkedIngestion] = useState<Record<number, number>>({});
+
+  // [Task #782] linkIngestionRef 호출용 베이스 — 위 API_BASE 와 동일하지만 명시적으로 보관.
+  const apiBase = API_BASE;
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +167,11 @@ export default function ExpenseVoucherInboxPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error ?? `출납 기록 실패 (${res.status})`);
       }
+      // [Task #782] 보관함 자료에서 가져왔다면 ingestion 에 expenseVoucherId 를 기록.
+      const ingId = linkedIngestion[voucher.id];
+      if (ingId) {
+        await linkIngestionRef(apiBase, token, ingId, { expenseVoucherId: voucher.id });
+      }
       toast({ title: "출납 기록 완료", description: "settlements 가 동기화되었습니다." });
       setRefreshKey((k) => k + 1);
     } catch (e) {
@@ -232,6 +243,16 @@ export default function ExpenseVoucherInboxPage() {
                   onRecord={() => onRecord(v)}
                   onDuplicate={v.isRecurring ? () => onDuplicate(v) : undefined}
                   duplicating={duplicating === v.id}
+                  onPickIngestion={(adapted, ingestionId) => {
+                    setLinkedIngestion((m) => ({ ...m, [v.id]: ingestionId }));
+                    if (adapted.date) setPaidDates((m) => ({ ...m, [v.id]: adapted.date! }));
+                    if (adapted.memo) setAccountMemos((m) => ({ ...m, [v.id]: adapted.memo! }));
+                    if (adapted.accountCandidates[0]) {
+                      setPaymentMethods((m) => ({ ...m, [v.id]: m[v.id] || adapted.accountCandidates[0] }));
+                    }
+                    toast({ title: "보관함 자료를 가져왔습니다", description: "지급일·메모를 검토 후 기록하세요." });
+                  }}
+                  linkedIngestionId={linkedIngestion[v.id]}
                 />
               ))
             )}
@@ -300,6 +321,8 @@ function VoucherCard({
   readOnly,
   onDuplicate,
   duplicating,
+  onPickIngestion,
+  linkedIngestionId,
 }: {
   voucher: ExpenseVoucher;
   busy?: boolean;
@@ -316,6 +339,9 @@ function VoucherCard({
   readOnly?: boolean;
   onDuplicate?: () => void;
   duplicating?: boolean;
+  // [Task #782] 보관함에서 가져오기 — 영수증/세금계산서/청구서/통장내역/의결문 기반 회계 자동 채움.
+  onPickIngestion?: (adapted: import("@/components/documents/ingestion-picker").JournalAdapted, ingestionId: number) => void;
+  linkedIngestionId?: number;
 }) {
   const amount = typeof voucher.amount === "string" ? Number(voucher.amount) : voucher.amount;
   // [Task #707] 분리부과 메타 — 결재 라인의 "계약·증빙 등록" 단계에서 입력된 값을
@@ -482,6 +508,20 @@ function VoucherCard({
         ) : null}
         {!readOnly ? (
           <div className="space-y-2 border-t pt-2">
+            {/* [Task #782] 보관함의 영수증·청구서 등으로 지급일·메모·방식 자동 채움. */}
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <IngestionPicker
+                target="journal"
+                testId={`voucher-ingestion-picker-${voucher.id}`}
+                description="확인된 영수증·세금계산서·청구서·통장내역·의결문에서 지급일과 메모를 가져옵니다."
+                onPick={(adapted, ingestionId) => onPickIngestion?.(adapted, ingestionId)}
+              />
+              {linkedIngestionId ? (
+                <Badge variant="secondary" data-testid={`voucher-ingestion-linked-${voucher.id}`}>
+                  보관함 #{linkedIngestionId}
+                </Badge>
+              ) : null}
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="block text-xs text-gray-600">
                 지급일 *

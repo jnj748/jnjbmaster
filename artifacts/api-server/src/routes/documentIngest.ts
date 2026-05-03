@@ -23,9 +23,12 @@ import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-// 회계 입력 게이트: facility_staff / custodian / partner 등 비경리 역할은 차단.
+// [Task #774] 회계 입력 게이트: 업로드/확정/삭제 같은 쓰기 작업은 경리 권한만.
+// [Task #782] 단, 후속 엔진에서 "보관함에서 가져오기" 진입을 쓰는 custodian(관리인) 도
+//   조회(GET) 와 linkedRefs 갱신(/link) 은 가능해야 한다.
+//   따라서 라우터 전역 게이트 대신 라우트별 가드로 분리한다.
 const accountingGate = requireRole("manager", "accountant", "platform_admin");
-router.use("/documents/ingest", accountingGate);
+const consumerGate = requireRole("manager", "accountant", "platform_admin", "custodian");
 
 /**
  * [Task #783] 중복 검출 로직. 라우트에서 빼낸 이유는 통합 테스트가 LLM/스토리지를
@@ -83,7 +86,7 @@ async function getUserBuildingId(req: Request): Promise<number | null> {
   return u?.buildingId ?? null;
 }
 
-router.post("/documents/ingest", async (req: Request, res: Response): Promise<void> => {
+router.post("/documents/ingest", accountingGate, async (req: Request, res: Response): Promise<void> => {
   const { objectPath, fileName, kindHint } = req.body ?? {};
   if (!objectPath || typeof objectPath !== "string") {
     res.status(400).json({ error: "objectPath가 필요합니다" });
@@ -164,7 +167,7 @@ router.post("/documents/ingest", async (req: Request, res: Response): Promise<vo
   }
 });
 
-router.get("/documents/ingest", async (req: Request, res: Response): Promise<void> => {
+router.get("/documents/ingest", consumerGate, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.json([]); return; }
   const kindParam = typeof req.query.kind === "string" ? req.query.kind : null;
@@ -183,7 +186,7 @@ router.get("/documents/ingest", async (req: Request, res: Response): Promise<voi
   res.json(rows);
 });
 
-router.post("/documents/ingest/:id/confirm", async (req: Request, res: Response): Promise<void> => {
+router.post("/documents/ingest/:id/confirm", accountingGate, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
   const id = Number(req.params.id);
@@ -220,7 +223,46 @@ router.post("/documents/ingest/:id/confirm", async (req: Request, res: Response)
   res.json(row);
 });
 
-router.delete("/documents/ingest/:id", async (req: Request, res: Response): Promise<void> => {
+// [Task #782] 후속 엔진(지출결의·부과·수납·회계) 화면이 보관함 자료를 사용한 뒤,
+//   생성된 후속 객체 id 를 ingestion 의 linkedRefs 에 누적 저장하는 진입점.
+//   /confirm 과 달리 status 를 바꾸지 않고, 이미 confirmed 인 항목에도 호출 가능하다.
+//   merge 시 기존 키를 덮어쓰지 않고 함께 보존한다(같은 키는 갱신, 새 키는 추가).
+router.post("/documents/ingest/:id/link", consumerGate, async (req: Request, res: Response): Promise<void> => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) { res.status(400).json({ error: "id 가 잘못되었습니다" }); return; }
+
+  const { linkedRefs } = req.body ?? {};
+  if (!linkedRefs || typeof linkedRefs !== "object" || Array.isArray(linkedRefs)) {
+    res.status(400).json({ error: "linkedRefs 가 필요합니다" });
+    return;
+  }
+
+  const [existing] = await db.select({ linkedRefs: documentIngestionsTable.linkedRefs })
+    .from(documentIngestionsTable)
+    .where(and(
+      eq(documentIngestionsTable.id, id),
+      eq(documentIngestionsTable.buildingId, buildingId),
+    ));
+  if (!existing) { res.status(404).json({ error: "보관함 항목을 찾지 못했습니다" }); return; }
+
+  const merged = {
+    ...(existing.linkedRefs as Record<string, number | string> | null ?? {}),
+    ...(linkedRefs as Record<string, number | string>),
+  };
+
+  const [row] = await db.update(documentIngestionsTable)
+    .set({ linkedRefs: merged })
+    .where(and(
+      eq(documentIngestionsTable.id, id),
+      eq(documentIngestionsTable.buildingId, buildingId),
+    ))
+    .returning();
+  res.json(row);
+});
+
+router.delete("/documents/ingest/:id", accountingGate, async (req: Request, res: Response): Promise<void> => {
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
   const id = Number(req.params.id);

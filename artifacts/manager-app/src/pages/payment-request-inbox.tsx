@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Send, FileText } from "lucide-react";
 import { useLocation } from "wouter";
+import { IngestionPicker, linkIngestionRef } from "@/components/documents/ingestion-picker";
 
 interface PaymentRequest {
   id: number;
@@ -53,6 +54,11 @@ export default function PaymentRequestInboxPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [remitDates, setRemitDates] = useState<Record<number, string>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  // [Task #782] 행별로 마지막에 가져온 보관함 ingestion id — 송금 완료 시 linkedRefs 에 저장.
+  const [linkedIngestion, setLinkedIngestion] = useState<Record<number, number>>({});
+
+  const BASE = import.meta.env.BASE_URL ?? "/";
+  const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +117,11 @@ export default function PaymentRequestInboxPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error ?? `송금 완료 처리 실패 (${res.status})`);
       }
+      // [Task #782] 보관함 자료에서 가져왔다면 ingestion 에 paymentRequestId 를 기록.
+      const ingId = linkedIngestion[req.id];
+      if (ingId) {
+        await linkIngestionRef(apiBase, token, ingId, { paymentRequestId: req.id });
+      }
       toast({ title: "송금 완료", description: "settlements 출납이 동기화되었습니다." });
       setRefreshKey((k) => k + 1);
     } catch (e) {
@@ -159,6 +170,17 @@ export default function PaymentRequestInboxPage() {
                     setRemitDates((map) => ({ ...map, [r.id]: d }))
                   }
                   onRemit={() => onRemit(r)}
+                  onPickIngestion={(adapted, ingestionId) => {
+                    setLinkedIngestion((m) => ({ ...m, [r.id]: ingestionId }));
+                    const first = adapted[0];
+                    if (first?.date) setRemitDates((map) => ({ ...map, [r.id]: first.date! }));
+                    const memo = adapted
+                      .map((a) => [a.vendor, a.amount != null ? `${a.amount.toLocaleString()}원` : null].filter(Boolean).join(" "))
+                      .filter(Boolean).join(" / ");
+                    if (memo) setMemos((map) => ({ ...map, [r.id]: memo }));
+                    toast({ title: "보관함 자료를 가져왔습니다", description: "송금일과 메모가 채워졌습니다." });
+                  }}
+                  linkedIngestionId={linkedIngestion[r.id]}
                 />
               ))
             )}
@@ -219,6 +241,8 @@ function PaymentCard({
   onRemit,
   onOpenSource,
   readOnly,
+  onPickIngestion,
+  linkedIngestionId,
 }: {
   request: PaymentRequest;
   busy?: boolean;
@@ -229,6 +253,9 @@ function PaymentCard({
   onRemit?: () => void;
   onOpenSource?: (href: string) => void;
   readOnly?: boolean;
+  // [Task #782] 보관함에서 가져오기 — 통장내역 ingestion 으로 송금일·메모 자동 채움.
+  onPickIngestion?: (adapted: import("@/components/documents/ingestion-picker").CollectionAdapted, ingestionId: number) => void;
+  linkedIngestionId?: number;
 }) {
   const amount =
     typeof request.amount === "string" ? Number(request.amount) : request.amount;
@@ -310,6 +337,20 @@ function PaymentCard({
         ) : null}
         {!readOnly ? (
           <div className="space-y-2 border-t pt-2">
+            {/* [Task #782] 보관함의 통장내역으로 송금일·메모 자동 채움. */}
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <IngestionPicker
+                target="collection"
+                testId={`payment-ingestion-picker-${request.id}`}
+                description="확인된 통장내역에서 송금일과 메모를 가져옵니다."
+                onPick={(adapted, ingestionId) => onPickIngestion?.(adapted, ingestionId)}
+              />
+              {linkedIngestionId ? (
+                <Badge variant="secondary" data-testid={`payment-ingestion-linked-${request.id}`}>
+                  보관함 #{linkedIngestionId}
+                </Badge>
+              ) : null}
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="block text-xs text-gray-600">
                 송금일 *
