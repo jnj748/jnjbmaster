@@ -16,6 +16,7 @@ import { wireAccountingListeners } from "./lib/accountingRules";
 // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트.
 import { registerDefaultChannels } from "./lib/external/adapter";
 import { registerPopbillChannels } from "./lib/external/popbillChannel";
+import { registerEmailChannel } from "./lib/external/emailChannel";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
 import { backfillInspectionNextDueDates } from "./lib/inspectionBackfill";
 import { runMigrations } from "./lib/runMigrations";
@@ -235,6 +236,7 @@ async function bootstrap() {
     // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트(Popbill + 후속 슬롯).
     try {
       registerPopbillChannels();
+      registerEmailChannel();
       registerDefaultChannels();
     } catch (e) {
       logger.warn({ err: e }, "Failed to bootstrap T10 dispatch engine");

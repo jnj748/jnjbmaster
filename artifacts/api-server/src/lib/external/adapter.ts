@@ -29,6 +29,9 @@ export type DispatchSendInput = {
   scheduledAt?: Date;
   maxAttempts?: number;
   createdBy?: number | null;
+  // [Task #816] true 면 즉시 1회 시도(runJobNow)를 await 하고 그 결과 잡 행을 반환한다.
+  // 호출자가 sent/failed 의 실제 결과를 응답에 반영해야 할 때 사용.
+  awaitImmediate?: boolean;
 };
 
 export interface ChannelAdapter {
@@ -90,6 +93,14 @@ export async function enqueueDispatch(input: DispatchSendInput): Promise<Dispatc
     createdBy: input.createdBy ?? null,
   };
   const [row] = await db.insert(dispatchJobsTable).values(values).returning();
+  // [Task #816] awaitImmediate 면 즉시 1회 시도를 동기 대기 → 호출자가 sent/failed 실결과를 받음.
+  if (input.awaitImmediate) {
+    const ran = await runJobNow(row.id).catch((err) => {
+      logger.warn({ err, jobId: row.id }, "[dispatch] immediate run failed");
+      return null;
+    });
+    return ran ?? row;
+  }
   // 즉시 1회 시도(워커 주기를 기다리지 않도록). 실패는 큐에 남고 워커가 재시도.
   void runJobNow(row.id).catch((err) => logger.warn({ err, jobId: row.id }, "[dispatch] immediate run failed"));
   return row;
@@ -202,6 +213,22 @@ export function registerDefaultChannels(): void {
       },
     });
   }
+  // [Task #816] post(우편) 채널 — 사내 인쇄·우편 큐 적재(외부 비동기 발송 아님).
+  // dispatch_jobs 에 sent 로 적재해 운영 대장(인쇄 큐)으로 확인한다.
+  if (!REGISTRY.has("post")) {
+    registerChannel({
+      channel: "post",
+      async send(job) {
+        logger.info({ kind: "post_queue", target: job.target, payload: job.payload }, "[post] mailroom queue");
+        return {
+          ok: true,
+          providerJobId: `post_${Date.now()}_${job.id}`,
+          providerResponse: { queuedForMailroom: true, at: new Date().toISOString() },
+        };
+      },
+    });
+  }
+  // email 채널은 ./emailChannel 에서 자기등록(SMTP 환경변수 게이트).
 }
 // [Task #781] 외부 발송 통계용 — 미해결/실패 잡 카운트.
 export async function dispatchStats(buildingId: number | null): Promise<{

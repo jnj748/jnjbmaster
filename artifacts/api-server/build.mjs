@@ -31,7 +31,8 @@ async function buildAll() {
     },
   });
 
-  // [Task #812] PDF 한글 폰트(NanumGothic) 등 정적 자산을 dist/assets 로 복사.
+  // [Task #812 / #816] PDF 한글 폰트(NanumGothic, NotoSansKR) 등 정적 자산을
+  // dist/assets 로 복사. dev 시에는 src 옆 assets 가 그대로 사용된다.
   const assetsSrc = path.resolve(artifactDir, "assets");
   const assetsDest = path.resolve(distDir, "assets");
   await cp(assetsSrc, assetsDest, { recursive: true });

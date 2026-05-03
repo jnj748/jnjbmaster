@@ -3,7 +3,7 @@
 //   GET   /receivables/overdue                — 미납대장 (오늘자 또는 ?asOf=YYYY-MM-DD).
 //   POST  /receivables/overdue/snapshot       — 스냅샷 캡처 (호실별 1행 upsert).
 //   GET   /receivables/overdue/notices        — 미납분 고지서 출력 큐(미납인 bill 목록).
-//   POST  /receivables/overdue/notices/print  — 출력 의뢰(상태 표시용 — 실 PDF 생성은 클라이언트).
+//   POST  /receivables/overdue/notices/print  — 미납분 고지서 일괄 PDF 생성/스트리밍(application/pdf).
 //   GET   /receivables/dunning                — 독촉장 대장.
 //   POST  /receivables/dunning/batch          — 차수별 일괄 생성(대상 호실 자동 추출).
 //   POST  /receivables/dunning/:id/send       — 발송(상태 sent + dispatch_jobs 큐 자리).
@@ -32,10 +32,13 @@ import {
   paymentReceiptsTable,
   bankReconciliationsTable,
   autoDebitResultsTable,
+  popbillSettingsTable,
 } from "@workspace/db";
 import { audit, requireAction } from "../middlewares/audit";
 import { requireRole } from "../middlewares/auth";
 import { getUserBuildingId } from "../middlewares/buildingScope";
+import { enqueueDispatch } from "../lib/external/adapter";
+import { generateOverdueNoticesPdf } from "../lib/overdueNoticesPdf";
 
 const router: IRouter = Router();
 
@@ -152,7 +155,20 @@ router.post(
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
     const ids = (req.body as { billIds?: number[] })?.billIds;
     if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: "billIds 필요" }); return; }
-    res.json({ printed: ids.length, billIds: ids, requestedAt: new Date().toISOString() });
+    // [Task #816] 서버에서 직접 호실별 고지서를 단일 PDF 묶음으로 렌더링해 스트리밍.
+    // 입주민 공개 페이지(/public/bills/:token)와 동일한 데이터(billsTable + billItemsTable)를
+    // 그대로 사용하므로, 별도 템플릿 분기 없이 동일 항목/총액/잔액이 출력된다.
+    try {
+      const pdf = await generateOverdueNoticesPdf({ buildingId, billIds: ids });
+      const filename = `overdue-notices-${new Date().toISOString().slice(0, 10)}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("X-Notices-Count", String(ids.length));
+      res.end(pdf);
+    } catch (e) {
+      req.log?.warn?.({ err: e }, "[overdue.notices.print] pdf generation failed");
+      res.status(500).json({ error: "PDF 생성 실패", detail: (e as Error)?.message });
+    }
   },
 );
 
@@ -238,6 +254,16 @@ router.post(
   },
 );
 
+// [Task #816] 독촉장 채널('post'/'sms'/'kakao'/'email') → dispatch_jobs 채널 슬러그 매핑.
+function mapDunningChannel(channel: "post" | "sms" | "kakao" | "email"): string {
+  switch (channel) {
+    case "sms": return "popbill_sms";
+    case "kakao": return "popbill_kakao";
+    case "email": return "email";
+    case "post": return "post";
+  }
+}
+
 router.post(
   "/receivables/dunning/:id/send",
   requireAction("receivable.dunning.send"),
@@ -246,12 +272,85 @@ router.post(
     const buildingId = await getUserBuildingId(req);
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
     const id = Number(req.params.id);
-    const [updated] = await db.update(dunningLettersTable)
-      .set({ status: "sent", sentAt: new Date() })
-      .where(and(eq(dunningLettersTable.id, id), eq(dunningLettersTable.buildingId, buildingId)))
-      .returning();
-    if (!updated) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
-    res.json(updated);
+    // 1) 대상 독촉장 조회
+    const [letter] = await db.select().from(dunningLettersTable)
+      .where(and(eq(dunningLettersTable.id, id), eq(dunningLettersTable.buildingId, buildingId)));
+    if (!letter) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+    if (letter.status === "sent" || letter.status === "delivered") {
+      res.status(409).json({ error: "이미 발송되었습니다", letter }); return;
+    }
+
+    // 2) 발신 설정 로드(카카오 알림톡/문자 공통 발신번호·프로필).
+    const [settings] = await db.select().from(popbillSettingsTable)
+      .where(eq(popbillSettingsTable.buildingId, buildingId));
+
+    // 3) 채널별 페이로드/대상 구성.
+    const dispatchChannel = mapDunningChannel(letter.channel);
+    const target = letter.recipientContact ?? "";
+    const stageLabel = letter.stage === 1 ? "1차 안내" : letter.stage === 2 ? "2차 독촉" : "최종 통보";
+    const subject = `[관리비 ${stageLabel}] ${letter.unitNumber}호`;
+    const senderNumber = settings?.senderNumber ?? "";
+    const senderProfileId = settings?.senderProfileId ?? "";
+    const templateCode = settings?.kakaoTemplates?.[`overdue_${letter.stage}`]
+      ?? settings?.kakaoTemplates?.overdue_1
+      ?? "";
+
+    let payload: Record<string, unknown>;
+    if (letter.channel === "kakao") {
+      payload = { templateCode, message: letter.bodyText, altMessage: letter.bodyText, senderNumber, senderProfileId, receiverName: letter.recipientName ?? "" };
+    } else if (letter.channel === "sms") {
+      payload = { message: letter.bodyText, senderNumber };
+    } else if (letter.channel === "email") {
+      payload = { subject, message: letter.bodyText, recipientName: letter.recipientName ?? "" };
+    } else {
+      // post — 우편 인쇄·발송 큐 적재(주소가 별도라면 target 에 호실 라벨).
+      payload = { subject, body: letter.bodyText, unitNumber: letter.unitNumber, recipientName: letter.recipientName ?? "" };
+    }
+
+    // 4) 우편 외 채널은 수신 정보 필수.
+    if (letter.channel !== "post" && !target) {
+      const [u] = await db.update(dunningLettersTable)
+        .set({ status: "failed", errorMessage: "수신 연락처가 없습니다" })
+        .where(eq(dunningLettersTable.id, letter.id))
+        .returning();
+      res.status(400).json({ error: "수신 연락처가 없습니다", letter: u }); return;
+    }
+
+    // 5) dispatch_jobs 큐에 적재 후 즉시 1회 시도(awaitImmediate)로 실 발송 결과 확인.
+    //    relatedMonth 는 비워 마감 게이트를 통과한다 — 독촉장은 부과월 마감과 무관한 운영성 통지.
+    try {
+      const job = await enqueueDispatch({
+        buildingId,
+        channel: dispatchChannel,
+        target: target || `unit:${letter.unitNumber}`,
+        payload,
+        relatedMonth: null,
+        relatedEntityType: "dunning_letter",
+        relatedEntityId: letter.id,
+        triggerSource: `receivable.dunning.stage_${letter.stage}`,
+        createdBy: req.user?.userId ?? null,
+        awaitImmediate: true,
+      });
+      // 6) 잡 상태에 따라 dunning_letter 행 갱신.
+      const success = job.status === "sent";
+      const [u] = await db.update(dunningLettersTable)
+        .set({
+          status: success ? "sent" : (job.status === "failed" || job.status === "dead" ? "failed" : "queued"),
+          dispatchJobId: job.id,
+          sentAt: success ? (job.sentAt ?? new Date()) : null,
+          errorMessage: success ? null : (job.lastError ?? null),
+        })
+        .where(eq(dunningLettersTable.id, letter.id))
+        .returning();
+      res.json(u);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "send_failed";
+      const [u] = await db.update(dunningLettersTable)
+        .set({ status: "failed", errorMessage: msg.slice(0, 500) })
+        .where(eq(dunningLettersTable.id, letter.id))
+        .returning();
+      res.status(500).json({ error: msg, letter: u });
+    }
   },
 );
 
@@ -324,10 +423,70 @@ router.post(
       amount: pay.amount,
       channel,
       recipient: recipient ?? null,
-      status: channel === "print" ? "issued" : "delivered",
+      status: channel === "print" ? "issued" : "issued",
       issuedById: req.user?.userId ?? null,
     }).returning();
-    res.json(row);
+
+    // [Task #816] print 가 아닌 채널은 dispatch_jobs 에 적재해 실 발송한다.
+    if (channel === "print") { res.json(row); return; }
+
+    const target = recipient ?? "";
+    if (!target) {
+      const [u] = await db.update(paymentReceiptsTable)
+        .set({ status: "failed", meta: { error: "수신 연락처가 없습니다" } })
+        .where(eq(paymentReceiptsTable.id, row.id))
+        .returning();
+      res.status(400).json({ error: "수신 연락처가 없습니다", receipt: u }); return;
+    }
+
+    const [settings] = await db.select().from(popbillSettingsTable)
+      .where(eq(popbillSettingsTable.buildingId, buildingId));
+    const senderNumber = settings?.senderNumber ?? "";
+    const senderProfileId = settings?.senderProfileId ?? "";
+    const templateCode = settings?.kakaoTemplates?.receipt ?? "";
+    const message = `[관리비 영수증 ${receiptNo}] ${KRW(pay.amount).toLocaleString()}원 수납이 정상 처리되었습니다. 감사합니다.`;
+    const subject = `관리비 영수증 ${receiptNo}`;
+
+    const dispatchChannel =
+      channel === "sms" ? "popbill_sms" :
+      channel === "kakao" ? "popbill_kakao" : "email";
+    const payload: Record<string, unknown> =
+      channel === "kakao"
+        ? { templateCode, message, altMessage: message, senderNumber, senderProfileId }
+        : channel === "sms"
+        ? { message, senderNumber }
+        : { subject, message };
+
+    try {
+      const job = await enqueueDispatch({
+        buildingId,
+        channel: dispatchChannel,
+        target,
+        payload,
+        relatedMonth: null,
+        relatedEntityType: "payment_receipt",
+        relatedEntityId: row.id,
+        triggerSource: "receivable.receipt.issue",
+        createdBy: req.user?.userId ?? null,
+        awaitImmediate: true,
+      });
+      const success = job.status === "sent";
+      const [u] = await db.update(paymentReceiptsTable)
+        .set({
+          status: success ? "delivered" : (job.status === "failed" || job.status === "dead" ? "failed" : "issued"),
+          meta: { dispatchJobId: job.id, providerJobId: job.providerJobId, lastError: job.lastError },
+        })
+        .where(eq(paymentReceiptsTable.id, row.id))
+        .returning();
+      res.json(u);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "send_failed";
+      const [u] = await db.update(paymentReceiptsTable)
+        .set({ status: "failed", meta: { error: msg.slice(0, 500) } })
+        .where(eq(paymentReceiptsTable.id, row.id))
+        .returning();
+      res.status(500).json({ error: msg, receipt: u });
+    }
   },
 );
 

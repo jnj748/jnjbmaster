@@ -41,8 +41,28 @@ export default function ReceivablesOverdueNoticesPage() {
     if (selected.size === 0) { toast({ title: "출력할 호실을 선택하세요" }); return; }
     setBusy(true);
     try {
-      await api("POST", "/receivables/overdue/notices/print", { billIds: Array.from(selected) });
-      toast({ title: `${selected.size}건 출력 의뢰 완료` });
+      // [Task #816] 서버가 호실별 고지서를 단일 PDF 묶음으로 렌더링해 스트리밍.
+      const ids = Array.from(selected);
+      const resp = await fetch("/api/receivables/overdue/notices/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ billIds: ids }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({} as { error?: string }));
+        throw new Error(body?.error ?? `HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `overdue-notices-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast({ title: `${ids.length}건 PDF 다운로드` });
       setSelected(new Set());
     } catch (e) {
       toast({ title: "실패", description: String(e), variant: "destructive" });
