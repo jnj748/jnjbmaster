@@ -4,9 +4,6 @@ import {
   useListRfqs,
   useListQuotes,
   useCreateQuote,
-  useListWorkReports,
-  useCreateWorkReport,
-  useListSettlements,
   useListVendors,
   useListContracts,
   useAgreeContractAsPartner,
@@ -21,8 +18,6 @@ import {
   Briefcase,
   FileText,
   Send,
-  ClipboardCheck,
-  Coins,
   LayoutDashboard,
   AlertCircle,
 } from "lucide-react";
@@ -41,27 +36,26 @@ import { CheckCircle2 } from "lucide-react";
 
 const VendorRfqList = lazy(() => import("@/components/vendor-portal/vendor-rfq-list").then((m) => ({ default: m.VendorRfqList })));
 const VendorQuoteList = lazy(() => import("@/components/vendor-portal/vendor-quote-list").then((m) => ({ default: m.VendorQuoteList })));
-const VendorWorkReports = lazy(() => import("@/components/vendor-portal/vendor-work-reports").then((m) => ({ default: m.VendorWorkReports })));
-const VendorSettlements = lazy(() => import("@/components/vendor-portal/vendor-settlements").then((m) => ({ default: m.VendorSettlements })));
 
 const TabFallback = () => <Skeleton className="h-64" />;
+
+// [Task #738] 파트너 포털 탭 — "작업 보고", "정산" 은 플랫폼이 계약 이후 단계에
+//   관여하지 않는다는 원칙에 따라 제거. 알 수 없는 ?tab= 값은 dashboard 로 폴백.
+const VALID_TABS: PortalTab[] = ["dashboard", "rfqs", "quotes"];
+function parseTab(search: string): PortalTab {
+  const t = new URLSearchParams(search).get("tab") as PortalTab | null;
+  return t && VALID_TABS.includes(t) ? t : "dashboard";
+}
 
 export default function VendorPortal() {
   const { user, token } = useAuth();
   // [Task #290] 사이드바·하단 네비에서 ?tab= 쿼리로 진입 시 해당 탭을 초기 선택한다.
   const [location] = useLocation();
-  const initialTab: PortalTab = (() => {
-    if (typeof window === "undefined") return "dashboard";
-    const t = new URLSearchParams(window.location.search).get("tab") as PortalTab | null;
-    const valid: PortalTab[] = ["dashboard", "rfqs", "quotes", "reports", "settlements"];
-    return t && valid.includes(t) ? t : "dashboard";
-  })();
+  const initialTab: PortalTab = typeof window === "undefined" ? "dashboard" : parseTab(window.location.search);
   const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const t = new URLSearchParams(window.location.search).get("tab") as PortalTab | null;
-    const valid: PortalTab[] = ["dashboard", "rfqs", "quotes", "reports", "settlements"];
-    if (t && valid.includes(t)) setActiveTab(t);
+    setActiveTab(parseTab(window.location.search));
   }, [location]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -76,17 +70,8 @@ export default function VendorPortal() {
     vendorId ? { vendorId } : undefined,
     { query: { enabled: !!vendorId } }
   );
-  const { data: myReports } = useListWorkReports(
-    vendorId ? { vendorId } : undefined,
-    { query: { enabled: !!vendorId } }
-  );
-  const { data: mySettlements } = useListSettlements(
-    vendorId ? { vendorId } : undefined,
-    { query: { enabled: !!vendorId } }
-  );
 
   const createQuoteMutation = useCreateQuote();
-  const createReportMutation = useCreateWorkReport();
 
   // [Task #335] 파트너 계약 동의 흐름:
   //  1) /vendor-portal?openContract={id} 딥링크로 진입 → quotes 탭 + 동의 다이얼로그
@@ -146,16 +131,13 @@ export default function VendorPortal() {
   const openRfqCount = myRfqs.filter((r: any) => r.status === "open").length;
   const activeQuoteCount = myQuotes?.filter((q: any) => q.status === "submitted").length || 0;
   const acceptedQuoteCount = myQuotes?.filter((q: any) => q.status === "accepted").length || 0;
-  const pendingReportCount = myReports?.filter((r: any) => r.status === "submitted").length || 0;
-  const totalSettlement = mySettlements?.reduce((s: number, st: any) => s + st.paymentAmount, 0) || 0;
-  const paidSettlement = mySettlements?.filter((s: any) => s.status === "paid").reduce((sum: number, s: any) => sum + s.paymentAmount, 0) || 0;
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
         <Briefcase className="w-5 h-5 text-teal-500" />
         <div>
-          <h1 className="text-2xl font-bold">견적 요청</h1>
+          <h1 className="text-2xl font-bold">견적·내 견적서</h1>
           <p className="text-muted-foreground text-sm">{loggedVendor?.name || "내 업체"} 포털</p>
         </div>
       </div>
@@ -165,8 +147,6 @@ export default function VendorPortal() {
           { key: "dashboard" as PortalTab, label: "대시보드", icon: LayoutDashboard },
           { key: "rfqs" as PortalTab, label: "견적 요청", icon: FileText },
           { key: "quotes" as PortalTab, label: "내 견적서", icon: Send },
-          { key: "reports" as PortalTab, label: "작업 보고", icon: ClipboardCheck },
-          { key: "settlements" as PortalTab, label: "정산", icon: Coins },
         ].map((item) => (
           <button
             key={item.key}
@@ -189,9 +169,6 @@ export default function VendorPortal() {
           openRfqCount={openRfqCount}
           activeQuoteCount={activeQuoteCount}
           acceptedQuoteCount={acceptedQuoteCount}
-          pendingReportCount={pendingReportCount}
-          totalSettlement={totalSettlement}
-          paidSettlement={paidSettlement}
           recentRfqs={myRfqs.slice(0, 5)}
           recentQuotes={(myQuotes || []).slice(0, 5)}
           onNavigate={setActiveTab}
@@ -214,24 +191,6 @@ export default function VendorPortal() {
       {activeTab === "quotes" && (
         <Suspense fallback={<TabFallback />}>
           <VendorQuoteList quotes={myQuotes || []} />
-        </Suspense>
-      )}
-      {activeTab === "reports" && (
-        <Suspense fallback={<TabFallback />}>
-          <VendorWorkReports
-            reports={myReports || []}
-            quotes={myQuotes?.filter((q: any) => q.status === "accepted") || []}
-            vendorId={vendorId}
-            vendorName={loggedVendor?.name || ""}
-            queryClient={queryClient}
-            createReportMutation={createReportMutation}
-            toast={toast}
-          />
-        </Suspense>
-      )}
-      {activeTab === "settlements" && (
-        <Suspense fallback={<TabFallback />}>
-          <VendorSettlements settlements={mySettlements || []} />
         </Suspense>
       )}
 

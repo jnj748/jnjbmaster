@@ -623,30 +623,20 @@ export const ROUTES: RouteEntry[] = [
   // [Task #665] 파트너 사이드바·하단 네비도 ROUTES 단일 출처로 구동되도록
   //   partner 를 access/sideMenu/bottomNav 에 포함시키고, 파트너에게는 같은 path 가
   //   다른 컴포넌트(VendorPortal)로 마운트되도록 componentOverrides 사용.
+  // [Task #738] 기존엔 파트너 사이드바에 "견적 요청" + "내 견적·작업" 두 엔트리가
+  //   같은 /rfqs 경로를 가리켜 중복으로 보였다. 두 항목을 단일 "견적·내 견적서"
+  //   엔트리로 통합 — 파트너는 VendorPortal 내부 탭(대시보드/견적 요청/내 견적서)
+  //   으로 두 흐름을 모두 사용한다. 본사 메뉴 오버라이드 그리드에서도 한 행으로 정리.
   {
     path: "/rfqs", component: Rfqs,
     componentOverrides: { partner: VendorPortal },
     label: "견적 요청", icon: Send, group: "marketplace",
+    labelOverrides: { partner: "견적·내 견적서" },
     access: ["manager", "platform_admin", "partner"],
     sideMenu: ["manager", "partner"],
     bottomNav: ["partner"],
     bottomLabelOverrides: { partner: "견적" },
     partnerOrder: 10,
-  },
-  // [Task #665] "내 견적·작업" — 파트너 전용. /rfqs 와 같은 path 를 사용하지만
-  //   blockId 가 달라 본사 그리드에서 독립적으로 끄고 켤 수 있다.
-  //   라우트는 위 엔트리가 이미 등록하므로 routeMode: "sidebarOnly" 로 중복 등록을 막는다.
-  {
-    path: "/rfqs", component: VendorPortal,
-    blockId: "/rfqs#quotes",
-    query: { tab: "quotes" },
-    routeMode: "sidebarOnly",
-    label: "내 견적·작업", icon: Send, group: "marketplace",
-    access: ["partner"],
-    sideMenu: ["partner"],
-    bottomNav: ["partner"],
-    bottomLabelOverrides: { partner: "내 견적" },
-    partnerOrder: 20,
   },
   {
     path: "/work-reports", component: WorkReportsPage,

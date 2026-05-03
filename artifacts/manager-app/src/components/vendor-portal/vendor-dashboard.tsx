@@ -1,30 +1,29 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import { FileText, CheckCircle, Send } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
-export type PortalTab = "dashboard" | "rfqs" | "quotes" | "reports" | "settlements";
+// [Task #738] 파트너 포털 탭 — 작업 보고/정산 탭은 플랫폼 책임 영역에서 제외되어 제거.
+export type PortalTab = "dashboard" | "rfqs" | "quotes";
 
 export interface VendorDashboardProps {
   vendorName: string;
   openRfqCount: number;
   activeQuoteCount: number;
   acceptedQuoteCount: number;
-  pendingReportCount: number;
-  totalSettlement: number;
-  paidSettlement: number;
   recentRfqs: any[];
   recentQuotes: any[];
   onNavigate: (tab: PortalTab) => void;
 }
 
 export function VendorDashboard({
-  openRfqCount, acceptedQuoteCount,
-  pendingReportCount, totalSettlement, paidSettlement, recentRfqs, onNavigate,
+  openRfqCount, activeQuoteCount, acceptedQuoteCount, recentRfqs, recentQuotes, onNavigate,
 }: VendorDashboardProps) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 desktop:grid-cols-4 gap-4">
+      {/* [Task #738] KPI 카드 — 작업보고 검수 대기·총 정산 카드는 제거. 파트너에게 의미 있는
+          3개(대기중 견적요청 / 제출한 견적서 / 채택된 견적)만 남긴다. */}
+      <div className="grid grid-cols-1 desktop:grid-cols-3 gap-4">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("rfqs")}>
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
@@ -41,38 +40,25 @@ export function VendorDashboard({
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("quotes")}>
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-teal-100">
+                <Send className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">제출한 견적서</p>
+                <p className="text-2xl font-bold">{activeQuoteCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("quotes")}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-green-100">
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">채택된 견적</p>
                 <p className="text-2xl font-bold">{acceptedQuoteCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("reports")}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-amber-100">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">검수 대기</p>
-                <p className="text-2xl font-bold">{pendingReportCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigate("settlements")}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-purple-100">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">총 정산</p>
-                <p className="text-xl font-bold">{totalSettlement.toLocaleString()}원</p>
               </div>
             </div>
           </CardContent>
@@ -105,25 +91,35 @@ export function VendorDashboard({
           </CardContent>
         </Card>
 
+        {/* [Task #738] "정산 요약" 섹션 제거 — 대신 최근 제출 견적 목록을 보여 준다. */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">정산 요약</CardTitle>
+            <CardTitle className="text-base">최근 내 견적서</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">총 정산 금액</span>
-                <span className="font-bold">{totalSettlement.toLocaleString()}원</span>
+            {recentQuotes.length > 0 ? (
+              <div className="space-y-2">
+                {recentQuotes.map((q: any) => (
+                  <div key={q.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">RFQ #{q.rfqId}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {typeof q.totalAmount === "number" ? `${q.totalAmount.toLocaleString()}원` : "-"}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"
+                      }
+                    >
+                      {q.status === "accepted" ? "채택" : q.status === "rejected" ? "반려" : "제출"}
+                    </Badge>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">지급 완료</span>
-                <span className="font-bold text-green-600">{paidSettlement.toLocaleString()}원</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">미지급</span>
-                <span className="font-bold text-amber-600">{(totalSettlement - paidSettlement).toLocaleString()}원</span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">제출한 견적서가 없습니다</p>
+            )}
           </CardContent>
         </Card>
       </div>
