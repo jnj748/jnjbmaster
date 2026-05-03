@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AccessCard,
   ActiveCampaign,
   ActivityItem,
   AdjustCreditsBody,
@@ -42,6 +43,7 @@ import type {
   AutoSettleCommissionResponse,
   BatchCancelVehicles200,
   BatchCancelVehiclesBody,
+  BillingEnvironmentSettings,
   BillingItem,
   BuildingListItem,
   BuildingWarranty,
@@ -74,6 +76,7 @@ import type {
   ContractDocument,
   ContractOcrPreview,
   ContractRenewalAlertResponse,
+  CreateAccessCardBody,
   CreateAiSessionBody,
   CreateAlertActionBody,
   CreateApprovalBody,
@@ -266,10 +269,13 @@ import type {
   MeterOcrResponse,
   MeterReading,
   MeterReadingAudit,
+  MeteringEnvironment,
+  MeteringUsageSettings,
   MonthlyPayment,
   MonthlySummaryReportItem,
   NoticeLayoutSettings,
   NoticeOutput,
+  NoticeOutputSettings,
   Notification,
   OnboardPartnerVendor200,
   Owner,
@@ -283,6 +289,7 @@ import type {
   PlatformSetting,
   PortfolioAnomalyCard,
   PostRfqMessageBody,
+  PrepaidDeposit,
   PreviewBusinessRegOcrBody,
   PreviewContractOcrBody,
   PreviewCreditCostParams,
@@ -332,6 +339,7 @@ import type {
   TenantCardToken,
   TransitionContractStatusBody,
   Unit,
+  UpdateAccessCardBody,
   UpdateBuildingNoticeTemplate200,
   UpdateBuildingWarrantyBody,
   UpdateCommissionBody,
@@ -367,18 +375,24 @@ import type {
   UploadContractDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertBillingEnvironmentBody,
   UpsertBuildingNoticeTemplateBody,
   UpsertCommissionRateBody,
   UpsertCreditCategoryPricingBody,
   UpsertCreditTopupPackageBody,
   UpsertDocumentChecklistBody,
   UpsertManagementContractTemplateBody,
+  UpsertMeteringEnvironmentBody,
+  UpsertMeteringUsageBody,
+  UpsertNoticeOutputBody,
   UpsertPlatformSettingBody,
+  UpsertPrepaidDepositBody,
   UpsertQuoteTypePolicyCategoryBody,
   UpsertSafetyChecklistCategoryBody,
   UpsertSafetyChecklistTemplateItemBody,
   UpsertSafetyChecklistUserTemplate200,
   UpsertSafetyChecklistUserTemplateBody,
+  UpsertYearEndTaxBody,
   Vehicle,
   VehicleHistoryEntry,
   Vendor,
@@ -395,6 +409,7 @@ import type {
   WeeklySummaryReportItem,
   WorkReport,
   WorkReportReviewResponse,
+  YearEndTaxInfo,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -30174,4 +30189,1323 @@ export const useRegisterNoticeOutput = <
   TContext
 > => {
   return useMutation(getRegisterNoticeOutputMutationOptions(options));
+};
+
+/**
+ * @summary 검침환경 조회
+ */
+export const getGetMeteringEnvironmentUrl = () => {
+  return `/api/settings/metering-environment`;
+};
+
+export const getMeteringEnvironment = async (
+  options?: RequestInit,
+): Promise<MeteringEnvironment> => {
+  return customFetch<MeteringEnvironment>(getGetMeteringEnvironmentUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMeteringEnvironmentQueryKey = () => {
+  return [`/api/settings/metering-environment`] as const;
+};
+
+export const getGetMeteringEnvironmentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMeteringEnvironment>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringEnvironment>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMeteringEnvironmentQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMeteringEnvironment>>
+  > = ({ signal }) => getMeteringEnvironment({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringEnvironment>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMeteringEnvironmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMeteringEnvironment>>
+>;
+export type GetMeteringEnvironmentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 검침환경 조회
+ */
+
+export function useGetMeteringEnvironment<
+  TData = Awaited<ReturnType<typeof getMeteringEnvironment>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringEnvironment>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMeteringEnvironmentQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 검침환경 저장
+ */
+export const getUpsertMeteringEnvironmentUrl = () => {
+  return `/api/settings/metering-environment`;
+};
+
+export const upsertMeteringEnvironment = async (
+  upsertMeteringEnvironmentBody: UpsertMeteringEnvironmentBody,
+  options?: RequestInit,
+): Promise<MeteringEnvironment> => {
+  return customFetch<MeteringEnvironment>(getUpsertMeteringEnvironmentUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertMeteringEnvironmentBody),
+  });
+};
+
+export const getUpsertMeteringEnvironmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertMeteringEnvironment>>,
+    TError,
+    { data: BodyType<UpsertMeteringEnvironmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertMeteringEnvironment>>,
+  TError,
+  { data: BodyType<UpsertMeteringEnvironmentBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertMeteringEnvironment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertMeteringEnvironment>>,
+    { data: BodyType<UpsertMeteringEnvironmentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertMeteringEnvironment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertMeteringEnvironmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertMeteringEnvironment>>
+>;
+export type UpsertMeteringEnvironmentMutationBody =
+  BodyType<UpsertMeteringEnvironmentBody>;
+export type UpsertMeteringEnvironmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 검침환경 저장
+ */
+export const useUpsertMeteringEnvironment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertMeteringEnvironment>>,
+    TError,
+    { data: BodyType<UpsertMeteringEnvironmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertMeteringEnvironment>>,
+  TError,
+  { data: BodyType<UpsertMeteringEnvironmentBody> },
+  TContext
+> => {
+  return useMutation(getUpsertMeteringEnvironmentMutationOptions(options));
+};
+
+/**
+ * @summary 검침사용현황설정 조회
+ */
+export const getGetMeteringUsageSettingsUrl = () => {
+  return `/api/settings/metering-usage`;
+};
+
+export const getMeteringUsageSettings = async (
+  options?: RequestInit,
+): Promise<MeteringUsageSettings> => {
+  return customFetch<MeteringUsageSettings>(getGetMeteringUsageSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMeteringUsageSettingsQueryKey = () => {
+  return [`/api/settings/metering-usage`] as const;
+};
+
+export const getGetMeteringUsageSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMeteringUsageSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringUsageSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMeteringUsageSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMeteringUsageSettings>>
+  > = ({ signal }) => getMeteringUsageSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringUsageSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMeteringUsageSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMeteringUsageSettings>>
+>;
+export type GetMeteringUsageSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 검침사용현황설정 조회
+ */
+
+export function useGetMeteringUsageSettings<
+  TData = Awaited<ReturnType<typeof getMeteringUsageSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getMeteringUsageSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMeteringUsageSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 검침사용현황설정 저장
+ */
+export const getUpsertMeteringUsageSettingsUrl = () => {
+  return `/api/settings/metering-usage`;
+};
+
+export const upsertMeteringUsageSettings = async (
+  upsertMeteringUsageBody: UpsertMeteringUsageBody,
+  options?: RequestInit,
+): Promise<MeteringUsageSettings> => {
+  return customFetch<MeteringUsageSettings>(
+    getUpsertMeteringUsageSettingsUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertMeteringUsageBody),
+    },
+  );
+};
+
+export const getUpsertMeteringUsageSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertMeteringUsageSettings>>,
+    TError,
+    { data: BodyType<UpsertMeteringUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertMeteringUsageSettings>>,
+  TError,
+  { data: BodyType<UpsertMeteringUsageBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertMeteringUsageSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertMeteringUsageSettings>>,
+    { data: BodyType<UpsertMeteringUsageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertMeteringUsageSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertMeteringUsageSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertMeteringUsageSettings>>
+>;
+export type UpsertMeteringUsageSettingsMutationBody =
+  BodyType<UpsertMeteringUsageBody>;
+export type UpsertMeteringUsageSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 검침사용현황설정 저장
+ */
+export const useUpsertMeteringUsageSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertMeteringUsageSettings>>,
+    TError,
+    { data: BodyType<UpsertMeteringUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertMeteringUsageSettings>>,
+  TError,
+  { data: BodyType<UpsertMeteringUsageBody> },
+  TContext
+> => {
+  return useMutation(getUpsertMeteringUsageSettingsMutationOptions(options));
+};
+
+/**
+ * @summary 고지서출력환경 조회
+ */
+export const getGetNoticeOutputSettingsUrl = () => {
+  return `/api/settings/notice-output`;
+};
+
+export const getNoticeOutputSettings = async (
+  options?: RequestInit,
+): Promise<NoticeOutputSettings> => {
+  return customFetch<NoticeOutputSettings>(getGetNoticeOutputSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNoticeOutputSettingsQueryKey = () => {
+  return [`/api/settings/notice-output`] as const;
+};
+
+export const getGetNoticeOutputSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNoticeOutputSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeOutputSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetNoticeOutputSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNoticeOutputSettings>>
+  > = ({ signal }) => getNoticeOutputSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeOutputSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNoticeOutputSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNoticeOutputSettings>>
+>;
+export type GetNoticeOutputSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 고지서출력환경 조회
+ */
+
+export function useGetNoticeOutputSettings<
+  TData = Awaited<ReturnType<typeof getNoticeOutputSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getNoticeOutputSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNoticeOutputSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 고지서출력환경 저장
+ */
+export const getUpsertNoticeOutputSettingsUrl = () => {
+  return `/api/settings/notice-output`;
+};
+
+export const upsertNoticeOutputSettings = async (
+  upsertNoticeOutputBody: UpsertNoticeOutputBody,
+  options?: RequestInit,
+): Promise<NoticeOutputSettings> => {
+  return customFetch<NoticeOutputSettings>(getUpsertNoticeOutputSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertNoticeOutputBody),
+  });
+};
+
+export const getUpsertNoticeOutputSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertNoticeOutputSettings>>,
+    TError,
+    { data: BodyType<UpsertNoticeOutputBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertNoticeOutputSettings>>,
+  TError,
+  { data: BodyType<UpsertNoticeOutputBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertNoticeOutputSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertNoticeOutputSettings>>,
+    { data: BodyType<UpsertNoticeOutputBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertNoticeOutputSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertNoticeOutputSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertNoticeOutputSettings>>
+>;
+export type UpsertNoticeOutputSettingsMutationBody =
+  BodyType<UpsertNoticeOutputBody>;
+export type UpsertNoticeOutputSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 고지서출력환경 저장
+ */
+export const useUpsertNoticeOutputSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertNoticeOutputSettings>>,
+    TError,
+    { data: BodyType<UpsertNoticeOutputBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertNoticeOutputSettings>>,
+  TError,
+  { data: BodyType<UpsertNoticeOutputBody> },
+  TContext
+> => {
+  return useMutation(getUpsertNoticeOutputSettingsMutationOptions(options));
+};
+
+/**
+ * @summary 관리비부과환경 조회
+ */
+export const getGetBillingEnvironmentSettingsUrl = () => {
+  return `/api/settings/billing-environment`;
+};
+
+export const getBillingEnvironmentSettings = async (
+  options?: RequestInit,
+): Promise<BillingEnvironmentSettings> => {
+  return customFetch<BillingEnvironmentSettings>(
+    getGetBillingEnvironmentSettingsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetBillingEnvironmentSettingsQueryKey = () => {
+  return [`/api/settings/billing-environment`] as const;
+};
+
+export const getGetBillingEnvironmentSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBillingEnvironmentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingEnvironmentSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetBillingEnvironmentSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBillingEnvironmentSettings>>
+  > = ({ signal }) =>
+    getBillingEnvironmentSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingEnvironmentSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBillingEnvironmentSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBillingEnvironmentSettings>>
+>;
+export type GetBillingEnvironmentSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 관리비부과환경 조회
+ */
+
+export function useGetBillingEnvironmentSettings<
+  TData = Awaited<ReturnType<typeof getBillingEnvironmentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingEnvironmentSettings>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBillingEnvironmentSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 관리비부과환경 저장
+ */
+export const getUpsertBillingEnvironmentSettingsUrl = () => {
+  return `/api/settings/billing-environment`;
+};
+
+export const upsertBillingEnvironmentSettings = async (
+  upsertBillingEnvironmentBody: UpsertBillingEnvironmentBody,
+  options?: RequestInit,
+): Promise<BillingEnvironmentSettings> => {
+  return customFetch<BillingEnvironmentSettings>(
+    getUpsertBillingEnvironmentSettingsUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertBillingEnvironmentBody),
+    },
+  );
+};
+
+export const getUpsertBillingEnvironmentSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>,
+    TError,
+    { data: BodyType<UpsertBillingEnvironmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>,
+  TError,
+  { data: BodyType<UpsertBillingEnvironmentBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertBillingEnvironmentSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>,
+    { data: BodyType<UpsertBillingEnvironmentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertBillingEnvironmentSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertBillingEnvironmentSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>
+>;
+export type UpsertBillingEnvironmentSettingsMutationBody =
+  BodyType<UpsertBillingEnvironmentBody>;
+export type UpsertBillingEnvironmentSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 관리비부과환경 저장
+ */
+export const useUpsertBillingEnvironmentSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>,
+    TError,
+    { data: BodyType<UpsertBillingEnvironmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertBillingEnvironmentSettings>>,
+  TError,
+  { data: BodyType<UpsertBillingEnvironmentBody> },
+  TContext
+> => {
+  return useMutation(
+    getUpsertBillingEnvironmentSettingsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary 연말정산기본정보 조회
+ */
+export const getGetYearEndTaxInfoUrl = () => {
+  return `/api/settings/year-end-tax`;
+};
+
+export const getYearEndTaxInfo = async (
+  options?: RequestInit,
+): Promise<YearEndTaxInfo> => {
+  return customFetch<YearEndTaxInfo>(getGetYearEndTaxInfoUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetYearEndTaxInfoQueryKey = () => {
+  return [`/api/settings/year-end-tax`] as const;
+};
+
+export const getGetYearEndTaxInfoQueryOptions = <
+  TData = Awaited<ReturnType<typeof getYearEndTaxInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getYearEndTaxInfo>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetYearEndTaxInfoQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getYearEndTaxInfo>>
+  > = ({ signal }) => getYearEndTaxInfo({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getYearEndTaxInfo>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetYearEndTaxInfoQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getYearEndTaxInfo>>
+>;
+export type GetYearEndTaxInfoQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 연말정산기본정보 조회
+ */
+
+export function useGetYearEndTaxInfo<
+  TData = Awaited<ReturnType<typeof getYearEndTaxInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof getYearEndTaxInfo>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetYearEndTaxInfoQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 연말정산기본정보 저장
+ */
+export const getUpsertYearEndTaxInfoUrl = () => {
+  return `/api/settings/year-end-tax`;
+};
+
+export const upsertYearEndTaxInfo = async (
+  upsertYearEndTaxBody: UpsertYearEndTaxBody,
+  options?: RequestInit,
+): Promise<YearEndTaxInfo> => {
+  return customFetch<YearEndTaxInfo>(getUpsertYearEndTaxInfoUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertYearEndTaxBody),
+  });
+};
+
+export const getUpsertYearEndTaxInfoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertYearEndTaxInfo>>,
+    TError,
+    { data: BodyType<UpsertYearEndTaxBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertYearEndTaxInfo>>,
+  TError,
+  { data: BodyType<UpsertYearEndTaxBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertYearEndTaxInfo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertYearEndTaxInfo>>,
+    { data: BodyType<UpsertYearEndTaxBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertYearEndTaxInfo(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertYearEndTaxInfoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertYearEndTaxInfo>>
+>;
+export type UpsertYearEndTaxInfoMutationBody = BodyType<UpsertYearEndTaxBody>;
+export type UpsertYearEndTaxInfoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 연말정산기본정보 저장
+ */
+export const useUpsertYearEndTaxInfo = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertYearEndTaxInfo>>,
+    TError,
+    { data: BodyType<UpsertYearEndTaxBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertYearEndTaxInfo>>,
+  TError,
+  { data: BodyType<UpsertYearEndTaxBody> },
+  TContext
+> => {
+  return useMutation(getUpsertYearEndTaxInfoMutationOptions(options));
+};
+
+/**
+ * @summary 호실별 선수관리비 목록
+ */
+export const getListPrepaidDepositsUrl = () => {
+  return `/api/accountant/prepaid-deposits`;
+};
+
+export const listPrepaidDeposits = async (
+  options?: RequestInit,
+): Promise<PrepaidDeposit[]> => {
+  return customFetch<PrepaidDeposit[]>(getListPrepaidDepositsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPrepaidDepositsQueryKey = () => {
+  return [`/api/accountant/prepaid-deposits`] as const;
+};
+
+export const getListPrepaidDepositsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPrepaidDeposits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listPrepaidDeposits>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPrepaidDepositsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPrepaidDeposits>>
+  > = ({ signal }) => listPrepaidDeposits({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPrepaidDeposits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPrepaidDepositsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPrepaidDeposits>>
+>;
+export type ListPrepaidDepositsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 호실별 선수관리비 목록
+ */
+
+export function useListPrepaidDeposits<
+  TData = Awaited<ReturnType<typeof listPrepaidDeposits>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listPrepaidDeposits>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPrepaidDepositsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 호실 선수관리비 저장(upsert)
+ */
+export const getUpsertPrepaidDepositUrl = () => {
+  return `/api/accountant/prepaid-deposits`;
+};
+
+export const upsertPrepaidDeposit = async (
+  upsertPrepaidDepositBody: UpsertPrepaidDepositBody,
+  options?: RequestInit,
+): Promise<PrepaidDeposit> => {
+  return customFetch<PrepaidDeposit>(getUpsertPrepaidDepositUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertPrepaidDepositBody),
+  });
+};
+
+export const getUpsertPrepaidDepositMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPrepaidDeposit>>,
+    TError,
+    { data: BodyType<UpsertPrepaidDepositBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertPrepaidDeposit>>,
+  TError,
+  { data: BodyType<UpsertPrepaidDepositBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertPrepaidDeposit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertPrepaidDeposit>>,
+    { data: BodyType<UpsertPrepaidDepositBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertPrepaidDeposit(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertPrepaidDepositMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertPrepaidDeposit>>
+>;
+export type UpsertPrepaidDepositMutationBody =
+  BodyType<UpsertPrepaidDepositBody>;
+export type UpsertPrepaidDepositMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 호실 선수관리비 저장(upsert)
+ */
+export const useUpsertPrepaidDeposit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPrepaidDeposit>>,
+    TError,
+    { data: BodyType<UpsertPrepaidDepositBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertPrepaidDeposit>>,
+  TError,
+  { data: BodyType<UpsertPrepaidDepositBody> },
+  TContext
+> => {
+  return useMutation(getUpsertPrepaidDepositMutationOptions(options));
+};
+
+/**
+ * @summary 출입카드 목록
+ */
+export const getListAccessCardsUrl = () => {
+  return `/api/settings/access-cards`;
+};
+
+export const listAccessCards = async (
+  options?: RequestInit,
+): Promise<AccessCard[]> => {
+  return customFetch<AccessCard[]>(getListAccessCardsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAccessCardsQueryKey = () => {
+  return [`/api/settings/access-cards`] as const;
+};
+
+export const getListAccessCardsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAccessCards>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listAccessCards>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAccessCardsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAccessCards>>> = ({
+    signal,
+  }) => listAccessCards({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAccessCards>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAccessCardsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccessCards>>
+>;
+export type ListAccessCardsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary 출입카드 목록
+ */
+
+export function useListAccessCards<
+  TData = Awaited<ReturnType<typeof listAccessCards>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<
+    Awaited<ReturnType<typeof listAccessCards>>,
+    TError,
+    TData
+  >>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAccessCardsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary 출입카드 발급 등록
+ */
+export const getCreateAccessCardUrl = () => {
+  return `/api/settings/access-cards`;
+};
+
+export const createAccessCard = async (
+  createAccessCardBody: CreateAccessCardBody,
+  options?: RequestInit,
+): Promise<AccessCard> => {
+  return customFetch<AccessCard>(getCreateAccessCardUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAccessCardBody),
+  });
+};
+
+export const getCreateAccessCardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccessCard>>,
+    TError,
+    { data: BodyType<CreateAccessCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAccessCard>>,
+  TError,
+  { data: BodyType<CreateAccessCardBody> },
+  TContext
+> => {
+  const mutationKey = ["createAccessCard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAccessCard>>,
+    { data: BodyType<CreateAccessCardBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAccessCard(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAccessCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAccessCard>>
+>;
+export type CreateAccessCardMutationBody = BodyType<CreateAccessCardBody>;
+export type CreateAccessCardMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 출입카드 발급 등록
+ */
+export const useCreateAccessCard = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccessCard>>,
+    TError,
+    { data: BodyType<CreateAccessCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAccessCard>>,
+  TError,
+  { data: BodyType<CreateAccessCardBody> },
+  TContext
+> => {
+  return useMutation(getCreateAccessCardMutationOptions(options));
+};
+
+/**
+ * @summary 출입카드 수정
+ */
+export const getUpdateAccessCardUrl = (id: number) => {
+  return `/api/settings/access-cards/${id}`;
+};
+
+export const updateAccessCard = async (
+  id: number,
+  updateAccessCardBody: UpdateAccessCardBody,
+  options?: RequestInit,
+): Promise<AccessCard> => {
+  return customFetch<AccessCard>(getUpdateAccessCardUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAccessCardBody),
+  });
+};
+
+export const getUpdateAccessCardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAccessCard>>,
+    TError,
+    { id: number; data: BodyType<UpdateAccessCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAccessCard>>,
+  TError,
+  { id: number; data: BodyType<UpdateAccessCardBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAccessCard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAccessCard>>,
+    { id: number; data: BodyType<UpdateAccessCardBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAccessCard(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAccessCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAccessCard>>
+>;
+export type UpdateAccessCardMutationBody = BodyType<UpdateAccessCardBody>;
+export type UpdateAccessCardMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 출입카드 수정
+ */
+export const useUpdateAccessCard = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAccessCard>>,
+    TError,
+    { id: number; data: BodyType<UpdateAccessCardBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAccessCard>>,
+  TError,
+  { id: number; data: BodyType<UpdateAccessCardBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAccessCardMutationOptions(options));
+};
+
+/**
+ * @summary 출입카드 삭제
+ */
+export const getDeleteAccessCardUrl = (id: number) => {
+  return `/api/settings/access-cards/${id}`;
+};
+
+export const deleteAccessCard = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAccessCardUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAccessCardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccessCard>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAccessCard>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAccessCard"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAccessCard>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAccessCard(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAccessCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAccessCard>>
+>;
+
+export type DeleteAccessCardMutationError = ErrorType<unknown>;
+
+/**
+ * @summary 출입카드 삭제
+ */
+export const useDeleteAccessCard = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAccessCard>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAccessCard>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAccessCardMutationOptions(options));
 };

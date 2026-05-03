@@ -38,6 +38,10 @@ import {
   Megaphone,
   // [Task #734] 이벤트 크레딧 일괄 지급 메뉴/카드 아이콘.
   Gift,
+  // [Task #796] XpBIZ 환경설정 풀세트 사이드바 아이콘.
+  Gauge,
+  KeyRound,
+  Wallet,
   // [Task #740 가입흐름재설정] 파트너 분야(2단 카테고리) 관리 메뉴 아이콘.
   Layers,
   // [Task #774] 부과자료 업로드센터 메뉴 아이콘.
@@ -905,6 +909,56 @@ export const ROUTES: RouteEntry[] = [
     component: lazy(() => import("@/pages/task-templates")),
     label: "업무 템플릿 관리", icon: ClipboardList, group: "settings",
     access: ["platform_admin"],
+  },
+  // ── [Task #796] XpBIZ 환경설정 풀세트 ─────────────────────────
+  {
+    path: "/settings/metering-environment",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "검침환경", icon: Gauge, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/settings/metering-usage",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "검침 사용현황 설정", icon: Gauge, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/settings/notice-output",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "고지서 출력환경", icon: Receipt, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/settings/billing-environment",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "관리비 부과환경", icon: Calculator, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/settings/year-end-tax",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "연말정산 기본정보", icon: Calculator, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/settings/access-cards",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "출입카드 관리", icon: KeyRound, group: "settings",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/accountant/prepaid-deposits",
+    component: lazy(() => import("@/pages/building-settings")),
+    label: "호실 선수관리비", icon: Wallet, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   // [Task #485] /settings 루트는 App.tsx 의 정적 리다이렉트가 처리한다
   //   (레거시 ?tab=building / ?tab=platform 쿼리도 함께 흡수). ROUTES 에는

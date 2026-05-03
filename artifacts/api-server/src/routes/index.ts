@@ -48,6 +48,7 @@ import buildingsRouter from "./buildings";
 import calendarRouter from "./calendar";
 import storageRouter from "./storage";
 import unitsRouter from "./units";
+import buildingSettingsRouter from "./buildingSettings";
 import tenantCardTokensRouter from "./tenantCardTokens";
 import managementContractTemplatesRouter from "./managementContractTemplates";
 import publicTenantCardRouter from "./publicTenantCard";
@@ -205,6 +206,8 @@ buildingRouter.use(alertActionsRouter);
 buildingRouter.use(externalDocumentsRouter);
 buildingRouter.use(buildingsRouter);
 buildingRouter.use(unitsRouter);
+// [Task #796] XpBIZ 환경설정 풀세트.
+buildingRouter.use(buildingSettingsRouter);
 buildingRouter.use(calendarRouter);
 buildingRouter.use(tenantCardTokensRouter);
 buildingRouter.use(managementContractTemplatesRouter);

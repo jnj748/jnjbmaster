@@ -5475,6 +5475,16 @@ export const ListUnitsResponseItem = zod.object({
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
+  unitUsage: zod.string().nullish(),
+  residenceUsage: zod.string().nullish(),
+  ownershipType: zod.string().nullish(),
+  keySentAt: zod.string().date().nullish(),
+  vendorName: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  postalCode: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  entryDate: zod.string().date().nullish(),
+  supplyArea: zod.string().nullish(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -5583,6 +5593,16 @@ export const GetUnitResponse = zod
     tenantCount: zod.number().optional(),
     ownerCount: zod.number().optional(),
     vehicleCount: zod.number().optional(),
+    unitUsage: zod.string().nullish(),
+    residenceUsage: zod.string().nullish(),
+    ownershipType: zod.string().nullish(),
+    keySentAt: zod.string().date().nullish(),
+    vendorName: zod.string().nullish(),
+    representativeName: zod.string().nullish(),
+    postalCode: zod.string().nullish(),
+    businessNumber: zod.string().nullish(),
+    entryDate: zod.string().date().nullish(),
+    supplyArea: zod.string().nullish(),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   })
@@ -5713,6 +5733,16 @@ export const UpdateUnitBody = zod.object({
   usage: zod.string().nullish(),
   notes: zod.string().nullish(),
   status: zod.enum(["vacant", "occupied", "maintenance"]).optional(),
+  unitUsage: zod.string().nullish(),
+  residenceUsage: zod.string().nullish(),
+  ownershipType: zod.string().nullish(),
+  keySentAt: zod.string().date().nullish(),
+  vendorName: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  postalCode: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  entryDate: zod.string().date().nullish(),
+  supplyArea: zod.string().nullish(),
 });
 
 export const UpdateUnitResponse = zod.object({
@@ -5743,6 +5773,16 @@ export const UpdateUnitResponse = zod.object({
   tenantCount: zod.number().optional(),
   ownerCount: zod.number().optional(),
   vehicleCount: zod.number().optional(),
+  unitUsage: zod.string().nullish(),
+  residenceUsage: zod.string().nullish(),
+  ownershipType: zod.string().nullish(),
+  keySentAt: zod.string().date().nullish(),
+  vendorName: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  postalCode: zod.string().nullish(),
+  businessNumber: zod.string().nullish(),
+  entryDate: zod.string().date().nullish(),
+  supplyArea: zod.string().nullish(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -10678,4 +10718,343 @@ export const RegisterNoticeOutputBody = zod.object({
   title: zod.string(),
   format: zod.enum(["png", "docx", "pdf", "share"]),
   outputDate: zod.string().optional(),
+});
+
+/**
+ * @summary 검침환경 조회
+ */
+export const GetMeteringEnvironmentResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  config: zod.record(zod.string(), zod.unknown()),
+  kepcoTerms: zod.array(zod.record(zod.string(), zod.unknown())),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 검침환경 저장
+ */
+export const UpsertMeteringEnvironmentBody = zod.object({
+  config: zod.record(zod.string(), zod.unknown()).optional(),
+  kepcoTerms: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertMeteringEnvironmentResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  config: zod.record(zod.string(), zod.unknown()),
+  kepcoTerms: zod.array(zod.record(zod.string(), zod.unknown())),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 검침사용현황설정 조회
+ */
+export const GetMeteringUsageSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  config: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 검침사용현황설정 저장
+ */
+export const UpsertMeteringUsageSettingsBody = zod.object({
+  config: zod.record(zod.string(), zod.unknown()).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertMeteringUsageSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  config: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 고지서출력환경 조회
+ */
+export const GetNoticeOutputSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  showAlias: zod.boolean(),
+  aliasName: zod.string().nullish(),
+  deliveryPostal: zod.boolean(),
+  deliveryDirect: zod.boolean(),
+  deliveryEmail: zod.boolean(),
+  registeredNo: zod.string().nullish(),
+  autoTransferOrg: zod.string().nullish(),
+  vatIncluded: zod.boolean(),
+  positions: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 고지서출력환경 저장
+ */
+export const UpsertNoticeOutputSettingsBody = zod.object({
+  showAlias: zod.boolean().optional(),
+  aliasName: zod.string().nullish(),
+  deliveryPostal: zod.boolean().optional(),
+  deliveryDirect: zod.boolean().optional(),
+  deliveryEmail: zod.boolean().optional(),
+  registeredNo: zod.string().nullish(),
+  autoTransferOrg: zod.string().nullish(),
+  vatIncluded: zod.boolean().optional(),
+  positions: zod.record(zod.string(), zod.unknown()).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertNoticeOutputSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  showAlias: zod.boolean(),
+  aliasName: zod.string().nullish(),
+  deliveryPostal: zod.boolean(),
+  deliveryDirect: zod.boolean(),
+  deliveryEmail: zod.boolean(),
+  registeredNo: zod.string().nullish(),
+  autoTransferOrg: zod.string().nullish(),
+  vatIncluded: zod.boolean(),
+  positions: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 관리비부과환경 조회
+ */
+export const GetBillingEnvironmentSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  categoryConfig: zod.record(zod.string(), zod.unknown()),
+  vatThresholdM2: zod.string().nullish(),
+  escoConfig: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 관리비부과환경 저장
+ */
+export const UpsertBillingEnvironmentSettingsBody = zod.object({
+  categoryConfig: zod.record(zod.string(), zod.unknown()).optional(),
+  vatThresholdM2: zod.string().nullish(),
+  escoConfig: zod.record(zod.string(), zod.unknown()).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertBillingEnvironmentSettingsResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  categoryConfig: zod.record(zod.string(), zod.unknown()),
+  vatThresholdM2: zod.string().nullish(),
+  escoConfig: zod.record(zod.string(), zod.unknown()),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 연말정산기본정보 조회
+ */
+export const GetYearEndTaxInfoResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  settlementYear: zod.number().nullish(),
+  businessNumber: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  representative: zod.string().nullish(),
+  businessAddress: zod.string().nullish(),
+  industryType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  contactPerson: zod.string().nullish(),
+  taxOfficeCode: zod.string().nullish(),
+  deductionMethod: zod.string().nullish(),
+  quarterlyPay: zod.boolean().optional(),
+  invoiceStatus: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 연말정산기본정보 저장
+ */
+export const UpsertYearEndTaxInfoBody = zod.object({
+  settlementYear: zod.number().nullish(),
+  businessNumber: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  representative: zod.string().nullish(),
+  businessAddress: zod.string().nullish(),
+  industryType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  contactPerson: zod.string().nullish(),
+  taxOfficeCode: zod.string().nullish(),
+  deductionMethod: zod.string().nullish(),
+  quarterlyPay: zod.boolean().optional(),
+  invoiceStatus: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertYearEndTaxInfoResponse = zod.object({
+  id: zod.number().optional(),
+  buildingId: zod.number(),
+  settlementYear: zod.number().nullish(),
+  businessNumber: zod.string().nullish(),
+  companyName: zod.string().nullish(),
+  representative: zod.string().nullish(),
+  businessAddress: zod.string().nullish(),
+  industryType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  contactPerson: zod.string().nullish(),
+  taxOfficeCode: zod.string().nullish(),
+  deductionMethod: zod.string().nullish(),
+  quarterlyPay: zod.boolean().optional(),
+  invoiceStatus: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 호실별 선수관리비 목록
+ */
+export const ListPrepaidDepositsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number(),
+  depositDate: zod.string().date().nullish(),
+  receiptPeriod: zod.string().nullish(),
+  supplyArea: zod.string().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  prepaidAmount: zod.number(),
+  receivedAmount: zod.number(),
+  unpaidAmount: zod.number(),
+  paidAt: zod.string().date().nullish(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+export const ListPrepaidDepositsResponse = zod.array(
+  ListPrepaidDepositsResponseItem,
+);
+
+/**
+ * @summary 호실 선수관리비 저장(upsert)
+ */
+export const UpsertPrepaidDepositBody = zod.object({
+  unitId: zod.number(),
+  depositDate: zod.string().date().nullish(),
+  receiptPeriod: zod.string().nullish(),
+  supplyArea: zod.string().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  prepaidAmount: zod.number().optional(),
+  receivedAmount: zod.number().optional(),
+  unpaidAmount: zod.number().optional(),
+  paidAt: zod.string().date().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpsertPrepaidDepositResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number(),
+  depositDate: zod.string().date().nullish(),
+  receiptPeriod: zod.string().nullish(),
+  supplyArea: zod.string().nullish(),
+  moveInDate: zod.string().date().nullish(),
+  prepaidAmount: zod.number(),
+  receivedAmount: zod.number(),
+  unpaidAmount: zod.number(),
+  paidAt: zod.string().date().nullish(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 출입카드 목록
+ */
+export const ListAccessCardsResponseItem = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  serialNo: zod.string(),
+  issuedAt: zod.string().date().nullish(),
+  revokedAt: zod.string().date().nullish(),
+  cardRegistered: zod.boolean(),
+  depositAmount: zod.number(),
+  issueFee: zod.number(),
+  recipientName: zod.string().nullish(),
+  recipientPhone: zod.string().nullish(),
+  bankName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+export const ListAccessCardsResponse = zod.array(ListAccessCardsResponseItem);
+
+/**
+ * @summary 출입카드 발급 등록
+ */
+
+export const CreateAccessCardBody = zod.object({
+  unitId: zod.number().nullish(),
+  serialNo: zod.string().min(1),
+  issuedAt: zod.string().date().nullish(),
+  revokedAt: zod.string().date().nullish(),
+  cardRegistered: zod.boolean().optional(),
+  depositAmount: zod.number().optional(),
+  issueFee: zod.number().optional(),
+  recipientName: zod.string().nullish(),
+  recipientPhone: zod.string().nullish(),
+  bankName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary 출입카드 수정
+ */
+export const UpdateAccessCardParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAccessCardBody = zod.object({
+  unitId: zod.number().nullish(),
+  serialNo: zod.string().optional(),
+  issuedAt: zod.string().date().nullish(),
+  revokedAt: zod.string().date().nullish(),
+  cardRegistered: zod.boolean().optional(),
+  depositAmount: zod.number().optional(),
+  issueFee: zod.number().optional(),
+  recipientName: zod.string().nullish(),
+  recipientPhone: zod.string().nullish(),
+  bankName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateAccessCardResponse = zod.object({
+  id: zod.number(),
+  buildingId: zod.number(),
+  unitId: zod.number().nullish(),
+  serialNo: zod.string(),
+  issuedAt: zod.string().date().nullish(),
+  revokedAt: zod.string().date().nullish(),
+  cardRegistered: zod.boolean(),
+  depositAmount: zod.number(),
+  issueFee: zod.number(),
+  recipientName: zod.string().nullish(),
+  recipientPhone: zod.string().nullish(),
+  bankName: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary 출입카드 삭제
+ */
+export const DeleteAccessCardParams = zod.object({
+  id: zod.coerce.number(),
 });

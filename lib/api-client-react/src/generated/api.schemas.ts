@@ -4514,6 +4514,26 @@ export interface Unit {
   tenantCount?: number;
   ownerCount?: number;
   vehicleCount?: number;
+  /** @nullable */
+  unitUsage?: string | null;
+  /** @nullable */
+  residenceUsage?: string | null;
+  /** @nullable */
+  ownershipType?: string | null;
+  /** @nullable */
+  keySentAt?: string | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  entryDate?: string | null;
+  /** @nullable */
+  supplyArea?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -4667,6 +4687,26 @@ export interface UpdateUnitBody {
   /** @nullable */
   notes?: string | null;
   status?: UpdateUnitBodyStatus;
+  /** @nullable */
+  unitUsage?: string | null;
+  /** @nullable */
+  residenceUsage?: string | null;
+  /** @nullable */
+  ownershipType?: string | null;
+  /** @nullable */
+  keySentAt?: string | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  entryDate?: string | null;
+  /** @nullable */
+  supplyArea?: string | null;
 }
 
 export type TenantCardTokenStatus =
@@ -6648,6 +6688,295 @@ export interface CreateReferrerBenefitBody {
   amount: number;
   /** @nullable */
   memo?: string | null;
+}
+
+export type MeteringEnvironmentConfig = { [key: string]: unknown };
+
+export type MeteringEnvironmentKepcoTermsItem = { [key: string]: unknown };
+
+export interface MeteringEnvironment {
+  id?: number;
+  buildingId: number;
+  config: MeteringEnvironmentConfig;
+  kepcoTerms: MeteringEnvironmentKepcoTermsItem[];
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export type UpsertMeteringEnvironmentBodyConfig = { [key: string]: unknown };
+
+export type UpsertMeteringEnvironmentBodyKepcoTermsItem = {
+  [key: string]: unknown;
+};
+
+export interface UpsertMeteringEnvironmentBody {
+  config?: UpsertMeteringEnvironmentBodyConfig;
+  kepcoTerms?: UpsertMeteringEnvironmentBodyKepcoTermsItem[];
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type MeteringUsageSettingsConfig = { [key: string]: unknown };
+
+export interface MeteringUsageSettings {
+  id?: number;
+  buildingId: number;
+  config: MeteringUsageSettingsConfig;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export type UpsertMeteringUsageBodyConfig = { [key: string]: unknown };
+
+export interface UpsertMeteringUsageBody {
+  config?: UpsertMeteringUsageBodyConfig;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type NoticeOutputSettingsPositions = { [key: string]: unknown };
+
+export interface NoticeOutputSettings {
+  id?: number;
+  buildingId: number;
+  showAlias: boolean;
+  /** @nullable */
+  aliasName?: string | null;
+  deliveryPostal: boolean;
+  deliveryDirect: boolean;
+  deliveryEmail: boolean;
+  /** @nullable */
+  registeredNo?: string | null;
+  /** @nullable */
+  autoTransferOrg?: string | null;
+  vatIncluded: boolean;
+  positions: NoticeOutputSettingsPositions;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export type UpsertNoticeOutputBodyPositions = { [key: string]: unknown };
+
+export interface UpsertNoticeOutputBody {
+  showAlias?: boolean;
+  /** @nullable */
+  aliasName?: string | null;
+  deliveryPostal?: boolean;
+  deliveryDirect?: boolean;
+  deliveryEmail?: boolean;
+  /** @nullable */
+  registeredNo?: string | null;
+  /** @nullable */
+  autoTransferOrg?: string | null;
+  vatIncluded?: boolean;
+  positions?: UpsertNoticeOutputBodyPositions;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type BillingEnvironmentSettingsCategoryConfig = {
+  [key: string]: unknown;
+};
+
+export type BillingEnvironmentSettingsEscoConfig = { [key: string]: unknown };
+
+export interface BillingEnvironmentSettings {
+  id?: number;
+  buildingId: number;
+  categoryConfig: BillingEnvironmentSettingsCategoryConfig;
+  /** @nullable */
+  vatThresholdM2?: string | null;
+  escoConfig: BillingEnvironmentSettingsEscoConfig;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export type UpsertBillingEnvironmentBodyCategoryConfig = {
+  [key: string]: unknown;
+};
+
+export type UpsertBillingEnvironmentBodyEscoConfig = { [key: string]: unknown };
+
+export interface UpsertBillingEnvironmentBody {
+  categoryConfig?: UpsertBillingEnvironmentBodyCategoryConfig;
+  /** @nullable */
+  vatThresholdM2?: string | null;
+  escoConfig?: UpsertBillingEnvironmentBodyEscoConfig;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type YearEndTaxInfoInvoiceStatusItem = { [key: string]: unknown };
+
+export interface YearEndTaxInfo {
+  id?: number;
+  buildingId: number;
+  /** @nullable */
+  settlementYear?: number | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  representative?: string | null;
+  /** @nullable */
+  businessAddress?: string | null;
+  /** @nullable */
+  industryType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  contactPerson?: string | null;
+  /** @nullable */
+  taxOfficeCode?: string | null;
+  /** @nullable */
+  deductionMethod?: string | null;
+  quarterlyPay?: boolean;
+  invoiceStatus?: YearEndTaxInfoInvoiceStatusItem[];
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export type UpsertYearEndTaxBodyInvoiceStatusItem = { [key: string]: unknown };
+
+export interface UpsertYearEndTaxBody {
+  /** @nullable */
+  settlementYear?: number | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  representative?: string | null;
+  /** @nullable */
+  businessAddress?: string | null;
+  /** @nullable */
+  industryType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  contactPerson?: string | null;
+  /** @nullable */
+  taxOfficeCode?: string | null;
+  /** @nullable */
+  deductionMethod?: string | null;
+  quarterlyPay?: boolean;
+  invoiceStatus?: UpsertYearEndTaxBodyInvoiceStatusItem[];
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PrepaidDeposit {
+  id: number;
+  buildingId: number;
+  unitId: number;
+  /** @nullable */
+  depositDate?: string | null;
+  /** @nullable */
+  receiptPeriod?: string | null;
+  /** @nullable */
+  supplyArea?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  prepaidAmount: number;
+  receivedAmount: number;
+  unpaidAmount: number;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export interface UpsertPrepaidDepositBody {
+  unitId: number;
+  /** @nullable */
+  depositDate?: string | null;
+  /** @nullable */
+  receiptPeriod?: string | null;
+  /** @nullable */
+  supplyArea?: string | null;
+  /** @nullable */
+  moveInDate?: string | null;
+  prepaidAmount?: number;
+  receivedAmount?: number;
+  unpaidAmount?: number;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface AccessCard {
+  id: number;
+  buildingId: number;
+  /** @nullable */
+  unitId?: number | null;
+  serialNo: string;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  revokedAt?: string | null;
+  cardRegistered: boolean;
+  depositAmount: number;
+  issueFee: number;
+  /** @nullable */
+  recipientName?: string | null;
+  /** @nullable */
+  recipientPhone?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  updatedAt?: string;
+}
+
+export interface CreateAccessCardBody {
+  /** @nullable */
+  unitId?: number | null;
+  /** @minLength 1 */
+  serialNo: string;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  revokedAt?: string | null;
+  cardRegistered?: boolean;
+  depositAmount?: number;
+  issueFee?: number;
+  /** @nullable */
+  recipientName?: string | null;
+  /** @nullable */
+  recipientPhone?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface UpdateAccessCardBody {
+  /** @nullable */
+  unitId?: number | null;
+  serialNo?: string;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  revokedAt?: string | null;
+  cardRegistered?: boolean;
+  depositAmount?: number;
+  issueFee?: number;
+  /** @nullable */
+  recipientName?: string | null;
+  /** @nullable */
+  recipientPhone?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export type ListTasksParams = {

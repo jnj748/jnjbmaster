@@ -19,4 +19,24 @@ export interface UpdateUnitBody {
   /** @nullable */
   notes?: string | null;
   status?: UpdateUnitBodyStatus;
+  /** @nullable */
+  unitUsage?: string | null;
+  /** @nullable */
+  residenceUsage?: string | null;
+  /** @nullable */
+  ownershipType?: string | null;
+  /** @nullable */
+  keySentAt?: string | null;
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+  /** @nullable */
+  businessNumber?: string | null;
+  /** @nullable */
+  entryDate?: string | null;
+  /** @nullable */
+  supplyArea?: string | null;
 }

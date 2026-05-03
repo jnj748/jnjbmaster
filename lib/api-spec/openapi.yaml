@@ -7657,6 +7657,259 @@ paths:
               schema:
                 $ref: "#/components/schemas/NoticeOutput"
 
+  # ── [Task #796] 환경설정 풀세트 ───────────────────────────────
+  /settings/metering-environment:
+    get:
+      operationId: getMeteringEnvironment
+      tags: [buildingSettings]
+      summary: 검침환경 조회
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeteringEnvironment"
+    put:
+      operationId: upsertMeteringEnvironment
+      tags: [buildingSettings]
+      summary: 검침환경 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertMeteringEnvironmentBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeteringEnvironment"
+
+  /settings/metering-usage:
+    get:
+      operationId: getMeteringUsageSettings
+      tags: [buildingSettings]
+      summary: 검침사용현황설정 조회
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeteringUsageSettings"
+    put:
+      operationId: upsertMeteringUsageSettings
+      tags: [buildingSettings]
+      summary: 검침사용현황설정 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertMeteringUsageBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeteringUsageSettings"
+
+  /settings/notice-output:
+    get:
+      operationId: getNoticeOutputSettings
+      tags: [buildingSettings]
+      summary: 고지서출력환경 조회
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeOutputSettings"
+    put:
+      operationId: upsertNoticeOutputSettings
+      tags: [buildingSettings]
+      summary: 고지서출력환경 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertNoticeOutputBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeOutputSettings"
+
+  /settings/billing-environment:
+    get:
+      operationId: getBillingEnvironmentSettings
+      tags: [buildingSettings]
+      summary: 관리비부과환경 조회
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingEnvironmentSettings"
+    put:
+      operationId: upsertBillingEnvironmentSettings
+      tags: [buildingSettings]
+      summary: 관리비부과환경 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBillingEnvironmentBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingEnvironmentSettings"
+
+  /settings/year-end-tax:
+    get:
+      operationId: getYearEndTaxInfo
+      tags: [buildingSettings]
+      summary: 연말정산기본정보 조회
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YearEndTaxInfo"
+    put:
+      operationId: upsertYearEndTaxInfo
+      tags: [buildingSettings]
+      summary: 연말정산기본정보 저장
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertYearEndTaxBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YearEndTaxInfo"
+
+  /accountant/prepaid-deposits:
+    get:
+      operationId: listPrepaidDeposits
+      tags: [buildingSettings]
+      summary: 호실별 선수관리비 목록
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PrepaidDeposit"
+    post:
+      operationId: upsertPrepaidDeposit
+      tags: [buildingSettings]
+      summary: 호실 선수관리비 저장(upsert)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertPrepaidDepositBody"
+      responses:
+        "200":
+          description: saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrepaidDeposit"
+
+  /settings/access-cards:
+    get:
+      operationId: listAccessCards
+      tags: [buildingSettings]
+      summary: 출입카드 목록
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccessCard"
+    post:
+      operationId: createAccessCard
+      tags: [buildingSettings]
+      summary: 출입카드 발급 등록
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccessCardBody"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCard"
+
+  /settings/access-cards/{id}:
+    patch:
+      operationId: updateAccessCard
+      tags: [buildingSettings]
+      summary: 출입카드 수정
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccessCardBody"
+      responses:
+        "200":
+          description: updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCard"
+    delete:
+      operationId: deleteAccessCard
+      tags: [buildingSettings]
+      summary: 출입카드 삭제
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: deleted
+
 components:
   schemas:
     # ── [Task #610] Documents (unified registry) ─────────────────────────────
@@ -13166,8 +13419,6 @@ components:
           type: ["string", "null"]
         businessNumber:
           type: ["string", "null"]
-        ownerPhone:
-          type: ["string", "null"]
         entryDate:
           type: ["string", "null"]
           format: date
@@ -13357,6 +13608,29 @@ components:
         status:
           type: string
           enum: [vacant, occupied, maintenance]
+        # [Task #796] XpBIZ 호실관리 그리드용 7개 신규 컬럼.
+        unitUsage:
+          type: ["string", "null"]
+        residenceUsage:
+          type: ["string", "null"]
+        ownershipType:
+          type: ["string", "null"]
+        keySentAt:
+          type: ["string", "null"]
+          format: date
+        vendorName:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        postalCode:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        entryDate:
+          type: ["string", "null"]
+          format: date
+        supplyArea:
+          type: ["string", "null"]
 
     TenantCardToken:
       type: object
@@ -16134,3 +16408,211 @@ components:
         memo:
           type: ["string", "null"]
       required: [kind, amount]
+
+    # ── [Task #796] 환경설정 풀세트 스키마 ─────────────────────
+    MeteringEnvironment:
+      type: object
+      required: [buildingId, config, kepcoTerms]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        config: { type: object, additionalProperties: true }
+        kepcoTerms:
+          type: array
+          items: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertMeteringEnvironmentBody:
+      type: object
+      properties:
+        config: { type: object, additionalProperties: true }
+        kepcoTerms:
+          type: array
+          items: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+
+    MeteringUsageSettings:
+      type: object
+      required: [buildingId, config]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        config: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertMeteringUsageBody:
+      type: object
+      properties:
+        config: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+
+    NoticeOutputSettings:
+      type: object
+      required: [buildingId, showAlias, deliveryPostal, deliveryDirect, deliveryEmail, vatIncluded, positions]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        showAlias: { type: boolean }
+        aliasName: { type: ["string", "null"] }
+        deliveryPostal: { type: boolean }
+        deliveryDirect: { type: boolean }
+        deliveryEmail: { type: boolean }
+        registeredNo: { type: ["string", "null"] }
+        autoTransferOrg: { type: ["string", "null"] }
+        vatIncluded: { type: boolean }
+        positions: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertNoticeOutputBody:
+      type: object
+      properties:
+        showAlias: { type: boolean }
+        aliasName: { type: ["string", "null"] }
+        deliveryPostal: { type: boolean }
+        deliveryDirect: { type: boolean }
+        deliveryEmail: { type: boolean }
+        registeredNo: { type: ["string", "null"] }
+        autoTransferOrg: { type: ["string", "null"] }
+        vatIncluded: { type: boolean }
+        positions: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+
+    BillingEnvironmentSettings:
+      type: object
+      required: [buildingId, categoryConfig, escoConfig]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        categoryConfig: { type: object, additionalProperties: true }
+        vatThresholdM2: { type: ["string", "null"] }
+        escoConfig: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertBillingEnvironmentBody:
+      type: object
+      properties:
+        categoryConfig: { type: object, additionalProperties: true }
+        vatThresholdM2: { type: ["string", "null"] }
+        escoConfig: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+
+    YearEndTaxInfo:
+      type: object
+      required: [buildingId]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        settlementYear: { type: ["integer", "null"] }
+        businessNumber: { type: ["string", "null"] }
+        companyName: { type: ["string", "null"] }
+        representative: { type: ["string", "null"] }
+        businessAddress: { type: ["string", "null"] }
+        industryType: { type: ["string", "null"] }
+        businessItem: { type: ["string", "null"] }
+        contactPerson: { type: ["string", "null"] }
+        taxOfficeCode: { type: ["string", "null"] }
+        deductionMethod: { type: ["string", "null"] }
+        quarterlyPay: { type: boolean }
+        invoiceStatus:
+          type: array
+          items: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertYearEndTaxBody:
+      type: object
+      properties:
+        settlementYear: { type: ["integer", "null"] }
+        businessNumber: { type: ["string", "null"] }
+        companyName: { type: ["string", "null"] }
+        representative: { type: ["string", "null"] }
+        businessAddress: { type: ["string", "null"] }
+        industryType: { type: ["string", "null"] }
+        businessItem: { type: ["string", "null"] }
+        contactPerson: { type: ["string", "null"] }
+        taxOfficeCode: { type: ["string", "null"] }
+        deductionMethod: { type: ["string", "null"] }
+        quarterlyPay: { type: boolean }
+        invoiceStatus:
+          type: array
+          items: { type: object, additionalProperties: true }
+        notes: { type: ["string", "null"] }
+
+    PrepaidDeposit:
+      type: object
+      required: [id, buildingId, unitId, prepaidAmount, receivedAmount, unpaidAmount]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        unitId: { type: integer }
+        depositDate: { type: ["string", "null"], format: date }
+        receiptPeriod: { type: ["string", "null"] }
+        supplyArea: { type: ["string", "null"] }
+        moveInDate: { type: ["string", "null"], format: date }
+        prepaidAmount: { type: integer }
+        receivedAmount: { type: integer }
+        unpaidAmount: { type: integer }
+        paidAt: { type: ["string", "null"], format: date }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    UpsertPrepaidDepositBody:
+      type: object
+      required: [unitId]
+      properties:
+        unitId: { type: integer }
+        depositDate: { type: ["string", "null"], format: date }
+        receiptPeriod: { type: ["string", "null"] }
+        supplyArea: { type: ["string", "null"] }
+        moveInDate: { type: ["string", "null"], format: date }
+        prepaidAmount: { type: integer }
+        receivedAmount: { type: integer }
+        unpaidAmount: { type: integer }
+        paidAt: { type: ["string", "null"], format: date }
+        notes: { type: ["string", "null"] }
+
+    AccessCard:
+      type: object
+      required: [id, buildingId, serialNo, cardRegistered, depositAmount, issueFee]
+      properties:
+        id: { type: integer }
+        buildingId: { type: integer }
+        unitId: { type: ["integer", "null"] }
+        serialNo: { type: string }
+        issuedAt: { type: ["string", "null"], format: date }
+        revokedAt: { type: ["string", "null"], format: date }
+        cardRegistered: { type: boolean }
+        depositAmount: { type: integer }
+        issueFee: { type: integer }
+        recipientName: { type: ["string", "null"] }
+        recipientPhone: { type: ["string", "null"] }
+        bankName: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        updatedAt: { type: string, format: date-time }
+    CreateAccessCardBody:
+      type: object
+      required: [serialNo]
+      properties:
+        unitId: { type: ["integer", "null"] }
+        serialNo: { type: string, minLength: 1 }
+        issuedAt: { type: ["string", "null"], format: date }
+        revokedAt: { type: ["string", "null"], format: date }
+        cardRegistered: { type: boolean }
+        depositAmount: { type: integer }
+        issueFee: { type: integer }
+        recipientName: { type: ["string", "null"] }
+        recipientPhone: { type: ["string", "null"] }
+        bankName: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+    UpdateAccessCardBody:
+      type: object
+      properties:
+        unitId: { type: ["integer", "null"] }
+        serialNo: { type: string }
+        issuedAt: { type: ["string", "null"], format: date }
+        revokedAt: { type: ["string", "null"], format: date }
+        cardRegistered: { type: boolean }
+        depositAmount: { type: integer }
+        issueFee: { type: integer }
+        recipientName: { type: ["string", "null"] }
+        recipientPhone: { type: ["string", "null"] }
+        bankName: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
