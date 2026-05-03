@@ -9,6 +9,8 @@ import { publishScheduleTick } from "./lib/voucherEvents";
 import { addMonths, computeRoundAmount, expectedRound } from "./lib/voucherScheduleMath";
 // [Task #781] T10 외부연동 — 발송 잡 큐 워커. 스케줄러 1분 틱에서 due 잡 처리.
 import { processDueJobs } from "./lib/external/adapter";
+// [Task #821] 자동이체 결과 폴링 — 정기 잡으로 'requested' 행을 PG 에서 조회/적재.
+import { pollAutoDebitPending } from "./routes/billingFullSet";
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -1027,6 +1029,35 @@ let monthlyTimer: ReturnType<typeof setInterval> | null = null;
 let reminderTimer: ReturnType<typeof setInterval> | null = null;
 // [Task #781] 외부 발송 워커 타이머 — 1분 간격으로 due 잡 처리.
 let dispatchTimer: ReturnType<typeof setInterval> | null = null;
+// [Task #821] 자동이체 결과 폴링 워커 타이머 — 5분 간격으로 'requested' 행 갱신.
+let autoDebitPollTimer: ReturnType<typeof setInterval> | null = null;
+
+const AUTO_DEBIT_POLL_INTERVAL_MS = (() => {
+  const raw = process.env.PG_AUTO_DEBIT_POLL_INTERVAL_MS;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n >= 30_000 ? n : 5 * 60 * 1000;
+})();
+
+async function runAutoDebitPollTick(): Promise<void> {
+  try {
+    const result = await pollAutoDebitPending();
+    if (!result.enabled) {
+      // PG_AUTO_DEBIT_POLL_URL 미설정 — 잡은 no-op. (스팸 방지로 로그 생략)
+      return;
+    }
+    if (result.scanned > 0 || result.updated > 0) {
+      logger.info(
+        { scanned: result.scanned, updated: result.updated },
+        "[Task #821] auto-debit poll tick completed",
+      );
+    } else {
+      // 실행 이력 추적성 — 0건이어도 잡이 살아있음을 debug 레벨로 남긴다.
+      logger.debug("[Task #821] auto-debit poll tick: no pending rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[Task #821] auto-debit poll tick failed");
+  }
+}
 
 export function startScheduler(): void {
   logger.info("Starting automated scheduler for privacy and vehicle tasks");
@@ -1096,6 +1127,14 @@ export function startScheduler(): void {
   dispatchTimer = setInterval(() => {
     processDueJobs(50).catch((err) => logger.error({ err }, "Dispatch worker tick failed"));
   }, 60 * 1000);
+
+  // [Task #821] 자동이체 결과 폴링 워커 — 기본 5분 간격. PG_AUTO_DEBIT_POLL_URL 미설정 시 no-op.
+  //   부팅 직후 1회 실행 후 주기적 실행. PG_AUTO_DEBIT_POLL_INTERVAL_MS (>=30000) 로 주기 조절 가능.
+  runAutoDebitPollTick();
+  autoDebitPollTimer = setInterval(() => {
+    runAutoDebitPollTick();
+  }, AUTO_DEBIT_POLL_INTERVAL_MS);
+  logger.info({ intervalMs: AUTO_DEBIT_POLL_INTERVAL_MS }, "[Task #821] auto-debit poll worker scheduled");
 }
 
 export function stopScheduler(): void {
@@ -1114,6 +1153,10 @@ export function stopScheduler(): void {
   if (dispatchTimer) {
     clearInterval(dispatchTimer);
     dispatchTimer = null;
+  }
+  if (autoDebitPollTimer) {
+    clearInterval(autoDebitPollTimer);
+    autoDebitPollTimer = null;
   }
   logger.info("Scheduler stopped");
 }

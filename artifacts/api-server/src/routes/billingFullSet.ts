@@ -854,20 +854,23 @@ router.post("/billing-auto-debit/callback", async (req, res) => {
 // [Task #818] 폴링 잡 — 'requested' 상태인 행을 대상으로 PG 에서 결과를 조회/적재.
 //   PG_AUTO_DEBIT_POLL_URL 가 설정된 경우 GET <url>?requestRef=... 로 조회한다.
 //   응답 형식: { status: 'success'|'failed'|'pending', resultCode?, resultMessage?, paidAt? }
-//   설정되지 않은 경우 204 (no-op).
-router.post("/billing-auto-debit/poll", async (req, res) => {
-  const buildingId = await getUserBuildingId(req);
-  if (!buildingId) return send403(res);
-  const month = typeof req.body?.month === "string" ? req.body.month : null;
-  const conds = [
-    eq(autoDebitResultsTable.buildingId, buildingId),
-    eq(autoDebitResultsTable.status, "requested"),
-  ];
-  if (month) conds.push(eq(autoDebitResultsTable.billingMonth, month));
-  const pending = await db.select().from(autoDebitResultsTable).where(and(...conds));
-
+//   설정되지 않은 경우 no-op.
+//
+// [Task #821] 본 함수는 라우트 핸들러와 스케줄러(scheduler.ts) 양쪽에서 재사용한다.
+//   buildingId/month 미지정 시 전역(모든 건물의 'requested' 행) 폴링.
+export async function pollAutoDebitPending(opts: {
+  buildingId?: number;
+  month?: string | null;
+} = {}): Promise<{ enabled: boolean; scanned: number; updated: number }> {
   const pollUrl = process.env.PG_AUTO_DEBIT_POLL_URL;
-  if (!pollUrl) { res.status(204).end(); return; }
+  if (!pollUrl) return { enabled: false, scanned: 0, updated: 0 };
+
+  const conds = [eq(autoDebitResultsTable.status, "requested")];
+  if (typeof opts.buildingId === "number") {
+    conds.push(eq(autoDebitResultsTable.buildingId, opts.buildingId));
+  }
+  if (opts.month) conds.push(eq(autoDebitResultsTable.billingMonth, opts.month));
+  const pending = await db.select().from(autoDebitResultsTable).where(and(...conds));
 
   let updated = 0;
   for (const row of pending) {
@@ -889,7 +892,16 @@ router.post("/billing-auto-debit/poll", async (req, res) => {
       logger.warn({ err: String(e), requestRef: row.requestRef }, "auto-debit poll failed");
     }
   }
-  res.json({ scanned: pending.length, updated });
+  return { enabled: true, scanned: pending.length, updated };
+}
+
+router.post("/billing-auto-debit/poll", async (req, res) => {
+  const buildingId = await getUserBuildingId(req);
+  if (!buildingId) return send403(res);
+  const month = typeof req.body?.month === "string" ? req.body.month : null;
+  const result = await pollAutoDebitPending({ buildingId, month });
+  if (!result.enabled) { res.status(204).end(); return; }
+  res.json({ scanned: result.scanned, updated: result.updated });
 });
 
 // [Task #818] 외부 PG 의 비인증 webhook 진입점 (HMAC 서명 필수).
