@@ -942,10 +942,14 @@ async function scenario8_interim() {
 // ──────────────────────────────────────────
 // S9 — 용역업체 정산 (포괄적)
 //   (a) 잘못된 contractId → 400, 미승인 work_report → 400 (격리 검증).
-//   (b) 정상 라이프사이클: 테스트 settlement 직접 INSERT(pending) → PATCH approved → PATCH paid.
+//   (a4)~(a6) 정상 happy-path: contract + 승인 work_report → POST /settlements →
+//        PATCH confirmed → PATCH paid (status 전이 + paidAt + 금액 정합성 단언).
+//   (b) 라이프사이클(직접 INSERT 시드): pending → confirmed → paid PATCH 보조 검증.
+//   주의: settlements 의 enum 은 ["pending","confirmed","paid","cancelled"] 로,
+//        한국어 "결재(승인)" 단계는 status="confirmed" 에 해당한다 (도메인 어휘 매핑).
 // ──────────────────────────────────────────
 async function scenario9_settlement() {
-  const r = rec("S9", "용역업체 정산 — 가드 + pending→approved→paid");
+  const r = rec("S9", "용역업체 정산 — 가드 + pending→confirmed→paid (happy-path)");
   const manager = await login("manager@test.com");
 
   // 픽스처: 시나리오 전용 RFQ + Quote 1쌍을 만들어 work_reports/settlements FK 로 사용
@@ -1077,6 +1081,49 @@ async function scenario9_settlement() {
         await db.delete(settlementsTable).where(eq(settlementsTable.id, createdSettlementId));
       }
     });
+
+    // (a5)/(a6) — 정상 happy-path 체이닝: API 로 만든 settlement 를 PATCH 로
+    //   pending → confirmed (= 한국어 "결재/승인" 단계) → paid (= 지급 완료) 까지 진행하고
+    //   status 전이 + paidAt + 금액 정합성(paymentAmount = contractAmount - feeAmount) 을 함께 단언한다.
+    //   (Task #771) — 결재→지급 전 흐름이 매 회귀에서 자동으로 검증되도록 보장.
+    if (createdSettlementId != null) {
+      const sid = createdSettlementId;
+      const [s0] = await db.select().from(settlementsTable).where(eq(settlementsTable.id, sid));
+      if (s0.status !== "pending") fail(r, `(a5) 생성 직후 status=${s0.status} ≠ pending`);
+      if (Number(s0.paymentAmount) !== Number(s0.contractAmount) - Number(s0.feeAmount)) {
+        fail(r, `(a5) 금액 정합성 위배 paymentAmount=${s0.paymentAmount}, contractAmount-feeAmount=${Number(s0.contractAmount) - Number(s0.feeAmount)}`);
+      } else {
+        note(r, `(a5) 생성 직후 pending + 금액 정합성 OK paymentAmount=${s0.paymentAmount}`);
+      }
+
+      const apvRes2 = await fetch(`${API}/settlements/${sid}`, {
+        method: "PATCH", headers: authHeader(manager.token),
+        body: JSON.stringify({ status: "confirmed" }),
+      });
+      const apvBody = apvRes2.ok ? "" : (await apvRes2.text()).replace(/\s+/g, " ").slice(0, 240);
+      const [sConfirmed] = await db.select().from(settlementsTable).where(eq(settlementsTable.id, sid));
+      if (sConfirmed.status !== "confirmed") fail(r, `(a5) DB status=${sConfirmed.status} ≠ confirmed (HTTP ${apvRes2.status})`);
+      else note(r, `(a5) pending → confirmed OK${apvRes2.ok ? "" : ` (HTTP ${apvRes2.status})`}`);
+      if (!apvRes2.ok && apvRes2.status >= 500) fail(r, `(a5) [응답직렬화 결함] HTTP ${apvRes2.status} head=${apvBody}`);
+
+      const paidDate = new Date().toISOString().slice(0, 10);
+      const payRes = await fetch(`${API}/settlements/${sid}`, {
+        method: "PATCH", headers: authHeader(manager.token),
+        body: JSON.stringify({ status: "paid", paidAt: paidDate }),
+      });
+      const payBody = payRes.ok ? "" : (await payRes.text()).replace(/\s+/g, " ").slice(0, 240);
+      const [sPaid] = await db.select().from(settlementsTable).where(eq(settlementsTable.id, sid));
+      if (sPaid.status !== "paid") fail(r, `(a6) DB status=${sPaid.status} ≠ paid (HTTP ${payRes.status})`);
+      else if (!sPaid.paidAt) fail(r, "(a6) paidAt 미설정");
+      else if (Number(sPaid.paymentAmount) !== Number(sPaid.contractAmount) - Number(sPaid.feeAmount)) {
+        fail(r, `(a6) paid 후 금액 정합성 위배 paymentAmount=${sPaid.paymentAmount}, contractAmount-feeAmount=${Number(sPaid.contractAmount) - Number(sPaid.feeAmount)}`);
+      } else {
+        note(r, `(a6) confirmed → paid OK paidAt=${sPaid.paidAt} paymentAmount=${sPaid.paymentAmount}`);
+      }
+      if (!payRes.ok && payRes.status >= 500) fail(r, `(a6) [응답직렬화 결함] HTTP ${payRes.status} head=${payBody}`);
+    } else {
+      note(r, "(a5)/(a6) 스킵 — (a4) 에서 settlement 가 생성되지 않음");
+    }
   } else {
     note(r, "(a3)/(a4) 스킵 — 사전 INSERT 실패 (위 결함 후보 참조)");
   }

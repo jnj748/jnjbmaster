@@ -11,6 +11,18 @@ import {
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 
+// Drizzle 의 timestamp 컬럼은 Date 객체로 반환되지만 Zod 응답 스키마(`UpdateSettlementResponse`,
+// `ListSettlementsResponseItem`)는 createdAt/updatedAt 을 ISO 문자열로 기대한다. 이 미스매치로
+// `*.parse(row)` 가 ZodError 를 던져 200 응답 대신 500 이 나가는 회귀(Task #771)를 막기 위해
+// 직렬화 직전 Date 를 ISO 문자열로 정규화한다. paidAt 은 `date` 컬럼이라 이미 문자열이다.
+function serializeSettlement<T extends { createdAt: Date | string; updatedAt: Date | string }>(row: T) {
+  return {
+    ...row,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  };
+}
+
 const router: IRouter = Router();
 router.use("/settlements", requireRole("manager", "platform_admin", "accountant"));
 router.get("/settlements", async (req, res): Promise<void> => {
@@ -30,7 +42,7 @@ router.get("/settlements", async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(settlementsTable.createdAt));
 
-  res.json(ListSettlementsResponse.parse(settlements));
+  res.json(ListSettlementsResponse.parse(settlements.map(serializeSettlement)));
 });
 
 router.post("/settlements", async (req, res): Promise<void> => {
@@ -62,7 +74,7 @@ router.post("/settlements", async (req, res): Promise<void> => {
   }
 
   const [settlement] = await db.insert(settlementsTable).values(parsed.data).returning();
-  res.status(201).json(UpdateSettlementResponse.parse(settlement));
+  res.status(201).json(UpdateSettlementResponse.parse(serializeSettlement(settlement)));
 });
 
 router.patch("/settlements/:id", async (req, res): Promise<void> => {
@@ -89,7 +101,7 @@ router.patch("/settlements/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(UpdateSettlementResponse.parse(settlement));
+  res.json(UpdateSettlementResponse.parse(serializeSettlement(settlement)));
 });
 
 export default router;
