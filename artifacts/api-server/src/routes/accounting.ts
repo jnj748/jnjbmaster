@@ -78,24 +78,109 @@ router.post("/accounting/accounts", requireAction("accounting.account.create"), 
 });
 
 // ── 분개장 ─────────────────────────────────────────────────
+// [Task #795] page/limit 기반 페이지네이션 — 연 단위 누적 데이터에서도
+// 화면이 무거워지지 않도록 분개 헤더만 슬라이스한다. total 을 함께 반환.
+function clampInt(v: unknown, def: number, min: number, max: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
 router.get("/accounting/journal", async (req: Request, res: Response): Promise<void> => {
   const scope = await buildEntryScope(req);
-  if (scope.kind === "empty") { res.json({ entries: [] }); return; }
+  const limit = clampInt(req.query.limit, 100, 1, 500);
+  const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
+  if (scope.kind === "empty") { res.json({ entries: [], total: 0, limit, offset }); return; }
   const { from, to } = req.query as { from?: string; to?: string };
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
   if (from) conds.push(gte(journalEntriesTable.entryDate, from));
   if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+  const where = conds.length ? and(...conds) : undefined;
+  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(journalEntriesTable).where(where);
   const entries = await db.select().from(journalEntriesTable)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(where)
     .orderBy(desc(journalEntriesTable.entryDate), desc(journalEntriesTable.id))
-    .limit(500);
+    .limit(limit).offset(offset);
   const ids = entries.map(e => e.id);
   const lines = ids.length ? await db.select().from(journalLinesTable).where(inArray(journalLinesTable.entryId, ids)).orderBy(asc(journalLinesTable.entryId), asc(journalLinesTable.sortOrder)) : [];
   const grouped = new Map<number, typeof lines>();
   for (const l of lines) { const arr = grouped.get(l.entryId) ?? []; arr.push(l); grouped.set(l.entryId, arr); }
-  res.json({ entries: entries.map(e => ({ ...e, lines: grouped.get(e.id) ?? [] })) });
+  res.json({ entries: entries.map(e => ({ ...e, lines: grouped.get(e.id) ?? [] })), total, limit, offset });
 });
+
+// [Task #795] CSV 내보내기 공용 유틸.
+//   - csvEscape: 콤마/따옴표/개행 외에 = + - @ 로 시작하는 셀은
+//     앞에 작은따옴표를 붙여 Excel formula injection 을 차단한다.
+//   - sendCsv: BOM + UTF-8 헤더로 한글 깨짐 방지.
+//   - MAX_EXPORT_ROWS: 무제한 export 시 메모리/응답 폭증을 막는 하드 캡.
+//     초과 시 조용히 잘라내지 않고 413 으로 거부 — 사용자에게 필터를
+//     좁히도록 유도하여 데이터 정합성을 보존한다.
+const MAX_EXPORT_ROWS = 100_000;
+function csvEscape(v: unknown): string {
+  if (v == null) return "";
+  const raw = typeof v === "string" ? v : String(v);
+  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  if (/[",\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+  return safe;
+}
+function sendCsv(res: Response, filename: string, header: string[], rows: Array<Array<unknown>>): void {
+  const body = [header.join(","), ...rows.map(r => r.map(csvEscape).join(","))].join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send("\uFEFF" + body);
+}
+function sendExportTooLarge(res: Response, total: number): void {
+  res.status(413).json({
+    error: `내보낼 데이터가 너무 많습니다 (${total.toLocaleString("ko-KR")}건). 기간/필터를 좁혀 ${MAX_EXPORT_ROWS.toLocaleString("ko-KR")}건 이하로 만든 뒤 다시 시도하세요.`,
+    total, max: MAX_EXPORT_ROWS,
+  });
+}
+
+router.get("/accounting/journal.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_entry" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const scope = await buildEntryScope(req);
+    const header = ["entryId","entryDate","memo","sourceEvent","isReversal","locked","buildingId","accountCode","accountName","debit","credit","partyName","unitId","lineMemo"];
+    if (scope.kind === "empty") { sendCsv(res, `journal-${Date.now()}.csv`, header, []); return; }
+    const { from, to } = req.query as { from?: string; to?: string };
+    const conds: SQL[] = [];
+    if (scope.kind === "ids") conds.push(scope.cond);
+    if (from) conds.push(gte(journalEntriesTable.entryDate, from));
+    if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+    const where = conds.length ? and(...conds) : undefined;
+    // [Task #795] 행 수를 먼저 세고 캡 초과 시 413 으로 거부 — 조용한 절단 금지.
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(journalEntriesTable)
+      .innerJoin(journalLinesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
+      .where(where);
+    if (total > MAX_EXPORT_ROWS) { sendExportTooLarge(res, total); return; }
+    const rows = await db.select({
+      entryId: journalEntriesTable.id,
+      entryDate: journalEntriesTable.entryDate,
+      memo: journalEntriesTable.memo,
+      sourceEvent: journalEntriesTable.sourceEvent,
+      isReversal: journalEntriesTable.isReversal,
+      locked: journalEntriesTable.locked,
+      buildingId: journalEntriesTable.buildingId,
+      accountCode: journalLinesTable.accountCode,
+      accountName: journalLinesTable.accountName,
+      debit: journalLinesTable.debit,
+      credit: journalLinesTable.credit,
+      partyName: journalLinesTable.partyName,
+      unitId: journalLinesTable.unitId,
+      lineMemo: journalLinesTable.memo,
+    }).from(journalEntriesTable)
+      .innerJoin(journalLinesTable, eq(journalLinesTable.entryId, journalEntriesTable.id))
+      .where(where)
+      .orderBy(desc(journalEntriesTable.entryDate), desc(journalEntriesTable.id), asc(journalLinesTable.sortOrder));
+    sendCsv(res, `journal-${Date.now()}.csv`, header, rows.map(r => [
+      r.entryId, r.entryDate, r.memo, r.sourceEvent, r.isReversal, r.locked,
+      r.buildingId, r.accountCode, r.accountName, r.debit, r.credit, r.partyName, r.unitId, r.lineMemo,
+    ]));
+  });
 
 router.post("/accounting/journal", requireAction("journal.post"), audit("journal.post", { targetType: "journal_entry" }), async (req: Request, res: Response): Promise<void> => {
   // [Task #778] platform_admin 은 본인 매핑 없이 body.buildingId 로 대상 건물 명시 가능.
@@ -179,11 +264,15 @@ router.post("/accounting/journal/:id/reverse", requireAction("journal.reverse"),
 });
 
 // ── 총계정원장 (계정별 차/대 + 잔액) ───────────────────────
-router.get("/accounting/general-ledger", async (req: Request, res: Response): Promise<void> => {
+// [Task #795] 잔액은 누적 계산이라 전체 행을 먼저 만든 뒤 page/limit 으로 슬라이스한다.
+// total/limit/offset 을 같이 반환해 페이지네이션 컨트롤이 가능하도록 한다.
+async function fetchGeneralLedgerLines(req: Request, accountCode: string, from?: string, to?: string) {
   const scope = await buildEntryScope(req);
-  if (scope.kind === "empty") { res.json({ account: null, lines: [], finalBalance: 0 }); return; }
-  const { accountCode, from, to } = req.query as { accountCode?: string; from?: string; to?: string };
-  if (!accountCode) { res.status(400).json({ error: "accountCode 필요" }); return; }
+  const accCond = await buildAccountScope(req);
+  const accConds: SQL[] = [eq(chartOfAccountsTable.code, accountCode)];
+  if (accCond) accConds.push(accCond);
+  const [acc] = await db.select().from(chartOfAccountsTable).where(and(...accConds)).limit(1);
+  if (scope.kind === "empty") return { acc, lines: [] as Array<{ lineId: number; entryId: number; entryDate: string; memo: string; accountCode: string; accountName: string; debit: number; credit: number; partyName: string | null; unitId: number | null; sourceEvent: string; balance: number }>, finalBalance: 0 };
   const conds: SQL[] = [eq(journalLinesTable.accountCode, accountCode)];
   if (scope.kind === "ids") conds.push(scope.cond);
   if (from) conds.push(gte(journalEntriesTable.entryDate, from));
@@ -204,31 +293,65 @@ router.get("/accounting/general-ledger", async (req: Request, res: Response): Pr
     .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
     .where(and(...conds))
     .orderBy(asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id));
-  const accCond = await buildAccountScope(req);
-  const accConds: SQL[] = [eq(chartOfAccountsTable.code, accountCode)];
-  if (accCond) accConds.push(accCond);
-  const [acc] = await db.select().from(chartOfAccountsTable).where(and(...accConds)).limit(1);
   const debitNormal = acc && (acc.type === "asset" || acc.type === "expense");
   let bal = 0;
   const withBalance = rows.map(r => {
     bal += debitNormal ? (r.debit - r.credit) : (r.credit - r.debit);
     return { ...r, balance: bal };
   });
-  res.json({ account: acc ?? { code: accountCode, name: accountCode, type: "asset" }, lines: withBalance, finalBalance: bal });
+  return { acc, lines: withBalance, finalBalance: bal };
+}
+
+router.get("/accounting/general-ledger", async (req: Request, res: Response): Promise<void> => {
+  const { accountCode, from, to } = req.query as { accountCode?: string; from?: string; to?: string };
+  if (!accountCode) { res.status(400).json({ error: "accountCode 필요" }); return; }
+  const limit = clampInt(req.query.limit, 100, 1, 1000);
+  const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
+  const { acc, lines, finalBalance } = await fetchGeneralLedgerLines(req, accountCode, from, to);
+  const total = lines.length;
+  const sliced = lines.slice(offset, offset + limit);
+  res.json({ account: acc ?? { code: accountCode, name: accountCode, type: "asset" }, lines: sliced, finalBalance, total, limit, offset });
 });
 
+router.get("/accounting/general-ledger.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_line" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { accountCode, from, to } = req.query as { accountCode?: string; from?: string; to?: string };
+    if (!accountCode) { res.status(400).json({ error: "accountCode 필요" }); return; }
+    const { lines } = await fetchGeneralLedgerLines(req, accountCode, from, to);
+    // [Task #795] 메모리 폭증 방지 — 캡 초과 시 조용한 절단 대신 413 으로 거부.
+    if (lines.length > MAX_EXPORT_ROWS) { sendExportTooLarge(res, lines.length); return; }
+    const header = ["entryId","entryDate","memo","accountCode","accountName","partyName","unitId","debit","credit","balance","sourceEvent"];
+    sendCsv(res, `general-ledger-${accountCode}-${Date.now()}.csv`, header, lines.map(l => [
+      l.entryId, l.entryDate, l.memo, l.accountCode, l.accountName, l.partyName, l.unitId, l.debit, l.credit, l.balance, l.sourceEvent,
+    ]));
+  });
+
 // ── 보조부원장 (거래처/호실별) ─────────────────────────────
-router.get("/accounting/sub-ledger", async (req: Request, res: Response): Promise<void> => {
+async function buildSubLedgerWhere(req: Request, q: { partyName?: string; unitId?: string; from?: string; to?: string }) {
   const scope = await buildEntryScope(req);
-  if (scope.kind === "empty") { res.json({ lines: [] }); return; }
-  const { partyName, unitId, from, to } = req.query as { partyName?: string; unitId?: string; from?: string; to?: string };
-  if (!partyName && !unitId) { res.status(400).json({ error: "partyName 또는 unitId 필요" }); return; }
+  if (scope.kind === "empty") return { empty: true as const };
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
-  if (partyName) conds.push(eq(journalLinesTable.partyName, partyName));
-  if (unitId) conds.push(eq(journalLinesTable.unitId, Number(unitId)));
-  if (from) conds.push(gte(journalEntriesTable.entryDate, from));
-  if (to) conds.push(lte(journalEntriesTable.entryDate, to));
+  if (q.partyName) conds.push(eq(journalLinesTable.partyName, q.partyName));
+  if (q.unitId) conds.push(eq(journalLinesTable.unitId, Number(q.unitId)));
+  if (q.from) conds.push(gte(journalEntriesTable.entryDate, q.from));
+  if (q.to) conds.push(lte(journalEntriesTable.entryDate, q.to));
+  return { empty: false as const, where: conds.length ? and(...conds) : undefined };
+}
+
+router.get("/accounting/sub-ledger", async (req: Request, res: Response): Promise<void> => {
+  const { partyName, unitId, from, to } = req.query as { partyName?: string; unitId?: string; from?: string; to?: string };
+  if (!partyName && !unitId) { res.status(400).json({ error: "partyName 또는 unitId 필요" }); return; }
+  const limit = clampInt(req.query.limit, 100, 1, 1000);
+  const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
+  const w = await buildSubLedgerWhere(req, { partyName, unitId, from, to });
+  if (w.empty) { res.json({ lines: [], total: 0, limit, offset }); return; }
+  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+    .where(w.where);
   const rows = await db.select({
     lineId: journalLinesTable.id,
     entryId: journalEntriesTable.id,
@@ -242,10 +365,45 @@ router.get("/accounting/sub-ledger", async (req: Request, res: Response): Promis
     unitId: journalLinesTable.unitId,
   }).from(journalLinesTable)
     .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
-    .where(conds.length ? and(...conds) : undefined)
-    .orderBy(asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id));
-  res.json({ lines: rows });
+    .where(w.where)
+    .orderBy(asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id))
+    .limit(limit).offset(offset);
+  res.json({ lines: rows, total, limit, offset });
 });
+
+router.get("/accounting/sub-ledger.csv",
+  requireAction("data.export"),
+  audit("data.export", { targetType: "journal_line" }),
+  async (req: Request, res: Response): Promise<void> => {
+    const { partyName, unitId, from, to } = req.query as { partyName?: string; unitId?: string; from?: string; to?: string };
+    if (!partyName && !unitId) { res.status(400).json({ error: "partyName 또는 unitId 필요" }); return; }
+    const header = ["entryId","entryDate","memo","accountCode","accountName","partyName","unitId","debit","credit"];
+    const w = await buildSubLedgerWhere(req, { partyName, unitId, from, to });
+    if (w.empty) { sendCsv(res, `sub-ledger-${Date.now()}.csv`, header, []); return; }
+    // [Task #795] 행 수 카운트 후 캡 초과 시 413 — 조용한 절단 금지.
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(journalLinesTable)
+      .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(w.where);
+    if (total > MAX_EXPORT_ROWS) { sendExportTooLarge(res, total); return; }
+    const rows = await db.select({
+      entryId: journalEntriesTable.id,
+      entryDate: journalEntriesTable.entryDate,
+      memo: journalEntriesTable.memo,
+      accountCode: journalLinesTable.accountCode,
+      accountName: journalLinesTable.accountName,
+      debit: journalLinesTable.debit,
+      credit: journalLinesTable.credit,
+      partyName: journalLinesTable.partyName,
+      unitId: journalLinesTable.unitId,
+    }).from(journalLinesTable)
+      .innerJoin(journalEntriesTable, eq(journalEntriesTable.id, journalLinesTable.entryId))
+      .where(w.where)
+      .orderBy(asc(journalEntriesTable.entryDate), asc(journalEntriesTable.id));
+    sendCsv(res, `sub-ledger-${Date.now()}.csv`, header, rows.map(r => [
+      r.entryId, r.entryDate, r.memo, r.accountCode, r.accountName, r.partyName, r.unitId, r.debit, r.credit,
+    ]));
+  });
 
 // ── 현금출납장 (1010 + 1020 합산) ──────────────────────────
 router.get("/accounting/cashbook", async (req: Request, res: Response): Promise<void> => {

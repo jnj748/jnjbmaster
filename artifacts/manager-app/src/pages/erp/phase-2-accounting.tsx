@@ -18,6 +18,23 @@ const apiBase = `${BASE}api`.replace(/\/+/g, "/");
 
 const won = (n: number) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
+const PAGE_SIZE = 100;
+
+// [Task #795] CSV 다운로드 — 인증 토큰을 헤더에 실어 fetch 후 blob 으로 받아 저장.
+//   data.export 감사로그는 서버측 audit 미들웨어가 자동으로 기록한다.
+async function downloadCsv(token: string | null, path: string, filename: string): Promise<void> {
+  const res = await fetch(`${apiBase}${path}`, {
+    credentials: "include",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`.slice(0, 200));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface Account { code: string; name: string; type: string; isHeader: boolean; parentCode: string | null }
 interface JournalLine { id: number; accountCode: string; accountName: string; debit: number; credit: number; partyName: string | null; unitId: number | null; memo: string | null }
 interface JournalEntry { id: number; entryDate: string; memo: string; sourceEvent: string; isBalanced: boolean; locked: boolean; isReversal: boolean; lines: JournalLine[] }
@@ -86,17 +103,33 @@ export default function Phase2AccountingPage() {
 // ── 분개장 ─────────────────────────────────────────────────
 function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
   const api = useApi();
+  const { token } = useAuth();
   const [from, setFrom] = useState(monthStartStr());
   const [to, setTo] = useState(todayStr());
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
-  const reload = async () => {
+  const reload = async (nextOffset = offset) => {
     setLoading(true);
-    try { const r = await api<{ entries: JournalEntry[] }>(`/accounting/journal?from=${from}&to=${to}`); setEntries(r.entries); }
+    try {
+      const r = await api<{ entries: JournalEntry[]; total: number }>(`/accounting/journal?from=${from}&to=${to}&limit=${PAGE_SIZE}&offset=${nextOffset}`);
+      setEntries(r.entries); setTotal(r.total); setOffset(nextOffset);
+    }
     catch (e) { toast.error(`분개장 로드 실패: ${(e as Error).message}`); }
     finally { setLoading(false); }
   };
-  useEffect(() => { reload(); }, []);
+  // 조회 버튼 / 기간 변경 시 첫 페이지로 리셋.
+  const search = () => reload(0);
+  useEffect(() => { reload(0); }, []);
+  const exportCsv = async () => {
+    try {
+      await downloadCsv(token, `/accounting/journal.csv?from=${from}&to=${to}`, `journal-${from}_${to}.csv`);
+      toast.success("CSV 다운로드 완료");
+    } catch (e) { toast.error(`CSV 내보내기 실패: ${(e as Error).message}`); }
+  };
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const [showNew, setShowNew] = useState(false);
   const [draft, setDraft] = useState({ entryDate: todayStr(), memo: "", lines: [{ accountCode: "", debit: 0, credit: 0, partyName: "", memo: "" }, { accountCode: "", debit: 0, credit: 0, partyName: "", memo: "" }] });
@@ -111,7 +144,7 @@ function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
       toast.success("분개가 등록되었습니다");
       setShowNew(false);
       setDraft({ entryDate: todayStr(), memo: "", lines: [{ accountCode: "", debit: 0, credit: 0, partyName: "", memo: "" }, { accountCode: "", debit: 0, credit: 0, partyName: "", memo: "" }] });
-      reload();
+      reload(offset);
     } catch (e) { toast.error(`등록 실패: ${(e as Error).message}`); }
   };
   const reverse = async (id: number) => {
@@ -124,7 +157,7 @@ function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
         headers: { "X-Audit-Reason": reason.trim().slice(0, 500) },
         body: JSON.stringify({ reason: reason.trim() }),
       });
-      toast.success("역분개 생성 완료"); reload();
+      toast.success("역분개 생성 완료"); reload(offset);
     } catch (e) { toast.error(`역분개 실패: ${(e as Error).message}`); }
   };
 
@@ -135,7 +168,8 @@ function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
         <div className="flex items-end gap-2">
           <div><Label>시작</Label><Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-36" /></div>
           <div><Label>종료</Label><Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-36" /></div>
-          <Button onClick={reload} disabled={loading}>조회</Button>
+          <Button onClick={search} disabled={loading}>조회</Button>
+          <Button variant="outline" onClick={exportCsv} data-testid="journal-csv-export">CSV 내보내기</Button>
           <Button variant="default" onClick={() => setShowNew(s => !s)}>{showNew ? "닫기" : "+ 수동 분개"}</Button>
         </div>
       </CardHeader>
@@ -205,6 +239,13 @@ function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
             {entries.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">조회 결과가 없습니다</TableCell></TableRow>}
           </TableBody>
         </Table>
+        <div className="flex items-center justify-between text-sm" data-testid="journal-pagination">
+          <span className="text-muted-foreground">총 {total.toLocaleString("ko-KR")}건 / 페이지 {page} / {totalPages}</span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" disabled={offset === 0 || loading} onClick={() => reload(Math.max(0, offset - PAGE_SIZE))}>이전</Button>
+            <Button size="sm" variant="outline" disabled={offset + PAGE_SIZE >= total || loading} onClick={() => reload(offset + PAGE_SIZE)}>다음</Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -213,20 +254,36 @@ function JournalTab({ codeOptions }: { codeOptions: Account[] }) {
 // ── 총계정원장 ──────────────────────────────────────────────
 function GeneralLedgerTab({ codeOptions }: { codeOptions: Account[] }) {
   const api = useApi();
+  const { token } = useAuth();
   const [code, setCode] = useState("");
   const [from, setFrom] = useState(monthStartStr());
   const [to, setTo] = useState(todayStr());
-  const [data, setData] = useState<{ account: { code: string; name: string }; lines: Array<{ entryDate: string; memo: string; debit: number; credit: number; balance: number; partyName: string | null }>; finalBalance: number } | null>(null);
-  const reload = async () => {
+  const [offset, setOffset] = useState(0);
+  const [data, setData] = useState<{ account: { code: string; name: string }; lines: Array<{ entryDate: string; memo: string; debit: number; credit: number; balance: number; partyName: string | null }>; finalBalance: number; total: number } | null>(null);
+  const reload = async (nextOffset = offset) => {
     if (!code) return;
-    try { const r = await api<typeof data>(`/accounting/general-ledger?accountCode=${code}&from=${from}&to=${to}`); setData(r); }
+    try {
+      const r = await api<NonNullable<typeof data>>(`/accounting/general-ledger?accountCode=${code}&from=${from}&to=${to}&limit=${PAGE_SIZE}&offset=${nextOffset}`);
+      setData(r); setOffset(nextOffset);
+    }
     catch (e) { toast.error(`총계정원장 로드 실패: ${(e as Error).message}`); }
   };
+  const search = () => reload(0);
+  const exportCsv = async () => {
+    if (!code) { toast.error("계정과목을 선택하세요"); return; }
+    try {
+      await downloadCsv(token, `/accounting/general-ledger.csv?accountCode=${code}&from=${from}&to=${to}`, `general-ledger-${code}-${from}_${to}.csv`);
+      toast.success("CSV 다운로드 완료");
+    } catch (e) { toast.error(`CSV 내보내기 실패: ${(e as Error).message}`); }
+  };
+  const total = data?.total ?? 0;
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   return (
     <Card>
       <CardHeader><CardTitle>총계정원장</CardTitle></CardHeader>
       <CardContent>
-        <div className="flex items-end gap-2 mb-3">
+        <div className="flex items-end gap-2 mb-3 flex-wrap">
           <div><Label>계정과목</Label>
             <Select value={code} onValueChange={setCode}>
               <SelectTrigger className="w-56"><SelectValue placeholder="선택" /></SelectTrigger>
@@ -235,18 +292,28 @@ function GeneralLedgerTab({ codeOptions }: { codeOptions: Account[] }) {
           </div>
           <div><Label>시작</Label><Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></div>
           <div><Label>종료</Label><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></div>
-          <Button onClick={reload}>조회</Button>
+          <Button onClick={search}>조회</Button>
+          <Button variant="outline" onClick={exportCsv} data-testid="gl-csv-export">CSV 내보내기</Button>
         </div>
         {data && (
-          <Table>
-            <TableHeader><TableRow><TableHead>일자</TableHead><TableHead>적요</TableHead><TableHead>거래처</TableHead><TableHead className="text-right">차변</TableHead><TableHead className="text-right">대변</TableHead><TableHead className="text-right">잔액</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {data.lines.map((l, i) => (
-                <TableRow key={i}><TableCell>{l.entryDate}</TableCell><TableCell>{l.memo}</TableCell><TableCell>{l.partyName ?? "-"}</TableCell><TableCell className="text-right">{l.debit > 0 ? won(l.debit) : "-"}</TableCell><TableCell className="text-right">{l.credit > 0 ? won(l.credit) : "-"}</TableCell><TableCell className="text-right font-mono">{won(l.balance)}</TableCell></TableRow>
-              ))}
-              <TableRow className="font-semibold"><TableCell colSpan={5}>잔액</TableCell><TableCell className="text-right">{won(data.finalBalance)}</TableCell></TableRow>
-            </TableBody>
-          </Table>
+          <>
+            <Table>
+              <TableHeader><TableRow><TableHead>일자</TableHead><TableHead>적요</TableHead><TableHead>거래처</TableHead><TableHead className="text-right">차변</TableHead><TableHead className="text-right">대변</TableHead><TableHead className="text-right">잔액</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {data.lines.map((l, i) => (
+                  <TableRow key={i}><TableCell>{l.entryDate}</TableCell><TableCell>{l.memo}</TableCell><TableCell>{l.partyName ?? "-"}</TableCell><TableCell className="text-right">{l.debit > 0 ? won(l.debit) : "-"}</TableCell><TableCell className="text-right">{l.credit > 0 ? won(l.credit) : "-"}</TableCell><TableCell className="text-right font-mono">{won(l.balance)}</TableCell></TableRow>
+                ))}
+                <TableRow className="font-semibold"><TableCell colSpan={5}>최종 잔액 (전체 누적)</TableCell><TableCell className="text-right">{won(data.finalBalance)}</TableCell></TableRow>
+              </TableBody>
+            </Table>
+            <div className="flex items-center justify-between text-sm mt-2" data-testid="gl-pagination">
+              <span className="text-muted-foreground">총 {total.toLocaleString("ko-KR")}건 / 페이지 {page} / {totalPages}</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={offset === 0} onClick={() => reload(Math.max(0, offset - PAGE_SIZE))}>이전</Button>
+                <Button size="sm" variant="outline" disabled={offset + PAGE_SIZE >= total} onClick={() => reload(offset + PAGE_SIZE)}>다음</Button>
+              </div>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -256,25 +323,48 @@ function GeneralLedgerTab({ codeOptions }: { codeOptions: Account[] }) {
 // ── 보조부원장 (거래처/호실) ───────────────────────────────
 function SubLedgerTab() {
   const api = useApi();
+  const { token } = useAuth();
   const [partyName, setPartyName] = useState("");
   const [unitId, setUnitId] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
   const [lines, setLines] = useState<Array<{ entryDate: string; memo: string; accountCode: string; accountName: string; debit: number; credit: number; partyName: string | null; unitId: number | null }>>([]);
-  const reload = async () => {
+  const buildQs = () => {
     const qs = new URLSearchParams();
     if (partyName) qs.set("partyName", partyName);
     if (unitId) qs.set("unitId", unitId);
+    return qs;
+  };
+  const reload = async (nextOffset = offset) => {
+    const qs = buildQs();
     if (!qs.toString()) { toast.info("거래처명 또는 호실 ID 를 입력하세요"); return; }
-    try { const r = await api<{ lines: typeof lines }>(`/accounting/sub-ledger?${qs}`); setLines(r.lines); }
+    qs.set("limit", String(PAGE_SIZE)); qs.set("offset", String(nextOffset));
+    try {
+      const r = await api<{ lines: typeof lines; total: number }>(`/accounting/sub-ledger?${qs}`);
+      setLines(r.lines); setTotal(r.total); setOffset(nextOffset);
+    }
     catch (e) { toast.error(`보조부원장 로드 실패: ${(e as Error).message}`); }
   };
+  const search = () => reload(0);
+  const exportCsv = async () => {
+    const qs = buildQs();
+    if (!qs.toString()) { toast.info("거래처명 또는 호실 ID 를 입력하세요"); return; }
+    try {
+      await downloadCsv(token, `/accounting/sub-ledger.csv?${qs}`, `sub-ledger-${Date.now()}.csv`);
+      toast.success("CSV 다운로드 완료");
+    } catch (e) { toast.error(`CSV 내보내기 실패: ${(e as Error).message}`); }
+  };
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   return (
     <Card>
       <CardHeader><CardTitle>보조부원장</CardTitle></CardHeader>
       <CardContent>
-        <div className="flex items-end gap-2 mb-3">
+        <div className="flex items-end gap-2 mb-3 flex-wrap">
           <div><Label>거래처명</Label><Input value={partyName} onChange={e => setPartyName(e.target.value)} className="w-44" /></div>
           <div><Label>호실 ID</Label><Input type="number" value={unitId} onChange={e => setUnitId(e.target.value)} className="w-28" /></div>
-          <Button onClick={reload}>조회</Button>
+          <Button onClick={search}>조회</Button>
+          <Button variant="outline" onClick={exportCsv} data-testid="sub-csv-export">CSV 내보내기</Button>
         </div>
         <Table>
           <TableHeader><TableRow><TableHead>일자</TableHead><TableHead>적요</TableHead><TableHead>계정</TableHead><TableHead>거래처/호실</TableHead><TableHead className="text-right">차변</TableHead><TableHead className="text-right">대변</TableHead></TableRow></TableHeader>
@@ -283,6 +373,15 @@ function SubLedgerTab() {
             {lines.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">조회 결과가 없습니다</TableCell></TableRow>}
           </TableBody>
         </Table>
+        {total > 0 && (
+          <div className="flex items-center justify-between text-sm mt-2" data-testid="sub-pagination">
+            <span className="text-muted-foreground">총 {total.toLocaleString("ko-KR")}건 / 페이지 {page} / {totalPages}</span>
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline" disabled={offset === 0} onClick={() => reload(Math.max(0, offset - PAGE_SIZE))}>이전</Button>
+              <Button size="sm" variant="outline" disabled={offset + PAGE_SIZE >= total} onClick={() => reload(offset + PAGE_SIZE)}>다음</Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
