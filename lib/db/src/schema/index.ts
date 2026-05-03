@@ -90,3 +90,5 @@ export * from "./auditLogs";
 export * from "./billingEngine";
 // [Task #776] 예산·집행통제 엔진 v01.
 export * from "./budgets";
+// [Task #779] 고지·수납엔진 v01 — 고지서/항목/수납/통장내역/연체단계.
+export * from "./billsLedger";

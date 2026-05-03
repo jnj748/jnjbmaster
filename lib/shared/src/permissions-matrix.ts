@@ -76,6 +76,16 @@ export const AUDIT_ACTIONS = [
   "budget.upsert",
   "budget.approve",
   "budget.override.allow",
+
+  // ── 고지·수납엔진 v01 (#779) ───────────────────────────────
+  "bill.generate",
+  "bill.void",
+  "bill.payment.record",
+  "bill.payment.reverse",
+  "bank_tx.import",
+  "bank_tx.match",
+  "delinquency.stage.set",
+  "delinquency.dispatch.send",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -90,6 +100,8 @@ export const DESTRUCTIVE_ACTIONS = new Set<AuditAction>([
   "approval.signed_copy.delete",
   "building_record.delete",
   "billing.installment.delete",
+  "bill.void",
+  "bill.payment.reverse",
 ]);
 
 /** 표시용 라벨 — 감사로그 화면 칩, 로그 메시지 등에서 사용. */
@@ -142,6 +154,15 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "budget.upsert": "예산 편성",
   "budget.approve": "예산 의결 승인",
   "budget.override.allow": "예산 초과 집행 승인",
+
+  "bill.generate": "고지서 발행",
+  "bill.void": "고지서 무효 처리",
+  "bill.payment.record": "수납 기록",
+  "bill.payment.reverse": "수납 취소",
+  "bank_tx.import": "통장 내역 업로드",
+  "bank_tx.match": "통장 내역 매칭",
+  "delinquency.stage.set": "연체 단계 변경",
+  "delinquency.dispatch.send": "연체 안내 발송",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -225,6 +246,16 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   // ── 건물 응대자료 ───────────────────────────────────────────
   "building_record.upsert": { manager: true, accountant: true, platform_admin: true },
   "building_record.delete": { accountant: true, platform_admin: true },
+
+  // ── 고지·수납엔진 v01 (#779) ───────────────────────────────
+  "bill.generate": { manager: true, accountant: true, platform_admin: true },
+  "bill.void": { accountant: true, platform_admin: true },
+  "bill.payment.record": { manager: true, accountant: true, platform_admin: true },
+  "bill.payment.reverse": { accountant: true, platform_admin: true },
+  "bank_tx.import": { manager: true, accountant: true, platform_admin: true },
+  "bank_tx.match": { manager: true, accountant: true, platform_admin: true },
+  "delinquency.stage.set": { manager: true, accountant: true, platform_admin: true },
+  "delinquency.dispatch.send": { manager: true, accountant: true, platform_admin: true },
 
   // ── 부과엔진 v01 (#777) ────────────────────────────────────
   "billing.settings.update": { manager: true, accountant: true, platform_admin: true },

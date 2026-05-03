@@ -102,6 +102,8 @@ const ErpPhase2 = lazy(() => import("@/pages/erp/phase-2-accounting"));
 const ErpPhase3 = lazy(() => import("@/pages/erp/phase-3-billing"));
 const ErpPhase4 = lazy(() => import("@/pages/erp/phase-4-governance"));
 const ErpBills = lazy(() => import("@/pages/erp/bills"));
+// [Task #779] T8 고지·수납엔진 — 고지서 발행/수납/통장매칭/미수/연체 통합.
+const ErpBillingLedger = lazy(() => import("@/pages/erp/billing-ledger"));
 const ErpFeesSummary = lazy(() => import("@/pages/erp/fees-summary"));
 const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
@@ -535,6 +537,13 @@ export const ROUTES: RouteEntry[] = [
     label: "관리비 고지서", icon: FileText, group: "accounting",
     // manager는 라우트 접근만 유지(관리비 요약의 "고지서 업로드하러 가기" 버튼 진입용),
     //   사이드바/회계 허브 카드에서는 숨김.
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["accountant"],
+  },
+  // [Task #779] T8 고지·수납엔진 v01 — 발행/수납/통장매칭/미수/연체 통합 화면.
+  {
+    path: "/erp/billing-ledger", component: ErpBillingLedger,
+    label: "고지·수납 ledger", icon: Receipt, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: ["accountant"],
   },

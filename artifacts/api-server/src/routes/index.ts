@@ -55,6 +55,8 @@ import metersRouter from "./meters";
 import feesRouter from "./fees";
 // [Task #777] 부과엔진 v01 — /billing/* 신규 라우트.
 import billingRouter from "./billing";
+// [Task #779] 고지·수납엔진 v01 — /bills/*, /bank-tx/* 신규 라우트.
+import billsRouter, { publicBillsRouter } from "./bills";
 import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
@@ -105,6 +107,8 @@ router.use(authRouter);
 router.use(oauthRouter);
 router.use(storageRouter);
 router.use(publicTenantCardRouter);
+// [Task #779] 입주민 납부 링크 — 비인증 진입.
+router.use(publicBillsRouter);
 // [Task #758] 게스트 전자서명 공개 엔드포인트 — authMiddleware 앞에 마운트.
 router.use(publicGuestSignaturesRouter);
 
@@ -205,6 +209,8 @@ buildingRouter.use(metersRouter);
 buildingRouter.use(feesRouter);
 // [Task #777] 부과엔진 v01 — fees 위에 마운트(같은 buildingRouter 가드 공유).
 buildingRouter.use(billingRouter);
+// [Task #779] 고지·수납엔진 v01 — billing 위에 마운트.
+buildingRouter.use(billsRouter);
 buildingRouter.use(complaintsRouter);
 buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);
