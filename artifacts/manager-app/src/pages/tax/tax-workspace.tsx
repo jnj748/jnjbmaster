@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 type TaxVendor = { id: number; role: string; bizNo: string; companyName: string; representative?: string | null; address?: string | null; bizType?: string | null; bizItem?: string | null; email?: string | null };
 type TaxItem = { id: number; code: string; name: string; spec?: string | null; unitPrice: number };
@@ -67,6 +69,12 @@ export default function TaxWorkspacePage() {
   const [vendorDraft, setVendorDraft] = useState<Partial<TaxVendor>>({ role: "both" });
   const [itemDraft, setItemDraft] = useState<Partial<TaxItem>>({});
   const [busy, setBusy] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false);
+  const [bulkCancelReason, setBulkCancelReason] = useState("");
+  const [correctOpen, setCorrectOpen] = useState(false);
+  const [correctReason, setCorrectReason] = useState("");
+  const [correctDraft, setCorrectDraft] = useState<(Partial<Invoice> & { lines: Line[] }) | null>(null);
 
   async function reloadList() {
     if (!buildingId) return;
@@ -91,9 +99,84 @@ export default function TaxWorkspacePage() {
     if (r.ok) { const j = await r.json(); setItems(j.items ?? []); }
   }
 
-  useEffect(() => { void reloadList(); void reloadVendors(); void reloadItems(); /* eslint-disable-next-line */ }, [buildingId]);
-  useEffect(() => { void reloadList(); /* eslint-disable-next-line */ }, [statusFilter, typeFilter]);
+  useEffect(() => { void reloadList(); void reloadVendors(); void reloadItems(); setSelectedIds(new Set()); /* eslint-disable-next-line */ }, [buildingId]);
+  useEffect(() => { void reloadList(); setSelectedIds(new Set()); /* eslint-disable-next-line */ }, [statusFilter, typeFilter]);
   useEffect(() => { if (selectedId) void reloadDetail(selectedId); else setDetail(null); /* eslint-disable-next-line */ }, [selectedId]);
+
+  function toggleId(id: number) {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleAll() {
+    setSelectedIds((prev) => prev.size === list.length && list.length > 0 ? new Set() : new Set(list.map((i) => i.id)));
+  }
+
+  async function bulkIssue() {
+    if (!buildingId || selectedIds.size === 0) return;
+    const targets = list.filter((i) => selectedIds.has(i.id) && i.status === "draft");
+    if (targets.length === 0) { toast({ title: "발행 가능한 임시저장 건이 없습니다", variant: "destructive" }); return; }
+    setBusy(true);
+    let ok = 0, fail = 0;
+    for (const inv of targets) {
+      const r = await fetch(`${apiBase}/tax/invoices/${inv.id}/issue?buildingId=${buildingId}`, { method: "POST", headers });
+      if (r.ok) ok++; else fail++;
+    }
+    setBusy(false);
+    toast({ title: `일괄 발행 완료`, description: `성공 ${ok}건${fail ? ` · 실패 ${fail}건` : ""}` });
+    setSelectedIds(new Set());
+    await reloadList();
+  }
+
+  async function bulkCancel() {
+    if (!buildingId || selectedIds.size === 0 || !bulkCancelReason.trim()) return;
+    const targets = list.filter((i) => selectedIds.has(i.id) && i.status !== "cancelled");
+    if (targets.length === 0) { toast({ title: "취소 가능한 건이 없습니다", variant: "destructive" }); setBulkCancelOpen(false); return; }
+    setBusy(true);
+    let ok = 0, fail = 0;
+    for (const inv of targets) {
+      const r = await fetch(`${apiBase}/tax/invoices/${inv.id}/cancel?buildingId=${buildingId}`, {
+        method: "POST", headers, body: JSON.stringify({ reason: bulkCancelReason.trim() }),
+      });
+      if (r.ok) ok++; else fail++;
+    }
+    setBusy(false);
+    toast({ title: `일괄 취소 완료`, description: `성공 ${ok}건${fail ? ` · 실패 ${fail}건` : ""}` });
+    setSelectedIds(new Set());
+    setBulkCancelOpen(false);
+    setBulkCancelReason("");
+    await reloadList();
+    if (selectedId) await reloadDetail(selectedId);
+  }
+
+  function openCorrect() {
+    if (!detail) return;
+    setCorrectDraft({ ...detail, lines: detail.lines ?? [] });
+    setCorrectReason("");
+    setCorrectOpen(true);
+  }
+
+  async function submitCorrect() {
+    if (!detail || !buildingId || !correctDraft || !correctReason.trim()) return;
+    setBusy(true);
+    try {
+      const lines = (correctDraft.lines ?? []).map((l) => recalcLine(l, correctDraft.taxType ?? "taxable"));
+      // 서버 InvoiceBody는 status: "draft" | "issued" 만 허용 — 수정 발행은 항상 issued 로 보낸다.
+      const body = { reason: correctReason.trim(), invoice: { ...correctDraft, status: "issued", lines } };
+      const r = await fetch(`${apiBase}/tax/invoices/${detail.id}/correct?buildingId=${buildingId}`, {
+        method: "POST", headers, body: JSON.stringify(body),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error ?? "수정 발행 실패"); }
+      const j = await r.json();
+      const newId: number | undefined = j.newId ?? j.id;
+      toast({ title: "수정 발행 완료", description: newId ? `신규 ID ${newId}` : undefined });
+      setCorrectOpen(false);
+      setCorrectDraft(null);
+      setCorrectReason("");
+      await reloadList();
+      if (newId) setSelectedId(newId);
+    } catch (e) {
+      toast({ title: "오류", description: (e as Error).message, variant: "destructive" });
+    } finally { setBusy(false); }
+  }
 
   function startNew() { setSelectedId(null); setDetail(null); setDraft(emptyDraft()); }
 
@@ -248,21 +331,45 @@ export default function TaxWorkspacePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {list.length > 0 && (
+                    <div className="flex items-center gap-2 px-1 py-1 text-xs">
+                      <Checkbox
+                        checked={selectedIds.size === list.length && list.length > 0}
+                        onCheckedChange={() => toggleAll()}
+                        data-testid="checkbox-select-all"
+                      />
+                      <span className="text-muted-foreground">전체 선택 ({selectedIds.size}/{list.length})</span>
+                      <div className="ml-auto flex gap-1">
+                        <Button size="sm" variant="outline" onClick={() => void bulkIssue()} disabled={busy || selectedIds.size === 0} data-testid="button-bulk-issue">일괄 발행</Button>
+                        <Button size="sm" variant="outline" onClick={() => setBulkCancelOpen(true)} disabled={busy || selectedIds.size === 0} data-testid="button-bulk-cancel">일괄 취소</Button>
+                      </div>
+                    </div>
+                  )}
                   <div className="border rounded max-h-[60vh] overflow-auto" data-testid="list-invoices">
                     {list.length === 0 && <p className="p-4 text-sm text-muted-foreground">세금계산서가 없습니다.</p>}
                     {list.map((inv) => (
-                      <button
+                      <div
                         key={inv.id}
-                        onClick={() => { setDraft(null); setSelectedId(inv.id); }}
-                        className={`block w-full text-left p-3 border-b hover:bg-muted/30 ${selectedId === inv.id ? "bg-muted" : ""}`}
+                        className={`flex items-start gap-2 p-3 border-b hover:bg-muted/30 ${selectedId === inv.id ? "bg-muted" : ""}`}
                         data-testid={`row-invoice-${inv.id}`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{inv.buyerName} ← {inv.supplierName}</div>
-                          <Badge variant="outline">{inv.status}</Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{inv.issueDate} · {inv.invoiceType === "sales" ? "매출" : "매입"} · 합계 {nf(inv.totalAmount)}</div>
-                      </button>
+                        <Checkbox
+                          className="mt-1"
+                          checked={selectedIds.has(inv.id)}
+                          onCheckedChange={() => toggleId(inv.id)}
+                          data-testid={`checkbox-invoice-${inv.id}`}
+                        />
+                        <button
+                          onClick={() => { setDraft(null); setSelectedId(inv.id); }}
+                          className="flex-1 text-left"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">{inv.buyerName} ← {inv.supplierName}</div>
+                            <Badge variant="outline">{inv.status}</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">{inv.issueDate} · {inv.invoiceType === "sales" ? "매출" : "매입"} · 합계 {nf(inv.totalAmount)}</div>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -289,6 +396,7 @@ export default function TaxWorkspacePage() {
                       onEdit={() => setDraft({ ...detail, lines: detail.lines ?? [] })}
                       onTransmit={transmit}
                       onNtsTransmit={ntsTransmit}
+                      onCorrect={openCorrect}
                       busy={busy}
                     />
                   )}
@@ -350,6 +458,69 @@ export default function TaxWorkspacePage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={bulkCancelOpen} onOpenChange={setBulkCancelOpen}>
+        <DialogContent data-testid="dialog-bulk-cancel">
+          <DialogHeader>
+            <DialogTitle>일괄 취소</DialogTitle>
+            <DialogDescription>선택한 {selectedIds.size}건의 세금계산서를 취소합니다. 취소 사유를 입력하세요.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="취소 사유"
+            value={bulkCancelReason}
+            onChange={(e) => setBulkCancelReason(e.target.value)}
+            data-testid="input-bulk-cancel-reason"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBulkCancelOpen(false)} disabled={busy}>닫기</Button>
+            <Button onClick={() => void bulkCancel()} disabled={busy || !bulkCancelReason.trim()} data-testid="button-bulk-cancel-confirm">취소 실행</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={correctOpen} onOpenChange={(v) => { setCorrectOpen(v); if (!v) setCorrectDraft(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-correct">
+          <DialogHeader>
+            <DialogTitle>수정 발행</DialogTitle>
+            <DialogDescription>원본은 취소되고 새로운 수정 세금계산서가 발행됩니다. 사유와 변경 내용을 확인하세요.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              placeholder="수정 사유"
+              value={correctReason}
+              onChange={(e) => setCorrectReason(e.target.value)}
+              data-testid="input-correct-reason"
+            />
+            {correctDraft && (
+              <div className="border rounded p-2">
+                <div className="text-xs text-muted-foreground mb-1">품목 (수량/단가만 수정 가능)</div>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/30">
+                    <tr><th className="text-left p-1">품목</th><th className="p-1 w-20">수량</th><th className="p-1 w-28">단가</th><th className="text-right p-1">공급가</th></tr>
+                  </thead>
+                  <tbody>
+                    {correctDraft.lines.map((l, idx) => {
+                      const supply = Number(l.quantity) * Number(l.unitPrice);
+                      return (
+                        <tr key={idx} className="border-t">
+                          <td className="p-1">{l.itemName}</td>
+                          <td className="p-1"><Input type="number" value={String(l.quantity)} onChange={(e) => { const lines = [...correctDraft.lines]; lines[idx] = { ...l, quantity: Number(e.target.value) }; setCorrectDraft({ ...correctDraft, lines }); }} data-testid={`input-correct-qty-${idx}`} /></td>
+                          <td className="p-1"><Input type="number" value={String(l.unitPrice)} onChange={(e) => { const lines = [...correctDraft.lines]; lines[idx] = { ...l, unitPrice: Number(e.target.value) }; setCorrectDraft({ ...correctDraft, lines }); }} data-testid={`input-correct-price-${idx}`} /></td>
+                          <td className="text-right p-1 tabular-nums">{nf(supply)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCorrectOpen(false)} disabled={busy}>닫기</Button>
+            <Button onClick={() => void submitCorrect()} disabled={busy || !correctReason.trim()} data-testid="button-correct-confirm">수정 발행</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -460,9 +631,10 @@ function DraftEditor({
   );
 }
 
-function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, busy }: {
-  detail: Invoice; onEdit: () => void; onTransmit: (kind: string) => void; onNtsTransmit: () => void; busy: boolean;
+function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, onCorrect, busy }: {
+  detail: Invoice; onEdit: () => void; onTransmit: (kind: string) => void; onNtsTransmit: () => void; onCorrect: () => void; busy: boolean;
 }) {
+  const canCorrect = ["issued", "transmitted", "nts_approved"].includes(detail.status);
   return (
     <div className="space-y-3" data-testid="view-tax-invoice-detail">
       <div className="flex items-center justify-between">
@@ -502,6 +674,7 @@ function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, busy }: {
         {detail.status === "draft" && <Button variant="outline" onClick={onEdit} disabled={busy} data-testid="button-edit">수정</Button>}
         {detail.status !== "draft" && (
           <>
+            {canCorrect && <Button variant="outline" onClick={onCorrect} disabled={busy} data-testid="button-correct">수정 발행</Button>}
             <Button variant="outline" onClick={() => onTransmit("email")} disabled={busy || !detail.buyerEmail} data-testid="button-transmit-email">거래처 이메일 전송</Button>
             <Button onClick={onNtsTransmit} disabled={busy} data-testid="button-nts-transmit">국세청 전송</Button>
           </>
