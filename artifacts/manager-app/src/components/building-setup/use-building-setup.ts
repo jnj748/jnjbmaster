@@ -150,6 +150,12 @@ export function useBuildingSetup() {
   const [allPresets, setAllPresets] = useState<PresetItem[]>([]);
   const allPresetsRef = useRef<PresetItem[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<SelectedTask[]>([]);
+  // [Task #753] calculateSafety 가 함수형 업데이터 안에서 실제 추가 건수를 계산해
+  //   토스트 표시 여부를 결정할 수 있도록, 가장 최근 커밋된 selectedTasks 를 ref 로 보관.
+  const selectedTasksRef = useRef<SelectedTask[]>([]);
+  useEffect(() => {
+    selectedTasksRef.current = selectedTasks;
+  }, [selectedTasks]);
   const [taskSearch, setTaskSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [customTaskName, setCustomTaskName] = useState("");
@@ -356,6 +362,7 @@ export function useBuildingSetup() {
         });
         setIsEditing(placeholder);
         if (data.building.totalArea || data.building.totalFloors) {
+          // [Task #753] 화면 진입(데이터 재조회) 시 자동 호출은 silent — 토스트를 띄우지 않는다.
           calculateSafety({
             totalArea: data.building.totalArea || "0",
             totalFloors: String(data.building.totalFloors || 0),
@@ -366,7 +373,7 @@ export function useBuildingSetup() {
             electricCapacityKw: data.building.electricCapacityKw || "0",
             gasUsageMonthly: data.building.gasUsageMonthly || "0",
             hasGas: String(data.building.hasGas ?? true),
-          });
+          }, { silent: true });
         }
       }
     } catch {
@@ -624,7 +631,7 @@ export function useBuildingSetup() {
     }
   }
 
-  async function calculateSafety(data: Record<string, string>) {
+  async function calculateSafety(data: Record<string, string>, options?: { silent?: boolean }) {
     setCalculatingSafety(true);
     try {
       const res = await fetch(`${apiBase}/buildings/calculate-safety`, {
@@ -658,8 +665,21 @@ export function useBuildingSetup() {
           }
         }
         if (autoTasks.length > 0) {
-          setSelectedTasks((prev) => [...prev, ...autoTasks.filter((at) => !prev.some((p) => p.name === at.name))]);
-          toast({ title: `${autoTasks.length}건의 필수 법정업무가 자동 추가되었습니다` });
+          // [Task #753] 가장 최근 커밋된 selectedTasks(ref) 와 비교해 실제 신규 추가 건수를
+          //   결정한 뒤, 동일 dedupe 를 함수형 업데이터에서 한 번 더 적용해 응답 경합/
+          //   StrictMode 이중 호출에서도 안전하게 한다. 토스트는 (1) silent 가 아니고
+          //   (2) ref 기준 신규 추가 건수가 1건 이상일 때만 노출.
+          const baseline = selectedTasksRef.current;
+          const additions = autoTasks.filter((at) => !baseline.some((p) => p.name === at.name));
+          if (additions.length > 0) {
+            setSelectedTasks((prev) => [
+              ...prev,
+              ...additions.filter((at) => !prev.some((p) => p.name === at.name)),
+            ]);
+            if (!options?.silent) {
+              toast({ title: `${additions.length}건의 필수 법정업무가 자동 추가되었습니다` });
+            }
+          }
         }
       }
     } catch {
