@@ -96,3 +96,5 @@ export * from "./budgets";
 export * from "./billsLedger";
 // [Task #780] T9 마감·보고엔진 v01 — period_closings / closing_snapshots / carry_forward_balances.
 export * from "./periodClosings";
+// [Task #796] XpBIZ 호실관리·환경설정 풀세트 — 5개 1:1 환경 테이블 + 호실별 2종.
+export * from "./buildingSettings";

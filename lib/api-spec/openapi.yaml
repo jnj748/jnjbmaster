@@ -13148,6 +13148,31 @@ components:
           type: integer
         vehicleCount:
           type: integer
+        # [Task #796] XpBIZ 호실관리 그리드용 7개 신규 컬럼.
+        unitUsage:
+          type: ["string", "null"]
+        residenceUsage:
+          type: ["string", "null"]
+        ownershipType:
+          type: ["string", "null"]
+        keySentAt:
+          type: ["string", "null"]
+          format: date
+        vendorName:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        postalCode:
+          type: ["string", "null"]
+        businessNumber:
+          type: ["string", "null"]
+        ownerPhone:
+          type: ["string", "null"]
+        entryDate:
+          type: ["string", "null"]
+          format: date
+        supplyArea:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time

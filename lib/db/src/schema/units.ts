@@ -44,6 +44,14 @@ export const unitsTable = pgTable("units", {
   onboardingSignedAt: timestamp("onboarding_signed_at", { withTimezone: true }),
   delinquentMonths: integer("delinquent_months").notNull().default(0),
   delinquentAmount: integer("delinquent_amount").notNull().default(0),
+  // [Task #796] XpBIZ 호실관리 그리드용 7개 신규 컬럼.
+  unitUsage: text("unit_usage"),                    // 주거 / 상가 / 업무
+  residenceUsage: text("residence_usage"),          // 자가 / 임차 / 공실
+  ownershipType: text("ownership_type"),            // 개인 / 법인 / 임차인
+  keySentAt: date("key_sent_at"),                   // 키 발송일
+  vendorName: text("vendor_name"),
+  representativeName: text("representative_name"),
+  postalCode: text("postal_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
