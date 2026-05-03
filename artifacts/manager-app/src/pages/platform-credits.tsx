@@ -265,11 +265,41 @@ export default function PlatformCreditsPage() {
             </CardContent>
           </Card>
 
-          {/* 용역유형별 표 */}
+          {/* 용역유형별 표 — 데스크톱: 표 / 모바일: 카드 스택 */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">용역유형별 상세</CardTitle></CardHeader>
             <CardContent className="pt-0">
-              <div className="overflow-x-auto">
+              {/* [Task #752] 모바일 — 표 대신 라벨/값 페어 카드 */}
+              <div className="desktop:hidden space-y-2" data-testid="cards-by-category-mobile">
+                {byCategory.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">데이터 없음</p>
+                ) : byCategory.map((c) => {
+                  const refundRatio = c.consumption > 0 ? (c.refund / c.consumption) * 100 : 0;
+                  return (
+                    <div key={c.category} className="rounded-lg border bg-card p-3 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">{c.label}</span>
+                        {c.category === "unknown" && (
+                          <Badge variant="outline" className="text-[10px]">미지정</Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-y-1 text-[11px]">
+                        <span className="text-slate-500">소모</span>
+                        <span className="text-right">{fmtKRW(c.consumption)}</span>
+                        <span className="text-slate-500">건수</span>
+                        <span className="text-right">{fmtCount(c.consumptionCount)}</span>
+                        <span className="text-slate-500">미열람 환불</span>
+                        <span className="text-right text-amber-700">{fmtKRW(c.refund)}</span>
+                        <span className="text-slate-500">환불 건수</span>
+                        <span className="text-right text-amber-700">{fmtCount(c.refundCount)}</span>
+                        <span className="text-slate-500">환불율</span>
+                        <span className="text-right">{refundRatio.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden desktop:block overflow-x-auto">
                 <table className="w-full text-xs" data-testid="table-by-category">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
@@ -422,7 +452,44 @@ function TopupPackagesAdmin() {
         </Button>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="overflow-x-auto">
+        {/* [Task #752] 모바일 — 표 대신 카드 스택 */}
+        <div className="desktop:hidden space-y-2" data-testid="cards-topup-packages-mobile">
+          {isLoading ? (
+            <p className="text-xs text-slate-500 py-4 text-center">불러오는 중…</p>
+          ) : packages.length === 0 ? (
+            <p className="text-xs text-slate-500 py-4 text-center">패키지가 없습니다</p>
+          ) : packages.map((p) => (
+            <div key={p.id} className="rounded-lg border bg-card p-3 text-xs space-y-1.5" data-testid={`row-package-mobile-${p.id}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-sm">{p.name}</span>
+                <div className="flex items-center gap-1">
+                  {p.isActive ? <Badge>활성</Badge> : <Badge variant="outline">비활성</Badge>}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-1 text-[11px]">
+                <span className="text-slate-500">크레딧</span>
+                <span className="text-right">{p.credits.toLocaleString()}</span>
+                <span className="text-slate-500">보너스 P</span>
+                <span className="text-right">{p.bonusPoints.toLocaleString()}</span>
+                <span className="text-slate-500">가격</span>
+                <span className="text-right">{p.priceKrw.toLocaleString()}원</span>
+                <span className="text-slate-500">정렬</span>
+                <span className="text-right">{p.sortOrder}</span>
+                <span className="text-slate-500">강조</span>
+                <span className="text-right">{p.highlight ?? "-"}</span>
+              </div>
+              <div className="flex items-center gap-1 pt-1">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => startEdit(p)} data-testid={`button-edit-package-mobile-${p.id}`}>
+                  <Pencil className="w-3.5 h-3.5 mr-1" /> 편집
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDelete(p)} data-testid={`button-delete-package-mobile-${p.id}`}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1 text-rose-500" /> 삭제
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden desktop:block overflow-x-auto">
           <table className="w-full text-xs" data-testid="table-topup-packages">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
@@ -540,7 +607,42 @@ function TopupOrdersAdmin() {
         </Select>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="overflow-x-auto">
+        {/* [Task #752] 모바일 — 결제 내역 카드 스택 */}
+        <div className="desktop:hidden space-y-2" data-testid="cards-topup-orders-mobile">
+          {isLoading ? (
+            <p className="text-xs text-slate-500 py-4 text-center">불러오는 중…</p>
+          ) : orders.length === 0 ? (
+            <p className="text-xs text-slate-500 py-4 text-center">결제 내역이 없습니다</p>
+          ) : orders.map((o) => (
+            <div key={o.id} className="rounded-lg border bg-card p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-sm truncate">{o.vendorName ?? `#${o.vendorId}`}</span>
+                {o.status === "paid" ? <Badge className="bg-emerald-500">결제완료</Badge>
+                  : o.status === "pending" ? <Badge variant="outline">결제중</Badge>
+                  : o.status === "processing" ? <Badge variant="outline">처리중</Badge>
+                  : o.status === "failed" ? <Badge variant="destructive">실패</Badge>
+                  : <Badge variant="outline">취소</Badge>}
+              </div>
+              <p className="text-[11px] text-slate-600">{o.packageName}</p>
+              <div className="grid grid-cols-2 gap-y-1 text-[11px]">
+                <span className="text-slate-500">일시</span>
+                <span className="text-right">{new Date(o.createdAt).toLocaleString("ko-KR")}</span>
+                <span className="text-slate-500">크레딧</span>
+                <span className="text-right">{o.credits.toLocaleString()}{o.bonusPoints > 0 ? ` (+${o.bonusPoints}P)` : ""}</span>
+                <span className="text-slate-500">금액</span>
+                <span className="text-right">{o.amountKrw.toLocaleString()}원</span>
+                <span className="text-slate-500">결제수단/사유</span>
+                <span className="text-right">{o.tossMethod ?? o.failReason ?? "-"}</span>
+              </div>
+              {o.tossPaymentKey && (
+                <p className="text-[10px] text-slate-400 font-mono break-all" data-testid={`text-payment-key-mobile-${o.id}`}>
+                  {o.tossPaymentKey}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="hidden desktop:block overflow-x-auto">
           <table className="w-full text-xs" data-testid="table-topup-orders">
             <thead className="bg-slate-50 text-slate-600">
               <tr>

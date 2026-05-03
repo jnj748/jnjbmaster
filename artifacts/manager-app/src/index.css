@@ -711,6 +711,201 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
   [data-role="manager"] aside.layout-sidebar nav a .h-4 { height: 1.25rem; }
 }
 
+/*
+ * [Task #752] 직원/관리자/본부장/파트너사 모바일 최적화.
+ *
+ *   목표: 4개 비-관리소장 역할의 페이지들이 모바일 폭(<900px) 에서 가로
+ *   스크롤 없이 한 손으로 사용 가능한 형태로 보이도록 한다. 관리소장
+ *   (data-role="manager") 와 관리인(custodian) 모드는 명시적으로 제외해
+ *   기존 시각/동작에 영향이 없게 한다.
+ *
+ *   모든 규칙은 body[data-role="..."] 스코프와 (max-width: 899px) 미디어
+ *   쿼리 하에서만 활성화된다. 데스크톱(≥900px) 은 영향 받지 않는다.
+ *
+ *   관리소장 모드 (data-role="manager") 변경 금지 — 작업 범위 정책.
+ */
+@media (max-width: 899px) {
+  /* (1) 가로 스크롤 차단 — 데스크톱-전용 큰 표/그리드가 메인 영역을 넘기지
+        않도록 콘텐츠 영역 안에서 한번 더 hidden 으로 묶는다. layout 의
+        layout-content-area 는 이미 overflow-x: hidden 이지만, 그 안의 직속
+        자손(페이지 래퍼) 까지 max-width 를 강제해 가로 폭 폭주를 막는다. */
+  [data-role="facility_staff"] .layout-content-area > *,
+  [data-role="platform_admin"] .layout-content-area > *,
+  [data-role="hq_executive"] .layout-content-area > *,
+  [data-role="partner"] .layout-content-area > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* (2) 표(<table>) 안전망 — 모바일에서 표가 카드/래퍼를 뚫고 가로로
+        넘치지 않도록 부모를 강제로 가로 스크롤 가능 박스로 만든다.
+        직접 .overflow-x-auto 가 둘러싸고 있는 표는 영향 없이 통과되고,
+        그렇지 않은 표는 자기 자신이 horizontally scrollable 한 block 으로
+        동작하게 한다 — display:block + overflow-x:auto. */
+  [data-role="facility_staff"] .layout-content-area table,
+  [data-role="platform_admin"] .layout-content-area table,
+  [data-role="hq_executive"] .layout-content-area table,
+  [data-role="partner"] .layout-content-area table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* tiptap/공지문/A4 본문 안의 표는 위 규칙 대상에서 제외 — 본문 편집기
+     안의 표는 별도 정책(width:100%, table-layout:fixed)을 따른다. */
+  [data-role="facility_staff"] .ProseMirror table,
+  [data-role="platform_admin"] .ProseMirror table,
+  [data-role="hq_executive"] .ProseMirror table,
+  [data-role="partner"] .ProseMirror table,
+  [data-role="facility_staff"] .notice-template-body table,
+  [data-role="platform_admin"] .notice-template-body table,
+  [data-role="hq_executive"] .notice-template-body table,
+  [data-role="partner"] .notice-template-body table,
+  [data-role="facility_staff"] .a4-document table,
+  [data-role="platform_admin"] .a4-document table,
+  [data-role="hq_executive"] .a4-document table,
+  [data-role="partner"] .a4-document table {
+    display: table;
+    overflow-x: visible;
+  }
+
+  /* (3) 데스크톱 다열 그리드(grid-cols-3, grid-cols-4, ...) 가 명시적
+        반응형 분기 없이 쓰인 경우, 모바일에서 자동으로 1~2 열로 줄인다.
+        Tailwind responsive variant (sm:grid-cols-N, md:grid-cols-N) 가
+        이미 깔린 자리는 그 우선순위가 높으므로 영향 받지 않는다.
+        — Tailwind v4 기본 우선순위는 클래스 정의 순. responsive variant
+          는 같은 우선순위에서 미디어 쿼리 합 매칭으로 적용된다.
+        — 본 규칙은 max-width:899px 한정이라 페이지 안의 sm:/md: 분기와
+          충돌하지 않는다(sm:= 640+, md:= 768+ 모두 동일 범위지만
+          grid-cols-N base 가 모바일에서 5/6 열로 보이는 본 회귀를 막는
+          용도다). */
+  [data-role="facility_staff"] .layout-content-area .grid.grid-cols-3,
+  [data-role="platform_admin"] .layout-content-area .grid.grid-cols-3,
+  [data-role="hq_executive"] .layout-content-area .grid.grid-cols-3,
+  [data-role="partner"] .layout-content-area .grid.grid-cols-3,
+  [data-role="facility_staff"] .layout-content-area .grid.grid-cols-4,
+  [data-role="platform_admin"] .layout-content-area .grid.grid-cols-4,
+  [data-role="hq_executive"] .layout-content-area .grid.grid-cols-4,
+  [data-role="partner"] .layout-content-area .grid.grid-cols-4,
+  [data-role="facility_staff"] .layout-content-area .grid.grid-cols-5,
+  [data-role="platform_admin"] .layout-content-area .grid.grid-cols-5,
+  [data-role="hq_executive"] .layout-content-area .grid.grid-cols-5,
+  [data-role="partner"] .layout-content-area .grid.grid-cols-5,
+  [data-role="facility_staff"] .layout-content-area .grid.grid-cols-6,
+  [data-role="platform_admin"] .layout-content-area .grid.grid-cols-6,
+  [data-role="hq_executive"] .layout-content-area .grid.grid-cols-6,
+  [data-role="partner"] .layout-content-area .grid.grid-cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* (4) 풀폭 데스크톱 폼/카드 패딩을 모바일에서 한 단계 줄여 한 화면에
+        더 많은 정보가 들어가게 한다. 카드(.bg-card) 자체의 패딩은 그대로
+        두고, layout 의 콘텐츠 패딩만 줄인다. layout 자체가 p-3(12px) 로
+        시작하므로 추가 축소는 하지 않고, 좌우 한정 여백만 보장. */
+  [data-role="facility_staff"] .layout-content-area,
+  [data-role="platform_admin"] .layout-content-area,
+  [data-role="hq_executive"] .layout-content-area,
+  [data-role="partner"] .layout-content-area {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* (5) 하단 탭바 안전영역 — layout-bottom-nav 는 이미 paddingBottom 에
+        env(safe-area-inset-bottom) 을 두지만, 콘텐츠 마지막 행이 탭바 뒤로
+        가려지지 않도록 콘텐츠 끝에 충분한 여백을 한 번 더 부여한다.
+        layout 의 모바일 분기는 height 를 (100dvh - 60px - safe-area) 로
+        잡아 콘텐츠를 자체 스크롤 영역 안에 두므로 본 규칙은 안전망 성격. */
+  [data-role="facility_staff"] .layout-content-area > *:last-child,
+  [data-role="platform_admin"] .layout-content-area > *:last-child,
+  [data-role="hq_executive"] .layout-content-area > *:last-child,
+  [data-role="partner"] .layout-content-area > *:last-child {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* (6) 다이얼로그/시트 — 모바일에서 좌우 마진을 줄여 거의 풀스크린에
+        가깝게 표시. shadcn/ui Dialog 는 max-w-* 클래스를 자주 쓰므로
+        본 규칙은 [role=dialog] 컨테이너에만 적용되어 다른 카드/표에는
+        영향 없다. */
+  [data-role="facility_staff"] [role="dialog"][data-state="open"],
+  [data-role="platform_admin"] [role="dialog"][data-state="open"],
+  [data-role="hq_executive"] [role="dialog"][data-state="open"],
+  [data-role="partner"] [role="dialog"][data-state="open"] {
+    max-width: calc(100vw - 16px);
+  }
+
+  /* (7) 페이지 표준 H1 헤더 줄(<h1> 의 직속 부모이고 justify-between 인
+        flex 컨테이너) 만 좁은 화면에서 wrap 한다. 좁힌 셀렉터 — 임의의
+        flex.justify-between 에는 영향 없다. */
+  [data-role="facility_staff"] .layout-content-area .flex.justify-between:has(> div > h1),
+  [data-role="platform_admin"] .layout-content-area .flex.justify-between:has(> div > h1),
+  [data-role="hq_executive"] .layout-content-area .flex.justify-between:has(> div > h1),
+  [data-role="partner"] .layout-content-area .flex.justify-between:has(> div > h1),
+  [data-role="facility_staff"] .layout-content-area .flex.justify-between:has(> h1),
+  [data-role="platform_admin"] .layout-content-area .flex.justify-between:has(> h1),
+  [data-role="hq_executive"] .layout-content-area .flex.justify-between:has(> h1),
+  [data-role="partner"] .layout-content-area .flex.justify-between:has(> h1) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* (8) 터치 타겟 안전망 — 화면 위 모든 button/select trigger/링크-버튼 요소
+        의 최소 높이를 44px 로 보장(WCAG 2.5.5 / iOS HIG). 작은 인라인 아이콘
+        버튼(.inline-icon-btn) 과 데스크톱 테이블 안의 트리거(SelectTrigger
+        h-8) 가 의도적으로 작은 경우는 className 에 직접 지정한 height 가
+        있으므로 :where() 우선순위 0 인 본 규칙을 덮어쓴다. 안전망일 뿐
+        강제는 아니다. */
+  [data-role="facility_staff"] .layout-content-area :where(button, [role="button"], a.btn, .button-like),
+  [data-role="platform_admin"] .layout-content-area :where(button, [role="button"], a.btn, .button-like),
+  [data-role="hq_executive"] .layout-content-area :where(button, [role="button"], a.btn, .button-like),
+  [data-role="partner"] .layout-content-area :where(button, [role="button"], a.btn, .button-like) {
+    min-height: 44px;
+  }
+  /* 인라인 아이콘 버튼(작업 메뉴, 행 내부 편집/삭제) 은 명시적 예외. */
+  [data-role="facility_staff"] .layout-content-area .inline-icon-btn,
+  [data-role="platform_admin"] .layout-content-area .inline-icon-btn,
+  [data-role="hq_executive"] .layout-content-area .inline-icon-btn,
+  [data-role="partner"] .layout-content-area .inline-icon-btn {
+    min-height: 32px;
+  }
+
+  /* (9) 폼 입력 — iOS 가 16px 미만 글씨에서 자동 줌하는 동작을 막고, 모든
+        입력의 높이를 ≥40px 로 보장한다. shadcn/ui 의 Input 은 h-10(40px)
+        기본이라 변화 없음, 변종 (h-9 등) 만 끌어올린다. */
+  [data-role="facility_staff"] .layout-content-area :where(input, select, textarea),
+  [data-role="platform_admin"] .layout-content-area :where(input, select, textarea),
+  [data-role="hq_executive"] .layout-content-area :where(input, select, textarea),
+  [data-role="partner"] .layout-content-area :where(input, select, textarea) {
+    font-size: 16px;
+    min-height: 40px;
+  }
+
+  /* (10) 스티키 필터/툴바 — 페이지 안에 data-mobile-sticky-toolbar 또는
+        클래스 .mobile-sticky-toolbar 가 붙은 컨테이너는 모바일에서
+        position:sticky 로 상단에 고정된다. layout-content-area 가
+        overflow-y:auto 인 자체 스크롤 영역이므로 sticky 가 정상 동작한다.
+        opt-in 방식이라 기존 페이지에 영향을 주지 않는다.
+        layout-mobile-header(56px) 의 바로 아래에 붙도록 top:0 으로 둔다
+        (layout-mobile-header 는 콘텐츠 영역 바깥 고정 헤더). */
+  [data-role="facility_staff"] .layout-content-area .mobile-sticky-toolbar,
+  [data-role="platform_admin"] .layout-content-area .mobile-sticky-toolbar,
+  [data-role="hq_executive"] .layout-content-area .mobile-sticky-toolbar,
+  [data-role="partner"] .layout-content-area .mobile-sticky-toolbar,
+  [data-role="facility_staff"] .layout-content-area [data-mobile-sticky-toolbar],
+  [data-role="platform_admin"] .layout-content-area [data-mobile-sticky-toolbar],
+  [data-role="hq_executive"] .layout-content-area [data-mobile-sticky-toolbar],
+  [data-role="partner"] .layout-content-area [data-mobile-sticky-toolbar] {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: hsl(var(--background));
+    margin-left: -12px;
+    margin-right: -12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid hsl(var(--border));
+    backdrop-filter: blur(8px);
+  }
+}
+
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;

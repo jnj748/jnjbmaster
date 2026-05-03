@@ -21,7 +21,15 @@ import {
   Activity,
   ShieldAlert,
   BarChart3,
+  ChevronRight,
 } from "lucide-react";
+// [Task #752] 시설기사 모바일 — KPI strip + 세로 카드 스택.
+import {
+  MobileOnly,
+  DesktopOnly,
+  MobileKpiStrip,
+  type KpiItem,
+} from "@/components/dashboard-widgets/mobile-compact";
 import {
   BarChart,
   Bar,
@@ -111,8 +119,114 @@ export default function FacilityDashboard() {
     { path: "/safety-training", label: "안전교육", description: "안전교육 이수 현황", icon: GraduationCap, color: "bg-violet-500" },
   ];
 
+  // [Task #752] 시설기사 모바일 KPI 4종 — 가장 자주 보는 숫자만 노출.
+  const mobileKpis: KpiItem[] = [
+    {
+      key: "today-checklist",
+      label: "오늘 점검",
+      value: dashboard?.todayChecklistCount ?? 0,
+      icon: ClipboardCheck,
+      iconClass: "text-blue-600",
+      href: "/safety-checklists",
+    },
+    {
+      key: "pending-checklist",
+      label: "대기중",
+      value: dashboard?.pendingChecklistCount ?? 0,
+      icon: Clock,
+      iconClass: "text-amber-600",
+      highlight: (dashboard?.pendingChecklistCount ?? 0) > 0 ? "warn" : "default",
+      href: "/safety-checklists",
+    },
+    {
+      key: "unresolved-defect",
+      label: "미처리 보수",
+      value: dashboard?.unresolvedDefectCount ?? 0,
+      icon: Wrench,
+      iconClass: "text-rose-600",
+      highlight: (dashboard?.unresolvedDefectCount ?? 0) > 0 ? "danger" : "default",
+      href: "/maintenance-logs",
+    },
+    {
+      key: "training",
+      label: "안전교육 이수율",
+      value: `${dashboard?.trainingCompletionRate ?? 0}%`,
+      icon: GraduationCap,
+      iconClass: "text-violet-600",
+      href: "/safety-training",
+    },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* [Task #752] 모바일 (≤899px) — KPI strip + 메뉴 세로 카드 스택 + 핵심 알림. */}
+      <MobileOnly>
+        <div className="space-y-4" data-testid="facility-dashboard-mobile">
+          <div>
+            <h1 className="text-xl font-bold">시설관리</h1>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              점검 · 보수 · 안전교육
+            </p>
+          </div>
+          <MobileKpiStrip items={mobileKpis} />
+          <div className="space-y-2" data-testid="facility-mobile-menu">
+            {facilityMenuCards.map((item) => (
+              <Link key={item.path} href={item.path}>
+                <Card className="hover-elevate active-elevate-2 cursor-pointer">
+                  <CardContent className="py-3 px-3 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center shrink-0`}>
+                      <item.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+          {dashboard?.scheduledAlerts && dashboard.scheduledAlerts.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-chart-3" />
+                  정기 일정 알림
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {dashboard.scheduledAlerts.slice(0, 5).map((alert) => {
+                  const Icon = alertTypeIcons[alert.type] || AlertTriangle;
+                  return (
+                    <div
+                      key={alert.id}
+                      className="flex items-start gap-2 p-2 rounded-lg bg-muted/50 border"
+                    >
+                      <div className={`p-1 rounded ${alert.isOverdue ? "bg-destructive/10" : "bg-primary/10"} shrink-0`}>
+                        <Icon className={`w-4 h-4 ${alert.isOverdue ? "text-destructive" : "text-primary"}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium truncate">{alert.title}</p>
+                          {alert.isOverdue && (
+                            <Badge variant="destructive" className="text-[10px] shrink-0">지연</Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">{formatDate(alert.dueDate)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+          <WarrantyDdayWidget />
+        </div>
+      </MobileOnly>
+
+      {/* [Task #752] 데스크톱 (≥900px) — 기존 레이아웃을 변경 없이 유지. */}
+      <DesktopOnly>
       <div>
         <h1 className="text-2xl font-bold">시설관리</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -371,6 +485,7 @@ export default function FacilityDashboard() {
       <div className="mt-2">
         <WarrantyDdayWidget />
       </div>
+      </DesktopOnly>
     </div>
   );
 }
