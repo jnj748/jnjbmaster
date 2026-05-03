@@ -776,14 +776,18 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
 .ProseMirror table th {
   border: 1px solid rgb(148 163 184); /* slate-400 */
   padding: 6px 8px;
-  vertical-align: top;
+  /* [Task #749] 표 셀 기본 정렬을 가로·세로 가운데로 통일.
+   * Tiptap TextAlign 확장이 셀 내부 <p>에 inline style 로 text-align 을
+   * 부여하면 <p> 의 inline style 이 td 에서 inherit 된 값보다 우선하므로
+   * 사용자가 명시적으로 좌/우 정렬을 지정한 경우는 그 선택이 그대로 유지된다. */
+  text-align: center;
+  vertical-align: middle;
   position: relative;
   min-width: 32px;
 }
 .ProseMirror table th {
   background-color: rgb(241 245 249); /* slate-100 */
   font-weight: 600;
-  text-align: left;
 }
 .ProseMirror table .selectedCell {
   background-color: rgba(59, 130, 246, 0.12);
@@ -804,11 +808,14 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
 .a4-document table th {
   border: 1px solid rgb(148 163 184);
   padding: 6px 8px;
-  vertical-align: top;
+  /* [Task #749] 미리보기 / A4 출력에서도 표 셀을 가로·세로 가운데 정렬.
+   * 사용자가 셀 내부 <p>에 명시적 text-align 을 지정한 경우 inline style 이
+   * 우선하므로 좌/우 정렬 선택은 그대로 보존된다. */
+  text-align: center;
+  vertical-align: middle;
 }
 .notice-template-body table th,
 .a4-document table th {
   background-color: rgb(241 245 249);
   font-weight: 600;
-  text-align: left;
 }
