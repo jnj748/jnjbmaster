@@ -138,6 +138,9 @@ const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
 const ErpBudgets = lazy(() => import("@/pages/erp/budgets"));
 // [Task #780] T9 마감·보고엔진 v01.
 const ErpClosings = lazy(() => import("@/pages/erp/closings"));
+// [Task #803] 결산·세무 모듈 — 결산 워크스페이스 + 세금계산서 워크스페이스.
+const ClosingWorkspace = lazy(() => import("@/pages/closing/closing-workspace"));
+const TaxWorkspace = lazy(() => import("@/pages/tax/tax-workspace"));
 // [Task #774] 부과자료 업로드센터 — OCR/문서엔진 v01 진입 페이지.
 const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
 // [Task #799] 부과관리 풀세트 — 11페이지.
@@ -741,6 +744,20 @@ export const ROUTES: RouteEntry[] = [
     label: "월마감·보고", icon: Lock, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant", "hq_executive"],
+  },
+  // [Task #803] 결산 워크스페이스 — 시산표·월별손익·현금흐름·세입세출·년도이월·스냅샷.
+  {
+    path: "/closing", component: ClosingWorkspace,
+    label: "결산 보고", icon: BarChart3, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["manager", "accountant", "hq_executive"],
+  },
+  // [Task #803] 세금계산서 워크스페이스 — 거래처·품목 마스터 + 작성/발행/전송 통합 화면.
+  {
+    path: "/tax", component: TaxWorkspace,
+    label: "세금계산서", icon: Receipt, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,

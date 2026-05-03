@@ -103,6 +103,19 @@ export const AUDIT_ACTIONS = [
   "accounting.auto_rule.delete",
   "accounting.report_format.create",
   "accounting.report_format.delete",
+
+  // ── 결산·세무 모듈 (#803) ───────────────────────────────────
+  "tax.vendor.upsert",
+  "tax.vendor.delete",
+  "tax.item.upsert",
+  "tax.item.delete",
+  "tax.invoice.create",
+  "tax.invoice.update",
+  "tax.invoice.issue",
+  "tax.invoice.cancel",
+  "tax.invoice.correct",
+  "tax.invoice.transmit",
+  "tax.invoice.nts_transmit",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -193,6 +206,18 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "accounting.auto_rule.delete": "자동분개 규칙 삭제",
   "accounting.report_format.create": "보고서 형식 등록",
   "accounting.report_format.delete": "보고서 형식 삭제",
+
+  "tax.vendor.upsert": "세금계산서 거래처 저장",
+  "tax.vendor.delete": "세금계산서 거래처 삭제",
+  "tax.item.upsert": "세금계산서 품목 저장",
+  "tax.item.delete": "세금계산서 품목 삭제",
+  "tax.invoice.create": "세금계산서 작성",
+  "tax.invoice.update": "세금계산서 수정",
+  "tax.invoice.issue": "세금계산서 발행",
+  "tax.invoice.cancel": "세금계산서 취소",
+  "tax.invoice.correct": "세금계산서 수정 발행",
+  "tax.invoice.transmit": "세금계산서 거래처 전송",
+  "tax.invoice.nts_transmit": "세금계산서 국세청 전송",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -320,6 +345,19 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   "accounting.auto_rule.delete": { accountant: true, platform_admin: true },
   "accounting.report_format.create": { manager: true, accountant: true, platform_admin: true },
   "accounting.report_format.delete": { accountant: true, platform_admin: true },
+
+  // ── 결산·세무 모듈 (#803) ───────────────────────────────────
+  "tax.vendor.upsert": { manager: true, accountant: true, platform_admin: true },
+  "tax.vendor.delete": { accountant: true, platform_admin: true },
+  "tax.item.upsert": { manager: true, accountant: true, platform_admin: true },
+  "tax.item.delete": { accountant: true, platform_admin: true },
+  "tax.invoice.create": { manager: true, accountant: true, platform_admin: true },
+  "tax.invoice.update": { manager: true, accountant: true, platform_admin: true },
+  "tax.invoice.issue": { manager: true, accountant: true, platform_admin: true },
+  "tax.invoice.cancel": { accountant: true, platform_admin: true },
+  "tax.invoice.correct": { accountant: true, platform_admin: true },
+  "tax.invoice.transmit": { manager: true, accountant: true, platform_admin: true },
+  "tax.invoice.nts_transmit": { manager: true, accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */

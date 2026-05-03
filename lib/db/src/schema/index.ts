@@ -113,3 +113,5 @@ export * from "./autoJournalRules";
 export * from "./reportFormats";
 // [Task #798] 한전 검침 송신 로그.
 export * from "./kepcoTransmissionLog";
+// [Task #803] 결산·세무 — 세금계산서 도메인.
+export * from "./taxInvoices";
