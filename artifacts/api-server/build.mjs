@@ -31,6 +31,11 @@ async function buildAll() {
     },
   });
 
+  // [Task #812] PDF 한글 폰트(NanumGothic) 등 정적 자산을 dist/assets 로 복사.
+  const assetsSrc = path.resolve(artifactDir, "assets");
+  const assetsDest = path.resolve(distDir, "assets");
+  await cp(assetsSrc, assetsDest, { recursive: true });
+
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",

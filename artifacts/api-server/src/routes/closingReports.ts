@@ -2,6 +2,8 @@
 //   기존 /accounting/balance-sheet · /accounting/income-statement (#778) 위에
 //   결산용 보고(시산표·월별손익·현금흐름·세입세출·년도이월 미리보기)를 더한다.
 //   분개 데이터는 기존 buildEntryScope·buildAccountScope 와 동일한 가시성 규칙.
+// [Task #812] 6개 보고를 PDF·엑셀로도 내보낼 수 있도록 데이터 빌더를 분리해
+//   JSON / .xlsx / .pdf 세 형식이 같은 결과를 공유한다.
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, chartOfAccountsTable, journalEntriesTable, journalLinesTable,
@@ -11,6 +13,7 @@ import {
 import { and, asc, desc, eq, gte, lte, sql, inArray, isNull, type SQL } from "drizzle-orm";
 import { requireRole } from "../middlewares/auth";
 import { getAccessibleBuildingIds } from "../middlewares/buildingScope";
+import { sendXlsx, sendPdf, type SheetSpec, type PdfTableSpec } from "../lib/closingExports";
 
 const router: IRouter = Router();
 router.use("/closing-reports", requireRole("manager", "accountant", "platform_admin", "hq_executive"));
@@ -48,14 +51,21 @@ async function loadAccountTypes(req: Request): Promise<Map<string, { type: strin
   return m;
 }
 
-// ── 시산표 (Trial Balance) ──────────────────────────────────────
-// 기간 누계 차변·대변 합과 잔액(차/대 분리 표기)을 계정 코드 단위로 모은다.
-router.get("/closing-reports/trial-balance", async (req: Request, res: Response): Promise<void> => {
+const TYPE_LABEL: Record<string, string> = {
+  asset: "자산", liability: "부채", equity: "자본", revenue: "수익", expense: "비용",
+};
+
+// ── 데이터 빌더 ────────────────────────────────────────────────
+type TBPayload = {
+  from: string | null; to: string | null; asOf: string | null;
+  rows: Array<{ code: string; name: string; type: string; periodDebit: number; periodCredit: number; balanceDebit: number; balanceCredit: number }>;
+  totals: { debit: number; credit: number; balanced: boolean };
+};
+async function buildTrialBalance(req: Request): Promise<TBPayload> {
   const scope = await entryScope(req);
   const { from, to, asOf } = req.query as { from?: string; to?: string; asOf?: string };
   if (scope.kind === "empty") {
-    res.json({ from: from ?? null, to: to ?? null, asOf: asOf ?? null, rows: [], totals: { debit: 0, credit: 0, balanced: true } });
-    return;
+    return { from: from ?? null, to: to ?? null, asOf: asOf ?? null, rows: [], totals: { debit: 0, credit: 0, balanced: true } };
   }
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
@@ -80,38 +90,27 @@ router.get("/closing-reports/trial-balance", async (req: Request, res: Response)
     const debit = Number(r.debit);
     const credit = Number(r.credit);
     const net = debit - credit;
-    // 정상잔액: asset/expense=차변, 나머지=대변. 순잔액의 부호로 표기 측을 결정.
-    const debitSide = t === "asset" || t === "expense" ? Math.max(net, 0) : Math.max(-net, 0) === 0 ? 0 : 0;
-    const creditSide = t === "asset" || t === "expense" ? Math.max(-net, 0) : Math.max(net, 0);
-    // 위 식은 자산/비용은 차변잔액(net>0)을, 부채/자본/수익은 대변잔액(net<0)을 양수로 표기.
     const finalDebit = t === "asset" || t === "expense" ? Math.max(net, 0) : 0;
     const finalCredit = t === "asset" || t === "expense" ? Math.max(-net, 0) : Math.max(-net, 0);
     td += finalDebit; tc += finalCredit;
     return {
-      code: r.code,
-      name: r.name,
-      type: t,
-      periodDebit: debit,
-      periodCredit: credit,
-      balanceDebit: finalDebit,
-      balanceCredit: finalCredit,
+      code: r.code, name: r.name, type: t,
+      periodDebit: debit, periodCredit: credit,
+      balanceDebit: finalDebit, balanceCredit: finalCredit,
     };
   });
-  res.json({
-    from: from ?? null,
-    to: to ?? null,
-    asOf: asOf ?? null,
+  return {
+    from: from ?? null, to: to ?? null, asOf: asOf ?? null,
     rows: out,
     totals: { debit: td, credit: tc, balanced: Math.abs(td - tc) < 0.5 },
-  });
-});
+  };
+}
 
-// ── 월별손익계산서 (Monthly Income Statement) ────────────────────
-// year(YYYY) 기간을 월별로 쪼개 수익·비용·순이익을 12행으로 반환.
-router.get("/closing-reports/monthly-income-statement", async (req: Request, res: Response): Promise<void> => {
+type ISPayload = { year: string; months: Array<{ month: string; revenue: number; expense: number; netIncome: number }>; totals: { revenue: number; expense: number; netIncome: number } };
+async function buildMonthlyIncomeStatement(req: Request): Promise<ISPayload> {
   const year = String(req.query.year ?? new Date().getUTCFullYear());
   const scope = await entryScope(req);
-  if (scope.kind === "empty") { res.json({ year, months: [], totals: { revenue: 0, expense: 0, netIncome: 0 } }); return; }
+  if (scope.kind === "empty") return { year, months: [], totals: { revenue: 0, expense: 0, netIncome: 0 } };
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
   conds.push(gte(journalEntriesTable.entryDate, `${year}-01-01`));
@@ -143,16 +142,14 @@ router.get("/closing-reports/monthly-income-statement", async (req: Request, res
     (acc, m) => ({ revenue: acc.revenue + m.revenue, expense: acc.expense + m.expense, netIncome: acc.netIncome + m.netIncome }),
     { revenue: 0, expense: 0, netIncome: 0 },
   );
-  res.json({ year, months, totals });
-});
+  return { year, months, totals };
+}
 
-// ── 현금흐름표 (간이) ───────────────────────────────────────────
-// CASH(1010) + BANK(1020) 계정의 차변(유입)·대변(유출)을 월별로 모아 영업/투자/재무
-// 분류는 보류하고 운영성과(net) 만 표기 — XpBIZ 와 의도적으로 다른 단순한 v01.
-router.get("/closing-reports/cash-flow", async (req: Request, res: Response): Promise<void> => {
+type CFPayload = { year: string; months: Array<{ month: string; inflow: number; outflow: number; net: number }>; totals: { inflow: number; outflow: number; net: number } };
+async function buildCashFlow(req: Request): Promise<CFPayload> {
   const year = String(req.query.year ?? new Date().getUTCFullYear());
   const scope = await entryScope(req);
-  if (scope.kind === "empty") { res.json({ year, months: [], totals: { inflow: 0, outflow: 0, net: 0 } }); return; }
+  if (scope.kind === "empty") return { year, months: [], totals: { inflow: 0, outflow: 0, net: 0 } };
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
   conds.push(gte(journalEntriesTable.entryDate, `${year}-01-01`));
@@ -174,19 +171,20 @@ router.get("/closing-reports/cash-flow", async (req: Request, res: Response): Pr
     (a, m) => ({ inflow: a.inflow + m.inflow, outflow: a.outflow + m.outflow, net: a.net + m.net }),
     { inflow: 0, outflow: 0, net: 0 },
   );
-  res.json({ year, months, totals });
-});
+  return { year, months, totals };
+}
 
-// ── 세입세출서 (Budget vs Actual) ───────────────────────────────
-// #776 의 budgets/budget_versions/budget_lines/budget_executions 8개 표준 카테고리
-// 매트릭스 기준. 활성 버전의 1~12월 합을 편성으로, budget_executions 누계를 실집행
-// 으로 본다. 활성 버전이 없는 건물은 budget=0 으로 표기되며 actual 만 노출.
-router.get("/closing-reports/budget-vs-actual", async (req: Request, res: Response): Promise<void> => {
+type BVAPayload = {
+  year: string;
+  rows: Array<{ category: string; label: string; budget: number; actual: number; variance: number; rate: number | null }>;
+  totals: { budget: number; actual: number; variance: number };
+  hasBudget: boolean;
+};
+async function buildBudgetVsActual(req: Request): Promise<BVAPayload> {
   const year = String(req.query.year ?? new Date().getUTCFullYear());
   const scope = await getAccessibleBuildingIds(req);
   if (!scope.unrestricted && scope.ids.length === 0) {
-    res.json({ year, rows: [], totals: { budget: 0, actual: 0, variance: 0 } });
-    return;
+    return { year, rows: [], totals: { budget: 0, actual: 0, variance: 0 }, hasBudget: false };
   }
   const buildingIds = scope.unrestricted ? null : scope.ids;
   const budgetConds: SQL[] = [eq(budgetsTable.year, Number(year))];
@@ -202,7 +200,6 @@ router.get("/closing-reports/budget-vs-actual", async (req: Request, res: Respon
     }).from(budgetLinesTable)
       .where(and(
         versionIds.length === 1 ? eq(budgetLinesTable.versionId, versionIds[0]) : inArray(budgetLinesTable.versionId, versionIds),
-        // 0 은 연 총액 보조행 — 월(1~12) 만 합산.
         gte(budgetLinesTable.month, 1),
         lte(budgetLinesTable.month, 12),
       ))
@@ -242,18 +239,20 @@ router.get("/closing-reports/budget-vs-actual", async (req: Request, res: Respon
     (acc, r) => ({ budget: acc.budget + r.budget, actual: acc.actual + r.actual, variance: acc.variance + r.variance }),
     { budget: 0, actual: 0, variance: 0 },
   );
-  res.json({ year, rows: out, totals, hasBudget: versionIds.length > 0 });
-});
+  return { year, rows: out, totals, hasBudget: versionIds.length > 0 };
+}
 
-// ── 년도이월 미리보기 ──────────────────────────────────────────
-// 회계기말의 자산/부채/자본 잔액을 정리해 차기 이월잔액으로 제안.
-// 실제 이월 발행은 #780 closingEngine.lockMonth + carry-forward 가 처리한다.
-router.get("/closing-reports/year-end-rollover", async (req: Request, res: Response): Promise<void> => {
+type RolloverPayload = {
+  year: string; asOf: string;
+  lines: Array<{ code: string; name: string; type: string; balance: number }>;
+  totals: { assets: number; liabilities: number; equity: number };
+  lastLockedMonth: string | null;
+};
+async function buildYearEndRollover(req: Request): Promise<RolloverPayload> {
   const year = String(req.query.year ?? new Date().getUTCFullYear());
   const scope = await entryScope(req);
   if (scope.kind === "empty") {
-    res.json({ year, asOf: `${year}-12-31`, lines: [], totals: { assets: 0, liabilities: 0, equity: 0 } });
-    return;
+    return { year, asOf: `${year}-12-31`, lines: [], totals: { assets: 0, liabilities: 0, equity: 0 }, lastLockedMonth: null };
   }
   const conds: SQL[] = [];
   if (scope.kind === "ids") conds.push(scope.cond);
@@ -280,7 +279,6 @@ router.get("/closing-reports/year-end-rollover", async (req: Request, res: Respo
     if (t === "equity") totalE += balance;
     return [{ code: r.code, name: r.name, type: t, balance }];
   }).sort((a, b) => a.code.localeCompare(b.code));
-  // 직전 마감(이미 잠긴 마지막 월) 표기 — UI 가 잠금 흐름으로 안내.
   const lastLocked = await db.select().from(periodClosingsTable)
     .where(and(
       eq(periodClosingsTable.status, "locked"),
@@ -288,20 +286,17 @@ router.get("/closing-reports/year-end-rollover", async (req: Request, res: Respo
     ))
     .orderBy(desc(periodClosingsTable.month))
     .limit(1);
-  res.json({
-    year,
-    asOf: `${year}-12-31`,
-    lines,
+  return {
+    year, asOf: `${year}-12-31`, lines,
     totals: { assets: totalA, liabilities: totalL, equity: totalE },
     lastLockedMonth: lastLocked[0]?.month ?? null,
-  });
-});
+  };
+}
 
-// ── 결산 스냅샷 한 컷(요약 카드용) ──────────────────────────────
-// 마감 잠금 시 #780 가 저장한 closing_snapshots 의 가장 최근 잠금 행을 돌려준다.
-router.get("/closing-reports/latest-snapshot", async (req: Request, res: Response): Promise<void> => {
+type SnapshotPayload = { snapshot: { closing: typeof periodClosingsTable.$inferSelect; snapshots: Array<typeof closingSnapshotsTable.$inferSelect> } | null };
+async function buildLatestSnapshot(req: Request): Promise<SnapshotPayload> {
   const scope = await getAccessibleBuildingIds(req);
-  if (!scope.unrestricted && scope.ids.length === 0) { res.json({ snapshot: null }); return; }
+  if (!scope.unrestricted && scope.ids.length === 0) return { snapshot: null };
   const buildingIds = scope.unrestricted ? null : scope.ids;
   const conds: SQL[] = [eq(periodClosingsTable.status, "locked")];
   if (buildingIds && buildingIds.length === 1) conds.push(eq(periodClosingsTable.buildingId, buildingIds[0]));
@@ -310,10 +305,231 @@ router.get("/closing-reports/latest-snapshot", async (req: Request, res: Respons
     .where(and(...conds))
     .orderBy(desc(periodClosingsTable.month))
     .limit(1);
-  if (!closing) { res.json({ snapshot: null }); return; }
+  if (!closing) return { snapshot: null };
   const snaps = await db.select().from(closingSnapshotsTable)
     .where(and(eq(closingSnapshotsTable.buildingId, closing.buildingId), eq(closingSnapshotsTable.month, closing.month)));
-  res.json({ snapshot: { closing, snapshots: snaps } });
-});
+  return { snapshot: { closing, snapshots: snaps } };
+}
+
+// ── JSON 라우트 ────────────────────────────────────────────────
+router.get("/closing-reports/trial-balance", async (req, res) => { res.json(await buildTrialBalance(req)); });
+router.get("/closing-reports/monthly-income-statement", async (req, res) => { res.json(await buildMonthlyIncomeStatement(req)); });
+router.get("/closing-reports/cash-flow", async (req, res) => { res.json(await buildCashFlow(req)); });
+router.get("/closing-reports/budget-vs-actual", async (req, res) => { res.json(await buildBudgetVsActual(req)); });
+router.get("/closing-reports/year-end-rollover", async (req, res) => { res.json(await buildYearEndRollover(req)); });
+router.get("/closing-reports/latest-snapshot", async (req, res) => { res.json(await buildLatestSnapshot(req)); });
+
+// ── 내보내기 스펙 빌더 ────────────────────────────────────────
+function tbSpecs(d: TBPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  const meta: Array<[string, string]> = [
+    ["기간", `${d.from ?? "-"} ~ ${d.to ?? "-"}`],
+    ["차대 일치", d.totals.balanced ? "예" : "아니오"],
+  ];
+  const rows = d.rows.map((r) => ({
+    code: r.code, name: r.name, type: TYPE_LABEL[r.type] ?? r.type,
+    periodDebit: r.periodDebit, periodCredit: r.periodCredit,
+    balanceDebit: r.balanceDebit, balanceCredit: r.balanceCredit,
+  }));
+  const totals = { code: "합계", periodDebit: "", periodCredit: "", balanceDebit: d.totals.debit, balanceCredit: d.totals.credit };
+  return {
+    baseName: `시산표_${d.from ?? "all"}_${d.to ?? "all"}`,
+    sheet: {
+      title: "시산표", meta,
+      columns: [
+        { header: "계정코드", key: "code", width: 12 },
+        { header: "계정명", key: "name", width: 28 },
+        { header: "분류", key: "type", width: 10 },
+        { header: "기간 차변", key: "periodDebit", width: 16, numeric: true },
+        { header: "기간 대변", key: "periodCredit", width: 16, numeric: true },
+        { header: "잔액 차변", key: "balanceDebit", width: 16, numeric: true },
+        { header: "잔액 대변", key: "balanceCredit", width: 16, numeric: true },
+      ],
+      rows, totals,
+    },
+    pdf: {
+      title: "시산표", meta,
+      columns: [
+        { header: "계정코드", key: "code", width: 60 },
+        { header: "계정명", key: "name", width: 160 },
+        { header: "분류", key: "type", width: 50 },
+        { header: "기간 차변", key: "periodDebit", width: 100, numeric: true },
+        { header: "기간 대변", key: "periodCredit", width: 100, numeric: true },
+        { header: "잔액 차변", key: "balanceDebit", width: 100, numeric: true },
+        { header: "잔액 대변", key: "balanceCredit", width: 100, numeric: true },
+      ],
+      rows, totals,
+    },
+  };
+}
+
+function isSpecs(d: ISPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  const meta: Array<[string, string]> = [["회계연도", d.year]];
+  const rows = d.months;
+  const totals = { month: "연 합계", revenue: d.totals.revenue, expense: d.totals.expense, netIncome: d.totals.netIncome };
+  const cols = [
+    { header: "월", key: "month", width: 14 },
+    { header: "수익", key: "revenue", width: 18, numeric: true },
+    { header: "비용", key: "expense", width: 18, numeric: true },
+    { header: "순이익", key: "netIncome", width: 18, numeric: true },
+  ];
+  const pdfCols = [
+    { header: "월", key: "month", width: 80 },
+    { header: "수익", key: "revenue", width: 140, numeric: true },
+    { header: "비용", key: "expense", width: 140, numeric: true },
+    { header: "순이익", key: "netIncome", width: 140, numeric: true },
+  ];
+  return {
+    baseName: `월별손익_${d.year}`,
+    sheet: { title: "월별손익", meta, columns: cols, rows, totals },
+    pdf: { title: `월별손익 (${d.year})`, meta, columns: pdfCols, rows, totals },
+  };
+}
+
+function cfSpecs(d: CFPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  const meta: Array<[string, string]> = [["회계연도", d.year]];
+  const rows = d.months;
+  const totals = { month: "연 합계", inflow: d.totals.inflow, outflow: d.totals.outflow, net: d.totals.net };
+  const cols = [
+    { header: "월", key: "month", width: 14 },
+    { header: "유입", key: "inflow", width: 18, numeric: true },
+    { header: "유출", key: "outflow", width: 18, numeric: true },
+    { header: "순증감", key: "net", width: 18, numeric: true },
+  ];
+  const pdfCols = [
+    { header: "월", key: "month", width: 80 },
+    { header: "유입", key: "inflow", width: 140, numeric: true },
+    { header: "유출", key: "outflow", width: 140, numeric: true },
+    { header: "순증감", key: "net", width: 140, numeric: true },
+  ];
+  return {
+    baseName: `현금흐름_${d.year}`,
+    sheet: { title: "현금흐름", meta, columns: cols, rows, totals },
+    pdf: { title: `현금흐름 (${d.year})`, meta, columns: pdfCols, rows, totals, footnote: "현금성(1010) + 보통예금(1020) 계정 기준 월별 유입/유출." },
+  };
+}
+
+function bvaSpecs(d: BVAPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  const meta: Array<[string, string]> = [["회계연도", d.year], ["예산 등록 여부", d.hasBudget ? "있음" : "없음"]];
+  const rows = d.rows.map((r) => ({ ...r, rate: r.rate == null ? "" : `${r.rate.toFixed(1)}%` }));
+  const totals = { label: "합계", budget: d.totals.budget, actual: d.totals.actual, variance: d.totals.variance, rate: "" };
+  const cols = [
+    { header: "비목", key: "label", width: 24 },
+    { header: "편성", key: "budget", width: 16, numeric: true },
+    { header: "실집행", key: "actual", width: 16, numeric: true },
+    { header: "차이", key: "variance", width: 16, numeric: true },
+    { header: "집행률", key: "rate", width: 12 },
+  ];
+  const pdfCols = [
+    { header: "비목", key: "label", width: 200 },
+    { header: "편성", key: "budget", width: 130, numeric: true },
+    { header: "실집행", key: "actual", width: 130, numeric: true },
+    { header: "차이", key: "variance", width: 130, numeric: true },
+    { header: "집행률", key: "rate", width: 90, align: "right" as const },
+  ];
+  return {
+    baseName: `세입세출_${d.year}`,
+    sheet: { title: "세입세출", meta, columns: cols, rows, totals },
+    pdf: { title: `세입세출 (${d.year})`, meta, columns: pdfCols, rows, totals },
+  };
+}
+
+function rolloverSpecs(d: RolloverPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  const meta: Array<[string, string]> = [
+    ["기준일", d.asOf],
+    ["자산 합계", d.totals.assets.toLocaleString("ko-KR")],
+    ["부채 합계", d.totals.liabilities.toLocaleString("ko-KR")],
+    ["자본 합계", d.totals.equity.toLocaleString("ko-KR")],
+    ["직전 잠금월", d.lastLockedMonth ?? "없음"],
+  ];
+  const rows = d.lines.map((l) => ({ code: l.code, name: l.name, type: TYPE_LABEL[l.type] ?? l.type, balance: l.balance }));
+  const cols = [
+    { header: "계정코드", key: "code", width: 12 },
+    { header: "계정명", key: "name", width: 28 },
+    { header: "분류", key: "type", width: 10 },
+    { header: "잔액", key: "balance", width: 18, numeric: true },
+  ];
+  const pdfCols = [
+    { header: "계정코드", key: "code", width: 80 },
+    { header: "계정명", key: "name", width: 240 },
+    { header: "분류", key: "type", width: 80 },
+    { header: "잔액", key: "balance", width: 200, numeric: true },
+  ];
+  return {
+    baseName: `년도이월_${d.year}`,
+    sheet: { title: "년도이월", meta, columns: cols, rows },
+    pdf: { title: `년도이월 미리보기 (${d.year})`, meta, columns: pdfCols, rows },
+  };
+}
+
+function snapshotSpecs(d: SnapshotPayload): { sheet: SheetSpec; pdf: PdfTableSpec; baseName: string } {
+  if (!d.snapshot) {
+    const meta: Array<[string, string]> = [["상태", "잠금된 월이 없습니다"]];
+    const empty = { title: "결산스냅샷", meta, columns: [{ header: "안내", key: "msg", width: 60 }], rows: [{ msg: "월마감에서 잠금을 진행하면 스냅샷이 생성됩니다." }] };
+    return {
+      baseName: `결산스냅샷`,
+      sheet: empty,
+      pdf: { ...empty, columns: [{ header: "안내", key: "msg", width: 600 }] },
+    };
+  }
+  const c = d.snapshot.closing;
+  const meta: Array<[string, string]> = [
+    ["대상월", c.month],
+    ["상태", c.status],
+  ];
+  const rows: Array<Record<string, unknown>> = [];
+  for (const s of d.snapshot.snapshots) {
+    const totals = (s.totals ?? {}) as Record<string, number>;
+    const keys = Object.keys(totals);
+    if (keys.length === 0) {
+      rows.push({ id: String(s.id), key: "-", value: "-" });
+    } else {
+      for (const k of keys) rows.push({ id: String(s.id), key: k, value: totals[k] });
+    }
+  }
+  const cols = [
+    { header: "스냅샷 ID", key: "id", width: 12 },
+    { header: "지표", key: "key", width: 28 },
+    { header: "값", key: "value", width: 18, numeric: true },
+  ];
+  const pdfCols = [
+    { header: "스냅샷 ID", key: "id", width: 80 },
+    { header: "지표", key: "key", width: 280 },
+    { header: "값", key: "value", width: 240, numeric: true },
+  ];
+  return {
+    baseName: `결산스냅샷_${c.month}`,
+    sheet: { title: "결산스냅샷", meta, columns: cols, rows },
+    pdf: { title: `결산스냅샷 (${c.month})`, meta, columns: pdfCols, rows },
+  };
+}
+
+type ReportKey = "trial-balance" | "monthly-income-statement" | "cash-flow" | "budget-vs-actual" | "year-end-rollover" | "latest-snapshot";
+
+async function buildSpecs(key: ReportKey, req: Request): Promise<{ sheet: SheetSpec; pdf: PdfTableSpec; baseName: string }> {
+  switch (key) {
+    case "trial-balance": return tbSpecs(await buildTrialBalance(req));
+    case "monthly-income-statement": return isSpecs(await buildMonthlyIncomeStatement(req));
+    case "cash-flow": return cfSpecs(await buildCashFlow(req));
+    case "budget-vs-actual": return bvaSpecs(await buildBudgetVsActual(req));
+    case "year-end-rollover": return rolloverSpecs(await buildYearEndRollover(req));
+    case "latest-snapshot": return snapshotSpecs(await buildLatestSnapshot(req));
+  }
+}
+
+const REPORT_KEYS: ReportKey[] = [
+  "trial-balance", "monthly-income-statement", "cash-flow",
+  "budget-vs-actual", "year-end-rollover", "latest-snapshot",
+];
+
+for (const key of REPORT_KEYS) {
+  router.get(`/closing-reports/${key}.xlsx`, async (req: Request, res: Response): Promise<void> => {
+    const { sheet, baseName } = await buildSpecs(key, req);
+    await sendXlsx(res, `${baseName}.xlsx`, sheet);
+  });
+  router.get(`/closing-reports/${key}.pdf`, async (req: Request, res: Response): Promise<void> => {
+    const { pdf, baseName } = await buildSpecs(key, req);
+    sendPdf(res, `${baseName}.pdf`, pdf);
+  });
+}
 
 export default router;
