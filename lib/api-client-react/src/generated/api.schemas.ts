@@ -648,6 +648,14 @@ export interface Vendor {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /** @nullable */
+  businessCertUrl?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
   /**
    * 누적된 평가의 평균 별점 (없으면 null)
    * @nullable
@@ -727,6 +735,12 @@ export interface CreateVendorBody {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
 }
 
 export type UpdateVendorBodyCategory =
@@ -799,6 +813,12 @@ export interface UpdateVendorBody {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
 }
 
 export type RegisterPlatformVendorBodyCategory =
@@ -6420,6 +6440,34 @@ export interface MemoOcrResult {
   text: string;
 }
 
+export type BusinessRegOcrPreviewFieldConfidence = { [key: string]: number };
+
+/**
+ * Task #745. Per-field candidates extracted from a Korean business
+registration certificate (PDF/image) with associated confidence
+(0~1). Unrecognized fields are returned as null and the UI marks
+low-confidence fields with "확인 필요".
+
+ */
+export interface BusinessRegOcrPreview {
+  /** @nullable */
+  vendorName?: string | null;
+  /** @nullable */
+  businessRegNumber?: string | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
+  fieldConfidence: BusinessRegOcrPreviewFieldConfidence;
+  rawText: string;
+}
+
 export type ContractOcrPreviewFieldConfidence = { [key: string]: number };
 
 /**
@@ -6849,6 +6897,16 @@ export type RunMemoOcrBody = {
   objectPath: string;
   /** @nullable */
   fileName?: string | null;
+};
+
+export type PreviewBusinessRegOcrBody = {
+  objectPath: string;
+  /** @nullable */
+  fileName?: string | null;
+};
+
+export type AttachVendorBusinessCertBody = {
+  fileUrl: string;
 };
 
 export type PreviewContractOcrBody = {

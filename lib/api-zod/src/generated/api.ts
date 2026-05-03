@@ -909,6 +909,10 @@ export const ListVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -965,6 +969,9 @@ export const CreateVendorBody = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
 });
 
 /**
@@ -1013,6 +1020,9 @@ export const UpdateVendorBody = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
 });
 
 export const updateVendorResponseReviewCountDefault = 0;
@@ -1059,6 +1069,10 @@ export const UpdateVendorResponse = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1129,6 +1143,10 @@ export const GetRecommendedVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1245,6 +1263,10 @@ export const OnboardPartnerVendorResponse = zod.object({
     contractBuildingName: zod.string().nullish(),
     contractStartDate: zod.string().date().nullish(),
     contractEndDate: zod.string().date().nullish(),
+    businessCertUrl: zod.string().nullish(),
+    businessType: zod.string().nullish(),
+    businessItem: zod.string().nullish(),
+    openedAt: zod.string().date().nullish(),
     avgRating: zod
       .number()
       .nullish()
@@ -1305,6 +1327,10 @@ export const GetMyVendorResponse = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -1385,6 +1411,10 @@ export const UpdateMyVendorResponse = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -2160,6 +2190,10 @@ export const GetRfqMatchedVendorsResponseItem = zod.object({
   contractBuildingName: zod.string().nullish(),
   contractStartDate: zod.string().date().nullish(),
   contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
   avgRating: zod
     .number()
     .nullish()
@@ -4686,6 +4720,111 @@ export const RunMemoOcrResponse = zod
   .describe(
     "Task #465. Plain text extracted from a handwritten\/printed memo photo\nby Gemini OCR. The caller appends `text` to the existing memo (no DB write).\n",
   );
+
+/**
+ * Task #745. Accepts an already-uploaded object path (object storage), runs OCR
+with Gemini 2.5 Flash, and returns vendorName / businessRegNumber / representative /
+address / businessType / businessItem / openedAt candidates with per-field
+confidence. The result is **not** stored — the caller reviews and saves via
+POST /vendors (+ POST /vendors/{id}/business-cert).
+
+ * @summary OCR a business registration certificate (PDF/image) and return parsed fields without persisting
+ */
+export const PreviewBusinessRegOcrBody = zod.object({
+  objectPath: zod.string(),
+  fileName: zod.string().nullish(),
+});
+
+export const PreviewBusinessRegOcrResponse = zod
+  .object({
+    vendorName: zod.string().nullish(),
+    businessRegNumber: zod.string().nullish(),
+    representativeName: zod.string().nullish(),
+    address: zod.string().nullish(),
+    businessType: zod.string().nullish(),
+    businessItem: zod.string().nullish(),
+    openedAt: zod.string().date().nullish(),
+    fieldConfidence: zod.record(zod.string(), zod.number()),
+    rawText: zod.string(),
+  })
+  .describe(
+    'Task #745. Per-field candidates extracted from a Korean business\nregistration certificate (PDF\/image) with associated confidence\n(0~1). Unrecognized fields are returned as null and the UI marks\nlow-confidence fields with \"확인 필요\".\n',
+  );
+
+/**
+ * Task #745. Persists the uploaded business registration certificate URL on
+the vendor row (vendors.businessCertUrl). Used by the building vendor
+directory add dialog after vendor creation.
+
+ * @summary Attach an uploaded business registration certificate file URL to a vendor
+ */
+export const AttachVendorBusinessCertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AttachVendorBusinessCertBody = zod.object({
+  fileUrl: zod.string(),
+});
+
+export const attachVendorBusinessCertResponseReviewCountDefault = 0;
+
+export const AttachVendorBusinessCertResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.enum([
+    "elevator",
+    "water_tank",
+    "fire_safety",
+    "electrical",
+    "gas",
+    "septic",
+    "cleaning",
+    "security",
+    "waterproofing",
+    "maintenance_repair",
+    "defect_diagnosis",
+    "building_maintenance",
+    "mechanical",
+    "other",
+  ]),
+  type: zod.enum(["contracted", "platform"]),
+  contactName: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  address: zod.string().nullish(),
+  rating: zod.number().nullish(),
+  isRecommended: zod.boolean(),
+  notes: zod.string().nullish(),
+  businessRegNumber: zod.string().nullish(),
+  representativeName: zod.string().nullish(),
+  serviceArea: zod.string().nullish(),
+  subCategories: zod.string().nullish(),
+  sido: zod.string().nullish(),
+  sigungu: zod.string().nullish(),
+  profileImageUrl: zod.string().nullish(),
+  intro: zod
+    .string()
+    .nullish()
+    .describe("짧은 업체 소개글 (파트너가 본인 업체를 한 줄로 소개)"),
+  joinedAt: zod.string().datetime({}).nullish(),
+  contractBuildingName: zod.string().nullish(),
+  contractStartDate: zod.string().date().nullish(),
+  contractEndDate: zod.string().date().nullish(),
+  businessCertUrl: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  businessItem: zod.string().nullish(),
+  openedAt: zod.string().date().nullish(),
+  avgRating: zod
+    .number()
+    .nullish()
+    .describe("누적된 평가의 평균 별점 (없으면 null)"),
+  reviewCount: zod
+    .number()
+    .default(attachVendorBusinessCertResponseReviewCountDefault)
+    .describe("누적 평가 건수"),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
 
 /**
  * Task #369. Accepts an already-uploaded object path (object storage), runs OCR

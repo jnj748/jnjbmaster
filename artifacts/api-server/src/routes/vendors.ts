@@ -28,6 +28,10 @@ import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
 import { grantSignupBonusIfEligible } from "../lib/credits";
 // [Task #740 T6] 사업장 주소 자동 좌표 백필 헬퍼 — 라우트(/api/kakao/geocode) 와 동일 로직.
 import { geocodeKakaoAddress } from "../lib/kakaoGeocode";
+// [Task #745] 사업자등록증 OCR 미리보기.
+import { runBusinessRegOcr } from "../lib/businessRegOcr";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 // [Task #290] partner 는 협력업체 풀(/vendors) 접근 금지 — 본인 업체는 /me/vendor 사용.
@@ -182,6 +186,78 @@ router.get("/vendors", requireVendorReader, async (req, res): Promise<void> => {
 
   res.json(ListVendorsResponse.parse(enriched));
 });
+
+// [Task #745] 사업자등록증 OCR 미리보기. 업로드된 파일(PDF/이미지)에서 상호/사업자번호/
+// 대표자/주소/업태/종목 후보를 추출해 JSON+신뢰도로 반환만 한다. DB에는 쓰지 않고,
+// 사용자가 검토/수정 후 저장 시점에 vendor 첨부로 별도 저장한다.
+// /contracts/ocr-preview 와 동일 ACL/권한 패턴.
+router.post(
+  "/vendors/business-reg/ocr-preview",
+  requireVendorWriter,
+  async (req, res): Promise<void> => {
+    const { objectPath, fileName } = req.body ?? {};
+    if (!objectPath || typeof objectPath !== "string") {
+      res.status(400).json({ error: "objectPath가 필요합니다" });
+      return;
+    }
+    try {
+      const storage = new ObjectStorageService();
+      const objectFile = await storage.getObjectEntityFile(objectPath);
+      const allowed = await storage.canAccessObjectEntity({
+        userId: req.user?.userId ? String(req.user.userId) : undefined,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!allowed) {
+        res.status(403).json({ error: "해당 파일에 접근할 권한이 없습니다" });
+        return;
+      }
+    } catch {
+      res.status(404).json({ error: "파일을 찾지 못했습니다" });
+      return;
+    }
+    try {
+      const result = await runBusinessRegOcr({ objectPath, fileName: fileName ?? null });
+      res.json(result);
+    } catch (err) {
+      req.log.error({ err, objectPath }, "business reg ocr-preview failed");
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "OCR 처리 실패",
+      });
+    }
+  },
+);
+
+// [Task #745] 협력업체에 사업자등록증 파일을 첨부한다. vendors.businessCertUrl 컬럼을
+// 갱신하고, 갱신된 vendor 행을 반환한다. AddVendorContractDialog 의 저장 흐름에서
+// 협력업체 생성 직후 호출된다(주소록에서 다시 볼 수 있도록).
+router.post(
+  "/vendors/:id/business-cert",
+  requireVendorWriter,
+  async (req, res): Promise<void> => {
+    const idRaw = req.params.id;
+    const id = Number.parseInt(typeof idRaw === "string" ? idRaw : "", 10);
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "잘못된 vendor id" });
+      return;
+    }
+    const fileUrl = typeof req.body?.fileUrl === "string" ? req.body.fileUrl.trim() : "";
+    if (!fileUrl) {
+      res.status(400).json({ error: "fileUrl이 필요합니다" });
+      return;
+    }
+    const [vendor] = await db
+      .update(vendorsTable)
+      .set({ businessCertUrl: fileUrl })
+      .where(eq(vendorsTable.id, id))
+      .returning();
+    if (!vendor) {
+      res.status(404).json({ error: "Vendor not found" });
+      return;
+    }
+    res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
+  },
+);
 
 router.post("/vendors", requireVendorWriter, async (req, res): Promise<void> => {
   const parsed = CreateVendorBody.safeParse(req.body);

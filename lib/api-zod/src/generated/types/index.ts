@@ -57,6 +57,8 @@ export * from "./buildingWarrantyStatus";
 export * from "./bulkCreateUnits201";
 export * from "./bulkCreateUnits201ErrorsItem";
 export * from "./bulkRegisterInspectionsResponse";
+export * from "./businessRegOcrPreview";
+export * from "./businessRegOcrPreviewFieldConfidence";
 export * from "./calculateFeesBodyAdditionalExpensesItem";
 export * from "./calendarEvent";
 export * from "./calendarEventSource";

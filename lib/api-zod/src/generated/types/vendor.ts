@@ -53,6 +53,14 @@ export interface Vendor {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /** @nullable */
+  businessCertUrl?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
   /**
    * 누적된 평가의 평균 별점 (없으면 null)
    * @nullable

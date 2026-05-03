@@ -50,4 +50,10 @@ export interface UpdateVendorBody {
   contractStartDate?: string | null;
   /** @nullable */
   contractEndDate?: string | null;
+  /** @nullable */
+  businessType?: string | null;
+  /** @nullable */
+  businessItem?: string | null;
+  /** @nullable */
+  openedAt?: string | null;
 }

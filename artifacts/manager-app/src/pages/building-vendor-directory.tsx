@@ -11,7 +11,7 @@
 //   - 상단에 "계약연장검토" 배너 — 만료 90~60일 윈도우(@workspace/shared/contract-renewal)
 //     안에 들어온 활성 계약만 노출. 60일 이내로 진입하면 자동으로 사라진다.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useListVendors,
   useListContracts,
@@ -21,6 +21,9 @@ import {
   useUpdateVendor,
   useUploadContractDocument,
   useListContractDocuments,
+  usePreviewContractOcr,
+  usePreviewBusinessRegOcr,
+  useAttachVendorBusinessCert,
   getListContractsQueryKey,
   getListVendorsQueryKey,
   getListContractDocumentsQueryKey,
@@ -32,6 +35,8 @@ import {
   type CreateContractBody,
   type UpdateContractBody,
   type CreateVendorBodyCategory,
+  type ContractOcrPreview,
+  type BusinessRegOcrPreview,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -64,6 +69,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { PhotoUploadField } from "@/components/photo-upload-field";
+import { OcrDropzone } from "@/components/ocr-dropzone";
 import { AuthImage } from "@/components/auth-image";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -525,6 +531,21 @@ function VendorDirectoryCard({
                   </span>
                 </>
               )}
+              {/* [Task #745] 사업자등록증 PDF/이미지를 첨부했다면 새 탭에서 바로 열어볼 수 있게 한다. */}
+              {vendor.businessCertUrl && (
+                <>
+                  {" · "}
+                  <a
+                    href={vendor.businessCertUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-primary hover:text-primary/80"
+                    data-testid={`vendor-business-cert-link-${vendor.id}`}
+                  >
+                    사업자등록증 보기
+                  </a>
+                </>
+              )}
             </p>
           </div>
           {canEdit && (
@@ -719,13 +740,47 @@ type AddFormState = {
   contactName: string;
   phone: string;
   email: string;
+  // [Task #745] 사업자등록증 OCR 로 채워지는 vendor 정보.
+  address: string;
+  businessType: string;
+  businessItem: string;
+  openedAt: string;
   contractTitle: string;
   startDate: string;
   endDate: string;
+  // [Task #745] 계약서 OCR 로 채워지는 계약금액 (KRW). 빈 문자열 = 미입력.
+  contractAmount: string;
   isRecurring: boolean;
   documentUrl: string | null;
   notes: string;
 };
+
+// [Task #745] 계약서 OCR 의 category 키 → 협력업체 카테고리 enum 매핑.
+// contractOcr 프롬프트가 돌려주는 키들(elevator, cleaning, security, disinfection,
+// electric, fire_safety, hvac, landscaping, facility, other)을 vendor enum
+// (위 CATEGORY_OPTIONS) 으로 보정한다. 일치하는 게 없으면 null.
+const OCR_CATEGORY_MAP: Record<string, string> = {
+  elevator: "elevator",
+  cleaning: "cleaning",
+  security: "security",
+  disinfection: "other",
+  electric: "electrical",
+  electrical: "electrical",
+  fire_safety: "fire_safety",
+  hvac: "mechanical",
+  landscaping: "other",
+  facility: "building_maintenance",
+  building_maintenance: "building_maintenance",
+  mechanical: "mechanical",
+  water_tank: "water_tank",
+  gas: "gas",
+  septic: "septic",
+  waterproofing: "waterproofing",
+  maintenance_repair: "maintenance_repair",
+  defect_diagnosis: "defect_diagnosis",
+  other: "other",
+};
+const LOW_CONF_THRESHOLD = 0.5;
 
 const EMPTY_ADD: AddFormState = {
   vendorId: null,
@@ -736,9 +791,14 @@ const EMPTY_ADD: AddFormState = {
   contactName: "",
   phone: "",
   email: "",
+  address: "",
+  businessType: "",
+  businessItem: "",
+  openedAt: "",
   contractTitle: "",
   startDate: "",
   endDate: "",
+  contractAmount: "",
   isRecurring: false,
   documentUrl: null,
   notes: "",
@@ -765,13 +825,255 @@ function AddVendorContractDialog({
   const createVendor = useCreateVendor();
   const createContract = useCreateContract();
   const uploadDoc = useUploadContractDocument();
+  // [Task #745] OCR 자동 채움 상태.
+  // touched: 사용자가 직접 편집한 필드(키 = AddFormState 키 또는 "documentUrl" 등) — OCR 결과로 덮어쓰지 않는다.
+  // lowConfidence: 신뢰도 < 0.5 인 자동 채움 필드 — UI 에서 "확인 필요" 로 표시한다.
+  // contractFile / businessRegFile: 업로드된 두 파일.
+  const [touched, setTouchedState] = useState<Set<keyof AddFormState>>(new Set());
+  const [lowConfidence, setLowConfidenceState] =
+    useState<Set<keyof AddFormState>>(new Set());
+  // [Task #745] OCR 머지는 두 콜백이 거의 동시에 도착할 수 있어 render closure 의 stale state
+  //   를 보면 "first-OCR-wins" 가 깨질 수 있다. ref 로 최신 commit 된 값을 추적해, 머지 결정
+  //   직전에 항상 ref 에서 읽고 즉시 ref 도 갱신해 다음 호출이 같은 값을 보게 한다.
+  const touchedRef = useRef<Set<keyof AddFormState>>(new Set());
+  const lowConfRef = useRef<Set<keyof AddFormState>>(new Set());
+  const setTouched = useCallback(
+    (
+      updater:
+        | Set<keyof AddFormState>
+        | ((prev: Set<keyof AddFormState>) => Set<keyof AddFormState>),
+    ) => {
+      const nextVal =
+        typeof updater === "function" ? updater(touchedRef.current) : updater;
+      touchedRef.current = nextVal;
+      setTouchedState(nextVal);
+    },
+    [],
+  );
+  const setLowConfidence = useCallback(
+    (
+      updater:
+        | Set<keyof AddFormState>
+        | ((prev: Set<keyof AddFormState>) => Set<keyof AddFormState>),
+    ) => {
+      const nextVal =
+        typeof updater === "function" ? updater(lowConfRef.current) : updater;
+      lowConfRef.current = nextVal;
+      setLowConfidenceState(nextVal);
+    },
+    [],
+  );
+  const [contractFile, setContractFile] = useState<{
+    objectPath: string;
+    fileName: string;
+    fileUrl: string;
+  } | null>(null);
+  const [businessRegFile, setBusinessRegFile] = useState<{
+    objectPath: string;
+    fileName: string;
+    fileUrl: string;
+  } | null>(null);
+  const previewContractOcr = usePreviewContractOcr();
+  const previewBusinessRegOcr = usePreviewBusinessRegOcr();
+  const attachBusinessCert = useAttachVendorBusinessCert();
+  // [Task #745] OCR 미리보기 호출 실패 메시지를 드롭존 인라인 에러로도 노출.
+  const [contractOcrError, setContractOcrError] = useState<string | null>(null);
+  const [businessRegOcrError, setBusinessRegOcrError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) setForm(EMPTY_ADD);
-  }, [open]);
+    if (!open) {
+      setForm(EMPTY_ADD);
+      setTouched(new Set());
+      setLowConfidence(new Set());
+      setContractFile(null);
+      setBusinessRegFile(null);
+      setContractOcrError(null);
+      setBusinessRegOcrError(null);
+    }
+  }, [open, setTouched, setLowConfidence]);
 
   function setField<K extends keyof AddFormState>(k: K, v: AddFormState[K]) {
     setForm((p) => ({ ...p, [k]: v }));
+    setTouched((prev) => {
+      if (prev.has(k)) return prev;
+      const next = new Set(prev);
+      next.add(k);
+      return next;
+    });
+    setLowConfidence((prev) => {
+      if (!prev.has(k)) return prev;
+      const next = new Set(prev);
+      next.delete(k);
+      return next;
+    });
+  }
+
+  // [Task #745] OCR 결과를 폼에 머지한다.
+  // 머지 규칙:
+  //  - 사용자가 이미 직접 편집한 필드(touched) 는 절대 덮어쓰지 않는다.
+  //  - 한 번 채워진 OCR 값도 touched 로 마킹되므로, 두 OCR 이 충돌하면 먼저 도착한 쪽이 이긴다
+  //    (first-OCR-wins). 단, 기본값으로 시작해 사용자가 손대지 않은 select(예: category) 도
+  //    OCR 로 정상 덮어써진다 (touched 가 비어 있으므로).
+  //  - confidence < 0.5 인 필드는 채우긴 하되 "확인 필요" 로 마킹한다.
+  // value 는 string/boolean 모두 받을 수 있어 isRecurring 같은 boolean OCR 결과도 다룬다.
+  function applyOcrCandidates(
+    candidates: Array<{
+      key: keyof AddFormState;
+      value: string | boolean | null | undefined;
+      conf: number;
+    }>,
+  ) {
+    // ref 에서 최신 commit 된 touched/lowConfidence 를 읽어 머지 결정을 하면, 두 OCR
+    // 콜백이 close-together 로 도착해 React 가 아직 re-render 하지 않았더라도
+    // first-OCR-wins 가 깨지지 않는다. ref 는 즉시 갱신해 다음 호출도 같은 사실을 본다.
+    const newTouched = new Set(touchedRef.current);
+    const newLow = new Set(lowConfRef.current);
+    let touchedChanged = false;
+    let lowChanged = false;
+    const applied: Array<{ key: keyof AddFormState; value: string | boolean }> = [];
+    for (const { key, value, conf } of candidates) {
+      // null/undefined 만 스킵 — boolean false 와 빈 문자열은 의미 있는 값일 수 있어
+      // value 자체로 판단하지 말고 OCR 추출기가 null 로 비워준 경우만 거른다.
+      if (value === null || value === undefined) continue;
+      if (typeof value === "string" && value === "") continue;
+      if (newTouched.has(key)) continue;
+      applied.push({ key, value });
+      newTouched.add(key);
+      touchedChanged = true;
+      if (conf < LOW_CONF_THRESHOLD) {
+        if (!newLow.has(key)) {
+          newLow.add(key);
+          lowChanged = true;
+        }
+      } else if (newLow.has(key)) {
+        newLow.delete(key);
+        lowChanged = true;
+      }
+    }
+    if (touchedChanged) setTouched(newTouched);
+    if (lowChanged) setLowConfidence(newLow);
+    if (applied.length > 0) {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const { key, value } of applied) {
+          (next as Record<string, unknown>)[key as string] = value;
+        }
+        return next;
+      });
+    }
+  }
+
+  async function handleContractUploaded(v: {
+    objectPath: string;
+    fileName: string;
+    fileUrl: string;
+  }) {
+    setContractFile(v);
+    setContractOcrError(null);
+    // documentUrl 은 사용자가 따로 편집하지 않았다면 자동으로 묶는다.
+    setForm((p) => ({ ...p, documentUrl: p.documentUrl ?? v.fileUrl }));
+    try {
+      const result = (await previewContractOcr.mutateAsync({
+        data: { objectPath: v.objectPath, fileName: v.fileName },
+      })) as ContractOcrPreview;
+      const conf = result.fieldConfidence ?? {};
+      const mappedCategory = result.category
+        ? OCR_CATEGORY_MAP[result.category] ?? null
+        : null;
+      applyOcrCandidates([
+        { key: "vendorName", value: result.vendorName, conf: conf.vendorName ?? 0 },
+        {
+          key: "businessRegNumber",
+          value: result.businessRegNumber,
+          conf: conf.businessRegNumber ?? 0,
+        },
+        {
+          key: "representativeName",
+          value: result.representativeName,
+          conf: conf.representativeName ?? 0,
+        },
+        { key: "category", value: mappedCategory, conf: conf.category ?? 0 },
+        { key: "contractTitle", value: result.title, conf: conf.title ?? 0 },
+        { key: "startDate", value: result.startDate, conf: conf.startDate ?? 0 },
+        { key: "endDate", value: result.endDate, conf: conf.endDate ?? 0 },
+        // 계약금액은 number → 폼은 string 으로 다루므로 변환.
+        {
+          key: "contractAmount",
+          value:
+            typeof result.contractAmount === "number"
+              ? String(result.contractAmount)
+              : null,
+          conf: conf.contractAmount ?? 0,
+        },
+        {
+          key: "isRecurring",
+          value:
+            typeof result.isRecurring === "boolean" ? result.isRecurring : null,
+          conf: conf.isRecurring ?? 0,
+        },
+      ]);
+      toast({ title: "계약서 OCR 완료", description: "필드를 자동으로 채웠어요. 빨간색은 확인이 필요해요." });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "다시 시도해주세요";
+      setContractOcrError(msg);
+      toast({
+        title: "계약서 OCR 실패",
+        description: msg,
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleBusinessRegUploaded(v: {
+    objectPath: string;
+    fileName: string;
+    fileUrl: string;
+  }) {
+    setBusinessRegFile(v);
+    setBusinessRegOcrError(null);
+    try {
+      const result = (await previewBusinessRegOcr.mutateAsync({
+        data: { objectPath: v.objectPath, fileName: v.fileName },
+      })) as BusinessRegOcrPreview;
+      const conf = result.fieldConfidence ?? {};
+      applyOcrCandidates([
+        { key: "vendorName", value: result.vendorName, conf: conf.vendorName ?? 0 },
+        {
+          key: "businessRegNumber",
+          value: result.businessRegNumber,
+          conf: conf.businessRegNumber ?? 0,
+        },
+        {
+          key: "representativeName",
+          value: result.representativeName,
+          conf: conf.representativeName ?? 0,
+        },
+        { key: "address", value: result.address, conf: conf.address ?? 0 },
+        {
+          key: "businessType",
+          value: result.businessType,
+          conf: conf.businessType ?? 0,
+        },
+        {
+          key: "businessItem",
+          value: result.businessItem,
+          conf: conf.businessItem ?? 0,
+        },
+        { key: "openedAt", value: result.openedAt, conf: conf.openedAt ?? 0 },
+      ]);
+      toast({
+        title: "사업자등록증 OCR 완료",
+        description: "필드를 자동으로 채웠어요. 빨간색은 확인이 필요해요.",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "다시 시도해주세요";
+      setBusinessRegOcrError(msg);
+      toast({
+        title: "사업자등록증 OCR 실패",
+        description: msg,
+        variant: "destructive",
+      });
+    }
   }
 
   function pickExistingVendor(picked: Vendor) {
@@ -785,7 +1087,27 @@ function AddVendorContractDialog({
       contactName: picked.contactName ?? "",
       phone: picked.phone ?? "",
       email: picked.email ?? "",
+      address: picked.address ?? "",
     }));
+    // 기존 vendor 정보로 채워진 필드는 OCR 가 덮어쓰지 못하도록 touched 로 마킹.
+    setTouched((prev) => {
+      const next = new Set(prev);
+      for (const k of [
+        "vendorName",
+        "category",
+        "businessRegNumber",
+        "representativeName",
+        "contactName",
+        "phone",
+        "email",
+        "address",
+      ] as const) {
+        next.add(k);
+      }
+      return next;
+    });
+    // 기존 vendor 로 묶었으니 "확인 필요" 마킹은 모두 제거.
+    setLowConfidence(new Set());
   }
 
   // 자동완성 입력창에서 사용자가 직접 텍스트를 변경하면 vendorId 를 적절히 동기화한다.
@@ -813,12 +1135,33 @@ function AddVendorContractDialog({
           contactName: exactMatch.contactName ?? p.contactName,
           phone: exactMatch.phone ?? p.phone,
           email: exactMatch.email ?? p.email,
+          address: exactMatch.address ?? p.address,
         };
       }
       if (p.vendorId != null) {
         return { ...p, vendorName: next, vendorId: null };
       }
       return { ...p, vendorName: next };
+    });
+    // 사용자가 직접 입력했으므로 vendorName 은 항상 touched 로 마킹해 OCR 덮어쓰기를 막는다.
+    // exact match 시에는 자동 채움된 부수 필드도 보호 대상.
+    setTouched((prev) => {
+      const nextSet = new Set(prev);
+      nextSet.add("vendorName");
+      if (exactMatch) {
+        for (const k of [
+          "category",
+          "businessRegNumber",
+          "representativeName",
+          "contactName",
+          "phone",
+          "email",
+          "address",
+        ] as const) {
+          nextSet.add(k);
+        }
+      }
+      return nextSet;
     });
   }
 
@@ -867,6 +1210,10 @@ function AddVendorContractDialog({
           contractBuildingName: buildingName,
           contractStartDate: form.startDate || null,
           contractEndDate: form.endDate || null,
+          address: form.address.trim() || null,
+          businessType: form.businessType.trim() || null,
+          businessItem: form.businessItem.trim() || null,
+          openedAt: form.openedAt || null,
         };
         const created = await createVendor.mutateAsync({ data: newVendorBody });
         vendorId = created.id;
@@ -882,6 +1229,9 @@ function AddVendorContractDialog({
         title: form.contractTitle.trim(),
         startDate: form.startDate || null,
         endDate: form.endDate || null,
+        contractAmount: form.contractAmount.trim()
+          ? Number(form.contractAmount.replace(/,/g, ""))
+          : null,
         isRecurring: form.isRecurring,
         status: "active",
         notes: form.notes.trim() || null,
@@ -894,7 +1244,7 @@ function AddVendorContractDialog({
             id: contract.id,
             data: {
               docType: "contract",
-              fileName: "계약서",
+              fileName: contractFile?.fileName || "계약서",
               fileUrl: form.documentUrl,
               notes: "주소록 등록 시 첨부",
             },
@@ -902,6 +1252,22 @@ function AddVendorContractDialog({
         } catch (e) {
           toast({
             title: "계약은 등록됐으나 계약서 첨부 실패",
+            description: e instanceof Error ? e.message : "다시 시도해주세요",
+            variant: "destructive",
+          });
+        }
+      }
+
+      // [Task #745] 사업자등록증을 vendor 행에 첨부 (businessCertUrl).
+      if (businessRegFile && vendorId != null) {
+        try {
+          await attachBusinessCert.mutateAsync({
+            id: vendorId,
+            data: { fileUrl: businessRegFile.fileUrl },
+          });
+        } catch (e) {
+          toast({
+            title: "협력업체는 등록됐으나 사업자등록증 첨부 실패",
             description: e instanceof Error ? e.message : "다시 시도해주세요",
             variant: "destructive",
           });
@@ -920,7 +1286,11 @@ function AddVendorContractDialog({
     }
   }
 
-  const busy = createVendor.isPending || createContract.isPending || uploadDoc.isPending;
+  const busy =
+    createVendor.isPending ||
+    createContract.isPending ||
+    uploadDoc.isPending ||
+    attachBusinessCert.isPending;
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -930,9 +1300,62 @@ function AddVendorContractDialog({
         </ResponsiveDialogHeader>
 
         <div className="space-y-4">
+          {/* [Task #745] 계약서·사업자등록증 드래그앤드롭 → 자동입력. */}
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="text-xs font-semibold">문서로 자동입력 (선택)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <OcrDropzone
+                label="계약서"
+                description="PDF/이미지에서 업체·계약 정보를 자동으로 채워요."
+                value={contractFile}
+                onUploaded={handleContractUploaded}
+                onCleared={() => {
+                  setContractFile(null);
+                  setForm((p) => ({ ...p, documentUrl: null }));
+                }}
+                isProcessing={previewContractOcr.isPending}
+                processingError={contractOcrError}
+                testId="ocr-contract"
+              />
+              <OcrDropzone
+                label="사업자등록증"
+                description="업체명·사업자번호·대표자명을 자동으로 채워요."
+                value={businessRegFile}
+                onUploaded={handleBusinessRegUploaded}
+                onCleared={() => {
+                  setBusinessRegFile(null);
+                  setBusinessRegOcrError(null);
+                }}
+                isProcessing={previewBusinessRegOcr.isPending}
+                processingError={businessRegOcrError}
+                testId="ocr-business-reg"
+              />
+            </div>
+            {(previewContractOcr.isPending || previewBusinessRegOcr.isPending) && (
+              <p className="text-[11px] text-muted-foreground" data-testid="text-ocr-processing">
+                OCR 분석 중… 잠시만 기다려주세요.
+              </p>
+            )}
+            {lowConfidence.size > 0 && (
+              <p className="text-[11px] text-amber-700" data-testid="text-ocr-low-confidence">
+                일부 항목은 인식 신뢰도가 낮아 "확인 필요" 표시가 됐어요. 값을 검토해주세요.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <Label>업체명*</Label>
+              <Label className="flex items-center gap-1">
+                업체명*
+                {lowConfidence.has("vendorName") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-vendorName"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <VendorNameCombobox
                 value={form.vendorName}
                 onChange={handleVendorNameChange}
@@ -956,7 +1379,17 @@ function AddVendorContractDialog({
               ) : null}
             </div>
             <div>
-              <Label>사업자번호</Label>
+              <Label className="flex items-center gap-1">
+                사업자번호
+                {lowConfidence.has("businessRegNumber") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-businessRegNumber"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <BusinessNumberInput
                 value={form.businessRegNumber}
                 onChange={(e) => setField("businessRegNumber", e.target.value)}
@@ -964,7 +1397,17 @@ function AddVendorContractDialog({
               />
             </div>
             <div>
-              <Label>대표자명</Label>
+              <Label className="flex items-center gap-1">
+                대표자명
+                {lowConfidence.has("representativeName") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-representativeName"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <Input
                 value={form.representativeName}
                 onChange={(e) => setField("representativeName", e.target.value)}
@@ -995,11 +1438,98 @@ function AddVendorContractDialog({
                 onChange={(e) => setField("email", e.target.value)}
               />
             </div>
+            {/* [Task #745] 사업자등록증 OCR 로 채워지는 추가 vendor 정보. */}
+            <div className="sm:col-span-2">
+              <Label className="flex items-center gap-1">
+                사업장 주소
+                {lowConfidence.has("address") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-address"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setField("address", e.target.value)}
+                placeholder="사업자등록증 상의 사업장 소재지"
+                data-testid="input-vendor-address"
+              />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1">
+                업태
+                {lowConfidence.has("businessType") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-businessType"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
+              <Input
+                value={form.businessType}
+                onChange={(e) => setField("businessType", e.target.value)}
+                placeholder="예: 서비스업"
+                data-testid="input-vendor-business-type"
+              />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1">
+                종목
+                {lowConfidence.has("businessItem") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-businessItem"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
+              <Input
+                value={form.businessItem}
+                onChange={(e) => setField("businessItem", e.target.value)}
+                placeholder="예: 건물청소"
+                data-testid="input-vendor-business-item"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="flex items-center gap-1">
+                개업연월일
+                {lowConfidence.has("openedAt") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-openedAt"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
+              <Input
+                type="date"
+                value={form.openedAt}
+                onChange={(e) => setField("openedAt", e.target.value)}
+                data-testid="input-vendor-opened-at"
+              />
+            </div>
           </div>
 
           <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <Label>카테고리*</Label>
+              <Label className="flex items-center gap-1">
+                카테고리*
+                {lowConfidence.has("category") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-category"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <Select
                 value={form.category}
                 onValueChange={(v) => setField("category", v)}
@@ -1017,7 +1547,17 @@ function AddVendorContractDialog({
               </Select>
             </div>
             <div className="sm:col-span-2">
-              <Label>계약 제목*</Label>
+              <Label className="flex items-center gap-1">
+                계약 제목*
+                {lowConfidence.has("contractTitle") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-contractTitle"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <Input
                 value={form.contractTitle}
                 onChange={(e) => setField("contractTitle", e.target.value)}
@@ -1026,7 +1566,17 @@ function AddVendorContractDialog({
               />
             </div>
             <div>
-              <Label>시작일</Label>
+              <Label className="flex items-center gap-1">
+                시작일
+                {lowConfidence.has("startDate") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-startDate"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <Input
                 type="date"
                 value={form.startDate}
@@ -1035,12 +1585,42 @@ function AddVendorContractDialog({
               />
             </div>
             <div>
-              <Label>종료일</Label>
+              <Label className="flex items-center gap-1">
+                종료일
+                {lowConfidence.has("endDate") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-endDate"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
               <Input
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setField("endDate", e.target.value)}
                 data-testid="input-end-date"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="flex items-center gap-1">
+                계약금액 (원)
+                {lowConfidence.has("contractAmount") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-contractAmount"
+                  >
+                    확인 필요
+                  </span>
+                )}
+              </Label>
+              <Input
+                inputMode="numeric"
+                value={form.contractAmount}
+                onChange={(e) => setField("contractAmount", e.target.value)}
+                placeholder="예: 1200000"
+                data-testid="input-contract-amount"
               />
             </div>
             <div className="sm:col-span-2">
@@ -1053,6 +1633,14 @@ function AddVendorContractDialog({
                   data-testid="checkbox-is-recurring"
                 />
                 자동(자동연장) 갱신 조항이 있는 계약입니다
+                {lowConfidence.has("isRecurring") && (
+                  <span
+                    className="text-[10px] font-normal text-amber-700"
+                    data-testid="badge-low-conf-isRecurring"
+                  >
+                    확인 필요
+                  </span>
+                )}
               </label>
             </div>
           </div>

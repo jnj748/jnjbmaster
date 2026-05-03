@@ -51,6 +51,14 @@ export const vendorsTable = pgTable("vendors", {
   contractBuildingName: text("contract_building_name"),
   contractStartDate: date("contract_start_date"),
   contractEndDate: date("contract_end_date"),
+  // [Task #745] 사업자등록증 OCR 자동 채움 결과 보존용 컬럼.
+  //   - businessType: 업태(예: "도매·소매업"). 사업자등록증의 "업태" 항목.
+  //   - businessItem: 종목(예: "건물청소"). 사업자등록증의 "종목" 항목.
+  //   - openedAt: 개업연월일.
+  // 모두 NULL 허용 — 기존 vendor 와 OCR 미사용 흐름에 영향 없음.
+  businessType: text("business_type"),
+  businessItem: text("business_item"),
+  openedAt: date("opened_at"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

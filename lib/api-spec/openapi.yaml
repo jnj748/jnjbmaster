@@ -3140,6 +3140,82 @@ paths:
         "500":
           description: OCR failed
 
+  /vendors/business-reg/ocr-preview:
+    post:
+      operationId: previewBusinessRegOcr
+      tags: [vendors]
+      summary: OCR a business registration certificate (PDF/image) and return parsed fields without persisting
+      description: |
+        Task #745. Accepts an already-uploaded object path (object storage), runs OCR
+        with Gemini 2.5 Flash, and returns vendorName / businessRegNumber / representative /
+        address / businessType / businessItem / openedAt candidates with per-field
+        confidence. The result is **not** stored — the caller reviews and saves via
+        POST /vendors (+ POST /vendors/{id}/business-cert).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                objectPath:
+                  type: string
+                fileName:
+                  type: ["string", "null"]
+              required: [objectPath]
+      responses:
+        "200":
+          description: Parsed business registration preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessRegOcrPreview"
+        "400":
+          description: Missing or invalid objectPath
+        "403":
+          description: No access to the uploaded object
+        "404":
+          description: Object not found
+        "500":
+          description: OCR failed
+
+  /vendors/{id}/business-cert:
+    post:
+      operationId: attachVendorBusinessCert
+      tags: [vendors]
+      summary: Attach an uploaded business registration certificate file URL to a vendor
+      description: |
+        Task #745. Persists the uploaded business registration certificate URL on
+        the vendor row (vendors.businessCertUrl). Used by the building vendor
+        directory add dialog after vendor creation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileUrl:
+                  type: string
+              required: [fileUrl]
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          description: Missing fileUrl
+        "404":
+          description: Vendor not found
+
   /contracts/ocr-preview:
     post:
       operationId: previewContractOcr
@@ -8136,6 +8212,15 @@ components:
         contractEndDate:
           type: ["string", "null"]
           format: date
+        businessCertUrl:
+          type: ["string", "null"]
+        businessType:
+          type: ["string", "null"]
+        businessItem:
+          type: ["string", "null"]
+        openedAt:
+          type: ["string", "null"]
+          format: date
         avgRating:
           type: ["number", "null"]
           description: 누적된 평가의 평균 별점 (없으면 null)
@@ -8208,6 +8293,13 @@ components:
         contractEndDate:
           type: ["string", "null"]
           format: date
+        businessType:
+          type: ["string", "null"]
+        businessItem:
+          type: ["string", "null"]
+        openedAt:
+          type: ["string", "null"]
+          format: date
       required:
         - name
         - category
@@ -8260,6 +8352,13 @@ components:
           type: ["string", "null"]
           format: date
         contractEndDate:
+          type: ["string", "null"]
+          format: date
+        businessType:
+          type: ["string", "null"]
+        businessItem:
+          type: ["string", "null"]
+        openedAt:
           type: ["string", "null"]
           format: date
 
@@ -15729,6 +15828,39 @@ components:
           type: string
       required:
         - text
+
+    BusinessRegOcrPreview:
+      type: object
+      description: |
+        Task #745. Per-field candidates extracted from a Korean business
+        registration certificate (PDF/image) with associated confidence
+        (0~1). Unrecognized fields are returned as null and the UI marks
+        low-confidence fields with "확인 필요".
+      properties:
+        vendorName:
+          type: ["string", "null"]
+        businessRegNumber:
+          type: ["string", "null"]
+        representativeName:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        businessType:
+          type: ["string", "null"]
+        businessItem:
+          type: ["string", "null"]
+        openedAt:
+          type: ["string", "null"]
+          format: date
+        fieldConfidence:
+          type: object
+          additionalProperties:
+            type: number
+        rawText:
+          type: string
+      required:
+        - fieldConfidence
+        - rawText
 
     ContractOcrPreview:
       type: object

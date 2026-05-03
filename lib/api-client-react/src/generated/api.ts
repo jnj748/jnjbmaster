@@ -35,6 +35,7 @@ import type {
   ApproveMatchingBody,
   ApproveMatchingResponse,
   ApproveVendorChangeRequest200,
+  AttachVendorBusinessCertBody,
   AttendanceRecord,
   AttendanceStats,
   AutoSettleCommissionBody,
@@ -48,6 +49,7 @@ import type {
   BulkCreateUnitsBody,
   BulkRegisterInspectionsBody,
   BulkRegisterInspectionsResponse,
+  BusinessRegOcrPreview,
   CalculateFeesBody,
   CalculateFeesResponse,
   CalendarEvent,
@@ -280,6 +282,7 @@ import type {
   PlatformKnowledgeDoc,
   PlatformSetting,
   PostRfqMessageBody,
+  PreviewBusinessRegOcrBody,
   PreviewContractOcrBody,
   PreviewCreditCostParams,
   ProcessApprovalStepBody,
@@ -12783,6 +12786,191 @@ export const useRunMemoOcr = <
   TContext
 > => {
   return useMutation(getRunMemoOcrMutationOptions(options));
+};
+
+/**
+ * Task #745. Accepts an already-uploaded object path (object storage), runs OCR
+with Gemini 2.5 Flash, and returns vendorName / businessRegNumber / representative /
+address / businessType / businessItem / openedAt candidates with per-field
+confidence. The result is **not** stored — the caller reviews and saves via
+POST /vendors (+ POST /vendors/{id}/business-cert).
+
+ * @summary OCR a business registration certificate (PDF/image) and return parsed fields without persisting
+ */
+export const getPreviewBusinessRegOcrUrl = () => {
+  return `/api/vendors/business-reg/ocr-preview`;
+};
+
+export const previewBusinessRegOcr = async (
+  previewBusinessRegOcrBody: PreviewBusinessRegOcrBody,
+  options?: RequestInit,
+): Promise<BusinessRegOcrPreview> => {
+  return customFetch<BusinessRegOcrPreview>(getPreviewBusinessRegOcrUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(previewBusinessRegOcrBody),
+  });
+};
+
+export const getPreviewBusinessRegOcrMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewBusinessRegOcr>>,
+    TError,
+    { data: BodyType<PreviewBusinessRegOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewBusinessRegOcr>>,
+  TError,
+  { data: BodyType<PreviewBusinessRegOcrBody> },
+  TContext
+> => {
+  const mutationKey = ["previewBusinessRegOcr"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewBusinessRegOcr>>,
+    { data: BodyType<PreviewBusinessRegOcrBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewBusinessRegOcr(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewBusinessRegOcrMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewBusinessRegOcr>>
+>;
+export type PreviewBusinessRegOcrMutationBody =
+  BodyType<PreviewBusinessRegOcrBody>;
+export type PreviewBusinessRegOcrMutationError = ErrorType<void>;
+
+/**
+ * @summary OCR a business registration certificate (PDF/image) and return parsed fields without persisting
+ */
+export const usePreviewBusinessRegOcr = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewBusinessRegOcr>>,
+    TError,
+    { data: BodyType<PreviewBusinessRegOcrBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewBusinessRegOcr>>,
+  TError,
+  { data: BodyType<PreviewBusinessRegOcrBody> },
+  TContext
+> => {
+  return useMutation(getPreviewBusinessRegOcrMutationOptions(options));
+};
+
+/**
+ * Task #745. Persists the uploaded business registration certificate URL on
+the vendor row (vendors.businessCertUrl). Used by the building vendor
+directory add dialog after vendor creation.
+
+ * @summary Attach an uploaded business registration certificate file URL to a vendor
+ */
+export const getAttachVendorBusinessCertUrl = (id: number) => {
+  return `/api/vendors/${id}/business-cert`;
+};
+
+export const attachVendorBusinessCert = async (
+  id: number,
+  attachVendorBusinessCertBody: AttachVendorBusinessCertBody,
+  options?: RequestInit,
+): Promise<Vendor> => {
+  return customFetch<Vendor>(getAttachVendorBusinessCertUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(attachVendorBusinessCertBody),
+  });
+};
+
+export const getAttachVendorBusinessCertMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof attachVendorBusinessCert>>,
+    TError,
+    { id: number; data: BodyType<AttachVendorBusinessCertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof attachVendorBusinessCert>>,
+  TError,
+  { id: number; data: BodyType<AttachVendorBusinessCertBody> },
+  TContext
+> => {
+  const mutationKey = ["attachVendorBusinessCert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof attachVendorBusinessCert>>,
+    { id: number; data: BodyType<AttachVendorBusinessCertBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return attachVendorBusinessCert(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AttachVendorBusinessCertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof attachVendorBusinessCert>>
+>;
+export type AttachVendorBusinessCertMutationBody =
+  BodyType<AttachVendorBusinessCertBody>;
+export type AttachVendorBusinessCertMutationError = ErrorType<void>;
+
+/**
+ * @summary Attach an uploaded business registration certificate file URL to a vendor
+ */
+export const useAttachVendorBusinessCert = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof attachVendorBusinessCert>>,
+    TError,
+    { id: number; data: BodyType<AttachVendorBusinessCertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof attachVendorBusinessCert>>,
+  TError,
+  { id: number; data: BodyType<AttachVendorBusinessCertBody> },
+  TContext
+> => {
+  return useMutation(getAttachVendorBusinessCertMutationOptions(options));
 };
 
 /**
