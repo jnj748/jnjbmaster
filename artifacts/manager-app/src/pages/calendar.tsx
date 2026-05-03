@@ -3,6 +3,12 @@ import { useGetCalendarEvents } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,17 +27,37 @@ const TYPE_LABELS: Record<string, string> = {
   rfq_site_visit: "현장방문 견적",
 };
 
+// [Task #785] 셀 안 일정 칩 색상 — 상태 우선(완료/기한초과) 후 source(회계/시설).
+function chipClasses(ev: { source?: string; status?: string }, isSelected: boolean) {
+  if (ev.status === "completed") {
+    return isSelected
+      ? "bg-primary-foreground/20 text-primary-foreground line-through"
+      : "bg-gray-100 text-gray-500 line-through";
+  }
+  if (ev.status === "overdue") {
+    return isSelected
+      ? "bg-red-200 text-red-900"
+      : "bg-red-100 text-red-700";
+  }
+  if (ev.source === "accounting") {
+    return isSelected
+      ? "bg-blue-200 text-blue-900"
+      : "bg-blue-100 text-blue-700";
+  }
+  return isSelected
+    ? "bg-emerald-200 text-emerald-900"
+    : "bg-emerald-100 text-emerald-700";
+}
+
 export default function CalendarPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    now.toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: events, isLoading } = useGetCalendarEvents({ year, month });
 
-  const eventsByDate = new Map<string, typeof events>();
+  const eventsByDate = new Map<string, NonNullable<typeof events>>();
   if (events) {
     for (const ev of events) {
       const existing = eventsByDate.get(ev.date) || [];
@@ -57,45 +83,53 @@ export default function CalendarPage() {
   };
 
   const goToToday = () => {
+    // [Task #785] "오늘" 은 단순히 이번 달로 이동만 한다. 셀이 클릭된 것이 아니므로
+    //   바텀 시트는 열지 않는다(selectedDate 를 건드리지 않음).
     setYear(now.getFullYear());
     setMonth(now.getMonth() + 1);
-    setSelectedDate(todayStr);
+    setSelectedDate(null);
   };
 
   const selectedEvents = selectedDate ? (eventsByDate.get(selectedDate) || []) : [];
 
+  // [Task #785] 6 주 그리드(42 칸)로 항상 고정 — 화면 높이 계산이 일관된다.
+  const totalCells = 42;
   const calendarCells: (number | null)[] = [];
   for (let i = 0; i < firstDayOfMonth; i++) calendarCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
+  while (calendarCells.length < totalCells) calendarCells.push(null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    // [Task #785] 한 화면 안에 월간 달력이 들어오도록 dvh 기반 컨테이너로 변경.
+    //   layout-content-area 의 p-3 sm:p-6 패딩과 상단 헤더/하단 탭바를 고려해
+    //   100dvh 에서 여유분을 차감한다.
+    <div className="flex flex-col gap-3 h-[calc(100dvh-7.5rem)] sm:h-[calc(100dvh-8.5rem)] min-h-0">
+      <div className="flex items-center justify-between shrink-0">
         <h1 className="text-xl font-bold">일정</h1>
         <Button variant="outline" size="sm" onClick={goToToday}>
           오늘
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="icon" onClick={prevMonth} className="h-11 w-11">
+      <Card className="flex-1 min-h-0 flex flex-col">
+        <CardContent className="p-3 sm:p-4 flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between mb-2 shrink-0">
+            <Button variant="ghost" size="icon" onClick={prevMonth} className="h-9 w-9">
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <h2 className="text-base font-semibold">
               {year}년 {month}월
             </h2>
-            <Button variant="ghost" size="icon" onClick={nextMonth} className="h-11 w-11">
+            <Button variant="ghost" size="icon" onClick={nextMonth} className="h-9 w-9">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
 
           {isLoading ? (
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="flex-1 w-full" />
           ) : (
             <>
-              <div className="grid grid-cols-7 mb-1">
+              <div className="grid grid-cols-7 mb-1 shrink-0">
                 {WEEKDAYS.map((w, i) => (
                   <div
                     key={w}
@@ -109,10 +143,17 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-7">
+              {/* [Task #785] 셀들이 컨테이너 높이를 6 행으로 균등 분할.
+                  grid-rows-6 + auto-rows-fr 로 빈 영역까지 채우면서 칩 영역을 확보한다. */}
+              <div className="grid grid-cols-7 grid-rows-6 flex-1 min-h-0 gap-px bg-border rounded-md overflow-hidden border">
                 {calendarCells.map((day, idx) => {
                   if (day === null) {
-                    return <div key={`empty-${idx}`} className="aspect-square" />;
+                    return (
+                      <div
+                        key={`empty-${idx}`}
+                        className="bg-muted/20"
+                      />
+                    );
                   }
 
                   const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -121,51 +162,72 @@ export default function CalendarPage() {
                   const isSelected = dateStr === selectedDate;
                   const dayOfWeek = (firstDayOfMonth + day - 1) % 7;
 
-                  const hasAccounting = dayEvents.some((e) => e.source === "accounting");
-                  const hasFacility = dayEvents.some((e) => e.source === "facility");
-                  const hasOverdue = dayEvents.some((e) => e.status === "overdue");
+                  // [Task #785] 모바일은 1 칩 + N, 데스크톱은 2 칩 + N. CSS 로 토글한다.
+                  const mobileVisible = 1;
+                  const desktopVisible = 2;
+                  const mobileExtra = Math.max(0, dayEvents.length - mobileVisible);
+                  const desktopExtra = Math.max(0, dayEvents.length - desktopVisible);
 
                   return (
                     <button
                       key={dateStr}
                       onClick={() => setSelectedDate(dateStr)}
+                      data-testid={`calendar-cell-${dateStr}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center relative rounded-lg transition-colors text-sm",
+                        "flex flex-col items-stretch min-w-0 min-h-0 p-1 sm:p-1.5 text-left transition-colors overflow-hidden",
                         isSelected
                           ? "bg-primary text-primary-foreground"
                           : isToday
-                          ? "bg-accent/20 font-bold"
-                          : "hover:bg-muted/50",
-                        dayOfWeek === 0 && !isSelected && "text-red-500",
-                        dayOfWeek === 6 && !isSelected && "text-blue-500"
+                          ? "bg-accent/30"
+                          : "bg-card hover:bg-muted/40",
                       )}
                     >
-                      <span className="text-xs sm:text-sm">{day}</span>
+                      <span
+                        className={cn(
+                          "text-xs sm:text-sm font-medium leading-none mb-0.5 sm:mb-1 shrink-0",
+                          isToday && !isSelected && "font-bold",
+                          !isSelected && dayOfWeek === 0 && "text-red-500",
+                          !isSelected && dayOfWeek === 6 && "text-blue-500"
+                        )}
+                      >
+                        {day}
+                      </span>
+
                       {dayEvents.length > 0 && (
-                        <div className="flex gap-0.5 mt-0.5">
-                          {hasAccounting && (
+                        <div className="flex-1 min-h-0 flex flex-col gap-0.5 overflow-hidden">
+                          {dayEvents.map((ev, i) => (
+                            <span
+                              key={ev.id}
+                              className={cn(
+                                "block w-full truncate text-[10px] sm:text-[11px] leading-tight px-1 py-0.5 rounded",
+                                chipClasses(ev, isSelected),
+                                // 모바일: 첫 번째만, 데스크톱(sm 이상): 처음 2 개
+                                i >= mobileVisible && i < desktopVisible && "hidden sm:block",
+                                i >= desktopVisible && "hidden",
+                              )}
+                            >
+                              {ev.title}
+                            </span>
+                          ))}
+                          {mobileExtra > 0 && (
                             <span
                               className={cn(
-                                "w-1.5 h-1.5 rounded-full",
-                                isSelected ? "bg-primary-foreground" : "bg-blue-500"
+                                "block text-[10px] leading-tight px-1 sm:hidden",
+                                isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                               )}
-                            />
+                            >
+                              +{mobileExtra}개
+                            </span>
                           )}
-                          {hasFacility && (
+                          {desktopExtra > 0 && (
                             <span
                               className={cn(
-                                "w-1.5 h-1.5 rounded-full",
-                                isSelected ? "bg-primary-foreground" : "bg-emerald-500"
+                                "hidden sm:block text-[10px] leading-tight px-1",
+                                isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                               )}
-                            />
-                          )}
-                          {hasOverdue && (
-                            <span
-                              className={cn(
-                                "w-1.5 h-1.5 rounded-full",
-                                isSelected ? "bg-primary-foreground" : "bg-red-500"
-                              )}
-                            />
+                            >
+                              +{desktopExtra}개
+                            </span>
                           )}
                         </div>
                       )}
@@ -174,7 +236,7 @@ export default function CalendarPage() {
                 })}
               </div>
 
-              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground border-t pt-2">
+              <div className="flex items-center gap-3 sm:gap-4 mt-2 text-xs text-muted-foreground border-t pt-2 shrink-0 flex-wrap">
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-blue-500" />
                   관리비회계
@@ -187,20 +249,38 @@ export default function CalendarPage() {
                   <span className="w-2 h-2 rounded-full bg-red-500" />
                   기한초과
                 </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-gray-400" />
+                  완료
+                </div>
               </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      {selectedDate && (
-        <div>
-          <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
-            {selectedDate.replace(/-/g, ".")} 일정
-            {selectedEvents.length > 0 && (
-              <span className="ml-1">({selectedEvents.length}건)</span>
-            )}
-          </h3>
+      {/* [Task #785] 셀에 다 못 담는 일정은 바텀 시트로 보여줘 한 화면을 벗어나지 않게 한다. */}
+      <Sheet
+        open={selectedDate !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDate(null);
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="max-h-[75dvh] overflow-y-auto rounded-t-2xl p-4 sm:p-6"
+        >
+          <SheetHeader className="mb-3">
+            <SheetTitle className="text-base">
+              {selectedDate?.replace(/-/g, ".")} 일정
+              {selectedEvents.length > 0 && (
+                <span className="ml-1 text-muted-foreground font-normal">
+                  ({selectedEvents.length}건)
+                </span>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+
           {selectedEvents.length === 0 ? (
             <Card>
               <CardContent className="p-4 text-center text-sm text-muted-foreground">
@@ -281,8 +361,8 @@ export default function CalendarPage() {
               ))}
             </div>
           )}
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
