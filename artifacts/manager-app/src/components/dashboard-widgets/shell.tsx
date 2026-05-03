@@ -113,9 +113,11 @@ export function DashboardShell({ widgets, role }: DashboardShellProps) {
           {mobileWidgets.map((w) => renderWidget(w, false))}
         </div>
       </div>
-      {/* 데스크탑: 기존 다단 그리드 그대로 */}
+      {/* 데스크탑: 기존 다단 그리드 그대로
+          [Task #784] 한 화면(1440×900) 안에 모든 위젯이 들어오도록 그리드 간격을
+          gap-4 → gap-3 으로 압축. 위젯 내부 컴팩트화와 함께 폴드 라인을 끌어올린다. */}
       <div className="dash-desktop-only">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-min">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 auto-rows-min">
           {widgets.map((w) => renderWidget(w, true))}
         </div>
       </div>

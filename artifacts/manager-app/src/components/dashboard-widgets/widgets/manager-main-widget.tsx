@@ -172,12 +172,12 @@ export default function ManagerMainWidget() {
       </MobileOnly>
 
       <DesktopOnly>
-        <div className="space-y-6">
-          {/* [Task #503] 1행: 필수업무현황 / 제안업무현황 — 2열 1×2.
-              매니저 데스크톱에서는 한 페이지에 5개씩 노출(스크롤/스와이프 없이).
-              breakpoint: DesktopOnly(.dash-desktop-only) 가 900px+ 에서 켜지므로
-              Tailwind `md:`(768px+) 를 사용해 900~1023px 구간에서도 2열로 보이게 한다. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* [Task #784] 한 화면(1440×900) 안에 모든 매니저 위젯이 들어오도록
+            본문 행 간격을 space-y-6 → space-y-3, 행 내부 gap-6 → gap-3 으로 통일.
+            AlertSection pageSize 도 5 → 3 으로 낮춰 본문 1행 높이 예산을 줄인다. */}
+        <div className="space-y-3">
+          {/* [Task #503] 1행: 필수업무현황 / 제안업무현황 — 2열 1×2. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
             <AlertSection
               title="필수업무현황"
               description="법적으로 반드시 해야하는 업무"
@@ -189,7 +189,7 @@ export default function ManagerMainWidget() {
               placeholderOne="30일 내 예정된 법정필수업무가 없습니다"
               onAlertClick={handleAlertClick}
               sectionKind="mandatory"
-              pageSize={5}
+              pageSize={3}
             />
 
             <AlertSection
@@ -202,60 +202,50 @@ export default function ManagerMainWidget() {
               placeholderZero={"제안 업무를 모두 완료하셨습니다.\n아래 업무일지를 작성해 두는건 어떨까요? 🙂"}
               placeholderOne={"업무가 1개 남았습니다.\n남은 업무를 처리해보세요 소장님!"}
               onAlertClick={handleAlertClick}
-              pageSize={5}
+              pageSize={3}
             />
           </div>
 
           {/* [Task #503] 2행: (최근 문서함 + 처리 내역 세로 스택) /
-              오늘 업무일지 자동 작성하기(강조).
-              [Task #706] 우측 "오늘 업무일지" 카드를 컴팩트 가로 카드로 축소했으므로
-              우측 카드를 좌측 합산 높이만큼 늘려 맞추는 `items-stretch` 대신
-              `items-start` 로 정렬해 우측 카드가 자연스럽게 짧게 보이도록 한다.
-              [요청] 좌측 페어 카드(DocumentsLinkPair)를 시설/경리와 같은 분리된
-              두 진입 카드로 환원. 한 박스 안에 두 행을 욱여넣어 보조 설명이
-              잘리던 문제를 해결한다.
-              breakpoint: 위 1행과 동일한 이유로 `md:` 사용. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              오늘 업무일지 자동 작성하기(강조). */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
             <FacilityLeftColumnStackWidget />
-            {/* [요청] 우측 셀에 오늘 업무일지 + 호실정보조회 세로 스택. 좌측의
-                두 진입 카드(최근문서함 + 처리 내역) 와 시각적 균형도 맞춰진다. */}
-            <div className="space-y-6">
+            <div className="space-y-3">
               <TodayWorkLogEntry />
               <AccountantMemberSearchWidget />
             </div>
           </div>
 
-          {/* [Task #503] 3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망.
-              breakpoint: 위 1·2행과 동일한 이유로 `md:` 사용. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          {/* [Task #503] 3행: 공지문 템플릿 보기 / 우리 건물 계약업체 연락망. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
             <NoticeTemplatesEntryWidget />
             <BuildingContractsSummaryWidget />
           </div>
 
           {/* [Task #246] 관리비 요약 위젯. */}
-          <div className="pt-2">
-            <FeesSummaryWidget unpaidRate={analytics?.unpaidSummary.unpaidRate ?? null} />
-          </div>
+          <FeesSummaryWidget unpaidRate={analytics?.unpaidSummary.unpaidRate ?? null} />
 
           {pendingCardCount > 0 && (
-            <div className="bg-card border border-orange-200 rounded-lg p-3 space-y-1">
+            <div className="bg-card border border-orange-200 rounded-lg p-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm text-orange-800 font-medium">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-orange-600 shrink-0" />
+                  <span className="text-sm text-orange-800 font-medium truncate">
                     입주자카드 처리 필요: {pendingCardCount}건
+                    {unverifiedTenantCount > 0 && (
+                      <span className="text-xs text-orange-700 font-normal"> · 서류 대기 {unverifiedTenantCount}</span>
+                    )}
+                    {unitsMissingCard > 0 && (
+                      <span className="text-xs text-orange-700 font-normal"> · 미작성 {unitsMissingCard}</span>
+                    )}
                   </span>
                 </div>
-                <a href="/tenants" className="text-sm text-orange-600 hover:underline font-medium">확인하기 →</a>
-              </div>
-              <div className="text-xs text-orange-700 ml-6 space-y-0.5">
-                {unverifiedTenantCount > 0 && <p>• 서류 확인 대기: {unverifiedTenantCount}건</p>}
-                {unitsMissingCard > 0 && <p>• 입주자카드 미작성 호실: {unitsMissingCard}건</p>}
+                <a href="/tenants" className="text-sm text-orange-600 hover:underline font-medium shrink-0">확인 →</a>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
             <StatCard
               title="세대수"
               value={totalUnits > 0 ? totalUnits : "-"}

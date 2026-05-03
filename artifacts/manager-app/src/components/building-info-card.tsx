@@ -56,8 +56,8 @@ export function BuildingInfoCardView({
 
   return (
     <Card className={className}>
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div className="min-w-0">
             <h2 className="text-base font-bold flex items-center gap-2">
               <Building className="w-4 h-4 text-primary shrink-0" />
@@ -77,13 +77,13 @@ export function BuildingInfoCardView({
         </div>
 
         {address && (
-          <div className="flex items-start gap-2 text-sm mb-3">
+          <div className="flex items-start gap-2 text-sm mb-2">
             <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
             <span className="text-muted-foreground break-keep">{address}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Stat
             icon={Layers}
             label="세대수"

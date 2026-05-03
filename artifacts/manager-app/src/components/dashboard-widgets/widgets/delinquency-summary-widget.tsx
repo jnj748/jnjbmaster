@@ -27,7 +27,7 @@ export default function DelinquencySummaryWidget() {
   // 아이콘/텍스트/배지 색상만 사용. 하위 3개 셀도 화이트 + 보더만.
   return (
     <Card className="border-red-200 bg-card">
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-600" />

@@ -98,6 +98,15 @@ export const WIDGETS = {
     span: "full",
     label: "우리 건물 한눈에",
   },
+  // [Task #784] 매니저 데스크톱 1뷰포트 정합화 — building-info 를 half 로 좁혀
+  //   같은 행의 delinquency-summary(half) 옆 빈 자리를 채워 한 행을 절약한다.
+  //   다른 역할(accountant/facility)은 기존 full 변형을 계속 사용한다.
+  "building-info-half": {
+    key: "building-info-half",
+    component: BuildingInfoWidget,
+    span: "half",
+    label: "우리 건물 한눈에",
+  },
   "delinquency-summary": {
     key: "delinquency-summary",
     component: DelinquencySummaryWidget,
@@ -244,8 +253,11 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
     widgets: [
       "campaign-banner",
       "manager-main",
+      // [Task #784] delinquency-summary(half) 와 building-info-half(half) 를
+      //   한 행(xl:grid-cols-4 의 col-span-2 + col-span-2)에 함께 배치해
+      //   1440×900 에서도 모든 위젯이 한 화면에 들어오도록 압축.
       "delinquency-summary",
-      "building-info",
+      "building-info-half",
     ],
   },
   accountant: {

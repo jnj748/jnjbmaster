@@ -420,7 +420,7 @@ export default function HqDashboard() {
       </MobileOnly>
 
       <DesktopOnly>
-        <div className="space-y-6">
+        <div className="space-y-3">
       {/* [Task #142] 페이지 헤더는 DashboardShell 이 일괄 렌더링한다.
           건물 선택 셀렉터만 남긴다. */}
       <div className="flex items-start justify-end flex-wrap gap-3">
@@ -481,11 +481,11 @@ export default function HqDashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">관리 건물</p>
-                <p className="text-2xl font-bold mt-1">{buildings.length}</p>
+                <p className="text-xl font-bold mt-0.5">{buildings.length}</p>
                 <p className="text-xs text-muted-foreground mt-1">총 {totalUnits}세대</p>
               </div>
               <div className="p-2 rounded-lg bg-accent/10"><Building2 className="w-5 h-5 text-accent" /></div>
@@ -493,11 +493,11 @@ export default function HqDashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">평균 수납률</p>
-                <p className="text-2xl font-bold mt-1">{hasData ? `${avgCollectionRate}%` : "-"}</p>
+                <p className="text-xl font-bold mt-0.5">{hasData ? `${avgCollectionRate}%` : "-"}</p>
                 <p className="text-xs text-muted-foreground mt-1">전체 현장 기준</p>
               </div>
               <div className="p-2 rounded-lg bg-green-500/10"><TrendingUp className="w-5 h-5 text-green-500" /></div>
@@ -505,11 +505,11 @@ export default function HqDashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">미납 합계</p>
-                <p className="text-2xl font-bold mt-1">{hasData ? `₩${totalDelinquent.toLocaleString()}` : "-"}</p>
+                <p className="text-xl font-bold mt-0.5">{hasData ? `₩${totalDelinquent.toLocaleString()}` : "-"}</p>
                 <p className="text-xs text-muted-foreground mt-1">전체 현장</p>
               </div>
               <div className="p-2 rounded-lg bg-destructive/10"><Wallet className="w-5 h-5 text-destructive" /></div>
@@ -517,11 +517,11 @@ export default function HqDashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">입주자카드 작성률</p>
-                <p className="text-2xl font-bold mt-1">{hasData ? `${occupantCardRate}%` : "-"}</p>
+                <p className="text-xl font-bold mt-0.5">{hasData ? `${occupantCardRate}%` : "-"}</p>
                 <p className="text-xs text-muted-foreground mt-1">{totalOccupantCards}/{totalUnits}세대</p>
               </div>
               <div className="p-2 rounded-lg bg-amber-500/10"><UserCheck className="w-5 h-5 text-amber-500" /></div>
@@ -686,7 +686,7 @@ export default function HqDashboard() {
       )}
 
       {hasData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -830,7 +830,7 @@ export default function HqDashboard() {
       )}
 
       {hasData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">

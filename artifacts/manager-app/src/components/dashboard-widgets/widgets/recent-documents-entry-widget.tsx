@@ -31,17 +31,18 @@ export default function RecentDocumentsEntryWidget() {
         >
           {/* [요청] 가독성 — 아이콘/타이틀/보조설명 한 단계씩 키움.
               관리소장 2행 좌측에서도 동일 위젯을 사용하므로 세 역할 모두 영향. */}
-          <CardContent className="py-3.5 px-4 flex items-center gap-3 h-full">
-            <div className="w-10 h-10 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/30 flex items-center justify-center shrink-0">
-              <FolderOpen className="w-5 h-5 text-fuchsia-600 dark:text-fuchsia-400" />
+          {/* [Task #784] 데스크톱 1뷰포트 정합화 — 진입 카드 컴팩트화. */}
+          <CardContent className="py-2.5 px-3 flex items-center gap-3 h-full">
+            <div className="w-9 h-9 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/30 flex items-center justify-center shrink-0">
+              <FolderOpen className="w-4 h-4 text-fuchsia-600 dark:text-fuchsia-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold">최근문서함</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-semibold">최근문서함</p>
+              <p className="text-xs text-muted-foreground truncate">
                 저장된 문서를 다시 보고, 다시 공유·인쇄·기안서로 만듭니다
               </p>
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </CardContent>
         </Card>
       </Link>

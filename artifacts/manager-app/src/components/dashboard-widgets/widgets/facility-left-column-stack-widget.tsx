@@ -13,7 +13,7 @@ export default function FacilityLeftColumnStackWidget() {
   return (
     <div
       data-testid="facility-left-column-stack-widget"
-      className="h-full flex flex-col gap-4"
+      className="h-full flex flex-col gap-2"
     >
       <RecentDocumentsEntryWidget />
       <WorkLogActivityEntryWidget />

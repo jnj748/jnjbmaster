@@ -84,12 +84,12 @@ export function FeesSummaryWidget({
 
   return (
     <Card data-testid="dashboard-fees-summary-widget">
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <Link href="/erp/fees-summary">
           <button
             type="button"
             data-testid="dashboard-fees-summary-header"
-            className="w-full flex items-center justify-between mb-3 hover-elevate active-elevate-2 rounded-md px-1 py-1 text-left"
+            className="w-full flex items-center justify-between mb-2 hover-elevate active-elevate-2 rounded-md px-1 py-0.5 text-left"
           >
             <span className="flex items-center gap-2">
               {/* [Task #256] 회계 카테고리 색 — category-colors.ts 단일 토큰 참조 */}
@@ -99,53 +99,54 @@ export function FeesSummaryWidget({
             <span className="text-xs text-muted-foreground">자세히 →</span>
           </button>
         </Link>
-        <div className="grid grid-cols-2 gap-2">
+        {/* [Task #784] 4종 → 한 줄(grid-cols-4) 컴팩트. 셀 패딩 p-3 → p-2. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Link href="/erp/fees-summary">
-            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="rounded-lg border bg-card p-2 hover:bg-muted/50 transition-colors cursor-pointer">
               <p className="text-[11px] text-muted-foreground">당월 부과액</p>
-              <p className="text-sm font-bold mt-1 truncate">
+              <p className="text-sm font-bold mt-0.5 truncate">
                 {isLoading ? "..." : billAmount}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 {billingMonthLabel}
               </p>
             </div>
           </Link>
           <Link href="/erp/fees-summary">
-            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="rounded-lg border bg-card p-2 hover:bg-muted/50 transition-colors cursor-pointer">
               <p className="text-[11px] text-muted-foreground">수납률</p>
-              <p className="text-sm font-bold mt-1">{collectionRate}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              <p className="text-sm font-bold mt-0.5">{collectionRate}</p>
+              <p className="text-[10px] text-muted-foreground truncate">
                 전체 세대 기준
               </p>
             </div>
           </Link>
           <Link href="/erp/fees-summary">
-            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="rounded-lg border bg-card p-2 hover:bg-muted/50 transition-colors cursor-pointer">
               <p className="text-[11px] text-muted-foreground">누적 미수금</p>
               <p
-                className={`text-sm font-bold mt-1 truncate ${
+                className={`text-sm font-bold mt-0.5 truncate ${
                   arrears && arrears.totalArrears > 0 ? "text-red-600" : ""
                 }`}
               >
                 {isLoading ? "..." : arrearsAmount}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 {unpaidCountLabel}
               </p>
             </div>
           </Link>
           <Link href="/erp/fees-summary">
-            <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="rounded-lg border bg-card p-2 hover:bg-muted/50 transition-colors cursor-pointer">
               <p className="text-[11px] text-muted-foreground">연체 건수</p>
               <p
-                className={`text-sm font-bold mt-1 ${
+                className={`text-sm font-bold mt-0.5 ${
                   arrears && arrears.overdueCount > 0 ? "text-red-600" : ""
                 }`}
               >
                 {arrears ? `${arrears.overdueCount}건` : "—"}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+              <p className="text-[10px] text-muted-foreground truncate">
                 {arrears && arrears.oldestUnpaidMonth
                   ? `최장 ${arrears.oldestUnpaidMonth}부터`
                   : "기한 초과 없음"}

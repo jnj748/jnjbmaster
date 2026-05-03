@@ -67,12 +67,12 @@ export function TodayWorkLogEntry({ variant: _variant = "compact", className }: 
   //   카드를 보여 주고, 부모 셀 높이를 채우지 않도록 h-full 도 사용하지 않는다.
   return (
     <Card className={className}>
-      <CardContent className="p-3">
+      <CardContent className="p-2.5">
         <Link href="/work-log?openDaily=1">
           <button
             type="button"
             data-testid="dashboard-today-worklog"
-            className="w-full flex items-center gap-3 py-1 px-1 hover-elevate active-elevate-2 rounded-lg text-left"
+            className="w-full flex items-center gap-3 py-0.5 px-1 hover-elevate active-elevate-2 rounded-lg text-left"
           >
             {/* [Task #256] reports 카테고리 — category-colors.ts 단일 토큰 참조 */}
             <span className={`w-8 h-8 rounded-full ${CATEGORY_BG_CLASS.reports} flex items-center justify-center shrink-0`}>

@@ -26,17 +26,18 @@ export default function WorkLogActivityEntryWidget() {
         >
           {/* [요청] 가독성 — 아이콘/타이틀/보조설명 한 단계씩 키움.
               관리소장 2행 좌측에서도 동일 위젯을 사용하므로 세 역할 모두 영향. */}
-          <CardContent className="py-3.5 px-4 flex items-center gap-3 h-full">
-            <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center shrink-0">
-              <ListChecks className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+          {/* [Task #784] 데스크톱 1뷰포트 정합화 — 진입 카드 컴팩트화. */}
+          <CardContent className="py-2.5 px-3 flex items-center gap-3 h-full">
+            <div className="w-9 h-9 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center shrink-0">
+              <ListChecks className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold">처리 내역</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-semibold">처리 내역</p>
+              <p className="text-xs text-muted-foreground truncate">
                 업무일지의 모든 기록(처리내역) 을 한눈에 봅니다
               </p>
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </CardContent>
         </Card>
       </Link>

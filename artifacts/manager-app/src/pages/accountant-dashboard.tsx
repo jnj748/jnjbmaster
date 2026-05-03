@@ -686,7 +686,7 @@ export default function AccountantDashboard() {
           않는다). "우리 건물 한눈에"(building-info) 만 ROLE_LAYOUTS 에서 페이지
           최하단으로 이동(목표 #2). */}
       <DesktopOnly>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {urgentCount > 0 && (
             <div className="flex items-start justify-end">
               <Badge variant="destructive" className="text-xs gap-1 animate-pulse">
@@ -696,9 +696,9 @@ export default function AccountantDashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
             {/* ─── 왼쪽 칼럼 ─── */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <AlertSection
                 title="필수업무현황"
                 description="법적으로 반드시 해야하는 업무"
@@ -710,7 +710,7 @@ export default function AccountantDashboard() {
                 placeholderOne="30일 내 예정된 회계 필수업무가 없습니다"
                 onAlertClick={handleAlertClick}
                 sectionKind="mandatory"
-                pageSize={5}
+                pageSize={3}
               />
               <PendingApprovalsEntryCard
                 pendingCount={pendingApprovalsCount}
@@ -726,7 +726,7 @@ export default function AccountantDashboard() {
             </div>
 
             {/* ─── 오른쪽 칼럼 ─── */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <InterimSettlementEntryCard />
               <Suspense fallback={widgetFallback}>
                 <AccountantMemberSearchWidget />

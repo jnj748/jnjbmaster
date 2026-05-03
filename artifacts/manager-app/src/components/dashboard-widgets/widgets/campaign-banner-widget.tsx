@@ -102,7 +102,7 @@ export function CampaignBannerWidget() {
 
   return (
     <Card className="border-blue-200 bg-card" data-testid="campaign-banner">
-      <CardContent className="p-3 flex items-start gap-3">
+      <CardContent className="p-2.5 flex items-start gap-3">
         {/* [사용자 요청 2026-04] 아이콘 컨테이너 배경 제거 — 색은 아이콘만으로 표현. */}
         <div className="shrink-0 w-9 h-9 rounded-full text-blue-700 flex items-center justify-center">
           <Megaphone className="w-4 h-4" />

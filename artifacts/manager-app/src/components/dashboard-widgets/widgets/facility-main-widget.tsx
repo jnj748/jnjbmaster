@@ -88,13 +88,13 @@ export default function FacilityMainWidget() {
       </MobileOnly>
 
       <DesktopOnly>
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* 1행: 필수업무현황(좌) / 금주 안전점검표 + 호실정보조회 세로 스택(우).
               매니저 본문과 동일하게 `md:grid-cols-2` 를 직접 사용해 900~1279px
               구간(DesktopOnly = .dash-desktop-only ≥900px) 에서도 2열을 유지한다.
               우측 셀은 안전점검표 카드(상)와 호실정보조회 카드(하)를 세로로 쌓아
               필수업무현황 5건 페이지네이션 옆 빈 공간을 채운다. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
             <AlertSection
               title="필수업무현황"
               description="법적으로 반드시 해야하는 업무"
@@ -106,9 +106,9 @@ export default function FacilityMainWidget() {
               placeholderOne="30일 내 예정된 시설 필수업무가 없습니다"
               onAlertClick={handleAlertClick}
               sectionKind="mandatory"
-              pageSize={5}
+              pageSize={3}
             />
-            <div className="space-y-6">
+            <div className="space-y-3">
               <WeeklyInspectionsWidget />
               <AccountantMemberSearchWidget />
             </div>
@@ -118,13 +118,13 @@ export default function FacilityMainWidget() {
               오늘 업무일지(우, 컴팩트 가로 카드).
               [Task #706] 우측 카드를 컴팩트로 줄였으므로 `items-stretch` 대신
               `items-start` 로 정렬해 우측 카드가 자연스럽게 짧게 보이도록 한다. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
             <FacilityLeftColumnStackWidget />
             <TodayWorkLogEntry />
           </div>
 
           {/* 3행: 공고문 템플릿 / 우리 건물 계약업체 연락망. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
             <NoticeTemplatesEntryWidget />
             <BuildingContractsSummaryWidget />
           </div>

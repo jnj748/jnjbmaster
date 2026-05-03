@@ -86,7 +86,7 @@ export function AlertSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3 gap-2 min-w-0">
+      <div className="flex items-center justify-between mb-2 gap-2 min-w-0">
         <h2 className="text-base font-bold flex items-center gap-2 min-w-0 flex-1">
           <Icon className={`w-4 h-4 shrink-0 ${iconClassName}`} />
           <span className="shrink-0">{title}</span>
@@ -116,7 +116,7 @@ export function AlertSection({
         //   세로 점프(짧은 → 긴 높이)를 줄인다.
         <div className="space-y-2">
           {Array.from({ length: PAGE_SIZE }, (_, i) => (
-            <Skeleton key={i} className="h-16 rounded-lg" />
+            <Skeleton key={i} className="h-14 rounded-lg" />
           ))}
         </div>
       ) : (
@@ -148,7 +148,7 @@ export function AlertSection({
                     return (
                       <div
                         key={`ph-${pi}-${si}`}
-                        className="flex items-center justify-center p-3 rounded-lg border border-dashed bg-muted/20 min-h-[64px]"
+                        className="flex items-center justify-center p-2 rounded-lg border border-dashed bg-muted/20 min-h-[52px]"
                         aria-hidden={slot.message ? undefined : true}
                       >
                         {slot.message && (
@@ -180,7 +180,7 @@ export function AlertSection({
                       key={alert.id}
                       role={isInteractive ? "button" : undefined}
                       tabIndex={isInteractive ? 0 : undefined}
-                      className={`flex items-center gap-3 p-3 rounded-lg border bg-card transition-colors border-l-4 min-h-[64px] ${
+                      className={`flex items-center gap-3 p-2 rounded-lg border bg-card transition-colors border-l-4 min-h-[52px] ${
                         isInteractive ? "cursor-pointer hover:bg-muted/50" : "cursor-default"
                       } ${
                         trafficColor === "red"

@@ -43,24 +43,24 @@ export function StatCard({
         href && "hover:bg-muted/50 transition-colors cursor-pointer",
       )}
     >
-      <CardContent className="p-3 sm:p-5">
+      <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs sm:text-sm text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-xs text-muted-foreground font-medium truncate">{title}</p>
             <p
               className={cn(
-                "font-bold mt-0.5 sm:mt-1 whitespace-nowrap truncate",
-                valueClassName ?? "text-xl sm:text-2xl",
+                "font-bold mt-0.5 whitespace-nowrap truncate",
+                valueClassName ?? "text-lg sm:text-xl",
               )}
             >
               {value}
             </p>
             {subtitle && (
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">{subtitle}</p>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">{subtitle}</p>
             )}
           </div>
-          <div className={`p-2 sm:p-2.5 rounded-lg ${color} shrink-0`}>
-            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          <div className={`p-1.5 sm:p-2 rounded-lg ${color} shrink-0`}>
+            <Icon className="w-4 h-4 text-white" />
           </div>
         </div>
       </CardContent>
