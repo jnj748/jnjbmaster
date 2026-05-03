@@ -1,4 +1,4 @@
-import { eq, sum, and, isNull, sql } from "drizzle-orm";
+import { eq, sum, and, isNull, sql, inArray } from "drizzle-orm";
 import {
   db,
   creditLedgerTable,
@@ -330,7 +330,10 @@ export async function countActivePremiumQuotes(rfqId: number): Promise<number> {
 // [Task #226] 미열람 견적에 대한 부분 환불을 일괄 수행한다 (스케줄러용).
 // 7일(설정값) 동안 관리소장이 견적을 열람하지 않으면, 견적 제출 시 차감된
 // 크레딧의 60%(설정값)를 자동 환불한다. 이미 환불된 quote는 멱등 스킵.
-export async function refundUnviewedQuotes(now: Date = new Date()): Promise<{ refundedCount: number; refundedAmount: number }> {
+export async function refundUnviewedQuotes(
+  now: Date = new Date(),
+  options: { quoteIds?: number[] } = {},
+): Promise<{ refundedCount: number; refundedAmount: number }> {
   // 베이스 스키마(quotes, platform_settings)가 마이그레이트되지 않은 환경에서는 no-op.
   const { rows } = (await db.execute(sql`
     SELECT EXISTS (
@@ -374,10 +377,18 @@ export async function refundUnviewedQuotes(now: Date = new Date()): Promise<{ re
   //   견적도 환불 대상이다 (createdAt + days 일 이전에 열람됐는지로 판단).
   // 노출되는 후보를 좁히기 위해 noViewRefundedAt 만 SQL 단계에서 필터링하고,
   // 시점 비교는 자바스크립트에서 수행한다 (대규모 테이블이 되면 인덱스 + SQL 비교로 옮긴다).
+  // [scope] options.quoteIds 가 제공되면 해당 quote 만 후보로 한정 (회귀/테스트용).
+  //   미제공 시 전체 스캔(스케줄러 기존 동작).
+  const scopedIds = options.quoteIds;
+  if (scopedIds && scopedIds.length === 0) return { refundedCount: 0, refundedAmount: 0 };
   const candidates = await db
     .select()
     .from(quotesTable)
-    .where(isNull(quotesTable.noViewRefundedAt));
+    .where(
+      scopedIds
+        ? and(isNull(quotesTable.noViewRefundedAt), inArray(quotesTable.id, scopedIds))
+        : isNull(quotesTable.noViewRefundedAt),
+    );
 
   let refundedCount = 0;
   let refundedAmount = 0;

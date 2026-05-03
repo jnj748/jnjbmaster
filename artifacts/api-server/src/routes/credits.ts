@@ -28,6 +28,7 @@ import {
   getPremiumSlotLimit,
   recalcWalletBalance,
   grantSignupBonusIfEligible,
+  refundUnviewedQuotes,
 } from "../lib/credits";
 
 const router: IRouter = Router();
@@ -140,6 +141,22 @@ const AdjustBody = z.object({
   kind: z.enum(["manual_credit", "manual_debit", "adjustment", "package_purchase", "rebate", "bonus_points"]),
   pointsAmount: z.number().int().optional(),
   notes: z.string().min(1),
+});
+
+// [Task #770] 회귀 회수: 미열람 환불 잡을 즉시 1회 실행. platform_admin 한정.
+//   `quoteIds` 가 명시되면 해당 quote 만 후보로 한정한다 (회귀/테스트는 항상 명시).
+//   미명시 시 스케줄러와 동일한 전수 스캔 (운영용). 회귀 스크립트는 반드시 명시 사용.
+const RunUnviewedRefundBody = z.object({
+  quoteIds: z.array(z.number().int().positive()).max(10_000).optional(),
+}).optional();
+router.post("/credits/admin/run-unviewed-refund", platformAdminOnly, async (req, res): Promise<void> => {
+  const parsed = RunUnviewedRefundBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const result = await refundUnviewedQuotes(new Date(), { quoteIds: parsed.data?.quoteIds });
+  res.json(result);
 });
 
 router.post("/credits/adjust", hqOnly, async (req, res): Promise<void> => {

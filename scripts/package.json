@@ -10,6 +10,7 @@
     "backfill-task-target-roles": "tsx ./src/backfill-task-target-roles.ts",
     "backfill-work-log-entry-units": "tsx ./src/backfill-work-log-entry-units.ts",
     "audit-role-coverage": "tsx ./src/audit-role-coverage.ts",
+    "cash-flow-regression": "tsx ./src/cash-flow-regression.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
