@@ -96,6 +96,8 @@ export * from "./billingFullSet";
 export * from "./budgets";
 // [Task #779] 고지·수납엔진 v01 — 고지서/항목/수납/통장내역/연체단계.
 export * from "./billsLedger";
+// [Task #800] 수납·미납 관리 풀세트 — 5종 테이블.
+export * from "./receivablesFullSet";
 // [Task #780] T9 마감·보고엔진 v01 — period_closings / closing_snapshots / carry_forward_balances.
 export * from "./periodClosings";
 // [Task #796] XpBIZ 호실관리·환경설정 풀세트 — 5개 1:1 환경 테이블 + 호실별 2종.

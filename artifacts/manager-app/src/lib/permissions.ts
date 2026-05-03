@@ -155,6 +155,13 @@ const BillingAdjustmentsPage = lazy(() => import("@/pages/billing/adjustments"))
 const BillingNoticeDeliveryPage = lazy(() => import("@/pages/billing/notice-delivery"));
 const BillingClosePage = lazy(() => import("@/pages/billing/close"));
 const BillingExtraChargesPage = lazy(() => import("@/pages/billing/extra-charges"));
+// [Task #800] 수납·미납 관리 풀세트 — 6 페이지.
+const ReceivablesOverduePage = lazy(() => import("@/pages/receivables/overdue"));
+const ReceivablesOverdueNoticesPage = lazy(() => import("@/pages/receivables/overdue-notices"));
+const ReceivablesDunningPage = lazy(() => import("@/pages/receivables/dunning"));
+const ReceivablesPaymentsPage = lazy(() => import("@/pages/receivables/payments"));
+const ReceivablesReconciliationPage = lazy(() => import("@/pages/receivables/reconciliation"));
+const ReceivablesAutoDebitResultsPage = lazy(() => import("@/pages/receivables/auto-debit-results"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
 // [Task #267] 플랫폼 — 5개 역할별 현황 페이지(가입자/활성건물/최근활동/사용자목록 진입).
 const PlatformRoleManagers = lazy(() => import("@/pages/platform-role-status").then((m) => ({ default: m.ManagersStatus })));
@@ -682,6 +689,43 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/billing/close", component: BillingClosePage,
     label: "부과마감", icon: Lock, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  // [Task #800] 수납·미납 관리 풀세트 — 6 페이지. 모두 manager+accountant+platform_admin.
+  {
+    path: "/receivables/overdue", component: ReceivablesOverduePage,
+    label: "미납대장", icon: AlertTriangle, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/receivables/overdue-notices", component: ReceivablesOverdueNoticesPage,
+    label: "미납분 고지서", icon: Send, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/receivables/dunning", component: ReceivablesDunningPage,
+    label: "독촉장", icon: Send, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/receivables/payments", component: ReceivablesPaymentsPage,
+    label: "수납 처리", icon: CreditCard, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/receivables/reconciliation", component: ReceivablesReconciliationPage,
+    label: "통장 비교", icon: Sparkles, group: "accounting",
+    access: ["manager", "platform_admin", "accountant"],
+    sideMenu: ["manager", "accountant"],
+  },
+  {
+    path: "/receivables/auto-debit-results", component: ReceivablesAutoDebitResultsPage,
+    label: "자동이체 결과", icon: Activity, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: ["manager", "accountant"],
   },
@@ -1694,6 +1738,18 @@ function accountantSidebar(
         link("/billing/auto-debit"),
         link("/billing/notice-delivery"),
         link("/billing/close"),
+      ]),
+    },
+    // [Task #800] 수납·미납 관리 풀세트 — 6 페이지 단일 그룹.
+    {
+      title: "수납",
+      items: compact([
+        link("/receivables/overdue"),
+        link("/receivables/overdue-notices"),
+        link("/receivables/dunning"),
+        link("/receivables/payments"),
+        link("/receivables/reconciliation"),
+        link("/receivables/auto-debit-results"),
       ]),
     },
     {

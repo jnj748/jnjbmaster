@@ -62,6 +62,8 @@ import billingRouter from "./billing";
 import billingFullSetRouter from "./billingFullSet";
 // [Task #779] 고지·수납엔진 v01 — /bills/*, /bank-tx/* 신규 라우트.
 import billsRouter, { publicBillsRouter } from "./bills";
+// [Task #800] 수납·미납 관리 풀세트 — /receivables/*.
+import receivablesFullSetRouter from "./receivablesFullSet";
 import complaintsRouter, { handleComplaintAnalytics } from "./complaints";
 import votesRouter from "./votes";
 import delinquencyRouter from "./delinquency";
@@ -234,6 +236,8 @@ buildingRouter.use(billingRouter);
 buildingRouter.use(billingFullSetRouter);
 // [Task #779] 고지·수납엔진 v01 — billing 위에 마운트.
 buildingRouter.use(billsRouter);
+// [Task #800] 수납·미납 관리 풀세트 — bills 위에 마운트(같은 buildingOnly 가드).
+buildingRouter.use(receivablesFullSetRouter);
 buildingRouter.use(complaintsRouter);
 buildingRouter.use(votesRouter);
 buildingRouter.use(delinquencyRouter);

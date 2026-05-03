@@ -116,6 +116,18 @@ export const AUDIT_ACTIONS = [
   "tax.invoice.correct",
   "tax.invoice.transmit",
   "tax.invoice.nts_transmit",
+
+  // ── 수납·미납 관리 풀세트 (#800) ──────────────────────────
+  "receivable.snapshot",
+  "receivable.notice.print",
+  "receivable.dunning.batch",
+  "receivable.dunning.send",
+  "receivable.dunning.cancel",
+  "receivable.receipt.issue",
+  "receivable.recon.open",
+  "receivable.recon.update",
+  "receivable.auto_debit.record",
+  "receivable.auto_debit.retry",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -218,6 +230,17 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "tax.invoice.correct": "세금계산서 수정 발행",
   "tax.invoice.transmit": "세금계산서 거래처 전송",
   "tax.invoice.nts_transmit": "세금계산서 국세청 전송",
+
+  "receivable.snapshot": "미납 스냅샷 캡처",
+  "receivable.notice.print": "미납 고지서 출력 의뢰",
+  "receivable.dunning.batch": "독촉장 일괄 생성",
+  "receivable.dunning.send": "독촉장 발송",
+  "receivable.dunning.cancel": "독촉장 취소",
+  "receivable.receipt.issue": "영수증 발행",
+  "receivable.recon.open": "통장 이의/차이 등록",
+  "receivable.recon.update": "통장 이의/차이 처리",
+  "receivable.auto_debit.record": "자동이체 결과 기록",
+  "receivable.auto_debit.retry": "자동이체 재시도",
 };
 
 /** 매트릭스 행: 액션 → 허용 역할 집합. true 인 항목만 통과한다. */
@@ -358,6 +381,18 @@ export const PERMISSION_MATRIX: Record<AuditAction, RolePermissionRow> = {
   "tax.invoice.correct": { accountant: true, platform_admin: true },
   "tax.invoice.transmit": { manager: true, accountant: true, platform_admin: true },
   "tax.invoice.nts_transmit": { manager: true, accountant: true, platform_admin: true },
+
+  // ── 수납·미납 관리 풀세트 (#800) ──────────────────────────
+  "receivable.snapshot": { manager: true, accountant: true, platform_admin: true },
+  "receivable.notice.print": { manager: true, accountant: true, platform_admin: true },
+  "receivable.dunning.batch": { manager: true, accountant: true, platform_admin: true },
+  "receivable.dunning.send": { manager: true, accountant: true, platform_admin: true },
+  "receivable.dunning.cancel": { manager: true, accountant: true, platform_admin: true },
+  "receivable.receipt.issue": { manager: true, accountant: true, platform_admin: true },
+  "receivable.recon.open": { manager: true, accountant: true, platform_admin: true },
+  "receivable.recon.update": { manager: true, accountant: true, platform_admin: true },
+  "receivable.auto_debit.record": { manager: true, accountant: true, platform_admin: true },
+  "receivable.auto_debit.retry": { manager: true, accountant: true, platform_admin: true },
 };
 
 /** 서버·클라이언트 공용 가드. */
