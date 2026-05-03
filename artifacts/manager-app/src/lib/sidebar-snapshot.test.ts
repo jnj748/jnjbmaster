@@ -194,7 +194,7 @@ const EXPECTED_SIDEBAR: Record<Role, Snapshot> = {
     },
     {
       title: "설정",
-      paths: ["/settings/profile"],
+      paths: ["/settings/profile", "/accountant/settings/categories"],
     },
   ],
   facility_staff: [
