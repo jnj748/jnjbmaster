@@ -94,3 +94,5 @@ export * from "./billingEngine";
 export * from "./budgets";
 // [Task #779] 고지·수납엔진 v01 — 고지서/항목/수납/통장내역/연체단계.
 export * from "./billsLedger";
+// [Task #780] T9 마감·보고엔진 v01 — period_closings / closing_snapshots / carry_forward_balances.
+export * from "./periodClosings";

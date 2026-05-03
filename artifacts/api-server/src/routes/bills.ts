@@ -106,6 +106,14 @@ router.post(
       res.status(409).json({ error: "확정된 부과만 고지서로 발행할 수 있습니다" });
       return;
     }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, run.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${run.billingMonth} 월이 마감되어 고지서를 발행할 수 없습니다.` });
+        return;
+      }
+    }
 
     const lines = await db.select().from(billingLinesTable).where(eq(billingLinesTable.runId, runId));
     if (lines.length === 0) { res.status(400).json({ error: "부과 라인이 없습니다" }); return; }
@@ -304,6 +312,14 @@ router.post(
       res.status(409).json({ error: "마감된 고지서는 수납 기록을 변경할 수 없습니다" });
       return;
     }
+    // [Task #780] T9 마감잠금 가드 — 해당 월이 마감되었으면 차단.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, bill.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${bill.billingMonth} 월이 마감되어 수납을 기록할 수 없습니다.` });
+        return;
+      }
+    }
     if (bill.status === "void") {
       res.status(409).json({ error: "무효 처리된 고지서입니다" });
       return;
@@ -367,6 +383,17 @@ router.post(
       .where(and(eq(billPaymentsTable.id, pid), eq(billPaymentsTable.buildingId, buildingId)));
     if (!pay || pay.billId !== billId) { res.status(404).json({ error: "수납 기록을 찾을 수 없습니다" }); return; }
     if (pay.reversedAt) { res.status(409).json({ error: "이미 취소된 수납입니다" }); return; }
+    // [Task #780] T9 마감잠금 가드 — 잠긴 월의 수납 취소 차단.
+    {
+      const [billRow] = await db.select({ billingMonth: billsTable.billingMonth }).from(billsTable).where(eq(billsTable.id, billId));
+      if (billRow) {
+        const { isMonthLocked } = await import("../lib/closingEngine");
+        if (await isMonthLocked(buildingId, billRow.billingMonth)) {
+          res.status(409).json({ error: "closing_locked", message: `${billRow.billingMonth} 월이 마감되어 수납을 취소할 수 없습니다.` });
+          return;
+        }
+      }
+    }
 
     await db.update(billPaymentsTable).set({
       reversedAt: new Date(), reversalReason: reason,
@@ -402,6 +429,14 @@ router.post(
       .where(and(eq(billsTable.id, id), eq(billsTable.buildingId, buildingId)));
     if (!bill) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
     if (bill.paidAmount > 0) { res.status(409).json({ error: "수납 이력이 있는 고지서는 무효 처리할 수 없습니다" }); return; }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, bill.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${bill.billingMonth} 월이 마감되어 무효 처리할 수 없습니다.` });
+        return;
+      }
+    }
     const [updated] = await db.update(billsTable).set({ status: "void", closedAt: new Date() })
       .where(eq(billsTable.id, id)).returning();
     res.json(updated);
@@ -429,6 +464,17 @@ router.post(
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
     const parsed = ImportBankTxBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
+    // [Task #780] T9 마감잠금 가드 — 거래일이 잠긴 월에 속하면 import 차단.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      const months = Array.from(new Set(parsed.data.rows.map(r => String(r.txDate).slice(0, 7))));
+      for (const m of months) {
+        if (await isMonthLocked(buildingId, m)) {
+          res.status(409).json({ error: "closing_locked", message: `${m} 월이 마감되어 통장거래를 import 할 수 없습니다.` });
+          return;
+        }
+      }
+    }
     const inserted = await db.insert(bankTransactionsTable).values(
       parsed.data.rows.map(r => ({
         buildingId,
@@ -464,6 +510,7 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     const buildingId = await getUserBuildingId(req);
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+    const { isMonthLocked } = await import("../lib/closingEngine");
     const txs = await db.select().from(bankTransactionsTable)
       .where(and(eq(bankTransactionsTable.buildingId, buildingId), eq(bankTransactionsTable.matchStatus, "unmatched")));
     let matched = 0;
@@ -489,6 +536,8 @@ router.post(
         if (cands.length === 1) candidate = cands[0];
       }
       if (!candidate) continue;
+      // [Task #780] 매칭 후보의 billingMonth 가 잠겨있으면 자동매칭 스킵 — 잠긴 월 데이터 변경 금지.
+      if (await isMonthLocked(buildingId, candidate.billingMonth)) continue;
 
       const [pay] = await db.insert(billPaymentsTable).values({
         buildingId,
@@ -541,6 +590,14 @@ router.post(
     const [bill] = await db.select().from(billsTable)
       .where(and(eq(billsTable.id, parsed.data.billId), eq(billsTable.buildingId, buildingId)));
     if (!bill) { res.status(404).json({ error: "고지서를 찾을 수 없습니다" }); return; }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, bill.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${bill.billingMonth} 월이 마감되어 수동매칭할 수 없습니다.` });
+        return;
+      }
+    }
 
     const [pay] = await db.insert(billPaymentsTable).values({
       buildingId,
@@ -579,6 +636,18 @@ router.post(
     const [tx] = await db.select().from(bankTransactionsTable)
       .where(and(eq(bankTransactionsTable.id, id), eq(bankTransactionsTable.buildingId, buildingId)));
     if (!tx) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+    // [Task #780] 가수금 처리는 bill_payments 행을 새로 만들고 bank_transactions
+    //   상태를 바꾸는 변경계 — tx.txDate 의 월이 마감되었으면 차단.
+    {
+      const txMonth = (tx.txDate ?? "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(txMonth)) {
+        const { isMonthLocked } = await import("../lib/closingEngine");
+        if (await isMonthLocked(buildingId, txMonth)) {
+          res.status(409).json({ error: "closing_locked", message: `${txMonth} 월이 마감되어 가수금 처리할 수 없습니다` });
+          return;
+        }
+      }
+    }
     // 이미 매칭된 내역(auto/manual/suspense/ignored)은 가수금 처리 차단 — 중복 결제행 방지.
     if (tx.matchStatus !== "unmatched") {
       res.status(409).json({ error: `이미 ${tx.matchStatus} 상태인 내역은 가수금 처리할 수 없습니다` });
@@ -628,6 +697,20 @@ router.post(
     const [bill] = await db.select().from(billsTable)
       .where(and(eq(billsTable.id, id), eq(billsTable.buildingId, buildingId)));
     if (!bill) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+    // [Task #780] T9·T10 인터록 — 외부 발송(dispatch=true) 은 해당 부과월이
+    //   마감(locked) 된 후에만 허용. 마감 전 발송은 데이터 변경과 동시에 외부에
+    //   고지하는 위험이 있어 차단.
+    if (dispatch) {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      const locked = await isMonthLocked(buildingId, bill.billingMonth);
+      if (!locked) {
+        res.status(409).json({
+          error: "closing_required",
+          message: `${bill.billingMonth} 월이 마감되지 않아 독촉 발송할 수 없습니다(T9 마감 후 dispatch 가능).`,
+        });
+        return;
+      }
+    }
 
     const today = new Date().toISOString().slice(0, 10);
     const overdueDays = bill.dueDate < today

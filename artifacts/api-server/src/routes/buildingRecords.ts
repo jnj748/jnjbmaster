@@ -688,6 +688,14 @@ router.put("/building-records", async (req: Request, res: Response) => {
   }
   const month = (req.query.month as string | undefined) ?? (req.body?.month as string | undefined);
   if (!isValidMonth(month)) { res.status(400).json({ error: "month 형식 오류 (YYYY-MM)" }); return; }
+  // [Task #780] T9 마감잠금 가드 — 잠긴 월의 응대자료 변경 차단.
+  {
+    const { isMonthLocked } = await import("../lib/closingEngine");
+    if (await isMonthLocked(ctx.buildingId, month)) {
+      res.status(409).json({ error: "closing_locked", message: `${month} 월이 마감되어 응대자료를 변경할 수 없습니다.` });
+      return;
+    }
+  }
   const sanitized = sanitizeOverrides(req.body?.overrides);
   const record = await loadOrCreate(ctx.buildingId, month);
   // deep-merge per section so existing overrides for other sections are preserved.

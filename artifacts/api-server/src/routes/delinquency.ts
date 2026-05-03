@@ -92,6 +92,17 @@ router.get("/delinquency/summary", async (req: Request, res: Response): Promise<
   });
 });
 
+// [Task #780] T9·T10 인터록 — 연체 기록의 billingMonth 가 마감(locked)되지 않았다면 발송 불가.
+//   당월 마감을 확정한 후에야 독촉/주차정지/해소 액션을 dispatch 할 수 있도록 강제한다.
+async function ensureMonthClosedForDelinquency(buildingId: number, billingMonth: string | null | undefined): Promise<{ ok: boolean; reason?: string }> {
+  const m = (billingMonth ?? "").slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(m)) return { ok: true };
+  const { isMonthLocked } = await import("../lib/closingEngine");
+  const locked = await isMonthLocked(buildingId, m);
+  if (!locked) return { ok: false, reason: `${m} 월이 마감되지 않아 발송할 수 없습니다(T9 마감 후 dispatch 가능).` };
+  return { ok: true };
+}
+
 router.post("/delinquency/:id/notify", async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id)) { res.status(400).json({ error: "잘못된 ID" }); return; }
@@ -101,6 +112,8 @@ router.post("/delinquency/:id/notify", async (req: Request, res: Response): Prom
 
   const action = await verifyActionOwnership(id, buildingId);
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
+  const gate = await ensureMonthClosedForDelinquency(buildingId, (action as { billingMonth?: string }).billingMonth);
+  if (!gate.ok) { res.status(409).json({ error: "closing_required", message: gate.reason }); return; }
 
   const [updated] = await db.update(delinquencyActionsTable)
     .set({
@@ -132,6 +145,8 @@ router.post("/delinquency/:id/suspend-parking", async (req: Request, res: Respon
 
   const action = await verifyActionOwnership(id, buildingId);
   if (!action) { res.status(404).json({ error: "연체 기록을 찾을 수 없습니다" }); return; }
+  const gate2 = await ensureMonthClosedForDelinquency(buildingId, (action as { billingMonth?: string }).billingMonth);
+  if (!gate2.ok) { res.status(409).json({ error: "closing_required", message: gate2.reason }); return; }
 
   const unitVehicles = await getUnitScopedVehicles(action.unitNumber, buildingId, "registered");
 

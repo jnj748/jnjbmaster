@@ -44,6 +44,8 @@ import {
   UploadCloud,
   // [Task #775] 결재 진행상황(파이프라인) 메뉴 아이콘.
   Activity,
+  // [Task #780] T9 마감·보고엔진 v01 — 월마감 메뉴 아이콘.
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -109,6 +111,8 @@ const AccountingHub = lazy(() => import("@/pages/erp/accounting-hub"));
 const BuildingRecords = lazy(() => import("@/pages/erp/building-records"));
 // [Task #776] 예산·집행통제 엔진 v01.
 const ErpBudgets = lazy(() => import("@/pages/erp/budgets"));
+// [Task #780] T9 마감·보고엔진 v01.
+const ErpClosings = lazy(() => import("@/pages/erp/closings"));
 // [Task #774] 부과자료 업로드센터 — OCR/문서엔진 v01 진입 페이지.
 const ErpUploadCenter = lazy(() => import("@/pages/erp/upload-center"));
 const WorkLog = lazy(() => import("@/pages/work-log"));
@@ -546,6 +550,13 @@ export const ROUTES: RouteEntry[] = [
     label: "고지·수납 ledger", icon: Receipt, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
     sideMenu: ["accountant"],
+  },
+  // [Task #780] T9 마감·보고엔진 v01 — 게이트 5종 + 잠금/해제 + 표준보고 5종.
+  {
+    path: "/erp/closings", component: ErpClosings,
+    label: "월마감·보고", icon: Lock, group: "accounting",
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["accountant", "hq_executive"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,
@@ -1282,6 +1293,7 @@ function accountantSidebar(
       items: compact([
         link("/erp/budgets"),
         link("/erp/building-records"),
+        link("/erp/closings"),
         link("/accountant/closing/monthly", { label: "월마감", icon: Sparkles }),
         link("/accountant/closing/yearly", { label: "연마감", icon: Sparkles }),
       ]),

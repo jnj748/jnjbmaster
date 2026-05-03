@@ -222,6 +222,17 @@ router.post(
     const monthlyAmount = Math.round(totalAmount / amortizationMonths);
     const months = monthRange(startMonth, amortizationMonths);
     const endMonth = months[months.length - 1];
+    // [Task #780 review-4] 분할부과 등록은 startMonth~endMonth 의 모든 월에 영향을
+    //   주므로 하나라도 마감(잠금)된 월이 포함되면 거부.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      for (const m of months) {
+        if (await isMonthLocked(buildingId, m)) {
+          res.status(409).json({ error: "closing_locked", message: `${m} 월이 마감되어 분할부과를 등록할 수 없습니다.` });
+          return;
+        }
+      }
+    }
     const [saved] = await db.insert(billingInstallmentsTable).values({
       buildingId, title, totalAmount, amortizationMonths, monthlyAmount,
       startMonth, endMonth, category, allocationKey, notes,
@@ -239,6 +250,21 @@ router.patch(
     const buildingId = await getUserBuildingId(req);
     if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
     const id = Number(req.params.id);
+    // [Task #780 review-4] 잠긴 월이 분할부과 기간에 하나라도 포함되면 변경 거부.
+    {
+      const [exist] = await db.select().from(billingInstallmentsTable)
+        .where(and(eq(billingInstallmentsTable.id, id), eq(billingInstallmentsTable.buildingId, buildingId)));
+      if (exist) {
+        const { isMonthLocked } = await import("../lib/closingEngine");
+        const span = monthRange(exist.startMonth, exist.amortizationMonths);
+        for (const m of span) {
+          if (await isMonthLocked(buildingId, m)) {
+            res.status(409).json({ error: "closing_locked", message: `${m} 월이 마감되어 분할부과를 변경할 수 없습니다.` });
+            return;
+          }
+        }
+      }
+    }
     const allowed: Record<string, unknown> = {};
     if (typeof req.body?.notes === "string") allowed.notes = req.body.notes;
     if (req.body?.status === "active" || req.body?.status === "paused" || req.body?.status === "closed") {
@@ -270,6 +296,21 @@ router.delete(
       return;
     }
     const id = Number(req.params.id);
+    // [Task #780 review-4] 잠긴 월이 분할부과 기간에 하나라도 포함되면 삭제 거부.
+    {
+      const [exist] = await db.select().from(billingInstallmentsTable)
+        .where(and(eq(billingInstallmentsTable.id, id), eq(billingInstallmentsTable.buildingId, buildingId)));
+      if (exist) {
+        const { isMonthLocked } = await import("../lib/closingEngine");
+        const span = monthRange(exist.startMonth, exist.amortizationMonths);
+        for (const m of span) {
+          if (await isMonthLocked(buildingId, m)) {
+            res.status(409).json({ error: "closing_locked", message: `${m} 월이 마감되어 분할부과를 삭제할 수 없습니다.` });
+            return;
+          }
+        }
+      }
+    }
     const result = await db.delete(billingInstallmentsTable)
       .where(and(eq(billingInstallmentsTable.id, id), eq(billingInstallmentsTable.buildingId, buildingId)))
       .returning();
@@ -296,6 +337,14 @@ router.post(
     if (existingRun?.status === "finalized") {
       res.status(409).json({ error: `${month} 부과는 확정되었습니다. 조정명세서를 사용하세요.`, runId: existingRun.id });
       return;
+    }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, month)) {
+        res.status(409).json({ error: "closing_locked", message: `${month} 월이 마감되어 부과 계산을 할 수 없습니다.` });
+        return;
+      }
     }
 
     // 입력 로드: 환경, 호실, 분할부과 ledger, 검침 합계, 고지서 OCR(검증용 비교).
@@ -524,6 +573,15 @@ router.post(
     if (!run) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
     if (run.status === "finalized") { res.status(409).json({ error: "이미 확정되었습니다" }); return; }
 
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, run.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${run.billingMonth} 월이 마감되어 부과 확정을 할 수 없습니다.` });
+        return;
+      }
+    }
+
     const [updated] = await db.update(billingRunsTable).set({
       status: "finalized",
       finalizedAt: new Date(),
@@ -640,6 +698,14 @@ router.post(
     const [run] = await db.select().from(billingRunsTable)
       .where(and(eq(billingRunsTable.id, id), eq(billingRunsTable.buildingId, buildingId)));
     if (!run) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, run.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${run.billingMonth} 월이 마감되어 조정명세서를 등록할 수 없습니다.` });
+        return;
+      }
+    }
 
     const parsed = AdjustmentBody.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
@@ -687,6 +753,14 @@ router.patch(
     if (run.status === "finalized") {
       res.status(409).json({ error: "확정된 부과는 보정 불가 — 조정명세서를 사용하세요" });
       return;
+    }
+    // [Task #780] T9 마감잠금 가드.
+    {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, run.billingMonth)) {
+        res.status(409).json({ error: "closing_locked", message: `${run.billingMonth} 월이 마감되어 라인 보정을 할 수 없습니다.` });
+        return;
+      }
     }
 
     const [updated] = await db.update(billingLinesTable).set({

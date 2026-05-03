@@ -93,6 +93,8 @@ import usageAnalyticsRouter from "./usageAnalytics";
 import documentsRouter from "./documents";
 // [Task #774] OCR/문서엔진 v01 — 단일 ingest 파이프라인.
 import documentIngestRouter from "./documentIngest";
+// [Task #780] T9 마감·보고엔진 v01 — 게이트/잠금/스냅샷/표준보고.
+import closingsRouter from "./closings";
 import noticeOutputsRouter from "./noticeOutputs";
 // [Task #761] 플랫폼 레벨 AI — 포트폴리오 이상치 위젯용 라우트.
 import portfolioAnomaliesRouter from "./portfolioAnomalies";
@@ -219,6 +221,8 @@ buildingRouter.use(warrantiesRouter);
 buildingRouter.use(contractsRouter);
 buildingRouter.use(onboardingRouter);
 buildingRouter.use(buildingRecordsRouter);
+// [Task #780] T9 마감·보고엔진 — 같은 건물 가드(buildingOnly) 공유.
+buildingRouter.use(closingsRouter);
 // [Task #776] 예산 편성·집행률·가드. 회계엔진 voucher.confirmed 구독은 모듈 로드 시 1회.
 buildingRouter.use(budgetsRouter);
 registerBudgetExecutionListener();

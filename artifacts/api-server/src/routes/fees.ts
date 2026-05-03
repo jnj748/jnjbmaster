@@ -35,6 +35,14 @@ router.post("/fees/calculate", requireAction("billing.calculate"), audit("billin
   }
   const buildingId = await getUserBuildingId(req);
   if (!buildingId) { res.status(403).json({ error: "건물 정보가 없습니다" }); return; }
+  // [Task #780 review-2] 레거시 /fees/* 도 마감 가드 적용 — 잠긴 월의 fee 재산정 차단.
+  {
+    const { isMonthLocked } = await import("../lib/closingEngine");
+    if (await isMonthLocked(buildingId, parsed.data.month)) {
+      res.status(409).json({ error: "마감(잠금)된 월에는 부과 산정을 변경할 수 없습니다", month: parsed.data.month });
+      return;
+    }
+  }
   const {
     month,
     commonMaintenanceFee,
@@ -433,6 +441,14 @@ router.post("/fees/record-payment", requireAction("fees.payment.record"), audit(
   if (!unitId || !billingMonth) {
     res.status(400).json({ error: "unitId와 billingMonth가 필요합니다" });
     return;
+  }
+  // [Task #780 review-2] 마감 잠긴 월의 수납 기록 변경 차단.
+  {
+    const { isMonthLocked, isYM } = await import("../lib/closingEngine");
+    if (typeof billingMonth === "string" && isYM(billingMonth) && await isMonthLocked(buildingId, billingMonth)) {
+      res.status(409).json({ error: "마감(잠금)된 월에는 수납을 기록할 수 없습니다", month: billingMonth });
+      return;
+    }
   }
 
   const [unit] = await db.select().from(unitsTable)

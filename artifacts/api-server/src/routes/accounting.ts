@@ -203,6 +203,17 @@ router.post("/accounting/journal", requireAction("journal.post"), audit("journal
   if (!entryDate || !memo || !Array.isArray(lines) || lines.length < 2) {
     res.status(400).json({ error: "entryDate/memo/lines(2개 이상) 필요" }); return;
   }
+  // [Task #780] T9 마감잠금 가드 — entry_date 의 YYYY-MM 가 잠긴 월이면 차단.
+  {
+    const ymMatch = /^(\d{4}-\d{2})/.exec(String(entryDate));
+    if (ymMatch && buildingId) {
+      const { isMonthLocked } = await import("../lib/closingEngine");
+      if (await isMonthLocked(buildingId, ymMatch[1])) {
+        res.status(409).json({ error: "closing_locked", message: `${ymMatch[1]} 월이 마감되어 분개할 수 없습니다.` });
+        return;
+      }
+    }
+  }
   for (const l of lines) {
     if (!l.accountCode) { res.status(400).json({ error: "accountCode 필요" }); return; }
     if ((l.debit ?? 0) < 0 || (l.credit ?? 0) < 0) { res.status(400).json({ error: "음수 금지" }); return; }
@@ -253,8 +264,16 @@ router.post("/accounting/journal/:id/reverse", requireAction("journal.reverse"),
   if (orig.buildingId == null || !(await canAccessBuilding(req, orig.buildingId))) {
     res.status(403).json({ error: "이 건물의 분개를 역분개할 권한이 없습니다" }); return;
   }
-  // [Task #778] 마감(locked=true) 분개도 역분개는 허용한다 — 직접 수정/삭제는
-  // 차단되지만 회계 원칙상 정정은 항상 새 역분개로 이뤄지므로 막지 않는다.
+  // [Task #780] 마감 잠금 가드 — 원분개의 entryDate 가 잠긴 월에 속하면 역분개 차단.
+  //   정정은 다음 달(open 기간)에서 새 분개로 처리해야 한다.
+  {
+    const m = String(orig.entryDate).slice(0, 7);
+    const { isMonthLocked } = await import("../lib/closingEngine");
+    if (await isMonthLocked(orig.buildingId, m)) {
+      res.status(409).json({ error: "closing_locked", message: `${m} 월이 마감되어 역분개를 등록할 수 없습니다. 마감 후 정정은 다음 달 새 분개로 처리하세요.` });
+      return;
+    }
+  }
   try {
     const newId = await reverseJournal(id, { createdById: userId, memo: req.body?.memo });
     res.json({ entryId: newId });
