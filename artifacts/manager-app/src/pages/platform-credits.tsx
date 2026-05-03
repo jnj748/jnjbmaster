@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { tossMethodLabel } from "@/lib/toss-method-label";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   ResponsiveDialog,
@@ -632,7 +633,7 @@ function TopupOrdersAdmin() {
                 <span className="text-slate-500">금액</span>
                 <span className="text-right">{o.amountKrw.toLocaleString()}원</span>
                 <span className="text-slate-500">결제수단/사유</span>
-                <span className="text-right">{o.tossMethod ?? o.failReason ?? "-"}</span>
+                <span className="text-right">{o.tossMethod ? tossMethodLabel(o.tossMethod) : (o.failReason ?? "-")}</span>
               </div>
               {o.tossPaymentKey && (
                 <p className="text-[10px] text-slate-400 font-mono break-all" data-testid={`text-payment-key-mobile-${o.id}`}>
@@ -681,7 +682,7 @@ function TopupOrdersAdmin() {
                       : <Badge variant="outline">취소</Badge>}
                   </td>
                   <td className="px-3 py-2 text-slate-500">
-                    {o.tossMethod ?? o.failReason ?? "-"}
+                    {o.tossMethod ? tossMethodLabel(o.tossMethod) : (o.failReason ?? "-")}
                   </td>
                   <td className="px-3 py-2 text-slate-400 font-mono text-[10px] break-all max-w-[200px]" data-testid={`text-payment-key-${o.id}`}>
                     {o.tossPaymentKey ?? "-"}
