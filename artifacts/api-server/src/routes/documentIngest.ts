@@ -27,6 +27,55 @@ const router: IRouter = Router();
 const accountingGate = requireRole("manager", "accountant", "platform_admin");
 router.use("/documents/ingest", accountingGate);
 
+/**
+ * [Task #783] 중복 검출 로직. 라우트에서 빼낸 이유는 통합 테스트가 LLM/스토리지를
+ * 거치지 않고 dedup 만 직접 검증할 수 있게 하기 위함이다.
+ *
+ * 두 가지 dedup 을 순서대로 본다:
+ *  1. hash dedup — 같은 (buildingId, contentHash, kind) 가 이미 있으면 그 행을 가리킨다.
+ *  2. combo dedup — (vendor, amount, date) 가 모두 동일하면 의미적 중복으로 본다.
+ */
+export async function findDuplicate(opts: {
+  buildingId: number;
+  kind: DocumentIngestionKind;
+  contentHash: string;
+  extraction: Pick<StandardExtraction, "vendor" | "amount" | "date">;
+}): Promise<{ duplicateOf: number | null; duplicateReason: "hash" | "combo" | null }> {
+  const hashHit = await db.select({ id: documentIngestionsTable.id })
+    .from(documentIngestionsTable)
+    .where(and(
+      eq(documentIngestionsTable.buildingId, opts.buildingId),
+      eq(documentIngestionsTable.contentHash, opts.contentHash),
+      eq(documentIngestionsTable.kind, opts.kind),
+    ))
+    .limit(1);
+  if (hashHit.length > 0) {
+    return { duplicateOf: hashHit[0].id, duplicateReason: "hash" };
+  }
+  const e = opts.extraction;
+  if (e.vendor && e.amount != null && e.date) {
+    const recent = await db.select({
+      id: documentIngestionsTable.id,
+      extraction: documentIngestionsTable.extraction,
+    })
+      .from(documentIngestionsTable)
+      .where(and(
+        eq(documentIngestionsTable.buildingId, opts.buildingId),
+        eq(documentIngestionsTable.kind, opts.kind),
+      ))
+      .orderBy(desc(documentIngestionsTable.createdAt))
+      .limit(200);
+    const match = recent.find(r => {
+      const ex = r.extraction as StandardExtraction;
+      return ex.vendor === e.vendor && ex.amount === e.amount && ex.date === e.date;
+    });
+    if (match) {
+      return { duplicateOf: match.id, duplicateReason: "combo" };
+    }
+  }
+  return { duplicateOf: null, duplicateReason: null };
+}
+
 async function getUserBuildingId(req: Request): Promise<number | null> {
   const userId = req.user?.userId;
   if (!userId) return null;
@@ -70,43 +119,14 @@ router.post("/documents/ingest", async (req: Request, res: Response): Promise<vo
     let duplicateOf: number | null = null;
     let duplicateReason: "hash" | "combo" | null = null;
     if (buildingId != null) {
-      const hashHit = await db.select({ id: documentIngestionsTable.id })
-        .from(documentIngestionsTable)
-        .where(and(
-          eq(documentIngestionsTable.buildingId, buildingId),
-          eq(documentIngestionsTable.contentHash, result.contentHash),
-          eq(documentIngestionsTable.kind, result.kind),
-        ))
-        .limit(1);
-      if (hashHit.length > 0) {
-        duplicateOf = hashHit[0].id;
-        duplicateReason = "hash";
-      }
-      // 의미적 dedup — (date, vendor, amount) 콤보 일치도 같은 거래로 본다.
-      if (!duplicateOf) {
-        const e = result.extraction;
-        if (e.vendor && e.amount != null && e.date) {
-          const recent = await db.select({
-            id: documentIngestionsTable.id,
-            extraction: documentIngestionsTable.extraction,
-          })
-            .from(documentIngestionsTable)
-            .where(and(
-              eq(documentIngestionsTable.buildingId, buildingId),
-              eq(documentIngestionsTable.kind, result.kind),
-            ))
-            .orderBy(desc(documentIngestionsTable.createdAt))
-            .limit(200);
-          const match = recent.find(r => {
-            const ex = r.extraction as StandardExtraction;
-            return ex.vendor === e.vendor && ex.amount === e.amount && ex.date === e.date;
-          });
-          if (match) {
-            duplicateOf = match.id;
-            duplicateReason = "combo";
-          }
-        }
-      }
+      const dup = await findDuplicate({
+        buildingId,
+        kind: result.kind,
+        contentHash: result.contentHash,
+        extraction: result.extraction,
+      });
+      duplicateOf = dup.duplicateOf;
+      duplicateReason = dup.duplicateReason;
     }
 
     let ingestionId: number | null = null;

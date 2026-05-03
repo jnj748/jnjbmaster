@@ -9,7 +9,16 @@
 import crypto from "node:crypto";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
-import { routedGenerate } from "./llmRouter";
+import { routedGenerate as defaultRoutedGenerate } from "./llmRouter";
+
+// [Task #783] LLM 호출을 테스트에서 스텁할 수 있도록 한 단계 우회한다.
+// 운영 코드는 항상 default 구현을 사용하며, __setRoutedGenerateForTests 는
+// 단위 테스트에서만 호출된다.
+type RoutedGenerateFn = typeof defaultRoutedGenerate;
+let routedGenerate: RoutedGenerateFn = defaultRoutedGenerate;
+export function __setRoutedGenerateForTests(fn: RoutedGenerateFn | null): void {
+  routedGenerate = fn ?? defaultRoutedGenerate;
+}
 import { runBillOcr } from "./billOcr";
 import { runContractOcr } from "./contractOcr";
 import { runBusinessRegOcr } from "./businessRegOcr";
@@ -131,7 +140,7 @@ export async function classifyDocument(opts: {
       ],
       maxOutputTokens: 16,
     });
-    const text = routed.text.trim().toLowerCase().replace(/[^a-z_]/g, "");
+    const text = normalizeClassifyToken(routed.text);
     if ((documentIngestionKinds as readonly string[]).includes(text)) {
       return text as DocumentIngestionKind;
     }
@@ -141,6 +150,33 @@ export async function classifyDocument(opts: {
     logger.warn({ err }, "classifyDocument failed");
     return "unknown";
   }
+}
+
+/**
+ * Pure helper. LLM 분류기 응답에서 영숫자/언더스코어만 남겨 키 후보를 만든다.
+ * 코드펜스, 따옴표, 마침표, 한자/한글 잡음을 모두 제거한다.
+ */
+export function normalizeClassifyToken(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z_]/g, "");
+}
+
+/**
+ * Pure helper. LLM JSON 추출 응답에서 안전하게 객체를 꺼낸다.
+ * 케이스:
+ *  - 순수 JSON 객체 한 개
+ *  - ```json ... ``` 코드펜스로 감싸진 JSON
+ *  - JSON 앞뒤로 자연어 잡문이 붙은 경우 (첫 `{` ~ 마지막 `}` 잘라쓰기)
+ * 객체를 못 찾거나 파싱 실패 시 throw 한다.
+ */
+export function parseExtractionJson(raw: string): Record<string, unknown> {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1] : raw;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error("OCR 결과에서 JSON을 찾지 못했습니다");
+  }
+  return JSON.parse(candidate.slice(start, end + 1)) as Record<string, unknown>;
 }
 
 const CATEGORY_HINTS: Record<DocumentIngestionKind, string[]> = {
@@ -205,12 +241,7 @@ async function runGenericExtractor(opts: {
       { inlineData: { mimeType: opts.mimeType, data: opts.buffer.toString("base64") } },
     ],
   });
-  const fenced = routed.text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : routed.text;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  if (start < 0 || end < 0) throw new Error("OCR 결과에서 JSON을 찾지 못했습니다");
-  const parsed = JSON.parse(candidate.slice(start, end + 1)) as Partial<StandardExtraction>;
+  const parsed = parseExtractionJson(routed.text) as Partial<StandardExtraction>;
   return { extraction: parsed, routed };
 }
 
