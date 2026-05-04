@@ -30,3 +30,9 @@ id = "r8WJmdP8SRffzveUEBl6z"
 uri = "file://building-register-api-export.zip"
 type = "unspecified"
 title = "건축물대장 API 소스 ZIP"
+
+[[outputs]]
+id = "ndy4cIEikUPeA5gkyE7Ts"
+uri = "file://.local/outputs/-------------.pptx"
+type = "slides"
+title = "관리소장 모드 홍보 데크 (PPTX)"
