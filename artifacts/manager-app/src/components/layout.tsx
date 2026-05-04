@@ -415,15 +415,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch { return new Set(); }
   });
-  const toggleSection = useCallback((title: string) => {
-    if (!title) return;
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) next.delete(title); else next.add(title);
-      try { window.localStorage.setItem("sidebar-collapsed", JSON.stringify([...next])); } catch {}
-      return next;
-    });
-  }, []);
+  const defaultAllCollapsedRef = useRef(
+    typeof window === "undefined" || window.localStorage.getItem("sidebar-collapsed") === null
+  );
+  const isSectionCollapsed = useCallback((title: string) => {
+    if (!title) return false;
+    return defaultAllCollapsedRef.current || collapsedSections.has(title);
+  }, [collapsedSections]);
   // [네비 정비] 업무기록(QuickEntry) 다이얼로그 — 하단 네비 가운데 + 버튼이 토글.
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -463,6 +461,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
     () => getSidebarSections(effectiveRole, disabledCategories, menuOverrides),
     [effectiveRole, disabledKey, overridesKey],
   );
+  const toggleSection = useCallback((title: string) => {
+    if (!title) return;
+    setCollapsedSections((prev) => {
+      let next: Set<string>;
+      if (defaultAllCollapsedRef.current) {
+        next = new Set(sections.filter((s) => s.title).map((s) => s.title!));
+        next.delete(title);
+        defaultAllCollapsedRef.current = false;
+      } else {
+        next = new Set(prev);
+        if (next.has(title)) next.delete(title); else next.add(title);
+      }
+      try { window.localStorage.setItem("sidebar-collapsed", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, [sections]);
   const bottomItems = useMemo(
     () => getBottomNavItems(effectiveRole, disabledCategories, menuOverrides),
     [effectiveRole, disabledKey, overridesKey],
@@ -558,7 +572,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       const header = (
         <div
           className={cn(
-            "px-3 pt-4 pb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider font-semibold transition-colors",
+            "px-3 pt-4 pb-1 flex items-center gap-2 text-xs uppercase tracking-wider font-semibold transition-colors",
             section.headerHref
               ? "text-sidebar-foreground/40 cursor-pointer hover:text-sidebar-foreground/70"
               : "text-sidebar-foreground/40",
@@ -580,7 +594,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link key={navHref} href={navHref}>
                 <div
                   className={cn(
-                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-base font-medium transition-colors cursor-pointer min-h-[44px]",
                     isActive
                       ? "bg-sidebar-accent text-white"
                       : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
@@ -588,7 +602,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   title={badge?.ariaLabel ?? item.label}
                 >
                   <span className="relative inline-flex">
-                    <item.icon className="w-4 h-4 shrink-0" />
+                    <item.icon className="w-5 h-5 shrink-0" />
                     <FacilityStatusBadge badge={badge} size="sm" />
                   </span>
                   <span className="truncate">{item.label}</span>
@@ -602,14 +616,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     const sectionTitle = section.title ?? "";
     const isCollapsible = !!sectionTitle;
-    const isCollapsed = isCollapsible && collapsedSections.has(sectionTitle);
+    const isCollapsed = isCollapsible && isSectionCollapsed(sectionTitle);
     return (
       <div key={si}>
         {section.title && (
           <button
             type="button"
             onClick={() => toggleSection(sectionTitle)}
-            className="w-full flex items-center justify-between gap-1 px-3 pt-4 pb-1 text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold hover:text-sidebar-foreground/70 transition-colors"
+            className="w-full flex items-center justify-between gap-1 px-3 pt-4 pb-1 text-xs uppercase tracking-wider text-sidebar-foreground/40 font-semibold hover:text-sidebar-foreground/70 transition-colors"
             aria-expanded={!isCollapsed}
           >
             <span className="truncate">{section.title}</span>
@@ -625,13 +639,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link key={navHref} href={navHref}>
               <div
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer min-h-[44px]",
+                  "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-base font-medium transition-colors cursor-pointer min-h-[44px]",
                   isActive
                     ? "bg-sidebar-accent text-white"
                     : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
                 )}
               >
-                <item.icon className="w-4 h-4 shrink-0" />
+                <item.icon className="w-5 h-5 shrink-0" />
                 <span className="truncate">{item.label}</span>
               </div>
             </Link>
@@ -639,7 +653,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
     );
-  }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone, collapsedSections, toggleSection]);
+  }), [location, isPartner, sections, badgeForPath, showTodayProgress, todayProgress, isFullyDone, isSectionCollapsed, toggleSection]);
 
   // [Task #405] 온보딩 풀스크린 위저드(/onboarding/manager, /onboarding/role-select,
   //   /onboarding/units-master, /onboarding/facility-staff 등)는 자체 Shell 을 사용한다.
@@ -777,10 +791,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ) : null;
               const drawerSectionTitle = section.title ?? "";
               const drawerCollapsible = !!drawerSectionTitle && !section.headerHref;
-              const drawerCollapsed = drawerCollapsible && collapsedSections.has(drawerSectionTitle);
+              const drawerCollapsed = drawerCollapsible && isSectionCollapsed(drawerSectionTitle);
               const headerInner = (
                 <div className="flex items-center justify-between gap-2 pb-2">
-                  <span className="px-1 text-xs font-semibold text-muted-foreground truncate">
+                  <span className="px-1 text-sm font-semibold text-muted-foreground truncate">
                     {section.title}
                   </span>
                   {drawerCollapsible
@@ -836,7 +850,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             <item.icon className={cn("w-5 h-5 shrink-0", !isActive && drawerIconColor)} />
                             <FacilityStatusBadge badge={badge} size="md" />
                           </span>
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-base font-medium truncate">
                             {item.label}
                           </span>
                         </button>
