@@ -118,6 +118,8 @@ import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSigna
 import auditLogsRouter from "./auditLogs";
 // [Task #797] 입주자관리 부가 기능 — 키 발급/회수/중간정산/개인정보접근/전입전출/장기수선.
 import residentsExtrasRouter from "./residentsExtras";
+// [Task #833] 자동이체 폴링 잡 모니터링.
+import autoDebitPollRunsRouter from "./autoDebitPollRuns";
 
 const router: IRouter = Router();
 
@@ -277,5 +279,6 @@ router.use(facilitySignupRequestsRouter);
 //   화면(/audit-logs) 자체는 platform_admin/hq_executive/custodian 역할별 가드를
 //   라우터 내부에서 처리하므로 여기서는 단순 mount.
 router.use(auditLogsRouter);
+router.use(autoDebitPollRunsRouter);
 
 export default router;

@@ -179,6 +179,8 @@ const ApprovalPipelineStatus = lazy(() => import("@/pages/approval-pipeline-stat
 const AuditLogsPage = lazy(() => import("@/pages/audit-logs"));
 // [Task #781] T10 외부연동 — 발송 이력 / Popbill 설정.
 const DispatchHistoryPage = lazy(() => import("@/pages/dispatch-history"));
+// [Task #833] 자동이체 폴링 모니터.
+const AutoDebitPollMonitorPage = lazy(() => import("@/pages/auto-debit-poll-monitor"));
 const PopbillSettingsPage = lazy(() => import("@/pages/popbill-settings"));
 const PaymentRequestInbox = lazy(() => import("@/pages/payment-request-inbox"));
 const HqApprovalThresholds = lazy(() => import("@/pages/hq-approval-thresholds"));
@@ -1079,6 +1081,11 @@ export const ROUTES: RouteEntry[] = [
     label: "발송 이력", icon: Megaphone, group: "settings",
     access: ["platform_admin", "manager", "accountant", "hq_executive", "custodian"],
     sideMenu: ["manager", "accountant", "hq_executive"] },
+  // [Task #833] 자동이체 폴링 모니터 — 본사 운영(platform_admin / hq_executive) 전용.
+  { path: "/admin/auto-debit-poll-monitor", component: AutoDebitPollMonitorPage,
+    label: "자동이체 폴링 모니터", icon: Megaphone, group: "settings",
+    access: ["platform_admin", "hq_executive"],
+    sideMenu: ["platform_admin", "hq_executive"] },
   { path: "/popbill-settings", component: PopbillSettingsPage,
     label: "Popbill 발송 설정", icon: Megaphone, group: "settings",
     access: ["platform_admin", "manager"],

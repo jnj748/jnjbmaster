@@ -117,3 +117,5 @@ export * from "./reportFormats";
 export * from "./kepcoTransmissionLog";
 // [Task #803] 결산·세무 — 세금계산서 도메인.
 export * from "./taxInvoices";
+// [Task #833] 자동이체 폴링 잡 실행 이력.
+export * from "./autoDebitPollRuns";
