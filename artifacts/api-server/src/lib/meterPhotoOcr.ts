@@ -118,13 +118,24 @@ export async function runMeterPhotoOcr(opts: {
   const text = routed.text;
   if (!text) throw new Error("OCR 결과가 비어 있습니다");
 
-  let parsed: Partial<MeterOcrResult>;
-  try {
-    parsed = parseModelJson(text);
-  } catch (err) {
-    logger.warn({ err, text }, "Meter OCR JSON parse failed");
-    throw new Error("OCR 결과를 해석하지 못했습니다");
-  }
+  // [Task #868] LLM 이 깨진 JSON 을 돌려주면 1회 자동 재시도.
+  const { parseJsonWithRetry, JSON_RETRY_HINT } = await import("./ocrJsonRetry");
+  const parsed = await parseJsonWithRetry<Partial<MeterOcrResult>>({
+    initialText: text,
+    parser: (t) => parseModelJson(t),
+    retry: async () => {
+      const r = await routedGenerate({
+        tier: "tier0",
+        json: true,
+        parts: [
+          { text: prompt + "\n\n" + JSON_RETRY_HINT },
+          { inlineData: { mimeType, data: base64 } },
+        ],
+      });
+      return r.text;
+    },
+    caller: "meterPhotoOcr",
+  });
 
   const reading = typeof parsed.currentReading === "number"
     ? parsed.currentReading

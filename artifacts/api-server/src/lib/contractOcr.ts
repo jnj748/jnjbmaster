@@ -143,13 +143,24 @@ export async function runContractOcr(opts: {
   // 모델은 isRecurring 을 boolean / "true"/"false" 문자열 / null 등 다양한 형태로
   //   돌려줄 수 있고, contractAmount 도 "12,000,000원" 같은 통화 표현이 올 수 있다.
   //   그래서 좁게 타입을 지정하지 않고 unknown 키맵으로 받는다.
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = parseModelJson(text) as Record<string, unknown>;
-  } catch (err) {
-    logger.warn({ err, text }, "Contract OCR JSON parse failed");
-    throw new Error("OCR 결과를 해석하지 못했습니다");
-  }
+  // [Task #868] LLM 이 깨진 JSON 을 돌려주면 1회 자동 재시도.
+  const { parseJsonWithRetry, JSON_RETRY_HINT } = await import("./ocrJsonRetry");
+  const parsed = await parseJsonWithRetry<Record<string, unknown>>({
+    initialText: text,
+    parser: (t) => parseModelJson(t) as Record<string, unknown>,
+    retry: async () => {
+      const r = await routedGenerate({
+        tier: "tier1",
+        json: true,
+        parts: [
+          { text: SYSTEM_PROMPT + "\n\n" + JSON_RETRY_HINT },
+          { inlineData: { mimeType, data: base64 } },
+        ],
+      });
+      return r.text;
+    },
+    caller: "contractOcr",
+  });
 
   const fieldConfidence: Record<string, number> = {};
   if (parsed.fieldConfidence && typeof parsed.fieldConfidence === "object") {

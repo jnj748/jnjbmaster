@@ -126,13 +126,34 @@ export async function runBusinessRegOcr(opts: {
     .trim() ?? "";
   if (!text) throw new Error("OCR 결과가 비어 있습니다");
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = parseModelJson(text);
-  } catch (err) {
-    logger.warn({ err, text }, "Business reg OCR JSON parse failed");
-    throw new Error("OCR 결과를 해석하지 못했습니다");
-  }
+  // [Task #868] LLM 이 깨진 JSON 을 돌려주면 1회 자동 재시도.
+  const { parseJsonWithRetry, JSON_RETRY_HINT } = await import("./ocrJsonRetry");
+  const parsed = await parseJsonWithRetry<Record<string, unknown>>({
+    initialText: text,
+    parser: (t) => parseModelJson(t),
+    retry: async () => {
+      const retryResp = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: SYSTEM_PROMPT + "\n\n" + JSON_RETRY_HINT },
+              { inlineData: { mimeType, data: base64 } },
+            ],
+          },
+        ],
+        config: { responseMimeType: "application/json" },
+      });
+      const retryText = retryResp.candidates?.[0]?.content?.parts
+        ?.map((p: { text?: string }) => (p && "text" in p ? p.text ?? "" : ""))
+        .join("")
+        .trim() ?? "";
+      if (!retryText) throw new Error("OCR 결과가 비어 있습니다");
+      return retryText;
+    },
+    caller: "businessRegOcr",
+  });
 
   const fieldConfidence: Record<string, number> = {};
   if (parsed.fieldConfidence && typeof parsed.fieldConfidence === "object") {

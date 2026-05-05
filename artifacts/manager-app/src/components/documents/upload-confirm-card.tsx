@@ -66,7 +66,13 @@ interface Props {
   hint?: string;
 }
 
-export function UploadConfirmCard({ kindHint, accept = "image/*,application/pdf,text/csv", onConfirmed, hint }: Props) {
+// [Task #868] 한국 사무실에서 들어오는 엑셀(.xlsx), 워드(.docx),
+// 한글(.hwpx/.hwp) 까지 받는다.
+// .xls(엑셀 BIFF) / .doc(워드 구버전) 은 안정 Node 파서가 없어 서버에서 친절 거절.
+const DEFAULT_ACCEPT =
+  "image/*,application/pdf,text/csv,.xlsx,.docx,.hwpx,.hwp,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.hancom.hwpx,application/vnd.hancom.hwp";
+
+export function UploadConfirmCard({ kindHint, accept = DEFAULT_ACCEPT, onConfirmed, hint }: Props) {
   const { token } = useAuth();
   const { toast } = useToast();
   const BASE = (import.meta.env.BASE_URL ?? "/") as string;
@@ -195,7 +201,7 @@ export function UploadConfirmCard({ kindHint, accept = "image/*,application/pdf,
       >
         <UploadCloud className="w-10 h-10 text-muted-foreground mb-2" />
         <div className="text-sm font-medium">파일을 드래그하거나 클릭해 업로드 (여러 개 동시 가능)</div>
-        <div className="text-xs text-muted-foreground mt-1">{hint ?? "영수증·청구서·통장내역·계약서·의결문·세금계산서 (PDF, JPG, PNG, CSV)"}</div>
+        <div className="text-xs text-muted-foreground mt-1">{hint ?? "영수증·청구서·통장내역·계약서·의결문·세금계산서 (PDF, JPG, PNG, 엑셀, 한글, 워드, CSV)"}</div>
         <input
           ref={inputRef}
           type="file"

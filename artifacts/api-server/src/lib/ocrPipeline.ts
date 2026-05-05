@@ -25,12 +25,23 @@ import { runBusinessRegOcr } from "./businessRegOcr";
 import { runMeterPhotoOcr } from "./meterPhotoOcr";
 import { runMemoOcr } from "./memoOcr";
 import {
+  extractTextIfOfficeDoc,
+  isOfficeDocMime,
+  looksLikeBankStatement,
+  REJECTED_LEGACY_OFFICE_MIMES,
+  getRejectedLegacyOfficeMessage,
+} from "./officeDocs";
+import { parseJsonWithRetry, JSON_RETRY_HINT } from "./ocrJsonRetry";
+import {
   type DocumentIngestionKind,
   documentIngestionKinds,
   type StandardExtraction,
 } from "@workspace/db";
 
 const MAX_OCR_BYTES = 10 * 1024 * 1024;
+// [Task #868] 한국 사무실에서 매일 들어오는 비-이미지/PDF 포맷까지 받는다.
+// 엑셀(.xlsx/.xls), 워드(.docx), 한글(.hwpx/.hwp) 추가. .doc(워드 구버전)은
+// 안정적 Node 파서가 없어 화이트리스트엔 안 넣고 친절 거절 메시지로 안내.
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "image/jpeg",
@@ -39,7 +50,17 @@ const ALLOWED_MIME = new Set([
   "image/heic",
   "image/heif",
   "text/csv",
-  "application/vnd.ms-excel",
+  // 엑셀 (.xlsx 만 — .xls 레거시 BIFF 는 exceljs 미지원이라 친절 거절)
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // 워드 (.docx 만)
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  // 한글
+  "application/vnd.hancom.hwpx",
+  "application/haansofthwpx",
+  "application/x-hwpx",
+  "application/vnd.hancom.hwp",
+  "application/x-hwp",
+  "application/haansoft-hwp",
 ]);
 
 export class OcrPipelineInputError extends Error {
@@ -56,8 +77,16 @@ function inferMimeType(name: string | null | undefined): string {
   if (lower.endsWith(".pdf")) return "application/pdf";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".heic")) return "image/heic";
+  if (lower.endsWith(".heif")) return "image/heif";
   if (lower.endsWith(".webp")) return "image/webp";
   if (lower.endsWith(".csv")) return "text/csv";
+  // [Task #868] 오피스/한글 확장자 추론.
+  if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (lower.endsWith(".xls")) return "application/vnd.ms-excel"; // 화이트리스트 X — loadObject 에서 친절 거절.
+  if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (lower.endsWith(".doc")) return "application/msword"; // 화이트리스트 X — loadObject 에서 친절 거절.
+  if (lower.endsWith(".hwpx")) return "application/vnd.hancom.hwpx";
+  if (lower.endsWith(".hwp")) return "application/vnd.hancom.hwp";
   return "image/jpeg";
 }
 
@@ -73,6 +102,14 @@ async function loadObject(objectPath: string, fileName: string | null): Promise<
   const file = await storage.getObjectEntityFile(objectPath);
   const [metadata] = await file.getMetadata();
   const mimeType = (metadata.contentType as string) || inferMimeType(fileName);
+  // [Task #868] .xls(엑셀 BIFF) / .doc(워드 구버전)은 안정 Node 파서가 없어
+  // 친절 거절 메시지로 안내한다.
+  if (REJECTED_LEGACY_OFFICE_MIMES.has(mimeType)) {
+    throw new OcrPipelineInputError(
+      400,
+      getRejectedLegacyOfficeMessage(mimeType) ?? "지원하지 않는 파일 형식입니다",
+    );
+  }
   if (!ALLOWED_MIME.has(mimeType)) {
     throw new OcrPipelineInputError(400, `지원하지 않는 파일 형식입니다 (${mimeType})`);
   }
@@ -128,8 +165,46 @@ export async function classifyDocument(opts: {
     return opts.hint;
   }
   // CSV 는 LLM 안 거치고 바로 통장내역으로 본다.
-  if (opts.mimeType === "text/csv" || opts.mimeType === "application/vnd.ms-excel") {
+  if (opts.mimeType === "text/csv") {
     return "bank_statement";
+  }
+  // [Task #868] 엑셀/워드/한글은 평문으로 변환 후 LLM 에 텍스트로 보낸다.
+  // (LLM 은 xlsx/docx/hwpx 바이너리를 직접 받지 못하므로 서버에서 풀어준다)
+  if (isOfficeDocMime(opts.mimeType)) {
+    // 사장님 환경 휴리스틱: 엑셀(.xlsx)은 거의 100% 통장 거래내역이라
+    // 텍스트 추출 실패/빈 본문/LLM 분류 실패 시에도 bank_statement 로 폴백한다.
+    // (CSV 와 동일한 정책)
+    const isXlsx =
+      opts.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const xlsxFallback: DocumentIngestionKind = isXlsx ? "bank_statement" : "unknown";
+    let text = "";
+    try {
+      text = (await extractTextIfOfficeDoc({ buffer: opts.buffer, mimeType: opts.mimeType })) ?? "";
+    } catch (err) {
+      logger.warn({ err, mimeType: opts.mimeType }, "classifyDocument: officeDoc 텍스트 추출 실패");
+      return xlsxFallback;
+    }
+    if (text.length === 0) return xlsxFallback; // 빈 .hwp / 비어있는 워크북 등
+    if (looksLikeBankStatement(text)) return "bank_statement";
+    try {
+      const routed = await routedGenerate({
+        tier: "tier0",
+        parts: [
+          { text: CLASSIFY_PROMPT },
+          { text: `다음은 문서 내용 발췌입니다:\n\n${text.slice(0, 4000)}` },
+        ],
+        maxOutputTokens: 16,
+      });
+      const t = normalizeClassifyToken(routed.text);
+      if ((documentIngestionKinds as readonly string[]).includes(t)) {
+        return t as DocumentIngestionKind;
+      }
+      logger.warn({ t }, "classifyDocument(office) unknown response");
+      return xlsxFallback;
+    } catch (err) {
+      logger.warn({ err }, "classifyDocument(office) failed");
+      return xlsxFallback;
+    }
   }
   try {
     const routed = await routedGenerate({
@@ -233,15 +308,38 @@ async function runGenericExtractor(opts: {
 - 세금계산서: vendor=공급자, amount=공급가액+세액 합계.
 
 오직 JSON 하나만 출력하세요.`;
-  const routed = await routedGenerate({
-    tier: "tier1",
-    json: true,
-    parts: [
+  // [Task #868] 오피스/한글 문서는 텍스트로 변환된 상태로 LLM 에 보낸다.
+  let parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }>;
+  if (isOfficeDocMime(opts.mimeType)) {
+    let text = "";
+    try {
+      text = (await extractTextIfOfficeDoc({ buffer: opts.buffer, mimeType: opts.mimeType })) ?? "";
+    } catch (err) {
+      logger.warn({ err, mimeType: opts.mimeType }, "runGenericExtractor: officeDoc 텍스트 추출 실패");
+      throw new Error("자료 인식이 일시적으로 실패했어요. 다시 업로드해 주세요");
+    }
+    parts = [
+      { text: prompt },
+      { text: `다음은 문서 내용입니다:\n\n${text.slice(0, 12000)}` },
+    ];
+  } else {
+    parts = [
       { text: prompt },
       { inlineData: { mimeType: opts.mimeType, data: opts.buffer.toString("base64") } },
-    ],
+    ];
+  }
+  const routed = await routedGenerate({ tier: "tier1", json: true, parts });
+  // [Task #868] 깨진 JSON 1회 자동 재시도.
+  const parsed = await parseJsonWithRetry<Partial<StandardExtraction>>({
+    initialText: routed.text,
+    parser: (t) => parseExtractionJson(t) as Partial<StandardExtraction>,
+    retry: async () => {
+      const retryParts = [...parts, { text: JSON_RETRY_HINT }];
+      const r = await routedGenerate({ tier: "tier1", json: true, parts: retryParts });
+      return r.text;
+    },
+    caller: "runGenericExtractor",
   });
-  const parsed = parseExtractionJson(routed.text) as Partial<StandardExtraction>;
   return { extraction: parsed, routed };
 }
 
@@ -287,8 +385,12 @@ export async function ingestDocument(opts: {
   let extraction: StandardExtraction;
   let llmAccounting: Record<string, unknown> = {};
 
+  // [Task #868] 엑셀/워드/한글 입력은 전용 추출기(billOcr 등)가 PDF/이미지만 받으므로,
+  // 분류 결과와 무관하게 generic extractor(텍스트 모드)로 라우팅한다.
+  const officeDoc = isOfficeDocMime(loaded.mimeType);
+
   try {
-    if (kind === "bill") {
+    if (kind === "bill" && !officeDoc) {
       const r = await runBillOcr({ objectPath: opts.objectPath, fileName: opts.fileName });
       extraction = {
         kind,
@@ -302,7 +404,7 @@ export async function ingestDocument(opts: {
         pages: [],
         kindSpecific: { billingMonth: r.billingMonth, lineItems: r.lineItems, unitCount: r.unitCount, fieldConfidence: r.fieldConfidence },
       };
-    } else if (kind === "contract") {
+    } else if (kind === "contract" && !officeDoc) {
       const r = await runContractOcr({ objectPath: opts.objectPath, fileName: opts.fileName });
       extraction = {
         kind,
@@ -324,7 +426,7 @@ export async function ingestDocument(opts: {
           fieldConfidence: r.fieldConfidence,
         },
       };
-    } else if (kind === "business_reg") {
+    } else if (kind === "business_reg" && !officeDoc) {
       const r = await runBusinessRegOcr({ objectPath: opts.objectPath, fileName: opts.fileName });
       extraction = {
         kind,
@@ -346,7 +448,7 @@ export async function ingestDocument(opts: {
           fieldConfidence: r.fieldConfidence,
         },
       };
-    } else if (kind === "meter_photo") {
+    } else if (kind === "meter_photo" && !officeDoc) {
       const r = await runMeterPhotoOcr({ objectPath: opts.objectPath, fileName: opts.fileName });
       extraction = {
         kind,
@@ -360,7 +462,7 @@ export async function ingestDocument(opts: {
         pages: [],
         kindSpecific: { currentReading: r.currentReading },
       };
-    } else if (kind === "memo") {
+    } else if (kind === "memo" && !officeDoc) {
       const r = await runMemoOcr({ objectPath: opts.objectPath, fileName: opts.fileName });
       extraction = {
         kind,
