@@ -43,6 +43,45 @@ async function resolveBuildingId(req: Request): Promise<number | null> {
   return buildingId;
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidBizNo(raw: string): { valid: boolean; reason?: string } {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (digits.length !== 10) return { valid: false, reason: "사업자등록번호는 10자리여야 합니다" };
+  const weights = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(digits[i]) * weights[i];
+  sum += Math.floor((Number(digits[8]) * 5) / 10);
+  const check = (10 - (sum % 10)) % 10;
+  if (check !== Number(digits[9])) return { valid: false, reason: "사업자등록번호 체크섬이 올바르지 않습니다" };
+  return { valid: true };
+}
+
+function validateInvoiceForIssue(inv: TaxInvoice): string | null {
+  if (!inv.supplierBizNo || inv.supplierBizNo.trim() === "") return "공급자 사업자등록번호가 누락되었습니다";
+  const supplierCheck = isValidBizNo(inv.supplierBizNo);
+  if (!supplierCheck.valid) return `공급자 ${supplierCheck.reason}`;
+
+  if (!inv.supplierName || inv.supplierName.trim() === "") return "공급자 상호가 누락되었습니다";
+
+  if (!inv.buyerBizNo || inv.buyerBizNo.trim() === "") return "공급받는자 사업자등록번호가 누락되었습니다";
+  const buyerCheck = isValidBizNo(inv.buyerBizNo);
+  if (!buyerCheck.valid) return `공급받는자 ${buyerCheck.reason}`;
+
+  if (!inv.buyerName || inv.buyerName.trim() === "") return "공급받는자 상호가 누락되었습니다";
+
+  if (inv.supplierEmail && inv.supplierEmail.trim() !== "" && !isValidEmail(inv.supplierEmail.trim())) {
+    return "공급자 이메일 형식이 올바르지 않습니다";
+  }
+
+  if (!inv.buyerEmail || inv.buyerEmail.trim() === "") return "공급받는자 이메일이 누락되었습니다";
+  if (!isValidEmail(inv.buyerEmail.trim())) return "공급받는자 이메일 형식이 올바르지 않습니다";
+
+  return null;
+}
+
 function recalcTotals(lines: { quantity: number; unitPrice: number; supplyAmount?: number; taxAmount?: number }[], taxType: string): { supply: number; tax: number; total: number } {
   let supply = 0;
   let tax = 0;
@@ -391,6 +430,8 @@ router.post("/tax/invoices/:id/issue", requireAction("tax.invoice.issue"), audit
   const [existing] = await db.select().from(taxInvoicesTable).where(and(eq(taxInvoicesTable.id, id), eq(taxInvoicesTable.buildingId, buildingId)));
   if (!existing) { res.status(404).json({ error: "찾을 수 없습니다" }); return; }
   if (existing.status !== "draft") { res.status(409).json({ error: "이미 발행된 세금계산서입니다" }); return; }
+  const validationError = validateInvoiceForIssue(existing);
+  if (validationError) { res.status(400).json({ error: validationError }); return; }
   await db.update(taxInvoicesTable).set({ status: "issued" }).where(eq(taxInvoicesTable.id, id));
   res.json({ ok: true, status: "issued" });
 });
@@ -427,6 +468,8 @@ router.post("/tax/invoices/bulk-issue", requireAction("tax.invoice.issue"), audi
     const existing = map.get(id);
     if (!existing) { results.push({ id, ok: false, error: "건물 범위 밖이거나 찾을 수 없습니다" }); continue; }
     if (existing.status !== "draft") { results.push({ id, ok: false, status: existing.status, error: `임시저장 상태가 아닙니다 (현재 상태: ${existing.status})` }); continue; }
+    const validationError = validateInvoiceForIssue(existing);
+    if (validationError) { results.push({ id, ok: false, status: existing.status, error: validationError }); continue; }
     try {
       await db.update(taxInvoicesTable).set({ status: "issued" }).where(eq(taxInvoicesTable.id, id));
       results.push({ id, ok: true, status: "issued" });
