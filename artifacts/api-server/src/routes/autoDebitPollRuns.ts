@@ -6,8 +6,13 @@
 //
 import { Router, type IRouter, type Request, type Response } from "express";
 import { desc, gte, eq, sql } from "drizzle-orm";
-import { db, autoDebitPollRunsTable, dispatchJobsTable } from "@workspace/db";
+import { db, autoDebitPollRunsTable, dispatchJobsTable, operationalPurgeRunsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { recordPurgeRun } from "../lib/operationalPurgeRecorder";
+
+// [Task #852] purge audit 테이블에서 사용하는 jobName 상수.
+//   API/스케줄러/마이그레이션에서 동일한 식별자를 써야 하므로 한 곳에서 관리한다.
+export const AUTO_DEBIT_POLL_PURGE_JOB_NAME = "auto_debit_poll_runs";
 
 const router: IRouter = Router();
 
@@ -69,6 +74,23 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     .orderBy(desc(dispatchJobsTable.createdAt))
     .limit(1);
 
+  // [Task #852] 보존 정책 정리 이력은 audit 테이블(operational_purge_runs) 에서 조회.
+  //   - lastPurge: 자동이체 폴링 잡의 마지막 정리 결과(서버 재시작과 무관하게 유지).
+  //   - recentPurges: 모든 잡 이름의 최근 N건(운영 화면 "최근 정리 이력" 표시).
+  const [lastPurgeRow] = await db
+    .select()
+    .from(operationalPurgeRunsTable)
+    .where(eq(operationalPurgeRunsTable.jobName, AUTO_DEBIT_POLL_PURGE_JOB_NAME))
+    .orderBy(desc(operationalPurgeRunsTable.startedAt))
+    .limit(1);
+
+  const recentPurgeLimit = Math.min(50, Math.max(1, Number(req.query.purgeLimit) || 10));
+  const recentPurges = await db
+    .select()
+    .from(operationalPurgeRunsTable)
+    .orderBy(desc(operationalPurgeRunsTable.startedAt))
+    .limit(recentPurgeLimit);
+
   res.json({
     config: {
       pollUrlConfigured,
@@ -88,9 +110,29 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     lastAlertDispatch: lastDispatch
       ? { dispatchedAt: lastDispatch.createdAt, status: lastDispatch.status }
       : null,
-    // [Task #845] 마지막 보존 정책 정리 결과(시각/삭제 건수). 서버 부팅 후 한 번도
-    //   실행되지 않았다면 null. in-memory 상태이므로 재시작 시 초기화된다.
-    lastPurge: lastPurgeState,
+    // [Task #852] 마지막 자동이체 폴링 보존 정책 정리 결과. audit 테이블 기반이므로
+    //   서버 재시작 후에도 마지막 정리 정보가 유지된다.
+    lastPurge: lastPurgeRow
+      ? {
+          ranAt: lastPurgeRow.startedAt,
+          finishedAt: lastPurgeRow.finishedAt,
+          deleted: lastPurgeRow.deleted,
+          retentionDays: lastPurgeRow.retentionDays,
+          durationMs: lastPurgeRow.durationMs,
+          error: lastPurgeRow.error,
+        }
+      : null,
+    // [Task #852] 모든 보존 정책 잡(usage_events/auto_debit_poll_runs 등)의 최근 정리 이력.
+    recentPurges: recentPurges.map((r) => ({
+      id: r.id,
+      jobName: r.jobName,
+      startedAt: r.startedAt,
+      finishedAt: r.finishedAt,
+      durationMs: r.durationMs,
+      retentionDays: r.retentionDays,
+      deleted: r.deleted,
+      error: r.error,
+    })),
     runs: rows,
   });
 });
@@ -101,32 +143,18 @@ export const AUTO_DEBIT_POLL_RUN_RETAIN_DAYS = (() => {
   return Number.isFinite(n) && n >= 1 ? n : 90;
 })();
 
-// [Task #845] 마지막 purge 결과를 in-memory 로 기록해 모니터 API 에서 노출.
-//   scheduler 와 routes 가 동일 프로세스에서 동작하므로 모듈 변수로 충분.
-//   더 강한 가시성이 필요해지면 별도 audit 테이블로 승격할 것.
-export interface AutoDebitPollPurgeState {
-  ranAt: string;
-  deleted: number;
-  retentionDays: number;
-}
-let lastPurgeState: AutoDebitPollPurgeState | null = null;
-
-export function getLastAutoDebitPollPurge(): AutoDebitPollPurgeState | null {
-  return lastPurgeState;
-}
-
-export async function purgeOldAutoDebitPollRuns(retentionDays: number = AUTO_DEBIT_POLL_RUN_RETAIN_DAYS): Promise<number> {
-  const cutoff = new Date(Date.now() - retentionDays * 86400000);
-  const result = await db.execute(
-    sql`DELETE FROM ${autoDebitPollRunsTable} WHERE started_at < ${cutoff}`,
-  );
-  const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0;
-  lastPurgeState = {
-    ranAt: new Date().toISOString(),
-    deleted,
-    retentionDays,
-  };
-  return deleted;
+// [Task #852] 자동이체 폴링 이력의 보존 정책 정리. 결과는 audit 테이블
+//   (operational_purge_runs)에 영구 기록되어 서버 재시작과 무관하게 유지된다.
+export async function purgeOldAutoDebitPollRuns(
+  retentionDays: number = AUTO_DEBIT_POLL_RUN_RETAIN_DAYS,
+): Promise<number> {
+  return recordPurgeRun(AUTO_DEBIT_POLL_PURGE_JOB_NAME, retentionDays, async () => {
+    const cutoff = new Date(Date.now() - retentionDays * 86400000);
+    const result = await db.execute(
+      sql`DELETE FROM ${autoDebitPollRunsTable} WHERE started_at < ${cutoff}`,
+    );
+    return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  });
 }
 
 export default router;

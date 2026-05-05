@@ -119,3 +119,5 @@ export * from "./kepcoTransmissionLog";
 export * from "./taxInvoices";
 // [Task #833] 자동이체 폴링 잡 실행 이력.
 export * from "./autoDebitPollRuns";
+// [Task #852] 운영 데이터 정리(purge) 잡 실행 이력.
+export * from "./operationalPurgeRuns";

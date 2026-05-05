@@ -52,14 +52,35 @@ interface MonitorResponse {
     dispatchedAt: string;
     status: string;
   } | null;
-  // [Task #845] 마지막 보존 정책 정리 결과. 부팅 후 한 번도 실행되지 않았다면 null.
+  // [Task #852] 마지막 보존 정책 정리 결과. audit 테이블 기반이므로 서버 재시작
+  //   후에도 유지된다. 한 번도 실행된 적 없으면 null.
   lastPurge: {
     ranAt: string;
+    finishedAt: string;
     deleted: number;
     retentionDays: number;
+    durationMs: number;
+    error: string | null;
   } | null;
+  // [Task #852] 모든 보존 정책 잡(usage_events/auto_debit_poll_runs 등)의 최근 정리 이력.
+  recentPurges: Array<{
+    id: number;
+    jobName: string;
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    retentionDays: number;
+    deleted: number;
+    error: string | null;
+  }>;
   runs: RunRow[];
 }
+
+// [Task #852] jobName 한글 라벨. 알지 못하는 잡 이름은 그대로 노출한다.
+const PURGE_JOB_LABELS: Record<string, string> = {
+  auto_debit_poll_runs: "자동이체 폴링",
+  usage_events: "이용현황 이벤트",
+};
 
 function formatMin(ms: number): string {
   if (ms < 60_000) return `${Math.round(ms / 1000)}초`;
@@ -191,7 +212,8 @@ export default function AutoDebitPollMonitorPage() {
             )}
           </CardContent>
         </Card>
-        {/* [Task #845] 보존 정책 정리 결과를 카드로 노출. 부팅 후 미실행이면 "이번 부팅 후 미실행". */}
+        {/* [Task #852] 보존 정책 정리 결과를 카드로 노출. audit 테이블 기반이므로
+            서버 재시작 후에도 마지막 정리 정보가 유지된다. */}
         <Card data-testid="card-last-purge">
           <CardHeader className="pb-2"><CardTitle className="text-sm">마지막 정리</CardTitle></CardHeader>
           <CardContent>
@@ -199,18 +221,69 @@ export default function AutoDebitPollMonitorPage() {
               {data?.lastPurge ? fmtDateTime(data.lastPurge.ranAt) : "-"}
             </div>
             {data?.lastPurge ? (
-              <Badge variant="outline" className="mt-1" data-testid="badge-last-purge-deleted">
+              <Badge
+                variant={data.lastPurge.error ? "destructive" : "outline"}
+                className="mt-1"
+                data-testid="badge-last-purge-deleted"
+              >
                 <Trash2 className="w-3 h-3 mr-1" />
-                {data.lastPurge.deleted}건 삭제 · {data.lastPurge.retentionDays}일 보존
+                {data.lastPurge.error
+                  ? "오류"
+                  : `${data.lastPurge.deleted}건 삭제 · ${data.lastPurge.retentionDays}일 보존`}
               </Badge>
             ) : (
               <div className="text-xs text-muted-foreground mt-1">
-                {data ? `이번 부팅 후 미실행 (보존 ${data.config.retainDays}일)` : ""}
+                {data ? `정리 이력 없음 (보존 ${data.config.retainDays}일)` : ""}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* [Task #852] 모든 보존 정책 잡(자동이체 폴링/이용현황 이벤트 등)의 최근 정리 이력.
+          audit 테이블(operational_purge_runs)에 누적되어 서버 재시작 후에도 유지된다. */}
+      <Card data-testid="card-recent-purges">
+        <CardHeader><CardTitle className="text-base">최근 정리 이력</CardTitle></CardHeader>
+        <CardContent>
+          {!data || data.recentPurges.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              <Trash2 className="w-6 h-6 mx-auto mb-2 opacity-40" />
+              아직 정리 이력이 없습니다.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" data-testid="table-recent-purges">
+                <thead className="text-left text-xs text-muted-foreground border-b">
+                  <tr>
+                    <th className="py-2 pr-3">시각</th>
+                    <th className="py-2 pr-3">대상</th>
+                    <th className="py-2 pr-3 text-right">삭제</th>
+                    <th className="py-2 pr-3 text-right">보존(일)</th>
+                    <th className="py-2 pr-3 text-right">소요</th>
+                    <th className="py-2">에러</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentPurges.map((p) => (
+                    <tr key={p.id} className="border-b last:border-0" data-testid={`row-purge-${p.id}`}>
+                      <td className="py-2 pr-3 font-mono text-xs">{fmtDateTime(p.startedAt)}</td>
+                      <td className="py-2 pr-3">
+                        <Badge variant="outline">{PURGE_JOB_LABELS[p.jobName] ?? p.jobName}</Badge>
+                      </td>
+                      <td className="py-2 pr-3 text-right font-mono">{p.deleted}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{p.retentionDays}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{p.durationMs}ms</td>
+                      <td className="py-2 text-xs text-destructive truncate max-w-xs" title={p.error ?? undefined}>
+                        {p.error ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">최근 실행 이력</CardTitle></CardHeader>

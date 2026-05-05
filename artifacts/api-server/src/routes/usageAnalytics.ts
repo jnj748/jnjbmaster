@@ -3,6 +3,10 @@ import { z } from "zod/v4";
 import { and, gte, lt, sql, eq } from "drizzle-orm";
 import { db, usageEventsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
+import { recordPurgeRun } from "../lib/operationalPurgeRecorder";
+
+// [Task #852] purge audit 테이블에서 사용하는 jobName 상수.
+export const USAGE_EVENTS_PURGE_JOB_NAME = "usage_events";
 
 // [Task #296] 유저유형별 이용현황 분석 — 이벤트 수집 + 집계 엔드포인트.
 //   - POST /usage-events  : 인증 사용자(플랫폼 제외 기본)의 페이지 진입을 적재.
@@ -233,13 +237,17 @@ router.get(
 );
 
 // [Task #296] 보존: 180일 이전 이벤트 정리. 스케줄러에서 호출.
+// [Task #852] 결과는 audit 테이블(operational_purge_runs)에 영구 기록되어
+//   서버 재시작 후에도 마지막 정리 이력이 유지된다.
 export async function purgeOldUsageEvents(retentionDays: number = 180): Promise<number> {
-  const cutoff = new Date(Date.now() - retentionDays * 86400000);
-  const result = await db.execute(
-    sql`DELETE FROM ${usageEventsTable} WHERE occurred_at < ${cutoff}`,
-  );
-  // node-postgres returns rowCount on result.
-  return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  return recordPurgeRun(USAGE_EVENTS_PURGE_JOB_NAME, retentionDays, async () => {
+    const cutoff = new Date(Date.now() - retentionDays * 86400000);
+    const result = await db.execute(
+      sql`DELETE FROM ${usageEventsTable} WHERE occurred_at < ${cutoff}`,
+    );
+    // node-postgres returns rowCount on result.
+    return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  });
 }
 
 export default router;
