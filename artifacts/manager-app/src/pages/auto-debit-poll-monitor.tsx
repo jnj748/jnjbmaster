@@ -32,6 +32,7 @@ interface MonitorResponse {
     webhookSecretConfigured: boolean;
     intervalMs: number;
     staleThresholdMs: number;
+    retainDays: number;
   };
   status: {
     lastStartedAt: string | null;
@@ -234,6 +235,12 @@ export default function AutoDebitPollMonitorPage() {
           )}
         </CardContent>
       </Card>
+
+      {data && (
+        <p className="text-xs text-muted-foreground text-center">
+          실행 이력은 {data.config.retainDays}일간 보존 후 자동 삭제됩니다. (환경변수 AUTO_DEBIT_POLL_RUN_RETAIN_DAYS)
+        </p>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@
 //     platform_admin / hq_executive 만 접근.
 //
 import { Router, type IRouter, type Request, type Response } from "express";
-import { desc, gte, eq, and } from "drizzle-orm";
+import { desc, gte, eq, sql } from "drizzle-orm";
 import { db, autoDebitPollRunsTable, dispatchJobsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
@@ -75,6 +75,7 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
       webhookSecretConfigured,
       intervalMs,
       staleThresholdMs,
+      retainDays: AUTO_DEBIT_POLL_RUN_RETAIN_DAYS,
     },
     status: {
       lastStartedAt: last?.startedAt ?? null,
@@ -90,5 +91,19 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     runs: rows,
   });
 });
+
+export const AUTO_DEBIT_POLL_RUN_RETAIN_DAYS = (() => {
+  const raw = process.env.AUTO_DEBIT_POLL_RUN_RETAIN_DAYS;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n >= 1 ? n : 90;
+})();
+
+export async function purgeOldAutoDebitPollRuns(retentionDays: number = AUTO_DEBIT_POLL_RUN_RETAIN_DAYS): Promise<number> {
+  const cutoff = new Date(Date.now() - retentionDays * 86400000);
+  const result = await db.execute(
+    sql`DELETE FROM ${autoDebitPollRunsTable} WHERE started_at < ${cutoff}`,
+  );
+  return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+}
 
 export default router;
