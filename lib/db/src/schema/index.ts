@@ -1,3 +1,4 @@
+export * from "./appMigrations";
 export * from "./tasks";
 export * from "./inspections";
 export * from "./taxSchedules";

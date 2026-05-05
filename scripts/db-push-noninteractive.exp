@@ -1,0 +1,51 @@
+#!/usr/bin/env expect
+# [Task #854] Auto-respond to phantom interactive prompts from drizzle-kit push.
+#
+# Background:
+#   drizzle-kit 0.31.x introspection has bugs that produce false-positive drift
+#   on (1) UNIQUE NULLS NOT DISTINCT constraints and (2) multi-column unique
+#   constraint column ordering. Each false drift triggers an interactive
+#   prompt ("Do you want to truncate ..."). In CI / post-merge contexts there
+#   is no stdin, so the push hangs forever. This wrapper always selects the
+#   safe default (the first / "No, add the constraint without truncating"
+#   option) by sending Enter.
+#
+#   Likewise, when a brand-new schema table is added, drizzle-kit may ask
+#   "table created or renamed from another table" -- we always pick the first
+#   option (create new table).
+#
+# Usage:
+#   ./scripts/db-push-noninteractive.exp [extra drizzle-kit args...]
+#
+# Required env: DATABASE_URL (consumed by drizzle.config.ts).
+
+set timeout 600
+log_user 1
+
+set script_dir [file dirname [file normalize $argv0]]
+set repo_root [file dirname $script_dir]
+set db_dir "$repo_root/lib/db"
+
+set extra_args [join $argv " "]
+
+spawn -ignore HUP bash -lc "cd '$db_dir' && exec pnpm exec drizzle-kit push --config ./drizzle.config.ts --force $extra_args"
+
+expect {
+  -re {truncate} {
+    send -- "\r"
+    exp_continue
+  }
+  -re {created or renamed from another} {
+    send -- "\r"
+    exp_continue
+  }
+  timeout {
+    puts stderr "\n\[db-push-noninteractive\] TIMEOUT after 600s"
+    exit 2
+  }
+  eof {}
+}
+
+catch wait result
+set exit_code [lindex $result 3]
+exit $exit_code

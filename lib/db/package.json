@@ -8,9 +8,11 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
-    "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push": "../../scripts/db-push-noninteractive.exp",
+    "push-force": "../../scripts/db-push-noninteractive.exp",
+    "push-raw": "drizzle-kit push --config ./drizzle.config.ts"
   },
+  "_scripts_doc": "push and push-force are intentionally identical: both go through the expect wrapper which always invokes drizzle-kit with --force. This is by design — the wrapper auto-answers drizzle-kit 0.31.x phantom-drift truncate prompts with the safe 'No, do not truncate' option, so --force is non-destructive in practice. push-raw is the only non-force, fully-interactive path; use it for debugging when you want to see and respond to prompts yourself. See lib/db/MIGRATIONS.md.",
   "dependencies": {
     "drizzle-orm": "catalog:",
     "drizzle-zod": "^0.8.3",
