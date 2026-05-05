@@ -331,7 +331,12 @@ const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
   //   다음, "보고" 앞에 합리적으로 정렬되도록 한다. (그룹을 빼더라도 fallback 순서로
   //   사이드바 끝에 붙어서 노출은 보장되지만, 시각적 정렬을 위해 명시적으로 둔다.)
   facility_staff: ["dashboard", "facility", "accounting", "reports", "marketplace"],
-  hq_executive: ["dashboard", "facility", "accounting", "reports", "residents", "marketplace", "settings"],
+  // [Task #860] hq_executive 도 manager 와 동일한 패턴으로 "회계 결과 열람" 그룹을
+  //   facility 다음에 노출한다 — 본부장은 본사 라인의 감독 역할이므로 부과/검침/
+  //   회계/마감/세금 결과를 한 곳에서 읽기 전용으로 훑어볼 수 있어야 한다. 쓰기는
+  //   useIsReadOnly() + managerReadOnlyGuard 가 차단한다. 기존 "accounting" 그룹은
+  //   그대로 유지(관리비 응대 자료 / 에스컬레이션 민원 등 본부장 전용 운영 화면).
+  hq_executive: ["dashboard", "facility", "accounting_readonly", "accounting", "reports", "residents", "marketplace", "settings"],
   partner: ["dashboard", "marketplace"],
   // [Task #611] 관리인 — 결재함과 입금요청함만 노출. 그 외 화면은 access 자체가 없다.
   custodian: ["reports", "accounting"],
@@ -594,7 +599,9 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/metering", component: ErpPhase1,
     label: "검침", icon: Droplets, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
-    sideMenu: ["accountant", "facility_staff", "hq_executive"],
+    // [Task #860] hq_executive 사이드바에서 검침은 "회계 결과 열람 > 검침 결과 (열람)"
+    //   sidebarOnly 항목으로 일원화 — 동일 path 가 두 그룹에 동시에 노출되지 않도록 제거.
+    sideMenu: ["accountant", "facility_staff"],
     // [모바일 5탭] 경리/시설기사 모바일 하단탭에 "검침" 노출.
     bottomNav: ["accountant", "facility_staff"],
     bottomLabel: "검침",
@@ -677,7 +684,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/billing/summary", component: BillingSummaryPage,
     label: "부과총괄표", icon: BarChart3, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #860] hq_executive 도 회계 결과 열람 그룹에서 진입할 수 있도록 access 확대.
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant"],
   },
   {
@@ -689,7 +697,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/billing/notices", component: BillingNoticesPage,
     label: "고지서 발행", icon: Send, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #860] hq_executive 도 회계 결과 열람 그룹에서 진입할 수 있도록 access 확대.
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant"],
   },
   {
@@ -714,7 +723,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/receivables/overdue", component: ReceivablesOverduePage,
     label: "미납대장", icon: AlertTriangle, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #860] hq_executive 도 회계 결과 열람 그룹에서 진입할 수 있도록 access 확대.
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant"],
   },
   {
@@ -759,7 +769,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/erp/fees-summary", component: ErpFeesSummary,
     label: "관리비 요약", icon: BarChart3, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #860] hq_executive 도 회계 결과 열람 그룹에서 진입할 수 있도록 access 확대.
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant"],
   },
   // [Task #178] 건물 단위 관리비 응대 자료 (월별 5개 영역 한장 요약)
@@ -818,7 +829,8 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/tax", component: TaxWorkspace,
     label: "세금계산서", icon: Receipt, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
+    // [Task #860] hq_executive 도 회계 결과 열람 그룹에서 진입할 수 있도록 access 확대.
+    access: ["manager", "platform_admin", "accountant", "hq_executive"],
     sideMenu: ["accountant"],
   },
   {
@@ -1480,6 +1492,54 @@ export const ROUTES: RouteEntry[] = [
     label: "세금계산서 (열람)", icon: Receipt, group: "accounting_readonly",
     access: ["manager"], sideMenu: ["manager"],
     routeMode: "sidebarOnly", blockId: "/tax#manager-readonly",
+  },
+
+  // [Task #860] hq_executive 사이드바 — manager 와 동일한 "회계 결과 열람" 그룹의
+  //   7개 읽기 전용 항목. routeMode:"sidebarOnly" 라 SPA 라우트는 추가 등록되지 않고
+  //   (원본 ROUTES 엔트리가 이미 등록함), 사이드바/그리드에만 노출된다. blockId 로
+  //   본사 그리드에서도 원본/manager 항목과 분리해 토글할 수 있다. 쓰기 액션은
+  //   useIsReadOnly() 로 화면에서 숨기고, 서버는 managerReadOnlyGuard 가 거절한다.
+  {
+    path: "/billing/summary", component: BillingSummaryPage,
+    label: "부과총괄표 (열람)", icon: BarChart3, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/billing/summary#hq-readonly",
+  },
+  {
+    path: "/billing/notices", component: BillingNoticesPage,
+    label: "고지서 발행 결과 (열람)", icon: Send, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/billing/notices#hq-readonly",
+  },
+  {
+    path: "/erp/fees-summary", component: ErpFeesSummary,
+    label: "관리비 요약 (열람)", icon: BarChart3, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/erp/fees-summary#hq-readonly",
+  },
+  {
+    path: "/receivables/overdue", component: ReceivablesOverduePage,
+    label: "미납대장 (열람)", icon: Wallet, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/receivables/overdue#hq-readonly",
+  },
+  {
+    path: "/erp/metering", component: ErpPhase1,
+    label: "검침 결과 (열람)", icon: Gauge, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/erp/metering#hq-readonly",
+  },
+  {
+    path: "/closing", component: ClosingWorkspace,
+    label: "결산 보고 (열람)", icon: Lock, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/closing#hq-readonly",
+  },
+  {
+    path: "/tax", component: TaxWorkspace,
+    label: "세금계산서 (열람)", icon: Receipt, group: "accounting_readonly",
+    access: ["hq_executive"], sideMenu: ["hq_executive"],
+    routeMode: "sidebarOnly", blockId: "/tax#hq-readonly",
   },
 ];
 

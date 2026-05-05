@@ -5,9 +5,14 @@
 //   대상 prefix 는 manager-app/src/lib/use-read-only.ts 의 7개 화면이 호출하는
 //   엔드포인트 prefix 와 동기화되어 있다 (billing 발행/공지, 미수 스냅샷, 검침
 //   입력/수정/삭제, 마감 잠금/해제, 세금계산서 발행/전송 등).
+// [Task #860] hq_executive(본부장)도 동일한 7개 회계 결과 열람 화면에서 읽기
+//   전용이다. 본부장은 본사 라인 감독 역할이라 부과/검침/마감/세금 데이터를 직접
+//   변경할 수 없어야 하므로 manager 와 동일한 가드를 적용한다.
 import type { Request, Response, NextFunction } from "express";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+const READ_ONLY_ROLES = new Set<string>(["manager", "hq_executive"]);
 
 // req.path 는 buildingRouter 마운트 prefix 가 제거된 상대 경로 ("/bills/generate" 등).
 const READ_ONLY_PREFIXES: string[] = [
@@ -46,10 +51,11 @@ function isReadOnlyTarget(path: string): boolean {
 
 export function managerReadOnlyGuard(req: Request, res: Response, next: NextFunction): void {
   if (!WRITE_METHODS.has(req.method)) { next(); return; }
-  if (req.user?.role !== "manager") { next(); return; }
+  const role = req.user?.role;
+  if (!role || !READ_ONLY_ROLES.has(role)) { next(); return; }
   if (!isReadOnlyTarget(req.path)) { next(); return; }
   res.status(403).json({
-    error: "관리소장은 해당 화면에서 읽기 전용입니다. 변경은 경리(accountant) 가 진행해 주세요.",
+    error: "관리소장·본부장은 해당 화면에서 읽기 전용입니다. 변경은 경리(accountant) 가 진행해 주세요.",
     code: "manager_read_only",
   });
 }
