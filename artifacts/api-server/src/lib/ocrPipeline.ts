@@ -98,11 +98,25 @@ export type LoadedFile = {
   contentHash: string;
 };
 
+// [Task #868] storage 가 application/octet-stream 같은 generic MIME 만 돌려주는
+// 케이스(브라우저/업로더 따라 자주 발생) 에는 파일명 확장자로 보강해야 .xlsx
+// 같은 정상 파일이 "지원하지 않는 형식" 으로 잘못 거절되지 않는다.
+const GENERIC_BINARY_MIMES = new Set([
+  "",
+  "application/octet-stream",
+  "binary/octet-stream",
+  "application/x-download",
+]);
+
 async function loadObject(objectPath: string, fileName: string | null): Promise<LoadedFile> {
   const storage = new ObjectStorageService();
   const file = await storage.getObjectEntityFile(objectPath);
   const [metadata] = await file.getMetadata();
-  const mimeType = (metadata.contentType as string) || inferMimeType(fileName);
+  const reportedRaw = (metadata.contentType as string | undefined) ?? "";
+  const reported = reportedRaw.toLowerCase().split(";")[0]?.trim() ?? "";
+  const mimeType = !reported || GENERIC_BINARY_MIMES.has(reported)
+    ? inferMimeType(fileName)
+    : reported;
   // [Task #868] .doc(워드 구버전)은 안정 Node 파서가 없어 친절 거절.
   if (REJECTED_LEGACY_OFFICE_MIMES.has(mimeType)) {
     throw new OcrPipelineInputError(
@@ -268,7 +282,9 @@ const CATEGORY_HINTS: Record<DocumentIngestionKind, string[]> = {
  * Generic LLM extractor for kinds without a dedicated extractor (receipt /
  * bank_statement / resolution / tax_invoice). Returns standardized JSON.
  */
-async function runGenericExtractor(opts: {
+// [Task #868] 단위 테스트(.xls 빈 더미가 throw 안 하고 stub 반환되는지)에서
+// 직접 호출하기 위해 export.
+export async function runGenericExtractor(opts: {
   buffer: Buffer;
   mimeType: string;
   kind: DocumentIngestionKind;
@@ -313,7 +329,15 @@ async function runGenericExtractor(opts: {
       text = (await extractTextIfOfficeDoc({ buffer: opts.buffer, mimeType: opts.mimeType })) ?? "";
     } catch (err) {
       logger.warn({ err, mimeType: opts.mimeType }, "runGenericExtractor: officeDoc 텍스트 추출 실패");
-      throw new Error("자료 인식이 일시적으로 실패했어요. 다시 업로드해 주세요");
+      // throw 하면 ingest 자체가 500 으로 끝나 파일이 보관되지 않는다.
+      // 사장님 명세: ".xls/.hwp 도 일단 보존, 사용자가 화면에서 종류 지정"
+      // → LLM 호출 낭비 없이 빈 stub 으로 통과시켜 보관함에 남긴다.
+    }
+    if (text.length === 0) {
+      return {
+        extraction: { rawText: "", confidence: 0, items: [], categoryCandidates: [] },
+        routed: { tier: "tier0", model: "skipped-office-empty", inputTokens: 0, outputTokens: 0, costEstimateUsd: 0 },
+      };
     }
     parts = [
       { text: prompt },

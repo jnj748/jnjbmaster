@@ -94,6 +94,58 @@ test(".xls(BIFF) 빈 더미는 추출 실패 → classifyDocument 에서 unknown
   }
 });
 
+test("runGenericExtractor: .xls(BIFF) 추출 실패 시 throw 하지 않고 빈 stub 반환 (파일 보존)", async () => {
+  const { runGenericExtractor, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
+  let llmCalled = false;
+  __setRoutedGenerateForTests((async () => {
+    llmCalled = true;
+    return {
+      text: "{}",
+      tier: "tier1" as const,
+      model: "stub",
+      inputTokens: null,
+      outputTokens: null,
+      costEstimateUsd: 0,
+    };
+  }) as never);
+  try {
+    const out = await runGenericExtractor({
+      buffer: Buffer.from("not-real-xls-binary"),
+      mimeType: "application/vnd.ms-excel",
+      kind: "unknown",
+    });
+    assert.equal(out.extraction.rawText, "");
+    assert.equal(out.routed.model, "skipped-office-empty");
+    assert.equal(llmCalled, false, "추출 실패 시 LLM 호출 낭비하지 않아야 한다");
+  } finally {
+    __setRoutedGenerateForTests(null);
+  }
+});
+
+test("runGenericExtractor: .hwp(OLE2) 빈 추출도 stub 반환 (보관함 보존)", async () => {
+  const { runGenericExtractor, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
+  __setRoutedGenerateForTests((async () => ({
+    text: "{}",
+    tier: "tier1" as const,
+    model: "stub",
+    inputTokens: null,
+    outputTokens: null,
+    costEstimateUsd: 0,
+  })) as never);
+  try {
+    const ole2 = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00, 0x00, 0x00]);
+    const out = await runGenericExtractor({
+      buffer: ole2,
+      mimeType: "application/vnd.hancom.hwp",
+      kind: "unknown",
+    });
+    assert.equal(out.extraction.rawText, "");
+    assert.equal(out.routed.model, "skipped-office-empty");
+  } finally {
+    __setRoutedGenerateForTests(null);
+  }
+});
+
 test("classifyDocument: 엑셀이지만 통장 키워드 없으면 unknown 폴백 (모호한 엑셀 보존)", async () => {
   const { classifyDocument, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
   __setRoutedGenerateForTests((async () => ({
