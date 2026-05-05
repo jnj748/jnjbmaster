@@ -73,6 +73,8 @@ export const GROUP_TO_CATEGORY: Record<Group, CategoryToken> = {
   dashboard:   "system",
   facility:    "facility",
   accounting:  "accounting",
+  // [Task #859] manager 전용 "회계 결과 열람" 그룹 — 회계 도메인과 동일한 색 토큰 사용.
+  accounting_readonly: "accounting",
   reports:     "reports",
   residents:   "residents",
   marketplace: "system",

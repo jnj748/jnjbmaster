@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
+import { useIsReadOnly } from "@/lib/use-read-only";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,9 @@ type Bill = {
 
 export default function FeesSummaryPage() {
   const { token } = useAuth();
+  // [Task #859] manager 가 "회계 결과 열람" 그룹의 /erp/fees-summary 로 진입했으면
+  //   고지서 추가·응대 자료·미납 관리 등 운영 진입 링크를 모두 숨긴다 (열람 전용).
+  const readOnly = useIsReadOnly();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
   const [bills, setBills] = useState<Bill[]>([]);
@@ -82,9 +86,11 @@ export default function FeesSummaryPage() {
               <p className="text-base font-medium">아직 데이터가 없습니다</p>
               <p className="text-sm text-muted-foreground mt-1">관리비 고지서를 1장 이상 올리면 자동으로 요약이 생성됩니다.</p>
             </div>
-            <Link href="/erp/bills">
-              <Button className="gap-2"><Upload className="w-4 h-4" />고지서 업로드 가기<ArrowRight className="w-4 h-4" /></Button>
-            </Link>
+            {!readOnly && (
+              <Link href="/erp/bills">
+                <Button className="gap-2"><Upload className="w-4 h-4" />고지서 업로드 가기<ArrowRight className="w-4 h-4" /></Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -102,15 +108,17 @@ export default function FeesSummaryPage() {
           <h1 className="text-2xl font-bold mb-1">관리비 요약</h1>
           <p className="text-sm text-muted-foreground">최근 {sortedAsc.length}개월 데이터 기준</p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* [메뉴 통합] 관리비 응대 자료를 관리비 요약 안에서 바로 진입 */}
-          <Link href="/erp/building-records">
-            <Button variant="outline" size="sm" className="gap-2" data-testid="btn-building-records">
-              <Clipboard className="w-4 h-4" />응대 자료
-            </Button>
-          </Link>
-          <Link href="/erp/bills"><Button variant="outline" size="sm" className="gap-2"><Upload className="w-4 h-4" />고지서 추가</Button></Link>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            {/* [메뉴 통합] 관리비 응대 자료를 관리비 요약 안에서 바로 진입 */}
+            <Link href="/erp/building-records">
+              <Button variant="outline" size="sm" className="gap-2" data-testid="btn-building-records">
+                <Clipboard className="w-4 h-4" />응대 자료
+              </Button>
+            </Link>
+            <Link href="/erp/bills"><Button variant="outline" size="sm" className="gap-2"><Upload className="w-4 h-4" />고지서 추가</Button></Link>
+          </div>
+        )}
       </div>
 
       {arrears && arrears.totalArrears > 0 && (
@@ -125,7 +133,7 @@ export default function FeesSummaryPage() {
                 연체 {arrears.overdueCount}건{arrears.oldestUnpaidMonth ? ` · 최장 미납 ${arrears.oldestUnpaidMonth}월부터` : ""}
               </div>
             </div>
-            <Link href="/erp/billing"><Button size="sm" variant="outline" className="gap-1">관리 <ArrowRight className="w-3 h-3" /></Button></Link>
+            {!readOnly && <Link href="/erp/billing"><Button size="sm" variant="outline" className="gap-1">관리 <ArrowRight className="w-3 h-3" /></Button></Link>}
           </CardContent>
         </Card>
       )}

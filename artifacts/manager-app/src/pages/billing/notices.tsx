@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { BillingShell, useApi, krw, currentMonth, StatCard, Empty } from "./_shared";
 import { Send, Loader2, FileText, Download } from "lucide-react";
+import { useIsReadOnly } from "@/lib/use-read-only";
 
 interface BillingRun { id: number; billingMonth: string; status: string; totalAmount: number; unitCount: number; }
 interface Bill {
@@ -26,6 +27,8 @@ interface BillItem { id: number; category: string; label: string; amount: number
 export default function NoticesPage() {
   const api = useApi();
   const { toast } = useToast();
+  // [Task #859] manager 가 "회계 결과 열람" 그룹으로 진입했으면 발행/발송/포맷 변경을 모두 숨긴다.
+  const readOnly = useIsReadOnly();
   const [runs, setRuns] = useState<BillingRun[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [month, setMonth] = useState(currentMonth());
@@ -107,49 +110,64 @@ export default function NoticesPage() {
 
   return (
     <BillingShell title="고지서 발행" description="확정된 부과 산출에서 호실별 PDF 고지서를 일괄 생성">
-      <Card className="mb-4">
-        <CardHeader><CardTitle className="text-base">발행 입력</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div><Label className="text-xs">월</Label><Input value={month} onChange={(e) => setMonth(e.target.value)} /></div>
-          <div><Label className="text-xs">부과 실행</Label>
-            <Select value={runId} onValueChange={setRunId}>
-              <SelectTrigger data-testid="sel-run"><SelectValue placeholder="확정된 Run 선택" /></SelectTrigger>
-              <SelectContent>{finalized.map(r => <SelectItem key={r.id} value={String(r.id)}>#{r.id} · {r.billingMonth} · {krw(r.totalAmount)}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">납부 마감일 (일)</Label><Input type="number" value={dueDay} onChange={(e) => setDueDay(e.target.value)} /></div>
-          <div className="flex items-end"><Button onClick={generate} disabled={busy} className="w-full" data-testid="btn-generate">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}고지서 발행
-          </Button></div>
-        </CardContent>
-      </Card>
+      {!readOnly && (
+        <Card className="mb-4">
+          <CardHeader><CardTitle className="text-base">발행 입력</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div><Label className="text-xs">월</Label><Input value={month} onChange={(e) => setMonth(e.target.value)} /></div>
+            <div><Label className="text-xs">부과 실행</Label>
+              <Select value={runId} onValueChange={setRunId}>
+                <SelectTrigger data-testid="sel-run"><SelectValue placeholder="확정된 Run 선택" /></SelectTrigger>
+                <SelectContent>{finalized.map(r => <SelectItem key={r.id} value={String(r.id)}>#{r.id} · {r.billingMonth} · {krw(r.totalAmount)}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">납부 마감일 (일)</Label><Input type="number" value={dueDay} onChange={(e) => setDueDay(e.target.value)} /></div>
+            <div className="flex items-end"><Button onClick={generate} disabled={busy} className="w-full" data-testid="btn-generate">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}고지서 발행
+            </Button></div>
+          </CardContent>
+        </Card>
+      )}
+
+      {readOnly && (
+        <Card className="mb-4">
+          <CardHeader><CardTitle className="text-base">발행 결과 조회</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><Label className="text-xs">월</Label><Input value={month} onChange={(e) => setMonth(e.target.value)} /></div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-4">
-        <CardHeader><CardTitle className="text-base">고지 포맷 / 발송 채널</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{readOnly ? "발송 결과" : "고지 포맷 / 발송 채널"}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div><Label className="text-xs">고지서 포맷</Label>
-            <Select value={noticeFormat} onValueChange={(v) => updateFormat(v as "integrated" | "a4_separate")}>
-              <SelectTrigger data-testid="sel-format"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="integrated">통합 1매 (관리비+검침)</SelectItem>
-                <SelectItem value="a4_separate">분리 (관리비/검침 각 1매)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label className="text-xs">발송 채널</Label>
-            <Select value={channel} onValueChange={(v) => setChannel(v as "email" | "sms" | "kakao" | "post")}>
-              <SelectTrigger data-testid="sel-channel"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="email">이메일</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-                <SelectItem value="kakao">카카오 알림톡</SelectItem>
-                <SelectItem value="post">우편</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end"><Button variant="outline" onClick={dispatchChannel} disabled={busy || bills.length === 0} className="w-full" data-testid="btn-dispatch">
-            <Send className="w-4 h-4 mr-1" />채널 일괄 발송
-          </Button></div>
+          {!readOnly && (
+            <>
+              <div><Label className="text-xs">고지서 포맷</Label>
+                <Select value={noticeFormat} onValueChange={(v) => updateFormat(v as "integrated" | "a4_separate")}>
+                  <SelectTrigger data-testid="sel-format"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="integrated">통합 1매 (관리비+검침)</SelectItem>
+                    <SelectItem value="a4_separate">분리 (관리비/검침 각 1매)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">발송 채널</Label>
+                <Select value={channel} onValueChange={(v) => setChannel(v as "email" | "sms" | "kakao" | "post")}>
+                  <SelectTrigger data-testid="sel-channel"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">이메일</SelectItem>
+                    <SelectItem value="sms">SMS</SelectItem>
+                    <SelectItem value="kakao">카카오 알림톡</SelectItem>
+                    <SelectItem value="post">우편</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end"><Button variant="outline" onClick={dispatchChannel} disabled={busy || bills.length === 0} className="w-full" data-testid="btn-dispatch">
+                <Send className="w-4 h-4 mr-1" />채널 일괄 발송
+              </Button></div>
+            </>
+          )}
           <div className="flex items-end"><Button variant="outline" onClick={downloadBatch} disabled={bills.length === 0} className="w-full" data-testid="btn-batch-pdf">
             <Download className="w-4 h-4 mr-1" />PDF 일괄 인쇄
           </Button></div>

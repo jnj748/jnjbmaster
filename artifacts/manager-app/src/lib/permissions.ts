@@ -215,6 +215,7 @@ export type Group =
   | "residents"
   | "facility"
   | "accounting"
+  | "accounting_readonly"
   | "reports"
   | "marketplace"
   | "settings";
@@ -300,6 +301,8 @@ export const GROUP_TITLES: Record<Group, string> = {
   residents: "입주민과 함께하는 호실 관리",
   facility: "든든하게 지키는 시설관리",
   accounting: "꼼꼼하게 챙기는 회계·관리비",
+  // [Task #859] manager 전용 — 경리 화면을 읽기 전용으로 열람할 수 있는 묶음.
+  accounting_readonly: "회계 결과 열람",
   reports: "차곡차곡 쌓는 보고·전자결재",
   marketplace: "함께 키우는 파트너 마켓",
   settings: "내 손에 맞춘 설정",
@@ -316,7 +319,9 @@ export const GROUP_TITLES: Record<Group, string> = {
 //     "표시 순서 우선 지정" 으로 바뀌었다(누군가 그룹을 빼면 사이드바 노출이 끊기는
 //     게 아니라, fallback 순서로 밀려 정렬만 달라진다).
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
-  manager: ["dashboard", "facility", "reports", "accounting", "residents", "marketplace", "settings"],
+  // [Task #859] manager 사이드바 — pre-5/3 IA 로 되돌리되, 경리 결과를 읽기만
+  //   할 수 있는 새 그룹("accounting_readonly")을 facility 다음에 노출한다.
+  manager: ["dashboard", "facility", "accounting_readonly", "reports", "accounting", "residents", "marketplace", "settings"],
   // [플랫폼 메뉴 구조조정] 플랫폼 사이드바는 platformAdminSidebar() 가 직접 구성하므로
   //   여기 값은 fallback 용도일 뿐이다.
   platform_admin: ["marketplace", "reports", "settings"],
@@ -444,32 +449,32 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/residents/key-issuance", component: KeyIssuancePage,
     label: "키 발급/회수", icon: KeyRound, group: "residents",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager"],
+    access: ["platform_admin"],
+    sideMenu: [],
   },
   {
     path: "/residents/interim-settlement", component: InterimSettlementPage,
     label: "중간 정산서", icon: Receipt, group: "residents",
-    access: ["manager", "accountant", "platform_admin"],
-    sideMenu: ["manager", "accountant"],
+    access: ["accountant", "platform_admin"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/residents/privacy-access-log", component: PrivacyAccessLogPage,
     label: "개인정보 접근이력", icon: Shield, group: "residents",
-    access: ["manager", "platform_admin"],
-    sideMenu: ["manager"],
+    access: ["platform_admin"],
+    sideMenu: [],
   },
   {
     path: "/residents/move-in-out", component: MoveInOutPage,
     label: "전입/전출 현황", icon: UserCheck, group: "residents",
-    access: ["manager", "accountant", "platform_admin"],
-    sideMenu: ["manager"],
+    access: ["accountant", "platform_admin"],
+    sideMenu: [],
   },
   {
     path: "/long-term-repair-allocation", component: LongTermRepairAllocationPage,
     label: "장기수선충당금 산출", icon: Calculator, group: "residents",
-    access: ["manager", "accountant", "platform_admin"],
-    sideMenu: ["manager", "accountant"],
+    access: ["accountant", "platform_admin"],
+    sideMenu: ["accountant"],
   },
 
   // ── Facility group ──────────────────────────────────────────────
@@ -589,7 +594,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/metering", component: ErpPhase1,
     label: "검침", icon: Droplets, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
-    sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
+    sideMenu: ["accountant", "facility_staff", "hq_executive"],
     // [모바일 5탭] 경리/시설기사 모바일 하단탭에 "검침" 노출.
     bottomNav: ["accountant", "facility_staff"],
     bottomLabel: "검침",
@@ -600,144 +605,147 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/metering/electric", component: MeteringElectric,
     label: "전기 검침", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
+  sideMenu: [],
   },
   {
     path: "/metering/water", component: MeteringWater,
     label: "수도 검침", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
+  sideMenu: [],
   },
   {
     path: "/metering/hot-water", component: MeteringHotWater,
     label: "온수 검침", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
+  sideMenu: [],
   },
   {
     path: "/metering/heating", component: MeteringHeating,
     label: "난방 검침", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
   },
   {
     path: "/metering/gas", component: MeteringGas,
     label: "가스 검침", icon: Droplets, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
   },
   {
     path: "/metering/kepco-transmission", component: KepcoTransmission,
     label: "한전 송신", icon: Send, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "facility_staff", "hq_executive"],
-    sideMenu: ["manager", "accountant", "facility_staff", "hq_executive"],
+    access: ["platform_admin", "accountant", "facility_staff", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   // [관리비 자동부과 v01] 한큐 위저드 — 11단계 가이드 (사이드바 부과관리 맨 위).
   {
     path: "/billing/wizard", component: BillingWizardPage,
     label: "✨ 한큐 위저드", icon: Sparkles, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   // [Task #799] 부과관리 풀세트 — 11 페이지. 모두 manager+accountant+platform_admin 접근.
   {
     path: "/billing/months", component: BillingMonthsPage,
     label: "부과월", icon: Calendar, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/items", component: BillingItemsPage,
     label: "부과항목", icon: ListChecks, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/late-fee-rates", component: BillingLateFeeRatesPage,
     label: "연체율", icon: Sparkles, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/extra-charges", component: BillingExtraChargesPage,
     label: "별도 부과", icon: PlusCircle, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/run", component: BillingRunPage,
     label: "부과 처리", icon: Calculator, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/summary", component: BillingSummaryPage,
     label: "부과총괄표", icon: BarChart3, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/adjustments", component: BillingAdjustmentsPage,
     label: "조정대장", icon: Edit3, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/notices", component: BillingNoticesPage,
     label: "고지서 발행", icon: Send, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/auto-debit", component: BillingAutoDebitPage,
     label: "자동이체 의뢰", icon: CreditCard, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/notice-delivery", component: BillingNoticeDeliveryPage,
     label: "발송 확인", icon: MailCheck, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/billing/close", component: BillingClosePage,
     label: "부과마감", icon: Lock, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   // [Task #800] 수납·미납 관리 풀세트 — 6 페이지. 모두 manager+accountant+platform_admin.
   {
     path: "/receivables/overdue", component: ReceivablesOverduePage,
     label: "미납대장", icon: AlertTriangle, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/receivables/overdue-notices", component: ReceivablesOverdueNoticesPage,
     label: "미납분 고지서", icon: Send, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/receivables/dunning", component: ReceivablesDunningPage,
     label: "독촉장", icon: Send, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/receivables/payments", component: ReceivablesPaymentsPage,
     label: "수납 처리", icon: CreditCard, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/receivables/reconciliation", component: ReceivablesReconciliationPage,
     label: "통장 비교", icon: Sparkles, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/receivables/auto-debit-results", component: ReceivablesAutoDebitResultsPage,
     label: "자동이체 결과", icon: Activity, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/billing", component: ErpPhase3,
@@ -752,7 +760,7 @@ export const ROUTES: RouteEntry[] = [
     path: "/erp/fees-summary", component: ErpFeesSummary,
     label: "관리비 요약", icon: BarChart3, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    sideMenu: ["accountant"],
   },
   // [Task #178] 건물 단위 관리비 응대 자료 (월별 5개 영역 한장 요약)
   // [메뉴 통합] 관리소장 사이드바에서는 "관리비 요약"으로 일원화 — 응대 자료는
@@ -768,14 +776,14 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/erp/budgets", component: ErpBudgets,
     label: "예산·집행통제", icon: Sparkles, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "hq_executive", "custodian"],
-    sideMenu: ["manager", "accountant", "hq_executive"],
+    access: ["platform_admin", "accountant", "hq_executive", "custodian"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/upload-center", component: ErpUploadCenter,
     label: "부과자료 업로드", icon: UploadCloud, group: "accounting",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/bills", component: ErpBills,
@@ -796,22 +804,22 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/erp/closings", component: ErpClosings,
     label: "월마감·보고", icon: Lock, group: "accounting",
-    access: ["manager", "platform_admin", "accountant", "hq_executive"],
-    sideMenu: ["accountant", "hq_executive"],
+    access: ["platform_admin", "accountant", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   // [Task #803] 결산 워크스페이스 — 시산표·월별손익·현금흐름·세입세출·년도이월·스냅샷.
   {
     path: "/closing", component: ClosingWorkspace,
     label: "결산 보고", icon: BarChart3, group: "accounting",
     access: ["manager", "platform_admin", "accountant", "hq_executive"],
-    sideMenu: ["manager", "accountant", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   // [Task #803] 세금계산서 워크스페이스 — 거래처·품목 마스터 + 작성/발행/전송 통합 화면.
   {
     path: "/tax", component: TaxWorkspace,
     label: "세금계산서", icon: Receipt, group: "accounting",
     access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/erp/governance", component: ErpPhase4,
@@ -1075,21 +1083,21 @@ export const ROUTES: RouteEntry[] = [
   { path: "/audit-logs", component: AuditLogsPage,
     label: "감사로그", icon: Shield, group: "settings",
     access: ["platform_admin", "hq_executive", "custodian"],
-    sideMenu: ["platform_admin", "hq_executive", "custodian"] },
+    sideMenu: ["platform_admin", "custodian"] },
   // [Task #781] T10 외부연동 — 발송 이력(전 역할 운영자 가시화) / Popbill 설정(매니저·플랫폼).
   { path: "/dispatch-history", component: DispatchHistoryPage,
     label: "발송 이력", icon: Megaphone, group: "settings",
-    access: ["platform_admin", "manager", "accountant", "hq_executive", "custodian"],
-    sideMenu: ["manager", "accountant", "hq_executive"] },
+    access: ["platform_admin", "accountant", "hq_executive", "custodian"],
+    sideMenu: ["accountant"] },
   // [Task #833] 자동이체 폴링 모니터 — 본사 운영(platform_admin / hq_executive) 전용.
   { path: "/admin/auto-debit-poll-monitor", component: AutoDebitPollMonitorPage,
     label: "자동이체 폴링 모니터", icon: Megaphone, group: "settings",
     access: ["platform_admin", "hq_executive"],
-    sideMenu: ["platform_admin", "hq_executive"] },
+    sideMenu: ["platform_admin"] },
   { path: "/popbill-settings", component: PopbillSettingsPage,
     label: "Popbill 발송 설정", icon: Megaphone, group: "settings",
-    access: ["platform_admin", "manager"],
-    sideMenu: ["manager"] },
+    access: ["platform_admin"],
+    sideMenu: [] },
   // [Task #298] 견적 유형(카테고리 × 프리미엄)별 크레딧 정책 통합 관리.
   { path: "/platform/quote-credit-policies",
     component: lazy(() => import("@/pages/platform-quote-credit-policies")),
@@ -1180,43 +1188,43 @@ export const ROUTES: RouteEntry[] = [
     path: "/settings/metering-environment",
     component: lazy(() => import("@/pages/building-settings")),
     label: "검침환경", icon: Gauge, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/settings/metering-usage",
     component: lazy(() => import("@/pages/building-settings")),
     label: "검침 사용현황 설정", icon: Gauge, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/settings/notice-output",
     component: lazy(() => import("@/pages/building-settings")),
     label: "고지서 출력환경", icon: Receipt, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/settings/billing-environment",
     component: lazy(() => import("@/pages/building-settings")),
     label: "관리비 부과환경", icon: Calculator, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/settings/year-end-tax",
     component: lazy(() => import("@/pages/building-settings")),
     label: "연말정산 기본정보", icon: Calculator, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/settings/access-cards",
     component: lazy(() => import("@/pages/building-settings")),
     label: "출입카드 관리", icon: KeyRound, group: "settings",
-    access: ["manager", "platform_admin", "accountant"],
-    sideMenu: ["manager", "accountant"],
+    access: ["platform_admin", "accountant"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accountant/prepaid-deposits",
@@ -1368,62 +1376,110 @@ export const ROUTES: RouteEntry[] = [
   {
     path: "/accounting/ledger/journal", component: AcctLedger,
     label: "분개장", icon: BookOpen, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/daily", component: AcctLedger,
     label: "일계표", icon: CalendarDays, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/monthly", component: AcctLedger,
     label: "월계표", icon: BarChart3, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/cash", component: AcctLedger,
     label: "현금출납장", icon: Wallet, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/bank-deposits", component: AcctLedger,
     label: "제예금명세서", icon: Coins, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/general", component: AcctLedger,
     label: "총계정원장", icon: BookOpen, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/sub", component: AcctLedger,
     label: "보조부원장", icon: Layers, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/account-balance", component: AcctLedger,
     label: "계정과목별잔액장", icon: Activity, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/management-expenses", component: AcctLedger,
     label: "관리비용명세서", icon: DollarSign, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
   },
   {
     path: "/accounting/ledger/vendor", component: AcctLedger,
     label: "거래처원장", icon: Users, group: "accounting",
-    access: ["manager", "accountant", "platform_admin", "hq_executive"],
-    sideMenu: ["accountant", "manager"],
+    access: ["accountant", "platform_admin", "hq_executive"],
+    sideMenu: ["accountant"],
+  },
+
+  // [Task #859] manager 사이드바 — "회계 결과 열람" 그룹의 7개 읽기 전용 항목.
+  //   routeMode:"sidebarOnly" 라 SPA 라우트는 추가 등록되지 않고(원본 ROUTES 엔트리가
+  //   이미 등록함), 사이드바/그리드에만 노출된다. blockId 로 본사 그리드에서도 원본과
+  //   분리해 토글할 수 있다. 쓰기 액션은 useIsReadOnly() 로 화면에서 숨기고,
+  //   서버는 managerReadOnlyGuard 가 거절한다.
+  {
+    path: "/billing/summary", component: BillingSummaryPage,
+    label: "부과총괄표 (열람)", icon: BarChart3, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/billing/summary#manager-readonly",
+  },
+  {
+    path: "/billing/notices", component: BillingNoticesPage,
+    label: "고지서 발행 결과 (열람)", icon: Send, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/billing/notices#manager-readonly",
+  },
+  {
+    path: "/erp/fees-summary", component: ErpFeesSummary,
+    label: "관리비 요약 (열람)", icon: BarChart3, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/erp/fees-summary#manager-readonly",
+  },
+  {
+    path: "/receivables/overdue", component: ReceivablesOverduePage,
+    label: "미납대장 (열람)", icon: Wallet, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/receivables/overdue#manager-readonly",
+  },
+  {
+    path: "/erp/metering", component: ErpPhase1,
+    label: "검침 결과 (열람)", icon: Gauge, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/erp/metering#manager-readonly",
+  },
+  {
+    path: "/closing", component: ClosingWorkspace,
+    label: "결산 보고 (열람)", icon: Lock, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/closing#manager-readonly",
+  },
+  {
+    path: "/tax", component: TaxWorkspace,
+    label: "세금계산서 (열람)", icon: Receipt, group: "accounting_readonly",
+    access: ["manager"], sideMenu: ["manager"],
+    routeMode: "sidebarOnly", blockId: "/tax#manager-readonly",
   },
 ];
 
@@ -1648,8 +1704,13 @@ function accountantSidebar(
   //   (isMenuBlockEnabled=false 로 끈 항목)와 카테고리 끄기(disabledCategories)
   //   를 그대로 존중한다 — 단지 "어떤 그룹/순서로 묶어서 노출할지" 만 직접 구성한다.
   //   따라서 본사가 그리드에서 경리 메뉴를 끄면 즉시 사이드바에서도 사라진다.
+  // [Task #859] sidebarOnly 엔트리(/billing/summary 등 manager 전용 읽기 그룹 항목)는
+  //   같은 path 의 원본 엔트리를 덮어쓰면 안 된다 — 라벨/아이콘은 원본을 그대로 사용한다.
   const byPath = new Map<string, RouteEntry>();
-  for (const r of ROUTES) byPath.set(r.path, r);
+  for (const r of ROUTES) {
+    if (r.routeMode === "sidebarOnly") continue;
+    byPath.set(r.path, r);
+  }
   const link = (path: string, override?: { label?: string; icon?: LucideIcon }): NavItem | null => {
     const entry = byPath.get(path);
     if (!entry) return null;

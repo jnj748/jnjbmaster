@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
+import { useIsReadOnly } from "@/lib/use-read-only";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -48,6 +49,9 @@ export default function TaxWorkspacePage() {
   const { token } = useAuth();
   const { building } = useBuilding();
   const { toast } = useToast();
+  // [Task #859] manager 가 "회계 결과 열람" 그룹의 /tax 로 진입했으면 발행/취소/전송/저장 등
+  //   모든 쓰기 액션을 숨긴다 — 거래처/품목 마스터 입력 폼도 함께 숨긴다.
+  const readOnly = useIsReadOnly();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
   const buildingId = building?.id ?? null;
@@ -338,8 +342,8 @@ export default function TaxWorkspacePage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle>세금계산서 워크스페이스</CardTitle>
-            <Button onClick={startNew} data-testid="button-new-invoice">+ 새 세금계산서</Button>
+            <CardTitle>세금계산서 워크스페이스{readOnly ? " (열람)" : ""}</CardTitle>
+            {!readOnly && <Button onClick={startNew} data-testid="button-new-invoice">+ 새 세금계산서</Button>}
           </div>
         </CardHeader>
         <CardContent>
@@ -375,7 +379,7 @@ export default function TaxWorkspacePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {list.length > 0 && (
+                  {!readOnly && list.length > 0 && (
                     <div className="flex items-center gap-2 px-1 py-1 text-xs">
                       <Checkbox
                         checked={selectedIds.size === list.length && list.length > 0}
@@ -442,6 +446,7 @@ export default function TaxWorkspacePage() {
                       onNtsTransmit={ntsTransmit}
                       onCorrect={openCorrect}
                       busy={busy}
+                      readOnly={readOnly}
                     />
                   )}
                 </div>
@@ -449,17 +454,19 @@ export default function TaxWorkspacePage() {
             </TabsContent>
 
             <TabsContent value="vendors">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold mb-2">거래처 추가</h3>
-                  <div className="space-y-2">
-                    <Input placeholder="사업자등록번호" value={vendorDraft.bizNo ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, bizNo: e.target.value })} data-testid="input-vendor-bizno" />
-                    <Input placeholder="상호" value={vendorDraft.companyName ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, companyName: e.target.value })} data-testid="input-vendor-name" />
-                    <Input placeholder="대표자" value={vendorDraft.representative ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, representative: e.target.value })} />
-                    <Input placeholder="이메일" value={vendorDraft.email ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, email: e.target.value })} />
-                    <Button onClick={() => void saveVendor()} disabled={busy} data-testid="button-vendor-save">저장</Button>
+              <div className={`grid grid-cols-1 ${readOnly ? "" : "md:grid-cols-2"} gap-4`}>
+                {!readOnly && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">거래처 추가</h3>
+                    <div className="space-y-2">
+                      <Input placeholder="사업자등록번호" value={vendorDraft.bizNo ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, bizNo: e.target.value })} data-testid="input-vendor-bizno" />
+                      <Input placeholder="상호" value={vendorDraft.companyName ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, companyName: e.target.value })} data-testid="input-vendor-name" />
+                      <Input placeholder="대표자" value={vendorDraft.representative ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, representative: e.target.value })} />
+                      <Input placeholder="이메일" value={vendorDraft.email ?? ""} onChange={(e) => setVendorDraft({ ...vendorDraft, email: e.target.value })} />
+                      <Button onClick={() => void saveVendor()} disabled={busy} data-testid="button-vendor-save">저장</Button>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div>
                   <h3 className="text-sm font-semibold mb-2">거래처 목록</h3>
                   <div className="border rounded max-h-[50vh] overflow-auto">
@@ -475,17 +482,19 @@ export default function TaxWorkspacePage() {
             </TabsContent>
 
             <TabsContent value="items">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold mb-2">품목 추가</h3>
-                  <div className="space-y-2">
-                    <Input placeholder="코드" value={itemDraft.code ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, code: e.target.value })} />
-                    <Input placeholder="품목명" value={itemDraft.name ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, name: e.target.value })} />
-                    <Input placeholder="규격" value={itemDraft.spec ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, spec: e.target.value })} />
-                    <Input type="number" placeholder="기본 단가" value={String(itemDraft.unitPrice ?? "")} onChange={(e) => setItemDraft({ ...itemDraft, unitPrice: Number(e.target.value) })} />
-                    <Button onClick={() => void saveItem()} disabled={busy}>저장</Button>
+              <div className={`grid grid-cols-1 ${readOnly ? "" : "md:grid-cols-2"} gap-4`}>
+                {!readOnly && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">품목 추가</h3>
+                    <div className="space-y-2">
+                      <Input placeholder="코드" value={itemDraft.code ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, code: e.target.value })} />
+                      <Input placeholder="품목명" value={itemDraft.name ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, name: e.target.value })} />
+                      <Input placeholder="규격" value={itemDraft.spec ?? ""} onChange={(e) => setItemDraft({ ...itemDraft, spec: e.target.value })} />
+                      <Input type="number" placeholder="기본 단가" value={String(itemDraft.unitPrice ?? "")} onChange={(e) => setItemDraft({ ...itemDraft, unitPrice: Number(e.target.value) })} />
+                      <Button onClick={() => void saveItem()} disabled={busy}>저장</Button>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div>
                   <h3 className="text-sm font-semibold mb-2">품목 목록</h3>
                   <div className="border rounded max-h-[50vh] overflow-auto">
@@ -761,8 +770,10 @@ function DraftEditor({
   );
 }
 
-function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, onCorrect, busy }: {
+function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, onCorrect, busy, readOnly }: {
   detail: Invoice; onEdit: () => void; onTransmit: (kind: string) => void; onNtsTransmit: () => void; onCorrect: () => void; busy: boolean;
+  // [Task #859] manager 의 회계 결과 열람 진입 시 모든 쓰기 액션 숨김.
+  readOnly?: boolean;
 }) {
   const canCorrect = ["issued", "transmitted", "nts_approved"].includes(detail.status);
   return (
@@ -800,16 +811,18 @@ function DetailView({ detail, onEdit, onTransmit, onNtsTransmit, onCorrect, busy
           ))}
         </ul>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        {detail.status === "draft" && <Button variant="outline" onClick={onEdit} disabled={busy} data-testid="button-edit">수정</Button>}
-        {detail.status !== "draft" && (
-          <>
-            {canCorrect && <Button variant="outline" onClick={onCorrect} disabled={busy} data-testid="button-correct">수정 발행</Button>}
-            <Button variant="outline" onClick={() => onTransmit("email")} disabled={busy || !detail.buyerEmail} data-testid="button-transmit-email">거래처 이메일 전송</Button>
-            <Button onClick={onNtsTransmit} disabled={busy} data-testid="button-nts-transmit">국세청 전송</Button>
-          </>
-        )}
-      </div>
+      {!readOnly && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {detail.status === "draft" && <Button variant="outline" onClick={onEdit} disabled={busy} data-testid="button-edit">수정</Button>}
+          {detail.status !== "draft" && (
+            <>
+              {canCorrect && <Button variant="outline" onClick={onCorrect} disabled={busy} data-testid="button-correct">수정 발행</Button>}
+              <Button variant="outline" onClick={() => onTransmit("email")} disabled={busy || !detail.buyerEmail} data-testid="button-transmit-email">거래처 이메일 전송</Button>
+              <Button onClick={onNtsTransmit} disabled={busy} data-testid="button-nts-transmit">국세청 전송</Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

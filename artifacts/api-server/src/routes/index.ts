@@ -20,6 +20,7 @@ import documentChecklistsRouter from "./documentChecklists";
 import usersRouter from "./users";
 import approvalsRouter from "./approvals";
 import { authMiddleware, requireRole, approvalGateMiddleware } from "../middlewares/auth";
+import { managerReadOnlyGuard } from "../middlewares/manager-readonly-guard";
 import rfqsRouter from "./rfqs";
 import rfqMessagesRouter from "./rfqMessages";
 import rfqSiteVisitsRouter from "./rfqSiteVisits";
@@ -217,6 +218,10 @@ buildingRouter.use(reportSystemRouter);
 buildingRouter.use(safetyChecklistsRouter);
 buildingRouter.use(safetyChecklistTemplatesRouter);
 buildingRouter.use(maintenanceLogsRouter);
+// [Task #859] manager 역할은 회계 결과 열람 그룹(7화면) 뒤의 쓰기성 호출이
+//   금지된다 — buildingRouter 의 다른 라우트보다 먼저 마운트해 모든 후속
+//   라우트의 POST/PUT/PATCH/DELETE 를 가드한다.
+buildingRouter.use(managerReadOnlyGuard);
 buildingRouter.use(safetyTrainingsRouter);
 buildingRouter.use(facilityDashboardRouter);
 buildingRouter.use(facilityTasksRouter);

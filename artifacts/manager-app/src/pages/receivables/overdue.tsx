@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ReceivablesShell, useApi, krw, today, StatCard, Empty, BUCKET_LABEL, STATUS_BADGE,
   type OverdueResp } from "./_shared";
 import { Camera, Sparkles, Send, Wallet } from "lucide-react";
+import { useIsReadOnly } from "@/lib/use-read-only";
 
 export default function ReceivablesOverduePage() {
   const api = useApi();
@@ -19,6 +20,8 @@ export default function ReceivablesOverduePage() {
   const [data, setData] = useState<OverdueResp | null>(null);
   const [asOf, setAsOf] = useState<string>(today());
   const [busy, setBusy] = useState(false);
+  // [Task #859] manager 가 "회계 결과 열람" 그룹으로 진입했으면 스냅샷·독촉 버튼을 숨긴다.
+  const readOnly = useIsReadOnly();
 
   const load = async () => {
     setData(await api<OverdueResp>("GET", `/receivables/overdue?asOf=${asOf}`));
@@ -42,9 +45,11 @@ export default function ReceivablesOverduePage() {
       action={
         <div className="flex items-center gap-2">
           <Input type="date" value={asOf} onChange={e => setAsOf(e.target.value)} className="w-40" data-testid="in-asof" />
-          <Button onClick={snapshot} disabled={busy} data-testid="btn-snapshot">
-            <Camera className="w-4 h-4 mr-1" />스냅샷 캡처
-          </Button>
+          {!readOnly && (
+            <Button onClick={snapshot} disabled={busy} data-testid="btn-snapshot">
+              <Camera className="w-4 h-4 mr-1" />스냅샷 캡처
+            </Button>
+          )}
         </div>
       }
     >
@@ -72,10 +77,12 @@ export default function ReceivablesOverduePage() {
               ))}
               {aiPriority.length > 12 && <span className="text-xs text-muted-foreground">+{aiPriority.length - 12}건</span>}
             </div>
-            <div className="mt-3 flex gap-2">
-              <Link href="/receivables/dunning"><Button size="sm" variant="default"><Send className="w-3.5 h-3.5 mr-1" />2차 독촉장 일괄 발송</Button></Link>
-              <Link href="/receivables/overdue-notices"><Button size="sm" variant="outline">미납 고지서 출력</Button></Link>
-            </div>
+            {!readOnly && (
+              <div className="mt-3 flex gap-2">
+                <Link href="/receivables/dunning"><Button size="sm" variant="default"><Send className="w-3.5 h-3.5 mr-1" />2차 독촉장 일괄 발송</Button></Link>
+                <Link href="/receivables/overdue-notices"><Button size="sm" variant="outline">미납 고지서 출력</Button></Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

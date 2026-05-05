@@ -38,6 +38,7 @@ import {
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { useAuth } from "@/contexts/auth-context";
+import { useIsReadOnly } from "@/lib/use-read-only";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -83,7 +84,9 @@ function daysAgoStr(d: number): string {
 export default function Phase1MeteringPage({ presetMeterType }: Phase1MeteringProps = {}) {
   const { token, user } = useAuth();
   // [Task #630] 본부장은 검침을 읽기만 가능 — 입력·OCR·CSV·수정·삭제 모든 쓰기를 숨긴다.
-  const readOnly = user?.role === "hq_executive";
+  // [Task #859] manager 역할이 회계 결과 열람 그룹의 /erp/metering 으로 진입한 경우도 동일하게 읽기 전용.
+  const managerReadOnly = useIsReadOnly();
+  const readOnly = user?.role === "hq_executive" || managerReadOnly;
   const isManagerLike = user?.role === "manager" || user?.role === "platform_admin";
   const currentUserId = user?.id ?? null;
   const { toast } = useToast();

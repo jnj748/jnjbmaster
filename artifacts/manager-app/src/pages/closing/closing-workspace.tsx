@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { Link } from "wouter";
+import { useIsReadOnly } from "@/lib/use-read-only";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,9 @@ function thisYear(): string { return String(new Date().getUTCFullYear()); }
 export default function ClosingWorkspacePage() {
   const { token } = useAuth();
   const { building } = useBuilding();
+  // [Task #859] manager 가 "회계 결과 열람" 그룹의 /closing 으로 진입했으면 마감/예산 등
+  //   다른 운영 화면으로 빠져나가는 링크를 모두 숨긴다 (열람 전용).
+  const readOnly = useIsReadOnly();
   const BASE = import.meta.env.BASE_URL ?? "/";
   const apiBase = `${BASE}api`.replace(/\/+/g, "/");
   const buildingId = building?.id ?? null;
@@ -136,7 +140,7 @@ export default function ClosingWorkspacePage() {
               <Button variant="outline" onClick={() => void load()} disabled={loading} data-testid="button-reload">
                 {loading ? "조회 중…" : "다시 조회"}
               </Button>
-              <Link href="/erp/closings"><Button variant="ghost" size="sm">월마감 화면 →</Button></Link>
+              {!readOnly && <Link href="/erp/closings"><Button variant="ghost" size="sm">월마감 화면 →</Button></Link>}
             </div>
           </div>
         </CardHeader>
@@ -245,7 +249,12 @@ export default function ClosingWorkspacePage() {
 
             <TabsContent value="budget-vs-actual">
               <div className="flex items-center mb-3"><ExportButtons reportKey="budget-vs-actual" /></div>
-              {bva && !bva.hasBudget && <p className="text-xs text-muted-foreground mb-2">의결된 예산 버전이 없어 편성액은 0으로 표기됩니다. <Link href="/erp/budgets" className="underline">예산 편성</Link>에서 등록하세요.</p>}
+              {bva && !bva.hasBudget && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  의결된 예산 버전이 없어 편성액은 0으로 표기됩니다.
+                  {!readOnly && <> <Link href="/erp/budgets" className="underline">예산 편성</Link>에서 등록하세요.</>}
+                </p>
+              )}
               <table className="w-full text-sm">
                 <thead className="bg-muted/50"><tr><th className="text-left p-2">비목</th><th className="text-right p-2">편성</th><th className="text-right p-2">실집행</th><th className="text-right p-2">차이</th><th className="text-right p-2">집행률</th></tr></thead>
                 <tbody>
@@ -297,7 +306,12 @@ export default function ClosingWorkspacePage() {
                   <div>최근 잠금 월: <span className="font-mono">{snap.closing.month}</span> · 상태 <Badge>{snap.closing.status}</Badge></div>
                   <pre className="bg-muted/40 rounded p-2 text-xs overflow-auto">{JSON.stringify(snap.snapshots, null, 2)}</pre>
                 </div>
-              ) : <p className="text-sm text-muted-foreground">잠금된 월이 없습니다. <Link href="/erp/closings" className="underline">월마감</Link>에서 잠금을 진행하면 스냅샷이 생성됩니다.</p>}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  잠금된 월이 없습니다.
+                  {!readOnly && <> <Link href="/erp/closings" className="underline">월마감</Link>에서 잠금을 진행하면 스냅샷이 생성됩니다.</>}
+                </p>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
