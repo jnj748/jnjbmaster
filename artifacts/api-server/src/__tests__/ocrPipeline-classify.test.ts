@@ -90,9 +90,8 @@ test("classifyDocument: CSV mimeType 은 LLM 거치지 않고 bank_statement", a
   }
 });
 
-// [Task #868] .xls(엑셀 BIFF) 는 ALLOWED_MIME 에 없어 loadObject 에서 차단된다.
-// classifyDocument 자체가 직접 호출돼도 OFFICE_XLSX_MIMES 에 없으니 office
-// 분기를 안 타고 일반 inlineData 분기로 떨어진다 (실제 ingest 경로에선 도달 X).
+// [Task #868] .xls(엑셀 BIFF) 는 ALLOWED_MIME 에 포함되며 office 분기로 들어가
+// 추출 실패 시 unknown 폴백된다 (officeDocs.test.ts 에서 별도 검증).
 
 test("classifyDocument: 모든 종류 키에 대해 LLM 응답이 그대로 매핑된다", async () => {
   for (const kind of documentIngestionKinds) {

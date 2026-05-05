@@ -94,6 +94,20 @@ test(".xls(BIFF) 빈 더미는 추출 실패 → classifyDocument 에서 unknown
   }
 });
 
+test(".doc(워드 구버전) 친절 거절 메시지 톤 — 한국어 + .docx/PDF 변환 안내", async () => {
+  const { REJECTED_LEGACY_OFFICE_MIMES, getRejectedLegacyOfficeMessage } = await import(
+    "../lib/officeDocs.js"
+  );
+  assert.equal(REJECTED_LEGACY_OFFICE_MIMES.has("application/msword"), true);
+  const msg = getRejectedLegacyOfficeMessage("application/msword");
+  assert.ok(msg, ".doc 는 친절 안내 메시지가 있어야 한다");
+  assert.match(msg!, /지원하지 않/);
+  assert.match(msg!, /docx/);
+  assert.match(msg!, /PDF/);
+  // .doc 는 office 그룹에 들어가지 않아 ingest 가 400 으로 안내된다.
+  assert.equal(isOfficeDocMime("application/msword"), false);
+});
+
 test("runGenericExtractor: .xls(BIFF) 추출 실패 시 throw 하지 않고 빈 stub 반환 (파일 보존)", async () => {
   const { runGenericExtractor, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
   let llmCalled = false;
