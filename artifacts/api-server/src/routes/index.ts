@@ -119,6 +119,8 @@ import guestSignaturesRouter, { publicGuestSignaturesRouter } from "./guestSigna
 import auditLogsRouter from "./auditLogs";
 // [Task #797] 입주자관리 부가 기능 — 키 발급/회수/중간정산/개인정보접근/전입전출/장기수선.
 import residentsExtrasRouter from "./residentsExtras";
+// [Task #861] 관리소장 "회계 결과 열람" 사이드바 자동 숨김 — 데이터 가용성 조회.
+import managerReadonlyRouter from "./managerReadonly";
 // [Task #833] 자동이체 폴링 잡 모니터링.
 import autoDebitPollRunsRouter from "./autoDebitPollRuns";
 
@@ -271,6 +273,8 @@ buildingRouter.use(memoOcrRouter);
 buildingRouter.use(documentIngestRouter);
 buildingRouter.use(documentsRouter);
 buildingRouter.use(noticeOutputsRouter);
+// [Task #861] 관리소장 "회계 결과 열람" 사이드바 자동 숨김 — 데이터 가용성 조회.
+buildingRouter.use(managerReadonlyRouter);
 // [Task #797] 입주자관리 부가 기능 — 같은 buildingOnly 가드 공유.
 buildingRouter.use(residentsExtrasRouter);
 router.use(buildingRouter);

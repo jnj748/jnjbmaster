@@ -1917,11 +1917,20 @@ export function isMenuExplicitlyEnabled(
   return false;
 }
 
+// [Task #861] manager 사이드바의 "회계 결과 열람" 7개 항목은 데이터가 1건도 없으면
+//   자동 숨김된다. blockId 의 "#manager-readonly" suffix 로 식별하고, path 키로
+//   가용성 맵을 조회한다(availability[path] === false 만 숨김; undefined/true 는 노출).
+const MANAGER_READONLY_BLOCK_SUFFIX = "#manager-readonly";
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
 export function getSidebarSections(
   role: Role,
   disabledCategories?: readonly string[] | null,
   overrides?: readonly MenuOverride[] | null,
+  // [Task #861] 관리소장 "회계 결과 열람" 항목 path → 데이터 가용성 맵.
+  //   undefined / 빈 객체 = 미로드 → 기존대로 모두 노출(폴백 안전).
+  //   특정 path 값이 false 인 경우만 그 항목을 사이드바에서 제거한다.
+  readonlyAvailability?: Readonly<Record<string, boolean>> | null,
 ): NavSection[] {
   if (role === "platform_admin") return platformAdminSidebar();
   // [Task #772] 경리 신 IA — 7개 신코드 그룹 + 보존 그룹 1개 = 총 8개 그룹.
@@ -1976,6 +1985,16 @@ export function getSidebarSections(
     const explicit = isMenuExplicitlyEnabled(role, blockIdOf(entry), overrides);
     if (!visibleTo.includes(role) && !explicit) continue;
     if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
+    // [Task #861] 관리소장 "회계 결과 열람" — 데이터 가용성 false 인 항목은 사이드바에서 제거.
+    //   readonlyAvailability 가 미로드(undefined) 거나 path 키가 없으면 기존대로 노출.
+    if (
+      role === "manager"
+      && readonlyAvailability
+      && entry.blockId?.endsWith(MANAGER_READONLY_BLOCK_SUFFIX)
+      && readonlyAvailability[entry.path] === false
+    ) {
+      continue;
+    }
     candidates.push({
       entry,
       item: {

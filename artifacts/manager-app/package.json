@@ -12,7 +12,7 @@
     "e2e": "playwright test --config playwright.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts src/lib/follow-up-prefill.test.ts src/lib/empty-quote-suggestion.test.ts src/lib/contract-renewal-window.test.ts src/lib/format-korean.test.ts src/lib/rfq-building-ready.test.ts src/lib/building-register-labels.test.ts src/lib/pdf-page-break.test.ts src/lib/dashboard-alert-filters.test.ts src/lib/print-overflow-rules.test.ts src/lib/sidebar-snapshot.test.ts src/lib/approval-prefill.test.ts"
+    "test": "tsx --test src/lib/legal-staffing.test.ts src/lib/facility-today-progress.test.ts src/lib/follow-up-detection.test.ts src/lib/follow-up-prefill.test.ts src/lib/empty-quote-suggestion.test.ts src/lib/contract-renewal-window.test.ts src/lib/format-korean.test.ts src/lib/rfq-building-ready.test.ts src/lib/building-register-labels.test.ts src/lib/pdf-page-break.test.ts src/lib/dashboard-alert-filters.test.ts src/lib/print-overflow-rules.test.ts src/lib/sidebar-snapshot.test.ts src/lib/approval-prefill.test.ts src/lib/manager-readonly-availability.test.ts src/hooks/use-manager-readonly-availability.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

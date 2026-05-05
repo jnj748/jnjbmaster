@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useMenuOverrides } from "@/hooks/use-menu-overrides";
+// [Task #861] 관리소장 "회계 결과 열람" 7항목 — 데이터 가용성으로 자동 숨김.
+import { useManagerReadonlyAvailability } from "@/hooks/use-manager-readonly-availability";
 import ReactMarkdown from "react-markdown";
 import { Link, useLocation } from "wouter";
 import { QuickEntryDialog } from "@/components/work-log/quick-entry-fab";
@@ -473,9 +475,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     () => menuOverrides.map((o) => `${o.role}:${o.blockId}:${o.enabled ? 1 : 0}`).join("|"),
     [menuOverrides],
   );
+  // [Task #861] 관리소장만 "회계 결과 열람" 가용성 조회 — 다른 역할은 호출 안 함.
+  const readonlyAvailability = useManagerReadonlyAvailability(!!user && effectiveRole === "manager");
+  const readonlyAvailabilityKey = useMemo(
+    () => Object.entries(readonlyAvailability)
+      .map(([k, v]) => `${k}:${v ? 1 : 0}`)
+      .sort()
+      .join("|"),
+    [readonlyAvailability],
+  );
   const sections = useMemo(
-    () => getSidebarSections(effectiveRole, disabledCategories, menuOverrides),
-    [effectiveRole, disabledKey, overridesKey],
+    () => getSidebarSections(effectiveRole, disabledCategories, menuOverrides, readonlyAvailability),
+    [effectiveRole, disabledKey, overridesKey, readonlyAvailabilityKey],
   );
   const toggleSection = useCallback((title: string) => {
     if (!title) return;
