@@ -37,7 +37,7 @@ import {
   unitsTable,
   tenantsTable,
 } from "@workspace/db";
-import { audit, requireAction } from "../middlewares/audit";
+import { audit, recordSystemAudit, requireAction } from "../middlewares/audit";
 import { requireRole } from "../middlewares/auth";
 import { getUserBuildingId } from "../middlewares/buildingScope";
 import { logger } from "../lib/logger";
@@ -88,6 +88,141 @@ const router: IRouter = Router();
 //   bills/payments/통장내역/연체 데이터에는 접근하지 못하도록 라우터 레벨에서 차단.
 router.use(["/bills", "/bank-tx"], requireRole("manager", "accountant", "platform_admin"));
 
+// 핵심 로직 — 라우트 핸들러와 billing.finalized 자동 트리거가 공유한다.
+//   ok=false 인 경우 호출자가 HTTP 상태/로그로 변환한다 (throw 하지 않음).
+export type GenerateBillsResult =
+  | {
+      ok: true;
+      runId: number;
+      billingMonth: string;
+      dueDate: string;
+      created: number;
+      skipped: number;
+      billIds: number[];
+    }
+  | {
+      ok: false;
+      status: 400 | 404 | 409;
+      error: string;
+      message?: string;
+    };
+
+export async function generateBillsForFinalizedRun(input: {
+  buildingId: number;
+  runId: number;
+  dueDay: number;
+}): Promise<GenerateBillsResult> {
+  const { buildingId, runId, dueDay } = input;
+
+  const [run] = await db.select().from(billingRunsTable)
+    .where(and(eq(billingRunsTable.id, runId), eq(billingRunsTable.buildingId, buildingId)));
+  if (!run) return { ok: false, status: 404, error: "부과 실행을 찾을 수 없습니다" };
+  if (run.status !== "finalized") {
+    return { ok: false, status: 409, error: "확정된 부과만 고지서로 발행할 수 있습니다" };
+  }
+  // [Task #780] T9 마감잠금 가드.
+  {
+    const { isMonthLocked } = await import("../lib/closingEngine");
+    if (await isMonthLocked(buildingId, run.billingMonth)) {
+      return {
+        ok: false,
+        status: 409,
+        error: "closing_locked",
+        message: `${run.billingMonth} 월이 마감되어 고지서를 발행할 수 없습니다.`,
+      };
+    }
+  }
+
+  const lines = await db.select().from(billingLinesTable).where(eq(billingLinesTable.runId, runId));
+  if (lines.length === 0) return { ok: false, status: 400, error: "부과 라인이 없습니다" };
+
+  // 호실 ID 수집 → 입주자 이름 조회(예금주 표기용).
+  const unitIds = Array.from(new Set(lines.map(l => l.unitId)));
+  const tenants = unitIds.length
+    ? await db.select().from(tenantsTable).where(inArray(tenantsTable.unitId, unitIds))
+    : [];
+  const tenantByUnit = new Map<number, string>();
+  for (const t of tenants) {
+    if (t.unitId && !tenantByUnit.has(t.unitId)) tenantByUnit.set(t.unitId, t.tenantName);
+  }
+
+  // 납기일: 다음 달 dueDay.
+  const [yy, mm] = run.billingMonth.split("-").map(Number);
+  const dueMonth = mm === 12 ? `${yy + 1}-01` : `${yy}-${String(mm + 1).padStart(2, "0")}`;
+  const dueDate = `${dueMonth}-${String(dueDay).padStart(2, "0")}`;
+
+  let createdCount = 0;
+  let skippedCount = 0;
+  const billIds: number[] = [];
+
+  for (const line of lines) {
+    // 멱등: bills_unit_month unique(unit_id, billing_month) 에 ON CONFLICT DO NOTHING.
+    //   같은 finalize 이벤트로 라우트(수동) + 리스너(자동) 가 거의 동시에 돌아도
+    //   DB 레벨에서 중복 INSERT 가 한 행만 살아남도록 원자 보장.
+    const holder = tenantByUnit.get(line.unitId) ?? `${line.unitNumber}호`;
+    const insertedRows = await db.insert(billsTable).values({
+      buildingId,
+      unitId: line.unitId,
+      unitNumber: line.unitNumber,
+      billingMonth: run.billingMonth,
+      runId,
+      totalAmount: line.totalAmount,
+      paidAmount: 0,
+      dueDate,
+      status: "issued",
+      publicToken: newPublicToken(),
+      virtualAccount: issueVirtualAccount(buildingId, line.unitId, run.billingMonth, holder),
+    }).onConflictDoNothing({
+      target: [billsTable.unitId, billsTable.billingMonth],
+    }).returning();
+
+    // 미삽입 = 이미 다른 트랜잭션이 같은 (unit_id, billing_month) 로 발행 완료.
+    //   기존 행 id 만 회수하고 items/연체단계 재생성은 건너뛴다.
+    if (insertedRows.length === 0) {
+      const [existing] = await db.select({ id: billsTable.id }).from(billsTable)
+        .where(and(eq(billsTable.unitId, line.unitId), eq(billsTable.billingMonth, run.billingMonth)));
+      skippedCount++;
+      if (existing) billIds.push(existing.id);
+      continue;
+    }
+    const bill = insertedRows[0];
+
+    // 항목 라인 — common/repair/installment + meterCharges/otherCharges 분해.
+    const items: Array<typeof billItemsTable.$inferInsert> = [];
+    if (line.commonCharge > 0) items.push({ billId: bill.id, category: "common", label: "공용관리비", amount: line.commonCharge, meta: {} });
+    if (line.repairReserve > 0) items.push({ billId: bill.id, category: "repair", label: "수선적립금", amount: line.repairReserve, meta: {} });
+    if (line.installmentCharge > 0) items.push({ billId: bill.id, category: "installment", label: "분할부과", amount: line.installmentCharge, meta: {} });
+    const meterCharges = (line.meterCharges ?? {}) as Record<string, { usage: number; rate: number; amount: number }>;
+    for (const [mt, mc] of Object.entries(meterCharges)) {
+      if (mc?.amount) items.push({ billId: bill.id, category: "meter", label: mt, amount: mc.amount, meta: { usage: mc.usage, rate: mc.rate } });
+    }
+    const otherCharges = (line.otherCharges ?? {}) as Record<string, number>;
+    for (const [k, amt] of Object.entries(otherCharges)) {
+      if (amt) items.push({ billId: bill.id, category: "other", label: k, amount: amt, meta: {} });
+    }
+    if (items.length) await db.insert(billItemsTable).values(items);
+
+    // 연체단계 행 — 초기 stage=0.
+    await db.insert(delinquencyStagesTable).values({
+      buildingId, billId: bill.id, unitId: line.unitId, unitNumber: line.unitNumber,
+      stage: 0, overdueDays: 0, overdueAmount: 0, lateFeeAmount: 0,
+    }).onConflictDoNothing();
+
+    createdCount++;
+    billIds.push(bill.id);
+  }
+
+  return {
+    ok: true,
+    runId,
+    billingMonth: run.billingMonth,
+    dueDate,
+    created: createdCount,
+    skipped: skippedCount,
+    billIds,
+  };
+}
+
 router.post(
   "/bills/generate",
   requireAction("bill.generate"),
@@ -99,101 +234,20 @@ router.post(
     if (!parsed.success) { res.status(400).json({ error: parsed.error.issues }); return; }
     const { runId, dueDay } = parsed.data;
 
-    const [run] = await db.select().from(billingRunsTable)
-      .where(and(eq(billingRunsTable.id, runId), eq(billingRunsTable.buildingId, buildingId)));
-    if (!run) { res.status(404).json({ error: "부과 실행을 찾을 수 없습니다" }); return; }
-    if (run.status !== "finalized") {
-      res.status(409).json({ error: "확정된 부과만 고지서로 발행할 수 있습니다" });
+    const result = await generateBillsForFinalizedRun({ buildingId, runId, dueDay });
+    if (!result.ok) {
+      const body: Record<string, unknown> = { error: result.error };
+      if (result.message) body.message = result.message;
+      res.status(result.status).json(body);
       return;
     }
-    // [Task #780] T9 마감잠금 가드.
-    {
-      const { isMonthLocked } = await import("../lib/closingEngine");
-      if (await isMonthLocked(buildingId, run.billingMonth)) {
-        res.status(409).json({ error: "closing_locked", message: `${run.billingMonth} 월이 마감되어 고지서를 발행할 수 없습니다.` });
-        return;
-      }
-    }
-
-    const lines = await db.select().from(billingLinesTable).where(eq(billingLinesTable.runId, runId));
-    if (lines.length === 0) { res.status(400).json({ error: "부과 라인이 없습니다" }); return; }
-
-    // 호실 ID 수집 → 입주자 이름 조회(예금주 표기용).
-    const unitIds = Array.from(new Set(lines.map(l => l.unitId)));
-    const tenants = unitIds.length
-      ? await db.select().from(tenantsTable).where(inArray(tenantsTable.unitId, unitIds))
-      : [];
-    const tenantByUnit = new Map<number, string>();
-    for (const t of tenants) {
-      if (t.unitId && !tenantByUnit.has(t.unitId)) tenantByUnit.set(t.unitId, t.tenantName);
-    }
-
-    // 납기일: 다음 달 dueDay.
-    const [yy, mm] = run.billingMonth.split("-").map(Number);
-    const dueMonth = mm === 12 ? `${yy + 1}-01` : `${yy}-${String(mm + 1).padStart(2, "0")}`;
-    const dueDate = `${dueMonth}-${String(dueDay).padStart(2, "0")}`;
-
-    let createdCount = 0;
-    let skippedCount = 0;
-    const billIds: number[] = [];
-
-    for (const line of lines) {
-      // 멱등: 이미 발행된 호실은 skip.
-      const [existing] = await db.select().from(billsTable)
-        .where(and(eq(billsTable.unitId, line.unitId), eq(billsTable.billingMonth, run.billingMonth)));
-      if (existing) {
-        skippedCount++;
-        billIds.push(existing.id);
-        continue;
-      }
-
-      const holder = tenantByUnit.get(line.unitId) ?? `${line.unitNumber}호`;
-      const [bill] = await db.insert(billsTable).values({
-        buildingId,
-        unitId: line.unitId,
-        unitNumber: line.unitNumber,
-        billingMonth: run.billingMonth,
-        runId,
-        totalAmount: line.totalAmount,
-        paidAmount: 0,
-        dueDate,
-        status: "issued",
-        publicToken: newPublicToken(),
-        virtualAccount: issueVirtualAccount(buildingId, line.unitId, run.billingMonth, holder),
-      }).returning();
-
-      // 항목 라인 — common/repair/installment + meterCharges/otherCharges 분해.
-      const items: Array<typeof billItemsTable.$inferInsert> = [];
-      if (line.commonCharge > 0) items.push({ billId: bill.id, category: "common", label: "공용관리비", amount: line.commonCharge, meta: {} });
-      if (line.repairReserve > 0) items.push({ billId: bill.id, category: "repair", label: "수선적립금", amount: line.repairReserve, meta: {} });
-      if (line.installmentCharge > 0) items.push({ billId: bill.id, category: "installment", label: "분할부과", amount: line.installmentCharge, meta: {} });
-      const meterCharges = (line.meterCharges ?? {}) as Record<string, { usage: number; rate: number; amount: number }>;
-      for (const [mt, mc] of Object.entries(meterCharges)) {
-        if (mc?.amount) items.push({ billId: bill.id, category: "meter", label: mt, amount: mc.amount, meta: { usage: mc.usage, rate: mc.rate } });
-      }
-      const otherCharges = (line.otherCharges ?? {}) as Record<string, number>;
-      for (const [k, amt] of Object.entries(otherCharges)) {
-        if (amt) items.push({ billId: bill.id, category: "other", label: k, amount: amt, meta: {} });
-      }
-      if (items.length) await db.insert(billItemsTable).values(items);
-
-      // 연체단계 행 — 초기 stage=0.
-      await db.insert(delinquencyStagesTable).values({
-        buildingId, billId: bill.id, unitId: line.unitId, unitNumber: line.unitNumber,
-        stage: 0, overdueDays: 0, overdueAmount: 0, lateFeeAmount: 0,
-      }).onConflictDoNothing();
-
-      createdCount++;
-      billIds.push(bill.id);
-    }
-
     res.json({
-      runId,
-      billingMonth: run.billingMonth,
-      dueDate,
-      created: createdCount,
-      skipped: skippedCount,
-      billIds,
+      runId: result.runId,
+      billingMonth: result.billingMonth,
+      dueDate: result.dueDate,
+      created: result.created,
+      skipped: result.skipped,
+      billIds: result.billIds,
     });
   },
 );
@@ -877,11 +931,75 @@ router.get("/bills/:id/receipt", async (req: Request, res: Response): Promise<vo
 });
 
 // ── 11. T7 → T8 자동 발행 리스너 등록 ────────────────────────
+//
+// [옵션 B — 한 단계 자동, 발송은 여전히 수동]
+//   확정(billing.finalized) → 호실별 고지서 자동 발행(/bills/generate 와 동일 로직)
+//   까지만 자동화. 카카오/SMS 일괄 발송(/billing-notice-deliveries/bulk-dispatch)은
+//   여전히 경리가 화면에서 한 번 더 눈으로 확인하고 누른다.
+//
+// 안전판:
+//   - 환경변수 BILLING_AUTO_GENERATE_BILLS_ON_FINALIZE=false 로 즉시 끌 수 있다.
+//   - 멱등(이미 발행된 호실은 skip), 마감잠금/라인없음 같은 정상 거절은 audit 로 남기고 조용히 종료.
+//   - 예외는 로그만 남기고 finalize 흐름 자체를 깨뜨리지 않는다 (listener 자체가 try/catch).
+//   - 납기일 dueDay 는 환경변수 BILLING_AUTO_GENERATE_DUE_DAY (기본 25) 사용.
 import { BILLING_FINALIZED_LISTENERS } from "./billing";
+
+const AUTO_GENERATE_ENABLED = process.env.BILLING_AUTO_GENERATE_BILLS_ON_FINALIZE !== "false";
+const AUTO_GENERATE_DUE_DAY = (() => {
+  const raw = process.env.BILLING_AUTO_GENERATE_DUE_DAY;
+  const n = raw ? Number(raw) : 25;
+  return Number.isFinite(n) && n >= 1 && n <= 31 ? Math.floor(n) : 25;
+})();
+
 BILLING_FINALIZED_LISTENERS.push(async (e) => {
-  // 자동 발행은 끄고, 매뉴얼(POST /bills/generate) 만 사용.
-  // 이벤트는 감사 로그/외부 알림 후크용으로 보존.
-  logger.info({ runId: e.runId }, "[T7→T8] billing.finalized observed (manual generate only)");
+  if (!AUTO_GENERATE_ENABLED) {
+    logger.info({ runId: e.runId }, "[T7→T8] auto-generate disabled by env, skipping");
+    return;
+  }
+  try {
+    const result = await generateBillsForFinalizedRun({
+      buildingId: e.buildingId,
+      runId: e.runId,
+      dueDay: AUTO_GENERATE_DUE_DAY,
+    });
+    if (!result.ok) {
+      logger.warn(
+        { runId: e.runId, status: result.status, error: result.error },
+        "[T7→T8] auto-generate skipped",
+      );
+      await recordSystemAudit({
+        action: "bill.generate.auto.skipped",
+        targetType: "billing_run",
+        targetId: e.runId,
+        buildingId: e.buildingId,
+        actorId: e.finalizedById,
+        reason: `${result.status}:${result.error}${result.message ? ` (${result.message})` : ""}`,
+      });
+      return;
+    }
+    logger.info(
+      { runId: e.runId, created: result.created, skipped: result.skipped, dueDate: result.dueDate },
+      "[T7→T8] auto-generated bills on finalize",
+    );
+    await recordSystemAudit({
+      action: "bill.generate.auto",
+      targetType: "billing_run",
+      targetId: e.runId,
+      buildingId: e.buildingId,
+      actorId: e.finalizedById,
+      after: {
+        created: result.created,
+        skipped: result.skipped,
+        billIds: result.billIds,
+        dueDate: result.dueDate,
+        billingMonth: result.billingMonth,
+      },
+      reason: "billing.finalized auto trigger",
+    });
+  } catch (err) {
+    // finalize 흐름은 절대 깨지 않는다 — 로그만 남기고 종료.
+    logger.error({ err, runId: e.runId, buildingId: e.buildingId }, "[T7→T8] auto-generate threw");
+  }
 });
 
 export default router;
