@@ -5,8 +5,8 @@
 //     platform_admin / hq_executive 만 접근.
 //
 import { Router, type IRouter, type Request, type Response } from "express";
-import { desc, gte } from "drizzle-orm";
-import { db, autoDebitPollRunsTable } from "@workspace/db";
+import { desc, gte, eq, and } from "drizzle-orm";
+import { db, autoDebitPollRunsTable, dispatchJobsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -62,6 +62,13 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     totalUpdated: summaryRows.reduce((s, r) => s + (r.updated ?? 0), 0),
   };
 
+  const [lastDispatch] = await db
+    .select({ createdAt: dispatchJobsTable.createdAt, status: dispatchJobsTable.status })
+    .from(dispatchJobsTable)
+    .where(eq(dispatchJobsTable.triggerSource, "auto_debit_poll_stale"))
+    .orderBy(desc(dispatchJobsTable.createdAt))
+    .limit(1);
+
   res.json({
     config: {
       pollUrlConfigured,
@@ -77,6 +84,9 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
       isStale,
     },
     summary24h: summary,
+    lastAlertDispatch: lastDispatch
+      ? { dispatchedAt: lastDispatch.createdAt, status: lastDispatch.status }
+      : null,
     runs: rows,
   });
 });

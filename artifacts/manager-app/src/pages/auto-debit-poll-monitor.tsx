@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, CheckCircle2, Clock } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, Clock, Bell } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -47,6 +47,10 @@ interface MonitorResponse {
     totalScanned: number;
     totalUpdated: number;
   };
+  lastAlertDispatch: {
+    dispatchedAt: string;
+    status: string;
+  } | null;
   runs: RunRow[];
 }
 
@@ -130,7 +134,7 @@ export default function AutoDebitPollMonitorPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">마지막 실행</CardTitle></CardHeader>
           <CardContent>
@@ -164,6 +168,20 @@ export default function AutoDebitPollMonitorPage() {
               오류 {data?.summary24h.withErrors ?? 0}회
               {data && data.config.webhookSecretConfigured ? " · webhook ✓" : " · webhook 미설정"}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">마지막 알림 발송</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-sm font-mono">{data?.lastAlertDispatch ? fmtDateTime(data.lastAlertDispatch.dispatchedAt) : "-"}</div>
+            {data?.lastAlertDispatch ? (
+              <Badge variant={data.lastAlertDispatch.status === "sent" ? "default" : data.lastAlertDispatch.status === "failed" || data.lastAlertDispatch.status === "dead" ? "destructive" : "outline"} className="mt-1">
+                <Bell className="w-3 h-3 mr-1" />
+                {data.lastAlertDispatch.status === "sent" ? "발송 완료" : data.lastAlertDispatch.status === "queued" ? "대기중" : data.lastAlertDispatch.status === "sending" ? "발송중" : data.lastAlertDispatch.status}
+              </Badge>
+            ) : (
+              <div className="text-xs text-muted-foreground mt-1">발송 이력 없음</div>
+            )}
           </CardContent>
         </Card>
       </div>
