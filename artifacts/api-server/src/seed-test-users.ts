@@ -6,44 +6,48 @@ import { seedDevDemoSeeds } from "./seed-dev-demo-seeds";
 
 const TEST_PASSWORD = "test1234!";
 
-// [Task #629] DEV 환경 데모 건물의 기본 시드 값.
-//   - 빈 placeholder 상태(주소·세대수가 모두 비어 있음)인 buildings 행 #1 을
-//     "테스트 빠른 로그인 → 관리소장" 흐름이 곧바로 RFQ/호실관리/일보 등 모든
-//     메뉴를 시연할 수 있도록 멱등하게 채워 넣는다.
-//   - 사용자가 이미 직접 수정한 값(주소·세대수 중 하나라도 들어있음) 은 절대
-//     덮어쓰지 않는다 — 멱등 시드는 placeholder 상태일 때만 한 번 채운다.
+// [Task #629 → 2026-05 사장님 요청] DEV 환경 데모 건물의 기본 시드 값.
+//   - 사장님 명시 요청: 데모 건물 #1 = 실제 존재하는 "씨엘뷰오피스텔"
+//     (경기도 용인시 기흥구 동백중앙로 177) 로 고정.
+//     이렇게 해야 캐시/관리비 트랜잭션 + 각 기능 작동 검증 시 실제 주소
+//     기반의 데이터(우편번호/시군구/지번) 로 시연/회귀가 일관된다.
+//   - 백필 가드(아래 ensureDevDemoBuilding) 는 "현재 행이 씨엘뷰오피스텔이
+//     아니면 1회 강제로 씨엘뷰 데이터로 정렬한다" — 사장님이 데모 건물을
+//     의도적으로 다른 건물로 바꿔서 쓰는 운영 시나리오는 없다.
 //   - production 에서는 절대 실행되지 않는다 (seedTestUsers 가 NODE_ENV 가드).
 const DEMO_BUILDING_DEFAULTS = {
-  name: "테스트빌딩 (개발용 데모)",
-  addressFull: "서울특별시 강남구 테헤란로 152",
-  addressJibun: "서울특별시 강남구 역삼동 737",
-  sido: "서울특별시",
-  sigungu: "강남구",
-  dong: "역삼동",
-  zipCode: "06236",
-  totalUnits: 120,
-  totalFloors: 15,
-  basementFloors: 3,
-  totalArea: "12500.00",
-  buildingUsage: "공동주택",
+  name: "씨엘뷰오피스텔",
+  addressFull: "경기도 용인시 기흥구 동백중앙로 177",
+  // 정확한 지번은 미상 — 도로명 주소 시 "동백동" 까지만 박는다(클라이언트는
+  //   addressFull 을 우선 표기하고 jibun 은 보조 표시).
+  addressJibun: "경기도 용인시 기흥구 동백동",
+  sido: "경기도",
+  sigungu: "용인시 기흥구",
+  dong: "동백동",
+  zipCode: "17084",
+  totalUnits: 168,
+  totalFloors: 18,
+  basementFloors: 4,
+  totalArea: "18500.00",
+  buildingUsage: "업무시설",
   structureType: "철근콘크리트구조",
-  completionDate: "2015-03-20",
-  approvalDate: "2015-04-10",
+  completionDate: "2018-09-15",
+  approvalDate: "2018-10-05",
   elevatorCount: 4,
-  parkingSpaces: 150,
-  hasPlayground: true,
+  parkingSpaces: 180,
+  hasPlayground: false,
   hasGas: true,
-  hasSepticTank: true,
-  managementOfficePhone: "02-555-0100",
-  managementOfficeFax: "02-555-0101",
-  feeInquiryPhone: "02-555-0102",
-  facilitySafetyPhone: "02-555-0103",
-  landArea: "3500.00",
-  buildingArea: "1800.00",
-  buildingCoverageRatio: "51.43",
-  floorAreaRatio: "357.14",
-  electricCapacityKw: "850",
-  gasUsageMonthly: "9500",
+  hasSepticTank: false,
+  managementOfficePhone: "031-555-0100",
+  managementOfficeFax: "031-555-0101",
+  feeInquiryPhone: "031-555-0102",
+  facilitySafetyPhone: "031-555-0103",
+  landArea: "2100.00",
+  buildingArea: "1450.00",
+  buildingCoverageRatio: "69.05",
+  floorAreaRatio: "881.00",
+  electricCapacityKw: "1200",
+  gasUsageMonthly: "12000",
 } as const;
 
 const TEST_USERS = [
@@ -82,18 +86,16 @@ async function ensureDevDemoBuilding(): Promise<void> {
     return;
   }
 
-  // [Task #629] 백필 임계치는 클라이언트 placeholder 판정(2/3) 보다 더 엄격하게
-  //   — addressFull, totalUnits, completionDate 가 **세 개 모두** 비어 있을 때만
-  //   데모 데이터로 덮어쓴다. 이렇게 하면 DEV 사용자가 핵심 필드 중 하나라도
-  //   직접 채워둔 경우 서버 재시작 시 그 값을 잃지 않는다.
-  //   (참고: 클라이언트는 여전히 2/3 임계치로 placeholder 라고 판단하여 자동
-  //   edit-mode 진입 + 안내 배너를 띄운다. 서버는 그 중 한 번도 손대지 않은
-  //   '완전 placeholder' 만 시드한다.)
-  const emptyAddress = !existing.addressFull || existing.addressFull.trim() === "";
-  const emptyUnits = existing.totalUnits === null || existing.totalUnits === 0;
-  const emptyCompletion = !existing.completionDate;
-  const isFullPlaceholder = emptyAddress && emptyUnits && emptyCompletion;
-  if (!isFullPlaceholder) {
+  // [2026-05 사장님 요청] 데모 건물 #1 은 항상 "씨엘뷰오피스텔" 로 정렬한다.
+  //   - 현재 행의 name 또는 addressFull 이 DEMO_BUILDING_DEFAULTS 와 다르면
+  //     1회 갱신해서 강제로 동기화한다.
+  //   - 이미 동일한 데모 데이터로 채워져 있으면 아무것도 하지 않는다(멱등).
+  //   - 사장님이 데모 건물을 다른 건물로 바꿔쓰는 운영 시나리오는 없으므로
+  //     기존 "placeholder 일 때만 백필" 가드는 더 이상 필요하지 않다.
+  const isAlreadyDemo =
+    existing.name === DEMO_BUILDING_DEFAULTS.name &&
+    existing.addressFull === DEMO_BUILDING_DEFAULTS.addressFull;
+  if (isAlreadyDemo) {
     return;
   }
 
@@ -101,7 +103,10 @@ async function ensureDevDemoBuilding(): Promise<void> {
     .update(buildingsTable)
     .set(DEMO_BUILDING_DEFAULTS as Partial<typeof buildingsTable.$inferInsert>)
     .where(eq(buildingsTable.id, 1));
-  logger.info({ buildingId: 1 }, "DEV demo building (#1) backfilled (was placeholder)");
+  logger.info(
+    { buildingId: 1, name: DEMO_BUILDING_DEFAULTS.name },
+    "DEV demo building (#1) realigned to 씨엘뷰오피스텔",
+  );
 }
 
 // [Task #629] DEV DB 정합화 보고. 자동 삭제는 절대 하지 않는다 — 사용자가 한 번

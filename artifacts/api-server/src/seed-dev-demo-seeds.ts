@@ -53,9 +53,11 @@ async function ensureDemoVendorAndPartnerMapping(): Promise<number | null> {
     // [Task #682] 매칭 파이프라인(/rfqs/:id/matched-vendors)이 type="platform" 으로
     //   필터링하므로 demo vendor 도 platform 타입이어야 RFQ 카드에 매칭 수가 잡힌다.
     //   기존에 contracted 로 시드된 행이 있으면 platform 으로 보정한다.
+    //   [2026-05] 데모 건물 = 씨엘뷰오피스텔(용인 기흥) 이라 vendor 권역도
+    //     같은 시군구로 정렬해 매칭 결과가 자연스럽게 잡히게 한다.
     await db
       .update(vendorsTable)
-      .set({ type: "platform", category: "방수/도장", sido: "서울특별시", sigungu: "강남구" })
+      .set({ type: "platform", category: "방수/도장", sido: "경기도", sigungu: "용인시 기흥구" })
       .where(eq(vendorsTable.id, vendorId));
   } else {
     const [inserted] = await db
@@ -68,9 +70,9 @@ async function ensureDemoVendorAndPartnerMapping(): Promise<number | null> {
         contactName: "테스트파트너 담당자",
         phone: "010-0000-0000",
         email: "partner@test.com",
-        address: "서울특별시 강남구 테헤란로 152",
-        sido: "서울특별시",
-        sigungu: "강남구",
+        address: "경기도 용인시 기흥구 동백중앙로 200",
+        sido: "경기도",
+        sigungu: "용인시 기흥구",
         notes: "DEV 분할 프리뷰 격자 검증용 데모 vendor — 사용자가 손댔으면 그대로 둠.",
       })
       .returning({ id: vendorsTable.id });
@@ -127,9 +129,9 @@ async function ensureDemoRfq(vendorId: number | null): Promise<void> {
       vendor_ids, sido, sigungu, geo_scope
     ) values (
       ${DEMO_RFQ_TITLE}, '방수/도장', '옥상 방수',
-      '테스트빌딩 옥상 부분 방수 보수 견적 요청 (DEV 데모).',
-      '테스트빌딩 (개발용 데모)', ${DEMO_BUILDING_ID}, ${deadlineStr}, 'open',
-      ${String(vendorId)}, '서울특별시', '강남구', 'sigungu'
+      '씨엘뷰오피스텔 옥상 부분 방수 보수 견적 요청 (DEV 데모).',
+      '씨엘뷰오피스텔', ${DEMO_BUILDING_ID}, ${deadlineStr}, 'open',
+      ${String(vendorId)}, '경기도', '용인시 기흥구', 'sigungu'
     )
   `);
   logger.info({ vendorId }, "DEV demo RFQ seeded");
