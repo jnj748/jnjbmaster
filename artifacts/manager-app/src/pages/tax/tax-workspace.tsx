@@ -78,7 +78,8 @@ export default function TaxWorkspacePage() {
   const [correctDraft, setCorrectDraft] = useState<(Partial<Invoice> & { lines: Line[] }) | null>(null);
   // [Task #819] 일괄 처리 결과 모달 — 각 건의 성공/실패와 사유 표시 + 실패 건만 다시 선택해 재시도.
   type BulkResultItem = { id: number; ok: boolean; status?: string; error?: string };
-  const [bulkResult, setBulkResult] = useState<{ kind: "issue" | "cancel"; items: BulkResultItem[] } | null>(null);
+  type BulkResultRow = BulkResultItem & { vendorLabel: string };
+  const [bulkResult, setBulkResult] = useState<{ kind: "issue" | "cancel"; items: BulkResultRow[]; processedAt: string } | null>(null);
 
   async function reloadList() {
     if (!buildingId) return;
@@ -124,7 +125,8 @@ export default function TaxWorkspacePage() {
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(typeof j.error === "string" ? j.error : "일괄 발행 실패"); }
       const j = (await r.json()) as { results: BulkResultItem[]; ok: number; fail: number };
-      setBulkResult({ kind: "issue", items: j.results });
+      const enriched = j.results.map((r: BulkResultItem) => { const inv = list.find((i) => i.id === r.id); return { ...r, vendorLabel: inv ? `${inv.buyerName} ← ${inv.supplierName}` : "-" }; });
+      setBulkResult({ kind: "issue", items: enriched, processedAt: new Date().toLocaleString("ko-KR") });
       toast({ title: "일괄 발행 결과", description: `성공 ${j.ok}건${j.fail ? ` · 실패 ${j.fail}건` : ""}` });
       await reloadList();
       if (selectedId) await reloadDetail(selectedId);
@@ -143,7 +145,8 @@ export default function TaxWorkspacePage() {
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(typeof j.error === "string" ? j.error : "일괄 취소 실패"); }
       const j = (await r.json()) as { results: BulkResultItem[]; ok: number; fail: number };
-      setBulkResult({ kind: "cancel", items: j.results });
+      const enriched = j.results.map((r: BulkResultItem) => { const inv = list.find((i) => i.id === r.id); return { ...r, vendorLabel: inv ? `${inv.buyerName} ← ${inv.supplierName}` : "-" }; });
+      setBulkResult({ kind: "cancel", items: enriched, processedAt: new Date().toLocaleString("ko-KR") });
       toast({ title: "일괄 취소 결과", description: `성공 ${j.ok}건${j.fail ? ` · 실패 ${j.fail}건` : ""}` });
       setBulkCancelOpen(false);
       setBulkCancelReason("");
@@ -160,6 +163,27 @@ export default function TaxWorkspacePage() {
     const failedIds = bulkResult.items.filter((r) => !r.ok).map((r) => r.id);
     setSelectedIds(new Set(failedIds));
     setBulkResult(null);
+  }
+
+  function downloadBulkResultCsv() {
+    if (!bulkResult) return;
+    const now = new Date().toISOString().replace(/[:.]/g, "-");
+    const bom = "\uFEFF";
+    const header = "ID,거래처,결과,사유,처리 시각";
+    const rows = bulkResult.items.map((r) => {
+      const vendor = r.vendorLabel.replace(/"/g, '""');
+      const result = r.ok ? "성공" : "실패";
+      const reason = (r.ok ? (r.status ?? "") : (r.error ?? "알 수 없는 오류")).replace(/"/g, '""');
+      return `${r.id},"${vendor}",${result},"${reason}","${bulkResult.processedAt}"`;
+    });
+    const csv = bom + [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `일괄_${bulkResult.kind === "issue" ? "발행" : "취소"}_결과_${now}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function openCorrect() {
@@ -519,11 +543,10 @@ export default function TaxWorkspacePage() {
               </thead>
               <tbody>
                 {bulkResult?.items.map((r) => {
-                  const inv = list.find((i) => i.id === r.id);
                   return (
                     <tr key={r.id} className="border-t" data-testid={`row-bulk-result-${r.id}`}>
                       <td className="p-2 tabular-nums">{r.id}</td>
-                      <td className="p-2">{inv ? `${inv.buyerName} ← ${inv.supplierName}` : "-"}</td>
+                      <td className="p-2">{r.vendorLabel}</td>
                       <td className="p-2">
                         {r.ok
                           ? <Badge variant="outline" data-testid={`badge-bulk-result-ok-${r.id}`}>성공</Badge>
@@ -540,6 +563,7 @@ export default function TaxWorkspacePage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBulkResult(null)} data-testid="button-bulk-result-close">닫기</Button>
+            <Button variant="outline" onClick={downloadBulkResultCsv} data-testid="button-bulk-result-csv">CSV 다운로드</Button>
             <Button
               onClick={retryFailed}
               disabled={!bulkResult || bulkResult.items.every((r) => r.ok)}
