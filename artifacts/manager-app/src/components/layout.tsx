@@ -406,18 +406,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const base = import.meta.env.BASE_URL ?? "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const effectiveRole = getEffectiveRole(user);
+  // [Task #850] 사이드바 접힘 상태를 역할별로 저장해, 한 브라우저에서 여러 역할로
+  // 로그인하더라도 각 역할에 맞는 섹션 구조의 접힘 상태가 유지되도록 한다.
+  // 예) sidebar-collapsed:manager / sidebar-collapsed:accountant
+  const sidebarCollapsedKey = `sidebar-collapsed:${effectiveRole}`;
   // [사이드바 접기/펼치기] 큰 메뉴 헤더를 누르면 그 그룹의 작은 메뉴들이 접힘.
   // 상태는 localStorage 에 저장해 새로고침/페이지 이동 후에도 유지.
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
-      const raw = window.localStorage.getItem("sidebar-collapsed");
+      const raw = window.localStorage.getItem(`sidebar-collapsed:${effectiveRole}`);
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch { return new Set(); }
   });
   const defaultAllCollapsedRef = useRef(
-    typeof window === "undefined" || window.localStorage.getItem("sidebar-collapsed") === null
+    typeof window === "undefined" || window.localStorage.getItem(`sidebar-collapsed:${effectiveRole}`) === null
   );
+  // [Task #850] 역할이 바뀌면(세션 내 역할 전환 등) 새 역할의 저장 키에서 상태를 다시 읽어온다.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(sidebarCollapsedKey);
+      setCollapsedSections(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+      defaultAllCollapsedRef.current = raw === null;
+    } catch {
+      setCollapsedSections(new Set());
+      defaultAllCollapsedRef.current = true;
+    }
+  }, [sidebarCollapsedKey]);
   const isSectionCollapsed = useCallback((title: string) => {
     if (!title) return false;
     return defaultAllCollapsedRef.current || collapsedSections.has(title);
@@ -427,8 +445,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   useEffect(() => { setDrawerOpen(false); }, [location]);
-
-  const effectiveRole = getEffectiveRole(user);
 
   // [Task #270] 시니어 사용자(관리소장) 모바일 폰트 확대 스코프 마커.
   // index.css 의 @media (max-width: 899px) 오버라이드가 body[data-role="manager"]
@@ -473,10 +489,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         next = new Set(prev);
         if (next.has(title)) next.delete(title); else next.add(title);
       }
-      try { window.localStorage.setItem("sidebar-collapsed", JSON.stringify([...next])); } catch {}
+      try { window.localStorage.setItem(sidebarCollapsedKey, JSON.stringify([...next])); } catch {}
       return next;
     });
-  }, [sections]);
+  }, [sections, sidebarCollapsedKey]);
   const bottomItems = useMemo(
     () => getBottomNavItems(effectiveRole, disabledCategories, menuOverrides),
     [effectiveRole, disabledKey, overridesKey],
