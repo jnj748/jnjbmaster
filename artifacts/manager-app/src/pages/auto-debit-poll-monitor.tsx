@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, CheckCircle2, Clock, Bell, Trash2 } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, Clock, Bell, Trash2, ShieldAlert } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -33,6 +33,10 @@ interface MonitorResponse {
     intervalMs: number;
     staleThresholdMs: number;
     retainDays: number;
+    // [Task #853] audit 테이블 자체의 보존/모니터링 설정.
+    auditRetainDays: number;
+    purgeStaleThresholdMs: number;
+    purgeErrorWindowDays: number;
   };
   status: {
     lastStartedAt: string | null;
@@ -73,13 +77,26 @@ interface MonitorResponse {
     deleted: number;
     error: string | null;
   }>;
+  // [Task #853] "최근 N일간 오류 횟수" 카드용 집계.
+  purgeErrors: {
+    windowDays: number;
+    total: number;
+    byJob: Array<{
+      jobName: string;
+      errorCount: number;
+      lastError: string | null;
+      lastErrorAt: string | null;
+    }>;
+  };
   runs: RunRow[];
 }
 
 // [Task #852] jobName 한글 라벨. 알지 못하는 잡 이름은 그대로 노출한다.
+// [Task #853] audit 테이블 자체 정리 잡 (operational_purge_runs) 라벨 추가.
 const PURGE_JOB_LABELS: Record<string, string> = {
   auto_debit_poll_runs: "자동이체 폴링",
   usage_events: "이용현황 이벤트",
+  operational_purge_runs: "정리 이력 audit",
 };
 
 function formatMin(ms: number): string {
@@ -212,6 +229,40 @@ export default function AutoDebitPollMonitorPage() {
             )}
           </CardContent>
         </Card>
+        {/* [Task #853] 최근 N일간 정리 잡 오류 횟수. audit 테이블 기준이며,
+            잡별 errorCount/lastError/lastErrorAt 를 합산해 한 카드에 노출한다. */}
+        <Card data-testid="card-purge-errors">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              최근 {data?.purgeErrors.windowDays ?? "N"}일 정리 오류
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold" data-testid="text-purge-errors-total">
+              {data?.purgeErrors.total ?? 0}건
+            </div>
+            {data && data.purgeErrors.total > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {data.purgeErrors.byJob
+                  .filter((j) => j.errorCount > 0)
+                  .map((j) => (
+                    <Badge
+                      key={j.jobName}
+                      variant="destructive"
+                      className="text-xs"
+                      title={j.lastError ?? undefined}
+                      data-testid={`badge-purge-error-${j.jobName}`}
+                    >
+                      <ShieldAlert className="w-3 h-3 mr-1" />
+                      {PURGE_JOB_LABELS[j.jobName] ?? j.jobName} {j.errorCount}회
+                    </Badge>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground mt-1">오류 없음</div>
+            )}
+          </CardContent>
+        </Card>
         {/* [Task #852] 보존 정책 정리 결과를 카드로 노출. audit 테이블 기반이므로
             서버 재시작 후에도 마지막 정리 정보가 유지된다. */}
         <Card data-testid="card-last-purge">
@@ -337,6 +388,9 @@ export default function AutoDebitPollMonitorPage() {
       {data && (
         <p className="text-xs text-muted-foreground text-center">
           실행 이력은 {data.config.retainDays}일간 보존 후 자동 삭제됩니다. (환경변수 AUTO_DEBIT_POLL_RUN_RETAIN_DAYS)
+          {/* [Task #853] audit 테이블 자체 보존 + 잡 stale 알림 임계 안내. */}
+          <br />
+          정리 이력 audit 은 {data.config.auditRetainDays}일간 보존되며, 각 정리 잡이 {formatMin(data.config.purgeStaleThresholdMs)} 이상 미실행되거나 마지막 실행에 오류가 있으면 본사에 알림이 발송됩니다.
         </p>
       )}
     </div>

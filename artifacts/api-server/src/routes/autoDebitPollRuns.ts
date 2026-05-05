@@ -8,11 +8,24 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { desc, gte, eq, sql } from "drizzle-orm";
 import { db, autoDebitPollRunsTable, dispatchJobsTable, operationalPurgeRunsTable } from "@workspace/db";
 import { requireRole } from "../middlewares/auth";
-import { recordPurgeRun } from "../lib/operationalPurgeRecorder";
+import {
+  recordPurgeRun,
+  getPurgeErrorCounts,
+  OPERATIONAL_PURGE_RUNS_RETAIN_DAYS,
+} from "../lib/operationalPurgeRecorder";
+import { OPERATIONAL_PURGE_STALE_MS } from "../lib/operationalPurgeAlerts";
 
 // [Task #852] purge audit 테이블에서 사용하는 jobName 상수.
 //   API/스케줄러/마이그레이션에서 동일한 식별자를 써야 하므로 한 곳에서 관리한다.
 export const AUTO_DEBIT_POLL_PURGE_JOB_NAME = "auto_debit_poll_runs";
+
+// [Task #853] 모니터 화면 "최근 N일간 오류 횟수" 카드의 윈도우(일).
+//   환경변수 OPERATIONAL_PURGE_ERROR_WINDOW_DAYS 로 조절 가능.
+const PURGE_ERROR_WINDOW_DAYS = (() => {
+  const raw = process.env.OPERATIONAL_PURGE_ERROR_WINDOW_DAYS;
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n >= 1 ? n : 7;
+})();
 
 const router: IRouter = Router();
 
@@ -91,6 +104,11 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     .orderBy(desc(operationalPurgeRunsTable.startedAt))
     .limit(recentPurgeLimit);
 
+  // [Task #853] 모니터 화면 "최근 N일간 오류 횟수" 카드용 집계.
+  //   알려진 모든 purge 잡 별로 errorCount/lastError/lastErrorAt 를 반환한다.
+  const purgeErrorCounts = await getPurgeErrorCounts(PURGE_ERROR_WINDOW_DAYS);
+  const totalPurgeErrors = purgeErrorCounts.reduce((s, r) => s + r.errorCount, 0);
+
   res.json({
     config: {
       pollUrlConfigured,
@@ -98,6 +116,10 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
       intervalMs,
       staleThresholdMs,
       retainDays: AUTO_DEBIT_POLL_RUN_RETAIN_DAYS,
+      // [Task #853] audit 테이블 자체의 보존/모니터링 설정.
+      auditRetainDays: OPERATIONAL_PURGE_RUNS_RETAIN_DAYS,
+      purgeStaleThresholdMs: OPERATIONAL_PURGE_STALE_MS,
+      purgeErrorWindowDays: PURGE_ERROR_WINDOW_DAYS,
     },
     status: {
       lastStartedAt: last?.startedAt ?? null,
@@ -133,6 +155,18 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
       deleted: r.deleted,
       error: r.error,
     })),
+    // [Task #853] 모니터 화면 "최근 N일간 오류 횟수" 요약.
+    //   각 purge 잡 별로 windowDays 일 동안 error 가 채워진 row 수를 집계한다.
+    purgeErrors: {
+      windowDays: PURGE_ERROR_WINDOW_DAYS,
+      total: totalPurgeErrors,
+      byJob: purgeErrorCounts.map((s) => ({
+        jobName: s.jobName,
+        errorCount: s.errorCount,
+        lastError: s.lastError,
+        lastErrorAt: s.lastErrorAt,
+      })),
+    },
     runs: rows,
   });
 });
