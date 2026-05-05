@@ -50,8 +50,9 @@ const ALLOWED_MIME = new Set([
   "image/heic",
   "image/heif",
   "text/csv",
-  // 엑셀 (.xlsx 만 — .xls 레거시 BIFF 는 exceljs 미지원이라 친절 거절)
+  // 엑셀 (.xlsx + .xls — .xls 는 exceljs 가 못 읽으면 unknown 폴백)
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
   // 워드 (.docx 만)
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   // 한글
@@ -82,7 +83,7 @@ function inferMimeType(name: string | null | undefined): string {
   if (lower.endsWith(".csv")) return "text/csv";
   // [Task #868] 오피스/한글 확장자 추론.
   if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (lower.endsWith(".xls")) return "application/vnd.ms-excel"; // 화이트리스트 X — loadObject 에서 친절 거절.
+  if (lower.endsWith(".xls")) return "application/vnd.ms-excel";
   if (lower.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (lower.endsWith(".doc")) return "application/msword"; // 화이트리스트 X — loadObject 에서 친절 거절.
   if (lower.endsWith(".hwpx")) return "application/vnd.hancom.hwpx";
@@ -102,8 +103,7 @@ async function loadObject(objectPath: string, fileName: string | null): Promise<
   const file = await storage.getObjectEntityFile(objectPath);
   const [metadata] = await file.getMetadata();
   const mimeType = (metadata.contentType as string) || inferMimeType(fileName);
-  // [Task #868] .xls(엑셀 BIFF) / .doc(워드 구버전)은 안정 Node 파서가 없어
-  // 친절 거절 메시지로 안내한다.
+  // [Task #868] .doc(워드 구버전)은 안정 Node 파서가 없어 친절 거절.
   if (REJECTED_LEGACY_OFFICE_MIMES.has(mimeType)) {
     throw new OcrPipelineInputError(
       400,
@@ -171,20 +171,17 @@ export async function classifyDocument(opts: {
   // [Task #868] 엑셀/워드/한글은 평문으로 변환 후 LLM 에 텍스트로 보낸다.
   // (LLM 은 xlsx/docx/hwpx 바이너리를 직접 받지 못하므로 서버에서 풀어준다)
   if (isOfficeDocMime(opts.mimeType)) {
-    // 사장님 환경 휴리스틱: 엑셀(.xlsx)은 거의 100% 통장 거래내역이라
-    // 텍스트 추출 실패/빈 본문/LLM 분류 실패 시에도 bank_statement 로 폴백한다.
-    // (CSV 와 동일한 정책)
-    const isXlsx =
-      opts.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    const xlsxFallback: DocumentIngestionKind = isXlsx ? "bank_statement" : "unknown";
+    // 사장님 명세: 모호한 엑셀/한글/워드도 보관함에 일단 들어가야 한다 → 추출
+    // 실패나 LLM 분류 실패는 모두 unknown 으로 폴백해서 사용자가 화면에서 종류
+    // 를 직접 지정할 수 있게 한다. (단 통장 헤더 휴리스틱이 적중하면 즉답)
     let text = "";
     try {
       text = (await extractTextIfOfficeDoc({ buffer: opts.buffer, mimeType: opts.mimeType })) ?? "";
     } catch (err) {
       logger.warn({ err, mimeType: opts.mimeType }, "classifyDocument: officeDoc 텍스트 추출 실패");
-      return xlsxFallback;
+      return "unknown";
     }
-    if (text.length === 0) return xlsxFallback; // 빈 .hwp / 비어있는 워크북 등
+    if (text.length === 0) return "unknown"; // 빈 .hwp / .xls(BIFF 미지원) / 빈 워크북
     if (looksLikeBankStatement(text)) return "bank_statement";
     try {
       const routed = await routedGenerate({
@@ -200,10 +197,10 @@ export async function classifyDocument(opts: {
         return t as DocumentIngestionKind;
       }
       logger.warn({ t }, "classifyDocument(office) unknown response");
-      return xlsxFallback;
+      return "unknown";
     } catch (err) {
       logger.warn({ err }, "classifyDocument(office) failed");
-      return xlsxFallback;
+      return "unknown";
     }
   }
   try {

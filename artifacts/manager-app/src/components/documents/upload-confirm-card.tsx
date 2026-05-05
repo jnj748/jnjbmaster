@@ -66,11 +66,10 @@ interface Props {
   hint?: string;
 }
 
-// [Task #868] 한국 사무실에서 들어오는 엑셀(.xlsx), 워드(.docx),
-// 한글(.hwpx/.hwp) 까지 받는다.
-// .xls(엑셀 BIFF) / .doc(워드 구버전) 은 안정 Node 파서가 없어 서버에서 친절 거절.
+// [Task #868] 한국 사무실에서 들어오는 엑셀(.xlsx/.xls), 워드(.docx),
+// 한글(.hwpx/.hwp) 까지 받는다. .doc(워드 구버전) 은 서버에서 친절 거절.
 const DEFAULT_ACCEPT =
-  "image/*,application/pdf,text/csv,.xlsx,.docx,.hwpx,.hwp,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.hancom.hwpx,application/vnd.hancom.hwp";
+  "image/*,application/pdf,text/csv,.xlsx,.xls,.docx,.hwpx,.hwp,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.hancom.hwpx,application/vnd.hancom.hwp";
 
 export function UploadConfirmCard({ kindHint, accept = DEFAULT_ACCEPT, onConfirmed, hint }: Props) {
   const { token } = useAuth();
@@ -114,6 +113,24 @@ export function UploadConfirmCard({ kindHint, accept = DEFAULT_ACCEPT, onConfirm
         date: result.extraction.date ?? "",
         category: result.extraction.categoryCandidates[0] ?? null,
       });
+      // [Task #868] .hwp(구버전 한글)·.xls(엑셀 BIFF) 는 안정 Node 파서가 없어
+      // 본문 추출이 실패할 수 있다. 보관함에는 보존되지만 사용자에게 신버전 변환
+      // 안내를 가볍게 띄워 정확도를 높이도록 유도한다.
+      const lower = file.name.toLowerCase();
+      const looksEmpty = !result.extraction.rawText || result.extraction.rawText.length < 8;
+      if (lower.endsWith(".hwp") && (result.kind === "unknown" || looksEmpty)) {
+        toast({
+          title: `"${file.name}" 본문 추출 정확도 안내`,
+          description:
+            "한글 신버전(.hwpx) 또는 PDF 로 저장해서 다시 올리시면 정확도가 좋아집니다. 파일은 보관함에 저장되었습니다.",
+        });
+      } else if (lower.endsWith(".xls") && (result.kind === "unknown" || looksEmpty)) {
+        toast({
+          title: `"${file.name}" 본문 추출 정확도 안내`,
+          description:
+            "엑셀 신버전(.xlsx) 으로 저장해서 다시 올리시면 정확도가 좋아집니다. 파일은 보관함에 저장되었습니다.",
+        });
+      }
     } catch (err) {
       patch(key, { status: "error", error: err instanceof Error ? err.message : String(err) });
     }

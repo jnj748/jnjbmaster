@@ -15,10 +15,11 @@ import { logger } from "./logger";
 
 // 한국 사무실에서 받는 비-이미지/PDF MIME 들. 이걸 거치면 LLM 입력은 항상
 // 평문 텍스트가 된다.
-// .xls(레거시 BIFF) 는 exceljs 가 못 읽기 때문에 OFFICE_XLSX_MIMES 에서 빼고
-// 친절 거절(REJECTED_LEGACY_OFFICE_MIMES) 로 보낸다.
+// .xls(레거시 BIFF) 도 일단 받는다 — exceljs 가 못 읽으면 추출 빈 문자열로
+// 떨어져 보관함에 unknown 으로 보존되고, 사용자가 화면에서 종류를 직접 지정한다.
 export const OFFICE_XLSX_MIMES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls
 ]);
 
 export const OFFICE_DOCX_MIMES = new Set([
@@ -38,17 +39,12 @@ export const OFFICE_HWP_MIMES = new Set([
 ]);
 
 // 친절 거절 대상 — 화이트리스트엔 안 들어가지만 메시지를 따로 안내한다.
-// .xls 는 레거시 BIFF 포맷이라 exceljs 가 못 읽고, .doc 는 안정 Node 파서가
-// 없다. 둘 다 사용자에게 .xlsx/.docx 또는 PDF 로 저장해 달라고 안내한다.
+// .doc 는 안정 Node 파서가 없어 거절. (.xls 는 일단 받고 best-effort.)
 export const REJECTED_LEGACY_OFFICE_MIMES = new Set([
-  "application/vnd.ms-excel", // .xls — exceljs 미지원
   "application/msword", // .doc — Node 파서 없음
 ]);
 
 export function getRejectedLegacyOfficeMessage(mimeType: string): string | null {
-  if (mimeType === "application/vnd.ms-excel") {
-    return "엑셀 구버전(.xls)은 지원하지 않습니다. .xlsx 로 다시 저장해서 올려주세요";
-  }
   if (mimeType === "application/msword") {
     return "워드 구버전(.doc)은 지원하지 않습니다. .docx 또는 PDF 로 저장해서 다시 올려주세요";
   }

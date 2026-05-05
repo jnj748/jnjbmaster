@@ -40,7 +40,7 @@ async function makeHwpx(sectionTexts: string[]): Promise<Buffer> {
   return ab;
 }
 
-test("isOfficeDocMime 은 xlsx/docx/hwpx/hwp 만 true (.xls/.doc 는 거절 대상)", async () => {
+test("isOfficeDocMime 은 xlsx/xls/docx/hwpx/hwp 모두 true (.doc 만 친절 거절)", async () => {
   const { REJECTED_LEGACY_OFFICE_MIMES, getRejectedLegacyOfficeMessage } = await import(
     "../lib/officeDocs.js"
   );
@@ -50,17 +50,14 @@ test("isOfficeDocMime 은 xlsx/docx/hwpx/hwp 만 true (.xls/.doc 는 거절 대�
     isOfficeDocMime("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     true,
   );
-  // .xls(BIFF) 는 office 그룹이 아니라 친절 거절 그룹.
-  assert.equal(isOfficeDocMime("application/vnd.ms-excel"), false);
-  assert.equal(REJECTED_LEGACY_OFFICE_MIMES.has("application/vnd.ms-excel"), true);
-  assert.match(
-    getRejectedLegacyOfficeMessage("application/vnd.ms-excel") ?? "",
-    /엑셀 구버전.*xlsx/,
-  );
-  // .doc 도 친절 거절.
+  // .xls(BIFF) 도 office 그룹 — 추출 실패해도 unknown 으로 보관.
+  assert.equal(isOfficeDocMime("application/vnd.ms-excel"), true);
+  assert.equal(REJECTED_LEGACY_OFFICE_MIMES.has("application/vnd.ms-excel"), false);
+  // .doc 만 친절 거절 그룹.
   assert.equal(isOfficeDocMime("application/msword"), false);
   assert.equal(REJECTED_LEGACY_OFFICE_MIMES.has("application/msword"), true);
   assert.match(getRejectedLegacyOfficeMessage("application/msword") ?? "", /워드 구버전.*docx/);
+  assert.equal(getRejectedLegacyOfficeMessage("application/vnd.ms-excel"), null);
   assert.equal(
     isOfficeDocMime("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
     true,
@@ -68,6 +65,58 @@ test("isOfficeDocMime 은 xlsx/docx/hwpx/hwp 만 true (.xls/.doc 는 거절 대�
   assert.equal(isOfficeDocMime("application/vnd.hancom.hwpx"), true);
   assert.equal(isOfficeDocMime("application/vnd.hancom.hwp"), true);
   assert.equal(isOfficeDocMime("application/x-hwp"), true);
+});
+
+test(".xls(BIFF) 빈 더미는 추출 실패 → classifyDocument 에서 unknown 폴백", async () => {
+  const { classifyDocument, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
+  let called = false;
+  __setRoutedGenerateForTests((async () => {
+    called = true;
+    return {
+      text: "bill",
+      tier: "tier0" as const,
+      model: "stub",
+      inputTokens: null,
+      outputTokens: null,
+      costEstimateUsd: 0,
+    };
+  }) as never);
+  try {
+    const k = await classifyDocument({
+      buffer: Buffer.from("xls-binary-not-real"),
+      mimeType: "application/vnd.ms-excel",
+    });
+    // 추출 실패 → unknown 폴백. 사용자가 화면에서 직접 종류 지정.
+    assert.equal(k, "unknown");
+    assert.equal(called, false, "추출 실패 시 LLM 호출 없이 즉답해야 한다");
+  } finally {
+    __setRoutedGenerateForTests(null);
+  }
+});
+
+test("classifyDocument: 엑셀이지만 통장 키워드 없으면 unknown 폴백 (모호한 엑셀 보존)", async () => {
+  const { classifyDocument, __setRoutedGenerateForTests } = await import("../lib/ocrPipeline.js");
+  __setRoutedGenerateForTests((async () => ({
+    text: "이건 분류 못합니다 죄송",
+    tier: "tier0" as const,
+    model: "stub",
+    inputTokens: null,
+    outputTokens: null,
+    costEstimateUsd: 0,
+  })) as never);
+  try {
+    const buf = await makeXlsx([
+      ["이름", "부서", "메모"],
+      ["홍길동", "관리", "2026 신년 인사"],
+    ]);
+    const k = await classifyDocument({
+      buffer: buf,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    assert.equal(k, "unknown", "통장 키워드 없고 LLM 도 분류 못하면 unknown 으로 보존");
+  } finally {
+    __setRoutedGenerateForTests(null);
+  }
 });
 
 test("extractXlsxText: 첫 시트를 CSV 한 덩어리로 변환", async () => {

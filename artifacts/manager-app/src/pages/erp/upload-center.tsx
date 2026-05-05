@@ -89,8 +89,8 @@ export default function UploadCenterPage() {
           확인 버튼을 누르면 보관함에 저장되고, 지출결의·부과·수납·회계 화면에서 다시 입력하지 않고 그대로 사용할 수 있습니다.
         </p>
         <p className="text-xs text-muted-foreground">
-          지원 파일: PDF, JPG/PNG/HEIC 이미지, 엑셀(.xlsx), 한글(.hwpx/.hwp), 워드(.docx), CSV
-          <span className="ml-1 opacity-70">· .xls/.doc 구버전은 .xlsx/.docx 로 저장해 올려주세요</span>
+          지원 파일: PDF, JPG/PNG/HEIC 이미지, 엑셀(.xlsx/.xls), 한글(.hwpx/.hwp), 워드(.docx), CSV
+          <span className="ml-1 opacity-70">· .doc 구버전은 .docx 또는 PDF 로 저장해 올려주세요</span>
         </p>
       </div>
 
