@@ -88,6 +88,9 @@ router.get("/admin/auto-debit-poll-runs", async (req: Request, res: Response): P
     lastAlertDispatch: lastDispatch
       ? { dispatchedAt: lastDispatch.createdAt, status: lastDispatch.status }
       : null,
+    // [Task #845] 마지막 보존 정책 정리 결과(시각/삭제 건수). 서버 부팅 후 한 번도
+    //   실행되지 않았다면 null. in-memory 상태이므로 재시작 시 초기화된다.
+    lastPurge: lastPurgeState,
     runs: rows,
   });
 });
@@ -98,12 +101,32 @@ export const AUTO_DEBIT_POLL_RUN_RETAIN_DAYS = (() => {
   return Number.isFinite(n) && n >= 1 ? n : 90;
 })();
 
+// [Task #845] 마지막 purge 결과를 in-memory 로 기록해 모니터 API 에서 노출.
+//   scheduler 와 routes 가 동일 프로세스에서 동작하므로 모듈 변수로 충분.
+//   더 강한 가시성이 필요해지면 별도 audit 테이블로 승격할 것.
+export interface AutoDebitPollPurgeState {
+  ranAt: string;
+  deleted: number;
+  retentionDays: number;
+}
+let lastPurgeState: AutoDebitPollPurgeState | null = null;
+
+export function getLastAutoDebitPollPurge(): AutoDebitPollPurgeState | null {
+  return lastPurgeState;
+}
+
 export async function purgeOldAutoDebitPollRuns(retentionDays: number = AUTO_DEBIT_POLL_RUN_RETAIN_DAYS): Promise<number> {
   const cutoff = new Date(Date.now() - retentionDays * 86400000);
   const result = await db.execute(
     sql`DELETE FROM ${autoDebitPollRunsTable} WHERE started_at < ${cutoff}`,
   );
-  return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  lastPurgeState = {
+    ranAt: new Date().toISOString(),
+    deleted,
+    retentionDays,
+  };
+  return deleted;
 }
 
 export default router;

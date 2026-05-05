@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, CheckCircle2, Clock, Bell } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, Clock, Bell, Trash2 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL ?? "/";
 const API_BASE = `${BASE}api`.replace(/\/+/g, "/");
@@ -51,6 +51,12 @@ interface MonitorResponse {
   lastAlertDispatch: {
     dispatchedAt: string;
     status: string;
+  } | null;
+  // [Task #845] 마지막 보존 정책 정리 결과. 부팅 후 한 번도 실행되지 않았다면 null.
+  lastPurge: {
+    ranAt: string;
+    deleted: number;
+    retentionDays: number;
   } | null;
   runs: RunRow[];
 }
@@ -135,7 +141,7 @@ export default function AutoDebitPollMonitorPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">마지막 실행</CardTitle></CardHeader>
           <CardContent>
@@ -182,6 +188,25 @@ export default function AutoDebitPollMonitorPage() {
               </Badge>
             ) : (
               <div className="text-xs text-muted-foreground mt-1">발송 이력 없음</div>
+            )}
+          </CardContent>
+        </Card>
+        {/* [Task #845] 보존 정책 정리 결과를 카드로 노출. 부팅 후 미실행이면 "이번 부팅 후 미실행". */}
+        <Card data-testid="card-last-purge">
+          <CardHeader className="pb-2"><CardTitle className="text-sm">마지막 정리</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-sm font-mono" data-testid="text-last-purge-ran-at">
+              {data?.lastPurge ? fmtDateTime(data.lastPurge.ranAt) : "-"}
+            </div>
+            {data?.lastPurge ? (
+              <Badge variant="outline" className="mt-1" data-testid="badge-last-purge-deleted">
+                <Trash2 className="w-3 h-3 mr-1" />
+                {data.lastPurge.deleted}건 삭제 · {data.lastPurge.retentionDays}일 보존
+              </Badge>
+            ) : (
+              <div className="text-xs text-muted-foreground mt-1">
+                {data ? `이번 부팅 후 미실행 (보존 ${data.config.retainDays}일)` : ""}
+              </div>
             )}
           </CardContent>
         </Card>
