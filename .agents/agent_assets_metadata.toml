@@ -36,3 +36,9 @@ id = "ndy4cIEikUPeA5gkyE7Ts"
 uri = "file://.local/outputs/-------------.pptx"
 type = "slides"
 title = "관리소장 모드 홍보 데크 (PPTX)"
+
+[[outputs]]
+id = "2IhmQuhh8jiGBPD91PVQk"
+uri = "file://exports/managerdalin-source-20260512-0333.zip"
+type = "unspecified"
+title = "관리의달인 소스 (Cursor 작업용) — 2026-05-12 03:33"
