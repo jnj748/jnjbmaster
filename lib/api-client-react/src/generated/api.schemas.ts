@@ -1347,8 +1347,6 @@ export const CreateRfqBodyServiceType = {
   inspection: "inspection",
   installation: "installation",
   other: "other",
-  breakdown: "breakdown",
-  defect: "defect",
 } as const;
 
 export interface CreateRfqBody {
@@ -1415,8 +1413,6 @@ export const UpdateRfqBodyServiceType = {
   inspection: "inspection",
   installation: "installation",
   other: "other",
-  breakdown: "breakdown",
-  defect: "defect",
 } as const;
 
 export type UpdateRfqBodyStatus =

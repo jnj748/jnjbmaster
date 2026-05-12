@@ -1853,8 +1853,6 @@ export const CreateRfqBody = zod.object({
       zod.literal("inspection"),
       zod.literal("installation"),
       zod.literal("other"),
-      zod.literal("breakdown"),
-      zod.literal("defect"),
       zod.literal(null),
     ])
     .nullish(),
@@ -2001,8 +1999,6 @@ export const UpdateRfqBody = zod.object({
       zod.literal("inspection"),
       zod.literal("installation"),
       zod.literal("other"),
-      zod.literal("breakdown"),
-      zod.literal("defect"),
       zod.literal(null),
     ])
     .nullish(),

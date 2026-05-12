@@ -19,6 +19,4 @@ export const CreateRfqBodyServiceType = {
   inspection: "inspection",
   installation: "installation",
   other: "other",
-  breakdown: "breakdown",
-  defect: "defect",
 } as const;

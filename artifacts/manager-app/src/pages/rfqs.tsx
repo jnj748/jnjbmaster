@@ -1200,7 +1200,54 @@ function RfqCard({
                   현장방문 필요
                 </Badge>
               )}
+              {/* [Phase1 마무리 C] 마감 임박 — D-3 이하(과거는 여기 표시 안 함;
+                  마감일 지난 RFQ 는 status 가 closed/cancelled 로 바뀌므로 별도 라벨). */}
+              {(() => {
+                if (rfq.status !== "open" || !rfq.deadline) return null;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dl = new Date(rfq.deadline);
+                dl.setHours(0, 0, 0, 0);
+                const days = Math.round(
+                  (dl.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
+                );
+                if (days < 0 || days > 3) return null;
+                return (
+                  <Badge
+                    className="bg-red-100 text-red-700 border border-red-300"
+                    data-testid={`rfq-deadline-soon-${rfq.id}`}
+                  >
+                    마감 임박 D-{days}
+                  </Badge>
+                );
+              })()}
+              {/* [Phase1 마무리 C] 매칭 중 — 등록 후 24시간 이내 + 견적 0건 추정.
+                  (RfqCard 단독에서 견적 카운트를 보장하기 어려우므로 createdAt 기반.) */}
+              {(() => {
+                if (rfq.status !== "open" || !rfq.createdAt) return null;
+                const ageMs = Date.now() - new Date(rfq.createdAt).getTime();
+                if (ageMs < 0 || ageMs > 24 * 60 * 60 * 1000) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className="text-blue-700 border-blue-300 bg-blue-50"
+                    data-testid={`rfq-matching-${rfq.id}`}
+                  >
+                    파트너 매칭 중
+                  </Badge>
+                );
+              })()}
             </div>
+            {/* [Phase1 마무리 C] 매칭 중 안내문 — 파트너에게 견적이 도착할 때까지
+                기다려도 된다는 시그널을 매니저에게 분명히 전달. */}
+            {rfq.status === "open" &&
+              rfq.createdAt &&
+              Date.now() - new Date(rfq.createdAt).getTime() <
+                24 * 60 * 60 * 1000 && (
+                <p className="text-xs text-blue-700 mt-1">
+                  파트너사에서 견적을 준비하고 있어요
+                </p>
+              )}
 
             {/* [Task #682] 매칭/파이프라인 배지 행 — 카드 식별 정보 바로 아래 */}
             <div

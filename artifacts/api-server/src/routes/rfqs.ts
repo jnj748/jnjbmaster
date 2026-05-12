@@ -133,7 +133,10 @@ const RFQ_CATEGORY_VALUES: ReadonlySet<string> = new Set([
   "defect_diagnosis", "building_maintenance", "mechanical", "landscaping", "other",
 ]);
 
-// 신규 용역종류 + DB 잔존 breakdown/defect(응답 직렬화 시 null 로 떨어지지 않게 유지).
+// [Phase1 마무리 A] 응답 직렬화 화이트리스트 — 입력 검증과는 분리.
+//   입력(create/update) 검증은 OpenAPI/zod 스키마(SoT 5개) 가 담당하고,
+//   여기 Set 은 DB 에 잔존하는 레거시 breakdown/defect 가 응답에서 null 로
+//   떨어지지 않도록 보존하는 용도. 신규 입력 경로에서는 zod 가 5개로 제한한다.
 const RFQ_SERVICE_TYPE_VALUES: ReadonlySet<string> = new Set([
   ...RFQ_SERVICE_TYPES,
   "breakdown",

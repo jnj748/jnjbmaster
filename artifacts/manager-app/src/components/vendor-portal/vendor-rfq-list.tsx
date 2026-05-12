@@ -224,8 +224,54 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
   const hasQuoteFor = (rfqId: number) =>
     myQuotes.some((q: any) => q.rfqId === rfqId);
 
+  // [Phase1 마무리 D] 크레딧 잔액 부족 경고.
+  //   creditsEnabled 인 파트너에게 잔액이 임계 미만이면 상단 배너로 알린다.
+  //   임계: 노출된 RFQ 들의 expectedCreditCost 최댓값(없으면 10C 기본). 1건도
+  //   제출하기 어려운 시점에 충전 동선을 노출하는 게 목적.
+  const maxExpectedCost = (rfqs as any[]).reduce((max, r) => {
+    const c = typeof r.expectedCreditCost === "number" ? r.expectedCreditCost : 0;
+    return c > max ? c : max;
+  }, 0);
+  // [architect fix] 최소 임계 10C 보장 — expectedCreditCost 가 1~9C 인 RFQ 만
+  //   노출돼도 잔액이 한 자리 수면 사실상 충전이 시급하므로 배너를 띄운다.
+  const lowCreditThreshold = Math.max(maxExpectedCost, 10);
+  const showLowCreditBanner =
+    creditsEnabled &&
+    !!wallet &&
+    typeof wallet.balance === "number" &&
+    wallet.balance < lowCreditThreshold;
+
   return (
     <div className="space-y-4">
+      {showLowCreditBanner && (
+        <Card
+          className="border-amber-300 bg-amber-50"
+          data-testid="banner-low-credit"
+        >
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-bold text-amber-900">
+                크레딧이 부족해요. 충전하면 더 많은 견적을 제출할 수 있어요
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                현재 잔액 {wallet?.balance ?? 0}C
+                {maxExpectedCost > 0 ? ` · 견적 1건 예상 차감 최대 ${maxExpectedCost}C` : ""}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 h-11 text-[15px]"
+              onClick={() => {
+                window.location.assign("/me/credits");
+              }}
+              data-testid="button-low-credit-topup"
+            >
+              크레딧 충전하기
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {rfqs.length > 0 ? (
         <div className="space-y-3">
           {rfqs.map((rfq: any) => (
