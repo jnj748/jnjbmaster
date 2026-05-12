@@ -1,23 +1,30 @@
 export const RFQ_SERVICE_TYPES = [
-  "breakdown",
-  "defect",
+  "not_working",
   "replacement",
   "inspection",
+  "installation",
   "other",
 ] as const;
 
 export type RfqServiceType = (typeof RFQ_SERVICE_TYPES)[number];
 
 export const RFQ_SERVICE_TYPE_LABELS: Record<RfqServiceType, string> = {
-  breakdown: "고장",
-  defect: "불량",
+  not_working: "작동 안 함",
   replacement: "교체",
-  inspection: "점검",
+  inspection: "정기점검",
+  installation: "신규 설치",
   other: "기타",
+};
+
+/** DB·레거시 payload에 남아 있을 수 있는 breakdown/defect → 통합 라벨. */
+const LEGACY_SERVICE_TYPE_LABELS: Record<string, string> = {
+  breakdown: "작동 안 함",
+  defect: "작동 안 함",
 };
 
 export function rfqServiceTypeLabel(value: string | null | undefined): string {
   if (!value) return "";
+  if (value in LEGACY_SERVICE_TYPE_LABELS) return LEGACY_SERVICE_TYPE_LABELS[value]!;
   return (RFQ_SERVICE_TYPE_LABELS as Record<string, string>)[value] ?? value;
 }
 
@@ -35,6 +42,7 @@ export const RFQ_CATEGORY_LABELS: Record<string, string> = {
   defect_diagnosis: "하자진단",
   building_maintenance: "건물관리",
   mechanical: "기계설비",
+  landscaping: "조경",
   other: "기타",
 };
 

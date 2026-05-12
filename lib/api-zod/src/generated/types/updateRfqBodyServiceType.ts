@@ -14,9 +14,11 @@ export type UpdateRfqBodyServiceType =
   | null;
 
 export const UpdateRfqBodyServiceType = {
-  breakdown: "breakdown",
-  defect: "defect",
+  not_working: "not_working",
   replacement: "replacement",
   inspection: "inspection",
+  installation: "installation",
   other: "other",
+  breakdown: "breakdown",
+  defect: "defect",
 } as const;

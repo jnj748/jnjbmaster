@@ -1843,15 +1843,18 @@ export const CreateRfqBody = zod.object({
     "defect_diagnosis",
     "building_maintenance",
     "mechanical",
+    "landscaping",
     "other",
   ]),
   serviceType: zod
     .union([
-      zod.literal("breakdown"),
-      zod.literal("defect"),
+      zod.literal("not_working"),
       zod.literal("replacement"),
       zod.literal("inspection"),
+      zod.literal("installation"),
       zod.literal("other"),
+      zod.literal("breakdown"),
+      zod.literal("defect"),
       zod.literal(null),
     ])
     .nullish(),
@@ -1987,16 +1990,19 @@ export const UpdateRfqBody = zod.object({
       "defect_diagnosis",
       "building_maintenance",
       "mechanical",
+      "landscaping",
       "other",
     ])
     .optional(),
   serviceType: zod
     .union([
-      zod.literal("breakdown"),
-      zod.literal("defect"),
+      zod.literal("not_working"),
       zod.literal("replacement"),
       zod.literal("inspection"),
+      zod.literal("installation"),
       zod.literal("other"),
+      zod.literal("breakdown"),
+      zod.literal("defect"),
       zod.literal(null),
     ])
     .nullish(),

@@ -1330,6 +1330,7 @@ export const CreateRfqBodyCategory = {
   defect_diagnosis: "defect_diagnosis",
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
+  landscaping: "landscaping",
   other: "other",
 } as const;
 
@@ -1341,11 +1342,13 @@ export type CreateRfqBodyServiceType =
   | null;
 
 export const CreateRfqBodyServiceType = {
-  breakdown: "breakdown",
-  defect: "defect",
+  not_working: "not_working",
   replacement: "replacement",
   inspection: "inspection",
+  installation: "installation",
   other: "other",
+  breakdown: "breakdown",
+  defect: "defect",
 } as const;
 
 export interface CreateRfqBody {
@@ -1395,6 +1398,7 @@ export const UpdateRfqBodyCategory = {
   defect_diagnosis: "defect_diagnosis",
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
+  landscaping: "landscaping",
   other: "other",
 } as const;
 
@@ -1406,11 +1410,13 @@ export type UpdateRfqBodyServiceType =
   | null;
 
 export const UpdateRfqBodyServiceType = {
-  breakdown: "breakdown",
-  defect: "defect",
+  not_working: "not_working",
   replacement: "replacement",
   inspection: "inspection",
+  installation: "installation",
   other: "other",
+  breakdown: "breakdown",
+  defect: "defect",
 } as const;
 
 export type UpdateRfqBodyStatus =

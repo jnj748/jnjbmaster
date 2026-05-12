@@ -130,10 +130,15 @@ function toIsoDate(d: Date | string | null | undefined): string | null {
 const RFQ_CATEGORY_VALUES: ReadonlySet<string> = new Set([
   "elevator", "water_tank", "fire_safety", "electrical", "gas", "septic",
   "cleaning", "security", "waterproofing", "maintenance_repair",
-  "defect_diagnosis", "building_maintenance", "mechanical", "other",
+  "defect_diagnosis", "building_maintenance", "mechanical", "landscaping", "other",
 ]);
 
-const RFQ_SERVICE_TYPE_VALUES: ReadonlySet<string> = new Set(RFQ_SERVICE_TYPES);
+// 신규 용역종류 + DB 잔존 breakdown/defect(응답 직렬화 시 null 로 떨어지지 않게 유지).
+const RFQ_SERVICE_TYPE_VALUES: ReadonlySet<string> = new Set([
+  ...RFQ_SERVICE_TYPES,
+  "breakdown",
+  "defect",
+]);
 
 const warnedRfqEnumIds = new Set<string>();
 function warnLegacyRfqEnumOnce(rfqId: number, field: string, original: string): void {

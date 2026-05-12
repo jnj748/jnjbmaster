@@ -23,5 +23,6 @@ export const UpdateRfqBodyCategory = {
   defect_diagnosis: "defect_diagnosis",
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
+  landscaping: "landscaping",
   other: "other",
 } as const;

@@ -139,6 +139,7 @@ const categoryOptions = [
   { value: "defect_diagnosis", label: "하자진단" },
   { value: "building_maintenance", label: "건물관리" },
   { value: "mechanical", label: "기계설비" },
+  { value: "landscaping", label: "조경" },
   { value: "other", label: "기타" },
 ];
 

@@ -24,11 +24,8 @@ export const vendorCategoriesTable = pgTable(
 
 export type VendorCategory = typeof vendorCategoriesTable.$inferSelect;
 
-// [Task #734] 시드 — 사장님 결정 반영:
-//   - 'security' (경비) 는 active=false (기존 vendor 데이터는 보존, 신규 가입에서만 숨김).
-//   - 신규 대분류 3개: telecom (정보통신) / water_leak (누수) / hvac (냉난방).
-//   - 'mechanical' 의 자식에서 '냉난방/온수' 는 새 hvac 대분류로 분리(중복 방지).
-//   - 'water_leak', 'hvac', 'other' 는 자식 비움 — 본사 관리자가 화면에서 직접 추가.
+// [Task #734] 시드 — 사장님 결정 반영 + 가스/저수조/정화조/조경 대분류·자식,
+//   누수·냉난방 자식, consumables 비활성(MRO Phase 3 예정).
 export const VENDOR_CATEGORY_SEED: {
   code: string;
   label: string;
@@ -38,7 +35,7 @@ export const VENDOR_CATEGORY_SEED: {
 }[] = [
   // ── 대분류 ───────────────────────────────────────────
   { code: "facility_maintenance", label: "시설 및 영선", parentCode: null, sortOrder: 10, active: true },
-  { code: "consumables", label: "소모품 공급", parentCode: null, sortOrder: 20, active: true },
+  { code: "consumables", label: "소모품 공급", parentCode: null, sortOrder: 20, active: false },
   { code: "cleaning", label: "청소", parentCode: null, sortOrder: 30, active: true },
   { code: "security", label: "경비", parentCode: null, sortOrder: 40, active: false },
   { code: "fire_safety", label: "소방", parentCode: null, sortOrder: 50, active: true },
@@ -48,6 +45,10 @@ export const VENDOR_CATEGORY_SEED: {
   { code: "telecom", label: "정보통신", parentCode: null, sortOrder: 85, active: true },
   { code: "water_leak", label: "누수", parentCode: null, sortOrder: 90, active: true },
   { code: "hvac", label: "냉난방", parentCode: null, sortOrder: 95, active: true },
+  { code: "gas", label: "가스", parentCode: null, sortOrder: 96, active: true },
+  { code: "water_tank", label: "저수조", parentCode: null, sortOrder: 97, active: true },
+  { code: "septic", label: "정화조", parentCode: null, sortOrder: 98, active: true },
+  { code: "landscaping", label: "조경", parentCode: null, sortOrder: 99, active: true },
   { code: "other", label: "기타", parentCode: null, sortOrder: 999, active: true },
 
   // ── 시설 및 영선 자식 ───────────────────────────────
@@ -58,11 +59,11 @@ export const VENDOR_CATEGORY_SEED: {
   { code: "fm_carpentry", label: "목공", parentCode: "facility_maintenance", sortOrder: 5, active: true },
   { code: "fm_maintenance_repair", label: "수선유지", parentCode: "facility_maintenance", sortOrder: 6, active: true },
 
-  // ── 소모품 공급 자식 ───────────────────────────────
-  { code: "cs_cleaning_supplies", label: "청소 소모품", parentCode: "consumables", sortOrder: 1, active: true },
-  { code: "cs_paper_detergent", label: "화장지/세제", parentCode: "consumables", sortOrder: 2, active: true },
-  { code: "cs_lighting", label: "형광등/전구", parentCode: "consumables", sortOrder: 3, active: true },
-  { code: "cs_filters", label: "필터류", parentCode: "consumables", sortOrder: 4, active: true },
+  // ── 소모품 공급 자식 (대분류 비활성 — MRO Phase 3) ───
+  { code: "cs_cleaning_supplies", label: "청소 소모품", parentCode: "consumables", sortOrder: 1, active: false },
+  { code: "cs_paper_detergent", label: "화장지/세제", parentCode: "consumables", sortOrder: 2, active: false },
+  { code: "cs_lighting", label: "형광등/전구", parentCode: "consumables", sortOrder: 3, active: false },
+  { code: "cs_filters", label: "필터류", parentCode: "consumables", sortOrder: 4, active: false },
 
   // ── 청소 자식 ───────────────────────────────────────
   { code: "cl_move_in", label: "입주청소", parentCode: "cleaning", sortOrder: 1, active: true },
@@ -91,17 +92,46 @@ export const VENDOR_CATEGORY_SEED: {
   { code: "el_lighting_replacement", label: "조명 교체", parentCode: "electrical", sortOrder: 3, active: true },
   { code: "el_construction", label: "전기공사", parentCode: "electrical", sortOrder: 4, active: true },
 
-  // ── 기계설비 자식 ('냉난방/온수' 는 hvac 대분류로 이동) ──
+  // ── 기계설비 자식 ─────────────────────────────────
   { code: "me_machine_room", label: "기계실 관리", parentCode: "mechanical", sortOrder: 1, active: true },
   { code: "me_pump_motor", label: "펌프/모터", parentCode: "mechanical", sortOrder: 2, active: true },
   { code: "me_boiler", label: "보일러", parentCode: "mechanical", sortOrder: 3, active: true },
 
-  // ── 정보통신 자식 (사장님 명시 5개) ──────────────────
+  // ── 정보통신 자식 ──────────────────────────────────
   { code: "tc_maintenance", label: "정보통신유지관리", parentCode: "telecom", sortOrder: 1, active: true },
   { code: "tc_performance_inspection", label: "정보통신성능점검", parentCode: "telecom", sortOrder: 2, active: true },
   { code: "tc_equipment_repair", label: "정보통신설비 수리", parentCode: "telecom", sortOrder: 3, active: true },
   { code: "tc_internet_repair", label: "인터넷 수리", parentCode: "telecom", sortOrder: 4, active: true },
   { code: "tc_internet_install", label: "인터넷 신규 설치", parentCode: "telecom", sortOrder: 5, active: true },
 
-  // 누수(water_leak) / 냉난방(hvac) / 기타(other): 자식 없음 — 관리자가 화면에서 직접 추가.
+  // ── 누수 자식 ───────────────────────────────────────
+  { code: "wl_detection", label: "누수 탐지", parentCode: "water_leak", sortOrder: 1, active: true },
+  { code: "wl_repair", label: "누수 보수", parentCode: "water_leak", sortOrder: 2, active: true },
+  { code: "wl_waterproofing", label: "방수 처리", parentCode: "water_leak", sortOrder: 3, active: true },
+
+  // ── 냉난방 자식 ────────────────────────────────────
+  { code: "hv_maintenance", label: "냉난방 유지관리", parentCode: "hvac", sortOrder: 1, active: true },
+  { code: "hv_repair", label: "냉난방 수리", parentCode: "hvac", sortOrder: 2, active: true },
+  { code: "hv_replacement", label: "냉난방 교체", parentCode: "hvac", sortOrder: 3, active: true },
+  { code: "hv_inspection", label: "냉난방 점검", parentCode: "hvac", sortOrder: 4, active: true },
+
+  // ── 가스 자식 ─────────────────────────────────────
+  { code: "gas_safety_inspection", label: "가스안전점검", parentCode: "gas", sortOrder: 1, active: true },
+  { code: "gas_facility_repair", label: "가스설비 수리", parentCode: "gas", sortOrder: 2, active: true },
+  { code: "gas_pipe_replacement", label: "배관 교체", parentCode: "gas", sortOrder: 3, active: true },
+
+  // ── 저수조 자식 ───────────────────────────────────
+  { code: "wt_cleaning", label: "저수조 청소", parentCode: "water_tank", sortOrder: 1, active: true },
+  { code: "wt_inspection", label: "수질 검사", parentCode: "water_tank", sortOrder: 2, active: true },
+  { code: "wt_repair", label: "저수조 보수", parentCode: "water_tank", sortOrder: 3, active: true },
+
+  // ── 정화조 자식 ───────────────────────────────────
+  { code: "st_cleaning", label: "정화조 청소", parentCode: "septic", sortOrder: 1, active: true },
+  { code: "st_inspection", label: "정화조 점검", parentCode: "septic", sortOrder: 2, active: true },
+
+  // ── 조경 자식 ─────────────────────────────────────
+  { code: "ls_regular", label: "정기 조경관리", parentCode: "landscaping", sortOrder: 1, active: true },
+  { code: "ls_tree_pruning", label: "수목 전지·제거", parentCode: "landscaping", sortOrder: 2, active: true },
+  { code: "ls_planting", label: "식재", parentCode: "landscaping", sortOrder: 3, active: true },
+  { code: "ls_pest_control", label: "병해충 방제", parentCode: "landscaping", sortOrder: 4, active: true },
 ];
