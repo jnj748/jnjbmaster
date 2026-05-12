@@ -108,7 +108,7 @@ export default function PopbillSettingsPage() {
             </div>
           ))}
           <p className="text-xs text-muted-foreground">
-            템플릿 코드 미설정 시 LMS 로 자동 폴백됩니다(채널이 popbill_kakao 일 때 동일 메시지로 발송).
+            템플릿 코드 미설정 시 LMS 로 자동 폴백됩니다(채널이 aligo_kakao 일 때 동일 메시지로 발송).
           </p>
         </CardContent>
       </Card>

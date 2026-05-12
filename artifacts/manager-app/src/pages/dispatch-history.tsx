@@ -29,14 +29,16 @@ interface JobRow {
   createdAt: string;
 }
 
-const CHANNELS = ["popbill_kakao", "popbill_lms", "popbill_sms", "openbanking", "nts_verify", "pg", "kyc"] as const;
+const CHANNELS = ["aligo_kakao", "aligo_lms", "aligo_sms", "openbanking", "nts_verify", "pg", "kyc"] as const;
 const STATUSES = ["queued", "sending", "sent", "failed", "dead", "cancelled"] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   queued: "대기", sending: "발송중", sent: "성공", failed: "실패", dead: "최종실패", cancelled: "취소",
 };
 const CHANNEL_LABEL: Record<string, string> = {
-  popbill_kakao: "카카오", popbill_lms: "LMS", popbill_sms: "SMS",
+  aligo_kakao: "알림톡",
+  aligo_lms: "LMS",
+  aligo_sms: "SMS",
   openbanking: "오픈뱅킹(예약)", nts_verify: "국세청(예약)", pg: "PG(예약)", kyc: "KYC(예약)",
 };
 

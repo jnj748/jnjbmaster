@@ -257,8 +257,8 @@ router.post(
 // [Task #816] 독촉장 채널('post'/'sms'/'kakao'/'email') → dispatch_jobs 채널 슬러그 매핑.
 function mapDunningChannel(channel: "post" | "sms" | "kakao" | "email"): string {
   switch (channel) {
-    case "sms": return "popbill_sms";
-    case "kakao": return "popbill_kakao";
+    case "sms": return "aligo_sms";
+    case "kakao": return "aligo_kakao";
     case "email": return "email";
     case "post": return "post";
   }
@@ -448,8 +448,8 @@ router.post(
     const subject = `관리비 영수증 ${receiptNo}`;
 
     const dispatchChannel =
-      channel === "sms" ? "popbill_sms" :
-      channel === "kakao" ? "popbill_kakao" : "email";
+      channel === "sms" ? "aligo_sms" :
+      channel === "kakao" ? "aligo_kakao" : "email";
     const payload: Record<string, unknown> =
       channel === "kakao"
         ? { templateCode, message, altMessage: message, senderNumber, senderProfileId }

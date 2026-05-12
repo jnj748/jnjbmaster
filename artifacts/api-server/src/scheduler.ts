@@ -1220,7 +1220,7 @@ async function maybeAlertStaleAutoDebitPoll(): Promise<void> {
           if (!admin.phone) continue;
           await enqueueDispatch({
             buildingId: null,
-            channel: "popbill_kakao",
+            channel: "aligo_kakao",
             target: admin.phone,
             payload: {
               templateCode: "auto_debit_poll_stale",
@@ -1235,7 +1235,7 @@ async function maybeAlertStaleAutoDebitPoll(): Promise<void> {
             logger.warn({ err: dispatchErr, adminId: admin.id }, "[Task #839] kakao dispatch failed, trying SMS");
             return enqueueDispatch({
               buildingId: null,
-              channel: "popbill_sms",
+              channel: "aligo_sms",
               target: admin.phone!,
               payload: {
                 title: "자동이체 폴링 잡 정지 의심",

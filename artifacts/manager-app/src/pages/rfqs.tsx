@@ -187,6 +187,15 @@ export default function Rfqs() {
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
+  // /rfqs?new=1 — 대시보드 등에서 견적 요청 진입 시 작성 다이얼로그 자동 오픈 (URL 정리는 openQuote 와 동일 패턴).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("new") === "1") {
+      setDialogOpen(true);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
   const { data: openedQuote } = useGetQuote(openQuoteId ?? 0, {
     query: { enabled: openQuoteId !== null && openQuoteId > 0 },
   });

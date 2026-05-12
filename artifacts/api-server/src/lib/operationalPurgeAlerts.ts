@@ -107,7 +107,7 @@ async function alertOnce(
         if (!admin.phone) continue;
         await enqueueDispatch({
           buildingId: null,
-          channel: "popbill_kakao",
+          channel: "aligo_kakao",
           target: admin.phone,
           payload: {
             templateCode: "operational_purge_alert",
@@ -125,7 +125,7 @@ async function alertOnce(
           );
           return enqueueDispatch({
             buildingId: null,
-            channel: "popbill_sms",
+            channel: "aligo_sms",
             target: admin.phone!,
             payload: { title, message, recipientName: admin.name },
             triggerSource: notificationType,

@@ -12,10 +12,10 @@ import { pgTable, text, serial, integer, timestamp, jsonb, index } from "drizzle
 import { buildingsTable } from "./buildings";
 
 export type DispatchChannel =
-  // Popbill 1차 채널
-  | "popbill_kakao"
-  | "popbill_lms"
-  | "popbill_sms"
+  // Aligo 카카오 알림톡 / SMS·LMS
+  | "aligo_kakao"
+  | "aligo_lms"
+  | "aligo_sms"
   // 후속 슬롯(자리만 — 미실연동)
   | "openbanking"
   | "nts_verify"
@@ -29,7 +29,7 @@ export const dispatchJobsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     buildingId: integer("building_id").references(() => buildingsTable.id, { onDelete: "set null" }),
-    // 채널 슬러그(예: popbill_kakao). 등록되지 않은 슬러그는 어댑터가 거부.
+    // 채널 슬러그(예: aligo_kakao). 등록되지 않은 슬러그는 어댑터가 거부.
     channel: text("channel").notNull(),
     // 수신 대상(전화번호/이메일/계좌 등 채널별 의미). 검색용 평문 + 채널별 마스킹은 응답 직전에.
     target: text("target").notNull(),

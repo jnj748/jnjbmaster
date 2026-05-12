@@ -150,7 +150,5 @@ const popbillSms: ChannelAdapter = {
 };
 
 export function registerPopbillChannels(): void {
-  registerChannel(popbillKakao);
-  registerChannel(popbillLms);
-  registerChannel(popbillSms);
+  // Aligo 로 발송 채널 대체. 아래 popbill 어댑터 객체 정의는 참조·보존용으로 유지.
 }

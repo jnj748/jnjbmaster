@@ -201,7 +201,7 @@ export async function retryJob(jobId: number): Promise<DispatchJob | null> {
 
 // 채널 적재용 — 어플리케이션 부트 시 한 번만 호출.
 export function registerDefaultChannels(): void {
-  // popbill 채널은 ./popbillChannel 에서 자기등록.
+  // popbill / aligo 문자·알림톡 채널은 각각 ./popbillChannel · ./aligoChannel 에서 자기등록.
   // 후속 슬롯(자리만) — 등록 호출은 있지만 send 는 not_implemented 반환.
   const slots: DispatchChannel[] = ["openbanking", "nts_verify", "pg", "kyc"];
   for (const ch of slots) {

@@ -11,7 +11,7 @@
 //   /tax/invoices/:id/retransmit   직전 실패 전송 다시
 //   /tax/summary                   상태별/매출·매입 요약(부가세 신고용)
 //
-// 외부 채널은 #781 외부연동 어댑터(channel='popbill_lms', 'popbill_kakao' 등) 위임.
+// 외부 채널은 #781 외부연동 어댑터(channel='aligo_lms', 'aligo_kakao' 등) 위임.
 // 국세청 전송은 채널 슬롯이 등록되지 않을 수 있어 어댑터 부재 시 시뮬 모드로 진행 —
 // 승인번호를 'NTS-' + invoiceId + 타임스탬프로 채워 round-trip 을 닫는다.
 
@@ -578,7 +578,7 @@ router.post("/tax/invoices/:id/transmit", requireAction("tax.invoice.transmit"),
   let response: Record<string, unknown> = { simulated: true };
   try {
     const { enqueueDispatch } = await import("../lib/external/adapter");
-    const channel = sanitizedKind === "kakao" ? "popbill_kakao" : sanitizedKind === "sms" ? "popbill_lms" : "popbill_lms";
+    const channel = sanitizedKind === "kakao" ? "aligo_kakao" : sanitizedKind === "sms" ? "aligo_lms" : "aligo_lms";
     const job = await enqueueDispatch({
       buildingId,
       channel,

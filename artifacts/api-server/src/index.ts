@@ -15,6 +15,7 @@ import { seedChartOfAccounts } from "./lib/seedChartOfAccounts";
 import { wireAccountingListeners } from "./lib/accountingRules";
 // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트.
 import { registerDefaultChannels } from "./lib/external/adapter";
+import { registerAligoChannels } from "./lib/external/aligoChannel";
 import { registerPopbillChannels } from "./lib/external/popbillChannel";
 import { registerEmailChannel } from "./lib/external/emailChannel";
 import { ensureRfqMatchSchema } from "./lib/ensureRfqMatchSchema";
@@ -233,8 +234,9 @@ async function bootstrap() {
       logger.warn({ err: e }, "Failed to bootstrap T6 accounting engine");
     }
 
-    // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트(Popbill + 후속 슬롯).
+    // [Task #781] T10 외부연동 엔진 — 채널 레지스트리 부트(Aligo + Popbill 보존 + 이메일 + 슬롯).
     try {
+      registerAligoChannels();
       registerPopbillChannels();
       registerEmailChannel();
       registerDefaultChannels();

@@ -179,7 +179,7 @@ router.put(
 
 function maskTarget(channel: string, target: string): string {
   const ch = String(channel || "");
-  if (ch.startsWith("popbill_")) {
+  if (ch.startsWith("popbill_") || ch.startsWith("aligo_")) {
     const digits = target.replace(/[^\d]/g, "");
     if (digits.length >= 7) return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
   }
