@@ -40,6 +40,7 @@ import {
   getRebateRatio,
 } from "../lib/credits";
 import { computeCommissionRate } from "./commissions";
+import { enqueueDispatch } from "../lib/external/adapter";
 
 const router: IRouter = Router();
 
@@ -347,6 +348,41 @@ router.post("/quotes", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡] 작업 B — 소장 alimtalk. building 의 manager role 유저 phone 조회 후 발송.
+        const managerUsers = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(and(eq(usersTable.buildingId, rfq.buildingId), eq(usersTable.role, "manager")));
+        for (const m of managerUsers) {
+          if (!m.phone) continue;
+          const aligoMessage =
+            `[관리의달인] 견적서가 도착했습니다\n\n` +
+            `${rfq.title}에 ${vendor.name}의 견적이 접수되었습니다.\n` +
+            `견적 금액: ${Number(inserted.totalAmount ?? 0).toLocaleString("ko-KR")}원\n` +
+            `유효기간: ${inserted.validUntil ?? "미정"}까지\n\n` +
+            `앱에서 확인 후 채택 여부를 결정해 주세요.`;
+          try {
+            await enqueueDispatch({
+              buildingId: rfq.buildingId,
+              channel: "aligo_kakao",
+              target: m.phone,
+              payload: {
+                templateCode: "quote_received_manager",
+                senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+                senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+                message: aligoMessage,
+                receiverName: "",
+                buildingId: rfq.buildingId,
+              },
+              relatedEntityType: "quote",
+              relatedEntityId: inserted.id,
+              triggerSource: "quote_received_manager",
+            });
+          } catch (err) {
+            console.error("[quotes] aligo_kakao quote_received dispatch failed", m.phone, err);
+          }
+        }
       }
 
       if (creditsOn && cost) {
@@ -601,6 +637,39 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡] 작업 D — 견적 반려 파트너 alimtalk.
+        const rejectedPartners = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(eq(usersTable.vendorId, r.vendorId));
+        for (const p of rejectedPartners) {
+          if (!p.phone) continue;
+          const aligoMessage =
+            `[관리의달인] 견적이 반려되었습니다\n\n` +
+            `${rfqForNotify?.buildingName ?? ""}의 ${rfqForNotify?.title ?? "RFQ"} 견적이 반려되었습니다.\n` +
+            `사유: 다른 업체 견적이 채택되었습니다.`;
+          try {
+            await enqueueDispatch({
+              buildingId: rfqForNotify?.buildingId ?? null,
+              channel: "aligo_kakao",
+              target: p.phone,
+              payload: {
+                templateCode: "quote_rejected_partner",
+                senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+                senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+                message: aligoMessage,
+                receiverName: "",
+                buildingId: rfqForNotify?.buildingId ?? null,
+              },
+              relatedEntityType: "quote",
+              relatedEntityId: r.id,
+              triggerSource: "quote_rejected_partner",
+            });
+          } catch (err) {
+            console.error("[quotes] aligo_kakao quote_rejected dispatch failed", p.phone, err);
+          }
+        }
       }
     }
 
@@ -749,6 +818,40 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡] 작업 C — 견적 채택 파트너 alimtalk.
+        const acceptedPartners = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(eq(usersTable.vendorId, updated.vendorId));
+        for (const p of acceptedPartners) {
+          if (!p.phone) continue;
+          const aligoMessage =
+            `[관리의달인] 견적이 채택되었습니다\n\n` +
+            `${rfq?.buildingName ?? ""}의 ${rfq?.title ?? "RFQ"} 견적이 채택되었습니다.\n` +
+            `채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원\n\n` +
+            `관리소장과 일정을 조율해 주세요.`;
+          try {
+            await enqueueDispatch({
+              buildingId: rfq?.buildingId ?? null,
+              channel: "aligo_kakao",
+              target: p.phone,
+              payload: {
+                templateCode: "quote_accepted_partner",
+                senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+                senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+                message: aligoMessage,
+                receiverName: "",
+                buildingId: rfq?.buildingId ?? null,
+              },
+              relatedEntityType: "quote",
+              relatedEntityId: updated.id,
+              triggerSource: "quote_accepted_partner",
+            });
+          } catch (err) {
+            console.error("[quotes] aligo_kakao quote_accepted dispatch failed", p.phone, err);
+          }
+        }
       }
     }
 

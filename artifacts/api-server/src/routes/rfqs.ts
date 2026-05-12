@@ -34,6 +34,7 @@ import { buildRfqAutoTitle, RFQ_SERVICE_TYPES, rfqCategoryLabel, rfqServiceTypeL
 import { vendorMatchesRfq, normalizeRfqCategory, type VendorMatchProfile, type RfqMatchProfile } from "@workspace/shared/rfq-vendor-matching";
 import { insertNotification } from "../lib/notificationRecipient";
 import { sendMail, isMailEnabled } from "../lib/mail";
+import { enqueueDispatch } from "../lib/external/adapter";
 import {
   ListRfqsQueryParams,
   ListRfqsResponse,
@@ -733,19 +734,50 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
   const message = summaryParts.join(" · ") || "새 견적 요청이 도착했습니다.";
 
   const mailEnabled = isMailEnabled();
-  // 파트너 소유 user 의 email 을 한 번에 조회 (vendorId 별 1건 이상일 수 있으므로 grouping).
-  const owners = mailEnabled
-    ? await db
-        .select({ vendorId: usersTable.vendorId, email: usersTable.email })
-        .from(usersTable)
-        .where(inArray(usersTable.vendorId, ids))
-    : [];
+  // 파트너 소유 user 의 email/phone 을 한 번에 조회 (vendorId 별 1건 이상일 수 있으므로 grouping).
+  // [Task #RFQ-알림톡] phone 도 함께 가져와 aligo_kakao 발송 대상으로 사용.
+  const owners = await db
+    .select({ vendorId: usersTable.vendorId, email: usersTable.email, phone: usersTable.phone })
+    .from(usersTable)
+    .where(inArray(usersTable.vendorId, ids));
   const emailsByVendor = new Map<number, string[]>();
+  const phonesByVendor = new Map<number, string[]>();
   for (const o of owners) {
-    if (o.vendorId == null || !o.email) continue;
-    const arr = emailsByVendor.get(o.vendorId) ?? [];
-    arr.push(o.email);
-    emailsByVendor.set(o.vendorId, arr);
+    if (o.vendorId == null) continue;
+    if (o.email) {
+      const arr = emailsByVendor.get(o.vendorId) ?? [];
+      arr.push(o.email);
+      emailsByVendor.set(o.vendorId, arr);
+    }
+    if (o.phone) {
+      const arr = phonesByVendor.get(o.vendorId) ?? [];
+      arr.push(o.phone);
+      phonesByVendor.set(o.vendorId, arr);
+    }
+  }
+
+  // [Task #RFQ-알림톡] building.address 는 rfq 에 없으므로 buildingId 가 있을 때만 한 번 조회.
+  let buildingAddress = "";
+  if (rfq.buildingId) {
+    const [b] = await db
+      .select({ addressFull: buildingsTable.addressFull, addressJibun: buildingsTable.addressJibun })
+      .from(buildingsTable)
+      .where(eq(buildingsTable.id, rfq.buildingId));
+    buildingAddress = b?.addressFull ?? b?.addressJibun ?? "";
+  }
+
+  // [Task #RFQ-알림톡] 예상 크레딧 차감 — 파트너 측 안내용 1건만 계산(실패 시 0 fallback).
+  let creditCostForMessage = 0;
+  try {
+    const cost = await computeCreditCost({
+      category: rfq.category,
+      sido: rfq.sido,
+      sigungu: rfq.sigungu,
+      estimatedAmount: rfq.estimatedAmount,
+    });
+    creditCostForMessage = cost?.totalCost ?? 0;
+  } catch {
+    creditCostForMessage = 0;
   }
 
   const portalLink = `/rfqs?id=${rfq.id}`;
@@ -775,6 +807,40 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
         } catch (err) {
           console.error("[rfqs] sendMail failed for vendor", vendorId, to, err);
         }
+      }
+    }
+
+    // [Task #RFQ-알림톡] aligo_kakao dispatch — vendor 소속 파트너 phone 으로 발송.
+    //   채널·환경변수 미설정 시 어댑터가 devSimulate 로 자동 동작 (실 발송 X).
+    const phones = phonesByVendor.get(vendorId) ?? [];
+    for (const phone of phones) {
+      const aligoMessage =
+        `[관리의달인] 새 견적 요청이 도착했습니다\n\n` +
+        `${rfq.buildingName ?? ""}에서 ${catLabel} 견적을 요청했습니다.\n` +
+        `요청 내용: ${rfq.title}\n` +
+        `위치: ${buildingAddress}\n` +
+        `마감: ${deadline || "미정"}\n` +
+        `예상 크레딧 차감: ${creditCostForMessage}C\n\n` +
+        `지금 파트너 포털에서 확인해 주세요.`;
+      try {
+        await enqueueDispatch({
+          buildingId: rfq.buildingId,
+          channel: "aligo_kakao",
+          target: phone,
+          payload: {
+            templateCode: "rfq_new_partner",
+            senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+            senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+            message: aligoMessage,
+            receiverName: "",
+            buildingId: rfq.buildingId,
+          },
+          relatedEntityType: "rfq",
+          relatedEntityId: rfq.id,
+          triggerSource: "rfq_new_partner",
+        });
+      } catch (err) {
+        console.error("[rfqs] aligo_kakao dispatch failed for vendor", vendorId, phone, err);
       }
     }
   }

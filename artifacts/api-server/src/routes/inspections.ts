@@ -1,7 +1,8 @@
 import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, desc, sql } from "drizzle-orm";
-import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable, usersTable } from "@workspace/db";
+import { eq, and, lte, gte, desc, sql, inArray } from "drizzle-orm";
+import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable, usersTable, alertActionsTable, buildingsTable } from "@workspace/db";
+import { enqueueDispatch } from "../lib/external/adapter";
 import {
   ListInspectionsResponse,
   CreateInspectionBody,
@@ -547,6 +548,97 @@ router.post(
         relatedEntityType: "inspection",
         relatedEntityId: inspection.id,
       });
+
+      // [Task #법정업무-알림톡] 작업 E — D-7 / D-0 / 초과(첫날 1회) alimtalk.
+      //   채널·환경변수 미설정 시 어댑터가 devSimulate 자동 동작.
+      //   today / dueDate 모두 자정 기준으로 정규화해야 D-0 판정이 안정. (시각 차이로 Math.ceil 어긋남 방지)
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const dueMidnight = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+      const daysUntil = Math.round((dueMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      const isD7 = daysUntil === 7;
+      const isD0 = daysUntil === 0;
+      const isOverdueFirstDay = daysUntil < 0 && Math.abs(daysUntil) === 1;
+      if (isD7 || isD0 || isOverdueFirstDay) {
+        // 처리완료 액션이 있으면 발송 안 함.
+        const completedActions = await db
+          .select({ id: alertActionsTable.id })
+          .from(alertActionsTable)
+          .where(
+            and(
+              eq(alertActionsTable.relatedEntityType, "inspection"),
+              eq(alertActionsTable.relatedEntityId, inspection.id),
+              eq(alertActionsTable.actionType, "completed"),
+            ),
+          );
+        if (completedActions.length === 0 && inspection.buildingId) {
+          // building 이름 조회.
+          const [bldg] = await db
+            .select({ name: buildingsTable.name })
+            .from(buildingsTable)
+            .where(eq(buildingsTable.id, inspection.buildingId));
+          const buildingName = bldg?.name ?? "";
+          // manager + facility_staff phone 조회.
+          const recipients = await db
+            .select({ phone: usersTable.phone, role: usersTable.role })
+            .from(usersTable)
+            .where(
+              and(
+                eq(usersTable.buildingId, inspection.buildingId),
+                inArray(usersTable.role, ["manager", "facility_staff"]),
+              ),
+            );
+
+          let templateCode = "";
+          let aligoMessage = "";
+          if (isD7) {
+            templateCode = "mandatory_d7";
+            aligoMessage =
+              `[관리의달인] ${inspection.name} 점검이 다가오고 있어요\n\n` +
+              `${buildingName}님,\n` +
+              `${inspection.nextDueDate}까지 ${inspection.name} 점검이 있습니다.\n\n` +
+              `업체 예약이 필요하다면 견적을 받아보실 수 있어요.`;
+          } else if (isD0) {
+            templateCode = "mandatory_dday";
+            aligoMessage =
+              `[관리의달인] 오늘 ${inspection.name} 점검일이에요\n\n` +
+              `${buildingName}님,\n` +
+              `오늘(${inspection.nextDueDate}) ${inspection.name} 점검이 예정되어 있습니다.\n\n` +
+              `처리 완료 후 앱에 기록해 두시면 보고서에 자동으로 반영됩니다.`;
+          } else {
+            templateCode = "mandatory_overdue";
+            aligoMessage =
+              `[관리의달인] ${inspection.name} 점검 일정을 확인해 주세요\n\n` +
+              `${buildingName}님,\n` +
+              `${inspection.name} 점검 예정일(${inspection.nextDueDate})이 지났습니다.\n\n` +
+              `처리하셨다면 앱에 완료 표시만 해주세요.\n` +
+              `아직 미처리라면 빠른 일정 조율을 권해드립니다.`;
+          }
+
+          for (const r of recipients) {
+            if (!r.phone) continue;
+            try {
+              await enqueueDispatch({
+                buildingId: inspection.buildingId,
+                channel: "aligo_kakao",
+                target: r.phone,
+                payload: {
+                  templateCode,
+                  senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+                  senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+                  message: aligoMessage,
+                  receiverName: "",
+                  buildingId: inspection.buildingId,
+                },
+                relatedEntityType: "inspection",
+                relatedEntityId: inspection.id,
+                triggerSource: templateCode,
+              });
+            } catch (err) {
+              console.error("[inspections] aligo_kakao dispatch failed", templateCode, r.phone, err);
+            }
+          }
+        }
+      }
     }
 
     alertInspections.push({
