@@ -736,12 +736,15 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
   const mailEnabled = isMailEnabled();
   // 파트너 소유 user 의 email/phone 을 한 번에 조회 (vendorId 별 1건 이상일 수 있으므로 grouping).
   // [Task #RFQ-알림톡] phone 도 함께 가져와 aligo_kakao 발송 대상으로 사용.
+  //   #3 fix: 알림톡은 vendor 당 대표자 1명에게만 — createdAt ASC 로 정렬해 첫 user 의 phone 만 keep.
+  //   email 은 사내 알림 fan-out 성격이라 기존대로 다중 발송 유지.
   const owners = await db
     .select({ vendorId: usersTable.vendorId, email: usersTable.email, phone: usersTable.phone })
     .from(usersTable)
-    .where(inArray(usersTable.vendorId, ids));
+    .where(inArray(usersTable.vendorId, ids))
+    .orderBy(usersTable.createdAt);
   const emailsByVendor = new Map<number, string[]>();
-  const phonesByVendor = new Map<number, string[]>();
+  const repPhoneByVendor = new Map<number, string>();
   for (const o of owners) {
     if (o.vendorId == null) continue;
     if (o.email) {
@@ -749,10 +752,8 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
       arr.push(o.email);
       emailsByVendor.set(o.vendorId, arr);
     }
-    if (o.phone) {
-      const arr = phonesByVendor.get(o.vendorId) ?? [];
-      arr.push(o.phone);
-      phonesByVendor.set(o.vendorId, arr);
+    if (o.phone && !repPhoneByVendor.has(o.vendorId)) {
+      repPhoneByVendor.set(o.vendorId, o.phone);
     }
   }
 
@@ -810,10 +811,11 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
       }
     }
 
-    // [Task #RFQ-알림톡] aligo_kakao dispatch — vendor 소속 파트너 phone 으로 발송.
+    // [Task #RFQ-알림톡] aligo_kakao dispatch — vendor 대표자 1명 phone 으로만 발송 (#3 fix).
     //   채널·환경변수 미설정 시 어댑터가 devSimulate 로 자동 동작 (실 발송 X).
-    const phones = phonesByVendor.get(vendorId) ?? [];
-    for (const phone of phones) {
+    const repPhone = repPhoneByVendor.get(vendorId);
+    if (repPhone) {
+      const phone = repPhone;
       const aligoMessage =
         `[관리의달인] 새 견적 요청이 도착했습니다\n\n` +
         `${rfq.buildingName ?? ""}에서 ${catLabel} 견적을 요청했습니다.\n` +
@@ -845,6 +847,7 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
     }
   }
 }
+
 
 router.patch("/rfqs/:id/expand-scope", managerOnly, async (req, res): Promise<void> => {
   const params = ExpandRfqScopeParams.safeParse(req.params);
