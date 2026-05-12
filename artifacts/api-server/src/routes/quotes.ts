@@ -40,6 +40,7 @@ import {
   getRebateRatio,
 } from "../lib/credits";
 import { computeCommissionRate } from "./commissions";
+import { enqueueDispatch } from "../lib/external/adapter";
 
 const router: IRouter = Router();
 
@@ -282,6 +283,16 @@ router.post("/quotes", async (req, res): Promise<void> => {
     : null;
 
   // Transactional insert: lock RFQ row + wallet row, re-check duplicate/seat/balance inside tx.
+  // [Task #견적-알림톡 #1/#2 fix] tx 내부에서는 발송 페이로드만 수집,
+  //   tx 커밋 후에만 enqueueDispatch 호출 — 롤백 시 알림톡 강행 방지.
+  type PendingAligo = {
+    buildingId: number | null;
+    target: string;
+    templateCode: string;
+    message: string;
+    relatedEntityId: number;
+  };
+  const pendingDispatches: PendingAligo[] = [];
   try {
     const quote = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM rfqs WHERE id = ${rfq.id} FOR UPDATE`);
@@ -347,6 +358,29 @@ router.post("/quotes", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡 작업 B / #1·#2 fix] 소장 alimtalk 페이로드를 수집만 한다.
+        //   building 의 manager role 유저 phone 조회. 발송은 tx 종료 후.
+        const managerUsers = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(and(eq(usersTable.buildingId, rfq.buildingId), eq(usersTable.role, "manager")));
+        for (const m of managerUsers) {
+          if (!m.phone) continue;
+          const aligoMessage =
+            `[관리의달인] 견적서가 도착했습니다\n\n` +
+            `${rfq.title}에 ${vendor.name}의 견적이 접수되었습니다.\n` +
+            `견적 금액: ${Number(inserted.totalAmount ?? 0).toLocaleString("ko-KR")}원\n` +
+            `유효기간: ${inserted.validUntil ?? "미정"}까지\n\n` +
+            `앱에서 확인 후 채택 여부를 결정해 주세요.`;
+          pendingDispatches.push({
+            buildingId: rfq.buildingId,
+            target: m.phone,
+            templateCode: "quote_received_manager",
+            message: aligoMessage,
+            relatedEntityId: inserted.id,
+          });
+        }
       }
 
       if (creditsOn && cost) {
@@ -388,6 +422,30 @@ router.post("/quotes", async (req, res): Promise<void> => {
       }
       return inserted;
     });
+
+    // [Task #견적-알림톡 #1·#2 fix] tx 커밋 성공 후에만 알림톡 발송. 실패해도 본 흐름 유지.
+    for (const d of pendingDispatches) {
+      try {
+        await enqueueDispatch({
+          buildingId: d.buildingId,
+          channel: "aligo_kakao",
+          target: d.target,
+          payload: {
+            templateCode: d.templateCode,
+            senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+            senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+            message: d.message,
+            receiverName: "",
+            buildingId: d.buildingId,
+          },
+          relatedEntityType: "quote",
+          relatedEntityId: d.relatedEntityId,
+          triggerSource: d.templateCode,
+        });
+      } catch (err) {
+        console.error("[quotes] aligo_kakao dispatch failed", d.templateCode, d.target, err);
+      }
+    }
 
     res.status(201).json(UpdateQuoteResponse.parse(serializeQuoteForResponse(quote)));
   } catch (e) {
@@ -449,6 +507,17 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
 
   // 견적 수락은 quote/RFQ/commissions/approval/contract/documents 까지
   // 한 트랜잭션으로 묶어 부분 실패 시 일관성 깨짐을 막는다.
+  // [Task #견적-알림톡 #1/#2 fix] tx 내부에서는 발송 페이로드만 수집,
+  //   tx 커밋 후에만 enqueueDispatch — 롤백 시 알림톡 강행 방지.
+  type PendingAligo = {
+    buildingId: number | null;
+    target: string;
+    templateCode: string;
+    message: string;
+    relatedEntityType: string;
+    relatedEntityId: number;
+  };
+  const pendingDispatches: PendingAligo[] = [];
   const quote = await db.transaction(async (tx) => {
     // OpenAPI 의 string|null 시간 필드를 Drizzle 의 Date|null 로 변환해
     // .set 의 타입 우회 캐스팅을 제거한다. 명시 부분 페이로드만 넘긴다.
@@ -466,6 +535,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     if (p.validUntil !== undefined) updateSet.validUntil = p.validUntil;
     if (p.warrantyTerms !== undefined) updateSet.warrantyTerms = p.warrantyTerms;
     if (p.attachmentUrl !== undefined) updateSet.attachmentUrl = p.attachmentUrl;
+    if (p.attachmentUrls !== undefined) updateSet.attachmentUrls = p.attachmentUrls;
 
     let updated!: typeof quotesTable.$inferSelect;
     try {
@@ -601,6 +671,28 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡 작업 D / #1·#2·#3 fix] 견적 반려 파트너 — vendor 대표자 1명만, tx 커밋 후 발송.
+        const [repPartner] = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(eq(usersTable.vendorId, r.vendorId))
+          .orderBy(usersTable.createdAt)
+          .limit(1);
+        if (repPartner?.phone) {
+          const aligoMessage =
+            `[관리의달인] 견적이 반려되었습니다\n\n` +
+            `${rfqForNotify?.buildingName ?? ""}의 ${rfqForNotify?.title ?? "RFQ"} 견적이 반려되었습니다.\n` +
+            `사유: 다른 업체 견적이 채택되었습니다.`;
+          pendingDispatches.push({
+            buildingId: rfqForNotify?.buildingId ?? null,
+            target: repPartner.phone,
+            templateCode: "quote_rejected_partner",
+            message: aligoMessage,
+            relatedEntityType: "quote",
+            relatedEntityId: r.id,
+          });
+        }
       }
     }
 
@@ -749,6 +841,29 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
           },
           tx,
         );
+
+        // [Task #견적-알림톡 작업 C / #1·#2·#3 fix] 견적 채택 파트너 — vendor 대표자 1명만, tx 커밋 후 발송.
+        const [acceptedRep] = await tx
+          .select({ phone: usersTable.phone })
+          .from(usersTable)
+          .where(eq(usersTable.vendorId, updated.vendorId))
+          .orderBy(usersTable.createdAt)
+          .limit(1);
+        if (acceptedRep?.phone) {
+          const aligoMessage =
+            `[관리의달인] 견적이 채택되었습니다\n\n` +
+            `${rfq?.buildingName ?? ""}의 ${rfq?.title ?? "RFQ"} 견적이 채택되었습니다.\n` +
+            `채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원\n\n` +
+            `관리소장과 일정을 조율해 주세요.`;
+          pendingDispatches.push({
+            buildingId: rfq?.buildingId ?? null,
+            target: acceptedRep.phone,
+            templateCode: "quote_accepted_partner",
+            message: aligoMessage,
+            relatedEntityType: "quote",
+            relatedEntityId: updated.id,
+          });
+        }
       }
     }
 
@@ -763,6 +878,31 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
   });
 
   if (!quote) return; // already responded
+
+  // [Task #견적-알림톡 #1·#2 fix] tx 커밋 성공 후에만 알림톡 발송. 실패해도 본 흐름 유지.
+  for (const d of pendingDispatches) {
+    try {
+      await enqueueDispatch({
+        buildingId: d.buildingId,
+        channel: "aligo_kakao",
+        target: d.target,
+        payload: {
+          templateCode: d.templateCode,
+          senderKey: process.env.ALIGO_SENDER_KEY ?? "",
+          senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+          message: d.message,
+          receiverName: "",
+          buildingId: d.buildingId,
+        },
+        relatedEntityType: d.relatedEntityType,
+        relatedEntityId: d.relatedEntityId,
+        triggerSource: d.templateCode,
+      });
+    } catch (err) {
+      console.error("[quotes] aligo_kakao dispatch failed", d.templateCode, d.target, err);
+    }
+  }
+
   res.json(UpdateQuoteResponse.parse(serializeQuoteForResponse(quote)));
 });
 

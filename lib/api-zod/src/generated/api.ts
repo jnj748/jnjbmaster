@@ -2541,7 +2541,14 @@ export const ListQuotesResponseItem = zod.object({
     .string()
     .nullish()
     .describe("[Task #612] 보증\/A\/S 조건."),
-  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
+  attachmentUrl: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 첨부 PDF 경로 (단수, 호환성 유지)."),
+  attachmentUrls: zod
+    .string()
+    .nullish()
+    .describe("[Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -2574,6 +2581,10 @@ export const CreateQuoteBody = zod.object({
   validUntil: zod.string().date().nullish(),
   warrantyTerms: zod.string().nullish(),
   attachmentUrl: zod.string().nullish(),
+  attachmentUrls: zod
+    .string()
+    .nullish()
+    .describe("[Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화."),
 });
 
 /**
@@ -2624,7 +2635,14 @@ export const GetQuoteResponse = zod.object({
     .string()
     .nullish()
     .describe("[Task #612] 보증\/A\/S 조건."),
-  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
+  attachmentUrl: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 첨부 PDF 경로 (단수, 호환성 유지)."),
+  attachmentUrls: zod
+    .string()
+    .nullish()
+    .describe("[Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -2647,6 +2665,10 @@ export const UpdateQuoteBody = zod.object({
   validUntil: zod.string().date().nullish(),
   warrantyTerms: zod.string().nullish(),
   attachmentUrl: zod.string().nullish(),
+  attachmentUrls: zod
+    .string()
+    .nullish()
+    .describe("[Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화."),
 });
 
 export const updateQuoteResponseRequiredDocsCompleteDefault = false;
@@ -2690,7 +2712,14 @@ export const UpdateQuoteResponse = zod.object({
     .string()
     .nullish()
     .describe("[Task #612] 보증\/A\/S 조건."),
-  attachmentUrl: zod.string().nullish().describe("[Task #612] 첨부 PDF 경로."),
+  attachmentUrl: zod
+    .string()
+    .nullish()
+    .describe("[Task #612] 첨부 PDF 경로 (단수, 호환성 유지)."),
+  attachmentUrls: zod
+    .string()
+    .nullish()
+    .describe("[Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화."),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });

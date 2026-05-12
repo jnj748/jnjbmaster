@@ -47,6 +47,8 @@ import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-reque
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { AuthImage } from "@/components/auth-image";
 import { rfqServiceTypeLabel } from "@workspace/shared/rfq-service-types";
+import { useUpload } from "@workspace/object-storage-web";
+import { Paperclip, Loader2 } from "lucide-react";
 
 const categoryLabel = (c: string) => {
   const map: Record<string, string> = {
@@ -77,15 +79,35 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
 
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([newLine()]);
   const [vatRate, setVatRate] = useState("10"); // 부가세율(%) — 기본 10%
+  // [Task #견적-첨부v2] 다중 첨부 — 업로드 완료 시 {url, name} 누적.
+  const [attachments, setAttachments] = useState<{ url: string; name: string }[]>([]);
+  const { uploadFile, isUploading } = useUpload({
+    basePath: "/api/storage",
+    authToken,
+  });
   const [form, setForm] = useState({
     scope: "",
     estimatedDays: "",
     availableDate: "",
     validUntil: "",
     warrantyTerms: "",
-    attachmentUrl: "",
     notes: "",
   });
+
+  async function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result?.objectPath) {
+      setAttachments((prev) => [...prev, { url: result.objectPath, name: file.name }]);
+    } else {
+      toast({ title: "파일 업로드에 실패했습니다", variant: "destructive" });
+    }
+  }
+  function removeAttachment(i: number) {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== i));
+  }
 
   const { data: wallet } = useGetCreditWallet(
     { vendorId: vendorId ?? 0 },
@@ -114,13 +136,13 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
   function resetForm() {
     setLineItems([newLine()]);
     setVatRate("10");
+    setAttachments([]);
     setForm({
       scope: "",
       estimatedDays: "",
       availableDate: "",
       validUntil: "",
       warrantyTerms: "",
-      attachmentUrl: "",
       notes: "",
     });
   }
@@ -189,7 +211,7 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
         availableDate: form.availableDate || null,
         validUntil: form.validUntil || null,
         warrantyTerms: form.warrantyTerms || null,
-        attachmentUrl: form.attachmentUrl || null,
+        attachmentUrls: attachments.length > 0 ? JSON.stringify(attachments) : null,
         notes: form.notes || null,
       },
     });
@@ -473,14 +495,60 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                       onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <Label>첨부 파일 URL</Label>
-                    <Input
-                      value={form.attachmentUrl}
-                      onChange={(e) => setForm({ ...form, attachmentUrl: e.target.value })}
-                      placeholder="선택 사항"
+                </div>
+                {/* [Task #견적-첨부v2] 다중 첨부 — 제안서/견적서 PDF 등. */}
+                <div className="space-y-2">
+                  <Label className="text-[15px]">제안서 · 견적서 첨부</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="quote-attachment-input"
+                      type="file"
+                      className="hidden"
+                      onChange={handleAttachFile}
+                      accept=".pdf,.png,.jpg,.jpeg,.hwp,.hwpx,.doc,.docx,.xls,.xlsx"
                     />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 text-[15px]"
+                      disabled={isUploading}
+                      onClick={() => document.getElementById("quote-attachment-input")?.click()}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                          업로드 중…
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip className="w-4 h-4 mr-1.5" />
+                          파일 선택
+                        </>
+                      )}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">PDF/이미지/한글/오피스, 여러 개 추가 가능</span>
                   </div>
+                  {attachments.length > 0 && (
+                    <ul className="border rounded-md divide-y">
+                      {attachments.map((a, i) => (
+                        <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="truncate flex items-center gap-2">
+                            <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            {a.name}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => removeAttachment(i)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div>
                   <Label>A/S · 보증 조건</Label>

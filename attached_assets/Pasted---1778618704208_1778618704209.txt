@@ -1,0 +1,101 @@
+모든 작업을 중간에 확인 없이 끝까지 자동으로 완료해줘. 진행 여부를 묻지 말고 완료 후 결과만 보고해줘.
+
+## 작업: 견적 표준 폼 + 첨부파일 기능 추가
+
+### 전제
+- 파트너가 견적 제출 시 항목별 금액 + 최종금액 고정 구조
+- 제안서/견적서 첨부파일 업로드 가능
+- 소장이 보는 견적 Sheet도 동일 레이아웃
+- object-storage-web lib 이미 있음
+
+### 작업 A: DB 스키마 — quotes 테이블 attachmentUrls 컬럼 추가
+파일: lib/db/src/schema/quotes.ts
+
+quotes 테이블에 컬럼 추가:
+attachmentUrls: text("attachment_urls") — JSON 배열 문자열로 저장 (string[])
+nullable, default null
+
+마이그레이션 파일 생성:
+lib/db/migrations/ 에 타임스탬프_add_attachment_urls_to_quotes.sql
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS attachment_urls text;
+
+### 작업 B: API 스키마 업데이트
+파일: lib/api-spec/src/quotes.ts (또는 해당 스키마 파일)
+파일: lib/api-zod/src/quotes.ts (또는 해당 Zod 파일)
+
+CreateQuoteBody / UpdateQuoteBody 에 attachmentUrls?: string[] 추가
+QuoteResponse 에 attachmentUrls?: string[] 추가
+
+### 작업 C: 백엔드 라우트 업데이트
+파일: artifacts/api-server/src/routes/quotes.ts
+
+견적 INSERT 시 attachmentUrls 저장:
+JSON.stringify(body.attachmentUrls ?? [])
+
+견적 조회 응답 시 attachmentUrls 파싱:
+JSON.parse(quote.attachmentUrls ?? "[]")
+
+### 작업 D: 파트너 견적 제출 폼 표준화
+파일: artifacts/manager-app/src/components/vendor-portal/vendor-rfq-list.tsx
+
+견적 제출 모달 폼을 아래 구조로 교체:
+
+항목 테이블 (동적 추가/삭제):
+- 항목명 (text input)
+- 수량 (number input)
+- 단가 (number input)
+- 금액 (수량 × 단가 자동계산, readonly)
+- 행 삭제 버튼
+
+하단:
+- "항목 추가" 버튼
+- 합계 자동계산 표시 (모든 항목 금액 합산)
+- 부가세 포함/별도 토글
+- 최종 금액 표시 (굵게, 크게)
+
+첨부파일 업로드:
+- "제안서/견적서 첨부" 버튼
+- 파일 선택 시 object-storage-web lib으로 업로드
+- 업로드 완료 후 URL 목록에 추가
+- 파일명 표시 + 삭제 버튼
+
+유효기간, A/S 기간 필드 유지.
+
+시니어 UX 원칙:
+- 입력 필드 높이 44px 이상
+- 폰트 15px 이상
+- 각 항목 입력 시 금액 즉시 반영
+
+### 작업 E: 소장 견적 확인 Sheet 표준화
+파일: artifacts/manager-app/src/components/dashboard-widgets/widgets/submitted-quotes-widget.tsx
+
+견적 클릭 시 ResponsiveDialog Sheet 열기.
+Sheet 안 레이아웃:
+
+상단:
+- 업체명 (굵게, 18px)
+- 제출일
+
+항목 테이블 (읽기 전용):
+- 항목명 / 수량 / 단가 / 금액
+- 합계
+- 부가세 포함 여부
+- 최종 금액 (굵게, 크게)
+
+첨부파일:
+- 첨부파일 있으면 파일명 목록 표시
+- 각 파일 클릭 시 새 탭으로 열기
+
+하단 버튼 1개:
+- "이 업체로 결정" → PATCH /api/quotes/:id { status: "accepted" }
+- 성공 시 Sheet 닫기 + 위젯 새로고침
+- 버튼 높이 48px, 폰트 15px, primary 색상
+
+빈 상태 UI (quotes.length === 0):
+- rfqPending > 0: "파트너사에서 견적을 준비 중이에요" + 서브텍스트
+- rfqPending === 0: "아직 도착한 견적이 없어요" + "견적 요청하기" 버튼
+
+### 검증
+pnpm --filter @workspace/api-server run typecheck
+pnpm --filter @workspace/manager-app run typecheck
+오류 0건이어야 함
