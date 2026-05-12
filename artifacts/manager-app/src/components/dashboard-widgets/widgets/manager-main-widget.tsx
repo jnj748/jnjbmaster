@@ -55,6 +55,13 @@ import {
   DesktopOnly,
 } from "@/components/dashboard-widgets/mobile-compact";
 import SubmittedQuotesWidget from "@/components/dashboard-widgets/widgets/submitted-quotes-widget";
+// [Phase1 마무리 A/D] 매니저 전용 두 신규 카드.
+//   - RequestQuoteCtaWidget: AlertSection 아래, SubmittedQuotesWidget 위에
+//     "업체 견적 받기" 진입 카드를 노출.
+//   - SiteVisitConfirmSectionWidget: 파트너의 현장방문 제안/확정/취소 알림을
+//     별도 그룹화 카드로 노출(미읽 알림 0건이면 컴포넌트가 null 반환).
+import RequestQuoteCtaWidget from "@/components/dashboard-widgets/widgets/request-quote-cta-widget";
+import SiteVisitConfirmSectionWidget from "@/components/dashboard-widgets/widgets/site-visit-confirm-section-widget";
 
 import { formatKoreanCurrencyCompact } from "@/lib/format-korean";
 
@@ -166,6 +173,10 @@ export default function ManagerMainWidget() {
           <TodayWorkLogEntry />
           {/* [요청] 모바일에서도 오늘 업무일지 카드 다음에 호실정보조회 카드 노출. */}
           <AccountantMemberSearchWidget />
+          {/* [Phase1 마무리 D] 현장 방문 확인 필요(미읽 알림 있을 때만 자체 렌더). */}
+          <SiteVisitConfirmSectionWidget />
+          {/* [Phase1 마무리 A] AlertSection 아래, SubmittedQuotesWidget 위. */}
+          <RequestQuoteCtaWidget />
           <SubmittedQuotesWidget />
           <BuildingContractsSummaryWidget />
         </div>
@@ -205,6 +216,15 @@ export default function ManagerMainWidget() {
               pageSize={3}
             />
           </div>
+
+          {/* [Phase1 마무리 D] 현장 방문 확인 필요 — 1행 직후, 미읽 알림 있을
+              때만 자체 렌더(없으면 컴포넌트가 null 반환해 공간 차지 X). */}
+          <SiteVisitConfirmSectionWidget />
+
+          {/* [Phase1 마무리 A] "업체 견적 받기" 진입 카드 — AlertSection 아래.
+              데스크톱은 SubmittedQuotesWidget 노출 위치가 없으므로 사장님이
+              어디서든 진입할 수 있도록 1행 직후에 배치한다. */}
+          <RequestQuoteCtaWidget />
 
           {/* [Task #503] 2행: (최근 문서함 + 처리 내역 세로 스택) /
               오늘 업무일지 자동 작성하기(강조). */}

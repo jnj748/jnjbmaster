@@ -60,6 +60,19 @@ function parseAttachments(raw: string | null | undefined): AttachmentRow[] {
     return [];
   }
 }
+// [Phase1 마무리 B] attachmentUrls(복수 JSON) → attachmentUrl(단수 구버전)
+//   순으로 fallback 해서 구버전 데이터로 제출된 견적의 첨부도 노출한다.
+function resolveAttachments(
+  urlsJson: string | null | undefined,
+  singleUrl: string | null | undefined,
+): AttachmentRow[] {
+  const fromJson = parseAttachments(urlsJson);
+  if (fromJson.length > 0) return fromJson;
+  if (singleUrl && singleUrl.trim() !== "") {
+    return [{ url: singleUrl, name: singleUrl }];
+  }
+  return [];
+}
 function fmt(n: number): string {
   return Math.round(n).toLocaleString();
 }
@@ -93,7 +106,10 @@ export default function SubmittedQuotesWidget({
   const sheetData = useMemo(() => {
     if (!openQuote) return null;
     const lineItems = parseLineItems((openQuote as any).lineItems);
-    const attachments = parseAttachments((openQuote as any).attachmentUrls);
+    const attachments = resolveAttachments(
+      (openQuote as any).attachmentUrls,
+      (openQuote as any).attachmentUrl,
+    );
     const subtotal = (openQuote as any).subtotal ?? lineItems.reduce((s, li) => s + li.amount, 0);
     const vat = (openQuote as any).vatAmount ?? 0;
     const total = openQuote.totalAmount;

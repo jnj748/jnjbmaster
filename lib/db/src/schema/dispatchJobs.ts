@@ -8,7 +8,8 @@
 // scheduledAt 이 미래라면 워커가 건너뛴다. attempts 가 maxAttempts 에 도달하면
 // dead 로 박제(워커가 더 이상 집지 않음).
 
-import { pgTable, text, serial, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { buildingsTable } from "./buildings";
 
 export type DispatchChannel =
@@ -66,6 +67,13 @@ export const dispatchJobsTable = pgTable(
     byStatus: index("dispatch_jobs_status_idx").on(t.status),
     byScheduled: index("dispatch_jobs_scheduled_idx").on(t.scheduledAt),
     byChannel: index("dispatch_jobs_channel_idx").on(t.channel),
+    // [Phase1 마무리 C] 동시성 dedupe — 활성(=failed/dead 가 아닌) 상태에서
+    //   같은 (channel, related_entity_type, related_entity_id, trigger_source)
+    //   조합이 두 번 들어오는 것을 DB 단에서 막는다. partial unique index 라
+    //   재시도(failed) 와 dead 보관 행은 영향 없음.
+    dedupeUnique: uniqueIndex("dispatch_jobs_dedupe_idx")
+      .on(t.channel, t.relatedEntityType, t.relatedEntityId, t.triggerSource)
+      .where(sql`status NOT IN ('failed', 'dead')`),
   }),
 );
 

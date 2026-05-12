@@ -580,7 +580,7 @@ router.post("/rfqs", managerOnly, async (req, res): Promise<void> => {
     return;
   }
   const serviceType = incoming.serviceType ?? null;
-  if (!serviceType || !RFQ_SERVICE_TYPES.includes(serviceType)) {
+  if (!serviceType || !(RFQ_SERVICE_TYPES as readonly string[]).includes(serviceType)) {
     res.status(400).json({ error: "용역종류는 필수입니다" });
     return;
   }

@@ -197,6 +197,19 @@ export default function Rfqs() {
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
+  // [Phase1 마무리 D] /rfqs?openVisit={rfqId} — 현장 방문 알림 카드에서
+  //   진입 시 해당 RFQ 의 비교 패널을 자동으로 펼쳐서 매니저가 일정을 확인/
+  //   확정/조정할 수 있게 한다. URL 정리는 openQuote/new 패턴과 동일.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const v = url.searchParams.get("openVisit");
+    if (v) {
+      const id = Number(v);
+      if (!Number.isNaN(id) && id > 0) setCompareRfqId(id);
+      url.searchParams.delete("openVisit");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
   const { data: openedQuote } = useGetQuote(openQuoteId ?? 0, {
     query: { enabled: openQuoteId !== null && openQuoteId > 0 },
   });
