@@ -59,10 +59,15 @@ export interface Quote {
    */
   warrantyTerms?: string | null;
   /**
-   * [Task #612] 첨부 PDF 경로.
+   * [Task #612] 첨부 PDF 경로 (단수, 호환성 유지).
    * @nullable
    */
   attachmentUrl?: string | null;
+  /**
+   * [Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화.
+   * @nullable
+   */
+  attachmentUrls?: string | null;
   createdAt: string;
   updatedAt: string;
 }

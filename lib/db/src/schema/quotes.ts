@@ -32,6 +32,9 @@ export const quotesTable = pgTable("quotes", {
   validUntil: date("valid_until"),
   warrantyTerms: text("warranty_terms"),
   attachmentUrl: text("attachment_url"),
+  // [Task #견적-첨부v2] 다중 첨부 (제안서/견적서 PDF 등) — JSON 직렬화된 string[].
+  //   기존 attachmentUrl(단수) 은 호환성 유지, 신규 폼은 attachmentUrls(복수) 를 사용.
+  attachmentUrls: text("attachment_urls"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => ({

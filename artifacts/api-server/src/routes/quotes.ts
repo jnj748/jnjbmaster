@@ -535,6 +535,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     if (p.validUntil !== undefined) updateSet.validUntil = p.validUntil;
     if (p.warrantyTerms !== undefined) updateSet.warrantyTerms = p.warrantyTerms;
     if (p.attachmentUrl !== undefined) updateSet.attachmentUrl = p.attachmentUrl;
+    if (p.attachmentUrls !== undefined) updateSet.attachmentUrls = p.attachmentUrls;
 
     let updated!: typeof quotesTable.$inferSelect;
     try {

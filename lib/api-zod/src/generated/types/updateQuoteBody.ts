@@ -27,4 +27,9 @@ export interface UpdateQuoteBody {
   warrantyTerms?: string | null;
   /** @nullable */
   attachmentUrl?: string | null;
+  /**
+   * [Task #견적-첨부v2] 다중 첨부 — string[] JSON 직렬화.
+   * @nullable
+   */
+  attachmentUrls?: string | null;
 }
