@@ -594,6 +594,12 @@ export const VendorCategory = {
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
+  landscaping: "landscaping",
 } as const;
 
 export type VendorType = (typeof VendorType)[keyof typeof VendorType];
@@ -685,6 +691,12 @@ export const CreateVendorBodyCategory = {
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
+  landscaping: "landscaping",
 } as const;
 
 export type CreateVendorBodyType =
@@ -761,6 +773,12 @@ export const UpdateVendorBodyCategory = {
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
+  landscaping: "landscaping",
 } as const;
 
 export type UpdateVendorBodyType =
@@ -839,6 +857,12 @@ export const RegisterPlatformVendorBodyCategory = {
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
+  landscaping: "landscaping",
 } as const;
 
 export interface RegisterPlatformVendorBody {
@@ -1332,6 +1356,11 @@ export const CreateRfqBodyCategory = {
   mechanical: "mechanical",
   landscaping: "landscaping",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
 } as const;
 
 /**
@@ -1398,6 +1427,11 @@ export const UpdateRfqBodyCategory = {
   mechanical: "mechanical",
   landscaping: "landscaping",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
 } as const;
 
 /**

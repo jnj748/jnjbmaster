@@ -24,4 +24,10 @@ export const RegisterPlatformVendorBodyCategory = {
   building_maintenance: "building_maintenance",
   mechanical: "mechanical",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
+  landscaping: "landscaping",
 } as const;

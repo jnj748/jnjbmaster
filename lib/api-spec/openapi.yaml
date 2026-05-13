@@ -8497,7 +8497,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other, facility_maintenance, consumables, telecom, water_leak, hvac, landscaping]
         type:
           type: string
           enum: [contracted, platform]
@@ -8582,7 +8582,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other, facility_maintenance, consumables, telecom, water_leak, hvac, landscaping]
         type:
           type: string
           enum: [contracted, platform]
@@ -8642,7 +8642,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other, facility_maintenance, consumables, telecom, water_leak, hvac, landscaping]
         type:
           type: string
           enum: [contracted, platform]
@@ -8700,7 +8700,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, other, facility_maintenance, consumables, telecom, water_leak, hvac, landscaping]
         contactName:
           type: string
         phone:
@@ -9276,7 +9276,7 @@ components:
           type: ["string", "null"]
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, landscaping, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, landscaping, other, facility_maintenance, consumables, telecom, water_leak, hvac]
         serviceType:
           # [Phase1 마무리 A] SoT(lib/shared/src/rfq-service-types.ts) 기준 5개로 통일.
           #   레거시 breakdown/defect 는 입력에서는 거부하되, 응답(Rfq) 은 free string 이라
@@ -9325,7 +9325,7 @@ components:
           type: string
         category:
           type: string
-          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, landscaping, other]
+          enum: [elevator, water_tank, fire_safety, electrical, gas, septic, cleaning, security, waterproofing, maintenance_repair, defect_diagnosis, building_maintenance, mechanical, landscaping, other, facility_maintenance, consumables, telecom, water_leak, hvac]
         serviceType:
           # [Phase1 마무리 A] SoT 기준 5개로 통일. UpdateRfqBody 도 동일.
           type: ["string", "null"]

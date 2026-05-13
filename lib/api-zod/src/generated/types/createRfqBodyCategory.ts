@@ -25,4 +25,9 @@ export const CreateRfqBodyCategory = {
   mechanical: "mechanical",
   landscaping: "landscaping",
   other: "other",
+  facility_maintenance: "facility_maintenance",
+  consumables: "consumables",
+  telecom: "telecom",
+  water_leak: "water_leak",
+  hvac: "hvac",
 } as const;
