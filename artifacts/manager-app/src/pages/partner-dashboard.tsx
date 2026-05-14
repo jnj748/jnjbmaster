@@ -29,7 +29,10 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
-import { PartnerProfileDiagnostic } from "@/components/vendor-portal/partner-profile-diagnostic";
+import {
+  PartnerProfileDiagnostic,
+  deriveDiagnosticInputs,
+} from "@/components/vendor-portal/partner-profile-diagnostic";
 import { useAuth } from "@/contexts/auth-context";
 import { ledgerKindLabel, ledgerSourceLabel } from "@/lib/credit-ledger-labels";
 import {
@@ -198,12 +201,11 @@ export default function PartnerDashboard() {
   //   - vendorId 가 있어야 한다(파트너 계정만).
   //   - 카테고리/활동지역 정보가 부족해서 매칭이 약하거나, waiting 큐가 비어 있어서
   //     "내 설정이 맞는지" 확인이 필요한 케이스에 안내 톤으로 노출.
-  const subCatList = (myVendor?.subCategories ?? "")
-    .split(/[,\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const regionLabel =
-    [myVendor?.sido, myVendor?.sigungu].filter(Boolean).join(" ") || null;
+  // [활동지역 오탐 fix] serviceArea(JSON) 까지 함께 본다 — 전국 서비스 vendor 가
+  //   sido/sigungu 컬럼이 비어 있어도 "활동지역 비어 있음" 으로 오인되지 않도록.
+  const { subCatList, regionLabel } = myVendor
+    ? deriveDiagnosticInputs(myVendor)
+    : { subCatList: [] as string[], regionLabel: null as string | null };
   const noProfileSetup =
     !!myVendor && (!myVendor.category || !regionLabel);
   const showDiagnostic = !!vendorId && (waitingRfqCount === 0 || noProfileSetup);

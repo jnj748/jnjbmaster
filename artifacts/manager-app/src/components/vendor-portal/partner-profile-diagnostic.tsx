@@ -12,6 +12,9 @@ export interface PartnerProfileDiagnosticProps {
     subCategories?: string | null;
     sido?: string | null;
     sigungu?: string | null;
+    // [Task 활동지역 오탐 fix] serviceArea(JSON {nationwide?, bySido?}) 가 채워져 있으면
+    //   sido/sigungu 컬럼이 비어 있어도 활동지역이 설정된 것으로 본다.
+    serviceArea?: string | null;
   };
   subCatList: string[];
   regionLabel: string | null;
@@ -90,17 +93,59 @@ export function PartnerProfileDiagnostic({
   );
 }
 
-/** vendor row → diagnostic 입력값 변환 헬퍼. */
+/** serviceArea JSON 파싱 — 형식 오류는 null 로 떨어뜨려 fallback 으로 흘린다. */
+function parseServiceAreaForLabel(
+  raw: string | null | undefined,
+): { nationwide?: boolean; bySido?: Record<string, string[] | undefined> } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as { nationwide?: boolean; bySido?: Record<string, string[] | undefined> };
+    }
+  } catch {
+    /* malformed → null */
+  }
+  return null;
+}
+
+/** vendor row → diagnostic 입력값 변환 헬퍼.
+ *  활동지역(regionLabel) 우선순위:
+ *    1) sido/sigungu 단일 컬럼이 있으면 그대로 표시 (옛날 vendor)
+ *    2) serviceArea.nationwide=true → "전국"
+ *    3) serviceArea.bySido 키 목록 → 시도명 join (예: "서울특별시, 경기도")
+ *    4) 그 외 → null (실제로 설정 안 됨)
+ */
 export function deriveDiagnosticInputs(vendor: {
   subCategories?: string | null;
   sido?: string | null;
   sigungu?: string | null;
+  serviceArea?: string | null;
 }): { subCatList: string[]; regionLabel: string | null } {
   const subCatList = (vendor.subCategories ?? "")
     .split(/[,\s]+/)
     .map((s) => s.trim())
     .filter(Boolean);
-  const regionLabel =
+
+  let regionLabel: string | null =
     [vendor.sido, vendor.sigungu].filter(Boolean).join(" ") || null;
+
+  if (!regionLabel) {
+    const area = parseServiceAreaForLabel(vendor.serviceArea ?? null);
+    if (area) {
+      if (area.nationwide) {
+        regionLabel = "전국";
+      } else if (area.bySido && typeof area.bySido === "object") {
+        const sidoList = Object.keys(area.bySido).filter((k) => k.trim().length > 0);
+        if (sidoList.length > 0) {
+          regionLabel =
+            sidoList.length <= 3
+              ? sidoList.join(", ")
+              : `${sidoList.slice(0, 3).join(", ")} 외 ${sidoList.length - 3}개 시도`;
+        }
+      }
+    }
+  }
+
   return { subCatList, regionLabel };
 }
