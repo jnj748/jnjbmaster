@@ -38,11 +38,15 @@ export const RFQ_CATEGORY_LABELS: Record<string, string> = {
   cleaning: "청소",
   security: "보안",
   waterproofing: "방수",
+  facility_maintenance: "영선/수선유지",
+  // 레거시 폴백: 과거 RFQ 데이터의 maintenance_repair → facility_maintenance 와 동일 라벨.
   maintenance_repair: "영선/수선유지",
   defect_diagnosis: "하자진단",
   building_maintenance: "건물관리",
   mechanical: "기계설비",
   landscaping: "조경",
+  hvac: "냉난방",
+  water_leak: "누수",
   other: "기타",
 };
 

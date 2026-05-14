@@ -125,20 +125,24 @@ function extractServerErrorMessage(err: unknown): string | null {
   return null;
 }
 
+// [Task: RFQ 정합성] 관리자 분야 관리(vendor_categories) 순서·코드와 일치시킨다.
+//   - facility_maintenance 가 SoT (legacy maintenance_repair 는 라벨 폴백만 유지).
 const categoryOptions = [
   { value: "elevator", label: "승강기" },
-  { value: "water_tank", label: "저수조" },
   { value: "fire_safety", label: "소방" },
   { value: "electrical", label: "전기" },
+  { value: "mechanical", label: "기계설비" },
   { value: "gas", label: "가스" },
+  { value: "water_tank", label: "저수조" },
   { value: "septic", label: "정화조" },
   { value: "cleaning", label: "청소" },
   { value: "security", label: "보안" },
   { value: "waterproofing", label: "방수" },
-  { value: "maintenance_repair", label: "영선/수선유지" },
+  { value: "water_leak", label: "누수" },
+  { value: "hvac", label: "냉난방" },
+  { value: "facility_maintenance", label: "영선/수선유지" },
   { value: "defect_diagnosis", label: "하자진단" },
   { value: "building_maintenance", label: "건물관리" },
-  { value: "mechanical", label: "기계설비" },
   { value: "landscaping", label: "조경" },
   { value: "other", label: "기타" },
 ];

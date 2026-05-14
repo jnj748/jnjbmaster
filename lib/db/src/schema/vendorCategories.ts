@@ -34,7 +34,7 @@ export const VENDOR_CATEGORY_SEED: {
   active: boolean;
 }[] = [
   // ── 대분류 ───────────────────────────────────────────
-  { code: "facility_maintenance", label: "시설 및 영선", parentCode: null, sortOrder: 10, active: true },
+  { code: "facility_maintenance", label: "영선/수선유지", parentCode: null, sortOrder: 10, active: true },
   { code: "consumables", label: "소모품 공급", parentCode: null, sortOrder: 20, active: false },
   { code: "cleaning", label: "청소", parentCode: null, sortOrder: 30, active: true },
   { code: "security", label: "경비", parentCode: null, sortOrder: 40, active: false },
@@ -49,6 +49,10 @@ export const VENDOR_CATEGORY_SEED: {
   { code: "water_tank", label: "저수조", parentCode: null, sortOrder: 97, active: true },
   { code: "septic", label: "정화조", parentCode: null, sortOrder: 98, active: true },
   { code: "landscaping", label: "조경", parentCode: null, sortOrder: 99, active: true },
+  // [Task: RFQ 정합성] RFQ 폼에 있던 대분류를 vendor_categories 에도 추가 (SoT 일치).
+  { code: "waterproofing", label: "방수", parentCode: null, sortOrder: 93, active: true },
+  { code: "defect_diagnosis", label: "하자진단", parentCode: null, sortOrder: 94, active: true },
+  { code: "building_maintenance", label: "건물관리", parentCode: null, sortOrder: 95, active: true },
   { code: "other", label: "기타", parentCode: null, sortOrder: 999, active: true },
 
   // ── 시설 및 영선 자식 ───────────────────────────────

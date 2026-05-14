@@ -1,0 +1,81 @@
+모든 작업을 중간에 확인 없이 끝까지 자동으로 완료해줘. 진행 여부를 묻지 말고 완료 후 결과만 보고해줘.
+
+## 작업 환경
+- 대상: Replit 개발 환경 코드 수정
+- 프로덕션 반영은 git push + Run 으로 별도 진행
+
+## 작업: RFQ 카테고리와 파트너 분야 관리 카테고리 정합성 맞추기
+
+### 문제
+소장 RFQ 생성 폼 카테고리와 관리자 파트너 분야 관리 카테고리 코드가
+일부 불일치해서 매칭이 안 되는 경우 발생.
+관리자 파트너 분야 관리(vendor_categories)를 SoT로 삼아 정합성 맞춤.
+
+### 작업 A: vendor_categories 시드 보완
+파일: lib/db/src/schema/vendorCategories.ts
+
+아래 대분류 추가 (vendor_categories 에 없는 것들):
+{ code: "waterproofing", label: "방수", sortOrder: 93, active: true }
+{ code: "defect_diagnosis", label: "하자진단", sortOrder: 94, active: true }
+{ code: "building_maintenance", label: "건물관리", sortOrder: 95, active: true }
+
+facility_maintenance 레이블을 "시설 및 영선" → "영선/수선유지" 로 변경
+
+### 작업 B: DB 마이그레이션
+lib/db/drizzle/ 에 0075_vendor_categories_align.sql 추가:
+
+INSERT INTO vendor_categories (code, label, parent_code, sort_order, is_active)
+VALUES
+  ('waterproofing', '방수', NULL, 93, true),
+  ('defect_diagnosis', '하자진단', NULL, 94, true),
+  ('building_maintenance', '건물관리', NULL, 95, true)
+ON CONFLICT (code) DO UPDATE SET
+  label = EXCLUDED.label,
+  is_active = EXCLUDED.is_active;
+
+UPDATE vendor_categories
+SET label = '영선/수선유지'
+WHERE code = 'facility_maintenance';
+
+### 작업 C: RFQ_CATEGORY_LABELS SoT 업데이트
+파일: lib/shared/src/rfq-service-types.ts
+
+RFQ_CATEGORY_LABELS 에 누락된 항목 추가:
+landscaping: "조경",
+hvac: "냉난방",
+water_leak: "누수",
+facility_maintenance: "영선/수선유지",
+
+기존 maintenance_repair 는 facility_maintenance 로 매핑되므로
+레거시 폴백 유지:
+maintenance_repair: "영선/수선유지",
+
+### 작업 D: RFQ 생성 폼 카테고리 목록 업데이트
+파일: artifacts/manager-app/src/pages/rfqs.tsx
+
+하드코딩된 카테고리 배열을 관리자 분야 관리 순서에 맞게 재정렬 + 누락 항목 추가:
+
+[
+  { value: "elevator", label: "승강기" },
+  { value: "fire_safety", label: "소방" },
+  { value: "electrical", label: "전기" },
+  { value: "mechanical", label: "기계설비" },
+  { value: "gas", label: "가스" },
+  { value: "water_tank", label: "저수조" },
+  { value: "septic", label: "정화조" },
+  { value: "cleaning", label: "청소" },
+  { value: "security", label: "보안" },
+  { value: "waterproofing", label: "방수" },
+  { value: "water_leak", label: "누수" },
+  { value: "hvac", label: "냉난방" },
+  { value: "facility_maintenance", label: "영선/수선유지" },
+  { value: "defect_diagnosis", label: "하자진단" },
+  { value: "building_maintenance", label: "건물관리" },
+  { value: "landscaping", label: "조경" },
+  { value: "other", label: "기타" },
+]
+
+### 검증
+pnpm --filter @workspace/api-server run typecheck
+pnpm --filter @workspace/manager-app run typecheck
+오류 0건
