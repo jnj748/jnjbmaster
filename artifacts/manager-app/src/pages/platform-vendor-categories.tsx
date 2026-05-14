@@ -21,7 +21,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
-import { Plus, Pencil, Trash2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers, ChevronDown, ChevronRight } from "lucide-react";
 
 // [Task #740 가입흐름재설정] 본사 관리자 — 파트너 분야(카테고리) 관리 화면.
 //   2단(대분류·자식)으로 구성된 vendor_categories 마스터를 직접 추가/편집/비활성/삭제한다.
@@ -86,9 +86,12 @@ export default function PlatformVendorCategoriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  // 접힘 상태 — top.code 가 들어 있으면 접힘. 토글·저장·삭제 후에도 유지된다.
+  const [collapsedTops, setCollapsedTops] = useState<Set<string>>(new Set());
 
-  async function load() {
-    setLoading(true);
+  // silent=true 면 화면 전체를 "불러오는 중..." 으로 바꾸지 않는다 (스크롤 점프 방지).
+  async function load(opts: { silent?: boolean } = {}) {
+    if (!opts.silent) setLoading(true);
     setErrorMsg("");
     try {
       // 비활성 항목까지 모두 조회 (관리자 화면).
@@ -101,8 +104,24 @@ export default function PlatformVendorCategoriesPage() {
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "오류");
     } finally {
-      setLoading(false);
+      if (!opts.silent) setLoading(false);
     }
+  }
+
+  function toggleCollapsed(code: string) {
+    setCollapsedTops((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+
+  function collapseAll() {
+    setCollapsedTops(new Set(categories.filter((c) => !c.parentCode).map((c) => c.code)));
+  }
+  function expandAll() {
+    setCollapsedTops(new Set());
   }
 
   useEffect(() => {
@@ -200,7 +219,8 @@ export default function PlatformVendorCategoriesPage() {
       }
       toast({ title: draft.id ? "수정되었습니다" : "추가되었습니다" });
       setDialogOpen(false);
-      await load();
+      // silent reload — 화면을 "불러오는 중..." 으로 바꾸지 않아 스크롤 위치가 유지된다.
+      await load({ silent: true });
     } catch (e) {
       toast({
         title: "저장 실패",
@@ -213,6 +233,11 @@ export default function PlatformVendorCategoriesPage() {
   }
 
   async function toggleActive(c: Category) {
+    // 옵티미스틱 업데이트 — 즉시 화면을 바꾸고, 실패 시 되돌린다.
+    //   load() 를 호출하지 않으므로 스크롤 위치도 유지된다.
+    setCategories((prev) =>
+      prev.map((x) => (x.id === c.id ? { ...x, active: !c.active } : x)),
+    );
     try {
       const res = await fetch(`${API_BASE}/vendor-categories/${c.id}`, {
         method: "PUT",
@@ -227,8 +252,11 @@ export default function PlatformVendorCategoriesPage() {
         throw new Error(j.error ?? `변경 실패 (${res.status})`);
       }
       toast({ title: c.active ? "비활성으로 전환했습니다" : "활성으로 전환했습니다" });
-      await load();
     } catch (e) {
+      // 실패 시 원복.
+      setCategories((prev) =>
+        prev.map((x) => (x.id === c.id ? { ...x, active: c.active } : x)),
+      );
       toast({
         title: "전환 실패",
         description: e instanceof Error ? e.message : "오류",
@@ -258,7 +286,7 @@ export default function PlatformVendorCategoriesPage() {
         throw new Error(j.error ?? `삭제 실패 (${res.status})`);
       }
       toast({ title: "삭제했습니다" });
-      await load();
+      await load({ silent: true });
     } catch (e) {
       toast({
         title: "삭제 실패",
@@ -289,7 +317,25 @@ export default function PlatformVendorCategoriesPage() {
         </p>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={collapseAll}
+          disabled={loading || grouped.length === 0}
+          data-testid="button-collapse-all"
+        >
+          모두 접기
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={expandAll}
+          disabled={loading || collapsedTops.size === 0}
+          data-testid="button-expand-all"
+        >
+          모두 펼치기
+        </Button>
         <Button variant="outline" onClick={() => openCreate(null)}>
           <Plus className="w-4 h-4 mr-1" /> 대분류 추가
         </Button>
@@ -307,10 +353,24 @@ export default function PlatformVendorCategoriesPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {grouped.map(({ top, children }) => (
+          {grouped.map(({ top, children }) => {
+            const isCollapsed = collapsedTops.has(top.code);
+            return (
             <Card key={top.id} className={top.active ? "" : "opacity-60"}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <div className="flex items-center gap-2 min-w-0">
+                {/* 좌측: 클릭하면 접기/펼치기 — 우측 액션 버튼과 분리. */}
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(top.code)}
+                  className="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 -m-1 p-1 rounded"
+                  aria-expanded={!isCollapsed}
+                  data-testid={`button-collapse-${top.code}`}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  )}
                   <CardTitle className="text-base truncate">{top.label}</CardTitle>
                   <Badge variant="outline" className="text-xs font-mono">
                     {top.code}
@@ -321,7 +381,12 @@ export default function PlatformVendorCategoriesPage() {
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">정렬 {top.sortOrder}</span>
-                </div>
+                  {isCollapsed && children.length > 0 && (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      · 자식 {children.length}
+                    </span>
+                  )}
+                </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(top)}>
                     <Pencil className="w-4 h-4" />
@@ -338,6 +403,7 @@ export default function PlatformVendorCategoriesPage() {
                   </Button>
                 </div>
               </CardHeader>
+              {!isCollapsed && (
               <CardContent className="pt-0">
                 {children.length === 0 ? (
                   <p className="text-xs text-muted-foreground mb-2">자식 없음</p>
@@ -391,8 +457,10 @@ export default function PlatformVendorCategoriesPage() {
                   <Plus className="w-3.5 h-3.5 mr-1" /> '{top.label}' 자식 추가
                 </Button>
               </CardContent>
+              )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
