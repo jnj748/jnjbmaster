@@ -976,6 +976,299 @@ async function runDailyJournalReminderTick(): Promise<void> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 보고서 SMS 알림 (Aligo SMS).
+//
+// 배경: 카카오 알림톡 템플릿 심사가 반려되어, 보고서 영역의 외부 발송 채널을
+//   "신규로 SMS 채널만" 신설한다. (기존 카카오 → SMS 교체가 아님 —
+//   현 시점 보고서 enqueueDispatch 호출은 0건. 이번 작업이 첫 도입.)
+//
+// 6개 인테이크 답변(사장님 결정):
+//   ① 대상       : manager + facility_staff (accountant 는 본 채널 제외)
+//   ② 시각·조건  : daily   = 평일 18:00 KST 이후, 금일 본인 daily_journals 미작성 → 1회
+//                  weekly  = 금요일 17:00 KST 이후, 이번주(월~일) 본인 작성 weekly_summary_reports 0건 → 1회
+//                  monthly = 매월 25일 09:00 KST 이후, 전 대상 무조건 → 1회
+//   ③ 채널       : aligo_sms (90자 자동 trim, 어댑터 책임)
+//   ④ dedupe     : dispatch_jobs partial unique
+//                    (channel, relatedEntityType, relatedEntityId, triggerSource)
+//                  triggerSource 에 기간 키를 박아 동일 기간 중복 enqueue 를 DB 단에서 차단.
+//                    daily   → daily_journal_reminder_sms:YYYY-MM-DD
+//                    weekly  → weekly_report_reminder_sms:YYYY-MM-DD (월요일 = weekStart)
+//                    monthly → monthly_report_reminder_sms:YYYY-MM
+//   ⑤ phone null : SELECT 단계에서 제외 (빈 phone 으로 큐 적재 방지).
+//   ⑥ 이력       : dispatch_jobs 자체가 진본. 별도 알림함 미발행 (in-app 은 기존 daily_journal_reminder_* 로 분리).
+//
+// 가시성·연동 정책:
+//   - 본 작업은 직원(manager + facility_staff) 본인에게만 SMS 발송.
+//   - 본부장·본사·파트너사는 본 채널 비대상 (대시보드/감사 화면에서는 dispatch_jobs 로 조회 가능).
+//   - 다운스트림 자동 연동 없음 (단순 발송).
+//
+// SoT 체이너:
+//   - 역할 정의:    docs/user-roles/README.md, lib/shared/src/role-labels.ts
+//   - 큐 schema:    lib/db/src/schema/dispatchJobs.ts  (dedupe partial unique idx)
+//   - SMS 어댑터:    artifacts/api-server/src/lib/external/aligoChannel.ts (90자 자동 trim)
+
+const REPORT_SMS_TARGET_ROLES = ["manager", "facility_staff"] as const;
+
+interface ReportSmsTargetUser {
+  id: number;
+  name: string;
+  role: string;
+  phone: string;
+  buildingId: number | null;
+}
+
+async function loadReportSmsTargets(): Promise<ReportSmsTargetUser[]> {
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      role: usersTable.role,
+      phone: usersTable.phone,
+      buildingId: usersTable.buildingId,
+      enabled: usersTable.dailyJournalReminderEnabled,
+      approval: usersTable.approvalStatus,
+    })
+    .from(usersTable)
+    .where(inArray(usersTable.role, [...REPORT_SMS_TARGET_ROLES]));
+  return rows
+    .filter((r) => r.enabled !== false)
+    .filter((r) => r.approval !== "rejected")
+    .filter((r) => typeof r.buildingId === "number")
+    .filter((r) => typeof r.phone === "string" && r.phone.trim().length > 0)
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      role: r.role,
+      phone: (r.phone ?? "").trim(),
+      buildingId: r.buildingId ?? null,
+    }));
+}
+
+// 발송 결과 3분류:
+//   "sent"    : 큐 적재 성공 (워커가 곧 외부 API 호출).
+//   "skipped" : DB dedupe 충돌 — 같은 기간 이미 적재됨(정상, 재시도 의미 없음).
+//   "failed"  : 그 외 예외(네트워크/마감 게이트/스키마 등) — tick 가드를 풀어 다음 주기에 재시도.
+async function enqueueReportAligoSmsTracked(args: {
+  buildingId: number | null;
+  phone: string;
+  message: string;
+  relatedEntityType: string;
+  relatedEntityId: number;
+  triggerSource: string;
+}): Promise<"sent" | "skipped" | "failed"> {
+  try {
+    const { enqueueDispatch } = await import("./lib/external/adapter");
+    await enqueueDispatch({
+      buildingId: args.buildingId,
+      channel: "aligo_sms",
+      target: args.phone,
+      payload: {
+        senderNumber: process.env.ALIGO_SENDER_NUMBER ?? "",
+        message: args.message,
+      },
+      relatedEntityType: args.relatedEntityType,
+      relatedEntityId: args.relatedEntityId,
+      triggerSource: args.triggerSource,
+    });
+    return "sent";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/dispatch_jobs_dedupe_idx|duplicate key value/i.test(msg)) return "skipped";
+    logger.warn(
+      { err, phone: args.phone, triggerSource: args.triggerSource },
+      "[report-sms] aligo_sms enqueue failed",
+    );
+    return "failed";
+  }
+}
+
+const REPORT_SMS_DAILY_KEY = "report_sms_daily_at";
+const REPORT_SMS_WEEKLY_KEY = "report_sms_weekly_at";
+const REPORT_SMS_MONTHLY_KEY = "report_sms_monthly_at";
+const REPORT_SMS_DAILY_DEFAULT = "18:00";
+const REPORT_SMS_WEEKLY_DEFAULT = "17:00";
+const REPORT_SMS_MONTHLY_DEFAULT = "09:00";
+
+let lastReportSmsDailyYmd: string | null = null;
+let lastReportSmsWeeklyKey: string | null = null;
+let lastReportSmsMonthlyKey: string | null = null;
+
+// KST 기준 이번주 월요일 YYYY-MM-DD.
+function kstWeekStartMonday(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const utcMs = Date.UTC(y, m - 1, d);
+  const dow = new Date(utcMs).getUTCDay(); // 0=일 ~ 6=토
+  const offset = dow === 0 ? -6 : 1 - dow; // 월요일까지 보정
+  return kstAddDays(ymd, offset);
+}
+
+interface ReportSmsPassResult { sent: number; failed: number; skipped: number; }
+
+async function runReportSmsDailyPass(todayYmd: string): Promise<ReportSmsPassResult> {
+  const targets = await loadReportSmsTargets();
+  if (targets.length === 0) return { sent: 0, failed: 0, skipped: 0 };
+
+  // "본인 미작성" 판정 — daily_journals.authorId = u.id 기준 (인테이크 답변에 따름).
+  //   동일 건물·동일 직책에 다계정이 있는 환경에서도 본인 본인이 안 썼으면 본인에게 발송.
+  const userIds = targets.map((t) => t.id);
+  const journals = await db
+    .select({ authorId: dailyJournalsTable.authorId })
+    .from(dailyJournalsTable)
+    .where(
+      and(
+        inArray(dailyJournalsTable.authorId, userIds),
+        eq(dailyJournalsTable.journalDate, todayYmd),
+      ),
+    );
+  const haveJournal = new Set(journals.map((j) => j.authorId));
+
+  const triggerSource = `daily_journal_reminder_sms:${todayYmd}`;
+  let sent = 0, failed = 0, skipped = 0;
+  for (const u of targets) {
+    if (haveJournal.has(u.id)) { skipped++; continue; }
+    const message =
+      `[관리의달인] 오늘(${todayYmd}) 업무일지가 비어 있습니다.\n` +
+      `${u.name}님, 1분이면 충분합니다. 앱에서 마무리해 주세요.`;
+    const r = await enqueueReportAligoSmsTracked({
+      buildingId: u.buildingId,
+      phone: u.phone,
+      message,
+      relatedEntityType: "daily_journal",
+      relatedEntityId: u.id,
+      triggerSource,
+    });
+    if (r === "sent") sent++;
+    else if (r === "failed") failed++;
+    else skipped++;
+  }
+  return { sent, failed, skipped };
+}
+
+async function runReportSmsWeeklyPass(weekStartYmd: string): Promise<ReportSmsPassResult> {
+  const targets = await loadReportSmsTargets();
+  if (targets.length === 0) return { sent: 0, failed: 0, skipped: 0 };
+
+  // 이번주(weekStart 기준) 본인 작성 weekly_summary_reports 가 1건+ 이면 발송 생략.
+  const userIds = targets.map((t) => t.id);
+  const reports = await db
+    .select({ authorId: weeklySummaryReportsTable.authorId })
+    .from(weeklySummaryReportsTable)
+    .where(
+      and(
+        inArray(weeklySummaryReportsTable.authorId, userIds),
+        eq(weeklySummaryReportsTable.weekStart, weekStartYmd),
+      ),
+    );
+  const haveReport = new Set(reports.map((r) => r.authorId));
+
+  const triggerSource = `weekly_report_reminder_sms:${weekStartYmd}`;
+  let sent = 0, failed = 0, skipped = 0;
+  for (const u of targets) {
+    if (haveReport.has(u.id)) { skipped++; continue; }
+    const message =
+      `[관리의달인] 주간 보고서 작성 알림\n` +
+      `${u.name}님, 이번주(${weekStartYmd}~) 주간 보고서가 비어 있어요.\n` +
+      `앱에서 자동 작성 후 검토만 해주세요.`;
+    const r = await enqueueReportAligoSmsTracked({
+      buildingId: u.buildingId,
+      phone: u.phone,
+      message,
+      relatedEntityType: "weekly_report",
+      relatedEntityId: u.id,
+      triggerSource,
+    });
+    if (r === "sent") sent++;
+    else if (r === "failed") failed++;
+    else skipped++;
+  }
+  return { sent, failed, skipped };
+}
+
+async function runReportSmsMonthlyPass(monthKey: string): Promise<ReportSmsPassResult> {
+  // monthly 는 사장님 결정에 따라 "무조건" 발송 (보유 여부 무관).
+  // dedupe 는 triggerSource 의 monthKey 로 보장.
+  const targets = await loadReportSmsTargets();
+  if (targets.length === 0) return { sent: 0, failed: 0, skipped: 0 };
+
+  const triggerSource = `monthly_report_reminder_sms:${monthKey}`;
+  let sent = 0, failed = 0, skipped = 0;
+  for (const u of targets) {
+    const message =
+      `[관리의달인] 월간 보고서 마감 안내\n` +
+      `${u.name}님, ${monthKey} 월간 보고서를 정리할 시점입니다.\n` +
+      `앱에서 자동 생성 후 검토·제출만 해주세요.`;
+    const r = await enqueueReportAligoSmsTracked({
+      buildingId: u.buildingId,
+      phone: u.phone,
+      message,
+      relatedEntityType: "monthly_report",
+      relatedEntityId: u.id,
+      triggerSource,
+    });
+    if (r === "sent") sent++;
+    else if (r === "failed") failed++;
+    else skipped++;
+  }
+  return { sent, failed, skipped };
+}
+
+// 15분 간격 tick — 각 패스는 시각 통과·메모리 가드(in-process)·DB unique 의 3중 중복 방지.
+async function runReportReminderSmsTick(): Promise<void> {
+  const now = kstNow();
+  const dow = now.getUTCDay(); // 0=일 ~ 6=토 (KST)
+  const todayYmd = kstYmd(now);
+  const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+  const dailyAt = await getReminderSetting(REPORT_SMS_DAILY_KEY, REPORT_SMS_DAILY_DEFAULT);
+  const weeklyAt = await getReminderSetting(REPORT_SMS_WEEKLY_KEY, REPORT_SMS_WEEKLY_DEFAULT);
+  const monthlyAt = await getReminderSetting(REPORT_SMS_MONTHLY_KEY, REPORT_SMS_MONTHLY_DEFAULT);
+
+  // daily: 평일(월~금) 18:00 이후, 오늘 1회.
+  //   in-process 가드(lastReportSmsDailyYmd) 는 "failed === 0" 일 때만 갱신해
+  //   일시 장애 시 다음 15분 tick 에서 재시도되게 한다(중복은 DB partial unique 가 흡수).
+  if (dow >= 1 && dow <= 5
+    && lastReportSmsDailyYmd !== todayYmd
+    && nowMinutes >= dailyAt.h * 60 + dailyAt.m) {
+    try {
+      const r = await runReportSmsDailyPass(todayYmd);
+      logger.info({ ...r, target: todayYmd }, "[report-sms] daily reminder pass");
+      if (r.failed === 0) lastReportSmsDailyYmd = todayYmd;
+    } catch (err) {
+      logger.error({ err }, "[report-sms] daily reminder failed");
+    }
+  }
+
+  // weekly: 금요일(=5) 17:00 이후, 오늘 1회.
+  if (dow === 5
+    && lastReportSmsWeeklyKey !== todayYmd
+    && nowMinutes >= weeklyAt.h * 60 + weeklyAt.m) {
+    try {
+      const weekStart = kstWeekStartMonday(todayYmd);
+      const r = await runReportSmsWeeklyPass(weekStart);
+      logger.info({ ...r, weekStart }, "[report-sms] weekly reminder pass");
+      if (r.failed === 0) lastReportSmsWeeklyKey = todayYmd;
+    } catch (err) {
+      logger.error({ err }, "[report-sms] weekly reminder failed");
+    }
+  }
+
+  // monthly: 매월 25일 09:00 이후, 그 달 1회.
+  const day = now.getUTCDate();
+  const monthKey = `${now.getUTCFullYear()}-${pad2(now.getUTCMonth() + 1)}`;
+  if (day === 25
+    && lastReportSmsMonthlyKey !== monthKey
+    && nowMinutes >= monthlyAt.h * 60 + monthlyAt.m) {
+    try {
+      const r = await runReportSmsMonthlyPass(monthKey);
+      logger.info({ ...r, monthKey }, "[report-sms] monthly reminder pass");
+      if (r.failed === 0) lastReportSmsMonthlyKey = monthKey;
+    } catch (err) {
+      logger.error({ err }, "[report-sms] monthly reminder failed");
+    }
+  }
+}
+
 // [Task #793] 분할부과 스케줄 월별 회차 인식.
 //   active 상태인 expense_voucher_schedules 의 currentRound 를 현재 월에 맞춰 한 회차씩
 //   진행시키며, 진행할 때마다 voucher_schedule.tick 을 발행한다. 회계엔진(T6) 구독자가
@@ -1384,7 +1677,11 @@ export function startScheduler(): void {
   runDailyJournalReminderTick().catch((err) => logger.error({ err }, "Daily journal reminder tick failed"));
   reminderTimer = setInterval(() => {
     runDailyJournalReminderTick().catch((err) => logger.error({ err }, "Daily journal reminder tick failed"));
+    runReportReminderSmsTick().catch((err) => logger.error({ err }, "[report-sms] reminder tick failed"));
   }, 15 * 60 * 1000);
+
+  // 부팅 직후 1회 평가 — 시각이 통과되어 있으면 즉시 발송, 아니면 다음 tick 대기.
+  runReportReminderSmsTick().catch((err) => logger.error({ err }, "[report-sms] reminder tick failed"));
 
   // [Task #781] 외부 발송 잡 큐 워커 — 1분 간격. due(scheduledAt<=now) 인 queued/failed 잡을 처리.
   dispatchTimer = setInterval(() => {
