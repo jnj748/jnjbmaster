@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { PartnerProfileDiagnostic } from "@/components/vendor-portal/partner-profile-diagnostic";
 import { useAuth } from "@/contexts/auth-context";
+import { ledgerKindLabel, ledgerSourceLabel } from "@/lib/credit-ledger-labels";
 import {
   MobileOnly,
   DesktopOnly,
@@ -580,9 +581,9 @@ export default function PartnerDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border text-sm"
                   >
                     <div>
-                      <p className="font-medium">{entry.kind}</p>
+                      <p className="font-medium">{ledgerKindLabel(entry.kind)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {entry.notes ?? entry.source}
+                        {entry.notes ?? ledgerSourceLabel(entry.source)}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
                         {new Date(entry.createdAt).toLocaleString("ko-KR")}

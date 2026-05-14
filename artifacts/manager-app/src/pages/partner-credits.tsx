@@ -48,22 +48,7 @@ import { tossMethodLabel } from "@/lib/toss-method-label";
 //   서버 패키지 카탈로그(/credits/topup/packages) + 토스 결제창을 직접 호출한다.
 //   결제 콜백은 success / fail 라우트(아래 별도 파일)에서 confirm/fail API 를 호출.
 
-const ledgerKindLabel = (k: string): string => {
-  switch (k) {
-    case "consumption": return "차감";
-    case "refund": return "환불";
-    case "manual_credit": return "수동 충전";
-    case "manual_debit": return "수동 차감";
-    case "package_purchase": return "충전";
-    case "rebate": return "리베이트";
-    case "adjustment": return "조정";
-    case "bonus_points": return "보너스";
-    // [Task #734] 신규 ledger kind 라벨 — 가입 기본 지급 / 운영자 일괄 이벤트 지급.
-    case "signup_bonus": return "가입 기본 지급";
-    case "event_grant": return "이벤트 지급";
-    default: return k;
-  }
-};
+import { ledgerKindLabel } from "@/lib/credit-ledger-labels";
 
 const orderStatusLabel = (s: string): { label: string; tone: string } => {
   switch (s) {
