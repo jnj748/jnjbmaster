@@ -1312,6 +1312,201 @@ router.post("/credits/topup/orders/:id/fail", async (req, res): Promise<void> =>
   res.json({ order: updated });
 });
 
+// ── 토스 웹훅 수신 ────────────────────────────────────────
+//   토스 등록 시 이 URL 로 테스트 요청을 쏴서 200 응답을 받아야 등록이 완료된다.
+//   PAYMENT_STATUS_CHANGED 이벤트만 의미 있게 처리:
+//     - status === "DONE"     → 주문을 paid 로 확정 + ledger 적재 (confirm 라우트와 동일 효과)
+//     - status === "CANCELED" / "ABORTED" → 주문 failed 로 마무리 (이미 paid 면 무시)
+//     - 그 외 / 알 수 없는 이벤트 → 200 으로 응답하고 무시 (토스가 재시도하지 않도록)
+//
+//   인증:
+//     - 환경변수 TOSS_WEBHOOK_SECRET 가 있으면 요청 헤더 Authorization 와 비교 (불일치 401)
+//     - 없으면 dev 모드로 간주하고 검증 스킵 (등록 테스트 통과를 위해)
+//
+//   멱등성:
+//     - 이미 paid 인 주문에 또 DONE 이 와도 200 으로 응답 후 본 처리 스킵
+//     - confirm 라우트가 먼저 paid 처리한 경우와 충돌하지 않도록 status='processing' 가드 사용
+router.post("/credits/topup/webhook", async (req, res): Promise<void> => {
+  // 1) 인증 — TOSS_WEBHOOK_SECRET 가 설정돼 있을 때만 검증.
+  const expected = process.env.TOSS_WEBHOOK_SECRET;
+  if (expected) {
+    const auth = req.headers.authorization ?? "";
+    // 토스 콘솔에서 입력한 비밀값 그대로 비교 (Bearer 접두어 유무 모두 허용).
+    const provided = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : auth.trim();
+    if (provided !== expected) {
+      res.status(401).json({ error: "invalid webhook secret" });
+      return;
+    }
+  }
+
+  // 2) 페이로드 파싱.
+  type WebhookData = {
+    paymentKey?: string;
+    orderId?: string;
+    status?: string;
+    totalAmount?: number;
+    method?: string;
+  };
+  const body = (req.body ?? {}) as { eventType?: string; data?: WebhookData };
+  const eventType = body.eventType ?? "";
+  const data: WebhookData = body.data ?? {};
+
+  // 3) 모르는 이벤트는 200 으로 흘려보낸다 (등록 테스트 / 미사용 이벤트 모두 통과).
+  if (eventType !== "PAYMENT_STATUS_CHANGED") {
+    res.json({ received: true, ignored: true, reason: `unhandled event: ${eventType || "none"}` });
+    return;
+  }
+
+  const tossOrderId = String(data.orderId ?? "").trim();
+  const status = String(data.status ?? "").toUpperCase();
+  if (!tossOrderId) {
+    res.json({ received: true, ignored: true, reason: "no orderId" });
+    return;
+  }
+
+  // 4) 우리 DB 의 주문 조회 (없으면 우리 시스템 외부 주문이므로 200 으로 무시).
+  const [order] = await db
+    .select()
+    .from(creditTopupOrdersTable)
+    .where(eq(creditTopupOrdersTable.tossOrderId, tossOrderId));
+  if (!order) {
+    res.json({ received: true, ignored: true, reason: "order not found" });
+    return;
+  }
+
+  // 5) DONE — paid 로 확정 + ledger 적재.
+  if (status === "DONE") {
+    if (order.status === "paid") {
+      res.json({ received: true, alreadyPaid: true });
+      return;
+    }
+    // 금액 검증 — 토스 응답이 우리 주문 금액과 다르면 실패 처리.
+    if (typeof data.totalAmount === "number" && data.totalAmount !== order.amountKrw) {
+      await db
+        .update(creditTopupOrdersTable)
+        .set({ status: "failed", failReason: `웹훅 금액 불일치(${data.totalAmount})` })
+        .where(
+          and(
+            eq(creditTopupOrdersTable.id, order.id),
+            inArray(creditTopupOrdersTable.status, ["pending", "processing"]),
+          ),
+        );
+      res.status(400).json({ error: "amount mismatch" });
+      return;
+    }
+
+    // pending → processing 으로 점유. 이미 다른 confirm 요청이 점유 중이면 그쪽에 맡긴다.
+    let claimed = false;
+    if (order.status === "pending") {
+      const [c] = await db
+        .update(creditTopupOrdersTable)
+        .set({
+          status: "processing",
+          tossPaymentKey: typeof data.paymentKey === "string" ? data.paymentKey : order.tossPaymentKey,
+        })
+        .where(
+          and(
+            eq(creditTopupOrdersTable.id, order.id),
+            eq(creditTopupOrdersTable.status, "pending"),
+          ),
+        )
+        .returning();
+      if (c) claimed = true;
+    }
+
+    // processing 이면 paid 로 마무리 + ledger 적재. (claim 못 해도 누군가 processing 으로 점유했으면 우리가 마무리.)
+    const result = await db.transaction(async (tx) => {
+      const [paidRow] = await tx
+        .update(creditTopupOrdersTable)
+        .set({
+          status: "paid",
+          tossMethod: typeof data.method === "string" ? data.method : null,
+          paidAt: new Date(),
+        })
+        .where(
+          and(
+            eq(creditTopupOrdersTable.id, order.id),
+            eq(creditTopupOrdersTable.status, "processing"),
+          ),
+        )
+        .returning();
+      if (!paidRow) {
+        // 이미 다른 경로(confirm 라우트)가 paid 까지 마쳤거나, pending 점유가 안 된 상태.
+        const [latest] = await tx
+          .select()
+          .from(creditTopupOrdersTable)
+          .where(eq(creditTopupOrdersTable.id, order.id));
+        return { order: latest ?? order, alreadyPaid: latest?.status === "paid" };
+      }
+      // ledger: 크레딧 충전.
+      await getOrCreateWallet(order.vendorId, tx);
+      const [creditRow] = await tx
+        .insert(creditLedgerTable)
+        .values({
+          vendorId: order.vendorId,
+          amount: order.credits,
+          kind: "package_purchase",
+          source: "package_purchase",
+          pointsAmount: 0,
+          notes: `${order.packageName} 결제 (토스 웹훅, 주문 ${order.tossOrderId})`,
+          actorId: order.userId ?? null,
+          actorName: null,
+        })
+        .returning();
+      let bonusRowId: number | null = null;
+      if (order.bonusPoints > 0) {
+        const [bonusRow] = await tx
+          .insert(creditLedgerTable)
+          .values({
+            vendorId: order.vendorId,
+            amount: 0,
+            kind: "bonus_points",
+            source: "package_purchase",
+            pointsAmount: order.bonusPoints,
+            notes: `${order.packageName} 보너스 포인트`,
+            actorId: order.userId ?? null,
+            actorName: null,
+          })
+          .returning();
+        bonusRowId = bonusRow.id;
+      }
+      await recalcWalletBalance(order.vendorId, tx);
+      const [updated] = await tx
+        .update(creditTopupOrdersTable)
+        .set({ ledgerCreditId: creditRow.id, ledgerBonusId: bonusRowId })
+        .where(eq(creditTopupOrdersTable.id, order.id))
+        .returning();
+      return { order: updated ?? paidRow, alreadyPaid: false };
+    });
+
+    res.json({ received: true, claimed, ...result });
+    return;
+  }
+
+  // 6) CANCELED / ABORTED / EXPIRED — failed 처리 (이미 paid 면 건드리지 않음).
+  if (status === "CANCELED" || status === "ABORTED" || status === "EXPIRED") {
+    if (order.status === "paid") {
+      res.json({ received: true, ignored: true, reason: "already paid" });
+      return;
+    }
+    const [updated] = await db
+      .update(creditTopupOrdersTable)
+      .set({ status: "failed", failReason: `웹훅 ${status}` })
+      .where(
+        and(
+          eq(creditTopupOrdersTable.id, order.id),
+          inArray(creditTopupOrdersTable.status, ["pending", "processing"]),
+        ),
+      )
+      .returning();
+    res.json({ received: true, order: updated ?? order });
+    return;
+  }
+
+  // 7) 그 외 status (IN_PROGRESS, WAITING_FOR_DEPOSIT 등) — 200 으로 흘려보낸다.
+  res.json({ received: true, ignored: true, reason: `unhandled status: ${status}` });
+});
+
 // ── 파트너 본인의 충전 내역 ────────────────────────────────
 router.get("/credits/topup/orders", async (req, res): Promise<void> => {
   const vendorId = await requirePartnerVendorId(req, res);
