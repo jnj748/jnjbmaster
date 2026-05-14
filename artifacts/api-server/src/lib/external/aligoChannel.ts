@@ -126,6 +126,16 @@ const aligoKakao: ChannelAdapter = {
   },
 };
 
+// Aligo 기준 바이트 길이 — 한글 = 2바이트, 그 외(ASCII) = 1바이트.
+//   SMS 한도 = 90바이트(한글 약 45자). 초과 시 LMS 로 자동 승격.
+function aligoByteLength(s: string): number {
+  let n = 0;
+  for (const ch of s) {
+    n += ch.charCodeAt(0) > 0x7f ? 2 : 1;
+  }
+  return n;
+}
+
 async function sendAligoSmsLike(
   channel: "aligo_sms" | "aligo_lms",
   job: Parameters<ChannelAdapter["send"]>[0],
@@ -139,8 +149,12 @@ async function sendAligoSmsLike(
     const userid = process.env.ALIGO_USER_ID ?? "";
     const sender = senderFromPayload(payload);
     const receiver = digitsOnly(target);
-    let msg = String(payload.message ?? "");
-    if (channel === "aligo_sms") msg = msg.slice(0, 90);
+    const msg = String(payload.message ?? "");
+    // SMS 인데 90바이트 초과면 LMS 로 자동 승격 (truncate 금지 — 본문 보존이 우선).
+    let effectiveMsgType: "" | "LMS" = msgType;
+    if (channel === "aligo_sms" && aligoByteLength(msg) > 90) {
+      effectiveMsgType = "LMS";
+    }
 
     const body = new URLSearchParams({
       key: apikey,
@@ -149,7 +163,7 @@ async function sendAligoSmsLike(
       receiver,
       msg,
     });
-    if (msgType === "LMS") {
+    if (effectiveMsgType === "LMS") {
       body.set("msg_type", "LMS");
       const subject = String(payload.subject ?? payload.title ?? "").trim();
       if (subject) body.set("title", subject);

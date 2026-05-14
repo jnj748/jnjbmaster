@@ -11,7 +11,7 @@
 //   /tax/invoices/:id/retransmit   직전 실패 전송 다시
 //   /tax/summary                   상태별/매출·매입 요약(부가세 신고용)
 //
-// 외부 채널은 #781 외부연동 어댑터(channel='aligo_lms', 'aligo_kakao' 등) 위임.
+// 외부 채널은 #781 외부연동 어댑터(channel='aligo_lms', 'aligo_sms' 등) 위임.
 // 국세청 전송은 채널 슬롯이 등록되지 않을 수 있어 어댑터 부재 시 시뮬 모드로 진행 —
 // 승인번호를 'NTS-' + invoiceId + 타임스탬프로 채워 round-trip 을 닫는다.
 
@@ -578,12 +578,27 @@ router.post("/tax/invoices/:id/transmit", requireAction("tax.invoice.transmit"),
   let response: Record<string, unknown> = { simulated: true };
   try {
     const { enqueueDispatch } = await import("../lib/external/adapter");
-    const channel = sanitizedKind === "kakao" ? "aligo_kakao" : sanitizedKind === "sms" ? "aligo_lms" : "aligo_lms";
+    // 알림톡 전체 SMS 전환: kakao → aligo_sms (90바이트 초과 시 어댑터가 LMS 자동 승격).
+    const channel = sanitizedKind === "kakao" ? "aligo_sms" : sanitizedKind === "sms" ? "aligo_lms" : "aligo_lms";
+    // SMS/LMS 어댑터는 payload.message 를 본문으로 사용한다 — 없으면 빈 본문으로 발송된다.
+    const smsMessage =
+      `[관리의달인] 세금계산서 안내\n` +
+      `공급자: ${inv.supplierName}\n` +
+      `공급받는자: ${inv.buyerName}\n` +
+      `합계금액: ${Number(inv.totalAmount ?? 0).toLocaleString("ko-KR")}원\n` +
+      `자세한 내역은 관리소에 문의해 주세요.`;
     const job = await enqueueDispatch({
       buildingId,
       channel,
       target: dest,
-      payload: { taxInvoiceId: id, totalAmount: inv.totalAmount, supplierName: inv.supplierName, buyerName: inv.buyerName },
+      payload: {
+        taxInvoiceId: id,
+        totalAmount: inv.totalAmount,
+        supplierName: inv.supplierName,
+        buyerName: inv.buyerName,
+        subject: "세금계산서 안내",
+        message: smsMessage,
+      },
       relatedEntityType: "tax_invoice",
       relatedEntityId: id,
       triggerSource: "tax_invoice.transmit",

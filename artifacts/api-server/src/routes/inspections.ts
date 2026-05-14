@@ -1,6 +1,6 @@
 import { insertNotification } from "../lib/notificationRecipient";
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, lte, gte, desc, sql, inArray, or } from "drizzle-orm";
 import { db, inspectionsTable, inspectionLogsTable, legalInspectionPresetsTable, draftsTable, notificationsTable, vendorsTable, rfqsTable, usersTable, alertActionsTable, buildingsTable, dispatchJobsTable } from "@workspace/db";
 import { enqueueDispatch } from "../lib/external/adapter";
 import {
@@ -582,7 +582,11 @@ router.post(
           .from(dispatchJobsTable)
           .where(
             and(
-              eq(dispatchJobsTable.channel, "aligo_kakao"),
+              // 마이그레이션 호환: 과거 aligo_kakao 로 적재된 행도 동일 발송으로 간주해 dedupe.
+              or(
+                eq(dispatchJobsTable.channel, "aligo_sms"),
+                eq(dispatchJobsTable.channel, "aligo_kakao"),
+              ),
               eq(dispatchJobsTable.relatedEntityType, "inspection"),
               eq(dispatchJobsTable.relatedEntityId, inspection.id),
               eq(dispatchJobsTable.triggerSource, templateCode),
@@ -635,7 +639,7 @@ router.post(
             try {
               await enqueueDispatch({
                 buildingId: inspection.buildingId,
-                channel: "aligo_kakao",
+                channel: "aligo_sms",
                 target: r.phone,
                 payload: {
                   templateCode,
@@ -650,7 +654,7 @@ router.post(
                 triggerSource: templateCode,
               });
             } catch (err) {
-              console.error("[inspections] aligo_kakao dispatch failed", templateCode, r.phone, err);
+              console.error("[inspections] aligo_sms dispatch failed", templateCode, r.phone, err);
             }
           }
         }

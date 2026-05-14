@@ -404,7 +404,7 @@ router.post("/fees/interim", requireAction("fees.interim.calculate"), audit("fee
 
 // [Task #781] T10 외부연동 — 구코드 mock 을 dispatch_jobs 큐로 교체.
 //   1) T9 마감 게이트 통과(미마감이면 enqueueDispatch 가 closing_required 던짐).
-//   2) 호실 → 입주자/소유자 휴대폰 매핑 → aligo_kakao 채널로 enqueue.
+//   2) 호실 → 입주자/소유자 휴대폰 매핑 → aligo_sms 채널로 enqueue.
 //   3) 응답은 enqueued/failed 카운트 + 잡 ID 목록(매니저 화면이 이력으로 추적 가능).
 router.post("/fees/kakao-notify", requireAction("fees.kakao.notify"), audit("fees.kakao.notify", { targetType: "fees" }), async (req: Request, res: Response): Promise<void> => {
   const parsed = SendKakaoNotificationBody.safeParse(req.body);
@@ -471,7 +471,7 @@ router.post("/fees/kakao-notify", requireAction("fees.kakao.notify"), audit("fee
     try {
       const job = await enqueueDispatch({
         buildingId,
-        channel: "aligo_kakao",
+        channel: "aligo_sms",
         target: phone,
         payload: { templateCode, senderNumber, senderProfileId, message, altMessage: message, receiverName: tn?.tenantName ?? ow?.ownerName ?? "" },
         relatedMonth: month,
@@ -560,7 +560,7 @@ router.post("/fees/record-payment", requireAction("fees.payment.record"), audit(
           const message = `[관리비 납부완료] ${billingMonth} ${unit.unitNumber}호 관리비 ${newPaidAmount.toLocaleString()}원이 정상 수납 처리되었습니다. 감사합니다.`;
           await enqueueDispatch({
             buildingId,
-            channel: "aligo_kakao",
+            channel: "aligo_sms",
             target: phone,
             payload: {
               templateCode: settings?.kakaoTemplates?.payment_completed ?? "",

@@ -428,7 +428,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
       try {
         await enqueueDispatch({
           buildingId: d.buildingId,
-          channel: "aligo_kakao",
+          channel: "aligo_sms",
           target: d.target,
           payload: {
             templateCode: d.templateCode,
@@ -443,7 +443,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
           triggerSource: d.templateCode,
         });
       } catch (err) {
-        console.error("[quotes] aligo_kakao dispatch failed", d.templateCode, d.target, err);
+        console.error("[quotes] aligo_sms dispatch failed", d.templateCode, d.target, err);
       }
     }
 
@@ -884,7 +884,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
     try {
       await enqueueDispatch({
         buildingId: d.buildingId,
-        channel: "aligo_kakao",
+        channel: "aligo_sms",
         target: d.target,
         payload: {
           templateCode: d.templateCode,
@@ -899,7 +899,7 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
         triggerSource: d.templateCode,
       });
     } catch (err) {
-      console.error("[quotes] aligo_kakao dispatch failed", d.templateCode, d.target, err);
+      console.error("[quotes] aligo_sms dispatch failed", d.templateCode, d.target, err);
     }
   }
 

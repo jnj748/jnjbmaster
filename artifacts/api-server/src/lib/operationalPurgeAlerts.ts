@@ -107,7 +107,7 @@ async function alertOnce(
         if (!admin.phone) continue;
         await enqueueDispatch({
           buildingId: null,
-          channel: "aligo_kakao",
+          channel: "aligo_sms",
           target: admin.phone,
           payload: {
             templateCode: "operational_purge_alert",

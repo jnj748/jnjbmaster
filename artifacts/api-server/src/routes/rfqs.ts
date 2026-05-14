@@ -743,7 +743,7 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
 
   const mailEnabled = isMailEnabled();
   // 파트너 소유 user 의 email/phone 을 한 번에 조회 (vendorId 별 1건 이상일 수 있으므로 grouping).
-  // [Task #RFQ-알림톡] phone 도 함께 가져와 aligo_kakao 발송 대상으로 사용.
+  // [Task #RFQ-알림톡] phone 도 함께 가져와 aligo_sms 발송 대상으로 사용.
   //   #3 fix: 알림톡은 vendor 당 대표자 1명에게만 — createdAt ASC 로 정렬해 첫 user 의 phone 만 keep.
   //   email 은 사내 알림 fan-out 성격이라 기존대로 다중 발송 유지.
   const owners = await db
@@ -819,7 +819,7 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
       }
     }
 
-    // [Task #RFQ-알림톡] aligo_kakao dispatch — vendor 대표자 1명 phone 으로만 발송 (#3 fix).
+    // [Task #RFQ-알림톡] aligo_sms dispatch — vendor 대표자 1명 phone 으로만 발송 (#3 fix).
     //   채널·환경변수 미설정 시 어댑터가 devSimulate 로 자동 동작 (실 발송 X).
     const repPhone = repPhoneByVendor.get(vendorId);
     if (repPhone) {
@@ -835,7 +835,7 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
       try {
         await enqueueDispatch({
           buildingId: rfq.buildingId,
-          channel: "aligo_kakao",
+          channel: "aligo_sms",
           target: phone,
           payload: {
             templateCode: "rfq_new_partner",
@@ -850,7 +850,7 @@ async function fanOutNewRfqToVendors(rfq: typeof rfqsTable.$inferSelect): Promis
           triggerSource: "rfq_new_partner",
         });
       } catch (err) {
-        console.error("[rfqs] aligo_kakao dispatch failed for vendor", vendorId, phone, err);
+        console.error("[rfqs] aligo_sms dispatch failed for vendor", vendorId, phone, err);
       }
     }
   }

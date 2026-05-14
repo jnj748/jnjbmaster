@@ -258,7 +258,7 @@ router.post(
 function mapDunningChannel(channel: "post" | "sms" | "kakao" | "email"): string {
   switch (channel) {
     case "sms": return "aligo_sms";
-    case "kakao": return "aligo_kakao";
+    case "kakao": return "aligo_sms";
     case "email": return "email";
     case "post": return "post";
   }
@@ -449,7 +449,7 @@ router.post(
 
     const dispatchChannel =
       channel === "sms" ? "aligo_sms" :
-      channel === "kakao" ? "aligo_kakao" : "email";
+      channel === "kakao" ? "aligo_sms" : "email";
     const payload: Record<string, unknown> =
       channel === "kakao"
         ? { templateCode, message, altMessage: message, senderNumber, senderProfileId }

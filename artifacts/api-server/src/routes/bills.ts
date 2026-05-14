@@ -815,7 +815,7 @@ router.post(
     const lateFee = Math.round(overdueAmount * 0.015 * (overdueDays / 30));
 
     // [Task #781] T10 — dispatch=true 시 외부 발송 엔진(enqueueDispatch) 으로 큐잉.
-    //   채널 매핑: kakao→aligo_kakao, sms→aligo_sms. 호실 연락처 미존재 시 skip.
+    //   채널 매핑: kakao→aligo_sms, sms→aligo_sms. 호실 연락처 미존재 시 skip.
     let dispatchInfo: { ok: boolean; jobId?: number; reason?: string } | null = null;
     if (dispatch) {
       try {
@@ -829,7 +829,7 @@ router.post(
         if (!/^\d{9,12}$/.test(phone)) {
           dispatchInfo = { ok: false, reason: "no_phone" };
         } else {
-          const ch = channel === "kakao" ? "aligo_kakao" : "aligo_sms";
+          const ch = channel === "kakao" ? "aligo_sms" : "aligo_sms";
           const stageLabel = stage === 1 ? "1차" : stage === 2 ? "2차" : stage >= 3 ? "소장면담" : "해제";
           const message = `[관리비 연체 ${stageLabel}] ${bill.billingMonth} ${bill.unitNumber}호 미납 ${overdueAmount.toLocaleString()}원(연체 ${overdueDays}일, 가산금 ${lateFee.toLocaleString()}원). 빠른 납부 부탁드립니다.`;
           const tplKey = stage >= 3 ? "delinquent_final" : "delinquent_reminder";
