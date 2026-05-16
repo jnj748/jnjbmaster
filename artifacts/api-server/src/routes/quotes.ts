@@ -119,7 +119,10 @@ router.get("/quotes", async (req, res): Promise<void> => {
       .orderBy(desc(quotesTable.createdAt));
   }
 
-  res.json(ListQuotesResponse.parse(quotes));
+  // [Bugfix] drizzle 가 반환한 Date 객체를 ISO 문자열로 직렬화하지 않으면
+  //   ListQuotesResponse(zod .datetime()) 파싱이 실패해 500 이 난다 (파트너/소장 양쪽).
+  //   이미 정의된 serializeQuoteForResponse 를 거쳐 parse 한다.
+  res.json(ListQuotesResponse.parse(quotes.map(serializeQuoteForResponse)));
 });
 
 router.get("/quotes/:id", async (req, res): Promise<void> => {
