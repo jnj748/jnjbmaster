@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useListOwners,
+  useListUnits,
   useCreateOwner,
   useUpdateOwner,
   useDeleteOwner,
   getListOwnersQueryKey,
 } from "@workspace/api-client-react";
-import type { Owner, CreateOwnerBody, ListOwnersParams } from "@workspace/api-client-react";
+import type { Owner, Unit, CreateOwnerBody, ListOwnersParams } from "@workspace/api-client-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,12 +68,276 @@ const emptyForm = {
   privacyConsentDate: "",
 };
 
+function normalizeUnitKey(unit: string): string {
+  return unit.trim().replace(/호$/u, "");
+}
+
+function sortUnits(a: Unit, b: Unit): number {
+  const dongCmp = (a.dong ?? "").localeCompare(b.dong ?? "", "ko", { numeric: true });
+  if (dongCmp !== 0) return dongCmp;
+  const fa = parseInt(a.floor, 10);
+  const fb = parseInt(b.floor, 10);
+  if (Number.isFinite(fa) && Number.isFinite(fb) && fa !== fb) return fa - fb;
+  return a.unitNumber.localeCompare(b.unitNumber, "ko", { numeric: true });
+}
+
+function OwnersByUnitPanel({
+  units,
+  ownerByUnitKey,
+  isLoading,
+  unitSearch,
+  onUnitSearchChange,
+  onUnitClick,
+  onRegisterClick,
+}: {
+  units: Unit[] | undefined;
+  ownerByUnitKey: Map<string, Owner>;
+  isLoading: boolean;
+  unitSearch: string;
+  onUnitSearchChange: (value: string) => void;
+  onUnitClick: (unit: Unit) => void;
+  onRegisterClick: (unit: Unit) => void;
+}) {
+  const rows = useMemo(() => {
+    const q = unitSearch.trim().toLowerCase();
+    let list = units ?? [];
+    if (q) {
+      list = list.filter((u) => {
+        const owner = ownerByUnitKey.get(normalizeUnitKey(u.unitNumber));
+        return (
+          u.unitNumber.toLowerCase().includes(q) ||
+          u.floor.toLowerCase().includes(q) ||
+          (u.dong ?? "").toLowerCase().includes(q) ||
+          (owner?.ownerName ?? "").toLowerCase().includes(q) ||
+          (owner?.phone ?? "").includes(q)
+        );
+      });
+    }
+    return list.slice().sort(sortUnits);
+  }, [units, unitSearch, ownerByUnitKey]);
+
+  const showDong = useMemo(() => {
+    const dongs = new Set((units ?? []).map((u) => u.dong ?? ""));
+    return dongs.size > 1;
+  }, [units]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-12" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!units || units.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <UserCheck className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-muted-foreground">등록된 호실이 없습니다</p>
+          <p className="text-muted-foreground text-sm mt-1">설정에서 건축물대장 호실을 먼저 가져와 주세요.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="호실, 동, 층, 소유자명, 전화번호 검색..."
+            value={unitSearch}
+            onChange={(e) => onUnitSearchChange(e.target.value)}
+            className="pl-9"
+            data-testid="input-owners-by-unit-search"
+          />
+        </div>
+        <p className="text-sm text-muted-foreground self-center" data-testid="text-owners-by-unit-count">
+          {rows.length}개 호실
+        </p>
+      </div>
+
+      <div className="hidden desktop:block">
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {showDong && <TableHead>동</TableHead>}
+                  <TableHead>층</TableHead>
+                  <TableHead>호실</TableHead>
+                  <TableHead>소유자</TableHead>
+                  <TableHead>연락처</TableHead>
+                  <TableHead>상태</TableHead>
+                  <TableHead className="text-right">관리</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((unit) => {
+                  const owner = ownerByUnitKey.get(normalizeUnitKey(unit.unitNumber));
+                  return (
+                    <TableRow
+                      key={unit.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      data-testid={`row-owner-unit-${unit.id}`}
+                      onClick={() => onUnitClick(unit)}
+                    >
+                      {showDong && <TableCell className="font-mono text-xs">{unit.dong || "—"}</TableCell>}
+                      <TableCell className="font-mono text-xs">{unit.floor}</TableCell>
+                      <TableCell className="font-medium">{unit.unitNumber}</TableCell>
+                      <TableCell>
+                        {owner ? (
+                          owner.ownerName
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            미등록
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {owner?.phone ? formatPhoneNumber(owner.phone) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {owner ? (
+                          <Badge
+                            variant={
+                              owner.status === "active"
+                                ? "default"
+                                : owner.status === "destroyed"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                          >
+                            {owner.status === "active"
+                              ? "입주중"
+                              : owner.status === "destroyed"
+                                ? "파기완료"
+                                : "퇴거"}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {owner ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUnitClick(unit);
+                            }}
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" />
+                            수정
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            data-testid={`btn-register-owner-unit-${unit.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRegisterClick(unit);
+                            }}
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            소유자 등록
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="desktop:hidden space-y-3">
+        {rows.map((unit) => {
+          const owner = ownerByUnitKey.get(normalizeUnitKey(unit.unitNumber));
+          return (
+            <Card
+              key={unit.id}
+              className="active:bg-muted/50 cursor-pointer"
+              data-testid={`card-owner-unit-${unit.id}`}
+              onClick={() => onUnitClick(unit)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {showDong && unit.dong && (
+                      <span className="text-xs text-muted-foreground">{unit.dong}동</span>
+                    )}
+                    <span className="font-medium">
+                      {unit.floor}층 {unit.unitNumber}호
+                    </span>
+                    {owner ? (
+                      <span className="text-sm">{owner.ownerName}</span>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        미등록
+                      </Badge>
+                    )}
+                  </div>
+                  {owner && (
+                    <Badge
+                      variant={
+                        owner.status === "active"
+                          ? "default"
+                          : owner.status === "destroyed"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {owner.status === "active"
+                        ? "입주중"
+                        : owner.status === "destroyed"
+                          ? "파기완료"
+                          : "퇴거"}
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {owner?.phone ? formatPhoneNumber(owner.phone) : "소유자카드 미등록"}
+                </div>
+                {!owner && (
+                  <Button
+                    className="w-full mt-3"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRegisterClick(unit);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    소유자 등록
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Owners() {
+  const [activeTab, setActiveTab] = useState("by-unit");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<Owner | null>(null);
   const [editing, setEditing] = useState<Owner | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [searchTerm, setSearchTerm] = useState("");
+  const [unitSearch, setUnitSearch] = useState("");
   const [exportingId, setExportingId] = useState<number | null>(null);
   const [pendingOpenOwnerId, setPendingOpenOwnerId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
@@ -86,33 +352,57 @@ export default function Owners() {
   if (filterStatus && filterStatus !== "all") queryParams.status = filterStatus as ListOwnersParams["status"];
   if (searchTerm) queryParams.search = searchTerm;
 
-  const { data: owners, isLoading } = useListOwners(
-    Object.keys(queryParams).length > 0 ? queryParams : undefined
+  const { data: units, isLoading: unitsLoading } = useListUnits();
+  const { data: allOwners, isLoading: allOwnersLoading } = useListOwners();
+  const { data: owners, isLoading: ownersListLoading } = useListOwners(
+    Object.keys(queryParams).length > 0 ? queryParams : undefined,
+    { query: { enabled: activeTab === "list" } },
   );
+
+  const ownerByUnitKey = useMemo(() => {
+    const map = new Map<string, Owner>();
+    for (const owner of allOwners ?? []) {
+      const key = normalizeUnitKey(owner.unit);
+      if (!map.has(key)) map.set(key, owner);
+    }
+    return map;
+  }, [allOwners]);
   const createMutation = useCreateOwner();
   const updateMutation = useUpdateOwner();
   const deleteMutation = useDeleteOwner();
 
   useEffect(() => {
-    if (pendingOpenOwnerId == null || !owners) return;
-    const target = owners.find((o) => o.id === pendingOpenOwnerId);
+    if (pendingOpenOwnerId == null || !allOwners) return;
+    const target = allOwners.find((o) => o.id === pendingOpenOwnerId);
     if (target) {
       setDetailDialog(target);
       setPendingOpenOwnerId(null);
       const url = new URL(window.location.href);
       url.searchParams.delete("openOwner");
       window.history.replaceState({}, "", url.toString());
-    } else if (owners.length > 0) {
+    } else if (allOwners.length > 0) {
       toast({ title: "해당 소유자를 찾을 수 없습니다", description: "이미 삭제되었거나 다른 건물 데이터일 수 있습니다." });
       setPendingOpenOwnerId(null);
     }
-  }, [pendingOpenOwnerId, owners, toast]);
+  }, [pendingOpenOwnerId, allOwners, toast]);
 
   const [form, setForm] = useState({ ...emptyForm });
 
   function resetForm() {
     setForm({ ...emptyForm });
     setEditing(null);
+  }
+
+  function openRegisterForUnit(unit: Unit) {
+    resetForm();
+    setForm({ ...emptyForm, unit: unit.unitNumber });
+    setDialogOpen(true);
+  }
+
+  function handleUnitClick(unit: Unit) {
+    const owner = ownerByUnitKey.get(normalizeUnitKey(unit.unitNumber));
+    if (owner) openEdit(owner);
+    else openRegisterForUnit(unit);
   }
 
   function openEdit(item: Owner) {
@@ -234,7 +524,7 @@ export default function Owners() {
         <div>
           <h1 className="text-2xl font-bold">소유자 관리</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            소유자카드를 등록하고 관리합니다
+            호실별로 소유자카드를 등록·조회합니다
           </p>
         </div>
         <ResponsiveDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
@@ -355,6 +645,29 @@ export default function Owners() {
         </ResponsiveDialog>
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="by-unit" data-testid="tab-owners-by-unit">
+            호실별 소유자
+          </TabsTrigger>
+          <TabsTrigger value="list" data-testid="tab-owners-list">
+            소유자 목록
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="by-unit" className="mt-0">
+          <OwnersByUnitPanel
+            units={units}
+            ownerByUnitKey={ownerByUnitKey}
+            isLoading={unitsLoading || allOwnersLoading}
+            unitSearch={unitSearch}
+            onUnitSearchChange={setUnitSearch}
+            onUnitClick={handleUnitClick}
+            onRegisterClick={openRegisterForUnit}
+          />
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-0 space-y-4">
       <div className="flex gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -376,7 +689,7 @@ export default function Owners() {
         </Select>
       </div>
 
-      {isLoading ? (
+      {ownersListLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
         </div>
@@ -490,6 +803,8 @@ export default function Owners() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
 
       <ResponsiveDialog open={!!detailDialog} onOpenChange={(o) => { if (!o) setDetailDialog(null); }}>
         <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
