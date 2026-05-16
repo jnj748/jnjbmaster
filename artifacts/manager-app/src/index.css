@@ -248,32 +248,26 @@
 }
 
 /*
- * [요청 — 인쇄 머리/꼬리 근본 해결] A4 보고서(.a4-document) 전용 페이지 규칙.
+ * A4 보고서(.a4-document) 전용 페이지 규칙 — 일보·주보·월보·문서 미리보기.
  *
- *   배경: 종전 #589 는 다중 페이지(주보/월보) 의 중간 페이지 위·아래 여백
- *     일관성을 위해 @page workReport 의 margin 을 15mm 로 두었다. 그 결과
- *     브라우저 인쇄 다이얼로그의 기본 머리글/바닥글 옵션이 켜져 있을 때 그
- *     15mm 영역에 날짜·"관리의달인"·URL·페이지번호가 그려지는 문제가
- *     반복적으로 보고됨(일보·주보·월보, 문서생성 모달, 공지문 템플릿 모두
- *     동일 — 셋 다 .a4-document 를 사용). 사용자가 매 인쇄마다 다이얼로그에서
- *     "머리글/바닥글" 체크를 끄지 않아도 디폴트로 안 보이게 하는 것이
- *     일관된 우선순위.
+ *   @page margin 은 인쇄 시 *모든* 페이지(2페이지 이후 포함)에 동일하게
+ *   적용된다. 본문 padding 은 블록의 시작/끝에만 붙어 다중 페이지 중간
+ *   장에서는 상·하 여백이 사라지는 문제가 있었으므로, 시각 여백은 @page
+ *   에만 둔다.
  *
- *   해결(근본): CSS 표준에 머리/꼬리 자체를 끄는 API 가 없으므로 @page margin
- *     을 0 으로 비워 브라우저가 머리/꼬리를 그릴 공간 자체를 없앤다(Chrome/
- *     Edge/Safari/Firefox 모두 동작). 본문 시각 여백은 본문 padding 으로
- *     만든다(아래 @media print .a4-document 규칙 참고).
- *
- *   트레이드오프: 다중 페이지 보고서의 중간 페이지는 본문 padding 효과가
- *     첫/마지막 페이지에만 시각적으로 적용되어, 중간 페이지는 콘텐츠가 위·
- *     아래 가장자리에 더 가까워질 수 있다. 단 표 행은 break-inside: avoid
- *     (아래) 로 가장자리에서 잘리기 전 다음 페이지로 자연 분할되므로 텍스트
- *     자체가 잘리지는 않는다. 사용자가 명시적으로 "머리/꼬리 숨김 우선"을
- *     선택했으므로 이 트레이드오프를 수용한다.
+ *   margin: 0 으로 두면 브라우저 머리글/바닥글이 그릴 자리가 줄어들지만,
+ *   2페이지부터 상단이 비어 보이는 회귀가 생긴다. 여백을 @page 에 두면
+ *   인쇄 다이얼로그에서 "머리글/바닥글" 이 켜져 있을 때 그 영역에 URL·
+ *   날짜가 겹칠 수 있으므로, 가능하면 다이얼로그에서 머리글/바닥글을 끄는
+ *   것을 권장한다.
  */
 @page workReport {
   size: A4;
-  margin: 0;
+  margin: 20mm 15mm 15mm 15mm;
+}
+
+@page workReport:first {
+  margin: 20mm 15mm 15mm 15mm;
 }
 
 .a4-document {
@@ -552,19 +546,14 @@ h1, h2, h3, h4 {
    *     이전 인쇄 padding 15mm 와 동일).
    */
   [data-printing] [data-print-root] .a4-document {
-    /* [요청 — 인쇄 머리/꼬리 근본 해결] workReport 는 이제 margin: 0
-       (위 @page workReport 코멘트 참고). 머리글/바닥글이 그릴 공간이
-       사라져 브라우저가 자동으로 숨긴다. 본문 시각 여백은 본문 padding
-       (위·아래 15mm / 좌·우 12mm) 으로 만든다 — 첫/마지막 페이지의 인쇄
-       시작·끝 위치를 동일한 15mm 안쪽에 맞춰 일보·문서·공지문 모두 같은
-       위치에서 시작/끝나도록 한다. 다중 페이지 중간 페이지의 가장자리
-       여백 손실은 위 트레이드오프 코멘트 참고. */
+    /* 시각 여백은 @page workReport (20/15/15/15mm) — 모든 페이지 동일.
+       padding 은 다중 페이지 중간 장에 반복되지 않으므로 0 으로 둔다. */
     page: workReport;
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 15mm 12mm !important;
+    padding: 0 !important;
     box-sizing: border-box !important;
     background: white !important;
     color: black !important;
