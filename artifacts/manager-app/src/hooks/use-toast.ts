@@ -11,7 +11,8 @@ const TOAST_LIMIT = 1
 //   - 자동 닫힘은 Radix Toast.Root 의 `duration` 으로 처리해 호버/포커스 시 자연스러운
 //     일시정지를 그대로 유지한다(우리 모듈 캐시 타이머는 호버 일시정지를 못 함).
 const TOAST_REMOVE_DELAY = 1000
-const TOAST_DEFAULT_DURATION_MS = 4000
+const TOAST_DEFAULT_DURATION_MS = 3000
+const TOAST_DESTRUCTIVE_DURATION_MS = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -154,11 +155,15 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
-  // [Task #753] 호출부에서 duration 을 명시하지 않으면 기본값(4초)을 주입한다.
-  //   값은 Radix Toast.Root 의 `duration` 으로 그대로 전달되므로 호버/포커스 시
-  //   일시정지·복귀 동작을 자연스럽게 유지한다.
+  // [Task #753] 호출부에서 duration 을 명시하지 않으면 기본값을 주입한다.
+  //   일반 3초 / destructive(오류) 5초 — 값은 Radix Toast.Root 의 `duration` 으로
+  //   전달되어 호버·포커스 시 일시정지·복귀를 유지한다.
   const duration =
-    typeof props.duration === "number" ? props.duration : TOAST_DEFAULT_DURATION_MS
+    typeof props.duration === "number"
+      ? props.duration
+      : props.variant === "destructive"
+        ? TOAST_DESTRUCTIVE_DURATION_MS
+        : TOAST_DEFAULT_DURATION_MS
 
   dispatch({
     type: "ADD_TOAST",
