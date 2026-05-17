@@ -529,8 +529,11 @@ export default function Users() {
        </div>
       </div>
 
-      {/* [Task #661] 본사 관리자 전용 — 파트너 사업자정보 변경 신청 검토 큐. */}
-      {currentUser && ["platform_admin", "hq_executive"].includes(currentUser.role) && token && (
+      {/* [Task #661] 본사 관리자 전용 — 파트너 사업자정보 변경 신청 검토 큐.
+          [Bugfix] 권한 SoT(vendors.ts ADMIN_VENDOR_CHANGE_ROLES = ["platform_admin"]) 와
+            일치시켜 platform_admin 에게만 노출. hq_executive 에게 보이던 섹션이
+            API 호출 시 403 으로 "목록 불러오기 실패" 만 띄우던 회귀 제거. */}
+      {currentUser?.role === "platform_admin" && token && (
         <VendorChangeRequestsAdminSection token={token} apiBase={API_BASE} />
       )}
 

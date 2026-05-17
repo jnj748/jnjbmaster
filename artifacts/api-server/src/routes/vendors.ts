@@ -24,6 +24,7 @@ import {
   UpdateMyVendorBody,
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
+import { insertNotification } from "../lib/notificationRecipient";
 import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
 import { grantSignupBonusIfEligible } from "../lib/credits";
 // [Task #740 T6] 사업장 주소 자동 좌표 백필 헬퍼 — 라우트(/api/kakao/geocode) 와 동일 로직.
@@ -687,6 +688,33 @@ router.post("/me/vendor/change-requests", async (req: Request, res: Response): P
         reason,
       })
       .returning();
+
+    // [Bugfix] 신청 즉시 본사 관리자 알림함에 신호를 보내야 검토 큐를 놓치지
+    //   않는다. 기존엔 알림 발송이 없어서 사장님이 /users 페이지 하단 섹션을
+    //   스크롤로 발견하기 전엔 처리 자체가 누락됐다. 승인/반려 권한 SoT 와
+    //   동일하게 platform_admin 으로만 한정해 fan-out 한다 (본부장은 파트너
+    //   자체 정보를 검수하지 않음 — vendors.ts ADMIN_VENDOR_CHANGE_ROLES 참고).
+    const changedLabels = fields
+      .map((f) =>
+        f.field === "name" ? "상호" :
+        f.field === "businessRegNumber" ? "사업자등록번호" :
+        f.field === "representativeName" ? "대표자명" :
+        f.field === "category" ? "분야" : f.field,
+      )
+      .join(", ");
+    try {
+      await insertNotification({
+        recipientType: "role:platform_admin",
+        notificationType: "vendor_change_request",
+        title: "파트너 사업자정보 변경 신청",
+        message: `${vendor.name} — ${changedLabels} 변경 검토 요청`,
+        relatedEntityType: "vendor_change_request",
+        relatedEntityId: created.id,
+      });
+    } catch (notifyErr) {
+      req.log?.warn?.({ err: notifyErr }, "vendor_change_request 알림 발송 실패");
+    }
+
     res.status(201).json({ request: created });
   } catch (err) {
     // partial unique index 충돌 → 동일 vendor pending 중복.

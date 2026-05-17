@@ -22,6 +22,7 @@ import {
   ResponsiveDialogFooter,
 } from "@/components/ui/responsive-dialog";
 import { Plus, Pencil, Trash2, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { VendorChangeRequestsAdminSection } from "@/components/vendor-change-requests-admin";
 
 // [Task #740 가입흐름재설정] 본사 관리자 — 파트너 분야(카테고리) 관리 화면.
 //   2단(대분류·자식)으로 구성된 vendor_categories 마스터를 직접 추가/편집/비활성/삭제한다.
@@ -462,6 +463,13 @@ export default function PlatformVendorCategoriesPage() {
             );
           })}
         </div>
+      )}
+
+      {/* [Bugfix] 분야 관리 화면에서 파트너 분야 변경 신청을 같은 흐름으로 검토할 수 있도록
+          본사 관리자 검토 큐를 하단에 함께 노출. 기존엔 /users 페이지 맨 아래에만 묻혀 있어
+          발견이 어려웠음. 권한 SoT 는 vendors.ts ADMIN_VENDOR_CHANGE_ROLES = ["platform_admin"]. */}
+      {user?.role === "platform_admin" && token && (
+        <VendorChangeRequestsAdminSection token={token} apiBase={API_BASE} />
       )}
 
       <ResponsiveDialog open={dialogOpen} onOpenChange={setDialogOpen}>
