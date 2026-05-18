@@ -27,10 +27,13 @@ export const ROLE_LABEL: Record<Role, string> = {
 /** 모든 카테고리 라벨/아이콘 (직책 무관, 표시용). */
 export const CATEGORY_LABEL: Record<string, string> = {
   // manager
+  // [긴급 UI 통합] 모바일 2x2 그리드 잘림 해소를 위해 민원 + 행정을 1개 카드
+  //   "민원·행정" 으로 통합 (3개 카드 1행). 기존 admin 카테고리로 저장된
+  //   데이터도 동일 라벨로 보이게 두 키 모두 "민원·행정" 으로 표기.
   facility: "시설",
   bill: "관리비",
-  complaint: "민원",
-  admin: "행정",
+  complaint: "민원·행정",
+  admin: "민원·행정",
   // accountant
   receivable: "수납·연체",
   expense: "지출",
@@ -80,11 +83,17 @@ export function getCategoriesFor(role: Role): CategoryOption[] {
         { value: "other", label: "기타", icon: MoreHorizontal, hint: "그 외 시설·점검 메모" },
       ];
     default:
+      // [긴급 UI 통합] 모바일에서 2x2 그리드가 화면 아래로 잘려 저장 버튼이
+      //   보이지 않는 문제를 즉시 해소. 민원/행정을 1개 카드로 통합해 3개로
+      //   줄이면 grid-cols-3 가 정확히 1행에 맞아 화면이 컴팩트해진다.
+      //   - canonical value = "complaint" (서버 enum 호환). 새 입력은 모두
+      //     complaint 로 저장된다.
+      //   - 기존 admin 데이터의 표시는 CATEGORY_LABEL 에서 "민원·행정" 으로
+      //     함께 통일되어 사용자에게 같은 카테고리로 보인다.
       return [
         { value: "facility", label: "시설", icon: Wrench, hint: "엘리베이터·누수·전기 등" },
         { value: "bill", label: "관리비", icon: Receipt, hint: "검침·청구·납부 메모" },
-        { value: "complaint", label: "민원", icon: MessageSquareWarning, hint: "주민 요청·소음·주차" },
-        { value: "admin", label: "행정", icon: ClipboardList, hint: "공문·결재·보고·회의 준비 등" },
+        { value: "complaint", label: "민원·행정", icon: MessageSquareWarning, hint: "주민 요청·소음·주차 · 공문·결재·보고·회의 준비 등" },
       ];
   }
 }
