@@ -54,7 +54,28 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
     // [Task #651 round-4] 후보가 여럿이어도 매니저/본부장 조회는 primary 한 건물로
     //   엄격히 제한한다. inArray(buildingIds) 로 묶으면 사용자가 본 안내(=primary)
     //   와 다른 건물의 담당자 이름이 노출될 수 있어 신청 전 단계에서 혼란을 준다.
-    const primary = candidates[0];
+    // [송정 케이스 fix] 같은 address_jibun 으로 건물이 중복 등록되어 있을 때
+    //   (예: 프로덕션의 송정태왕아너스타워가 id=8 고스트 + id=34 정상으로 2건 존재),
+    //   단순 첫 후보 채택은 매니저 미배정 고스트가 먼저 잡혀 정상 건물을 가린다.
+    //   → 후보가 2건 이상이면 active manager 가 묶인 건물을 우선 채택, 없으면
+    //     기존 동작(첫 후보) 유지. 1건이면 추가 쿼리 없이 그대로 사용.
+    let primary = candidates[0];
+    if (candidates.length > 1) {
+      const candidateIds = candidates.map(c => c.id);
+      const managed = await db
+        .select({ buildingId: usersTable.buildingId })
+        .from(usersTable)
+        .where(and(
+          eq(usersTable.role, "manager"),
+          eq(usersTable.approvalStatus, "active"),
+          inArray(usersTable.buildingId, candidateIds),
+        ));
+      const managedSet = new Set(
+        managed.map(m => m.buildingId).filter((v): v is number => v != null),
+      );
+      const preferred = candidates.find(c => managedSet.has(c.id));
+      if (preferred) primary = preferred;
+    }
 
     // 2) 매니저: primary 건물에 묶인 active manager 1명.
     const managers = await db.select({ id: usersTable.id, name: usersTable.name })
