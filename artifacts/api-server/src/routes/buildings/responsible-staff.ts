@@ -101,6 +101,9 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
     );
 
     if (candidates.length === 0) {
+      // [송정 케이스 root-cause fix] no-match 응답도 동일하게 no-store.
+      //   이전 no-match 본문이 캐시되어 매칭 정상화 후에도 회귀하는 경로를 차단.
+      res.set("Cache-Control", "no-store");
       res.json({
         building: null,
         manager: { exists: false, name: null },
@@ -163,6 +166,13 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
       hqName = hq?.name ?? null;
     }
 
+    // [송정 케이스 root-cause fix] HTTP 304 캐시 응답 차단.
+    //   본 endpoint 는 같은 GET URL 로 매번 호출되며, 송정 fix 이전에 한 번 받은
+    //   `building:null` body 가 브라우저 ETag 캐시에 박혀, 이후 매칭이 정상화돼도
+    //   서버가 304 만 보내 브라우저가 옛 null 응답을 계속 보여 주는 현상을 유발.
+    //   프로덕션 로그에서 candidateCount=1, candidateIds=[34] 인데도 statusCode=304
+    //   로 회귀하는 라인으로 직접 확인됨. no-store 로 매 요청 200 신규 body 강제.
+    res.set("Cache-Control", "no-store");
     res.json({
       building: { id: primary.id, name: primary.name, addressFull: primary.addressFull },
       manager: { exists: managers.length > 0, name: managers[0]?.name ?? null },
