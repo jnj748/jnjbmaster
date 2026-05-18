@@ -7,7 +7,7 @@
 //     위저드 안내와 실제 신청 라우팅 결과가 어긋나지 않도록 한다.
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, buildingsTable, usersTable, hqBuildingAssignmentsTable } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -61,6 +61,21 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
         candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
           .from(buildingsTable)
           .where(eq(buildingsTable.addressFull, addressFull));
+      }
+      // 1-c) 그래도 0건이면 addressFull 의 "도로명+번지" 핵심부분으로 ILIKE 부분 일치.
+      //   DB 표기 차이(괄호 동 이름, 추가 공백, 한자/대소문자) 를 폭넓게 흡수한다.
+      //   - "경상북도 구미시 송정대로 77 (송정동)" → core="송정대로 77"
+      //   - "서울특별시 강남구 테헤란로 123" → core="테헤란로 123"
+      //   매칭 키가 너무 짧으면(예: "송정대로") 잘못된 건물을 끌어올 수 있어,
+      //   "도로명 + 번지(숫자[-숫자])" 패턴이 추출될 때만 ILIKE 를 시도한다.
+      if (candidates.length === 0 && addressFull) {
+        const m = addressFull.match(/([가-힣]+(?:로|길))\s*(\d+(?:-\d+)?)/u);
+        if (m) {
+          const core = `${m[1]} ${m[2]}`;
+          candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
+            .from(buildingsTable)
+            .where(ilike(buildingsTable.addressFull, `%${core}%`));
+        }
       }
     }
 
