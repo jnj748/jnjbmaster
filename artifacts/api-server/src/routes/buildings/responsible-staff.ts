@@ -56,18 +56,14 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
           .where(inArray(buildingsTable.addressJibun, variants));
       }
       // 1-b) jibun 매칭 실패 시 도로명 주소(addressFull) 로 정확 일치 fallback.
-      //   카카오가 jibunAddress 를 비워 보내거나 DB 와 표기가 다른 케이스를 흡수한다.
       if (candidates.length === 0 && addressFull) {
         candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
           .from(buildingsTable)
           .where(eq(buildingsTable.addressFull, addressFull));
       }
-      // 1-c) 그래도 0건이면 addressFull 의 "도로명+번지" 핵심부분으로 ILIKE 부분 일치.
-      //   DB 표기 차이(괄호 동 이름, 추가 공백, 한자/대소문자) 를 폭넓게 흡수한다.
-      //   - "경상북도 구미시 송정대로 77 (송정동)" → core="송정대로 77"
-      //   - "서울특별시 강남구 테헤란로 123" → core="테헤란로 123"
-      //   매칭 키가 너무 짧으면(예: "송정대로") 잘못된 건물을 끌어올 수 있어,
-      //   "도로명 + 번지(숫자[-숫자])" 패턴이 추출될 때만 ILIKE 를 시도한다.
+      // 1-c) addressFull 의 "도로명+번지" 핵심부분으로 ILIKE.
+      //   카카오 roadAddress 는 보통 "(동 이름)" 접미사가 없는 반면 DB 는 있어
+      //   eq 미스가 흔하다. 도로명 패턴이 추출될 때만 안전 ILIKE.
       if (candidates.length === 0 && addressFull) {
         const m = addressFull.match(/([가-힣]+(?:로|길))\s*(\d+(?:-\d+)?)/u);
         if (m) {
@@ -77,7 +73,32 @@ router.get("/buildings/responsible-staff", async (req: Request, res: Response) =
             .where(ilike(buildingsTable.addressFull, `%${core}%`));
         }
       }
+      // 1-d) 그래도 0건이면 jibun 의 "동/리 + 번지" 핵심부분으로 ILIKE 최종 안전망.
+      //   - "경상북도 구미시 송정동 74번지" → core="송정동 74"
+      //   - "경기도 성남시 분당구 정자동 178-1" → core="정자동 178-1"
+      if (candidates.length === 0 && addressJibun) {
+        const m = addressJibun.match(/([가-힣]+(?:동|리|가))\s*(\d+(?:-\d+)?)/u);
+        if (m) {
+          const core = `${m[1]} ${m[2]}`;
+          candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
+            .from(buildingsTable)
+            .where(ilike(buildingsTable.addressJibun, `%${core}%`));
+        }
+      }
     }
+
+    // [진단 로깅] 어떤 입력으로 몇 건 후보가 잡혔는지 프로덕션 로그에 박아 둔다.
+    //   다음 시도에서 본 라인을 보면 진짜 들어오는 값을 즉시 확인할 수 있다.
+    req.log.info(
+      {
+        addressJibun,
+        addressFull,
+        buildingIdInput,
+        candidateCount: candidates.length,
+        candidateIds: candidates.map(c => c.id),
+      },
+      "responsible-staff lookup",
+    );
 
     if (candidates.length === 0) {
       res.json({
