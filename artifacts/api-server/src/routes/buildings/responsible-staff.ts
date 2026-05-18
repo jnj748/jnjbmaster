@@ -15,30 +15,53 @@ function normalizeJibun(s: string | null | undefined): string {
   return String(s ?? "").trim().replace(/\s+/g, " ");
 }
 
+// [송정 케이스 fix #2] Kakao 우편번호 API 의 jibunAddress 는 종종 "...74"
+//   처럼 "번지" 접미사 없이 반환되는 반면, DB 에는 "...74번지" 로 저장되어
+//   eq 매칭이 빗나간다. 사용자가 본 적 있는 입력 모양을 모두 후보로 만든다.
+function jibunVariants(raw: string): string[] {
+  const s = normalizeJibun(raw);
+  if (!s) return [];
+  const stripped = s.replace(/번지$/u, "").trim();
+  const variants = new Set<string>([s, stripped, `${stripped}번지`]);
+  return Array.from(variants).filter(Boolean);
+}
+
 router.get("/buildings/responsible-staff", async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const addressJibun = normalizeJibun(typeof req.query.addressJibun === "string" ? req.query.addressJibun : "");
+  const addressFull = normalizeJibun(typeof req.query.addressFull === "string" ? req.query.addressFull : "");
   const buildingIdRaw = typeof req.query.buildingId === "string" ? req.query.buildingId : "";
   const buildingIdInput = buildingIdRaw ? parseInt(buildingIdRaw) : null;
-  if (!addressJibun && !buildingIdInput) {
-    res.status(400).json({ error: "addressJibun 또는 buildingId가 필요합니다." });
+  if (!addressJibun && !addressFull && !buildingIdInput) {
+    res.status(400).json({ error: "addressJibun, addressFull 또는 buildingId가 필요합니다." });
     return;
   }
 
   try {
-    // 1) 매칭되는 건물 후보를 모은다 (id 우선, 다음으로 동일 지번 주소).
+    // 1) 매칭되는 건물 후보를 모은다 (id 우선, 다음으로 동일 지번 주소, 그 후 도로명 주소).
     let candidates: { id: number; name: string | null; addressFull: string | null }[] = [];
     if (buildingIdInput && Number.isFinite(buildingIdInput)) {
       const rows = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
         .from(buildingsTable)
         .where(eq(buildingsTable.id, buildingIdInput));
       candidates = rows;
-    } else if (addressJibun) {
-      candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
-        .from(buildingsTable)
-        .where(eq(buildingsTable.addressJibun, addressJibun));
+    } else {
+      // 1-a) jibun 변형 (번지 유무) 매칭.
+      const variants = jibunVariants(addressJibun);
+      if (variants.length > 0) {
+        candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
+          .from(buildingsTable)
+          .where(inArray(buildingsTable.addressJibun, variants));
+      }
+      // 1-b) jibun 매칭 실패 시 도로명 주소(addressFull) 로 정확 일치 fallback.
+      //   카카오가 jibunAddress 를 비워 보내거나 DB 와 표기가 다른 케이스를 흡수한다.
+      if (candidates.length === 0 && addressFull) {
+        candidates = await db.select({ id: buildingsTable.id, name: buildingsTable.name, addressFull: buildingsTable.addressFull })
+          .from(buildingsTable)
+          .where(eq(buildingsTable.addressFull, addressFull));
+      }
     }
 
     if (candidates.length === 0) {

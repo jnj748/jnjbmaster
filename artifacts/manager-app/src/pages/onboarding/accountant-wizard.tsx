@@ -102,19 +102,23 @@ export default function AccountantWizardPage() {
         setSido(d.sido || "");
         setSigungu(d.sigungu || "");
         setStep(2);
-        await loadResponsibleStaff(d.jibunAddress || "");
+        await loadResponsibleStaff(d.jibunAddress || "", full || "");
       },
     }).open();
   }
 
-  async function loadResponsibleStaff(jibun: string) {
-    if (!token || !jibun) return;
+  async function loadResponsibleStaff(jibun: string, full: string) {
+    // [송정 케이스 fix #2] jibun 비어 있어도 도로명(full) 만으로 조회.
+    if (!token || (!jibun && !full)) return;
     setStaffLoading(true);
     setStaff(null);
     setDuplicateCheck(null);
     setDuplicateChecking(true);
     try {
-      const r = await fetch(`${API_BASE}/buildings/responsible-staff?addressJibun=${encodeURIComponent(jibun)}`, {
+      const qs = new URLSearchParams();
+      if (jibun) qs.set("addressJibun", jibun);
+      if (full) qs.set("addressFull", full);
+      const r = await fetch(`${API_BASE}/buildings/responsible-staff?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const j = await r.json().catch(() => ({}));

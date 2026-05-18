@@ -102,17 +102,23 @@ export default function FacilityWizardPage() {
         setSigungu(d.sigungu || "");
         // 자동으로 다음 단계로 이동하면서 담당자 조회.
         setStep(2);
-        await loadResponsibleStaff(d.jibunAddress || "");
+        await loadResponsibleStaff(d.jibunAddress || "", full || "");
       },
     }).open();
   }
 
-  async function loadResponsibleStaff(jibun: string) {
-    if (!token || !jibun) return;
+  async function loadResponsibleStaff(jibun: string, full: string) {
+    // [송정 케이스 fix #2] jibun 이 비어 있어도 도로명 주소(full) 만으로 조회를
+    //   시도한다. 카카오가 도로명만 반환하는 케이스(또는 사용자가 도로명만 가진
+    //   주소) 에서 위저드가 빈 화면으로 멈추지 않도록 한다.
+    if (!token || (!jibun && !full)) return;
     setStaffLoading(true);
     setStaff(null);
     try {
-      const r = await fetch(`${API_BASE}/buildings/responsible-staff?addressJibun=${encodeURIComponent(jibun)}`, {
+      const qs = new URLSearchParams();
+      if (jibun) qs.set("addressJibun", jibun);
+      if (full) qs.set("addressFull", full);
+      const r = await fetch(`${API_BASE}/buildings/responsible-staff?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const j = await r.json().catch(() => ({}));
