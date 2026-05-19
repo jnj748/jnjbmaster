@@ -8,6 +8,7 @@ import {
   vendorReviewsTable,
   contractsTable,
   vendorChangeRequestsTable,
+  rfqsTable,
   type VendorChangeRequestFieldChange,
 } from "@workspace/db";
 import {
@@ -25,7 +26,13 @@ import {
 } from "@workspace/api-zod";
 import { requireRole } from "../middlewares/auth";
 import { insertNotification } from "../lib/notificationRecipient";
-import { normalizeRfqCategory } from "@workspace/shared/rfq-vendor-matching";
+import {
+  normalizeRfqCategory,
+  vendorMatchesRfq,
+  type VendorMatchProfile,
+  type RfqMatchProfile,
+} from "@workspace/shared/rfq-vendor-matching";
+import { rfqCategoryLabel } from "@workspace/shared/rfq-service-types";
 import { grantSignupBonusIfEligible } from "../lib/credits";
 // [Task #740 T6] 사업장 주소 자동 좌표 백필 헬퍼 — 라우트(/api/kakao/geocode) 와 동일 로직.
 import { geocodeKakaoAddress } from "../lib/kakaoGeocode";
@@ -292,6 +299,12 @@ router.patch("/vendors/:id", requireVendorWriter, async (req, res): Promise<void
     return;
   }
 
+  // [Task 분류변경-소급] 변경 전 vendor 스냅샷 — 분류 변경 감지에 사용.
+  const [prev] = await db
+    .select()
+    .from(vendorsTable)
+    .where(eq(vendorsTable.id, params.data.id));
+
   const [vendor] = await db
     .update(vendorsTable)
     .set(parsed.data)
@@ -303,9 +316,146 @@ router.patch("/vendors/:id", requireVendorWriter, async (req, res): Promise<void
     return;
   }
 
+  // [Task 분류변경-소급] 본사 관리자가 파트너 카테고리(대표/세부) 를 변경하면
+  //   현재 진행 중(status='open') 인 RFQ 풀을 다시 평가해, 해당 vendor 가
+  //   이제 매칭되는 RFQ 의 vendor_ids 에 자동 추가하고 본인 알림함에 안내한다.
+  //   기존 매칭 풀에 이미 있는 RFQ 는 건너뛴다(중복 알림 방지).
+  //   실패는 PATCH 응답을 막지 않도록 try/catch (best-effort).
+  if (prev) {
+    const categoryChanged =
+      (prev.category ?? "") !== (vendor.category ?? "") ||
+      (prev.subCategories ?? "") !== (vendor.subCategories ?? "");
+    if (categoryChanged) {
+      try {
+        const added = await backfillVendorIntoOpenRfqs(vendor);
+        if (added.length > 0) {
+          req.log?.info?.(
+            { vendorId: vendor.id, rfqIds: added },
+            "[vendor PATCH] 분류 변경으로 진행 중 RFQ 매칭 풀에 추가됨",
+          );
+        }
+      } catch (err) {
+        req.log?.warn?.(
+          { err, vendorId: vendor.id },
+          "[vendor PATCH] open RFQ 소급 매칭 실패",
+        );
+      }
+    }
+  }
+
   // [Task #436] timestamp 직렬화 + 누적 평가 집계 포함.
   res.json(UpdateVendorResponse.parse(await enrichVendorAggregates(vendor)));
 });
+
+// [Task 분류변경-소급] vendor 의 분류(category/subCategories) 변경 후, 현재
+//   status='open' 인 RFQ 들 중 vendor 가 새로 매칭되는 건의 vendor_ids 에
+//   해당 vendor.id 를 추가하고 본인 알림함에 안내 1건씩 발행한다.
+//   반환값: 새로 추가된 RFQ id 배열.
+//
+// 동시성 안전성 (architect 권고 반영):
+//   - 각 RFQ 별로 트랜잭션 + SELECT ... FOR UPDATE 로 vendor_ids 갱신을
+//     직렬화한다 → expand-scope / 동시 분류변경 / fanOut 과 race 시에도
+//     append 손실 방지.
+//   - 알림은 트랜잭션이 실제로 vendor_ids 에 추가한 경우에만 1건 발송 →
+//     중복 알림 방지(이미 풀에 있던 vendor 는 알림도 X).
+export async function backfillVendorIntoOpenRfqs(
+  vendor: typeof vendorsTable.$inferSelect,
+): Promise<number[]> {
+  // 계약형(contracted) 또는 본사 승인 미완(matchingEnabled=false) vendor 는
+  //   원래 자동 매칭 대상이 아니므로 소급도 건너뛴다.
+  if (vendor.type !== "platform") return [];
+  if (vendor.matchingEnabled === false) return [];
+
+  const vendorProfile: VendorMatchProfile = {
+    type: vendor.type,
+    category: vendor.category,
+    subCategories: vendor.subCategories,
+    serviceArea: vendor.serviceArea,
+    sido: vendor.sido,
+    sigungu: vendor.sigungu,
+    matchingEnabled: vendor.matchingEnabled,
+    serviceLat: vendor.serviceLat,
+    serviceLng: vendor.serviceLng,
+    serviceRadiusKm: vendor.serviceRadiusKm,
+  };
+
+  // 후보 RFQ 의 id 만 먼저 수집(매칭 평가는 트랜잭션 밖에서 빠르게).
+  //   실제 append 는 트랜잭션 안에서 한 번 더 read-check-write 로 직렬화.
+  const openRfqs = await db
+    .select()
+    .from(rfqsTable)
+    .where(eq(rfqsTable.status, "open"));
+
+  const vendorIdStr = String(vendor.id);
+  const addedRfqIds: number[] = [];
+
+  for (const rfqSnapshot of openRfqs) {
+    const rfqProfile: RfqMatchProfile = {
+      category: rfqSnapshot.category,
+      sido: rfqSnapshot.sido,
+      sigungu: rfqSnapshot.sigungu,
+      geoScope: rfqSnapshot.geoScope,
+      // lat/lng 은 buildings 별도 조회가 필요해 생략. vendor/RFQ 한쪽이라도
+      //   좌표가 없으면 vendorCoversDistance 가 true 로 통과시키는 정책이라
+      //   기존 시도·시군구 매칭 결과가 그대로 보존된다.
+    };
+    if (!vendorMatchesRfq(vendorProfile, rfqProfile)) continue;
+
+    // 원자적 append: FOR UPDATE 로 잠근 뒤 최신 vendor_ids 를 다시 읽어
+    //   포함 여부를 판단하고, 미포함일 때만 join 한 새 문자열을 쓴다.
+    //   상태가 그 사이 'open' → 'closed/awarded' 로 바뀐 RFQ 는 스킵.
+    let appended = false;
+    await db.transaction(async (tx) => {
+      const [fresh] = await tx
+        .select({
+          vendorIds: rfqsTable.vendorIds,
+          status: rfqsTable.status,
+        })
+        .from(rfqsTable)
+        .where(eq(rfqsTable.id, rfqSnapshot.id))
+        .for("update");
+      if (!fresh) return;
+      if (fresh.status !== "open") return;
+      const existing = (fresh.vendorIds ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (existing.includes(vendorIdStr)) return;
+      const mergedIds = [...existing, vendorIdStr].join(",");
+      // [allow-direct-write: vendor_ids 매칭 풀 확장 — 라이프사이클 상태 변화 없음.
+      //   expand-scope 와 동일 패턴.]
+      await tx
+        .update(rfqsTable)
+        .set({ vendorIds: mergedIds })
+        .where(eq(rfqsTable.id, rfqSnapshot.id));
+      appended = true;
+    });
+
+    if (!appended) continue;
+    addedRfqIds.push(rfqSnapshot.id);
+
+    try {
+      const catLabel = rfqCategoryLabel(rfqSnapshot.category) || rfqSnapshot.category;
+      await insertNotification({
+        recipientType: `vendor:${vendor.id}`,
+        notificationType: "rfq_new",
+        title: `새 견적 요청 — ${catLabel}`,
+        message:
+          `${rfqSnapshot.buildingName ?? ""} · 분야 확장으로 신규 매칭된 견적 요청입니다.`.trim(),
+        relatedEntityType: "rfq",
+        relatedEntityId: rfqSnapshot.id,
+      });
+    } catch (err) {
+      console.error(
+        "[vendor backfill] insertNotification 실패",
+        { vendorId: vendor.id, rfqId: rfqSnapshot.id },
+        err,
+      );
+    }
+  }
+
+  return addedRfqIds;
+}
 
 router.delete("/vendors/:id", requireVendorWriter, async (req, res): Promise<void> => {
   const params = DeleteVendorParams.safeParse(req.params);
@@ -858,6 +1008,38 @@ router.post(
         })
         .where(eq(vendorChangeRequestsTable.id, request.id));
     });
+
+    // [Task 분류변경-소급] 본사 승인 경로에서 카테고리(=분야) 가 변경된 경우,
+    //   진행 중 RFQ 풀에 소급 매칭. PATCH /vendors/:id 와 동일 헬퍼 재사용 →
+    //   "분류 변경 시 소급 적용" 정책을 양쪽 경로에서 일관되게 보장.
+    //   /me/vendor 가 category 를 잠그므로 본 경로가 파트너 사장님이 분야를
+    //   바꾸는 실제 1차 진입점이다 (architect 권고 반영).
+    const categoryChangedByApproval = (request.fields ?? []).some(
+      (f) => f.field === "category",
+    );
+    if (categoryChangedByApproval) {
+      try {
+        const [refreshed] = await db
+          .select()
+          .from(vendorsTable)
+          .where(eq(vendorsTable.id, vendor.id));
+        if (refreshed) {
+          const added = await backfillVendorIntoOpenRfqs(refreshed);
+          if (added.length > 0) {
+            req.log?.info?.(
+              { vendorId: refreshed.id, rfqIds: added, source: "admin_approve" },
+              "[vendor approve] 분류 변경 승인으로 진행 중 RFQ 매칭 풀에 추가됨",
+            );
+          }
+        }
+      } catch (err) {
+        req.log?.warn?.(
+          { err, vendorId: vendor.id },
+          "[vendor approve] open RFQ 소급 매칭 실패",
+        );
+      }
+    }
+
     const [updatedRequest] = await db
       .select()
       .from(vendorChangeRequestsTable)
