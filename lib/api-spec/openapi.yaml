@@ -15216,6 +15216,17 @@ components:
         requiresReport:
           type: boolean
           description: "true 면 처리완료 시 기본 양식이 보고서로 열린다"
+        recommendedMonths:
+          type: ["array", "null"]
+          description: "[공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출."
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+        type:
+          type: string
+          enum: [document, infographic]
+          description: "[공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) / infographic=바로출력 인쇄형."
         createdAt:
           type: string
           format: date-time
@@ -15232,6 +15243,7 @@ components:
         - scheduleType
         - leadDays
         - requiresReport
+        - type
         - createdAt
         - updatedAt
 
@@ -15264,6 +15276,15 @@ components:
           type: integer
         requiresReport:
           type: boolean
+        recommendedMonths:
+          type: ["array", "null"]
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+        type:
+          type: string
+          enum: [document, infographic]
       required:
         - title
         - bodyHtml

@@ -7,6 +7,7 @@
  */
 import type { UpsertBuildingNoticeTemplateBodyScheduleConfig } from "./upsertBuildingNoticeTemplateBodyScheduleConfig";
 import type { UpsertBuildingNoticeTemplateBodyScheduleType } from "./upsertBuildingNoticeTemplateBodyScheduleType";
+import type { UpsertBuildingNoticeTemplateBodyType } from "./upsertBuildingNoticeTemplateBodyType";
 
 export interface UpsertBuildingNoticeTemplateBody {
   title: string;
@@ -23,4 +24,7 @@ export interface UpsertBuildingNoticeTemplateBody {
   scheduleConfig?: UpsertBuildingNoticeTemplateBodyScheduleConfig;
   leadDays?: number;
   requiresReport?: boolean;
+  /** @nullable */
+  recommendedMonths?: number[] | null;
+  type?: UpsertBuildingNoticeTemplateBodyType;
 }

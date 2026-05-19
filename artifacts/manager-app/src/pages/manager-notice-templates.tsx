@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useLocation } from "wouter";
 import { format, parse, isValid } from "date-fns";
 import { buildApprovalPrefillSearch } from "@/lib/approval-prefill";
@@ -86,13 +86,42 @@ export default function ManagerNoticeTemplatesPage() {
     query: { staleTime: 0, refetchOnMount: "always" },
   });
   const templates: BuildingNoticeTemplate[] = data?.templates ?? [];
-  const categories = useMemo(() => {
-    const set = new Set(templates.map((t) => t.category));
-    return ["전체", ...Array.from(set)];
-  }, [templates]);
-  const [activeCategory, setActiveCategory] = useState("전체");
-  const filtered = templates.filter((t) => activeCategory === "전체" || t.category === activeCategory);
+
+  // [공지 양식 개편] 고정 카테고리 탭 (전체 + 6개 도메인).
+  //   code → 표시 라벨. 템플릿의 category 필드가 code 와 일치할 때 해당 탭에 들어간다.
+  //   기존 자유서식 카테고리("일반" 등) 는 6개 매핑에 없으므로 "전체" 탭에서만 보인다.
+  const CATEGORY_TABS: Array<{ code: string; label: string }> = [
+    { code: "전체", label: "전체" },
+    { code: "fire_safety", label: "소방·안전" },
+    { code: "lifestyle", label: "생활질서" },
+    { code: "environment", label: "환경·미화" },
+    { code: "facility", label: "시설·설비" },
+    { code: "management_fee", label: "관리비" },
+    { code: "meeting", label: "회의·공고" },
+  ];
+  const CATEGORY_LABEL_BY_CODE = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of CATEGORY_TABS) m.set(t.code, t.label);
+    return m;
+  }, []);
+
+  const [activeCategory, setActiveCategory] = useState<string>("전체");
+  const filtered = templates.filter(
+    (t) => activeCategory === "전체" || t.category === activeCategory,
+  );
   const [selected, setSelected] = useState<BuildingNoticeTemplate | null>(null);
+
+  // [공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 recommendedMonths 에
+  //   포함된 템플릿을 최대 4개까지 상단 추천 섹션에 노출. 0개면 섹션 자체를 숨김.
+  const currentMonth = new Date().getMonth() + 1;
+  const recommended = useMemo(() => {
+    const list = templates.filter((t) => {
+      const months = (t as unknown as { recommendedMonths?: number[] | null })
+        .recommendedMonths;
+      return Array.isArray(months) && months.includes(currentMonth);
+    });
+    return list.slice(0, 4);
+  }, [templates, currentMonth]);
 
   // [Task #393] 매니저 대시보드 알림 처리 다이얼로그의 "공고문 작성" CTA 에서
   //   /notices/templates?templateId=N 으로 진입한 경우, 목록 로드 후 일치하는 템플릿을
@@ -132,20 +161,70 @@ export default function ManagerNoticeTemplatesPage() {
         </div>
       </header>
 
+      {/* [공지 양식 개편 A] 이달의 추천 양식 — recommendedMonths 가 현재 월을
+            포함하는 템플릿이 한 건 이상일 때만 노출. 최대 4개 카드. */}
+      {recommended.length > 0 && (
+        <section
+          className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3"
+          data-testid="section-recommended-templates"
+        >
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-sm font-bold text-amber-900">
+              이달의 추천 양식
+            </h2>
+            <span className="text-xs text-amber-700">
+              {currentMonth}월에 자주 쓰는 공고문
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            {recommended.map((t) => {
+              const catLabel = CATEGORY_LABEL_BY_CODE.get(t.category) ?? t.category;
+              return (
+                <div
+                  key={`rec-${t.id}`}
+                  className="rounded-lg border border-amber-200 bg-white p-3 flex flex-col gap-2"
+                  data-testid={`card-recommended-${t.id}`}
+                >
+                  <div className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]">
+                    {t.title}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-[10px]">
+                      {catLabel}
+                    </Badge>
+                    <TemplateTypeBadge type={(t as unknown as { type?: string }).type} />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={() => setSelected(t)}
+                    data-testid={`button-recommended-write-${t.id}`}
+                  >
+                    바로 작성
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* [공지 양식 개편 B] 고정 카테고리 탭 (전체 + 6개 도메인). */}
       <div className="flex flex-wrap gap-2" data-testid="filter-categories">
-        {categories.map((c) => (
+        {CATEGORY_TABS.map((c) => (
           <button
-            key={c}
+            key={c.code}
             type="button"
-            onClick={() => setActiveCategory(c)}
+            onClick={() => setActiveCategory(c.code)}
             className={`px-3 py-1.5 rounded-full text-xs border ${
-              activeCategory === c
+              activeCategory === c.code
                 ? "bg-slate-900 text-white border-slate-900"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
             }`}
-            data-testid={`filter-category-${c}`}
+            data-testid={`filter-category-${c.code}`}
           >
-            {c}
+            {c.label}
           </button>
         ))}
       </div>
@@ -160,25 +239,31 @@ export default function ManagerNoticeTemplatesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" data-testid="grid-notice-templates">
-          {filtered.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setSelected(t)}
-              className="text-left rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 hover:shadow-sm transition"
-              data-testid={`card-template-${t.id}`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="text-3xl shrink-0" aria-hidden>
-                  {t.icon ?? "📄"}
+          {filtered.map((t) => {
+            const catLabel = CATEGORY_LABEL_BY_CODE.get(t.category) ?? t.category;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelected(t)}
+                className="text-left rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 hover:shadow-sm transition"
+                data-testid={`card-template-${t.id}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="text-3xl shrink-0" aria-hidden>
+                    {t.icon ?? "📄"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      <Badge variant="outline" className="text-[10px]">{catLabel}</Badge>
+                      <TemplateTypeBadge type={(t as unknown as { type?: string }).type} />
+                    </div>
+                    <div className="font-semibold text-sm line-clamp-2">{t.title}</div>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <Badge variant="outline" className="text-[10px] mb-1">{t.category}</Badge>
-                  <div className="font-semibold text-sm line-clamp-2">{t.title}</div>
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -186,6 +271,29 @@ export default function ManagerNoticeTemplatesPage() {
         <PreviewDialog template={selected} onClose={() => setSelected(null)} />
       )}
     </div>
+  );
+}
+
+// [공지 양식 개편 C] 양식 유형 배지 — document=작성형(회색) / infographic=바로출력(녹색).
+function TemplateTypeBadge({ type }: { type?: string | null }): ReactElement | null {
+  if (type === "infographic") {
+    return (
+      <Badge
+        className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+        data-testid="badge-template-type-infographic"
+      >
+        바로출력
+      </Badge>
+    );
+  }
+  // 기본값 = document (작성형). type 이 비어 있거나 알 수 없는 값이어도 작성형으로 표시.
+  return (
+    <Badge
+      className="text-[10px] bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100"
+      data-testid="badge-template-type-document"
+    >
+      작성형
+    </Badge>
   );
 }
 

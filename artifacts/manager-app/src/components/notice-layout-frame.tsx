@@ -129,9 +129,23 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
   const showAnyMetaRow =
     topRowCells.length > 0 || settings.showContactRow;
 
+  // [공지 양식 개편 D] 공통 공고문 레이아웃 통일.
+  //   - 외곽: 1.5px solid #222 (한 장의 공고지 느낌)
+  //   - 헤더(공고번호/게시기간): 하단 1px border, 배경 없음
+  //   - 제목: 중앙 정렬, 굵게, 18px, 배경/색상 구분 없음
+  //   - 본문: 좌우 패딩 18px, 줄간격 1.8
+  //   - 푸터(서명): 우측 정렬, "날짜 + 건물명 관리사무소장" (resolvedFooter 그대로 사용)
+  //   로고/직인/사진/메타표 행 토글 등 기존 기능은 그대로 보존하되 시각 톤만 통일한다.
   return (
-    <>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b-2 border-black pb-4">
+    <div
+      className="bg-white"
+      style={{ border: "1.5px solid #222", padding: "16px" }}
+      data-testid="notice-layout-frame"
+    >
+      <div
+        className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 pb-3"
+        style={{ borderBottom: "1px solid #222" }}
+      >
         <div className="flex items-center justify-start">
           {logoUrl ? (
             <AuthImage src={logoUrl} alt={`${buildingName} 로고`} className="max-h-16 w-auto object-contain" />
@@ -142,16 +156,23 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
           )}
         </div>
         <h1
-          className="text-3xl font-bold tracking-[0.4em] text-center"
-          style={{ whiteSpace: "nowrap" }}
+          className="text-2xl font-bold tracking-[0.3em] text-center"
+          style={{ whiteSpace: "nowrap", color: "#222" }}
           data-testid="notice-document-title"
         >
           {settings.documentTitle}
         </h1>
         <div className="flex items-center justify-end">
-          <div className="border border-black text-xs">
-            <div className="px-3 py-1 border-b border-black text-center font-medium">게시기간</div>
-            <div className="px-3 py-1 text-center" data-testid="notice-posting-period">{resolvedPostingPeriod}</div>
+          <div className="text-xs" style={{ border: "1px solid #222" }}>
+            <div
+              className="px-3 py-1 text-center font-medium"
+              style={{ borderBottom: "1px solid #222" }}
+            >
+              게시기간
+            </div>
+            <div className="px-3 py-1 text-center" data-testid="notice-posting-period">
+              {resolvedPostingPeriod}
+            </div>
           </div>
         </div>
       </div>
@@ -164,18 +185,15 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
                 {topRowCells.flatMap((c, i) => [
                   <td
                     key={`l-${i}`}
-                    className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[14%]"
-                    style={{ whiteSpace: "nowrap" }}
+                    className="font-semibold text-center py-1.5 px-2 w-[14%]"
+                    style={{ whiteSpace: "nowrap", border: "1px solid #222" }}
                   >
                     {c.label}
                   </td>,
                   <td
                     key={`v-${i}`}
-                    className={cn(
-                      "border border-gray-400 py-1.5 px-2",
-                      c.widthClass,
-                    )}
-                    style={{ whiteSpace: "nowrap" }}
+                    className={cn("py-1.5 px-2", c.widthClass)}
+                    style={{ whiteSpace: "nowrap", border: "1px solid #222" }}
                   >
                     {c.value}
                   </td>,
@@ -184,13 +202,17 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
             )}
             {settings.showContactRow && (
               <tr>
-                <td className="border border-gray-400 bg-gray-100 font-semibold text-center py-1.5 px-2 w-[12%]">
+                <td
+                  className="font-semibold text-center py-1.5 px-2 w-[12%]"
+                  style={{ border: "1px solid #222" }}
+                >
                   연락처
                 </td>
                 <td
-                  className="border border-gray-400 py-1.5 px-2"
+                  className="py-1.5 px-2"
                   colSpan={topRowCells.length > 0 ? topRowCells.length * 2 - 1 : 1}
                   data-testid="notice-contact"
+                  style={{ border: "1px solid #222" }}
                 >
                   {resolvedContact}
                 </td>
@@ -201,9 +223,10 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
       )}
 
       {settings.showTitleBox && title ? (
-        <div className="text-center my-8">
+        <div className="text-center my-6">
           <h2
-            className="text-xl font-bold border-b-2 border-black inline-block px-8 pb-2"
+            className="font-bold"
+            style={{ fontSize: "18px", color: "#222" }}
             data-testid="notice-title-box"
           >
             {title}
@@ -213,7 +236,10 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
         <div className="my-4" />
       )}
 
-      <div className="text-[15px] leading-8 px-2" data-testid="notice-body-slot">
+      <div
+        data-testid="notice-body-slot"
+        style={{ padding: "0 18px", lineHeight: 1.8, fontSize: "15px" }}
+      >
         {children}
 
         {/* [Task #608] 본문 마지막 사진 영역 — 1장 이상일 때만 2열 그리드로 노출.
@@ -266,23 +292,25 @@ export function NoticeLayoutFrame(props: NoticeLayoutFrameProps): ReactElement {
             ))}
           </div>
         )}
-        <div className="text-center space-y-3">
+        {/* [공지 양식 개편 D] 서명(직인) 줄 우측 정렬.
+              날짜 + 건물명 관리사무소장(=resolvedFooter) 한 줄, 직인 이미지가 있으면 그 아래 함께 우측 정렬. */}
+        <div className="text-right space-y-3">
           {sealUrl ? (
             <>
-              <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+              <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap", color: "#222" }}>
                 {resolvedFooter}
               </p>
-              <div className="flex justify-center pt-2">
+              <div className="flex justify-end pt-2">
                 <AuthImage src={sealUrl} alt="직인" className="h-20 w-20 object-contain" />
               </div>
             </>
           ) : (
-            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap" }}>
+            <p className="text-xl font-bold tracking-wider" style={{ whiteSpace: "nowrap", color: "#222" }}>
               {resolvedFooter} {settings.sealOmittedText}
             </p>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

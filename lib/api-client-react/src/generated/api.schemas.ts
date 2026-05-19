@@ -5858,6 +5858,17 @@ export type BuildingNoticeTemplateScheduleConfig = {
   [key: string]: unknown;
 } | null;
 
+/**
+ * [공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) / infographic=바로출력 인쇄형.
+ */
+export type BuildingNoticeTemplateType =
+  (typeof BuildingNoticeTemplateType)[keyof typeof BuildingNoticeTemplateType];
+
+export const BuildingNoticeTemplateType = {
+  document: "document",
+  infographic: "infographic",
+} as const;
+
 export interface BuildingNoticeTemplate {
   id: number;
   title: string;
@@ -5883,6 +5894,13 @@ export interface BuildingNoticeTemplate {
   leadDays: number;
   /** true 면 처리완료 시 기본 양식이 보고서로 열린다 */
   requiresReport: boolean;
+  /**
+   * [공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.
+   * @nullable
+   */
+  recommendedMonths?: number[] | null;
+  /** [공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) / infographic=바로출력 인쇄형. */
+  type: BuildingNoticeTemplateType;
   createdAt: string;
   updatedAt: string;
 }
@@ -5904,6 +5922,14 @@ export type UpsertBuildingNoticeTemplateBodyScheduleConfig = {
   [key: string]: unknown;
 } | null;
 
+export type UpsertBuildingNoticeTemplateBodyType =
+  (typeof UpsertBuildingNoticeTemplateBodyType)[keyof typeof UpsertBuildingNoticeTemplateBodyType];
+
+export const UpsertBuildingNoticeTemplateBodyType = {
+  document: "document",
+  infographic: "infographic",
+} as const;
+
 export interface UpsertBuildingNoticeTemplateBody {
   title: string;
   category?: string;
@@ -5919,6 +5945,9 @@ export interface UpsertBuildingNoticeTemplateBody {
   scheduleConfig?: UpsertBuildingNoticeTemplateBodyScheduleConfig;
   leadDays?: number;
   requiresReport?: boolean;
+  /** @nullable */
+  recommendedMonths?: number[] | null;
+  type?: UpsertBuildingNoticeTemplateBodyType;
 }
 
 export interface CreditTopupPackage {

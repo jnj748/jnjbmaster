@@ -9960,6 +9960,8 @@ export const FailCreditTopupOrderResponse = zod.object({
 /**
  * @summary [Task #323] 활성 공지문 템플릿 목록 (매니저용)
  */
+export const listBuildingNoticeTemplatesResponseTemplatesItemRecommendedMonthsItemMax = 12;
+
 export const ListBuildingNoticeTemplatesResponse = zod.object({
   templates: zod.array(
     zod.object({
@@ -9989,6 +9991,24 @@ export const ListBuildingNoticeTemplatesResponse = zod.object({
       requiresReport: zod
         .boolean()
         .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
+      recommendedMonths: zod
+        .array(
+          zod
+            .number()
+            .min(1)
+            .max(
+              listBuildingNoticeTemplatesResponseTemplatesItemRecommendedMonthsItemMax,
+            ),
+        )
+        .nullish()
+        .describe(
+          "[공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.",
+        ),
+      type: zod
+        .enum(["document", "infographic"])
+        .describe(
+          "[공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) \/ infographic=바로출력 인쇄형.",
+        ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -9998,6 +10018,8 @@ export const ListBuildingNoticeTemplatesResponse = zod.object({
 /**
  * @summary [Task #323] platform_admin: 전체 템플릿
  */
+export const listAdminBuildingNoticeTemplatesResponseTemplatesItemRecommendedMonthsItemMax = 12;
+
 export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
   templates: zod.array(
     zod.object({
@@ -10027,6 +10049,24 @@ export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
       requiresReport: zod
         .boolean()
         .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
+      recommendedMonths: zod
+        .array(
+          zod
+            .number()
+            .min(1)
+            .max(
+              listAdminBuildingNoticeTemplatesResponseTemplatesItemRecommendedMonthsItemMax,
+            ),
+        )
+        .nullish()
+        .describe(
+          "[공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.",
+        ),
+      type: zod
+        .enum(["document", "infographic"])
+        .describe(
+          "[공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) \/ infographic=바로출력 인쇄형.",
+        ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -10036,6 +10076,8 @@ export const ListAdminBuildingNoticeTemplatesResponse = zod.object({
 /**
  * @summary [Task #323] platform_admin: 템플릿 생성
  */
+export const createBuildingNoticeTemplateBodyRecommendedMonthsItemMax = 12;
+
 export const CreateBuildingNoticeTemplateBody = zod.object({
   title: zod.string(),
   category: zod.string().optional(),
@@ -10050,7 +10092,18 @@ export const CreateBuildingNoticeTemplateBody = zod.object({
   scheduleConfig: zod.record(zod.string(), zod.unknown()).nullish(),
   leadDays: zod.number().optional(),
   requiresReport: zod.boolean().optional(),
+  recommendedMonths: zod
+    .array(
+      zod
+        .number()
+        .min(1)
+        .max(createBuildingNoticeTemplateBodyRecommendedMonthsItemMax),
+    )
+    .nullish(),
+  type: zod.enum(["document", "infographic"]).optional(),
 });
+
+export const createBuildingNoticeTemplateResponseTemplateRecommendedMonthsItemMax = 12;
 
 export const CreateBuildingNoticeTemplateResponse = zod.object({
   template: zod.object({
@@ -10080,6 +10133,24 @@ export const CreateBuildingNoticeTemplateResponse = zod.object({
     requiresReport: zod
       .boolean()
       .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
+    recommendedMonths: zod
+      .array(
+        zod
+          .number()
+          .min(1)
+          .max(
+            createBuildingNoticeTemplateResponseTemplateRecommendedMonthsItemMax,
+          ),
+      )
+      .nullish()
+      .describe(
+        "[공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.",
+      ),
+    type: zod
+      .enum(["document", "infographic"])
+      .describe(
+        "[공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) \/ infographic=바로출력 인쇄형.",
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
@@ -10091,6 +10162,8 @@ export const CreateBuildingNoticeTemplateResponse = zod.object({
 export const UpdateBuildingNoticeTemplateParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const updateBuildingNoticeTemplateBodyRecommendedMonthsItemMax = 12;
 
 export const UpdateBuildingNoticeTemplateBody = zod.object({
   title: zod.string(),
@@ -10106,7 +10179,18 @@ export const UpdateBuildingNoticeTemplateBody = zod.object({
   scheduleConfig: zod.record(zod.string(), zod.unknown()).nullish(),
   leadDays: zod.number().optional(),
   requiresReport: zod.boolean().optional(),
+  recommendedMonths: zod
+    .array(
+      zod
+        .number()
+        .min(1)
+        .max(updateBuildingNoticeTemplateBodyRecommendedMonthsItemMax),
+    )
+    .nullish(),
+  type: zod.enum(["document", "infographic"]).optional(),
 });
+
+export const updateBuildingNoticeTemplateResponseTemplateRecommendedMonthsItemMax = 12;
 
 export const UpdateBuildingNoticeTemplateResponse = zod.object({
   template: zod.object({
@@ -10136,6 +10220,24 @@ export const UpdateBuildingNoticeTemplateResponse = zod.object({
     requiresReport: zod
       .boolean()
       .describe("true 면 처리완료 시 기본 양식이 보고서로 열린다"),
+    recommendedMonths: zod
+      .array(
+        zod
+          .number()
+          .min(1)
+          .max(
+            updateBuildingNoticeTemplateResponseTemplateRecommendedMonthsItemMax,
+          ),
+      )
+      .nullish()
+      .describe(
+        "[공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.",
+      ),
+    type: zod
+      .enum(["document", "infographic"])
+      .describe(
+        "[공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) \/ infographic=바로출력 인쇄형.",
+      ),
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),

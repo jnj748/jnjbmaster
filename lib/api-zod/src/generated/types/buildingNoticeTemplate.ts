@@ -7,6 +7,7 @@
  */
 import type { BuildingNoticeTemplateScheduleConfig } from "./buildingNoticeTemplateScheduleConfig";
 import type { BuildingNoticeTemplateScheduleType } from "./buildingNoticeTemplateScheduleType";
+import type { BuildingNoticeTemplateType } from "./buildingNoticeTemplateType";
 
 export interface BuildingNoticeTemplate {
   id: number;
@@ -33,6 +34,13 @@ export interface BuildingNoticeTemplate {
   leadDays: number;
   /** true 면 처리완료 시 기본 양식이 보고서로 열린다 */
   requiresReport: boolean;
+  /**
+   * [공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 포함되면 매니저 페이지 상단 추천 섹션에 카드로 노출.
+   * @nullable
+   */
+  recommendedMonths?: number[] | null;
+  /** [공지 양식 개편] 양식 유형 — document=작성형(편집 후 출력) / infographic=바로출력 인쇄형. */
+  type: BuildingNoticeTemplateType;
   createdAt: string;
   updatedAt: string;
 }

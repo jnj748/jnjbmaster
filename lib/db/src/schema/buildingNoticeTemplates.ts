@@ -37,6 +37,11 @@ export const buildingNoticeTemplatesTable = pgTable("building_notice_templates",
   scheduleConfig: jsonb("schedule_config"),
   leadDays: integer("lead_days").notNull().default(7),
   requiresReport: boolean("requires_report").notNull().default(false),
+  // [공지 양식 개편] 이달의 추천 양식 — 현재 월(1-12) 이 배열에 포함되면 추천 섹션 노출.
+  //   예: [3,9] = 3월·9월 추천 (불조심·황사 등 계절성).
+  recommendedMonths: jsonb("recommended_months").$type<number[]>(),
+  // [공지 양식 개편] 양식 유형 — "document" 작성형(편집 후 출력) / "infographic" 바로출력 인쇄형.
+  type: text("type").notNull().default("document"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

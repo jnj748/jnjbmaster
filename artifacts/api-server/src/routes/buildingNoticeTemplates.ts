@@ -63,6 +63,9 @@ const UpsertBody = z.object({
   scheduleConfig: ScheduleConfigSchema,
   leadDays: z.number().int().min(0).max(365).default(7),
   requiresReport: z.boolean().default(false),
+  // [공지 양식 개편] 이달의 추천 양식 + 양식 유형.
+  recommendedMonths: z.array(z.number().int().min(1).max(12)).max(12).nullable().optional(),
+  type: z.enum(["document", "infographic"]).default("document"),
 });
 
 router.post(
@@ -90,6 +93,8 @@ router.post(
         scheduleConfig: parsed.data.scheduleConfig ?? null,
         leadDays: parsed.data.leadDays,
         requiresReport: parsed.data.requiresReport,
+        recommendedMonths: parsed.data.recommendedMonths ?? null,
+        type: parsed.data.type,
       })
       .returning();
     res.json({ template: row });
@@ -126,6 +131,8 @@ router.put(
     if (parsed.data.scheduleConfig !== undefined) patch.scheduleConfig = parsed.data.scheduleConfig ?? null;
     if (parsed.data.leadDays !== undefined) patch.leadDays = parsed.data.leadDays;
     if (parsed.data.requiresReport !== undefined) patch.requiresReport = parsed.data.requiresReport;
+    if (parsed.data.recommendedMonths !== undefined) patch.recommendedMonths = parsed.data.recommendedMonths ?? null;
+    if (parsed.data.type !== undefined) patch.type = parsed.data.type;
     const [row] = await db
       .update(buildingNoticeTemplatesTable)
       .set(patch)
