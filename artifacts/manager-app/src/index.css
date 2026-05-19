@@ -84,6 +84,13 @@
 }
 
 :root {
+  /* [Phase 1] 관리소장 브랜드 색상 토큰 */
+  --brand: #1a6b4a;
+  --brand-light: #e8f5ef;
+  --brand-dark: #1a3d2b;
+  --brand-mid: #2d6b4a;
+  --brand-border: #b2d8c4;
+
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
@@ -1005,23 +1012,74 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
 }
 
 /*
- * [Phase 1] 관리소장 모바일 시니어 UX — 768px 이하에서 가독성·터치 영역 확대.
+ * [Phase 1] 관리소장 대시보드 카드·버튼 공통 스타일
+ */
+[data-role="manager"] .manager-phase1-card {
+  border-radius: 12px;
+  border: 1px solid var(--brand-border);
+  background: var(--brand-light);
+  font-size: 17px;
+}
+
+[data-role="manager"] .manager-phase1-btn {
+  min-height: 52px;
+  height: 52px;
+  font-size: 17px;
+  border-radius: 12px;
+  background: var(--brand);
+  color: #fff;
+}
+
+[data-role="manager"] .manager-phase1-btn:hover {
+  background: var(--brand-mid);
+}
+
+[data-role="manager"] .manager-phase1-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-role="manager"] .manager-phase1-icon-wrap {
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+[data-role="manager"] .text-brand {
+  color: var(--brand);
+}
+
+[data-role="manager"] .text-brand-dark {
+  color: var(--brand-dark);
+}
+
+[data-role="manager"] .bg-brand {
+  background-color: var(--brand);
+}
+
+[data-role="manager"] .bg-brand-light {
+  background-color: var(--brand-light);
+}
+
+[data-role="manager"] .border-brand {
+  border-color: var(--brand-border);
+}
+
+/*
+ * [Phase 1] 관리소장 모바일 시니어 UX — 768px 이하
  */
 @media (max-width: 768px) {
   [data-role="manager"] {
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: 17px;
+    line-height: 1.65;
   }
 
-  [data-role="manager"] button,
-  [data-role="manager"] [role="button"],
-  [data-role="manager"] a[class*="inline-flex"] {
-    min-height: 48px;
+  [data-role="manager"] .manager-phase1-card {
+    font-size: 17px;
   }
 
-  [data-role="manager"] button:not(.h-auto):not([class*="min-h-"]),
-  [data-role="manager"] [role="button"]:not([class*="min-h-"]) {
-    min-height: 48px;
+  [data-role="manager"] button:not(.h-auto):not([class*="min-h-0"]):not(.manager-phase1-fab-inner),
+  [data-role="manager"] [role="button"]:not(.manager-phase1-fab-inner) {
+    min-height: 52px;
   }
 
   [data-role="manager"] a[href],
@@ -1035,8 +1093,31 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
 
   [data-role="manager"] li,
   [data-role="manager"] [data-sidebar="menu-item"],
-  [data-role="manager"] nav a {
-    padding-top: 12px;
-    padding-bottom: 12px;
+  [data-role="manager"] nav.layout-bottom-nav a,
+  [data-role="manager"] nav.layout-bottom-nav button {
+    padding-top: 14px;
+    padding-bottom: 14px;
   }
+}
+
+/* [Phase 1] 관리소장 모바일 헤더 */
+[data-role="manager"] .layout-mobile-header.manager-phase1-header {
+  background: var(--brand);
+  border-bottom-color: var(--brand-mid);
+  color: #fff;
+}
+
+[data-role="manager"] .layout-mobile-header.manager-phase1-header .manager-phase1-header-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #fff;
+}
+
+[data-role="manager"] .layout-mobile-header.manager-phase1-header .manager-phase1-header-date {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-role="manager"] .layout-mobile-header.manager-phase1-header button {
+  color: #fff;
 }

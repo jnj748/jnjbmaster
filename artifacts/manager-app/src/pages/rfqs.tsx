@@ -104,6 +104,11 @@ import { AuthImage } from "@/components/auth-image";
 import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { RfqMatchStatsCard } from "@/pages/settings";
 import { VendorRatingInline } from "@/components/star-rating";
+import { RFQ_CATEGORY_OPTIONS as categoryOptions } from "@/lib/rfq-category-options";
+import {
+  RfqQuickRequestWidget,
+  type RfqQuickRequestPayload,
+} from "@/components/dashboard-widgets/widgets/rfq-quick-request-widget";
 
 // [Task #510] orval 이 만든 axios 기반 mutation 은 실패 시 AxiosError 를
 //   throw 하고 서버 본문은 err.response.data 에 담긴다. catch 블록에서
@@ -124,28 +129,6 @@ function extractServerErrorMessage(err: unknown): string | null {
   if (err instanceof Error && err.message) return err.message;
   return null;
 }
-
-// [Task: RFQ 정합성] 관리자 분야 관리(vendor_categories) 순서·코드와 일치시킨다.
-//   - facility_maintenance 가 SoT (legacy maintenance_repair 는 라벨 폴백만 유지).
-const categoryOptions = [
-  { value: "elevator", label: "승강기" },
-  { value: "fire_safety", label: "소방" },
-  { value: "electrical", label: "전기" },
-  { value: "mechanical", label: "기계설비" },
-  { value: "gas", label: "가스" },
-  { value: "water_tank", label: "저수조" },
-  { value: "septic", label: "정화조" },
-  { value: "cleaning", label: "청소" },
-  { value: "security", label: "보안" },
-  { value: "waterproofing", label: "방수" },
-  { value: "water_leak", label: "누수" },
-  { value: "hvac", label: "냉난방" },
-  { value: "facility_maintenance", label: "영선/수선유지" },
-  { value: "defect_diagnosis", label: "하자진단" },
-  { value: "building_maintenance", label: "건물관리" },
-  { value: "landscaping", label: "조경" },
-  { value: "other", label: "기타" },
-];
 
 export default function Rfqs() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -270,7 +253,9 @@ export default function Rfqs() {
       titleManuallyEdited: !!params.get("title"),
       description: "",
       descriptionManuallyEdited: false,
-      category: validCategories.includes(incomingCategory) ? incomingCategory : prev.category,
+      category: categoryOptions.some((c) => c.value === incomingCategory)
+        ? incomingCategory
+        : prev.category,
     }));
     setAutoDescribeFromMeta(true);
     // [Task #407] 후속조치에서 끌고 온 근경/원경 사진 URL 을 미리 사진 칸에 채운다.
@@ -404,6 +389,52 @@ export default function Rfqs() {
       //   서버에서 보낸 본문은 err.response.data 에 담긴다.
       //   가능한 한 서버 응답의 message/error 텍스트를 그대로 보여 주고,
       //   그렇지 않으면 일반 폴백 메시지를 사용한다.
+      const serverMessage = extractServerErrorMessage(err);
+      toast({
+        title: "견적 요청 생성에 실패했습니다",
+        description:
+          serverMessage ||
+          "잠시 후 다시 시도하거나, 입력값과 네트워크 상태를 확인해 주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: getListRfqsQueryKey() });
+    toast({ title: "견적 요청이 생성되었습니다" });
+    setDialogOpen(false);
+    resetForm();
+  }
+
+  async function submitQuickRequest(payload: RfqQuickRequestPayload) {
+    if (!buildingReady) {
+      toast({
+        title: "건물 정보가 필요합니다",
+        description: "건물 정보를 먼저 등록해 주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const title = buildRfqAutoTitle(payload.category, "other");
+    const data: Parameters<typeof createMutation.mutateAsync>[0]["data"] = {
+      title,
+      category: payload.category as (typeof categoryOptions)[number]["value"],
+      serviceType: "other",
+      description: payload.description,
+      buildingName,
+      desiredDate: null,
+      deadline: getDefaultDeadline(),
+      vendorIds: null,
+      sido: buildingSido || null,
+      sigungu: buildingSigungu || null,
+      geoScope: buildingSigungu ? "sigungu" : buildingSido ? "sido" : null,
+      closeUpPhotoUrl: payload.closeUpPhotoUrl,
+      widePhotoUrl: payload.widePhotoUrl,
+      requiresSiteVisit: false,
+    };
+    try {
+      await createMutation.mutateAsync({ data });
+    } catch (err: unknown) {
+      console.error("[rfqs] create RFQ failed:", err);
       const serverMessage = extractServerErrorMessage(err);
       toast({
         title: "견적 요청 생성에 실패했습니다",
@@ -625,18 +656,14 @@ export default function Rfqs() {
                    라벨은 그대로 유지. */}
               <ResponsiveDialogTitle>파트너사 견적받기</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               {!buildingReady && (
                 <div
-                  className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 space-y-2"
+                  className="rounded-xl border p-3 text-sm space-y-2"
+                  style={{ borderColor: "var(--brand-border)", background: "var(--brand-light)" }}
                   data-testid="rfq-building-missing-warning"
                 >
-                  <p>
-                    현재 선택된 건물 정보가 비어 있어 견적 요청을 생성할 수 없습니다. 건물 정보(이름·주소)를 먼저 등록해주세요.
-                  </p>
-                  {/* [Task #475] 건물 설정으로 한 번에 이동할 수 있는 우회 동선.
-                       주소 카드(#address-info) 로 즉시 스크롤되도록 hash 를 함께 보낸다.
-                       [Task #485] 단독 페이지 분리 후 진입점은 /settings/building. */}
+                  <p>건물 정보(이름·주소)를 먼저 등록해 주세요.</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -645,162 +672,18 @@ export default function Rfqs() {
                       setDialogOpen(false);
                       setLocation("/settings/building#address-info");
                     }}
-                    className="border-amber-400 text-amber-900 hover:bg-amber-100"
                     data-testid="rfq-go-to-building-setup"
                   >
                     건물 정보 설정으로 이동
                   </Button>
                 </div>
               )}
-
-              <div>
-                <Label>
-                  시설분야 <span className="text-destructive">*</span>
-                </Label>
-                <Select value={form.category || undefined} onValueChange={(v) => setForm({ ...form, category: v })}>
-                  <SelectTrigger data-testid="rfq-category-trigger"><SelectValue placeholder="시설분야 선택" /></SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>
-                  용역종류 <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={form.serviceType || undefined}
-                  onValueChange={(v) => setForm({ ...form, serviceType: v as RfqServiceType })}
-                >
-                  <SelectTrigger data-testid="rfq-service-type-trigger"><SelectValue placeholder="용역종류 선택" /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(RFQ_SERVICE_TYPE_LABELS) as [RfqServiceType, string][]).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-3">
-                  현장 사진 <span className="text-destructive">*</span>
-                </p>
-                {/* [Task #407] 좌측 원경 → 우측 근경 순서로 표시 (이전: 근경-원경). */}
-                <div className="grid grid-cols-2 gap-4">
-                  <PhotoUploadField
-                    label="원경 사진 *"
-                    value={widePhotoUrl}
-                    onChange={setWidePhotoUrl}
-                    testId="rfq-photo-wide"
-                  />
-                  <PhotoUploadField
-                    label="근경 사진 *"
-                    value={closeUpPhotoUrl}
-                    onChange={setCloseUpPhotoUrl}
-                    testId="rfq-photo-close-up"
-                  />
-                </div>
-                {!photosReady && (
-                  <p className="text-xs text-destructive mt-2">원경/근경 사진은 필수입니다.</p>
-                )}
-              </div>
-
-              {buildingReady && (
-                <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    <span>{buildingName}</span>
-                  </div>
-                  <div>제목(자동): {effectiveTitle}</div>
-                  <div>마감(기본): 오늘 + 1일</div>
-                </div>
-              )}
-
-              <div className="border-t pt-3">
-                {/* [Task #407] 추가 옵션은 제목 수정·상세 설명만 노출. 희망일·마감일·추가 발송 업체는 제거됨. */}
-                <button
-                  type="button"
-                  onClick={() => setAdvancedOpen((v) => !v)}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-                  data-testid="rfq-advanced-toggle"
-                >
-                  {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  추가 옵션 (제목 수정·상세 설명)
-                </button>
-
-                {advancedOpen && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <Label>제목 (자동 생성됨)</Label>
-                      <Input
-                        value={form.titleManuallyEdited ? form.title : autoTitle}
-                        onChange={(e) =>
-                          setForm({ ...form, title: e.target.value, titleManuallyEdited: true })
-                        }
-                        placeholder={autoTitle}
-                      />
-                    </div>
-                    <div>
-                      <Label>상세 설명</Label>
-                      {/* [Task #407] 본문 영역 높이를 약 1.5배(60px → 90px)로 확대. */}
-                      <Textarea
-                        value={effectiveDescription}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            description: e.target.value,
-                            descriptionManuallyEdited: true,
-                          })
-                        }
-                        placeholder="작업 내용, 특이사항 등을 기재해주세요"
-                        className="min-h-[90px]"
-                        data-testid="rfq-description"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* [Task #612] 현장 확인이 꼭 필요한 견적이면 체크 — 파트너 화면에
-                   "현장방문 필요" 배지가 노출되고, 견적 제출 전 방문 일정 협의를
-                   유도한다. */}
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.requiresSiteVisit}
-                  onChange={(e) =>
-                    setForm({ ...form, requiresSiteVisit: e.target.checked })
-                  }
-                  data-testid="rfq-requires-site-visit"
-                />
-                <span>현장방문 견적 필요 (파트너에게 방문 일정 협의를 요청)</span>
-              </label>
-
-              {/* [Task #449] 버튼은 항상 활성화 상태로 두고, 부족한 항목은 onClick 시점에
-                  토스트로 안내한다. 잠금 사유는 버튼 위에 한 줄 안내로도 노출. */}
-              {missingItems.length > 0 && (
-                <p
-                  className="text-xs text-muted-foreground"
-                  data-testid="rfq-missing-hint"
-                >
-                  남은 필수 항목: {missingItems.join(", ")}
-                </p>
-              )}
-              {/* [Task #510] 제출 진행 중에는 버튼을 비활성화해 더블 클릭으로
-                   인한 중복 생성과 "버튼이 안 눌리는 것 같다" 는 인상을 막는다.
-                   누락 항목 검증은 onClick 시점 토스트로 별도로 안내한다. */}
-              <Button
-                type="submit"
-                className="w-full"
-                data-testid="rfq-submit"
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? "요청을 보내는 중..." : "파트너사 견적받기"}
-              </Button>
-            </form>
+              <RfqQuickRequestWidget
+                buildingReady={buildingReady}
+                isSubmitting={createMutation.isPending}
+                onSubmit={submitQuickRequest}
+              />
+            </div>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
       </div>

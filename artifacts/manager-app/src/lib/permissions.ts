@@ -36,6 +36,8 @@ import {
   Sparkles,
   Clipboard,
   NotebookPen,
+  Bot,
+  Hammer,
   Plus,
   Megaphone,
   // [Task #734] 이벤트 크레딧 일괄 지급 메뉴/카드 아이콘.
@@ -2200,15 +2202,16 @@ export function getBottomNavItems(
     );
     return [home, ...tail.map((t) => t.item)];
   }
-  // [네비 정비] 관리소장 하단 네비 5칸: 홈 / 일지 / 업무기록(+) / AI비서 / 더보기.
-  //   "더보기"는 layout.tsx 가 항상 마지막에 추가하므로 여기서는 4칸만 반환.
-  //   "/__quick_entry" 는 라우트가 아닌 sentinel 경로 — layout.tsx 에서 업무기록 다이얼로그를 연다.
+  // [Phase 1] 관리소장 하단 네비 5칸: 업무일지 / 공지양식 / 기록+(FAB) / AI비서 / 견적.
+  //   "더보기"는 layout.tsx 에서 manager 에게는 숨긴다.
+  //   "/__quick_entry" 는 라우트가 아닌 sentinel — layout.tsx 가 업무기록 다이얼로그를 연다.
   if (role === "manager") {
     const managerItems: NavItem[] = [
-      { ...rootItem("manager"), label: "홈", group: "dashboard" },
-      { path: "/work-log", label: "일지", icon: NotebookPen, group: "reports" },
-      { path: "/__quick_entry", label: "업무기록", icon: Plus, group: "dashboard" },
-      { path: "/ai-assistant", label: "AI비서", icon: Sparkles, group: "dashboard" },
+      { path: "/work-log", label: "업무일지", icon: NotebookPen, group: "reports" },
+      { path: "/notices/templates", label: "공지양식", icon: FileText, group: "facility" },
+      { path: "/__quick_entry", label: "기록+", icon: Plus, group: "dashboard" },
+      { path: "/ai-assistant", label: "AI비서", icon: Bot, group: "dashboard" },
+      { path: "/rfqs", label: "견적", icon: Hammer, group: "marketplace" },
     ];
     // [카테고리 메뉴 제어] 끈 카테고리에 속한 하단 탭 제거(dashboard 는 항상 통과).
     return managerItems.filter((it) => isCategoryEnabled((it.group ?? "dashboard") as Group, disabledCategories));

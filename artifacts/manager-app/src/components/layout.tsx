@@ -8,6 +8,7 @@ import { QuickEntryDialog } from "@/components/work-log/quick-entry-fab";
 import { CampaignModalHost } from "@/components/campaigns/campaign-modal-host";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { useBuilding } from "@/contexts/building-context";
 import {
   useListNotifications,
   useGetUnreadNotificationCount,
@@ -108,6 +109,17 @@ function kstDateKey(at?: Date): string {
   const base = at ? at.getTime() : Date.now();
   const d = new Date(base + KST_OFFSET_MS);
   return d.toISOString().split("T")[0];
+}
+
+function formatManagerHeaderDate(): string {
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const d = new Date(Date.now() + KST_OFFSET_MS);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  const w = weekdays[d.getUTCDay()];
+  return `${y}년 ${m}월 ${day}일 (${w})`;
 }
 
 function isSubPage(location: string): boolean {
@@ -406,10 +418,12 @@ function NotifBell() {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const { building } = useBuilding();
   const base = import.meta.env.BASE_URL ?? "/";
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const effectiveRole = getEffectiveRole(user);
+  const isManager = effectiveRole === "manager";
   // [Task #850] 사이드바 접힘 상태를 역할별로 저장해, 한 브라우저에서 여러 역할로
   // 로그인하더라도 각 역할에 맞는 섹션 구조의 접힘 상태가 유지되도록 한다.
   // 예) sidebar-collapsed:manager / sidebar-collapsed:accountant
@@ -901,40 +915,57 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="layout-column">
-          <div className="layout-mobile-header sticky top-0 z-20 bg-background border-b px-2 py-2 items-center justify-between">
-            <div className="flex items-center gap-1 min-w-0">
+          <div
+            className={cn(
+              "layout-mobile-header sticky top-0 z-20 border-b px-3 py-2.5 flex items-center justify-between",
+              isManager && !showBack ? "manager-phase1-header" : "bg-background",
+            )}
+          >
+            <div className="flex items-center gap-1 min-w-0 flex-1">
               {showBack ? (
                 <button
                   onClick={() => {
                     const parts = location.split("/").filter(Boolean);
                     setLocation("/" + parts.slice(0, -1).join("/"));
                   }}
-                  className="p-2 rounded hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+                  className={cn(
+                    "p-2 rounded min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0",
+                    isManager ? "hover:bg-white/10" : "hover:bg-muted",
+                  )}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-              ) : (
+              ) : null}
+              {isManager && !showBack ? (
+                <div className="min-w-0 flex-1" data-testid="manager-mobile-header-building">
+                  <p className="manager-phase1-header-title truncate">
+                    {building?.name ?? "건물"}
+                  </p>
+                  <p className="manager-phase1-header-date">{formatManagerHeaderDate()}</p>
+                </div>
+              ) : !showBack ? (
                 <div className="w-2" />
+              ) : null}
+              {!isManager && (
+                <Link href="/" className="flex items-center gap-1.5 shrink-0">
+                  <BrandLogo height={28} />
+                  {(() => {
+                    const label = mobileRoleBadgeLabel(effectiveRole);
+                    if (!label) return null;
+                    return (
+                      <span
+                        className="text-sm font-extrabold tracking-tight text-violet-500 leading-none"
+                        data-testid="mobile-header-role-label"
+                      >
+                        {label}
+                      </span>
+                    );
+                  })()}
+                </Link>
               )}
-              <Link href="/" className="flex items-center gap-1.5 shrink-0">
-                <BrandLogo height={28} />
-                {/* [모바일 헤더 직책 라벨] 로고 옆에 같은 폰트사이즈로 직책을 표기.
-                    BrandLogo 워드마크(viewBox 64, fontSize 30) 가 height=28 일 때
-                    실제 글자 높이 ≈ 13px 이므로 text-sm(14px) 가 시각적으로 일치.
-                    색은 약간 옅은 violet-500 으로 구분, 굵기는 동일(extrabold). */}
-                {(() => {
-                  const label = mobileRoleBadgeLabel(effectiveRole);
-                  if (!label) return null;
-                  return (
-                    <span
-                      className="text-sm font-extrabold tracking-tight text-violet-500 leading-none"
-                      data-testid="mobile-header-role-label"
-                    >
-                      {label}
-                    </span>
-                  );
-                })()}
-              </Link>
+              {showBack && isManager && (
+                <p className="text-sm font-medium truncate flex-1 ml-1">{building?.name ?? "건물"}</p>
+              )}
             </div>
             <NotifBell />
           </div>
@@ -975,7 +1006,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setQuickEntryOpen(true)}
             data-testid="desktop-fab-quick-entry"
             aria-label="업무기록"
-            className="layout-desktop-fab fixed right-6 bottom-6 z-40 flex-col items-center justify-center gap-0.5 rounded-2xl bg-primary text-primary-foreground shadow-xl hover:opacity-95 active:scale-95 transition px-4 py-3"
+            className={cn(
+              "layout-desktop-fab fixed right-6 bottom-6 z-40 flex-col items-center justify-center gap-0.5 rounded-2xl text-white shadow-xl hover:opacity-95 active:scale-95 transition px-4 py-3",
+              isManager ? "bg-brand" : "bg-primary text-primary-foreground",
+            )}
+            style={isManager ? { background: "var(--brand)" } : undefined}
           >
             <Icon className="w-7 h-7" />
             <span className="text-xs font-semibold leading-tight mt-0.5">업무기록</span>
@@ -1001,7 +1036,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   aria-label="업무기록"
                   className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
                 >
-                  <span className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md active:scale-95 transition">
+                  <span
+                    className="w-11 h-11 rounded-full text-white flex items-center justify-center shadow-md active:scale-95 transition manager-phase1-fab-inner"
+                    style={{ background: "var(--brand)" }}
+                  >
                     <item.icon className="w-5 h-5" />
                   </span>
                   <span className="text-[10px] font-medium">{item.label}</span>
@@ -1033,15 +1071,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground"
-            )}
-          >
-            <Menu className="w-5 h-5" />
-            <span className="text-[10px] font-medium">더보기</span>
-          </button>
+          {!isManager && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] py-1.5 px-2 rounded-lg transition-colors text-muted-foreground",
+              )}
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-[10px] font-medium">더보기</span>
+            </button>
+          )}
         </nav>
     </>
   );
