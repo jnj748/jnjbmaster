@@ -95,7 +95,7 @@ export function LoginBrandPanel({ compact = false }: Props) {
               건물관리 분야 파트너사이신가요?
             </p>
             <p className="mt-0.5 text-xs md:text-sm text-amber-200">
-              지금 건물 모든 분야에 비교견적을 넣어 보세요.
+              지금 건물 모든 분야에 파트너사 견적을 받아 보세요.
             </p>
           </div>
         </div>

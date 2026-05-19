@@ -437,7 +437,7 @@ export function AlertActionDialog({
       });
     } catch (err) {
       toast({
-        title: "비교견적 요청 기록에 실패했습니다",
+        title: "견적 요청 기록에 실패했습니다",
         description: err instanceof Error ? err.message : "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
@@ -539,7 +539,7 @@ export function AlertActionDialog({
                   { key: "complete" as AlertActionTab, label: "처리완료", icon: CheckCircle, testId: "tab-complete", show: true },
                   { key: "scheduled" as AlertActionTab, label: "처리예정", icon: CalendarDays, testId: "tab-scheduled", show: true },
                   { key: "postpone" as AlertActionTab, label: "연기", icon: CalendarClock, testId: "tab-postpone", show: true },
-                  { key: "rfq" as AlertActionTab, label: "비교견적", icon: FileText, testId: "tab-rfq", show: true },
+                  { key: "rfq" as AlertActionTab, label: "파트너사 견적받기", icon: FileText, testId: "tab-rfq", show: true },
                   {
                     key: "date-correct" as AlertActionTab,
                     label: "날짜변경",
@@ -767,7 +767,7 @@ export function AlertActionDialog({
               {actionTab === "rfq" && (
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    이 알림에서 비교견적을 요청하면 「견적의뢰」 페이지가 열리며
+                    이 알림에서 파트너사 견적을 요청하면 「파트너사 견적받기」 페이지가 열리며
                     제목·카테고리가 자동으로 채워집니다.
                   </p>
                   <Button
@@ -778,7 +778,7 @@ export function AlertActionDialog({
                     data-testid="btn-open-rfq-page"
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    {createActionMutation.isPending ? "처리 중..." : "비교견적 요청하기"}
+                    {createActionMutation.isPending ? "처리 중..." : "견적 요청하기"}
                   </Button>
                 </div>
               )}

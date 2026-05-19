@@ -379,7 +379,7 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
               <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
               <p className="text-muted-foreground">수신된 견적 요청이 없습니다</p>
               <p className="text-xs text-muted-foreground mt-1">
-                관리소장은 같은 분야·활동지역의 협력사에게만 RFQ 를 보냅니다.
+                관리소장은 같은 분야·활동지역의 협력사에게만 견적 요청을 보냅니다.
               </p>
             </CardContent>
           </Card>

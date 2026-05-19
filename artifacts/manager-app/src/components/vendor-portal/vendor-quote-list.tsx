@@ -24,7 +24,7 @@ export function VendorQuoteList({ quotes }: { quotes: Quote[] }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="text-left p-3 font-medium">RFQ ID</th>
+                      <th className="text-left p-3 font-medium">견적번호</th>
                       <th className="text-right p-3 font-medium">견적 금액</th>
                       <th className="text-center p-3 font-medium">소요일</th>
                       <th className="text-center p-3 font-medium">착수일</th>
@@ -60,7 +60,7 @@ export function VendorQuoteList({ quotes }: { quotes: Quote[] }) {
               <Card key={q.id}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-sm">RFQ #{q.rfqId}</p>
+                    <p className="font-medium text-sm">견적 #{q.rfqId}</p>
                     <div className="flex items-center gap-1">
                       <Badge variant={q.status === "accepted" ? "default" : q.status === "rejected" ? "destructive" : "secondary"}>
                         {statusLabel(q.status)}

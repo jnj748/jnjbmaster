@@ -102,7 +102,7 @@ export function VendorDashboard({
                 {recentQuotes.map((q: any) => (
                   <div key={q.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50">
                     <div>
-                      <p className="text-sm font-medium">RFQ #{q.rfqId}</p>
+                      <p className="text-sm font-medium">견적 #{q.rfqId}</p>
                       <p className="text-xs text-muted-foreground">
                         {typeof q.totalAmount === "number" ? `${q.totalAmount.toLocaleString()}원` : "-"}
                       </p>

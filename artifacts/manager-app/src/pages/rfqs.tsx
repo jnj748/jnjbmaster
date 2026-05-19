@@ -605,7 +605,7 @@ export default function Rfqs() {
       <RfqMatchStatsCard />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">견적 요청 (RFQ)</h1>
+          <h1 className="text-2xl font-bold">파트너사 견적받기</h1>
           <p className="text-muted-foreground text-sm mt-1">
             협력업체에 견적을 요청하고 비교합니다
           </p>
@@ -623,7 +623,7 @@ export default function Rfqs() {
                    비교견적받기" 로 통일해 사용자가 어떤 액션이 일어나는지
                    명확히 알 수 있도록 한다. 트리거 버튼(헤더의 "+ 견적 요청")
                    라벨은 그대로 유지. */}
-              <ResponsiveDialogTitle>파트너사 비교견적받기</ResponsiveDialogTitle>
+              <ResponsiveDialogTitle>파트너사 견적받기</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!buildingReady && (
@@ -798,7 +798,7 @@ export default function Rfqs() {
                 data-testid="rfq-submit"
                 disabled={createMutation.isPending}
               >
-                {createMutation.isPending ? "요청을 보내는 중..." : "파트너사 비교견적받기"}
+                {createMutation.isPending ? "요청을 보내는 중..." : "파트너사 견적받기"}
               </Button>
             </form>
           </ResponsiveDialogContent>
@@ -865,7 +865,7 @@ export default function Rfqs() {
                   kind: "rfq",
                   sourceTable: "rfqs",
                   sourceId: rfq.id,
-                  title: `[비교견적] ${rfq.title}`,
+                  title: `[파트너사 견적] ${rfq.title}`,
                   buildingId: rfq.buildingId ?? null,
                   vendorName: null,
                   description: rfq.description ?? null,
@@ -956,12 +956,12 @@ export default function Rfqs() {
                                             kind: "rfq",
                                             sourceTable: "rfqs",
                                             sourceId: rfq.id,
-                                            title: `[비교견적] ${rfq.title} — ${q.vendorName}`,
+                                            title: `[파트너사 견적] ${rfq.title} — ${q.vendorName}`,
                                             buildingId: rfq.buildingId ?? null,
                                             vendorName: q.vendorName ?? null,
                                             estimatedAmount: typeof q.totalAmount === "number" ? q.totalAmount : Number(q.totalAmount ?? 0) || null,
                                             description: [
-                                              `RFQ #${rfq.id} ${rfq.title}`,
+                                              `견적 #${rfq.id} ${rfq.title}`,
                                               `업체: ${q.vendorName} (견적 #${q.id})`,
                                               `금액: ${Number(q.totalAmount ?? 0).toLocaleString()}원`,
                                               q.estimatedDays ? `예상 소요: ${q.estimatedDays}일` : null,
@@ -1035,7 +1035,7 @@ export default function Rfqs() {
               </p>
               <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
                 <li>
-                  RFQ 의 <strong>분야(category)</strong> 와{" "}
+                  견적 요청의 <strong>분야(category)</strong> 와{" "}
                   <strong>활동지역</strong> 두 가지가 모두 일치하는 협력사에게만
                   공고가 노출됩니다.
                 </li>
@@ -1044,7 +1044,7 @@ export default function Rfqs() {
                   좁혀 두면 더 가까운 업체만 보지만, 매칭 수가 줄어듭니다.
                 </li>
                 <li>
-                  매칭 수가 0 이라면 RFQ 카드의 "범위 확대"로 시·도까지 넓히거나,
+                  매칭 수가 0 이라면 견적 요청 카드의 "범위 확대"로 시·도까지 넓히거나,
                   분야 설정을 다시 확인해 주세요.
                 </li>
               </ul>
@@ -1291,7 +1291,7 @@ function RfqCard({
                           </p>
                         )}
                         <p className="text-muted-foreground">
-                          위 조건을 모두 만족하는 협력사에게 RFQ 가 노출됩니다.
+                          위 조건을 모두 만족하는 협력사에게 견적 요청이 노출됩니다.
                         </p>
                       </div>
                     </TooltipContent>
@@ -1426,7 +1426,7 @@ function RfqCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>이 RFQ 작업</DropdownMenuLabel>
+                <DropdownMenuLabel>이 견적 요청 작업</DropdownMenuLabel>
                 {/* [Task #682 review-fix] 같은 RFQ 의 결재가 이미 진행중이면
                     중복 기안 가능성을 사용자에게 경고한 뒤 진행한다. */}
                 <DropdownMenuItem

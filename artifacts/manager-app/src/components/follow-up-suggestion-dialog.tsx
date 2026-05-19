@@ -261,7 +261,7 @@ export function FollowUpSuggestionDialog({ open, source, detection, onClose }: P
             data-testid="follow-up-go-rfq"
           >
             <ClipboardList className="w-4 h-4 mr-1" />
-            파트너사 비교견적받기
+            파트너사 견적받기
           </Button>
           <Button
             onClick={handleSendToTasks}

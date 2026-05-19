@@ -542,7 +542,7 @@ function AlertRow({ alert, sectionKind, onClick }: AlertRowProps) {
             className="text-[10px] h-5 text-blue-700 border-blue-300 bg-blue-50"
             data-testid={`rfq-progress-badge-${alert.relatedId ?? alert.id}`}
           >
-            비교견적 진행 중
+            견적 요청 진행 중
           </Badge>
         )}
         {/* [Task #511] 처리예정 D-N 라벨. 예정일 도래 전이면 노란색, 경과하면 빨간색.

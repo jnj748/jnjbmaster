@@ -33,7 +33,7 @@ export function PartnerProfileDiagnostic({
   const isWarning = missing.length > 0;
   const titleText = isWarning
     ? `매칭이 약합니다 — ${missing.join(", ")}이(가) 비어 있어요`
-    : "표시되는 RFQ 가 적다면 내 등록 정보를 확인해 보세요";
+    : "표시되는 견적 요청이 적다면 내 등록 정보를 확인해 보세요";
   return (
     <Card
       className={
@@ -71,7 +71,7 @@ export function PartnerProfileDiagnostic({
                 compact ? "text-[10px]" : "text-[11px]"
               } mt-1 leading-relaxed`}
             >
-              관리소장이 같은 카테고리·지역의 RFQ 를 올렸을 때만 내 화면에 도착합니다.
+              관리소장이 같은 카테고리·지역의 견적 요청을 올렸을 때만 내 화면에 도착합니다.
               범위를 넓히려면 업체 정보에서 부카테고리·활동지역을 늘려 주세요.
             </p>
           </div>

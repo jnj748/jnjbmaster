@@ -57,7 +57,7 @@ const KIND_META: Record<string, { label: string; icon: typeof FolderOpen; color:
   draft:               { label: "기안 임시",      icon: FileEdit,       color: "text-violet-500 bg-violet-50" },
   approval:            { label: "기안 상신",      icon: FileSignature,  color: "text-violet-700 bg-violet-100" },
   quote_bundle:        { label: "업체선정 기안",  icon: ClipboardCheck, color: "text-violet-800 bg-violet-100" },
-  rfq:                 { label: "비교견적",       icon: Receipt,        color: "text-orange-600 bg-orange-50" },
+  rfq:                 { label: "견적 요청",       icon: Receipt,        color: "text-orange-600 bg-orange-50" },
   notice_output:       { label: "공고문",         icon: Megaphone,      color: "text-rose-600 bg-rose-50" },
   alert_action_output: { label: "알림 처리",      icon: ListChecks,     color: "text-amber-600 bg-amber-50" },
   external:            { label: "외부 업로드",    icon: ImageIcon,      color: "text-slate-600 bg-slate-100" },
@@ -71,7 +71,7 @@ const KIND_FILTERS: { value: DocKind; label: string }[] = [
   { value: "monthly_report",      label: "월보" },
   { value: "approval",            label: "기안서" },
   { value: "journal",             label: "일지" },
-  { value: "rfq",                 label: "비교견적" },
+  { value: "rfq",                 label: "견적 요청" },
   { value: "external",            label: "외부" },
   { value: "alert_action_output", label: "알림 처리" },
 ];

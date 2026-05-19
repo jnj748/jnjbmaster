@@ -329,7 +329,7 @@ export function RfqMatchStatsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>RFQ 매칭 · 크레딧 통계 (HQ)</CardTitle>
+        <CardTitle>견적 요청 매칭 · 크레딧 통계 (HQ)</CardTitle>
         <CardDescription>
           공고별 매칭 파트너 수 · 견적 제출 수 · 누적 차감/환불 크레딧입니다. 단가 행을 변경한 결과가 매칭 모수에 어떻게 반영되는지 확인하세요.
         </CardDescription>
@@ -338,7 +338,7 @@ export function RfqMatchStatsCard() {
         {isLoading ? (
           <div className="text-sm text-muted-foreground">불러오는 중...</div>
         ) : !data || data.rows.length === 0 ? (
-          <div className="text-sm text-muted-foreground">아직 집계할 RFQ가 없습니다.</div>
+          <div className="text-sm text-muted-foreground">아직 집계할 견적 요청이 없습니다.</div>
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
@@ -350,7 +350,7 @@ export function RfqMatchStatsCard() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[760px]">
                 <thead><tr className="border-b">
-                  <th className="text-left p-2">RFQ</th>
+                  <th className="text-left p-2">견적 요청</th>
                   <th className="text-left p-2">카테고리</th>
                   <th className="text-left p-2">지역</th>
                   <th className="text-right p-2">매칭</th>

@@ -274,7 +274,7 @@ function VoucherCard({
       : null;
   const sourceLabel = voucher.sourceEntityType
     ? voucher.sourceEntityType === "rfq"
-      ? `관련 RFQ #${voucher.sourceEntityId}`
+      ? `관련 견적 #${voucher.sourceEntityId}`
       : `관련 ${voucher.sourceEntityType} #${voucher.sourceEntityId}`
     : null;
   return (

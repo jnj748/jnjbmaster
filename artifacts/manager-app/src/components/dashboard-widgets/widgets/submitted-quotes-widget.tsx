@@ -135,7 +135,7 @@ export default function SubmittedQuotesWidget({
   return (
     <section data-testid="submitted-quotes-widget">
       <div className="flex items-center justify-between mb-1.5">
-        <h2 className="text-sm font-bold">파트너사 비교 견적</h2>
+        <h2 className="text-sm font-bold">받은 파트너사 견적</h2>
         {items.length > 0 && (
           <Link
             href="/rfqs"
@@ -186,9 +186,9 @@ export default function SubmittedQuotesWidget({
                       <Receipt className="w-4 h-4" />
                     </span>
                     <span className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs font-semibold">받은 비교 견적이 없습니다</span>
+                      <span className="text-xs font-semibold">받은 파트너사 견적이 없습니다</span>
                       <span className="text-[11px] font-medium leading-snug text-muted-foreground">
-                        여기를 눌러 비교 견적을 요청해보세요
+                        여기를 눌러 파트너사 견적을 받아 보세요
                       </span>
                     </span>
                   </button>

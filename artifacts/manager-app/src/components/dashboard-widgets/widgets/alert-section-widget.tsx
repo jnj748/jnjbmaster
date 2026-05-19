@@ -265,7 +265,7 @@ export function AlertSection({
                             className="text-[10px] h-5 text-blue-700 border-blue-300 bg-blue-50"
                             data-testid={`rfq-progress-badge-${alert.relatedId ?? alert.id}`}
                           >
-                            비교견적 진행 중
+                            견적 요청 진행 중
                           </Badge>
                         )}
                         {/* [Task #511] 처리예정 D-N 라벨 (yellow=오늘 이후, red=경과) */}

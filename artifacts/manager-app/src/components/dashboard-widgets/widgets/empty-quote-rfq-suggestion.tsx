@@ -79,7 +79,7 @@ export default function EmptyQuoteRfqSuggestion({
                 을(를) 해야 하는 시기입니다
               </span>
               <span className="text-[11px] font-medium leading-snug text-muted-foreground">
-                여기를 눌러 비교 견적을 요청해보세요
+                여기를 눌러 파트너사 견적을 받아 보세요
               </span>
             </span>
             <Badge
@@ -117,7 +117,7 @@ export default function EmptyQuoteRfqSuggestion({
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            파트너사의 비교 견적을 받아보시면 어떨까요?
+            파트너사 견적을 받아 보시면 어떨까요?
           </p>
         </div>
         <Button
@@ -126,7 +126,7 @@ export default function EmptyQuoteRfqSuggestion({
           onClick={handleClick}
           data-testid={`empty-quote-rfq-suggestion-${variant}-cta`}
         >
-          비교 견적 요청하기
+          파트너사 견적받기
         </Button>
       </CardContent>
     </Card>

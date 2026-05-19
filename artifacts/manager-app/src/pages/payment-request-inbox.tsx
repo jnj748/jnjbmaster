@@ -266,7 +266,7 @@ function PaymentCard({
       : null;
   const sourceLabel = request.sourceEntityType
     ? request.sourceEntityType === "rfq"
-      ? `관련 RFQ #${request.sourceEntityId}`
+      ? `관련 견적 #${request.sourceEntityId}`
       : `관련 ${request.sourceEntityType} #${request.sourceEntityId}`
     : null;
   return (

@@ -906,13 +906,13 @@ function RfqMonitoringSection() {
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
-          비교견적 모니터링
+          파트너사 견적 모니터링
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
           <div className="rounded border p-2 text-center">
-            <p className="text-xs text-muted-foreground">총 RFQ</p>
+            <p className="text-xs text-muted-foreground">총 견적 요청</p>
             <p className="text-xl font-bold">{totals.rfqs}</p>
           </div>
           <div className="rounded border p-2 text-center">
@@ -937,7 +937,7 @@ function RfqMonitoringSection() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-muted/50 text-left">
-                  <th className="p-2">RFQ</th>
+                  <th className="p-2">견적 요청</th>
                   <th className="p-2">건물</th>
                   <th className="p-2">상태</th>
                   <th className="p-2 text-center">매칭</th>
@@ -975,7 +975,7 @@ function RfqMonitoringSection() {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground text-center py-4">
-            아직 RFQ 가 없습니다.
+            아직 견적 요청이 없습니다.
           </p>
         )}
       </CardContent>

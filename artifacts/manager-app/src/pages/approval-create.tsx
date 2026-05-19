@@ -168,7 +168,7 @@ export default function ApprovalCreate() {
   // [Task #682] sourceEntityType="rfq" 인 경우 사용자가 알아보기 쉬운 출처 라벨로 노출.
   const sourceLabel =
     prefillSourceEntityType === "rfq"
-      ? `RFQ #${prefillSourceEntityId} (견적요청)`
+      ? `견적 #${prefillSourceEntityId}`
       : prefillSourceEntityType
         ? `${prefillSourceEntityType} #${prefillSourceEntityId}`
         : null;
