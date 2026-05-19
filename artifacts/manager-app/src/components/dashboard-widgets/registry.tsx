@@ -249,16 +249,9 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   //     위젯 컴포넌트 자체는 레지스트리 카탈로그에는 그대로 남겨, 다른 진입(설정 →
   //     단계별 보기) 이나 향후 다른 역할에서 재사용할 수 있게 한다. 호실 셋업
   //     마법사 자체(/onboarding/units-master) 도 그대로 유지된다.
+  // [Phase 1] 연체·건물요약 위젯은 Phase 2 로 미룸 — manager-main 에 핵심만 합성.
   manager: {
-    widgets: [
-      "campaign-banner",
-      "manager-main",
-      // [Task #784] delinquency-summary(half) 와 building-info-half(half) 를
-      //   한 행(xl:grid-cols-4 의 col-span-2 + col-span-2)에 함께 배치해
-      //   1440×900 에서도 모든 위젯이 한 화면에 들어오도록 압축.
-      "delinquency-summary",
-      "building-info-half",
-    ],
+    widgets: ["campaign-banner", "manager-main"],
   },
   accountant: {
     // [Task #660] 경리 대시보드는 accountant-main 페이지 자체가 2칼럼 레이아웃에서

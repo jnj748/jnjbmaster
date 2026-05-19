@@ -1003,3 +1003,40 @@ body[data-role="manager"] .text-2xl      { font-size: 26px; line-height: 1.4; }
   background-color: rgb(241 245 249);
   font-weight: 600;
 }
+
+/*
+ * [Phase 1] 관리소장 모바일 시니어 UX — 768px 이하에서 가독성·터치 영역 확대.
+ */
+@media (max-width: 768px) {
+  [data-role="manager"] {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  [data-role="manager"] button,
+  [data-role="manager"] [role="button"],
+  [data-role="manager"] a[class*="inline-flex"] {
+    min-height: 48px;
+  }
+
+  [data-role="manager"] button:not(.h-auto):not([class*="min-h-"]),
+  [data-role="manager"] [role="button"]:not([class*="min-h-"]) {
+    min-height: 48px;
+  }
+
+  [data-role="manager"] a[href],
+  [data-role="manager"] button,
+  [data-role="manager"] [role="button"],
+  [data-role="manager"] input[type="checkbox"],
+  [data-role="manager"] input[type="radio"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-role="manager"] li,
+  [data-role="manager"] [data-sidebar="menu-item"],
+  [data-role="manager"] nav a {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+}

@@ -319,9 +319,10 @@ export const GROUP_TITLES: Record<Group, string> = {
 //     "표시 순서 우선 지정" 으로 바뀌었다(누군가 그룹을 빼면 사이드바 노출이 끊기는
 //     게 아니라, fallback 순서로 밀려 정렬만 달라진다).
 const GROUP_ORDER_BY_ROLE: Record<Role, Group[]> = {
-  // [Task #859] manager 사이드바 — pre-5/3 IA 로 되돌리되, 경리 결과를 읽기만
-  //   할 수 있는 새 그룹("accounting_readonly")을 facility 다음에 노출한다.
-  manager: ["dashboard", "facility", "accounting_readonly", "reports", "accounting", "residents", "marketplace", "settings"],
+  // [Phase 1] manager 사이드바 — 핵심 메뉴만 노출(대시보드·업무일지·견적·AI).
+  //   residents/accounting/facility/settings 그룹은 isManagerPhase1SidebarEntryVisible
+  //   로 숨기며, URL 직접 접근은 ROUTES.access 그대로 유지된다.
+  manager: ["dashboard", "reports", "marketplace"],
   // [플랫폼 메뉴 구조조정] 플랫폼 사이드바는 platformAdminSidebar() 가 직접 구성하므로
   //   여기 값은 fallback 용도일 뿐이다.
   platform_admin: ["marketplace", "reports", "settings"],
@@ -1982,6 +1983,31 @@ export function isMenuExplicitlyEnabled(
 //   가용성 맵을 조회한다(availability[path] === false 만 숨김; undefined/true 는 노출).
 const MANAGER_READONLY_BLOCK_SUFFIX = "#manager-readonly";
 
+/** [Phase 1] 관리소장 사이드바에서 숨길 그룹 — URL 직접 접근은 access 로 유지. */
+const MANAGER_PHASE1_HIDDEN_SIDEBAR_GROUPS: ReadonlySet<Group> = new Set([
+  "residents",
+  "accounting",
+  "accounting_readonly",
+  "facility",
+  "settings",
+]);
+
+/** [Phase 1] 숨긴 그룹에 속해도 사이드바에 남길 경로(화이트리스트). */
+const MANAGER_PHASE1_SIDEBAR_VISIBLE_PATHS: ReadonlySet<string> = new Set([
+  "/work-log",
+  "/ai-assistant",
+  "/notices/templates",
+  "/rfqs",
+  "/building-info",
+]);
+
+function isManagerPhase1SidebarEntryVisible(entry: RouteEntry): boolean {
+  if (MANAGER_PHASE1_SIDEBAR_VISIBLE_PATHS.has(entry.path)) return true;
+  if (MANAGER_PHASE1_HIDDEN_SIDEBAR_GROUPS.has(entry.group)) return false;
+  // dashboard / reports / marketplace — 화이트리스트 외 항목(일정·업무관리·결재 등) 숨김.
+  return false;
+}
+
 /** Returns the sidebar sections for a role, grouped per role's group order. */
 export function getSidebarSections(
   role: Role,
@@ -2045,6 +2071,8 @@ export function getSidebarSections(
     const explicit = isMenuExplicitlyEnabled(role, blockIdOf(entry), overrides);
     if (!visibleTo.includes(role) && !explicit) continue;
     if (!isMenuBlockEnabled(role, blockIdOf(entry), overrides)) continue;
+    // [Phase 1] 관리소장 — 핵심 메뉴만 사이드바 노출(URL 직접 접근은 유지).
+    if (role === "manager" && !isManagerPhase1SidebarEntryVisible(entry)) continue;
     // [Task #861] 관리소장 "회계 결과 열람" — 데이터 가용성 false 인 항목은 사이드바에서 제거.
     //   readonlyAvailability 가 미로드(undefined) 거나 path 키가 없으면 기존대로 노출.
     if (
