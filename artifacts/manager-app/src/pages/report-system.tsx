@@ -315,14 +315,7 @@ export default function ReportSystem() {
               </div>
             </div>
             <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => goApprovalFromReport("weekly_report", selectedWeekly.id, selectedWeekly.title)}
-                data-testid="button-weekly-to-approval"
-              >
-                <FileText className="w-4 h-4 mr-1" />
-                기안서로 만들기
-              </Button>
+              {/* [2026-05-20 사장님 지시] 일/주/월보 생성 후 "기안서로 만들기" 버튼 숨김. */}
               {isManager && selectedWeekly.status !== "forwarded" && (
                 <Button onClick={() => handleForwardWeekly(selectedWeekly.id)}>
                   <Send className="w-4 h-4 mr-1" />
@@ -361,14 +354,7 @@ export default function ReportSystem() {
               </div>
             </div>
             <ResponsiveDialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => goApprovalFromReport("monthly_report", selectedMonthly.id, selectedMonthly.title)}
-                data-testid="button-monthly-to-approval"
-              >
-                <FileText className="w-4 h-4 mr-1" />
-                기안서로 만들기
-              </Button>
+              {/* [2026-05-20 사장님 지시] 일/주/월보 생성 후 "기안서로 만들기" 버튼 숨김. */}
             </ResponsiveDialogFooter>
           </ResponsiveDialogContent>
         )}
