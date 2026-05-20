@@ -2209,7 +2209,7 @@ export function getBottomNavItems(
     const managerItems: NavItem[] = [
       { path: "/work-log", label: "업무일지", icon: NotebookPen, group: "reports" },
       { path: "/notices/templates", label: "공지양식", icon: FileText, group: "facility" },
-      { path: "/__quick_entry", label: "기록+", icon: Plus, group: "dashboard" },
+      { path: "/__quick_entry", label: "업무기록", icon: Plus, group: "dashboard" },
       { path: "/ai-assistant", label: "AI비서", icon: Bot, group: "dashboard" },
       { path: "/rfqs", label: "견적", icon: Hammer, group: "marketplace" },
     ];

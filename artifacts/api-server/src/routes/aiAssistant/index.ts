@@ -309,6 +309,45 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     res.write(`data: ${JSON.stringify({ content: tail })}\n\n`);
   }
 
+  // [Task #871] 스마트 액션 제안 — 응답 본문 키워드를 기반으로 사용자가
+  // 한 번 클릭으로 후속 동작 화면(견적/공지양식/업무일지) 으로 점프할 수
+  // 있게 액션 카드를 응답 끝에 __ACTIONS__ 마커로 append. 프론트가 마커를
+  // 찾아 JSON 을 파싱해 버튼 그룹으로 렌더한다(파싱 실패 시 그대로 본문).
+  const actionMatchers: Array<{
+    keywords: string[];
+    action: { label: string; path: string; icon: string };
+  }> = [
+    {
+      keywords: ["점검", "수리", "교체", "고장", "소독", "청소", "방역"],
+      action: { label: "파트너사 견적받기", path: "/rfqs?new=1", icon: "hammer" },
+    },
+    {
+      keywords: ["공지", "안내문", "공고"],
+      action: { label: "공지 양식 보기", path: "/notices/templates", icon: "file-text" },
+    },
+    {
+      keywords: ["일지", "보고서", "기록"],
+      action: { label: "업무기록 작성", path: "/work-log", icon: "notebook" },
+    },
+  ];
+  const suggestedActions: Array<{ label: string; path: string; icon: string }> = [];
+  const seenActionPaths = new Set<string>();
+  for (const matcher of actionMatchers) {
+    if (matcher.keywords.some((kw) => fullResponse.includes(kw))) {
+      if (!seenActionPaths.has(matcher.action.path)) {
+        seenActionPaths.add(matcher.action.path);
+        suggestedActions.push(matcher.action);
+      }
+    }
+  }
+  if (suggestedActions.length > 0) {
+    const marker = `\n__ACTIONS__${JSON.stringify(suggestedActions)}`;
+    fullResponse += marker;
+    res.write(`data: ${JSON.stringify({ content: marker })}\n\n`);
+    // 클라이언트가 마커 파싱 없이도 동작 카드를 띄울 수 있게 별도 SSE 이벤트 동봉.
+    res.write(`data: ${JSON.stringify({ actions: suggestedActions })}\n\n`);
+  }
+
   // Determine citations: only include those whose label/id appears in response text
   const usedCitations: AiChatCitation[] = [];
   for (const c of ctx.citations) {
