@@ -106,21 +106,28 @@
   --sidebar: 212 72% 15%;
   --sidebar-foreground: 210 17% 98%;
   --sidebar-border: 212 60% 25%;
-  --sidebar-primary: 243 100% 68%;
+  /* [2026-05 사용자 요청] 사이드바 활성 항목 + 대시보드 버튼 퍼플톤(indigo-600 #4F46E5)
+     으로 통일. 기존 (243 100% 68%) 보다 살짝 진하고 표준 indigo 와 일치한다. */
+  --sidebar-primary: 244 75% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 212 50% 22%;
   --sidebar-accent-foreground: 210 15% 90%;
-  --sidebar-ring: 243 100% 68%;
+  --sidebar-ring: 244 75% 59%;
   --popover: 0 0% 100%;
   --popover-foreground: 215 25% 15%;
   --popover-border: 214 20% 88%;
-  --primary: 212 72% 15%;
+  /* [2026-05 사용자 요청] 대시보드 진입 버튼/CTA 의 기본 브랜드 색을 네이비(212 72% 15%)
+     → 퍼플톤(indigo-600 #4F46E5, 244 75% 59%) 으로 변경. --sidebar-primary 와 동일 값으로
+     통일해 사이드바 활성 하이라이트와 한 색 계열로 묶는다.
+     영향: bg-primary, text-primary, bg-primary/10 을 쓰는 모든 화면 — 의도된 브랜드 전환. */
+  --primary: 244 75% 59%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 16% 93%;
   --secondary-foreground: 215 25% 25%;
   --muted: 210 16% 95%;
   --muted-foreground: 215 15% 50%;
-  --accent: 243 100% 68%;
+  /* [2026-05 사용자 요청] --primary / --sidebar-primary 와 동일 indigo-600 계열로 통일. */
+  --accent: 244 75% 59%;
   --accent-foreground: 0 0% 100%;
   --destructive: 351 76% 49%;
   --destructive-foreground: 0 0% 100%;
@@ -147,7 +154,8 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
-  --brand-purple-hover: 243 100% 73%;
+  /* [2026-05] hover 는 base 보다 약간 밝게 (l 59 → 66). */
+  --brand-purple-hover: 244 75% 66%;
   --brand-success: 120 58% 44%;
   --brand-warning: 44 100% 50%;
   --brand-text-secondary: 215 23% 33%;

@@ -250,8 +250,10 @@ export const ROLE_LAYOUTS: Record<Role, { widgets: CatalogWidgetKey[] }> = {
   //     단계별 보기) 이나 향후 다른 역할에서 재사용할 수 있게 한다. 호실 셋업
   //     마법사 자체(/onboarding/units-master) 도 그대로 유지된다.
   // [Phase 1] 연체·건물요약 위젯은 Phase 2 로 미룸 — manager-main 에 핵심만 합성.
+  // [2026-05 사용자 요청] "우리 건물 한눈에"(건물 제원) 위젯을 페이지 최하단으로 복구.
+  //   accountant / facility_staff 레이아웃과 동일하게 본문 → building-info 순.
   manager: {
-    widgets: ["campaign-banner", "manager-main"],
+    widgets: ["campaign-banner", "manager-main", "building-info"],
   },
   accountant: {
     // [Task #660] 경리 대시보드는 accountant-main 페이지 자체가 2칼럼 레이아웃에서

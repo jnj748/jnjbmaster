@@ -637,7 +637,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-base font-medium transition-colors cursor-pointer min-h-[44px]",
                     isActive
-                      ? "bg-sidebar-accent text-white"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
                       : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
                   )}
                   title={badge?.ariaLabel ?? item.label}
@@ -682,7 +682,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-base font-medium transition-colors cursor-pointer min-h-[44px]",
                   isActive
-                    ? "bg-sidebar-accent text-white"
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
                     : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
                 )}
               >
