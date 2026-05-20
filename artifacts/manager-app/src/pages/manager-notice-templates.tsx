@@ -789,11 +789,15 @@ function PreviewDialog({
           {/* [Task #591] 우측 미리보기 패널 — md+ 에서 sticky, 모바일에서는 폼 아래. */}
           <div className="px-1">
             <Label className="text-xs print:hidden">미리보기</Label>
+            {/* [Task #870] 우측 미리보기는 A4 1장으로 잠근다 — 세로 스크롤 금지.
+                A4DocumentFrame singlePage 가 outer wrapper 의 높이를
+                A4_HEIGHT_PX × scale 로 고정하고 overflow:hidden 으로 자른다.
+                인쇄(print:) 경로는 기존처럼 자연 높이로 복원되므로 영향 없음. */}
             <div
-              className="mt-1 border rounded bg-white p-3 overflow-x-auto md:sticky md:top-0 md:max-h-[80vh] md:overflow-y-auto print:border-0 print:p-0 print:overflow-visible print:max-h-none print:static"
+              className="mt-1 border rounded bg-white p-3 overflow-hidden md:sticky md:top-0 print:border-0 print:p-0 print:overflow-visible print:max-h-none print:static"
               data-testid="container-template-preview"
             >
-              <A4DocumentFrame ref={frameRef}>
+              <A4DocumentFrame ref={frameRef} singlePage>
                 <div
                   ref={documentRef}
                   className="a4-document"

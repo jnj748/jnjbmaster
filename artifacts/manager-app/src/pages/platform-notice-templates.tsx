@@ -6,6 +6,7 @@ import {
   updateBuildingNoticeTemplate,
   deleteBuildingNoticeTemplate,
   upsertNoticeLayout,
+  getNoticeLayout,
 } from "@workspace/api-client-react";
 import type {
   BuildingNoticeTemplate,
@@ -27,6 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
+import { A4DocumentFrame } from "@/components/a4-document-frame";
 import {
   NoticeBodyEditor,
   NoticeVariablesPanel,
@@ -129,6 +131,23 @@ export default function PlatformNoticeTemplatesPage() {
   // [Task #530] 편집 모달의 우측 미리보기 패널이 매니저 미리보기와 동일한
   //   공고문 양식(NoticeLayoutFrame) 안에서 본문을 보여주도록 시스템 레이아웃을 가져온다.
   const { layout: noticeLayout } = useNoticeLayout();
+  // [Task #870] 푸터의 "직인생략" 문구를 편집 모달 안에서 직접 수정할 수 있도록
+  //   sealOmittedText 만 분리된 draft 로 관리한다.
+  //   동기화 규칙(코드리뷰 반영):
+  //   - 초기/서버값 변경 시, draft 가 직전 서버값과 동일한 "pristine" 상태일 때만
+  //     새 서버값으로 갱신한다. 사용자가 입력 중(dirty) 이면 덮어쓰지 않아 키
+  //     입력이 사라지는 버그를 막는다.
+  //   - 저장 직전에는 항상 최신 서버값을 다시 가져와 merge → upsertNoticeLayout
+  //     호출. 다른 카드(NoticeLayoutSettingsCard) 에서 동시 저장한 값이 spread
+  //     로 되돌아가는 clobber race 를 회피.
+  const [sealOmittedDraft, setSealOmittedDraft] = useState<string>(noticeLayout.sealOmittedText ?? "");
+  const [savingSealOmitted, setSavingSealOmitted] = useState(false);
+  const lastSyncedSealRef = useRef<string>(noticeLayout.sealOmittedText ?? "");
+  useEffect(() => {
+    const incoming = noticeLayout.sealOmittedText ?? "";
+    setSealOmittedDraft((curr) => (curr === lastSyncedSealRef.current ? incoming : curr));
+    lastSyncedSealRef.current = incoming;
+  }, [noticeLayout.sealOmittedText]);
   // [Task #608] "사용 가능한 가변항목" 패널이 본문 편집기에 칩을 삽입하기 위해 ref 보관.
   const editorRef = useRef<NoticeBodyEditorHandle>(null);
 
@@ -507,55 +526,96 @@ export default function PlatformNoticeTemplatesPage() {
                 min-w-0 + overflow-hidden(외곽) / overflow-auto(내부) 로 분리한다. */}
             <div className="px-1 min-w-0 md:flex md:flex-col md:min-h-0 md:overflow-hidden">
               <Label className="text-xs">미리보기</Label>
+              {/* [Task #870] 미리보기는 A4 1장 고정 — 세로 스크롤 금지.
+                  A4DocumentFrame singlePage 가 outer wrapper 높이를
+                  A4_HEIGHT_PX × scale 로 고정하고 overflow:hidden 으로 자른다.
+                  이전의 overflow-auto / md:flex-1 은 A4 한 장 잠금에 어긋나므로 제거. */}
               <div
-                className="mt-1 border rounded bg-white p-3 min-w-0 overflow-auto md:flex-1 md:min-h-0"
+                className="mt-1 border rounded bg-white p-3 min-w-0 overflow-hidden"
                 data-testid="container-template-preview"
               >
                 <div
-                  className="bg-white p-4"
-                  style={{ fontFamily: "'Noto Sans KR','Malgun Gothic',sans-serif", minWidth: 480 }}
+                  className="bg-white"
+                  style={{ fontFamily: "'Noto Sans KR','Malgun Gothic',sans-serif" }}
                 >
-                  <NoticeTemplateLivePreview form={form} settings={noticeLayout} />
+                  <A4DocumentFrame singlePage>
+                    <NoticeTemplateLivePreview
+                      form={form}
+                      settings={{ ...noticeLayout, sealOmittedText: sealOmittedDraft }}
+                    />
+                  </A4DocumentFrame>
                 </div>
               </div>
               <p className="text-[11px] text-slate-500 mt-1 md:flex-shrink-0">
                 토큰은 샘플 값으로 치환되어 표시됩니다(예: 건물명 → "샘플 건물").
                 활성 여부와 상관없이 입력 중인 본문이 즉시 반영됩니다.
               </p>
-              {/* [Task #869] 본사 관리자가 푸터의 "직인생략" 문구가 어디서 바뀌는지
-                  본 모달 안에서 찾지 못한다는 피드백을 반영. 한 줄 안내 + 점프 버튼.
-                  버튼 클릭 시 모달을 닫고 URL hash 를 설정해 NoticeLayoutSettingsCard
-                  의 hashchange 리스너가 카드를 펼치고 직인 미사용시 표기 입력칸으로
-                  스크롤 + focus 한다. */}
+              {/* [Task #870] 본사 관리자가 본 모달 안에서 푸터 "직인생략" 문구를
+                  바로 수정할 수 있도록 인라인 입력칸 + "적용" 버튼을 제공한다.
+                  이전 버전은 모달을 닫고 별도 카드로 점프시켰으나 사장님 피드백
+                  ("수정이 안 됨, 차라리 편집기 안으로 들어오게") 반영. 저장은
+                  upsertNoticeLayout(/api/notice-layout PUT) — platform_admin 만
+                  PUT 권한이 서버에서 강제되므로 본 모달(관리자 전용)에서만 노출.
+                  입력 즉시 우측 미리보기에는 draft 가 반영되고, "적용" 시 서버
+                  저장 + 캐시 무효화로 매니저/알림 모달 등 다른 사용처에도 즉시 반영. */}
               <div
-                className="mt-2 md:flex-shrink-0 flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600"
-                data-testid="hint-seal-omitted-jump"
+                className="mt-2 md:flex-shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-2 space-y-1"
+                data-testid="seal-omitted-inline-editor"
               >
-                <span>
-                  푸터의 "<strong>직인생략</strong>" 문구는{" "}
-                  <span className="font-semibold">공고문 레이아웃 설정 → 직인 미사용시 표기</span> 에서
-                  변경합니다.
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-2 text-[11px]"
-                  data-testid="button-jump-to-seal-omitted"
-                  onClick={() => {
-                    setOpen(false);
-                    // 모달 close 애니메이션 이후 hash 변경 → 카드 펼침 + focus.
-                    window.setTimeout(() => {
-                      if (window.location.hash === "#layout-seal-omitted") {
-                        // 동일 해시 재설정은 hashchange 가 발화하지 않으므로 한 번 비운다.
-                        window.location.hash = "";
+                <Label htmlFor="seal-omitted-inline" className="text-[11px] text-slate-700">
+                  푸터의 "직인생략" 문구 (직인 미사용시 표기)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="seal-omitted-inline"
+                    value={sealOmittedDraft}
+                    onChange={(e) => setSealOmittedDraft(e.target.value)}
+                    placeholder="예: 직인생략, 관인생략"
+                    className="h-7 text-xs flex-1"
+                    data-testid="input-seal-omitted-inline"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={
+                      savingSealOmitted ||
+                      sealOmittedDraft === (noticeLayout.sealOmittedText ?? "")
+                    }
+                    data-testid="button-apply-seal-omitted-inline"
+                    onClick={async () => {
+                      setSavingSealOmitted(true);
+                      try {
+                        // [코드리뷰 반영] 다른 카드에서 동시에 다른 필드를
+                        //   저장했을 수 있으므로, 저장 직전에 최신값을 다시
+                        //   가져와 sealOmittedText 만 덮어쓴다 (clobber race 방지).
+                        const fresh = await getNoticeLayout();
+                        await upsertNoticeLayout({
+                          ...fresh,
+                          sealOmittedText: sealOmittedDraft,
+                        });
+                        lastSyncedSealRef.current = sealOmittedDraft;
+                        toast({ title: "직인생략 문구가 저장되었습니다" });
+                        void qc.invalidateQueries({ queryKey: ["/api/notice-layout"] });
+                      } catch (err: any) {
+                        toast({
+                          title: "저장 실패",
+                          description: err?.message ?? "",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setSavingSealOmitted(false);
                       }
-                      window.location.hash = "layout-seal-omitted";
-                    }, 50);
-                  }}
-                >
-                  설정으로 이동
-                </Button>
+                    }}
+                  >
+                    {savingSealOmitted ? "저장 중…" : "적용"}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  공고문 푸터 끝(예: "○○빌딩 관리사무소 <strong>직인생략</strong>")에 노출됩니다.
+                  전체 건물에 즉시 반영됩니다.
+                </p>
               </div>
             </div>
           </div>
@@ -609,27 +669,8 @@ function NoticeLayoutSettingsCard() {
     setDraft(DEFAULT_NOTICE_LAYOUT);
   }
 
-  // [Task #869] 템플릿 편집 모달의 "설정으로 이동" 버튼이 카드 펼침 + 해당
-  //   입력칸 포커스를 트리거할 수 있도록 URL hash 변화를 구독한다.
-  //   해시(#layout-seal-omitted) 가 설정되면 카드가 자동으로 펼쳐지고,
-  //   직인 미사용시 표기 입력칸으로 스크롤 + focus.
-  useEffect(() => {
-    function handleHash(): void {
-      if (typeof window === "undefined") return;
-      if (window.location.hash !== "#layout-seal-omitted") return;
-      setExpanded(true);
-      // 카드가 펼쳐진 뒤 DOM 이 마운트될 시간을 약간 준다.
-      window.setTimeout(() => {
-        const input = document.getElementById("layout-seal-omitted") as HTMLInputElement | null;
-        const card = document.getElementById("notice-layout-card");
-        (card ?? input)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        input?.focus();
-      }, 80);
-    }
-    handleHash();
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
+  // [Task #870] 이전 Task #869 의 hashchange 점프(#layout-seal-omitted) 진입점은
+  //   템플릿 편집 모달이 직접 인라인 편집을 제공하면서 더 이상 사용되지 않아 제거.
 
   return (
     <Card id="notice-layout-card" data-testid="card-notice-layout-settings">
