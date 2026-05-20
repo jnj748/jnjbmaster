@@ -76,6 +76,7 @@ export class OcrPipelineInputError extends Error {
 function inferMimeType(name: string | null | undefined): string {
   const lower = (name || "").toLowerCase();
   if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".heic")) return "image/heic";
   if (lower.endsWith(".heif")) return "image/heif";
@@ -88,7 +89,10 @@ function inferMimeType(name: string | null | undefined): string {
   if (lower.endsWith(".doc")) return "application/msword"; // 화이트리스트 X — loadObject 에서 친절 거절.
   if (lower.endsWith(".hwpx")) return "application/vnd.hancom.hwpx";
   if (lower.endsWith(".hwp")) return "application/vnd.hancom.hwp";
-  return "image/jpeg";
+  // [Task #868 보안] 알 수 없는 확장자(.exe/.bat/.zip 등) 는 image/jpeg 로
+  //   폴백하지 않는다. application/octet-stream 을 돌려주면 ALLOWED_MIME 화이트
+  //   리스트에 없으니 loadObject 에서 "지원하지 않는 파일 형식" 으로 거절된다.
+  return "application/octet-stream";
 }
 
 export type LoadedFile = {
