@@ -707,12 +707,79 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
         .where(eq(usersTable.vendorId, updated.vendorId))
         .orderBy(usersTable.createdAt)
         .limit(1);
+      // [사장님요청 2026-05-20] 채택 파트너에게 발송할 정보 4종을 함께 조회:
+      //   ① 용역 내용(RFQ 제목/설명/금액), ② 건물 정보(이름/주소),
+      //   ③ 관리사무소 연락처(buildings.managementOfficePhone),
+      //   ④ 소장 연락처(같은 건물의 role='manager' user.name/phone).
+      let buildingInfo: {
+        name: string | null;
+        addressFull: string | null;
+        managementOfficePhone: string | null;
+      } | null = null;
+      let managerInfo: { name: string | null; phone: string | null } | null =
+        null;
+      if (rfqForAccept?.buildingId != null) {
+        const [b] = await tx
+          .select({
+            name: buildingsTable.name,
+            addressFull: buildingsTable.addressFull,
+            managementOfficePhone: buildingsTable.managementOfficePhone,
+          })
+          .from(buildingsTable)
+          .where(eq(buildingsTable.id, rfqForAccept.buildingId));
+        buildingInfo = b ?? null;
+        const [m] = await tx
+          .select({ name: usersTable.name, phone: usersTable.phone })
+          .from(usersTable)
+          .where(
+            and(
+              eq(usersTable.buildingId, rfqForAccept.buildingId),
+              eq(usersTable.role, "manager"),
+            ),
+          )
+          .orderBy(usersTable.createdAt)
+          .limit(1);
+        managerInfo = m ?? null;
+      }
       if (acceptedRep?.phone) {
-        const aligoMessage =
-          `[관리의달인] 견적이 채택되었습니다\n\n` +
-          `${rfqForAccept?.buildingName ?? ""}의 ${rfqForAccept?.title ?? "RFQ"} 견적이 채택되었습니다.\n` +
-          `채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원\n\n` +
-          `관리소장과 일정을 조율해 주세요.`;
+        // 본문은 알리고 LMS 한도(2000byte) 이내. 90byte 초과 시 자동으로
+        //   aligo_lms 로 fallback 되도록 채널은 aligo_sms 그대로 두고
+        //   aligoChannel.ts 의 sendAligoSmsLike 가 길이에 따라 분기한다.
+        const buildingName =
+          buildingInfo?.name ?? rfqForAccept?.buildingName ?? "";
+        const buildingAddr = buildingInfo?.addressFull ?? "";
+        const officePhone = buildingInfo?.managementOfficePhone ?? "";
+        const managerName = managerInfo?.name ?? "";
+        const managerPhone = managerInfo?.phone ?? "";
+        const lines: string[] = [
+          "[관리의달인] 견적이 채택되었습니다",
+          "",
+          `■ 용역: ${rfqForAccept?.title ?? "RFQ"}`,
+        ];
+        if (rfqForAccept?.category) {
+          lines.push(`■ 분야: ${rfqForAccept.category}`);
+        }
+        if (rfqForAccept?.description) {
+          // 설명이 너무 길면 LMS 한도 초과 가능 — 300자 컷.
+          const desc = String(rfqForAccept.description);
+          lines.push(
+            `■ 내용: ${desc.length > 300 ? desc.slice(0, 300) + "…" : desc}`,
+          );
+        }
+        lines.push(
+          `■ 채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원`,
+          "",
+          `■ 건물: ${buildingName}`,
+        );
+        if (buildingAddr) lines.push(`  주소: ${buildingAddr}`);
+        if (officePhone) lines.push(`■ 관리사무소: ${officePhone}`);
+        if (managerName || managerPhone) {
+          lines.push(
+            `■ 관리소장: ${managerName}${managerPhone ? ` (${managerPhone})` : ""}`,
+          );
+        }
+        lines.push("", "관리소장과 일정을 조율해 주세요.");
+        const aligoMessage = lines.join("\n");
         pendingDispatches.push({
           buildingId: rfqForAccept?.buildingId ?? null,
           target: acceptedRep.phone,
