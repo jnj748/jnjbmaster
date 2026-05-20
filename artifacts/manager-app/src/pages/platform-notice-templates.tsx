@@ -31,12 +31,13 @@ import { NoticeLayoutFrame } from "@/components/notice-layout-frame";
 import { A4DocumentFrame } from "@/components/a4-document-frame";
 import {
   NoticeBodyEditor,
-  NoticeVariablesPanel,
   type NoticeBodyEditorHandle,
 } from "@/components/notice-body-editor";
 import { useNoticeLayout } from "@/hooks/use-notice-layout";
 import {
   DEFAULT_NOTICE_LAYOUT,
+  NOTICE_TOKEN_DEFS,
+  buildNoticeTokenLabels,
   renderNoticeBodyHtml,
   type NoticeLayoutSettings,
 } from "@/lib/notice-layout";
@@ -373,49 +374,64 @@ export default function PlatformNoticeTemplatesPage() {
                 여기 적은 라벨이 입력칸으로 노출되어 본문의 {"{{customA}} {{customB}} {{customC}}"} 위치에 채워집니다.
               </p>
             </div>
+            {/* [Task #872] 가변항목 chip 영역 — 본문 편집기 바로 위에 한 줄(wrap)로.
+                기존 우측 사이드바(NoticeVariablesPanel) 제거로 확보된 폭을
+                본문 에디터가 전부 활용. 클릭 시 커서 위치에 토큰 칩 삽입 (기존 동작 유지). */}
+            <div>
+              <Label className="text-xs text-slate-700">가변항목 (클릭하면 본문 커서 위치에 삽입)</Label>
+              {(() => {
+                const parts = form.customFieldLabelsCsv.split(",");
+                const chipLabels = buildNoticeTokenLabels({
+                  a: parts[0]?.trim(),
+                  b: parts[1]?.trim(),
+                  c: parts[2]?.trim(),
+                });
+                return (
+                  <div
+                    className="mt-1 flex flex-wrap gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5"
+                    data-testid="hq-variables-chips"
+                  >
+                    {NOTICE_TOKEN_DEFS.map((def) => {
+                      const label = chipLabels[def.token] ?? def.defaultLabel;
+                      return (
+                        <button
+                          key={def.token}
+                          type="button"
+                          onClick={() => editorRef.current?.insertToken(def.token)}
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:border-slate-500 hover:bg-slate-100 transition"
+                          title={`{{${def.token}}}`}
+                          data-testid={`hq-variables-chip-${def.token}`}
+                        >
+                          <Plus className="w-3 h-3 text-slate-500" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              <p className="text-[11px] text-slate-500 mt-1">
+                매니저 화면에서는 우리 건물의 실제값으로 자동 치환되어 보입니다.
+              </p>
+            </div>
             <div>
               <Label>본문</Label>
-              {/* [Task #591/#608] 위지윅 편집기 + 항상 보이는 "사용 가능한 가변항목" 패널.
-                  편집기 폭이 좁아지지 않도록 모바일에서는 위/아래로,
-                  md+ 에서는 편집기 ⅔ + 패널 ⅓ 로 배치한다. form.id 가 바뀌면 다른
-                  템플릿 편집으로 진입한 것이므로 key 로 강제 remount 해 초기 HTML 을
-                  새로 로드한다. */}
-              {/* [Task #731] 데스크톱(md+) 에서 좌측 컬럼이 모달 안에 들어가도록
-                  편집기 최소 높이를 줄이고(180px), "사용 가능한 가변항목" 패널은
-                  자체 영역 안에서 스크롤되도록 max-height + overflow 를 적용한다.
-                  모바일에서는 기존과 동일하게 320px 최소 높이를 유지한다. */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div className="md:col-span-2 min-w-0">
-                  <NoticeBodyEditor
-                    ref={editorRef}
-                    key={`tpl-editor-${form.id ?? "new"}`}
-                    initialHtml={form.bodyHtml}
-                    mode="token"
-                    customLabels={{
-                      a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
-                      b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
-                      c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
-                    }}
-                    onChange={(html) => setForm((f) => ({ ...f, bodyHtml: html }))}
-                    testIdPrefix="input-template-body"
-                    minHeightClassName="min-h-[320px] md:min-h-[180px]"
-                  />
-                </div>
-                <div className="md:col-span-1 min-w-0 md:max-h-[280px] md:overflow-y-auto">
-                  <NoticeVariablesPanel
-                    customLabels={{
-                      a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
-                      b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
-                      c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
-                    }}
-                    onInsert={(token) => editorRef.current?.insertToken(token)}
-                    testIdPrefix="hq-variables-panel"
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                오른쪽 "사용 가능한 가변항목" 카드를 클릭하거나 툴바의 "변수 삽입" 으로 건물명·주소·연락처·날짜 등을 칩으로 넣으세요. 칩은 매니저 화면에서 우리 건물 실제값으로 자동 치환됩니다.
-              </p>
+              {/* [Task #591/#608/#872] 위지윅 편집기 — 사이드바 제거로 100% 폭 사용,
+                  높이 최소 400px. form.id 변경 시 key 로 remount 해 초기 HTML 재로드. */}
+              <NoticeBodyEditor
+                ref={editorRef}
+                key={`tpl-editor-${form.id ?? "new"}`}
+                initialHtml={form.bodyHtml}
+                mode="token"
+                customLabels={{
+                  a: form.customFieldLabelsCsv.split(",")[0]?.trim(),
+                  b: form.customFieldLabelsCsv.split(",")[1]?.trim(),
+                  c: form.customFieldLabelsCsv.split(",")[2]?.trim(),
+                }}
+                onChange={(html) => setForm((f) => ({ ...f, bodyHtml: html }))}
+                testIdPrefix="input-template-body"
+                minHeightClassName="min-h-[400px]"
+              />
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
