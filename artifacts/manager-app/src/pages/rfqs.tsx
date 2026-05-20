@@ -49,6 +49,9 @@ import {
   ClipboardList,
   Receipt,
   Send,
+  Eye,
+  Phone,
+  Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -80,6 +83,7 @@ import { AuthImage } from "@/components/auth-image";
 import { RfqMatchStatsCard } from "@/pages/settings";
 import { VendorRatingInline } from "@/components/star-rating";
 import { RFQ_CATEGORY_OPTIONS as categoryOptions } from "@/lib/rfq-category-options";
+import { RfqQuoteDetailDialog } from "@/components/rfq-quote-detail-dialog";
 import {
   RfqQuickRequestWidget,
   type RfqQuickRequestPayload,
@@ -118,6 +122,8 @@ export default function Rfqs() {
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
+  // [Task #872] 받은 견적 카드 → "견적 자세히" 모달 — 단건 견적 조회 + firstViewedAt 기록.
+  const [detailQuoteId, setDetailQuoteId] = useState<number | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { token } = useAuth();
@@ -690,6 +696,8 @@ export default function Rfqs() {
               relatedPaymentReqs={paymentReqsByRfqId.get(rfq.id) ?? []}
               onAcceptQuote={handleAcceptQuote}
               acceptPending={updateQuoteMutation.isPending}
+              onOpenQuoteDetail={(id) => setDetailQuoteId(id)}
+              vendorById={vendorById}
               onOpenDoc={() =>
                 setRfqDocRfq({
                   title: rfq.title,
@@ -762,6 +770,13 @@ export default function Rfqs() {
         </Card>
       )}
 
+      {/* [Task #872] 받은 견적 자세히 보기 모달 — 열릴 때 GET /quotes/:id 호출 → firstViewedAt 자동 기록. */}
+      <RfqQuoteDetailDialog
+        quoteId={detailQuoteId}
+        open={detailQuoteId != null}
+        onOpenChange={(o) => { if (!o) setDetailQuoteId(null); }}
+      />
+
       {rfqDocRfq && (
         <RfqRequestDocument
           open={!!rfqDocRfq}
@@ -786,6 +801,8 @@ function RfqCard({
   quotes,
   onAcceptQuote,
   acceptPending,
+  onOpenQuoteDetail,
+  vendorById,
   onOpenDoc,
   onExpandScope,
   onCloseRfq,
@@ -802,6 +819,8 @@ function RfqCard({
   quotes: any[];
   onAcceptQuote: (quote: any) => void | Promise<void>;
   acceptPending: boolean;
+  onOpenQuoteDetail: (quoteId: number) => void;
+  vendorById: Map<number, Vendor>;
   onOpenDoc: () => void;
   onExpandScope: () => void;
   onCloseRfq: () => void;
@@ -1019,63 +1038,195 @@ function RfqCard({
           >
             <h4 className="font-medium text-sm mb-3">받은 견적 {quotes.length}건</h4>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {quotes.map((q) => {
-                const isAccepted = q.status === "accepted";
-                const isRejected = q.status === "rejected";
-                return (
-                  <div
-                    key={q.id}
-                    className={`rounded-lg border p-4 flex flex-col gap-2 ${
-                      isAccepted
-                        ? "border-primary bg-primary/5"
-                        : "bg-card"
-                    }`}
-                    data-testid={`rfq-quote-card-${q.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm truncate">
-                        {q.vendorName}
-                      </span>
-                      {isAccepted && (
-                        <Badge className="bg-primary text-primary-foreground text-[10px]">
-                          선택됨
-                        </Badge>
-                      )}
-                      {isRejected && (
-                        <Badge variant="outline" className="text-[10px]">
-                          반려
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-2xl font-bold tabular-nums">
-                      {Number(q.totalAmount ?? 0).toLocaleString()}
-                      <span className="text-sm font-medium text-muted-foreground ml-1">
-                        원
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      제출일 {formatDate(q.createdAt)}
-                    </div>
-                    {q.status === "submitted" && (
-                      <Button
-                        size="sm"
-                        className="mt-1 w-full"
-                        onClick={() => onAcceptQuote(q)}
-                        disabled={acceptPending}
-                        data-testid={`rfq-quote-accept-${q.id}`}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                        선택하기
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+              {quotes.map((q) => (
+                <QuoteCard
+                  key={q.id}
+                  quote={q}
+                  vendor={vendorById.get(q.vendorId)}
+                  onAccept={onAcceptQuote}
+                  acceptPending={acceptPending}
+                  onOpenDetail={() => onOpenQuoteDetail(q.id)}
+                />
+              ))}
             </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// [Task #872] 받은 견적 카드 — "견적 자세히" 진입 + 선택 후 연락 패널.
+//   카드 본문 클릭 또는 "견적 자세히" 보조 버튼으로 모달 오픈.
+//   isAccepted 상태에서는 안내 문구 + "직접 연락하기" 토글로 vendor 연락처 표시.
+function QuoteCard({
+  quote,
+  vendor,
+  onAccept,
+  acceptPending,
+  onOpenDetail,
+}: {
+  quote: any;
+  vendor: Vendor | undefined;
+  onAccept: (quote: any) => void | Promise<void>;
+  acceptPending: boolean;
+  onOpenDetail: () => void;
+}) {
+  const [contactOpen, setContactOpen] = useState(false);
+  const isAccepted = quote.status === "accepted";
+  const isRejected = quote.status === "rejected";
+  const isViewed = !!quote.firstViewedAt;
+  const hasContact = !!(vendor?.phone || vendor?.email || vendor?.contactName);
+
+  return (
+    <div
+      className={`rounded-lg border p-4 flex flex-col gap-2 ${
+        isAccepted ? "border-primary bg-primary/5" : "bg-card"
+      }`}
+      data-testid={`rfq-quote-card-${quote.id}`}
+    >
+      <button
+        type="button"
+        className="text-left flex flex-col gap-2 hover-elevate active-elevate-2 -m-1 p-1 rounded"
+        onClick={onOpenDetail}
+        data-testid={`rfq-quote-open-detail-${quote.id}`}
+        aria-label="견적 자세히 보기"
+      >
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="font-medium text-sm truncate">{quote.vendorName}</span>
+          <div className="flex items-center gap-1 shrink-0">
+            {isViewed && (
+              <Badge
+                variant="outline"
+                className="text-[10px]"
+                data-testid={`rfq-quote-viewed-${quote.id}`}
+              >
+                열람함
+              </Badge>
+            )}
+            {isAccepted && (
+              <Badge className="bg-primary text-primary-foreground text-[10px]">
+                선택됨
+              </Badge>
+            )}
+            {isRejected && (
+              <Badge variant="outline" className="text-[10px]">
+                반려
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="text-2xl font-bold tabular-nums">
+          {Number(quote.totalAmount ?? 0).toLocaleString()}
+          <span className="text-sm font-medium text-muted-foreground ml-1">원</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          제출일 {formatDate(quote.createdAt)}
+        </div>
+      </button>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenDetail();
+        }}
+        data-testid={`rfq-quote-detail-${quote.id}`}
+      >
+        <Eye className="w-3.5 h-3.5 mr-1" />
+        견적 자세히
+      </Button>
+
+      {quote.status === "submitted" && (
+        <Button
+          size="sm"
+          className="w-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAccept(quote);
+          }}
+          disabled={acceptPending}
+          data-testid={`rfq-quote-accept-${quote.id}`}
+        >
+          <CheckCircle className="w-3.5 h-3.5 mr-1" />
+          선택하기
+        </Button>
+      )}
+
+      {isAccepted && (
+        <div
+          className="mt-1 rounded-md border bg-background p-2.5 space-y-2"
+          data-testid={`rfq-quote-contact-panel-${quote.id}`}
+        >
+          <p className="text-xs text-muted-foreground leading-snug">
+            파트너사가 곧 연락드려 자세한 안내와 계약을 도와드립니다.
+          </p>
+          {hasContact ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContactOpen((v) => !v);
+                }}
+                data-testid={`rfq-quote-contact-toggle-${quote.id}`}
+                aria-expanded={contactOpen}
+              >
+                <Phone className="w-3.5 h-3.5 mr-1" />
+                {contactOpen ? "연락처 접기" : "직접 연락하기"}
+              </Button>
+              {contactOpen && (
+                <div
+                  className="space-y-1 text-xs"
+                  data-testid={`rfq-quote-contact-info-${quote.id}`}
+                >
+                  {vendor?.contactName && (
+                    <div>
+                      <span className="text-muted-foreground">담당자 </span>
+                      <span className="font-medium">{vendor.contactName}</span>
+                    </div>
+                  )}
+                  {vendor?.phone && (
+                    <div className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <a
+                        href={`tel:${vendor.phone}`}
+                        className="text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {vendor.phone}
+                      </a>
+                    </div>
+                  )}
+                  {vendor?.email && (
+                    <div className="flex items-center gap-1">
+                      <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <a
+                        href={`mailto:${vendor.email}`}
+                        className="text-primary hover:underline break-all"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {vendor.email}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              등록된 연락처가 없습니다.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
