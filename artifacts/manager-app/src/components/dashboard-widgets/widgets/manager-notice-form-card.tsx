@@ -28,9 +28,14 @@ export default function ManagerNoticeFormCard() {
           <span className="manager-phase1-icon-wrap w-10 h-10 rounded-full flex items-center justify-center shrink-0">
             <FileText className="w-5 h-5" />
           </span>
-          <h3 className="text-[17px] font-semibold" style={{ color: "var(--brand-dark)" }}>
-            공지 양식
-          </h3>
+          <div className="min-w-0">
+            <h3 className="text-[17px] font-semibold" style={{ color: "var(--brand-dark)" }}>
+              공지문 양식 자동출력
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+              공지문 양식을 선택하면 우리 건물에 맞추어 자동으로 출력됩니다
+            </p>
+          </div>
         </div>
 
         {isLoading ? (

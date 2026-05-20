@@ -107,7 +107,14 @@ function extractServerErrorMessage(err: unknown): string | null {
 
 export default function Rfqs() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string | undefined>();
+  // [Task #873] 대시보드 "접수중인 견적" 카드에서 `/rfqs?status=open` 으로
+  //   진입하는 케이스를 지원. URL 의 ?status= 값으로 필터를 초기화한다.
+  const initialStatus = (() => {
+    if (typeof window === "undefined") return undefined;
+    const v = new URLSearchParams(window.location.search).get("status");
+    return v && ["open", "closed", "cancelled"].includes(v) ? v : undefined;
+  })();
+  const [filterStatus, setFilterStatus] = useState<string | undefined>(initialStatus);
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
   const [rfqDocRfq, setRfqDocRfq] = useState<RfqDocumentData | null>(null);
@@ -489,6 +496,15 @@ export default function Rfqs() {
     return map;
   }, [allQuotes]);
 
+  // [Task #873] 대시보드 "제출받은 견적" 카드에서 `/rfqs?tab=quotes` 로
+  //   진입한 경우, 견적이 1건 이상 들어온 RFQ 만 보여 준다. URL 가 없으면 전체.
+  const tabParam = new URLSearchParams(search).get("tab");
+  const visibleRfqs = useMemo(() => {
+    if (!rfqs) return rfqs;
+    if (tabParam !== "quotes") return rfqs;
+    return (rfqs as any[]).filter((r) => (quotesByRfqId.get(r.id)?.length ?? 0) > 0);
+  }, [rfqs, tabParam, quotesByRfqId]);
+
   // [Task #682] 모든 결재를 한 번에 가져와 RFQ 별 파이프라인 배지에 사용한다.
   //   서버는 sourceEntityType/sourceEntityId 를 응답에 포함시키므로 (T001),
   //   카드 컴포넌트가 자기 RFQ 와 연결된 결재만 골라 배지를 그릴 수 있다.
@@ -662,9 +678,9 @@ export default function Rfqs() {
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
         </div>
-      ) : rfqs && rfqs.length > 0 ? (
+      ) : visibleRfqs && visibleRfqs.length > 0 ? (
         <div className="space-y-3">
-          {rfqs.map((rfq: any) => (
+          {visibleRfqs.map((rfq: any) => (
             <RfqCard
               key={rfq.id}
               rfq={rfq}

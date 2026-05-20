@@ -11,9 +11,14 @@ export default function ManagerWorkLogCard() {
           <span className="manager-phase1-icon-wrap w-10 h-10 rounded-full flex items-center justify-center shrink-0">
             <NotebookPen className="w-5 h-5" />
           </span>
-          <h3 className="text-[17px] font-semibold truncate" style={{ color: "var(--brand-dark)" }}>
-            오늘 업무일지
-          </h3>
+          <div className="min-w-0">
+            <h3 className="text-[17px] font-semibold truncate" style={{ color: "var(--brand-dark)" }}>
+              오늘 업무일지
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+              업무일지를 작성하면 매주 주보, 월보가 자동으로 생성됩니다
+            </p>
+          </div>
         </div>
         <Link href="/work-log?openDaily=1" className="shrink-0">
           <Button
