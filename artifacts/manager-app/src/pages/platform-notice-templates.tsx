@@ -522,6 +522,41 @@ export default function PlatformNoticeTemplatesPage() {
                 토큰은 샘플 값으로 치환되어 표시됩니다(예: 건물명 → "샘플 건물").
                 활성 여부와 상관없이 입력 중인 본문이 즉시 반영됩니다.
               </p>
+              {/* [Task #869] 본사 관리자가 푸터의 "직인생략" 문구가 어디서 바뀌는지
+                  본 모달 안에서 찾지 못한다는 피드백을 반영. 한 줄 안내 + 점프 버튼.
+                  버튼 클릭 시 모달을 닫고 URL hash 를 설정해 NoticeLayoutSettingsCard
+                  의 hashchange 리스너가 카드를 펼치고 직인 미사용시 표기 입력칸으로
+                  스크롤 + focus 한다. */}
+              <div
+                className="mt-2 md:flex-shrink-0 flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600"
+                data-testid="hint-seal-omitted-jump"
+              >
+                <span>
+                  푸터의 "<strong>직인생략</strong>" 문구는{" "}
+                  <span className="font-semibold">공고문 레이아웃 설정 → 직인 미사용시 표기</span> 에서
+                  변경합니다.
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[11px]"
+                  data-testid="button-jump-to-seal-omitted"
+                  onClick={() => {
+                    setOpen(false);
+                    // 모달 close 애니메이션 이후 hash 변경 → 카드 펼침 + focus.
+                    window.setTimeout(() => {
+                      if (window.location.hash === "#layout-seal-omitted") {
+                        // 동일 해시 재설정은 hashchange 가 발화하지 않으므로 한 번 비운다.
+                        window.location.hash = "";
+                      }
+                      window.location.hash = "layout-seal-omitted";
+                    }, 50);
+                  }}
+                >
+                  설정으로 이동
+                </Button>
+              </div>
             </div>
           </div>
           <ResponsiveDialogFooter>
@@ -574,8 +609,30 @@ function NoticeLayoutSettingsCard() {
     setDraft(DEFAULT_NOTICE_LAYOUT);
   }
 
+  // [Task #869] 템플릿 편집 모달의 "설정으로 이동" 버튼이 카드 펼침 + 해당
+  //   입력칸 포커스를 트리거할 수 있도록 URL hash 변화를 구독한다.
+  //   해시(#layout-seal-omitted) 가 설정되면 카드가 자동으로 펼쳐지고,
+  //   직인 미사용시 표기 입력칸으로 스크롤 + focus.
+  useEffect(() => {
+    function handleHash(): void {
+      if (typeof window === "undefined") return;
+      if (window.location.hash !== "#layout-seal-omitted") return;
+      setExpanded(true);
+      // 카드가 펼쳐진 뒤 DOM 이 마운트될 시간을 약간 준다.
+      window.setTimeout(() => {
+        const input = document.getElementById("layout-seal-omitted") as HTMLInputElement | null;
+        const card = document.getElementById("notice-layout-card");
+        (card ?? input)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        input?.focus();
+      }, 80);
+    }
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   return (
-    <Card data-testid="card-notice-layout-settings">
+    <Card id="notice-layout-card" data-testid="card-notice-layout-settings">
       <CardHeader className="pb-2 flex-row items-center justify-between">
         <button
           type="button"
@@ -649,13 +706,22 @@ function NoticeLayoutSettingsCard() {
                 data-testid="input-layout-footer-template"
               />
             </div>
-            <div>
-              <Label className="text-xs">직인 미사용시 표기</Label>
+            <div id="layout-seal-omitted-field">
+              {/* [Task #869] 본사 관리자가 템플릿 편집 모달 안에서 "직인생략" 문구의
+                  편집 위치를 찾지 못해 본 카드로 점프 동선을 제공한다.
+                  라벨을 굵게 표시하고 도움말 한 줄을 덧붙여 가시성을 높인다. */}
+              <Label htmlFor="layout-seal-omitted" className="text-xs font-semibold">
+                직인 미사용시 표기
+              </Label>
               <Input
+                id="layout-seal-omitted"
                 value={draft.sealOmittedText}
                 onChange={(e) => patch({ sealOmittedText: e.target.value })}
                 data-testid="input-layout-seal-omitted"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                푸터 끝(예: "○○빌딩 관리사무소 <strong>직인생략</strong>")에 노출됩니다. 예: "직인생략", "관인생략".
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1">
               <label className="flex items-center gap-2 text-xs">

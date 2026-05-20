@@ -99,11 +99,15 @@ const KNOWN_TOKEN_SET = new Set(NOTICE_TOKEN_DEFS.map((d) => d.token));
  */
 export function templateHtmlToEditorHtml(html: string): string {
   if (!html) return "";
-  return html.replace(NOTICE_BODY_TOKEN_RE, (match, key) => {
+  // [Task #869] 저장된 `<p>&nbsp;</p>` (빈 줄 보존을 위해 직렬화 단계에서 주입)을
+  //   편집기에서는 다시 평범한 빈 단락(`<p></p>`) 으로 되돌려 사용자가 nbsp 문자를
+  //   직접 보지 않도록 한다. Tiptap 은 빈 단락을 다시 빈 줄로 표시.
+  const withTokens = html.replace(NOTICE_BODY_TOKEN_RE, (match, key) => {
     const token = String(key);
     if (!KNOWN_TOKEN_SET.has(token)) return match;
     return `<span data-notice-token="${token}">{{${token}}}</span>`;
   });
+  return withTokens.replace(/<p>\s*&nbsp;\s*<\/p>/gi, "<p></p>");
 }
 
 /**
@@ -117,5 +121,14 @@ const EDITOR_CHIP_RE = /<span\b[^>]*\bdata-notice-token="([a-zA-Z0-9_]+)"[^>]*>[
 
 export function editorHtmlToTemplateHtml(html: string): string {
   if (!html) return "";
-  return html.replace(EDITOR_CHIP_RE, (_m, token) => `{{${String(token)}}}`);
+  const withTokens = html.replace(EDITOR_CHIP_RE, (_m, token) => `{{${String(token)}}}`);
+  // [Task #869] Tiptap 이 Enter 로 만든 빈 단락(`<p></p>` 또는 `<p><br></p>`)을
+  //   `<p>&nbsp;</p>` 로 정규화한다. HTML 의 내용 없는 `<p>` 는 line-box 가 생기지
+  //   않아 미리보기/인쇄에서 높이 0 으로 접히므로, nbsp 한 글자를 채워 한 줄 높이를
+  //   확보한다. 화면용 CSS 도 함께 보강하지만(.notice-template-body p:empty),
+  //   브라우저 인쇄 엔진이 화면 CSS 일부를 무시하는 경우가 있어 직렬화 단계에서도
+  //   안전망을 둔다. 토큰 치환(renderNoticeBodyHtml) 결과에는 영향 없음.
+  return withTokens
+    .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, "<p>&nbsp;</p>")
+    .replace(/<p>\s*<\/p>/gi, "<p>&nbsp;</p>");
 }
