@@ -10,11 +10,15 @@ export interface A4DocumentFrameHandle {
 interface A4DocumentFrameProps {
   children: React.ReactNode;
   /**
-   * [Task #870] true 면 미리보기 영역의 높이를 A4 1장으로 잠근다.
-   *   - inner div 의 높이를 A4_HEIGHT_PX 로 고정해 본문이 넘쳐도 잘려 보인다.
-   *   - 외곽 wrapper 도 A4_HEIGHT_PX × scale 로 고정 + overflow:hidden 유지.
+   * [Task #870/#871] true 면 미리보기 영역을 A4 1장 비율로 잠그고,
+   *   본문이 A4 1장보다 길면 **비율을 유지한 채 추가로 축소**해 전체가
+   *   잘리지 않고 모두 보이도록 한다 (사장님 피드백 #871: "잘려보이면 무슨 의미").
+   *   - 외곽 wrapper 높이 = A4_HEIGHT_PX × widthScale (항상 A4 비율 박스).
+   *   - 본문 자연 높이가 A4_HEIGHT_PX 를 초과하면 contentFitScale 을 추가 적용
+   *     (effectiveScale = widthScale × contentFitScale). 본문은 잘리지 않고
+   *     박스 안에 다 보이며 우측에 비례 여백이 생긴다.
    *   - 인쇄/캡처(forceFull) 경로는 영향을 받지 않는다 — withFullScale 안에서는
-   *     항상 자연 높이로 복귀해 인쇄 PDF/PNG 가 잘리지 않는다.
+   *     항상 자연 높이/원본 스케일로 복귀해 인쇄 PDF/PNG 가 잘리지 않는다.
    */
   singlePage?: boolean;
 }
@@ -51,7 +55,6 @@ export const A4DocumentFrame = forwardRef<A4DocumentFrameHandle, A4DocumentFrame
       return () => ro.disconnect();
     }, []);
 
-    const effective = forceFull ? 1 : scale;
     const lockSinglePage = singlePage && !forceFull;
 
     useImperativeHandle(ref, () => ({
@@ -66,12 +69,23 @@ export const A4DocumentFrame = forwardRef<A4DocumentFrameHandle, A4DocumentFrame
       },
     }), []);
 
-    const effectiveInnerHeight = lockSinglePage
-      ? A4_HEIGHT_PX
-      : innerHeight;
-    const wrapperHeight = effectiveInnerHeight != null && !forceFull
-      ? effectiveInnerHeight * effective
-      : undefined;
+    // [Task #871] singlePage 모드일 때 본문이 A4 1장보다 길면 비율 유지한 채
+    //   추가로 축소(contentFitScale)해 전체가 잘리지 않게 한다. 본문이 1장
+    //   이내면 contentFitScale=1 이라 기존 동작 그대로.
+    const contentFitScale = lockSinglePage && innerHeight != null && innerHeight > A4_HEIGHT_PX
+      ? A4_HEIGHT_PX / innerHeight
+      : 1;
+    const effective = forceFull ? 1 : scale * contentFitScale;
+
+    // [Task #870/#871] singlePage 모드에서 wrapper 는 항상 A4 비율 박스
+    //   (height = A4_HEIGHT_PX × widthScale). 일반 모드는 본문 자연 높이.
+    const wrapperHeight = forceFull
+      ? undefined
+      : lockSinglePage
+        ? A4_HEIGHT_PX * scale
+        : innerHeight != null
+          ? innerHeight * scale
+          : undefined;
 
     // [Task #543] forceFull(=인쇄/캡처 직전) 일 때는 inline transform 자체를
     //   제거한다. `transform: scale(1)` 처럼 시각적으로 항등(identity) 인

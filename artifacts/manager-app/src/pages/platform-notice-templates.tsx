@@ -148,6 +148,18 @@ export default function PlatformNoticeTemplatesPage() {
     setSealOmittedDraft((curr) => (curr === lastSyncedSealRef.current ? incoming : curr));
     lastSyncedSealRef.current = incoming;
   }, [noticeLayout.sealOmittedText]);
+  // [Task #871] 사장님 피드백("샘플건물 관리사무소 직인생략 편집 어디서??") 반영.
+  //   푸터 풀 문장은 footerTemplate({{buildingName}} 관리사무소) + sealOmittedText
+  //   로 조립되므로, footerTemplate 도 같은 위치에서 인라인 편집 가능하게 제공.
+  //   sealOmittedDraft 와 동일한 dirty-guard / 최신값 재조회 패턴.
+  const [footerDraft, setFooterDraft] = useState<string>(noticeLayout.footerTemplate ?? "");
+  const [savingFooter, setSavingFooter] = useState(false);
+  const lastSyncedFooterRef = useRef<string>(noticeLayout.footerTemplate ?? "");
+  useEffect(() => {
+    const incoming = noticeLayout.footerTemplate ?? "";
+    setFooterDraft((curr) => (curr === lastSyncedFooterRef.current ? incoming : curr));
+    lastSyncedFooterRef.current = incoming;
+  }, [noticeLayout.footerTemplate]);
   // [Task #608] "사용 가능한 가변항목" 패널이 본문 편집기에 칩을 삽입하기 위해 ref 보관.
   const editorRef = useRef<NoticeBodyEditorHandle>(null);
 
@@ -541,7 +553,11 @@ export default function PlatformNoticeTemplatesPage() {
                   <A4DocumentFrame singlePage>
                     <NoticeTemplateLivePreview
                       form={form}
-                      settings={{ ...noticeLayout, sealOmittedText: sealOmittedDraft }}
+                      settings={{
+                        ...noticeLayout,
+                        footerTemplate: footerDraft,
+                        sealOmittedText: sealOmittedDraft,
+                      }}
                     />
                   </A4DocumentFrame>
                 </div>
@@ -559,62 +575,118 @@ export default function PlatformNoticeTemplatesPage() {
                   입력 즉시 우측 미리보기에는 draft 가 반영되고, "적용" 시 서버
                   저장 + 캐시 무효화로 매니저/알림 모달 등 다른 사용처에도 즉시 반영. */}
               <div
-                className="mt-2 md:flex-shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-2 space-y-1"
-                data-testid="seal-omitted-inline-editor"
+                className="mt-2 md:flex-shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-2 space-y-2"
+                data-testid="footer-inline-editor"
               >
-                <Label htmlFor="seal-omitted-inline" className="text-[11px] text-slate-700">
-                  푸터의 "직인생략" 문구 (직인 미사용시 표기)
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="seal-omitted-inline"
-                    value={sealOmittedDraft}
-                    onChange={(e) => setSealOmittedDraft(e.target.value)}
-                    placeholder="예: 직인생략, 관인생략"
-                    className="h-7 text-xs flex-1"
-                    data-testid="input-seal-omitted-inline"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 text-[11px]"
-                    disabled={
-                      savingSealOmitted ||
-                      sealOmittedDraft === (noticeLayout.sealOmittedText ?? "")
-                    }
-                    data-testid="button-apply-seal-omitted-inline"
-                    onClick={async () => {
-                      setSavingSealOmitted(true);
-                      try {
-                        // [코드리뷰 반영] 다른 카드에서 동시에 다른 필드를
-                        //   저장했을 수 있으므로, 저장 직전에 최신값을 다시
-                        //   가져와 sealOmittedText 만 덮어쓴다 (clobber race 방지).
-                        const fresh = await getNoticeLayout();
-                        await upsertNoticeLayout({
-                          ...fresh,
-                          sealOmittedText: sealOmittedDraft,
-                        });
-                        lastSyncedSealRef.current = sealOmittedDraft;
-                        toast({ title: "직인생략 문구가 저장되었습니다" });
-                        void qc.invalidateQueries({ queryKey: ["/api/notice-layout"] });
-                      } catch (err: any) {
-                        toast({
-                          title: "저장 실패",
-                          description: err?.message ?? "",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setSavingSealOmitted(false);
+                <p className="text-[11px] text-slate-700 font-semibold">
+                  푸터 문구 편집 (예: "샘플 건물 관리사무소 직인생략")
+                </p>
+                {/* [Task #871] 푸터 본문 (footerTemplate) — "{{buildingName}} 관리사무소" 같은 템플릿. */}
+                <div>
+                  <Label htmlFor="footer-template-inline" className="text-[11px] text-slate-600">
+                    푸터 본문 (토큰 사용 가능: {"{{buildingName}}"})
+                  </Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      id="footer-template-inline"
+                      value={footerDraft}
+                      onChange={(e) => setFooterDraft(e.target.value)}
+                      placeholder="예: {{buildingName}} 관리사무소"
+                      className="h-7 text-xs flex-1"
+                      data-testid="input-footer-template-inline"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      disabled={
+                        savingFooter ||
+                        footerDraft === (noticeLayout.footerTemplate ?? "")
                       }
-                    }}
-                  >
-                    {savingSealOmitted ? "저장 중…" : "적용"}
-                  </Button>
+                      data-testid="button-apply-footer-template-inline"
+                      onClick={async () => {
+                        setSavingFooter(true);
+                        try {
+                          const fresh = await getNoticeLayout();
+                          await upsertNoticeLayout({
+                            ...fresh,
+                            footerTemplate: footerDraft,
+                          });
+                          lastSyncedFooterRef.current = footerDraft;
+                          toast({ title: "푸터 본문이 저장되었습니다" });
+                          void qc.invalidateQueries({ queryKey: ["/api/notice-layout"] });
+                        } catch (err: any) {
+                          toast({
+                            title: "저장 실패",
+                            description: err?.message ?? "",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setSavingFooter(false);
+                        }
+                      }}
+                    >
+                      {savingFooter ? "저장 중…" : "적용"}
+                    </Button>
+                  </div>
+                </div>
+                {/* [Task #870/#871] 직인생략 — 푸터 끝에 붙는 표기. */}
+                <div>
+                  <Label htmlFor="seal-omitted-inline" className="text-[11px] text-slate-600">
+                    푸터 끝 "직인생략" 표기 (직인 미사용시)
+                  </Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      id="seal-omitted-inline"
+                      value={sealOmittedDraft}
+                      onChange={(e) => setSealOmittedDraft(e.target.value)}
+                      placeholder="예: 직인생략, 관인생략"
+                      className="h-7 text-xs flex-1"
+                      data-testid="input-seal-omitted-inline"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      disabled={
+                        savingSealOmitted ||
+                        sealOmittedDraft === (noticeLayout.sealOmittedText ?? "")
+                      }
+                      data-testid="button-apply-seal-omitted-inline"
+                      onClick={async () => {
+                        setSavingSealOmitted(true);
+                        try {
+                          // [코드리뷰 반영] 다른 카드에서 동시에 다른 필드를
+                          //   저장했을 수 있으므로, 저장 직전에 최신값을 다시
+                          //   가져와 sealOmittedText 만 덮어쓴다 (clobber race 방지).
+                          const fresh = await getNoticeLayout();
+                          await upsertNoticeLayout({
+                            ...fresh,
+                            sealOmittedText: sealOmittedDraft,
+                          });
+                          lastSyncedSealRef.current = sealOmittedDraft;
+                          toast({ title: "직인생략 문구가 저장되었습니다" });
+                          void qc.invalidateQueries({ queryKey: ["/api/notice-layout"] });
+                        } catch (err: any) {
+                          toast({
+                            title: "저장 실패",
+                            description: err?.message ?? "",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setSavingSealOmitted(false);
+                        }
+                      }}
+                    >
+                      {savingSealOmitted ? "저장 중…" : "적용"}
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  공고문 푸터 끝(예: "○○빌딩 관리사무소 <strong>직인생략</strong>")에 노출됩니다.
-                  전체 건물에 즉시 반영됩니다.
+                  공고문 푸터에 "푸터 본문 + 직인생략" 형태로 노출됩니다.
+                  저장 시 전체 건물에 즉시 반영됩니다.
                 </p>
               </div>
             </div>
