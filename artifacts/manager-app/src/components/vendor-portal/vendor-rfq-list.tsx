@@ -85,26 +85,35 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
     basePath: "/api/storage",
     authToken,
   });
+  // [사장님요청 2026-05-20] 견적 제출 모달 슬림화 — 예상소요일/착수가능일/
+  //   A/S 보증/비고 4개 항목 제거. validUntil 기본값은 견적일+30일.
   const [form, setForm] = useState({
     scope: "",
-    estimatedDays: "",
-    availableDate: "",
     validUntil: "",
-    warrantyTerms: "",
-    notes: "",
   });
+  // [사장님요청] 첨부 dropzone 드래그 하이라이트.
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  async function handleAttachFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const result = await uploadFile(file);
-    if (result?.objectPath) {
-      setAttachments((prev) => [...prev, { url: result.objectPath, name: file.name }]);
-    } else {
-      toast({ title: "파일 업로드에 실패했습니다", variant: "destructive" });
+  // [사장님요청] 모달 오픈 시 견적유효기간을 오늘+30일로 자동 채움.
+  useEffect(() => {
+    if (quoteDialogRfq && !form.validUntil) {
+      setForm((f) => ({ ...f, validUntil: defaultValidUntil() }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteDialogRfq]);
+
+  async function handleDropFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    for (const file of list) {
+      const result = await uploadFile(file);
+      if (result?.objectPath) {
+        setAttachments((prev) => [...prev, { url: result.objectPath, name: file.name }]);
+      } else {
+        toast({ title: `${file.name} 업로드 실패`, variant: "destructive" });
+      }
     }
   }
+
   function removeAttachment(i: number) {
     setAttachments((prev) => prev.filter((_, idx) => idx !== i));
   }
@@ -137,14 +146,15 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
     setLineItems([newLine()]);
     setVatRate("10");
     setAttachments([]);
-    setForm({
-      scope: "",
-      estimatedDays: "",
-      availableDate: "",
-      validUntil: "",
-      warrantyTerms: "",
-      notes: "",
-    });
+    setForm({ scope: "", validUntil: defaultValidUntil() });
+    setIsDragOver(false);
+  }
+
+  // [사장님요청] 견적 유효기간 기본값 — 견적일(오늘) + 30일.
+  function defaultValidUntil(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
   }
 
   function updateLine(i: number, patch: Partial<LineItemDraft>) {
@@ -207,12 +217,14 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
         lineItems: lineItemsPayload,
         itemBreakdown,
         scope: form.scope || null,
-        estimatedDays: form.estimatedDays ? parseInt(form.estimatedDays) : null,
-        availableDate: form.availableDate || null,
+        // [사장님요청 2026-05-20] estimatedDays / availableDate / warrantyTerms /
+        //   notes 4개 항목은 UI 에서 제거. 서버 스키마 nullable 이므로 null 송신.
+        estimatedDays: null,
+        availableDate: null,
         validUntil: form.validUntil || null,
-        warrantyTerms: form.warrantyTerms || null,
+        warrantyTerms: null,
         attachmentUrls: attachments.length > 0 ? JSON.stringify(attachments) : null,
-        notes: form.notes || null,
+        notes: null,
       },
     });
     queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
@@ -403,20 +415,14 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                 <p><strong>마감:</strong> {formatDate(quoteDialogRfq.deadline)}</p>
               </div>
               <IntermediaryDisclaimerBanner variant="contract" className="mb-3" />
+              {/* [사장님요청 2026-05-20] 보유/포인트 줄 + 산식 reason 줄 삭제.
+                  예상 차감 크레딧 수치 + 잔액 부족 경고 + 미열람 환불 안내만 유지. */}
               {creditsEnabled && costPreview && (
                 <div className={`p-3 rounded-lg text-sm mb-4 border ${insufficient ? "border-red-300 bg-red-50" : "border-amber-300 bg-amber-50"}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">예상 차감 크레딧</span>
                     <span className="font-bold">{costPreview.totalCost} C</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    보유: {wallet?.balance ?? 0} C · 포인트: {wallet?.pointsBalance ?? 0} P
-                  </div>
-                  {costPreview.reason?.length > 0 && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {costPreview.reason.join(" · ")}
-                    </div>
-                  )}
                   {insufficient && (
                     <div className="text-xs text-red-600 mt-2 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
@@ -508,109 +514,119 @@ export function VendorRfqList({ rfqs, vendorId, vendorName, myQuotes, queryClien
                   </div>
                 </div>
 
+                {/* [사장님요청 2026-05-20] "작업 범위" → "작업 설명" 으로 라벨/placeholder 정리. */}
                 <div>
-                  <Label>작업 범위</Label>
+                  <Label>작업 설명</Label>
                   <Textarea
                     value={form.scope}
                     onChange={(e) => setForm({ ...form, scope: e.target.value })}
-                    placeholder="작업 범위와 내용을 기재하세요"
+                    placeholder="작업 설명을 입력하세요"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>예상 소요일 (일)</Label>
-                    <Input
-                      type="number"
-                      value={form.estimatedDays}
-                      onChange={(e) => setForm({ ...form, estimatedDays: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>착수 가능일</Label>
-                    <Input
-                      type="date"
-                      value={form.availableDate}
-                      onChange={(e) => setForm({ ...form, availableDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>견적 유효기한</Label>
-                    <Input
-                      type="date"
-                      value={form.validUntil}
-                      onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
-                    />
-                  </div>
+                {/* [사장님요청] 예상소요일 / 착수가능일 삭제. 견적 유효기한만 단독 노출,
+                    기본값은 오늘+30일 (useEffect 로 모달 오픈 시 자동 채움). */}
+                <div>
+                  <Label>견적 유효기한</Label>
+                  <Input
+                    type="date"
+                    value={form.validUntil}
+                    onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    기본값: 견적일로부터 30일
+                  </p>
                 </div>
-                {/* [Task #견적-첨부v2] 다중 첨부 — 제안서/견적서 PDF 등. */}
+                {/* [사장님요청] 제안서·견적서 첨부 — 점선 dropzone (drag & drop + 클릭),
+                    가로 풀폭. 첨부 목록은 dropzone 아래로 토글(드롭다운) 노출. */}
                 <div className="space-y-2">
                   <Label className="text-[15px]">제안서 · 견적서 첨부</Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="quote-attachment-input"
-                      type="file"
-                      className="hidden"
-                      onChange={handleAttachFile}
-                      accept=".pdf,.png,.jpg,.jpeg,.hwp,.hwpx,.doc,.docx,.xls,.xlsx"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 text-[15px]"
-                      disabled={isUploading}
-                      onClick={() => document.getElementById("quote-attachment-input")?.click()}
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                          업로드 중…
-                        </>
-                      ) : (
-                        <>
-                          <Paperclip className="w-4 h-4 mr-1.5" />
-                          파일 선택
-                        </>
-                      )}
-                    </Button>
-                    <span className="text-xs text-muted-foreground">PDF/이미지/한글/오피스, 여러 개 추가 가능</span>
+                  <input
+                    id="quote-attachment-input"
+                    type="file"
+                    className="hidden"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      e.target.value = "";
+                      if (files && files.length > 0) void handleDropFiles(files);
+                    }}
+                    accept=".pdf,.png,.jpg,.jpeg,.hwp,.hwpx,.doc,.docx,.xls,.xlsx"
+                  />
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => document.getElementById("quote-attachment-input")?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        document.getElementById("quote-attachment-input")?.click();
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        void handleDropFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-6 rounded-md border-2 border-dashed cursor-pointer transition-colors ${
+                      isDragOver
+                        ? "border-primary bg-primary/5"
+                        : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
+                    } ${isUploading ? "pointer-events-none opacity-60" : ""}`}
+                    data-testid="quote-attachment-dropzone"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm">업로드 중…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Paperclip className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          파일을 드래그하거나 클릭해서 추가 (PDF · 이미지 · 한글 · 오피스, 여러 개 가능)
+                        </span>
+                      </>
+                    )}
                   </div>
                   {attachments.length > 0 && (
-                    <ul className="border rounded-md divide-y">
-                      {attachments.map((a, i) => (
-                        <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                          <span className="truncate flex items-center gap-2">
-                            <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            {a.name}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeAttachment(i)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
+                    <details className="border rounded-md group" open>
+                      <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium flex items-center justify-between hover:bg-muted/40">
+                        <span className="flex items-center gap-2">
+                          <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                          첨부 {attachments.length}개
+                        </span>
+                        <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                      </summary>
+                      <ul className="divide-y border-t">
+                        {attachments.map((a, i) => (
+                          <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span className="truncate flex items-center gap-2">
+                              <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              {a.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => removeAttachment(i)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
                 </div>
-                <div>
-                  <Label>A/S · 보증 조건</Label>
-                  <Textarea
-                    value={form.warrantyTerms}
-                    onChange={(e) => setForm({ ...form, warrantyTerms: e.target.value })}
-                    placeholder="예: 시공 후 1년 무상 A/S"
-                  />
-                </div>
-                <div>
-                  <Label>비고</Label>
-                  <Textarea
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  />
-                </div>
+                {/* [사장님요청 2026-05-20] A/S 보증 / 비고 항목 삭제. */}
                 <Button type="submit" className="w-full" disabled={insufficient}>견적서 제출</Button>
               </form>
             </div>
