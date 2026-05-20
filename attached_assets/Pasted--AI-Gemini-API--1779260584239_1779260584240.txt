@@ -1,0 +1,75 @@
+모든 작업을 중간에 확인 없이 끝까지 자동으로 완료해줘. 진행 여부를 묻지 말고 완료 후 결과만 보고해줘.
+
+## 작업: AI 비서 Gemini 무료 API 티어로 전환
+
+### 배경
+현재 Replit Integrations Gemini를 사용 중.
+본인 Gemini API 키(무료 티어)로 전환.
+Replit Secrets에 GEMINI_API_KEY_FREE 로 등록 완료.
+
+### 1. 현재 Gemini 연동 방식 확인
+cat artifacts/api-server/src/lib/llmRouter.ts | head -20
+cat lib/integrations-gemini-ai/src/index.ts 2>/dev/null | head -30
+
+### 2. 무료 API 키 사용하도록 전환
+파일: artifacts/api-server/src/lib/llmRouter.ts
+또는 lib/integrations-gemini-ai/src/index.ts
+
+현재 Replit Integrations 방식을 직접 API 키 방식으로 교체:
+
+```typescript
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const apiKey = process.env.GEMINI_API_KEY_FREE;
+if (!apiKey) throw new Error("GEMINI_API_KEY_FREE not set");
+
+const genAI = new GoogleGenerativeAI(apiKey);
+```
+
+### 3. 분당 15회 rate limit 처리
+기존 per-user rate limit (분당 10회) 에 추가로
+전체 글로벌 rate limit 추가:
+
+```typescript
+// 글로벌 rate limit: 분당 14회 (무료 티어 15회 한도 -1 여유)
+let globalCallsThisMinute = 0;
+let globalWindowStart = Date.now();
+
+function checkGlobalRateLimit(): boolean {
+  const now = Date.now();
+  if (now - globalWindowStart > 60_000) {
+    globalCallsThisMinute = 0;
+    globalWindowStart = now;
+  }
+  if (globalCallsThisMinute >= 14) return false;
+  globalCallsThisMinute++;
+  return true;
+}
+```
+
+글로벌 한도 초과 시 응답:
+"현재 AI 비서 사용량이 많습니다. 잠시 후 다시 시도해 주세요."
+
+### 4. @google/generative-ai 패키지 설치 확인
+현재 package.json에 있는지 확인:
+grep -r "google/generative-ai\|generative-ai" \
+  artifacts/api-server/package.json \
+  lib/integrations-gemini-ai/package.json 2>/dev/null
+
+없으면:
+cd artifacts/api-server && npm install @google/generative-ai
+
+### 5. 모델 통일
+모든 tier에서 gemini-2.5-flash 사용 (무료 티어는 pro 없음):
+tier0: gemini-2.5-flash
+tier1: gemini-2.5-flash
+tier2: gemini-2.5-flash (pro 대신 flash)
+
+### 6. 검증
+pnpm --filter @workspace/api-server run typecheck
+오류 0건
+
+서버 실행 후 AI 비서 테스트:
+curl -X POST http://localhost:3000/api/ai/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "안녕하세요"}'

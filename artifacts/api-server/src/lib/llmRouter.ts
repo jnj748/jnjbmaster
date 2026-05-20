@@ -7,26 +7,73 @@ import { logger } from "./logger";
 // 만 넘기고, 라우터가:
 //   - Tier 0 (free)   : gemini-2.5-flash, 짧은 토큰 범위
 //   - Tier 1 (cheap)  : gemini-2.5-flash, 8192 토큰
-//   - Tier 2 (adv)    : gemini-2.5-pro, 8192 토큰
+//   - Tier 2 (adv)    : gemini-2.5-flash, 8192 토큰
+//      (Task #870: 무료 티어 전환 — pro 사용 불가라 flash 로 통일)
 // 을 선택하고, 입력 길이 / 키워드 / 호출자 hint / 직전 호출 실패에 따라 자동 승급한다.
 // 결과는 tier/model/입출력 토큰/비용 추정치를 함께 반환해 호출자가 ai_chat_messages
 // 등에 기록할 수 있게 한다.
 
 export type Tier = "tier0" | "tier1" | "tier2";
 
+// [Task #870] 무료 티어 키 사용 — Gemini 2.5 Pro 는 무료 한도에서 빠지므로
+// 모든 tier 를 gemini-2.5-flash 로 통일한다.
 export const TIER_MODELS: Record<Tier, string> = {
   tier0: "gemini-2.5-flash",
   tier1: "gemini-2.5-flash",
-  tier2: "gemini-2.5-pro",
+  tier2: "gemini-2.5-flash",
 };
 
 // 천 토큰당 USD. Gemini 공개 가격을 기준으로 한 보수적 추정치.
-// (실제 청구는 Replit Integrations 측에서 별도 집계되므로 이 값은 모니터링용.)
+// (무료 티어 사용 시 실제 청구는 0 이지만 모니터링용으로 가격 유지)
 const PRICE_PER_1K: Record<Tier, { input: number; output: number }> = {
   tier0: { input: 0.000075, output: 0.0003 },
   tier1: { input: 0.000075, output: 0.0003 },
-  tier2: { input: 0.00125, output: 0.005 },
+  tier2: { input: 0.000075, output: 0.0003 },
 };
+
+// [Task #870] Gemini 무료 티어 글로벌 rate limit (분당 15회 한도, 1회 여유).
+// 전체 서버 인스턴스 기준이라 본인 키 1개로 다인 동시 사용 시 보호 막.
+// 초과하면 사용자에게 친절한 한국어 단문 메시지를 던지고 호출은 거부한다.
+const GLOBAL_RATE_LIMIT_PER_MINUTE = 14;
+let globalCallsThisMinute = 0;
+let globalWindowStart = Date.now();
+
+export class GeminiRateLimitError extends Error {
+  constructor(message = "현재 AI 비서 사용량이 많습니다. 잠시 후 다시 시도해 주세요.") {
+    super(message);
+    this.name = "GeminiRateLimitError";
+  }
+}
+
+function checkGlobalRateLimit(): boolean {
+  const now = Date.now();
+  if (now - globalWindowStart > 60_000) {
+    globalCallsThisMinute = 0;
+    globalWindowStart = now;
+  }
+  if (globalCallsThisMinute >= GLOBAL_RATE_LIMIT_PER_MINUTE) return false;
+  globalCallsThisMinute += 1;
+  return true;
+}
+
+/** 테스트/관리 화면에서 현재 글로벌 카운터 상태를 들여다보기 위한 헬퍼. */
+export function __getGlobalRateLimitState(): {
+  callsThisMinute: number;
+  windowStart: number;
+  limit: number;
+} {
+  return {
+    callsThisMinute: globalCallsThisMinute,
+    windowStart: globalWindowStart,
+    limit: GLOBAL_RATE_LIMIT_PER_MINUTE,
+  };
+}
+
+/** 테스트 전용. 글로벌 카운터를 리셋. */
+export function __resetGlobalRateLimitForTests(): void {
+  globalCallsThisMinute = 0;
+  globalWindowStart = Date.now();
+}
 
 const TIER_MAX_TOKENS: Record<Tier, number> = {
   tier0: 512,
@@ -109,6 +156,11 @@ function estimateCost(tier: Tier, inputTokens: number | null, outputTokens: numb
  * to pro (and pro stays at pro).
  */
 export async function routedGenerate(opts: RoutedGenerateOptions): Promise<RoutedGenerateResult> {
+  // [Task #870] 무료 티어 글로벌 분당 한도 보호. 초과 시 호출 자체를 거부해
+  // 사장님 본인 키의 분당 15회 한도가 419/429 로 깨지는 것을 막는다.
+  if (!checkGlobalRateLimit()) {
+    throw new GeminiRateLimitError();
+  }
   const baseTier = opts.tier ?? pickTier(opts.inputTextForRouting ?? "");
   let tier: Tier = baseTier;
   let lastErr: unknown;
@@ -174,6 +226,10 @@ export type RoutedStreamOptions = {
 export type RoutedStreamResult = Omit<RoutedGenerateResult, "text"> & { fullText: string };
 
 export async function routedStream(opts: RoutedStreamOptions): Promise<RoutedStreamResult> {
+  // [Task #870] 무료 티어 글로벌 분당 한도 보호 (streaming 도 동일 카운터 공유).
+  if (!checkGlobalRateLimit()) {
+    throw new GeminiRateLimitError();
+  }
   const baseTier = opts.tier ?? pickTier(opts.inputTextForRouting ?? "");
   let tier: Tier = baseTier;
   let attempt = 0;
