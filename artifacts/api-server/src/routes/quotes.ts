@@ -1,8 +1,5 @@
 import { insertNotification } from "../lib/notificationRecipient";
-// [Task #610] 견적 채택 시 자동 생성되는 업체선정 기안서를 documents 레지스트리에
-import { registerDocument } from "../services/documents/registerDocument";
 import { saveProducingDocument, MissingSourceRowError } from "../repo/producingDocuments";
-import { buildDocumentName } from "@workspace/document-naming";
 import { Router, type IRouter } from "express";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
 import {
@@ -14,9 +11,6 @@ import {
   usersTable,
   commissionsTable,
   commissionEventsTable,
-  contractsTable,
-  approvalsTable,
-  type DocumentAuthorRole,
 } from "@workspace/db";
 import {
   ListQuotesQueryParams,
@@ -699,174 +693,34 @@ router.patch("/quotes/:id", async (req, res): Promise<void> => {
       }
     }
 
-    // Auto-create contract draft when quote transitions to accepted (Task #65)
+    // [단순화] 견적 채택 시 자동 계약·기안서 생성 흐름 제거 (사장님 요청).
+    //   매니저가 채택 후에 필요하면 결재/계약 화면에서 직접 작성하도록 한다.
+    //   채택 파트너 알림톡(견적 채택 안내)만 유지.
     if (prev.status !== "accepted" && updated.status === "accepted") {
-      const existing = await tx.select().from(contractsTable).where(eq(contractsTable.quoteId, updated.id));
-      if (existing.length === 0) {
-        const [rfq] = await tx.select().from(rfqsTable).where(eq(rfqsTable.id, updated.rfqId));
-        const requesterId = req.user?.userId ?? null;
-        const [requester] = requesterId
-          ? await tx.select({ name: usersTable.name, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, requesterId))
-          : [undefined];
-
-        const title = `[업체선정] ${rfq?.title ?? "RFQ"} - ${updated.vendorName}`;
-
-        // [Task #610] 2층 단일 통로 — 자동 생성 기안서 INSERT + documents upsert 헬퍼 위임.
-        const naming = buildDocumentName({
-          kind: "quote_bundle",
-          date: new Date(),
-          title: rfq?.title ?? "RFQ",
-          selectedVendorName: updated.vendorName,
-          buildingName: rfq?.buildingName ?? null,
+      const [rfqForAccept] = await tx
+        .select()
+        .from(rfqsTable)
+        .where(eq(rfqsTable.id, updated.rfqId));
+      const [acceptedRep] = await tx
+        .select({ phone: usersTable.phone })
+        .from(usersTable)
+        .where(eq(usersTable.vendorId, updated.vendorId))
+        .orderBy(usersTable.createdAt)
+        .limit(1);
+      if (acceptedRep?.phone) {
+        const aligoMessage =
+          `[관리의달인] 견적이 채택되었습니다\n\n` +
+          `${rfqForAccept?.buildingName ?? ""}의 ${rfqForAccept?.title ?? "RFQ"} 견적이 채택되었습니다.\n` +
+          `채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원\n\n` +
+          `관리소장과 일정을 조율해 주세요.`;
+        pendingDispatches.push({
+          buildingId: rfqForAccept?.buildingId ?? null,
+          target: acceptedRep.phone,
+          templateCode: "quote_accepted_partner",
+          message: aligoMessage,
+          relatedEntityType: "quote",
+          relatedEntityId: updated.id,
         });
-        const baseBundleMetadata = {
-          rfqId: updated.rfqId,
-          acceptedQuoteId: updated.id,
-          acceptedVendorId: updated.vendorId,
-          acceptedVendorName: updated.vendorName,
-          rejectedQuoteIds: rejectedQuoteIdsForBundle,
-          rejectedVendorIds: rejectedVendorIdsForBundle,
-          totalAmount: updated.totalAmount,
-          autoCreated: true,
-        };
-
-        const approval = await saveProducingDocument({
-          executor: tx,
-          write: (exec) =>
-            exec
-              .insert(approvalsTable)
-              .values({
-                title,
-                description: `업체 선정 결재 (자동 생성) — ${updated.vendorName} (RFQ #${updated.rfqId}, 견적 #${updated.id}). 결재선을 추가한 뒤 상신하세요.`,
-                category: "other",
-                status: "pending",
-                isDraft: true,
-                requesterId: requesterId ?? 0,
-                requesterName: requester?.name ?? requester?.email ?? "system",
-                estimatedAmount: updated.totalAmount,
-                vendorName: updated.vendorName,
-                vendorQuoteDetails: updated.itemBreakdown ?? null,
-                totalSteps: 1,
-                currentStep: 1,
-              })
-              .returning()
-              .then((r) => r[0]),
-          document: {
-            // 트리거 1층이 박은 'approval' 을 'quote_bundle' 로 덮어쓴다.
-            kind: "quote_bundle",
-            sourceTable: "approvals",
-            state: "draft",
-            title: naming.title,
-            subtitle: `${updated.vendorName} · ₩${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}`,
-            authorId: requesterId,
-            // 견적 채택 행위자(manager/accountant/platform_admin) 의 실제 역할.
-            authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
-            buildingId: rfq?.buildingId ?? null,
-            href: (a) => `/approvals/${a.id}`,
-            metadata: baseBundleMetadata,
-          },
-        });
-
-        const contract = await saveProducingDocument({
-          executor: tx,
-          write: (exec) =>
-            exec
-              .insert(contractsTable)
-              .values({
-                buildingId: rfq?.buildingId ?? null,
-                buildingName: rfq?.buildingName ?? null,
-                vendorId: updated.vendorId,
-                vendorName: updated.vendorName,
-                category: rfq?.category ?? "other",
-                title,
-                rfqId: updated.rfqId,
-                quoteId: updated.id,
-                approvalId: approval.id,
-                contractAmount: updated.totalAmount,
-                status: "in_approval",
-                isRecurring: false,
-                notes: "견적 채택 시 자동 생성된 계약. 연결된 업체선정 품의가 최종 승인되면 자동으로 활성화됩니다.",
-              })
-              .returning()
-              .then((r) => r[0]),
-          document: {
-            kind: "contract",
-            sourceTable: "contracts",
-            state: "draft",
-            title,
-            authorId: requesterId,
-            authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
-            buildingId: rfq?.buildingId ?? null,
-            href: (c) => `/contracts?id=${c.id}`,
-            metadata: (c) => ({ vendorName: c.vendorName, status: c.status, autoCreated: true }),
-          },
-        });
-
-        // contract.id 를 quote_bundle metadata 에 추가하는 idempotent upsert.
-        // 같은 (sourceTable='approvals', sourceId=approval.id) 라 같은 documents 행을 갱신.
-        await registerDocument({
-          executor: tx,
-          kind: "quote_bundle",
-          sourceTable: "approvals",
-          sourceId: approval.id,
-          state: "draft",
-          title: naming.title,
-          subtitle: `${updated.vendorName} · ₩${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}`,
-          authorId: requesterId,
-          authorRole: (req.user?.role as DocumentAuthorRole) ?? null,
-          buildingId: rfq?.buildingId ?? null,
-          href: `/approvals/${approval.id}`,
-          metadata: { ...baseBundleMetadata, contractId: contract.id },
-        });
-
-        await insertNotification(
-          {
-            recipientType: "admin",
-            notificationType: "contract_auto_created",
-            title: "[계약] 견적 채택 → 품의·계약 자동 생성",
-            message: `${updated.vendorName} 견적 채택으로 업체선정 품의(#${approval.id})와 계약(#${contract.id})이 생성되었습니다. 결재선을 추가해 상신하세요.`,
-            relatedEntityType: "contract",
-            relatedEntityId: contract.id,
-          },
-          tx,
-        );
-
-        // [Task #335] 파트너에게 계약 초안 도착 알림. 파트너는 알림 클릭 후
-        // /vendor-portal?openContract={id} 딥링크로 진입해 "계약 내용에 동의" 한다.
-        await insertNotification(
-          {
-            recipientType: `vendor:${updated.vendorId}`,
-            notificationType: "contract_draft_ready",
-            title: "[계약] 견적이 채택되어 계약 초안이 생성되었습니다",
-            message: `[${rfq?.title ?? "RFQ"}] 견적이 채택되었습니다. 계약 내용을 확인하고 동의해주세요.`,
-            relatedEntityType: "contract",
-            relatedEntityId: contract.id,
-          },
-          tx,
-        );
-
-        // [Task #견적-알림톡 작업 C / #1·#2·#3 fix] 견적 채택 파트너 — vendor 대표자 1명만, tx 커밋 후 발송.
-        const [acceptedRep] = await tx
-          .select({ phone: usersTable.phone })
-          .from(usersTable)
-          .where(eq(usersTable.vendorId, updated.vendorId))
-          .orderBy(usersTable.createdAt)
-          .limit(1);
-        if (acceptedRep?.phone) {
-          const aligoMessage =
-            `[관리의달인] 견적이 채택되었습니다\n\n` +
-            `${rfq?.buildingName ?? ""}의 ${rfq?.title ?? "RFQ"} 견적이 채택되었습니다.\n` +
-            `채택 금액: ${Number(updated.totalAmount ?? 0).toLocaleString("ko-KR")}원\n\n` +
-            `관리소장과 일정을 조율해 주세요.`;
-          pendingDispatches.push({
-            buildingId: rfq?.buildingId ?? null,
-            target: acceptedRep.phone,
-            templateCode: "quote_accepted_partner",
-            message: aligoMessage,
-            relatedEntityType: "quote",
-            relatedEntityId: updated.id,
-          });
-        }
       }
     }
 

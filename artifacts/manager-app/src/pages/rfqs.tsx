@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import {
   useListRfqs,
@@ -9,19 +9,9 @@ import {
   useListQuotes,
   useUpdateQuote,
   useExpandRfqScope,
-  useGetQuote,
-  useGetRfqMatchedVendors,
   useListApprovals,
-  listContracts,
   getListRfqsQueryKey,
   getListQuotesQueryKey,
-  useListRfqMessages,
-  usePostRfqMessage,
-  useMarkRfqMessagesRead,
-  useListRfqSiteVisits,
-  useUpdateRfqSiteVisit,
-  getListRfqMessagesQueryKey,
-  getListRfqSiteVisitsQueryKey,
   type Vendor,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,23 +40,15 @@ import {
   Plus,
   FileText,
   CheckCircle,
-  XCircle,
   Trash2,
-  BarChart3,
-  MapPin,
   Expand,
   Printer,
   ChevronDown,
   ChevronUp,
-  MessageSquare,
-  CalendarDays,
-  Send,
   MoreVertical,
-  Users,
-  AlertTriangle,
   ClipboardList,
   Receipt,
-  HelpCircle,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -76,11 +58,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
 import { buildApprovalPrefillUrl } from "@/lib/approval-prefill";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
@@ -101,7 +78,6 @@ import EmptyQuoteRfqSuggestion from "@/components/dashboard-widgets/widgets/empt
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
-import { IntermediaryDisclaimerBanner, recordConsent } from "@/components/intermediary-disclaimer";
 import { RfqMatchStatsCard } from "@/pages/settings";
 import { VendorRatingInline } from "@/components/star-rating";
 import { RFQ_CATEGORY_OPTIONS as categoryOptions } from "@/lib/rfq-category-options";
@@ -132,9 +108,6 @@ function extractServerErrorMessage(err: unknown): string | null {
 
 export default function Rfqs() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [compareRfqId, setCompareRfqId] = useState<number | null>(null);
-  // [Task #612] 카드별로 메시지/현장방문 패널을 토글한다 (한 번에 하나만 열림).
-  const [commsRfqId, setCommsRfqId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | undefined>();
   const [closeUpPhotoUrl, setCloseUpPhotoUrl] = useState<string | null>(null);
   const [widePhotoUrl, setWidePhotoUrl] = useState<string | null>(null);
@@ -151,31 +124,34 @@ export default function Rfqs() {
   }
   const { data: rfqs, isLoading } = useListRfqs(queryParams);
   const { data: vendors } = useListVendors();
-  const { data: compareQuotes } = useListQuotes(
-    compareRfqId ? { rfqId: compareRfqId } : undefined,
-    { query: { enabled: !!compareRfqId } }
-  );
+  // 모든 견적을 한 번에 가져와 RFQ 카드 아래에 인라인으로 나열한다.
+  //   (이전: compareRfqId 토글 시에만 fetch → 카드 펼침/접힘 UI)
+  const { data: allQuotes } = useListQuotes(undefined, {
+    query: { staleTime: 30_000 },
+  });
   const createMutation = useCreateRfq();
   const updateMutation = useUpdateRfq();
   const deleteMutation = useDeleteRfq();
   const updateQuoteMutation = useUpdateQuote();
   const expandScopeMutation = useExpandRfqScope();
 
-  // [Task #335] /rfqs?openQuote={id} 딥링크 처리.
-  // 1) 견적 상세를 조회해 firstViewedAt 을 자동 세팅(서버측 quotes.ts:104) → 대시보드 알림 자동 소거.
-  // 2) 해당 견적이 속한 RFQ 의 비교 패널을 열어 매니저가 바로 채택 결정을 내릴 수 있게 한다.
-  const [openQuoteId, setOpenQuoteId] = useState<number | null>(null);
+  // /rfqs?openQuote, /rfqs?openVisit 같은 딥링크는 더 이상 펼침/패널 토글이
+  //   없으므로 URL 정리만 수행한다 (대시보드 알림은 invalidate).
   useEffect(() => {
     const url = new URL(window.location.href);
-    const q = url.searchParams.get("openQuote");
-    if (q) {
-      const id = Number(q);
-      if (!Number.isNaN(id)) setOpenQuoteId(id);
+    let touched = false;
+    if (url.searchParams.has("openQuote")) {
       url.searchParams.delete("openQuote");
-      window.history.replaceState({}, "", url.toString());
+      touched = true;
+      queryClient.invalidateQueries({ queryKey: ["/dashboard/alerts"] });
     }
-  }, []);
-  // /rfqs?new=1 — 대시보드 등에서 견적 요청 진입 시 작성 다이얼로그 자동 오픈 (URL 정리는 openQuote 와 동일 패턴).
+    if (url.searchParams.has("openVisit")) {
+      url.searchParams.delete("openVisit");
+      touched = true;
+    }
+    if (touched) window.history.replaceState({}, "", url.toString());
+  }, [queryClient]);
+  // /rfqs?new=1 — 대시보드 등에서 견적 요청 진입 시 작성 다이얼로그 자동 오픈.
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("new") === "1") {
@@ -184,30 +160,6 @@ export default function Rfqs() {
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
-  // [Phase1 마무리 D] /rfqs?openVisit={rfqId} — 현장 방문 알림 카드에서
-  //   진입 시 해당 RFQ 의 비교 패널을 자동으로 펼쳐서 매니저가 일정을 확인/
-  //   확정/조정할 수 있게 한다. URL 정리는 openQuote/new 패턴과 동일.
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const v = url.searchParams.get("openVisit");
-    if (v) {
-      const id = Number(v);
-      if (!Number.isNaN(id) && id > 0) setCompareRfqId(id);
-      url.searchParams.delete("openVisit");
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, []);
-  const { data: openedQuote } = useGetQuote(openQuoteId ?? 0, {
-    query: { enabled: openQuoteId !== null && openQuoteId > 0 },
-  });
-  useEffect(() => {
-    if (openedQuote && openedQuote.rfqId) {
-      setCompareRfqId(openedQuote.rfqId);
-      // 대시보드 알림 카드 즉시 갱신을 위해 alerts 쿼리도 invalidate.
-      queryClient.invalidateQueries({ queryKey: ["/dashboard/alerts"] });
-      setOpenQuoteId(null);
-    }
-  }, [openedQuote, queryClient]);
 
   function getDefaultDeadline(): string {
     // 오늘 + 1일을 YYYY-MM-DD 로 반환.
@@ -469,41 +421,31 @@ export default function Rfqs() {
     toast({ title: "견적 범위가 시/도 전체로 확대되었습니다" });
   }
 
-  async function handleAcceptQuote(quoteId: number) {
-    if (!token) {
-      toast({ title: "로그인이 필요합니다", variant: "destructive" });
-      return;
-    }
-    if (!confirm("견적을 채택하면 관리단과 파트너사 간의 직접 계약이 성립됩니다.\n플랫폼 운영사는 통신판매중개자로서 계약의 당사자가 아니며, 계약 이행·하자에 대한 책임을 지지 않습니다.\n\n위 내용을 확인하고 채택을 진행하시겠습니까?")) return;
+  async function handleAcceptQuote(quote: any) {
+    const vendorName = quote?.vendorName ?? "이 업체";
+    if (!confirm(`파트너사 "${vendorName}"를 선택하시겠습니까?`)) return;
     try {
-      await recordConsent(token, "contract_disclaimer", `quote_accept:${quoteId}`, { throwOnError: true });
-    } catch {
-      toast({ title: "동의 기록에 실패했습니다", variant: "destructive" });
-      return;
-    }
-    await updateQuoteMutation.mutateAsync({ id: quoteId, data: { status: "accepted" } });
-    queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
+      await updateQuoteMutation.mutateAsync({ id: quote.id, data: { status: "accepted" } });
+      queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
 
-    // [Task #335] 채택 직후 자동 생성된 계약 초안 페이지로 이동해 결재선·계약 진행을 바로 이어간다.
-    // listContracts 의 quoteId 필터로 단건 조회 (전체 스캔 회피).
-    try {
-      const contracts = await listContracts({ quoteId });
-      const created = contracts[0];
-      if (created) {
-        toast({ title: "견적이 채택되었습니다", description: "자동 생성된 계약 초안으로 이동합니다." });
-        setLocation(`/contracts?openContract=${created.id}`);
-        return;
-      }
+      // 계약 자동 생성/이동 없음. 채택 후 파트너 연락처를 토스트로 안내한다.
+      const v = vendorById.get(quote.vendorId);
+      const contactBits: string[] = [];
+      if (v?.contactName) contactBits.push(`담당자 ${v.contactName}`);
+      if (v?.phone) contactBits.push(`☎ ${v.phone}`);
+      toast({
+        title: `${vendorName} 선택 완료`,
+        description:
+          contactBits.length > 0
+            ? `직접 연락: ${contactBits.join(" · ")}`
+            : "파트너사 연락처가 등록되어 있지 않습니다.",
+      });
     } catch {
-      // 계약 목록 조회 실패 시 토스트만 띄우고 현재 화면 유지.
+      toast({
+        title: "처리에 실패했습니다. 다시 시도해 주세요.",
+        variant: "destructive",
+      });
     }
-    toast({ title: "견적이 채택되었습니다" });
-  }
-
-  async function handleRejectQuote(quoteId: number) {
-    await updateQuoteMutation.mutateAsync({ id: quoteId, data: { status: "rejected" } });
-    queryClient.invalidateQueries({ queryKey: getListQuotesQueryKey() });
-    toast({ title: "견적이 반려되었습니다" });
   }
 
   const categoryLabel = (c: string) =>
@@ -527,9 +469,26 @@ export default function Rfqs() {
     }
   };
 
-  // [Task #339] 견적 비교에서 업체별 누적 별점·건수를 빠르게 조회하기 위한 맵.
-  // [Task #407] 폼에서 "추가 발송 업체" 선택 목록이 제거되어 platformVendors 는 더 이상 사용되지 않음.
-  const vendorById = new Map<number, Vendor>((vendors || []).map((v) => [v.id, v]));
+  // RFQ 카드 아래 인라인 견적 카드에서 업체 메타(연락처/별점)를 빠르게 참조.
+  const vendorById = useMemo(
+    () => new Map<number, Vendor>((vendors || []).map((v) => [v.id, v])),
+    [vendors],
+  );
+
+  // RFQ id → 해당 RFQ 에 들어온 견적 배열. 카드 아래 인라인 나열용.
+  const quotesByRfqId = useMemo(() => {
+    const map = new Map<number, any[]>();
+    for (const q of (allQuotes ?? []) as any[]) {
+      const list = map.get(q.rfqId) ?? [];
+      list.push(q);
+      map.set(q.rfqId, list);
+    }
+    // 최신 제출 순으로 정렬.
+    for (const list of map.values()) {
+      list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    }
+    return map;
+  }, [allQuotes]);
 
   // [Task #682] 모든 결재를 한 번에 가져와 RFQ 별 파이프라인 배지에 사용한다.
   //   서버는 sourceEntityType/sourceEntityId 를 응답에 포함시키므로 (T001),
@@ -710,18 +669,12 @@ export default function Rfqs() {
             <RfqCard
               key={rfq.id}
               rfq={rfq}
+              quotes={quotesByRfqId.get(rfq.id) ?? []}
               relatedApprovals={approvalsByRfqId.get(rfq.id) ?? []}
               relatedVouchers={vouchersByRfqId.get(rfq.id) ?? []}
               relatedPaymentReqs={paymentReqsByRfqId.get(rfq.id) ?? []}
-              vendors={vendors || []}
-              compareOpen={compareRfqId === rfq.id}
-              commsOpen={commsRfqId === rfq.id}
-              onToggleCompare={() =>
-                setCompareRfqId(compareRfqId === rfq.id ? null : rfq.id)
-              }
-              onToggleComms={() =>
-                setCommsRfqId(commsRfqId === rfq.id ? null : rfq.id)
-              }
+              onAcceptQuote={handleAcceptQuote}
+              acceptPending={updateQuoteMutation.isPending}
               onOpenDoc={() =>
                 setRfqDocRfq({
                   title: rfq.title,
@@ -765,130 +718,8 @@ export default function Rfqs() {
               statusLabel={statusLabel}
               statusColor={statusColor}
               categoryLabel={categoryLabel}
-            >
-                {commsRfqId === rfq.id && (
-                  <RfqCommsPanel rfq={rfq} vendors={vendors || []} />
-                )}
+            />
 
-                {compareRfqId === rfq.id && (
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      견적서 비교
-                    </h4>
-                    <IntermediaryDisclaimerBanner className="mb-3" />
-                    {compareQuotes && compareQuotes.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-muted/50">
-                              <th className="text-left p-2 font-medium">업체</th>
-                              <th className="text-left p-2 font-medium">평가</th>
-                              <th className="text-right p-2 font-medium">견적 금액</th>
-                              <th className="text-center p-2 font-medium">예상 소요일</th>
-                              <th className="text-center p-2 font-medium">착수 가능일</th>
-                              <th className="text-center p-2 font-medium">유효기한</th>
-                              <th className="text-left p-2 font-medium">작업 범위</th>
-                              <th className="text-center p-2 font-medium">상태</th>
-                              <th className="text-center p-2 font-medium">관리</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {compareQuotes.map((q: any) => {
-                              // [Task #339] 업체별 누적 별점·건수 표시.
-                              const v = vendorById.get(q.vendorId);
-                              return (
-                              <tr key={q.id} className="border-b last:border-0">
-                                <td className="p-2 font-medium">{q.vendorName}</td>
-                                <td className="p-2">
-                                  <VendorRatingInline
-                                    avgRating={v?.avgRating}
-                                    reviewCount={v?.reviewCount}
-                                  />
-                                </td>
-                                <td className="p-2 text-right font-medium">{q.totalAmount.toLocaleString()}원</td>
-                                <td className="p-2 text-center">{q.estimatedDays ? `${q.estimatedDays}일` : "-"}</td>
-                                <td className="p-2 text-center">{q.availableDate ? formatDate(q.availableDate) : "-"}</td>
-                                <td className="p-2 text-center">{q.validUntil ? formatDate(q.validUntil) : "-"}</td>
-                                <td className="p-2 text-sm">{q.scope || "-"}</td>
-                                <td className="p-2 text-center">
-                                  <Badge variant={
-                                    q.status === "accepted" ? "default" :
-                                    q.status === "rejected" ? "destructive" : "secondary"
-                                  }>
-                                    {q.status === "submitted" ? "제출" : q.status === "accepted" ? "채택" : "반려"}
-                                  </Badge>
-                                </td>
-                                <td className="p-2 text-center">
-                                  {q.status === "submitted" && (
-                                    <div className="flex flex-wrap gap-1 justify-center">
-                                      {/* [Task #335] 견적 채택은 곧바로 업체선정 품의·계약을 자동 생성하므로
-                                          CTA 문구를 "수락하고 계약 진행" 으로 명시한다. */}
-                                      <Button size="sm" variant="outline" onClick={() => handleAcceptQuote(q.id)}>
-                                        <CheckCircle className="w-3 h-3 mr-1" />
-                                        수락하고 계약 진행
-                                      </Button>
-                                      {/* [Task #682 review-fix] 채택 직전에 본부장/총괄 라인이 필요한 경우를 위해
-                                          행 단위 "기안서 작성" 도 제공. 업체명/금액/예상 소요일을 prefill 한다. */}
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        data-testid={`quote-create-approval-${q.id}`}
-                                        onClick={() => {
-                                          const url = buildApprovalPrefillUrl({
-                                            kind: "rfq",
-                                            sourceTable: "rfqs",
-                                            sourceId: rfq.id,
-                                            title: `[파트너사 견적] ${rfq.title} — ${q.vendorName}`,
-                                            buildingId: rfq.buildingId ?? null,
-                                            vendorName: q.vendorName ?? null,
-                                            estimatedAmount: typeof q.totalAmount === "number" ? q.totalAmount : Number(q.totalAmount ?? 0) || null,
-                                            description: [
-                                              `견적 #${rfq.id} ${rfq.title}`,
-                                              `업체: ${q.vendorName} (견적 #${q.id})`,
-                                              `금액: ${Number(q.totalAmount ?? 0).toLocaleString()}원`,
-                                              q.estimatedDays ? `예상 소요: ${q.estimatedDays}일` : null,
-                                              q.scope ? `범위: ${q.scope}` : null,
-                                            ].filter(Boolean).join("\n"),
-                                            sourceEntityType: "rfq",
-                                            sourceEntityId: rfq.id,
-                                            // [Task #682 review-fix #2] 원본 RFQ 링크 + 첨부 사진을 결재 화면에 전달.
-                                            sourceUrl: `/rfqs?focus=${rfq.id}`,
-                                            photos: [rfq.closeUpPhotoUrl, rfq.widePhotoUrl],
-                                            metadata: { category: "maintenance" },
-                                          });
-                                          setLocation(url);
-                                        }}
-                                      >
-                                        <ClipboardList className="w-3 h-3 mr-1" />
-                                        기안서 작성
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => handleRejectQuote(q.id)}>
-                                        <XCircle className="w-3 h-3" />
-                                      </Button>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      // [Task #388] 제출된 견적이 0건인 경우에도 비교 견적 유도 카드 노출.
-                      <EmptyQuoteRfqSuggestion
-                        variant="rfqs-page-submitted"
-                        fallback={
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            아직 제출된 견적이 없습니다
-                          </p>
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-            </RfqCard>
           ))}
         </div>
       ) : (
@@ -912,10 +743,7 @@ export default function Rfqs() {
             data-testid="rfqs-empty-diagnostic"
           >
             <CardContent className="p-4 space-y-2">
-              <p className="font-medium text-sm flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-slate-500" />
-                매칭은 어떻게 동작하나요?
-              </p>
+              <p className="font-medium text-sm">매칭은 어떻게 동작하나요?</p>
               <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
                 <li>
                   견적 요청의 <strong>분야(category)</strong> 와{" "}
@@ -935,13 +763,6 @@ export default function Rfqs() {
           </Card>
         </div>
       )}
-
-      <ResponsiveDialog open={compareRfqId !== null && false} onOpenChange={() => setCompareRfqId(null)}>
-        <ResponsiveDialogContent className="max-w-4xl">
-          {/* 비교 패널은 별도 컴포넌트로 표시되므로 여기는 빈 컨테이너만 유지 */}
-          <></>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
 
       {rfqDocRfq && (
         <RfqRequestDocument
@@ -964,11 +785,9 @@ function RfqCard({
   relatedApprovals,
   relatedVouchers,
   relatedPaymentReqs,
-  vendors,
-  compareOpen,
-  commsOpen,
-  onToggleCompare,
-  onToggleComms,
+  quotes,
+  onAcceptQuote,
+  acceptPending,
   onOpenDoc,
   onExpandScope,
   onCloseRfq,
@@ -977,17 +796,14 @@ function RfqCard({
   statusLabel,
   statusColor,
   categoryLabel,
-  children,
 }: {
   rfq: any;
   relatedApprovals: any[];
   relatedVouchers: any[];
   relatedPaymentReqs: any[];
-  vendors: Vendor[];
-  compareOpen: boolean;
-  commsOpen: boolean;
-  onToggleCompare: () => void;
-  onToggleComms: () => void;
+  quotes: any[];
+  onAcceptQuote: (quote: any) => void | Promise<void>;
+  acceptPending: boolean;
   onOpenDoc: () => void;
   onExpandScope: () => void;
   onCloseRfq: () => void;
@@ -996,17 +812,7 @@ function RfqCard({
   statusLabel: (s: string) => string;
   statusColor: (s: string) => string;
   categoryLabel: (c: string) => string;
-  children?: React.ReactNode;
 }) {
-  // [Task #682] 매칭된 협력사 수를 RFQ 카드에서 직접 보여 주어 매니저가
-  //   "공고가 누구에게 갔는지" 한눈에 파악하게 한다. 0건이면 경고 톤으로
-  //   표시하고, 그 옆 dropdown menu 의 "범위 확대" 항목도 권장된다.
-  const { data: matchedVendors, isLoading: matchedLoading } =
-    useGetRfqMatchedVendors(rfq.id, {
-      query: { enabled: rfq.status === "open" },
-    });
-  const matchedCount = matchedVendors?.length ?? 0;
-
   // [Task #682 review-fix] 결재 파이프라인 상태 — 최근 결재 1건 + 후속 발행물.
   //   배지 1개로 끝내지 않고 "기안 → 지출결의 → 입금요청 → 출납기록/송금완료" 까지
   //   진행 단계를 모두 보여 주어 중복 진입을 막는다.
@@ -1073,147 +879,13 @@ function RfqCard({
               <Badge variant={statusColor(rfq.status) as any}>
                 {statusLabel(rfq.status)}
               </Badge>
-              {rfq.geoScope && (
-                <Badge variant="outline" className="text-xs">
-                  <MapPin className="w-3 h-3 mr-0.5" />
-                  {rfq.geoScope === "sigungu"
-                    ? `${rfq.sido} ${rfq.sigungu}`
-                    : rfq.sido}
-                </Badge>
-              )}
-              {rfq.requiresSiteVisit && (
-                <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
-                  <CalendarDays className="w-3 h-3 mr-0.5" />
-                  현장방문 필요
-                </Badge>
-              )}
-              {/* [Phase1 마무리 C] 마감 임박 — D-3 이하(과거는 여기 표시 안 함;
-                  마감일 지난 RFQ 는 status 가 closed/cancelled 로 바뀌므로 별도 라벨). */}
-              {(() => {
-                if (rfq.status !== "open" || !rfq.deadline) return null;
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dl = new Date(rfq.deadline);
-                dl.setHours(0, 0, 0, 0);
-                const days = Math.round(
-                  (dl.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
-                );
-                if (days < 0 || days > 3) return null;
-                return (
-                  <Badge
-                    className="bg-red-100 text-red-700 border border-red-300"
-                    data-testid={`rfq-deadline-soon-${rfq.id}`}
-                  >
-                    마감 임박 D-{days}
-                  </Badge>
-                );
-              })()}
-              {/* [Phase1 마무리 C] 매칭 중 — 등록 후 24시간 이내 + 견적 0건 추정.
-                  (RfqCard 단독에서 견적 카운트를 보장하기 어려우므로 createdAt 기반.) */}
-              {(() => {
-                if (rfq.status !== "open" || !rfq.createdAt) return null;
-                const ageMs = Date.now() - new Date(rfq.createdAt).getTime();
-                if (ageMs < 0 || ageMs > 24 * 60 * 60 * 1000) return null;
-                return (
-                  <Badge
-                    variant="outline"
-                    className="text-blue-700 border-blue-300 bg-blue-50"
-                    data-testid={`rfq-matching-${rfq.id}`}
-                  >
-                    파트너 매칭 중
-                  </Badge>
-                );
-              })()}
             </div>
-            {/* [Phase1 마무리 C] 매칭 중 안내문 — 파트너에게 견적이 도착할 때까지
-                기다려도 된다는 시그널을 매니저에게 분명히 전달. */}
-            {rfq.status === "open" &&
-              rfq.createdAt &&
-              Date.now() - new Date(rfq.createdAt).getTime() <
-                24 * 60 * 60 * 1000 && (
-                <p className="text-xs text-blue-700 mt-1">
-                  파트너사에서 견적을 준비하고 있어요
-                </p>
-              )}
 
-            {/* [Task #682] 매칭/파이프라인 배지 행 — 카드 식별 정보 바로 아래 */}
+            {/* 결재/지출/입금 파이프라인 배지 — 매칭/마감/방문 배지는 단순화로 제거됨 */}
             <div
               className="flex items-center gap-2 flex-wrap mt-1.5"
               data-testid={`rfq-pipeline-badges-${rfq.id}`}
             >
-              {rfq.status === "open" ? (
-                matchedLoading ? (
-                  <Badge variant="outline" className="text-xs">
-                    <Users className="w-3 h-3 mr-0.5" />
-                    매칭 확인 중…
-                  </Badge>
-                ) : matchedCount > 0 ? (
-                  // [Task #682 review-fix] 매칭 기준(분야 + 활동지역) 을 툴팁으로 설명.
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        className="bg-sky-100 text-sky-800 border border-sky-300 cursor-help"
-                        data-testid={`rfq-matched-badge-${rfq.id}`}
-                      >
-                        <Users className="w-3 h-3 mr-0.5" />
-                        매칭된 협력사 {matchedCount}곳
-                        <HelpCircle className="w-3 h-3 ml-1 opacity-60" />
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <div className="space-y-1 text-xs">
-                        <p className="font-medium">매칭 기준</p>
-                        <p>분야: {categoryLabel(rfq.category)}</p>
-                        {rfq.geoScope && (
-                          <p>
-                            활동지역:{" "}
-                            {rfq.geoScope === "sigungu"
-                              ? `${rfq.sido} ${rfq.sigungu}`
-                              : rfq.sido}{" "}
-                            ({rfq.geoScope === "sigungu" ? "시·군·구 일치" : "시·도 일치"})
-                          </p>
-                        )}
-                        <p className="text-muted-foreground">
-                          위 조건을 모두 만족하는 협력사에게 견적 요청이 노출됩니다.
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="destructive"
-                        className="cursor-help"
-                        data-testid={`rfq-matched-empty-${rfq.id}`}
-                      >
-                        <AlertTriangle className="w-3 h-3 mr-0.5" />
-                        매칭된 협력사 0곳 — 범위 확대 권장
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <div className="space-y-1 text-xs">
-                        <p className="font-medium">왜 0건일까요?</p>
-                        <p>
-                          분야 <strong>{categoryLabel(rfq.category)}</strong>
-                          {rfq.geoScope &&
-                            ` + 지역 ${
-                              rfq.geoScope === "sigungu"
-                                ? `${rfq.sido} ${rfq.sigungu}`
-                                : rfq.sido
-                            }`}{" "}
-                          조건을 만족하는 등록 협력사가 없습니다.
-                        </p>
-                        <p className="text-muted-foreground">
-                          오른쪽 메뉴의 "범위 확대"로 활동지역을 시·도까지 넓히면
-                          매칭이 늘어날 수 있습니다.
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              ) : null}
-
               {approvalBadge && (
                 <Badge
                   className={approvalBadge.className}
@@ -1243,14 +915,11 @@ function RfqCard({
               )}
             </div>
 
+            {/* 카드 메타 — 건물명/분류/마감일만 텍스트로 단순 표기 (희망일·용역 라벨 제거). */}
             <div className="flex gap-4 text-sm text-muted-foreground mt-2 flex-wrap">
               <span>건물: {rfq.buildingName}</span>
               <span>분류: {categoryLabel(rfq.category)}</span>
-              {rfq.serviceType && (
-                <span>용역: {rfqServiceTypeLabel(rfq.serviceType)}</span>
-              )}
               <span>마감: {formatDate(rfq.deadline)}</span>
-              {rfq.desiredDate && <span>희망일: {formatDate(rfq.desiredDate)}</span>}
             </div>
             {rfq.description && (
               <p className="text-sm text-muted-foreground mt-2">
@@ -1277,26 +946,8 @@ function RfqCard({
             )}
           </div>
 
-          {/* [Task #682] 액션 영역 — primary 2개 + kebab. */}
+          {/* 액션 영역 — kebab 만 유지 (견적 비교/소통/방문 버튼 제거). */}
           <div className="flex gap-1 items-start shrink-0">
-            <Button
-              variant={compareOpen ? "default" : "outline"}
-              size="sm"
-              onClick={onToggleCompare}
-              data-testid={`rfq-compare-toggle-${rfq.id}`}
-            >
-              <BarChart3 className="w-3.5 h-3.5 mr-1" />
-              견적 비교
-            </Button>
-            <Button
-              variant={commsOpen ? "default" : "outline"}
-              size="sm"
-              onClick={onToggleComms}
-              data-testid={`rfq-comms-toggle-${rfq.id}`}
-            >
-              <MessageSquare className="w-3.5 h-3.5 mr-1" />
-              소통/방문
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1362,301 +1013,71 @@ function RfqCard({
           </div>
         </div>
 
-        {/* 부모가 주입하는 인라인 패널(견적 비교/소통/방문) */}
-        {children}
+        {/* 들어온 견적 — 카드 형태로 나란히 나열, 카드당 "선택하기" 버튼 1개. */}
+        {quotes.length > 0 && (
+          <div
+            className="mt-4 border-t pt-4"
+            data-testid={`rfq-quotes-${rfq.id}`}
+          >
+            <h4 className="font-medium text-sm mb-3">받은 견적 {quotes.length}건</h4>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {quotes.map((q) => {
+                const isAccepted = q.status === "accepted";
+                const isRejected = q.status === "rejected";
+                return (
+                  <div
+                    key={q.id}
+                    className={`rounded-lg border p-4 flex flex-col gap-2 ${
+                      isAccepted
+                        ? "border-primary bg-primary/5"
+                        : "bg-card"
+                    }`}
+                    data-testid={`rfq-quote-card-${q.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">
+                        {q.vendorName}
+                      </span>
+                      {isAccepted && (
+                        <Badge className="bg-primary text-primary-foreground text-[10px]">
+                          선택됨
+                        </Badge>
+                      )}
+                      {isRejected && (
+                        <Badge variant="outline" className="text-[10px]">
+                          반려
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold tabular-nums">
+                      {Number(q.totalAmount ?? 0).toLocaleString()}
+                      <span className="text-sm font-medium text-muted-foreground ml-1">
+                        원
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      제출일 {formatDate(q.createdAt)}
+                    </div>
+                    {q.status === "submitted" && (
+                      <Button
+                        size="sm"
+                        className="mt-1 w-full"
+                        onClick={() => onAcceptQuote(q)}
+                        disabled={acceptPending}
+                        data-testid={`rfq-quote-accept-${q.id}`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        선택하기
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-// [Task #612] 한 RFQ 안에서 매니저가 ① 응찰한 파트너를 골라 ② 메시지를 주고
-//   받고 ③ 파트너가 제안한 현장방문 슬롯을 확정/취소할 수 있는 인라인 패널.
-//   파트너별로 메시지 스레드와 site-visit 행이 분리되므로 vendor select 가 필수.
-function RfqCommsPanel({
-  rfq,
-  vendors,
-}: {
-  rfq: { id: number; requiresSiteVisit?: boolean };
-  vendors: Vendor[];
-}) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  // 이 RFQ 에 견적을 낸 파트너만 후보로 노출 (전체 vendor 중 quote 가 있는 업체).
-  const { data: rfqQuotes } = useListQuotes({ rfqId: rfq.id });
-  const candidateVendorIds = Array.from(
-    new Set((rfqQuotes || []).map((q: any) => q.vendorId)),
-  );
-  const candidates = vendors.filter((v) => candidateVendorIds.includes(v.id));
-  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(
-    candidates[0]?.id ?? null,
-  );
-  useEffect(() => {
-    if (selectedVendorId == null && candidates[0]) {
-      setSelectedVendorId(candidates[0].id);
-    }
-  }, [candidates, selectedVendorId]);
-
-  const { data: thread } = useListRfqMessages(
-    rfq.id,
-    selectedVendorId ? { vendorId: selectedVendorId } : undefined,
-    { query: { enabled: !!selectedVendorId } },
-  );
-  const { data: visits } = useListRfqSiteVisits(rfq.id);
-  const postMsg = usePostRfqMessage();
-  const markRead = useMarkRfqMessagesRead();
-  const updateVisit = useUpdateRfqSiteVisit();
-
-  // 패널 진입 시 매니저 측 읽음 처리.
-  useEffect(() => {
-    if (!selectedVendorId || !thread) return;
-    if (thread.messages.length === 0) return;
-    if (thread.readByManagerAt) return;
-    markRead.mutate(
-      { id: rfq.id, data: { vendorId: selectedVendorId } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({
-            queryKey: getListRfqMessagesQueryKey(rfq.id, { vendorId: selectedVendorId }),
-          });
-        },
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVendorId, thread?.messages.length]);
-
-  const [body, setBody] = useState("");
-  async function handleSend() {
-    if (!selectedVendorId || !body.trim()) return;
-    try {
-      await postMsg.mutateAsync({
-        id: rfq.id,
-        data: { vendorId: selectedVendorId, body: body.trim() },
-      });
-      setBody("");
-      queryClient.invalidateQueries({
-        queryKey: getListRfqMessagesQueryKey(rfq.id, { vendorId: selectedVendorId }),
-      });
-    } catch (err) {
-      toast({ title: "메시지 전송 실패", variant: "destructive" });
-    }
-  }
-
-  async function handleConfirmSlot(visitId: number, slot: string) {
-    try {
-      await updateVisit.mutateAsync({
-        rfqId: rfq.id,
-        id: visitId,
-        data: { status: "confirmed", confirmedSlot: slot },
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListRfqSiteVisitsQueryKey(rfq.id),
-      });
-      toast({ title: "현장방문 일정이 확정되었습니다" });
-    } catch {
-      toast({ title: "확정 실패", variant: "destructive" });
-    }
-  }
-
-  async function handleCancelVisit(visitId: number) {
-    try {
-      await updateVisit.mutateAsync({
-        rfqId: rfq.id,
-        id: visitId,
-        data: { status: "cancelled" },
-      });
-      queryClient.invalidateQueries({
-        queryKey: getListRfqSiteVisitsQueryKey(rfq.id),
-      });
-      toast({ title: "현장방문이 취소되었습니다" });
-    } catch {
-      toast({ title: "취소 실패", variant: "destructive" });
-    }
-  }
-
-  const visitsForVendor = (visits || []).filter(
-    (v: any) => v.vendorId === selectedVendorId,
-  );
-
-  return (
-    <div className="mt-4 border-t pt-4 space-y-4">
-      <h4 className="font-medium text-sm flex items-center gap-2">
-        <MessageSquare className="w-4 h-4" />
-        파트너 소통 / 현장방문
-      </h4>
-      {candidates.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          아직 응찰한 파트너가 없습니다. 견적이 들어오면 메시지를 주고받을 수 있습니다.
-        </p>
-      ) : (
-        <>
-          <div className="flex items-center gap-2">
-            <Label className="text-xs whitespace-nowrap">대화 상대</Label>
-            <Select
-              value={selectedVendorId ? String(selectedVendorId) : undefined}
-              onValueChange={(v) => setSelectedVendorId(Number(v))}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="파트너 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {candidates.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 메시지 스레드 */}
-          <div className="border rounded-md">
-            <div className="max-h-60 overflow-y-auto p-3 space-y-2 bg-muted/20">
-              {thread?.messages.length ? (
-                thread.messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex flex-col text-sm ${
-                      m.senderRole === "manager" || m.senderRole === "platform_admin" || m.senderRole === "hq_executive"
-                        ? "items-end"
-                        : "items-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] rounded-md px-3 py-2 whitespace-pre-wrap ${
-                        m.senderRole === "manager" || m.senderRole === "platform_admin" || m.senderRole === "hq_executive"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card border"
-                      }`}
-                    >
-                      {m.body}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">
-                      {m.senderName || m.senderRole} · {new Date(m.createdAt).toLocaleString("ko-KR")}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-6">
-                  메시지가 없습니다. 첫 메시지를 보내보세요.
-                </p>
-              )}
-            </div>
-            <div className="border-t p-2 flex gap-2">
-              <Textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="메시지를 입력하세요"
-                className="min-h-[44px] text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={postMsg.isPending || !body.trim()}
-              >
-                <Send className="w-3.5 h-3.5 mr-1" />
-                보내기
-              </Button>
-            </div>
-          </div>
-
-          {/* 현장방문 일정 */}
-          {(rfq.requiresSiteVisit || visitsForVendor.length > 0) && (
-            <div className="border rounded-md p-3 space-y-2">
-              <h5 className="text-sm font-medium flex items-center gap-2">
-                <CalendarDays className="w-4 h-4" />
-                현장방문 일정
-              </h5>
-              {visitsForVendor.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  파트너가 아직 방문 일정을 제안하지 않았습니다.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {visitsForVendor.map((v: any) => {
-                    let slots: string[] = [];
-                    try {
-                      slots = JSON.parse(v.proposedSlots || "[]");
-                    } catch {
-                      slots = [];
-                    }
-                    return (
-                      <div key={v.id} className="border rounded p-2 text-sm">
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge
-                            variant="outline"
-                            className={
-                              v.status === "confirmed"
-                                ? "border-emerald-300 text-emerald-700"
-                                : v.status === "cancelled"
-                                ? "border-red-300 text-red-700"
-                                : "border-amber-300 text-amber-700"
-                            }
-                          >
-                            {v.status === "proposed"
-                              ? "제안됨"
-                              : v.status === "confirmed"
-                              ? "확정"
-                              : v.status === "cancelled"
-                              ? "취소"
-                              : "완료"}
-                          </Badge>
-                          {v.confirmedSlot && (
-                            <span className="text-xs text-muted-foreground">
-                              확정: {new Date(v.confirmedSlot).toLocaleString("ko-KR")}
-                            </span>
-                          )}
-                        </div>
-                        {v.notes && <p className="text-xs text-muted-foreground mb-1">{v.notes}</p>}
-                        {v.status === "proposed" && (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">제안된 슬롯</p>
-                            {slots.map((s) => (
-                              <div key={s} className="flex items-center justify-between gap-2">
-                                <span className="text-sm">
-                                  {new Date(s).toLocaleString("ko-KR")}
-                                </span>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleConfirmSlot(v.id, s)}
-                                  disabled={updateVisit.isPending}
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  이 시간으로 확정
-                                </Button>
-                              </div>
-                            ))}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleCancelVisit(v.id)}
-                              className="text-destructive"
-                            >
-                              <XCircle className="w-3 h-3 mr-1" />
-                              취소
-                            </Button>
-                          </div>
-                        )}
-                        {v.status === "confirmed" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleCancelVisit(v.id)}
-                            className="text-destructive"
-                          >
-                            <XCircle className="w-3 h-3 mr-1" />
-                            확정 취소
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
