@@ -36,10 +36,10 @@ interface PresentationProps {
  */
 export function BuildingInfoCardView({
   data,
-  // [Task #458] 대시보드 ‘건물 정보’ 카드의 ‘자세히’ 버튼은 설정의 건물정보 수정 화면으로 이동.
-  // 기존 `/building-info` 는 일부 사용자에게 “건물 현황을 불러올 수 없습니다” 에러로 보였다.
-  // [Task #485] 단독 페이지 분리 후 진입점은 /settings/building.
-  detailHref = "/settings/building",
+  // [Task #871] 대시보드 ‘건물 정보’ 카드의 ‘자세히’ 버튼은 사이드바 ‘건물 정보’ 메뉴와
+  // 동일한 읽기용 화면(/building-info)으로 통일한다. (이전: 역할별로 /settings/building 또는
+  // /building-info 로 분기 — Task #458 / #485 / #568 의 분기 결정을 본 결정으로 대체.)
+  detailHref = "/building-info",
   className,
 }: PresentationProps) {
   const address = data.addressFull || data.addressJibun || null;
@@ -154,15 +154,12 @@ function Stat({
  * 건물이 없으면 등록 안내 카드를 표시합니다.
  */
 export function BuildingInfoCard({ className }: { className?: string }) {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const { building } = useBuilding();
-  // [Task #568] /settings/building 은 manager / platform_admin 만 접근 가능하므로
-  //   accountant / facility_staff 의 "자세히" 버튼은 권한이 열린 /building-info 로 보낸다.
-  //   대시보드 BuildingInfoCard 가 세 역할 모두에서 동일하게 동작하도록 한다.
-  const detailHref =
-    user?.role === "accountant" || user?.role === "facility_staff"
-      ? "/building-info"
-      : "/settings/building";
+  // [Task #871] 모든 역할(manager · accountant · facility_staff · platform_admin · hq_executive)
+  //   에서 대시보드 ‘건물 정보’ 카드의 ‘자세히’ 버튼은 사이드바 ‘건물 정보’ 메뉴와 동일한
+  //   읽기용 화면(/building-info)으로 통일한다. (이전 역할별 분기 — Task #568 — 제거.)
+  const detailHref = "/building-info";
   const [loading, setLoading] = useState(true);
   const [extra, setExtra] = useState<BuildingInfoCardData | null>(null);
 
