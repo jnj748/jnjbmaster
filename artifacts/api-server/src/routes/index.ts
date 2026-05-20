@@ -81,6 +81,8 @@ import referralsRouter from "./referrals";
 import hqAssignmentsRouter from "./hqAssignments";
 import noticeLayoutRouter from "./noticeLayout";
 import platformSettingsRouter from "./platformSettings";
+// [사장님요청] 본사 — 관리소장/파트너사 현황 활동 집계 (일지/주보/월보/견적/공고문사용 또는 견적제출).
+import platformActivityRouter from "./platformActivity";
 import roleMenuOverridesRouter from "./roleMenuOverrides";
 import contractsRouter, { partnerContractsRouter } from "./contracts";
 import aiAssistantRouter from "./aiAssistant";
@@ -174,6 +176,7 @@ router.use(referralsRouter);
 router.use(hqAssignmentsRouter);
 router.use(noticeLayoutRouter);
 router.use(platformSettingsRouter);
+router.use(platformActivityRouter);
 router.use(portfolioAnomaliesRouter);
 // [Task #781] /dispatch/* — buildingRouter 밖, 본인 building scope 는 라우터 내부에서.
 router.use(dispatchRouter);

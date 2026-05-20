@@ -10,13 +10,18 @@ import {
   UserPlus,
   ChevronRight,
   CalendarClock,
+  Activity,
 } from "lucide-react";
 import { ROLE_LABELS } from "@workspace/shared/role-labels";
 
 // [Task #267] 플랫폼 — 역할별 가입/활동 현황 페이지.
 //   5개 라우트(/platform/managers, accountants, facility-staff, hq-executives, partners)가
 //   동일 레이아웃을 공유하므로 단일 컴포넌트를 매개변수화하고 얇은 래퍼 5개로 export.
-//   백엔드 신규 엔드포인트 없이 기존 GET /api/users 만 사용한다.
+//   기본 가입 현황은 GET /api/users 사용.
+//
+// [사장님요청] manager / partner 의 경우 GET /api/platform/role-activity?role=...
+//   를 추가로 호출해 각 사용자별 최근 5개 액션(일지/주보/월보/견적/공고문사용 또는
+//   견적제출)과 30일 이용도(활성화도) 를 함께 노출한다.
 
 interface UserRecord {
   id: number;
@@ -27,6 +32,53 @@ interface UserRecord {
   createdAt: string;
   buildingId: number | null;
 }
+
+type ActionType =
+  | "journal"
+  | "weekly"
+  | "monthly"
+  | "rfq"
+  | "noticeOutput"
+  | "quote";
+
+interface ActionRecord {
+  type: ActionType;
+  occurredAt: string;
+  title: string;
+}
+
+interface UserActivityRow {
+  userId: number;
+  name: string;
+  email: string | null;
+  username: string | null;
+  buildingId: number | null;
+  buildingName: string | null;
+  vendorId: number | null;
+  vendorName: string | null;
+  totalCount30d: number;
+  lastActionAt: string | null;
+  breakdown: Record<string, number>;
+  recentActions: ActionRecord[];
+}
+
+const ACTION_LABEL: Record<ActionType, string> = {
+  journal: "일지",
+  weekly: "주보",
+  monthly: "월보",
+  rfq: "견적",
+  noticeOutput: "공고문",
+  quote: "견적제출",
+};
+
+const ACTION_BADGE: Record<ActionType, string> = {
+  journal: "bg-blue-100 text-blue-700",
+  weekly: "bg-emerald-100 text-emerald-700",
+  monthly: "bg-violet-100 text-violet-700",
+  rfq: "bg-amber-100 text-amber-700",
+  noticeOutput: "bg-pink-100 text-pink-700",
+  quote: "bg-indigo-100 text-indigo-700",
+};
 
 const ROLE_META: Record<
   string,
@@ -61,12 +113,44 @@ const ROLE_META: Record<
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function formatRelative(iso: string | null): string {
+  if (!iso) return "—";
+  const ts = new Date(iso).getTime();
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return "방금";
+  if (diff < 60 * 60_000) return `${Math.floor(diff / 60_000)}분 전`;
+  if (diff < 24 * 60 * 60_000) return `${Math.floor(diff / (60 * 60_000))}시간 전`;
+  if (diff < 30 * DAY_MS) return `${Math.floor(diff / DAY_MS)}일 전`;
+  return new Date(iso).toLocaleDateString("ko-KR");
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("ko-KR")} ${d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function activityLevel(count: number): {
+  label: string;
+  className: string;
+} {
+  if (count >= 20) return { label: "활성", className: "bg-emerald-100 text-emerald-700" };
+  if (count >= 5) return { label: "보통", className: "bg-amber-100 text-amber-700" };
+  if (count >= 1) return { label: "저조", className: "bg-orange-100 text-orange-700" };
+  return { label: "휴면", className: "bg-slate-100 text-slate-500" };
+}
+
 function RoleStatusPage({ role }: { role: string }) {
   const { token } = useAuth();
   const [, navigate] = useLocation();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // [사장님요청] 활동 집계 — manager / partner 만 호출.
+  const supportsActivity = role === "manager" || role === "partner";
+  const [activity, setActivity] = useState<UserActivityRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(supportsActivity);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const BASE = import.meta.env.BASE_URL ?? "/";
   const API_BASE = `${BASE}api`;
@@ -89,6 +173,32 @@ function RoleStatusPage({ role }: { role: string }) {
       }
     })();
   }, [token, API_BASE]);
+
+  useEffect(() => {
+    if (!supportsActivity) {
+      setActivityLoading(false);
+      return;
+    }
+    setActivityLoading(true);
+    setActivityError(null);
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/platform/role-activity?role=${role}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) throw new Error("활동 집계를 불러올 수 없습니다");
+        const data: UserActivityRow[] = await res.json();
+        setActivity(data);
+      } catch (e) {
+        setActivityError(
+          e instanceof Error ? e.message : "오류가 발생했습니다",
+        );
+      } finally {
+        setActivityLoading(false);
+      }
+    })();
+  }, [token, API_BASE, role, supportsActivity]);
 
   const meta = ROLE_META[role] ?? {
     label: role,
@@ -217,6 +327,133 @@ function RoleStatusPage({ role }: { role: string }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* [사장님요청] manager / partner 만 활동 집계 노출. */}
+      {supportsActivity && (
+        <Card data-testid={`role-activity-${role}`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              {role === "manager"
+                ? "소장별 최근 활동 (최근 90일, 30일 이용도)"
+                : "파트너사별 견적 제출 활동 (최근 90일, 30일 이용도)"}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {role === "manager"
+                ? "일지 · 주보 · 월보 · 견적 · 공고문사용 5종을 합산한 활동 지표입니다. 견적은 같은 건물의 모든 소장에게 동일하게 카운트됩니다."
+                : "vendor 에 연결된 사용자가 제출한 견적(quotes) 을 집계합니다."}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {activityError && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm mb-3">
+                {activityError}
+              </div>
+            )}
+            {activityLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                활동 집계를 불러오는 중...
+              </p>
+            ) : activity.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                집계할 사용자가 없습니다
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {activity.map((row) => {
+                  const lvl = activityLevel(row.totalCount30d);
+                  return (
+                    <div
+                      key={row.userId}
+                      className="border rounded-lg p-3 space-y-2"
+                      data-testid={`activity-row-${row.userId}`}
+                    >
+                      <div className="flex items-start justify-between flex-wrap gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold">{row.name}</p>
+                            <Badge className={`text-[11px] ${lvl.className}`}>
+                              {lvl.label} · 30일 {row.totalCount30d}건
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {row.email ?? row.username ?? `user#${row.userId}`}
+                            {row.buildingName ? ` · 🏢 ${row.buildingName}` : ""}
+                            {row.vendorName ? ` · 🛠️ ${row.vendorName}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[11px] text-muted-foreground">
+                            마지막 액션
+                          </p>
+                          <p className="text-xs font-medium">
+                            {formatRelative(row.lastActionAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 30일 종류별 분포 */}
+                      {Object.keys(row.breakdown).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {(role === "manager"
+                            ? ([
+                                "journal",
+                                "weekly",
+                                "monthly",
+                                "rfq",
+                                "noticeOutput",
+                              ] as ActionType[])
+                            : (["quote"] as ActionType[])
+                          )
+                            .filter((t) => (row.breakdown[t] ?? 0) > 0)
+                            .map((t) => (
+                              <span
+                                key={t}
+                                className={`text-[11px] px-2 py-0.5 rounded ${ACTION_BADGE[t]}`}
+                              >
+                                {ACTION_LABEL[t]} {row.breakdown[t]}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* 최근 5개 액션 */}
+                      {row.recentActions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">
+                          최근 90일 내 액션 없음
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {row.recentActions.map((a, idx) => (
+                            <div
+                              key={`${a.type}-${a.occurredAt}-${idx}`}
+                              className="flex items-center justify-between text-xs gap-2"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${ACTION_BADGE[a.type]}`}
+                                >
+                                  {ACTION_LABEL[a.type]}
+                                </span>
+                                <span className="truncate text-slate-700">
+                                  {a.title}
+                                </span>
+                              </div>
+                              <span className="text-muted-foreground shrink-0">
+                                {formatDateTime(a.occurredAt)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
