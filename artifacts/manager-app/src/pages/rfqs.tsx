@@ -74,7 +74,6 @@ import { PhotoUploadField } from "@/components/photo-upload-field";
 import { RfqRequestDocument, type RfqDocumentData } from "@/components/rfq-request-document";
 // [Task #388] 견적 요청이 0건일 때, 곧 도래하는 필수/제안 업무를 활용한
 //   비교 견적 유도 카드를 노출한다. 적합한 알림이 없으면 기존 빈 상태 폴백.
-import EmptyQuoteRfqSuggestion from "@/components/dashboard-widgets/widgets/empty-quote-rfq-suggestion";
 import { useAuth } from "@/contexts/auth-context";
 import { useBuilding } from "@/contexts/building-context";
 import { AuthImage } from "@/components/auth-image";
@@ -723,45 +722,28 @@ export default function Rfqs() {
           ))}
         </div>
       ) : (
-        // [Task #388] 적합한 알림이 잡히면 비교 견적 유도 카드, 없으면 기존 빈 상태.
-        // [Task #682 review-fix] 빈 상태일 때 "왜 RFQ 가 안 보이는지" 진단 — 공고를
-        //   올렸는데도 협력사가 응답하지 않는 케이스와 그냥 한 건도 없는 케이스를 구분.
-        <div className="space-y-3">
-          <EmptyQuoteRfqSuggestion
-            variant="rfqs-page"
-            fallback={
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                  <p className="text-muted-foreground">견적 요청이 없습니다</p>
-                </CardContent>
-              </Card>
-            }
-          />
-          <Card
-            className="border-slate-200 bg-slate-50/50"
-            data-testid="rfqs-empty-diagnostic"
-          >
-            <CardContent className="p-4 space-y-2">
-              <p className="font-medium text-sm">매칭은 어떻게 동작하나요?</p>
-              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1">
-                <li>
-                  견적 요청의 <strong>분야(category)</strong> 와{" "}
-                  <strong>활동지역</strong> 두 가지가 모두 일치하는 협력사에게만
-                  공고가 노출됩니다.
-                </li>
-                <li>
-                  지역 옵션은 시·도 단위 또는 시·군·구 단위입니다. 시·군·구로
-                  좁혀 두면 더 가까운 업체만 보지만, 매칭 수가 줄어듭니다.
-                </li>
-                <li>
-                  매칭 수가 0 이라면 견적 요청 카드의 "범위 확대"로 시·도까지 넓히거나,
-                  분야 설정을 다시 확인해 주세요.
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+        // [2026-05 사용자 요청] Phase 1 — 법정업무 기반 추천 문구·매칭 안내 제거.
+        //   단순·따뜻한 통일 문구 + 견적 요청 버튼 1개로 정리.
+        <Card data-testid="rfqs-empty-state">
+          <CardContent className="py-12 px-4 text-center space-y-4">
+            <FileText className="w-12 h-12 mx-auto text-muted-foreground/30" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">수리·수선·교체가 필요하신가요?</p>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {"파트너사에게 견적을 요청하면\n여러 업체의 견적을 한 번에 비교할 수 있습니다."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setDialogOpen(true)}
+              style={{ background: "var(--brand)", color: "#fff" }}
+              data-testid="rfqs-empty-create"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              견적 요청하기
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {rfqDocRfq && (
