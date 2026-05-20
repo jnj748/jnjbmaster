@@ -158,12 +158,25 @@ type RfqRowDateFields = {
   id?: number;
   category?: string | null;
   serviceType?: string | null;
+  status?: string | null;
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
   deadline?: Date | string | null;
   desiredDate?: Date | string | null;
+  closedAt?: Date | string | null;
 };
 
+// [Fix 2026-05-20] 파트너 GET /rfqs 500 원인:
+//   (1) quotes.ts:645 에서 견적 채택 시 RFQ.status='awarded' 로 마감하지만
+//       OpenAPI 응답 enum 은 [open, closed, cancelled] 만 허용 → Zod 검증 실패
+//   (2) closedAt 이 Date 객체로 직렬화돼 spec 의 string(date-time) 와 불일치
+//   비즈니스 로직(`status === 'awarded'` 분기, rfqs.ts:402/675) 와의 호환을 위해
+//   DB 쓰기는 그대로 두고 응답 단계에서만 'awarded' → 'closed' 로 정규화한다.
+const RFQ_STATUS_RESPONSE_VALUES: ReadonlySet<string> = new Set([
+  "open",
+  "closed",
+  "cancelled",
+]);
 function serializeRfqRow<T extends RfqRowDateFields>(row: T): T {
   let category = row.category ?? null;
   let serviceType = row.serviceType ?? null;
@@ -175,14 +188,22 @@ function serializeRfqRow<T extends RfqRowDateFields>(row: T): T {
     if (typeof row.id === "number") warnLegacyRfqEnumOnce(row.id, "serviceType", serviceType);
     serviceType = null;
   }
+  let status = row.status ?? null;
+  if (status != null && !RFQ_STATUS_RESPONSE_VALUES.has(status)) {
+    // 'awarded' (legacy) 또는 미래 상태값은 클라이언트 호환을 위해 'closed' 로 매핑.
+    if (typeof row.id === "number") warnLegacyRfqEnumOnce(row.id, "status", status);
+    status = "closed";
+  }
   return {
     ...row,
     category: category as T["category"],
     serviceType: serviceType as T["serviceType"],
+    status: status as T["status"],
     desiredDate: toIsoDate(row.desiredDate),
     deadline: toIsoDate(row.deadline),
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+    closedAt: row.closedAt instanceof Date ? row.closedAt.toISOString() : row.closedAt,
   };
 }
 
