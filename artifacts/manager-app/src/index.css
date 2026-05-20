@@ -85,11 +85,15 @@
 
 :root {
   /* [Phase 1] 관리소장 브랜드 색상 토큰 */
-  --brand: #1a6b4a;
-  --brand-light: #e8f5ef;
-  --brand-dark: #1a3d2b;
-  --brand-mid: #2d6b4a;
-  --brand-border: #b2d8c4;
+  /* [2026-05 사용자 요청] 브랜드 컬러를 그린 → 퍼플(indigo-600 #4F46E5) 로 전환.
+     사이드바 하이라이트(--sidebar-primary), --primary, --accent 와 같은 244 75% 59%
+     계열로 묶어 한 색으로 통일. 영향: 관리소장 모바일 헤더, 대시보드 버튼(.bg-brand,
+     .manager-phase1-btn), 데스크톱 우하단 업무기록 FAB, 모바일 하단 + 버튼 모두 퍼플. */
+  --brand: #4f46e5;
+  --brand-light: #eef2ff;
+  --brand-dark: #3730a3;
+  --brand-mid: #4338ca;
+  --brand-border: #c7d2fe;
 
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -103,15 +107,15 @@
   --card: 0 0% 100%;
   --card-foreground: 215 25% 15%;
   --card-border: 214 20% 90%;
-  --sidebar: 212 72% 15%;
-  --sidebar-foreground: 210 17% 98%;
-  --sidebar-border: 212 60% 25%;
-  /* [2026-05 사용자 요청] 사이드바 활성 항목 + 대시보드 버튼 퍼플톤(indigo-600 #4F46E5)
-     으로 통일. 기존 (243 100% 68%) 보다 살짝 진하고 표준 indigo 와 일치한다. */
+  /* [2026-05 사용자 요청] 사이드바 배경 화이트 + 글씨 다크. 활성 항목·hover 는
+     브랜드 퍼플(indigo-600) 계열 라이트로 살짝 음영. 다크 네이비 사이드바 폐기. */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 215 25% 15%;
+  --sidebar-border: 214 20% 90%;
   --sidebar-primary: 244 75% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 212 50% 22%;
-  --sidebar-accent-foreground: 210 15% 90%;
+  --sidebar-accent: 244 75% 96%;
+  --sidebar-accent-foreground: 244 75% 30%;
   --sidebar-ring: 244 75% 59%;
   --popover: 0 0% 100%;
   --popover-foreground: 215 25% 15%;
