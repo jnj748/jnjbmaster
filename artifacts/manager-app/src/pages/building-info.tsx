@@ -182,41 +182,10 @@ export default function BuildingInfo() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3">
-        <StatCard
-          icon={Layers}
-          label="세대수"
-          value={b.totalUnits ? `${b.totalUnits}세대` : "-"}
-          sub={b.totalFloors ? `지상 ${b.totalFloors}층 / 지하 ${b.basementFloors || 0}층` : undefined}
-          color="blue"
-        />
-        <StatCard
-          icon={Building}
-          label="연면적"
-          value={b.totalArea ? `${Number(b.totalArea).toLocaleString()}㎡` : "-"}
-          sub={b.landArea ? `대지 ${Number(b.landArea).toLocaleString()}㎡` : undefined}
-          color="teal"
-        />
-        <StatCard
-          icon={Users}
-          label="입주율"
-          value={`${data.occupancy.rate}%`}
-          sub={`${data.occupancy.occupied}/${data.occupancy.totalUnits} 호실`}
-          color="green"
-        />
-        <StatCard
-          icon={Car}
-          label="차량 등록"
-          value={`${data.vehicles.total}대`}
-          color="purple"
-        />
-      </div>
-
-      <LegalStaffingCard
-        totalArea={b.totalArea as number | string | null | undefined}
-        electricCapacityKw={b.electricCapacityKw as number | string | null | undefined}
-        token={token}
-      />
+      {/* [Task #873] 사장님 요청: 세대수/연면적/입주율/차량등록 4종 StatCard 와
+          법적선임 현황 카드(LegalStaffingCard) 숨김. 동일 정보는 다른 화면
+          (호실관리·차량관리·법정선임 메뉴) 에서 조회 가능하므로 건물정보
+          상단을 간결하게 유지. */}
 
       {!!(b.buildingArea || b.buildingCoverageRatio || b.floorAreaRatio) && (
         <Card>
@@ -271,7 +240,8 @@ export default function BuildingInfo() {
 
       <BuildingRegisterDetailsCard registerData={b.registerData as RegisterRaw} />
 
-      <BuildingExposeAreasCard buildingId={Number(b.id) || null} />
+      {/* [Task #873] /building-info 에서는 호실 리스트가 길어 기본 접어둠. */}
+      <BuildingExposeAreasCard buildingId={Number(b.id) || null} defaultCollapsed />
 
       <div className="grid grid-cols-1 desktop:grid-cols-2 gap-4">
         <Card>

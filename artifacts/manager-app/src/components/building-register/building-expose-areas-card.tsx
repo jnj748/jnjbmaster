@@ -15,7 +15,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, RefreshCw, Loader2 } from "lucide-react";
+import { Layers, RefreshCw, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 interface AreaRow {
@@ -35,14 +35,19 @@ interface Props {
   // [Task #568] controlled 모드용. undefined 면 uncontrolled, 배열(빈 배열 포함)이면
   //   controlled 로 동작해 부모 in-memory 상태를 진실의 원천으로 쓴다.
   seedAreas?: AreaRow[];
+  // [Task #873] /building-info 에서 호실 리스트가 너무 길어 기본 접어두기 옵션.
+  //   true 면 마운트 시 접힌 상태로 렌더, 카드 헤더 클릭/버튼으로 펼침.
+  defaultCollapsed?: boolean;
 }
 
-export function BuildingExposeAreasCard({ buildingId, seedAreas }: Props) {
+export function BuildingExposeAreasCard({ buildingId, seedAreas, defaultCollapsed = false }: Props) {
   const { token } = useAuth();
   const isControlled = seedAreas !== undefined;
   const [fetched, setFetched] = useState<AreaRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [refetching, setRefetching] = useState(false);
+  // [Task #873] 접힘/펼침 토글 상태. 기본값은 prop 으로 결정.
+  const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
 
   const fetchAreas = useCallback(
     async (showRefetchSpinner: boolean) => {
@@ -92,15 +97,35 @@ export function BuildingExposeAreasCard({ buildingId, seedAreas }: Props) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Layers className="w-4 h-4 text-emerald-600" />
-          전유부 (호실별 면적)
-        </CardTitle>
-        <CardDescription>
-          국토교통부 건축물대장 전유부에서 자동으로 가져온 동·층·호실별 전용/공용면적
-        </CardDescription>
+      {/* [Task #873] 헤더 전체 클릭으로 접힘/펼침 토글. 우측 chevron 으로 시각 힌트. */}
+      <CardHeader
+        className="pb-3 cursor-pointer select-none"
+        onClick={() => setCollapsed((c) => !c)}
+        data-testid="button-toggle-expose-areas"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="w-4 h-4 text-emerald-600" />
+              전유부 (호실별 면적)
+              {grouped.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  총 {grouped.reduce((sum, g) => sum + g.rows.length, 0)}호
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription>
+              국토교통부 건축물대장 전유부에서 자동으로 가져온 동·층·호실별 전용/공용면적
+            </CardDescription>
+          </div>
+          {collapsed ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          )}
+        </div>
       </CardHeader>
+      {!collapsed && (
       <CardContent>
         {/* [Task #568] controlled 모드에서도 fallback 페치 중일 때 스켈레톤을 보여
             줘 빈 상태 텍스트가 잠깐 깜빡이는 회귀를 막는다. */}
@@ -197,6 +222,7 @@ export function BuildingExposeAreasCard({ buildingId, seedAreas }: Props) {
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }

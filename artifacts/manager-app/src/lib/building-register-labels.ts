@@ -182,6 +182,55 @@ export interface ResolvedField {
   display: string;
 }
 
+// [Task #873] "기타 (표제부)" / "기타 (총괄표제부)" 그룹에서 화이트리스트
+//   필드가 아닌 키도 한국어 라벨로 노출하기 위한 보조 사전. 화이트리스트와
+//   중복돼도 무방(화이트리스트가 먼저 소비되므로 여기 정의는 fallback).
+//   키 발견 시 라벨을 우선 사용하고, 미정의 키는 기존처럼 영문 키 원본을 노출.
+export const EXTRA_KOREAN_LABELS: Record<string, string> = {
+  // 표제부 기본 식별
+  bldNm: "건물명",
+  dongNm: "동 이름",
+  rnum: "순번",
+  // 면적·비율
+  archArea: "건축면적",
+  bcRat: "건폐율",
+  vlRat: "용적률",
+  totArea: "연면적",
+  platArea: "대지면적",
+  // 층·세대
+  grndFlrCnt: "지상 층수",
+  ugrndFlrCnt: "지하 층수",
+  hhldCnt: "세대수",
+  sumHhldCnt: "총 세대수",
+  hoCnt: "호수",
+  fmlyCnt: "가구수",
+  // 용도·구조·지붕
+  mainPurpsCd: "주용도 코드",
+  mainPurpsCdNm: "주용도",
+  etcPurps: "기타 용도",
+  strctCd: "구조 코드",
+  strctCdNm: "구조",
+  roofCd: "지붕 코드",
+  mainAtchGbCd: "주/부속 구분 코드",
+  mainAtchGbCdNm: "주/부속 구분",
+  // 승강기
+  rideUseElvtCnt: "승용 승강기 수",
+  emgenUseElvtCnt: "비상용 승강기 수",
+  // 주소
+  platPlc: "지번주소",
+  newPlatPlc: "도로명주소",
+  naRoadCd: "새주소 도로 코드",
+  naBjdongCd: "새주소 법정동 코드",
+  naUgrndCd: "새주소 지상/지하 구분",
+  naMainBun: "새주소 본번",
+  naSubBun: "새주소 부번",
+  // 대장·허가 코드
+  regstrGbCd: "대장구분 코드",
+  regstrKindCd: "대장종류 코드",
+  pmsnoGbCd: "허가번호 구분 코드",
+  pmsnoKikCd: "허가번호 기관 코드",
+};
+
 // [Task #568] 화이트리스트에 없는 키 값을 사람이 읽을 수 있는 문자열로 자동 변환.
 //   - YYYYMMDD 8자리 숫자 문자열 → "YYYY-MM-DD" 일자
 //   - "Y" / "N" → "적용" / "미적용"
@@ -276,8 +325,9 @@ export function resolveRegisterFields(
       if (consumed.has(k)) continue;
       const display = autoFormatRegisterValue(all[k]);
       if (!display) continue;
+      // [Task #873] 라벨 사전(EXTRA_KOREAN_LABELS) 우선, 미정의 키는 원본 영문 키.
       // 같은 키 이름이 title/recap 양쪽에 있을 수 있으므로 키 충돌 방지를 위해 prefix.
-      rows.push({ key: `${src}.${k}`, label: k, display });
+      rows.push({ key: `${src}.${k}`, label: EXTRA_KOREAN_LABELS[k] ?? k, display });
     }
     if (rows.length > 0) out.push({ title: groupTitle, rows });
   }
