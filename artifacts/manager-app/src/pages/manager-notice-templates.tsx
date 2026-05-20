@@ -219,7 +219,7 @@ export default function ManagerNoticeTemplatesPage() {
             onClick={() => setActiveCategory(c.code)}
             className={`px-3 py-1.5 rounded-full text-xs border ${
               activeCategory === c.code
-                ? "bg-slate-900 text-white border-slate-900"
+                ? "bg-primary text-primary-foreground border-primary"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
             }`}
             data-testid={`filter-category-${c.code}`}

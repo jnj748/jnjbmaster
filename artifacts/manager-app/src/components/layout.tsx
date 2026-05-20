@@ -437,8 +437,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch { return new Set(); }
   });
+  // [2026-05 사용자 요청] 관리소장은 첫 진입 시 모든 섹션을 펼친 상태로 시작.
+  //   다른 역할(경리·시설·본부장·본사·파트너) 은 기존대로 첫 진입 시 모두 접힘.
+  //   사용자가 한 번이라도 토글하면 localStorage 에 상태가 저장돼 그 이후엔 본 기본값 무시.
   const defaultAllCollapsedRef = useRef(
-    typeof window === "undefined" || window.localStorage.getItem(`sidebar-collapsed:${effectiveRole}`) === null
+    effectiveRole !== "manager" &&
+    (typeof window === "undefined" || window.localStorage.getItem(`sidebar-collapsed:${effectiveRole}`) === null)
   );
   // [Task #850] 역할이 바뀌면(세션 내 역할 전환 등) 새 역할의 저장 키에서 상태를 다시 읽어온다.
   useEffect(() => {
@@ -446,10 +450,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     try {
       const raw = window.localStorage.getItem(sidebarCollapsedKey);
       setCollapsedSections(new Set(raw ? (JSON.parse(raw) as string[]) : []));
-      defaultAllCollapsedRef.current = raw === null;
+      // [2026-05] 관리소장은 첫 진입 기본 = 펼침. 다른 역할은 기본 = 접힘.
+      defaultAllCollapsedRef.current = effectiveRole !== "manager" && raw === null;
     } catch {
       setCollapsedSections(new Set());
-      defaultAllCollapsedRef.current = true;
+      defaultAllCollapsedRef.current = effectiveRole !== "manager";
     }
   }, [sidebarCollapsedKey]);
   const isSectionCollapsed = useCallback((title: string) => {

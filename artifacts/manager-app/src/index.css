@@ -265,24 +265,31 @@
 /*
  * A4 보고서(.a4-document) 전용 페이지 규칙 — 일보·주보·월보·문서 미리보기.
  *
- *   @page margin 은 인쇄 시 *모든* 페이지(2페이지 이후 포함)에 동일하게
- *   적용된다. 본문 padding 은 블록의 시작/끝에만 붙어 다중 페이지 중간
- *   장에서는 상·하 여백이 사라지는 문제가 있었으므로, 시각 여백은 @page
- *   에만 둔다.
+ *   [2026-05 사용자 요청] 인쇄 시 브라우저 기본 머리글(URL·제목)·바닥글(날짜·페이지 번호)
+ *   출력을 "하드코딩"으로 제거. 사용자가 매번 인쇄 다이얼로그에서 머리글/바닥글을
+ *   끄지 않아도 항상 안 보이게 한다.
  *
- *   margin: 0 으로 두면 브라우저 머리글/바닥글이 그릴 자리가 줄어들지만,
- *   2페이지부터 상단이 비어 보이는 회귀가 생긴다. 여백을 @page 에 두면
- *   인쇄 다이얼로그에서 "머리글/바닥글" 이 켜져 있을 때 그 영역에 URL·
- *   날짜가 겹칠 수 있으므로, 가능하면 다이얼로그에서 머리글/바닥글을 끄는
- *   것을 권장한다.
+ *   방식: @page workReport margin 을 5mm 로 설정. 주요 브라우저(Chrome/Edge/Safari)
+ *   는 @page margin 이 약 9mm 미만이면 머리글/바닥글을 그릴 공간이 부족해
+ *   자동으로 숨긴다(CSS 표준에 머리/꼬리 자체를 끄는 API 는 없음).
+ *   margin 0 이 아닌 5mm 인 이유: 프린터 비인쇄 영역(보통 상단 수 mm) 과
+ *   다중 페이지 2p+ 상단 잘림을 방지하는 최소 보호 여백.
+ *
+ *   시각 여백 보정: 첫 페이지는 .a4-document 의 padding(아래 @media print 블록에서
+ *   13mm 11mm 강제) 으로 총 시각 여백 18mm/16mm 를 유지 (5mm + 13mm = 18mm,
+ *   5mm + 11mm = 16mm). 다중 페이지 2p+ 상단은 padding 이 반복되지 않아 본문이
+ *   @page margin 5mm 자리에서 시작 — 잘림 없이 깔끔하게 떨어진다.
  */
 @page workReport {
   size: A4;
-  margin: 20mm 15mm 15mm 15mm;
+  /* [2026-05] 5mm 최소 보호 여백 — 프린터 비인쇄 영역(상단 수 mm) 잘림 방지.
+     5mm 는 Chrome/Edge 가 머리글/바닥글을 그리는 임계(약 9mm) 미만이라
+     여전히 브라우저 기본 URL·날짜·페이지번호는 자동으로 숨겨진다. */
+  margin: 5mm;
 }
 
 @page workReport:first {
-  margin: 20mm 15mm 15mm 15mm;
+  margin: 5mm;
 }
 
 .a4-document {
@@ -561,14 +568,17 @@ h1, h2, h3, h4 {
    *     이전 인쇄 padding 15mm 와 동일).
    */
   [data-printing] [data-print-root] .a4-document {
-    /* 시각 여백은 @page workReport (20/15/15/15mm) — 모든 페이지 동일.
-       padding 은 다중 페이지 중간 장에 반복되지 않으므로 0 으로 둔다. */
+    /* [2026-05 사용자 요청] @page workReport margin 을 5mm 로 두어 브라우저 기본
+       머리글/바닥글(URL·날짜·페이지번호) 출력을 하드코딩 제거(임계 약 9mm 미만).
+       시각 여백은 @page 5mm + 본 padding (13mm 11mm) = 총 18mm 16mm 로 기존과
+       동일. 다중 페이지 2p+ 상단은 padding 이 반복되지 않아도 @page 5mm 가
+       살아 있어 본문이 페이지 가장자리에서 잘리지 않는다. */
     page: workReport;
     width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 13mm 11mm !important;
     box-sizing: border-box !important;
     background: white !important;
     color: black !important;
